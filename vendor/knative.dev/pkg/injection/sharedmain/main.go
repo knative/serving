@@ -47,6 +47,7 @@ import (
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/reconciler"
@@ -339,7 +340,16 @@ func SetupLoggerOrDie(ctx context.Context, component string) (*zap.SugaredLogger
 	if err != nil {
 		log.Fatalf("Error reading/parsing logging configuration: %v", err)
 	}
-	return logging.NewLoggerFromConfig(loggingConfig, component)
+	l, level := logging.NewLoggerFromConfig(loggingConfig, component)
+
+	// If PodName is injected into the env vars, set it on the logger.
+	// This is needed for HA components to distinguish logs from different
+	// pods.
+	if pn := os.Getenv("POD_NAME"); pn != "" {
+		l = l.With(zap.String(logkey.Pod, pn))
+	}
+
+	return l, level
 }
 
 // CheckK8sClientMinimumVersionOrDie checks that the hosting Kubernetes cluster

@@ -92,24 +92,20 @@ func verifyIngressWithAnnotations(ctx context.Context, t *testing.T, clients *te
 		duration = 30 * time.Second
 	)
 	ticker := time.NewTicker(interval)
-	for {
-		select {
-		case <-ticker.C:
-			var ing *v1alpha1.Ingress
-			err := reconciler.RetryTestErrors(func(attempts int) (err error) {
-				ing, err = clients.NetworkingClient.Ingresses.Get(ctx, original.Name, metav1.GetOptions{})
-				return err
-			})
-			if err != nil {
-				t.Fatal("Error getting Ingress:", err)
-			}
-			// Verify ingress is not changed.
-			if !cmp.Equal(original, ing) {
-				t.Fatalf("Unexpected update: diff(-want;+got)\n%s", cmp.Diff(original, ing))
-			}
-		case <-time.After(duration):
-			break
+	select {
+	case <-ticker.C:
+		var ing *v1alpha1.Ingress
+		err := reconciler.RetryTestErrors(func(attempts int) (err error) {
+			ing, err = clients.NetworkingClient.Ingresses.Get(ctx, original.Name, metav1.GetOptions{})
+			return err
+		})
+		if err != nil {
+			t.Fatal("Error getting Ingress:", err)
 		}
-		break
+		// Verify ingress is not changed.
+		if !cmp.Equal(original, ing) {
+			t.Fatalf("Unexpected update: diff(-want;+got)\n%s", cmp.Diff(original, ing))
+		}
+	case <-time.After(duration):
 	}
 }

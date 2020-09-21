@@ -67,7 +67,7 @@ func (ig *IgnoredFields) ReadFromFile(filePath string) error {
 }
 
 // FieldIgnored method given a package, type and field returns true if the field is marked ignored.
-func (ig *IgnoredFields) FieldIgnored(packageName string, typeName string, fieldName string) bool {
+func (ig *IgnoredFields) FieldIgnored(packageName, typeName, fieldName string) bool {
 	if ig.ignoredFields != nil {
 		for key, value := range ig.ignoredFields {
 			if strings.HasSuffix(packageName, key) {

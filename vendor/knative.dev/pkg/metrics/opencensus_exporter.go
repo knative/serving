@@ -45,6 +45,9 @@ func newOpenCensusExporter(config *metricsConfig, logger *zap.SugaredLogger) (vi
 	} else {
 		opts = append(opts, ocagent.WithInsecure())
 	}
+	if TestOverrideBundleCount > 0 {
+		opts = append(opts, ocagent.WithDataBundlerOptions(0, TestOverrideBundleCount))
+	}
 	e, err := ocagent.NewExporter(opts...)
 	if err != nil {
 		logger.Errorw("Failed to create the OpenCensus exporter.", zap.Error(err))

@@ -284,8 +284,7 @@ type AcceleratorConfig struct {
 	AcceleratorCount int64 `json:"acceleratorCount,omitempty,string"`
 
 	// AcceleratorType: The accelerator type resource name. List of
-	// supported
-	// accelerators
+	// supported accelerators
 	// [here](https://cloud.google.com/compute/docs/gpus)
 	AcceleratorType string `json:"acceleratorType,omitempty"`
 
@@ -314,19 +313,16 @@ func (s *AcceleratorConfig) MarshalJSON() ([]byte, error) {
 }
 
 // AddonsConfig: Configuration for the addons that can be automatically
-// spun up in the
-// cluster, enabling additional functionality.
+// spun up in the cluster, enabling additional functionality.
 type AddonsConfig struct {
 	// CloudRunConfig: Configuration for the Cloud Run addon. The
-	// `IstioConfig` addon must be
-	// enabled in order to enable Cloud Run addon. This option can only be
-	// enabled
-	// at cluster creation time.
+	// `IstioConfig` addon must be enabled in order to enable Cloud Run
+	// addon. This option can only be enabled at cluster creation time.
 	CloudRunConfig *CloudRunConfig `json:"cloudRunConfig,omitempty"`
 
 	// ConfigConnectorConfig: Configuration for the ConfigConnector add-on,
-	// a Kubernetes
-	// extension to manage hosted GCP services through the Kubernetes API
+	// a Kubernetes extension to manage hosted GCP services through the
+	// Kubernetes API
 	ConfigConnectorConfig *ConfigConnectorConfig `json:"configConnectorConfig,omitempty"`
 
 	// DnsCacheConfig: Configuration for NodeLocalDNS, a dns cache running
@@ -338,44 +334,34 @@ type AddonsConfig struct {
 	GcePersistentDiskCsiDriverConfig *GcePersistentDiskCsiDriverConfig `json:"gcePersistentDiskCsiDriverConfig,omitempty"`
 
 	// HorizontalPodAutoscaling: Configuration for the horizontal pod
-	// autoscaling feature, which
-	// increases or decreases the number of replica pods a replication
-	// controller
-	// has based on the resource usage of the existing pods.
+	// autoscaling feature, which increases or decreases the number of
+	// replica pods a replication controller has based on the resource usage
+	// of the existing pods.
 	HorizontalPodAutoscaling *HorizontalPodAutoscaling `json:"horizontalPodAutoscaling,omitempty"`
 
 	// HttpLoadBalancing: Configuration for the HTTP (L7) load balancing
-	// controller addon, which
-	// makes it easy to set up HTTP load balancers for services in a
-	// cluster.
+	// controller addon, which makes it easy to set up HTTP load balancers
+	// for services in a cluster.
 	HttpLoadBalancing *HttpLoadBalancing `json:"httpLoadBalancing,omitempty"`
 
 	// IstioConfig: Configuration for Istio, an open platform to connect,
-	// manage, and secure
-	// microservices.
+	// manage, and secure microservices.
 	IstioConfig *IstioConfig `json:"istioConfig,omitempty"`
 
 	// KalmConfig: Configuration for the KALM addon, which manages the
-	// lifecycle of k8s
-	// applications.
+	// lifecycle of k8s applications.
 	KalmConfig *KalmConfig `json:"kalmConfig,omitempty"`
 
-	// KubernetesDashboard: Configuration for the Kubernetes Dashboard.
-	// This addon is deprecated, and will be disabled in 1.15. It is
-	// recommended
+	// KubernetesDashboard: Configuration for the Kubernetes Dashboard. This
+	// addon is deprecated, and will be disabled in 1.15. It is recommended
 	// to use the Cloud Console to manage and monitor your Kubernetes
-	// clusters,
-	// workloads and applications. For more information,
-	// see:
-	// https://cloud.google.com/kubernetes-engine/docs/concepts/dashboar
-	// ds
+	// clusters, workloads and applications. For more information, see:
+	// https://cloud.google.com/kubernetes-engine/docs/concepts/dashboards
 	KubernetesDashboard *KubernetesDashboard `json:"kubernetesDashboard,omitempty"`
 
 	// NetworkPolicyConfig: Configuration for NetworkPolicy. This only
-	// tracks whether the addon
-	// is enabled or not on the Master, it does not track whether network
-	// policy
-	// is enabled for the nodes.
+	// tracks whether the addon is enabled or not on the Master, it does not
+	// track whether network policy is enabled for the nodes.
 	NetworkPolicyConfig *NetworkPolicyConfig `json:"networkPolicyConfig,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "CloudRunConfig") to
@@ -405,14 +391,12 @@ func (s *AddonsConfig) MarshalJSON() ([]byte, error) {
 // AuthenticatorGroupsConfig: Configuration for returning group
 // information from authenticators.
 type AuthenticatorGroupsConfig struct {
-	// Enabled: Whether this cluster should return group membership
-	// lookups
+	// Enabled: Whether this cluster should return group membership lookups
 	// during authentication using a group of security groups.
 	Enabled bool `json:"enabled,omitempty"`
 
 	// SecurityGroup: The name of the security group-of-groups to be used.
-	// Only relevant
-	// if enabled = true.
+	// Only relevant if enabled = true.
 	SecurityGroup string `json:"securityGroup,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Enabled") to
@@ -439,19 +423,16 @@ func (s *AuthenticatorGroupsConfig) MarshalJSON() ([]byte, error) {
 }
 
 // AutoUpgradeOptions: AutoUpgradeOptions defines the set of options for
-// the user to control how
-// the Auto Upgrades will proceed.
+// the user to control how the Auto Upgrades will proceed.
 type AutoUpgradeOptions struct {
 	// AutoUpgradeStartTime: [Output only] This field is set when upgrades
-	// are about to commence
-	// with the approximate start time for the upgrades,
-	// in
-	// [RFC3339](https://www.ietf.org/rfc/rfc3339.txt) text format.
+	// are about to commence with the approximate start time for the
+	// upgrades, in [RFC3339](https://www.ietf.org/rfc/rfc3339.txt) text
+	// format.
 	AutoUpgradeStartTime string `json:"autoUpgradeStartTime,omitempty"`
 
 	// Description: [Output only] This field is set when upgrades are about
-	// to commence
-	// with the description of the upgrade.
+	// to commence with the description of the upgrade.
 	Description string `json:"description,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g.
@@ -480,59 +461,38 @@ func (s *AutoUpgradeOptions) MarshalJSON() ([]byte, error) {
 }
 
 // AutoprovisioningNodePoolDefaults: AutoprovisioningNodePoolDefaults
-// contains defaults for a node pool created
-// by NAP.
+// contains defaults for a node pool created by NAP.
 type AutoprovisioningNodePoolDefaults struct {
 	// Management: NodeManagement configuration for this NodePool.
 	Management *NodeManagement `json:"management,omitempty"`
 
 	// MinCpuPlatform: Minimum CPU platform to be used by this instance. The
-	// instance may be
-	// scheduled on the specified or newer CPU platform. Applicable values
-	// are the
-	// friendly names of CPU platforms, such as
-	// <code>minCpuPlatform: &quot;Intel Haswell&quot;</code>
-	// or
-	// <code>minCpuPlatform: &quot;Intel Sandy Bridge&quot;</code>. For
-	// more
-	// information, read [how to specify min
-	// CPU
-	// platform](https://cloud.google.com/compute/docs/instances/specify-
-	// min-cpu-platform)
-	// To unset the min cpu platform field pass "automatic"
-	// as field value.
+	// instance may be scheduled on the specified or newer CPU platform.
+	// Applicable values are the friendly names of CPU platforms, such as
+	// `minCpuPlatform: "Intel Haswell" or `minCpuPlatform: "Intel Sandy
+	// Bridge". For more information, read [how to specify min CPU
+	// platform](https://cloud.google.com/compute/docs/instances/specify-min-
+	// cpu-platform) To unset the min cpu platform field pass "automatic" as
+	// field value.
 	MinCpuPlatform string `json:"minCpuPlatform,omitempty"`
 
 	// OauthScopes: The set of Google API scopes to be made available on all
-	// of the
-	// node VMs under the "default" service account.
-	//
-	// The following scopes are recommended, but not required, and by
-	// default are
-	// not included:
-	//
-	// * `https://www.googleapis.com/auth/compute` is required for
-	// mounting
-	// persistent storage on your nodes.
-	// * `https://www.googleapis.com/auth/devstorage.read_only` is required
-	// for
-	// communicating with **gcr.io**
-	// (the [Google
-	// Container
-	// Registry](https://cloud.google.com/container-registry/)).
-	//
-	// I
-	// f unspecified, no scopes are added, unless Cloud Logging or
-	// Cloud
+	// of the node VMs under the "default" service account. The following
+	// scopes are recommended, but not required, and by default are not
+	// included: * `https://www.googleapis.com/auth/compute` is required for
+	// mounting persistent storage on your nodes. *
+	// `https://www.googleapis.com/auth/devstorage.read_only` is required
+	// for communicating with **gcr.io** (the [Google Container
+	// Registry](https://cloud.google.com/container-registry/)). If
+	// unspecified, no scopes are added, unless Cloud Logging or Cloud
 	// Monitoring are enabled, in which case their required scopes will be
 	// added.
 	OauthScopes []string `json:"oauthScopes,omitempty"`
 
 	// ServiceAccount: The Google Cloud Platform Service Account to be used
-	// by the node VMs.
-	// Specify the email address of the Service Account; otherwise, if no
-	// Service
-	// Account is specified, the "default" service account is used.
+	// by the node VMs. Specify the email address of the Service Account;
+	// otherwise, if no Service Account is specified, the "default" service
+	// account is used.
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 
 	// UpgradeSettings: Upgrade settings control disruption and speed of the
@@ -625,8 +585,7 @@ func (s *BigQueryDestination) MarshalJSON() ([]byte, error) {
 // BinaryAuthorization: Configuration for Binary Authorization.
 type BinaryAuthorization struct {
 	// Enabled: Enable Binary Authorization for this cluster. If enabled,
-	// all container
-	// images will be validated by Google Binauthz.
+	// all container images will be validated by Google Binauthz.
 	Enabled bool `json:"enabled,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Enabled") to
@@ -656,30 +615,25 @@ func (s *BinaryAuthorization) MarshalJSON() ([]byte, error) {
 // operation.
 type CancelOperationRequest struct {
 	// Name: The name (project, location, operation id) of the operation to
-	// cancel.
-	// Specified in the format `projects/*/locations/*/operations/*`.
+	// cancel. Specified in the format
+	// `projects/*/locations/*/operations/*`.
 	Name string `json:"name,omitempty"`
 
 	// OperationId: Required. Deprecated. The server-assigned `name` of the
-	// operation.
-	// This field has been deprecated and replaced by the name field.
+	// operation. This field has been deprecated and replaced by the name
+	// field.
 	OperationId string `json:"operationId,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// operation resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the operation resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Name") to
@@ -813,12 +767,10 @@ type Cluster struct {
 	BinaryAuthorization *BinaryAuthorization `json:"binaryAuthorization,omitempty"`
 
 	// ClusterIpv4Cidr: The IP address range of the container pods in this
-	// cluster,
-	// in
+	// cluster, in
 	// [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-	//
-	// notation (e.g. `10.96.0.0/14`). Leave blank to have
-	// one automatically chosen or specify a `/14` block in `10.0.0.0/8`.
+	// notation (e.g. `10.96.0.0/14`). Leave blank to have one automatically
+	// chosen or specify a `/14` block in `10.0.0.0/8`.
 	ClusterIpv4Cidr string `json:"clusterIpv4Cidr,omitempty"`
 
 	// ClusterTelemetry: Telemetry integration for the cluster.
@@ -827,8 +779,7 @@ type Cluster struct {
 	// Conditions: Which conditions caused the current cluster state.
 	Conditions []*StatusCondition `json:"conditions,omitempty"`
 
-	// CreateTime: [Output only] The time the cluster was created,
-	// in
+	// CreateTime: [Output only] The time the cluster was created, in
 	// [RFC3339](https://www.ietf.org/rfc/rfc3339.txt) text format.
 	CreateTime string `json:"createTime,omitempty"`
 
@@ -836,104 +787,77 @@ type Cluster struct {
 	// the master endpoint.
 	CurrentMasterVersion string `json:"currentMasterVersion,omitempty"`
 
-	// CurrentNodeCount: [Output only]  The number of nodes currently in the
-	// cluster. Deprecated.
-	// Call Kubernetes API directly to retrieve node information.
+	// CurrentNodeCount: [Output only] The number of nodes currently in the
+	// cluster. Deprecated. Call Kubernetes API directly to retrieve node
+	// information.
 	CurrentNodeCount int64 `json:"currentNodeCount,omitempty"`
 
-	// CurrentNodeVersion: [Output only] Deprecated,
-	// use
-	// [NodePool.version](https://cloud.google.com/kubernetes-engine/docs
-	// /reference/rest/v1beta1/projects.locations.clusters.nodePools)
-	// instead
-	// . The current version of the node software components.
-	// If they are currently at multiple versions because they're in the
-	// process
-	// of being upgraded, this reflects the minimum version of all nodes.
+	// CurrentNodeVersion: [Output only] Deprecated, use
+	// [NodePool.version](https://cloud.google.com/kubernetes-engine/docs/ref
+	// erence/rest/v1beta1/projects.locations.clusters.nodePools) instead.
+	// The current version of the node software components. If they are
+	// currently at multiple versions because they're in the process of
+	// being upgraded, this reflects the minimum version of all nodes.
 	CurrentNodeVersion string `json:"currentNodeVersion,omitempty"`
 
 	// DatabaseEncryption: Configuration of etcd encryption.
 	DatabaseEncryption *DatabaseEncryption `json:"databaseEncryption,omitempty"`
 
 	// DefaultMaxPodsConstraint: The default constraint on the maximum
-	// number of pods that can be run
-	// simultaneously on a node in the node pool of this cluster. Only
-	// honored
-	// if cluster created with IP Alias support.
+	// number of pods that can be run simultaneously on a node in the node
+	// pool of this cluster. Only honored if cluster created with IP Alias
+	// support.
 	DefaultMaxPodsConstraint *MaxPodsConstraint `json:"defaultMaxPodsConstraint,omitempty"`
 
 	// Description: An optional description of this cluster.
 	Description string `json:"description,omitempty"`
 
 	// EnableKubernetesAlpha: Kubernetes alpha features are enabled on this
-	// cluster. This includes alpha
-	// API groups (e.g. v1beta1) and features that may not be production
-	// ready in
-	// the kubernetes version of the master and nodes.
-	// The cluster has no SLA for uptime and master/node upgrades are
-	// disabled.
-	// Alpha enabled clusters are automatically deleted thirty days
-	// after
-	// creation.
+	// cluster. This includes alpha API groups (e.g. v1beta1) and features
+	// that may not be production ready in the kubernetes version of the
+	// master and nodes. The cluster has no SLA for uptime and master/node
+	// upgrades are disabled. Alpha enabled clusters are automatically
+	// deleted thirty days after creation.
 	EnableKubernetesAlpha bool `json:"enableKubernetesAlpha,omitempty"`
 
-	// EnableTpu: Enable the ability to use Cloud TPUs in this cluster.
-	// This field is deprecated, use tpu_config.enabled instead.
+	// EnableTpu: Enable the ability to use Cloud TPUs in this cluster. This
+	// field is deprecated, use tpu_config.enabled instead.
 	EnableTpu bool `json:"enableTpu,omitempty"`
 
 	// Endpoint: [Output only] The IP address of this cluster's master
-	// endpoint.
-	// The endpoint can be accessed from the internet
-	// at
-	// `https://username:password@endpoint/`.
-	//
-	// See the `masterAuth` property of this resource for username
-	// and
-	// password information.
+	// endpoint. The endpoint can be accessed from the internet at
+	// `https://username:password@endpoint/`. See the `masterAuth` property
+	// of this resource for username and password information.
 	Endpoint string `json:"endpoint,omitempty"`
 
-	// ExpireTime: [Output only] The time the cluster will be
-	// automatically
+	// ExpireTime: [Output only] The time the cluster will be automatically
 	// deleted in [RFC3339](https://www.ietf.org/rfc/rfc3339.txt) text
 	// format.
 	ExpireTime string `json:"expireTime,omitempty"`
 
 	// InitialClusterVersion: The initial Kubernetes version for this
-	// cluster.  Valid versions are those
-	// found in validMasterVersions returned by getServerConfig.  The
-	// version can
-	// be upgraded over time; such upgrades are reflected
-	// in
-	// currentMasterVersion and currentNodeVersion.
-	//
-	// Users may specify either explicit versions offered by
-	// Kubernetes Engine or version aliases, which have the following
-	// behavior:
-	//
-	// - "latest": picks the highest valid Kubernetes version
-	// - "1.X": picks the highest valid patch+gke.N patch in the 1.X
-	// version
-	// - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y version
-	// - "1.X.Y-gke.N": picks an explicit Kubernetes version
-	// - "","-": picks the default Kubernetes version
+	// cluster. Valid versions are those found in validMasterVersions
+	// returned by getServerConfig. The version can be upgraded over time;
+	// such upgrades are reflected in currentMasterVersion and
+	// currentNodeVersion. Users may specify either explicit versions
+	// offered by Kubernetes Engine or version aliases, which have the
+	// following behavior: - "latest": picks the highest valid Kubernetes
+	// version - "1.X": picks the highest valid patch+gke.N patch in the 1.X
+	// version - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y
+	// version - "1.X.Y-gke.N": picks an explicit Kubernetes version -
+	// "","-": picks the default Kubernetes version
 	InitialClusterVersion string `json:"initialClusterVersion,omitempty"`
 
 	// InitialNodeCount: The number of nodes to create in this cluster. You
-	// must ensure that your
-	// Compute Engine [resource
-	// quota](https://cloud.google.com/compute/quotas)
-	// is sufficient for this number of instances. You must also have
-	// available
-	// firewall and routes quota.
-	// For requests, this field should only be used in lieu of a
-	// "node_pool" object, since this configuration (along with
-	// the
-	// "node_config") will be used to create a "NodePool" object with
-	// an
+	// must ensure that your Compute Engine [resource
+	// quota](https://cloud.google.com/compute/quotas) is sufficient for
+	// this number of instances. You must also have available firewall and
+	// routes quota. For requests, this field should only be used in lieu of
+	// a "node_pool" object, since this configuration (along with the
+	// "node_config") will be used to create a "NodePool" object with an
 	// auto-generated name. Do not use this and a node_pool at the same
-	// time.
-	//
-	// This field is deprecated, use node_pool.initial_node_count instead.
+	// time. This field is deprecated, use node_pool.initial_node_count
+	// instead.
 	InitialNodeCount int64 `json:"initialNodeCount,omitempty"`
 
 	// InstanceGroupUrls: Deprecated. Use node_pools.instance_group_urls.
@@ -949,37 +873,26 @@ type Cluster struct {
 	// LegacyAbac: Configuration for the legacy ABAC authorization mode.
 	LegacyAbac *LegacyAbac `json:"legacyAbac,omitempty"`
 
-	// Location: [Output only] The name of the Google Compute
-	// Engine
-	// [zone](https://cloud.google.com/compute/docs/regions-zones/regi
-	// ons-zones#available)
-	// or
-	// [region](https://cloud.google.com/compute/docs
-	// /regions-zones/regions-zones#available)
-	// in which the cluster resides.
+	// Location: [Output only] The name of the Google Compute Engine
+	// [zone](https://cloud.google.com/compute/docs/regions-zones/regions-zon
+	// es#available) or
+	// [region](https://cloud.google.com/compute/docs/regions-zones/regions-z
+	// ones#available) in which the cluster resides.
 	Location string `json:"location,omitempty"`
 
-	// Locations: The list of Google Compute
-	// Engine
+	// Locations: The list of Google Compute Engine
 	// [zones](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster's nodes should be located.
+	// which the cluster's nodes should be located.
 	Locations []string `json:"locations,omitempty"`
 
 	// LoggingService: The logging service the cluster should use to write
-	// logs.
-	// Currently available options:
-	//
-	// * `logging.googleapis.com/kubernetes` - The Cloud Logging
-	// service with a Kubernetes-native resource model
-	// * `logging.googleapis.com` - The legacy Cloud Logging service (no
-	// longer
-	//   available as of GKE 1.15).
-	// * `none` - no logs will be exported from the cluster.
-	//
-	// If left as an empty string,`logging.googleapis.com/kubernetes` will
-	// be
-	// used for GKE 1.14+ or `logging.googleapis.com` for earlier versions.
+	// logs. Currently available options: *
+	// `logging.googleapis.com/kubernetes` - The Cloud Logging service with
+	// a Kubernetes-native resource model * `logging.googleapis.com` - The
+	// legacy Cloud Logging service (no longer available as of GKE 1.15). *
+	// `none` - no logs will be exported from the cluster. If left as an
+	// empty string,`logging.googleapis.com/kubernetes` will be used for GKE
+	// 1.14+ or `logging.googleapis.com` for earlier versions.
 	LoggingService string `json:"loggingService,omitempty"`
 
 	// MaintenancePolicy: Configure the maintenance policy for this cluster.
@@ -989,12 +902,9 @@ type Cluster struct {
 	Master *Master `json:"master,omitempty"`
 
 	// MasterAuth: The authentication information for accessing the master
-	// endpoint.
-	// If unspecified, the defaults are used:
-	// For clusters before v1.12, if master_auth is unspecified, `username`
-	// will
-	// be set to "admin", a random password will be generated, and a
-	// client
+	// endpoint. If unspecified, the defaults are used: For clusters before
+	// v1.12, if master_auth is unspecified, `username` will be set to
+	// "admin", a random password will be generated, and a client
 	// certificate will be issued.
 	MasterAuth *MasterAuth `json:"masterAuth,omitempty"`
 
@@ -1003,53 +913,35 @@ type Cluster struct {
 	MasterAuthorizedNetworksConfig *MasterAuthorizedNetworksConfig `json:"masterAuthorizedNetworksConfig,omitempty"`
 
 	// MasterIpv4CidrBlock: The IP prefix in CIDR notation to use for the
-	// hosted master network.
-	// This prefix will be used for assigning private IP addresses to
-	// the
-	// master or set of masters, as well as the ILB VIP.
-	// This field is deprecated,
-	// use
+	// hosted master network. This prefix will be used for assigning private
+	// IP addresses to the master or set of masters, as well as the ILB VIP.
+	// This field is deprecated, use
 	// private_cluster_config.master_ipv4_cidr_block instead.
 	MasterIpv4CidrBlock string `json:"masterIpv4CidrBlock,omitempty"`
 
 	// MonitoringService: The monitoring service the cluster should use to
-	// write metrics.
-	// Currently available options:
-	//
-	// * "monitoring.googleapis.com/kubernetes" - The Cloud
-	// Monitoring
-	// service with a Kubernetes-native resource model
-	// * `monitoring.googleapis.com` - The legacy Cloud Monitoring service
-	// (no
-	//   longer available as of GKE 1.15).
-	// * `none` - No metrics will be exported from the cluster.
-	//
-	// If left as an empty string,`monitoring.googleapis.com/kubernetes`
-	// will be
-	// used for GKE 1.14+ or `monitoring.googleapis.com` for earlier
+	// write metrics. Currently available options: *
+	// "monitoring.googleapis.com/kubernetes" - The Cloud Monitoring service
+	// with a Kubernetes-native resource model * `monitoring.googleapis.com`
+	// - The legacy Cloud Monitoring service (no longer available as of GKE
+	// 1.15). * `none` - No metrics will be exported from the cluster. If
+	// left as an empty string,`monitoring.googleapis.com/kubernetes` will
+	// be used for GKE 1.14+ or `monitoring.googleapis.com` for earlier
 	// versions.
 	MonitoringService string `json:"monitoringService,omitempty"`
 
 	// Name: The name of this cluster. The name must be unique within this
-	// project
-	// and location (e.g. zone or region), and can be up to 40 characters
-	// with
-	// the following restrictions:
-	//
-	// * Lowercase letters, numbers, and hyphens only.
-	// * Must start with a letter.
-	// * Must end with a number or a letter.
+	// project and location (e.g. zone or region), and can be up to 40
+	// characters with the following restrictions: * Lowercase letters,
+	// numbers, and hyphens only. * Must start with a letter. * Must end
+	// with a number or a letter.
 	Name string `json:"name,omitempty"`
 
-	// Network: The name of the Google Compute
-	// Engine
-	// [network](https://cloud.google.com/compute/docs/networks-and-fi
-	// rewalls#networks)
-	// to which the cluster is connected. If left unspecified, the
-	// `default`
-	// network will be used. On output this shows the network ID instead of
-	// the
-	// name.
+	// Network: The name of the Google Compute Engine
+	// [network](https://cloud.google.com/compute/docs/networks-and-firewalls
+	// #networks) to which the cluster is connected. If left unspecified,
+	// the `default` network will be used. On output this shows the network
+	// ID instead of the name.
 	Network string `json:"network,omitempty"`
 
 	// NetworkConfig: Configuration for cluster networking.
@@ -1058,51 +950,40 @@ type Cluster struct {
 	// NetworkPolicy: Configuration options for the NetworkPolicy feature.
 	NetworkPolicy *NetworkPolicy `json:"networkPolicy,omitempty"`
 
-	// NodeConfig: Parameters used in creating the cluster's nodes.
-	// For requests, this field should only be used in lieu of a
-	// "node_pool" object, since this configuration (along with
-	// the
+	// NodeConfig: Parameters used in creating the cluster's nodes. For
+	// requests, this field should only be used in lieu of a "node_pool"
+	// object, since this configuration (along with the
 	// "initial_node_count") will be used to create a "NodePool" object with
-	// an
-	// auto-generated name. Do not use this and a node_pool at the same
-	// time.
-	// For responses, this field will be populated with the node
-	// configuration of
-	// the first node pool. (For configuration of each node pool,
-	// see
-	// `node_pool.config`)
-	//
-	// If unspecified, the defaults are used.
+	// an auto-generated name. Do not use this and a node_pool at the same
+	// time. For responses, this field will be populated with the node
+	// configuration of the first node pool. (For configuration of each node
+	// pool, see `node_pool.config`) If unspecified, the defaults are used.
 	// This field is deprecated, use node_pool.config instead.
 	NodeConfig *NodeConfig `json:"nodeConfig,omitempty"`
 
 	// NodeIpv4CidrSize: [Output only] The size of the address space on each
-	// node for hosting
-	// containers. This is provisioned from within the
-	// `container_ipv4_cidr`
-	// range. This field will only be set when cluster is in route-based
-	// network
-	// mode.
+	// node for hosting containers. This is provisioned from within the
+	// `container_ipv4_cidr` range. This field will only be set when cluster
+	// is in route-based network mode.
 	NodeIpv4CidrSize int64 `json:"nodeIpv4CidrSize,omitempty"`
 
-	// NodePools: The node pools associated with this cluster.
-	// This field should not be set if "node_config" or "initial_node_count"
-	// are
+	// NodePools: The node pools associated with this cluster. This field
+	// should not be set if "node_config" or "initial_node_count" are
 	// specified.
 	NodePools []*NodePool `json:"nodePools,omitempty"`
+
+	// NotificationConfig: Notification configuration of the cluster.
+	NotificationConfig *NotificationConfig `json:"notificationConfig,omitempty"`
 
 	// PodSecurityPolicyConfig: Configuration for the PodSecurityPolicy
 	// feature.
 	PodSecurityPolicyConfig *PodSecurityPolicyConfig `json:"podSecurityPolicyConfig,omitempty"`
 
 	// PrivateCluster: If this is a private cluster setup. Private clusters
-	// are clusters that, by
-	// default have no external IP addresses on the nodes and where nodes
-	// and the
-	// master communicate over private IP addresses.
-	// This field is deprecated, use
-	// private_cluster_config.enable_private_nodes
-	// instead.
+	// are clusters that, by default have no external IP addresses on the
+	// nodes and where nodes and the master communicate over private IP
+	// addresses. This field is deprecated, use
+	// private_cluster_config.enable_private_nodes instead.
 	PrivateCluster bool `json:"privateCluster,omitempty"`
 
 	// PrivateClusterConfig: Configuration for private cluster.
@@ -1112,26 +993,22 @@ type Cluster struct {
 	ReleaseChannel *ReleaseChannel `json:"releaseChannel,omitempty"`
 
 	// ResourceLabels: The resource labels for the cluster to use to
-	// annotate any related
-	// Google Compute Engine resources.
+	// annotate any related Google Compute Engine resources.
 	ResourceLabels map[string]string `json:"resourceLabels,omitempty"`
 
 	// ResourceUsageExportConfig: Configuration for exporting resource
-	// usages. Resource usage export is
-	// disabled when this config unspecified.
+	// usages. Resource usage export is disabled when this config
+	// unspecified.
 	ResourceUsageExportConfig *ResourceUsageExportConfig `json:"resourceUsageExportConfig,omitempty"`
 
 	// SelfLink: [Output only] Server-defined URL for the resource.
 	SelfLink string `json:"selfLink,omitempty"`
 
 	// ServicesIpv4Cidr: [Output only] The IP address range of the
-	// Kubernetes services in
-	// this cluster,
-	// in
+	// Kubernetes services in this cluster, in
 	// [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-	//
-	// notation (e.g. `1.2.3.4/29`). Service addresses are
-	// typically put in the last `/16` from the container CIDR.
+	// notation (e.g. `1.2.3.4/29`). Service addresses are typically put in
+	// the last `/16` from the container CIDR.
 	ServicesIpv4Cidr string `json:"servicesIpv4Cidr,omitempty"`
 
 	// ShieldedNodes: Shielded Nodes configuration.
@@ -1144,46 +1021,35 @@ type Cluster struct {
 	//   "PROVISIONING" - The PROVISIONING state indicates the cluster is
 	// being created.
 	//   "RUNNING" - The RUNNING state indicates the cluster has been
-	// created and is fully
-	// usable.
+	// created and is fully usable.
 	//   "RECONCILING" - The RECONCILING state indicates that some work is
-	// actively being done on
-	// the cluster, such as upgrading the master or node software. Details
-	// can
-	// be found in the `statusMessage` field.
+	// actively being done on the cluster, such as upgrading the master or
+	// node software. Details can be found in the `statusMessage` field.
 	//   "STOPPING" - The STOPPING state indicates the cluster is being
 	// deleted.
 	//   "ERROR" - The ERROR state indicates the cluster may be unusable.
-	// Details
-	// can be found in the `statusMessage` field.
+	// Details can be found in the `statusMessage` field.
 	//   "DEGRADED" - The DEGRADED state indicates the cluster requires user
-	// action to restore
-	// full functionality. Details can be found in the `statusMessage`
-	// field.
+	// action to restore full functionality. Details can be found in the
+	// `statusMessage` field.
 	Status string `json:"status,omitempty"`
 
 	// StatusMessage: [Output only] Additional information about the current
-	// status of this
-	// cluster, if available.
+	// status of this cluster, if available.
 	StatusMessage string `json:"statusMessage,omitempty"`
 
-	// Subnetwork: The name of the Google Compute
-	// Engine
-	// [subnetwork](https://cloud.google.com/compute/docs/subnetworks)
-	//  to which
-	// the cluster is connected. On output this shows the subnetwork ID
-	// instead of
-	// the name.
+	// Subnetwork: The name of the Google Compute Engine
+	// [subnetwork](https://cloud.google.com/compute/docs/subnetworks) to
+	// which the cluster is connected. On output this shows the subnetwork
+	// ID instead of the name.
 	Subnetwork string `json:"subnetwork,omitempty"`
 
 	// TpuConfig: Configuration for Cloud TPU support;
 	TpuConfig *TpuConfig `json:"tpuConfig,omitempty"`
 
 	// TpuIpv4CidrBlock: [Output only] The IP address range of the Cloud
-	// TPUs in this cluster,
-	// in
+	// TPUs in this cluster, in
 	// [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-	//
 	// notation (e.g. `1.2.3.4/29`).
 	TpuIpv4CidrBlock string `json:"tpuIpv4CidrBlock,omitempty"`
 
@@ -1192,15 +1058,13 @@ type Cluster struct {
 	VerticalPodAutoscaling *VerticalPodAutoscaling `json:"verticalPodAutoscaling,omitempty"`
 
 	// WorkloadIdentityConfig: Configuration for the use of Kubernetes
-	// Service Accounts in GCP IAM
-	// policies.
+	// Service Accounts in GCP IAM policies.
 	WorkloadIdentityConfig *WorkloadIdentityConfig `json:"workloadIdentityConfig,omitempty"`
 
-	// Zone: [Output only] The name of the Google Compute
-	// Engine
+	// Zone: [Output only] The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field is deprecated, use location instead.
+	// which the cluster resides. This field is deprecated, use location
+	// instead.
 	Zone string `json:"zone,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -1231,21 +1095,17 @@ func (s *Cluster) MarshalJSON() ([]byte, error) {
 }
 
 // ClusterAutoscaling: ClusterAutoscaling contains global, per-cluster
-// information
-// required by Cluster Autoscaler to automatically adjust
-// the size of the cluster and create/delete
-// node pools based on the current needs.
+// information required by Cluster Autoscaler to automatically adjust
+// the size of the cluster and create/delete node pools based on the
+// current needs.
 type ClusterAutoscaling struct {
-	// AutoprovisioningLocations: The list of Google Compute
-	// Engine
+	// AutoprovisioningLocations: The list of Google Compute Engine
 	// [zones](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// NodePool's nodes can be created by NAP.
+	// which the NodePool's nodes can be created by NAP.
 	AutoprovisioningLocations []string `json:"autoprovisioningLocations,omitempty"`
 
 	// AutoprovisioningNodePoolDefaults: AutoprovisioningNodePoolDefaults
-	// contains defaults for a node pool
-	// created by NAP.
+	// contains defaults for a node pool created by NAP.
 	AutoprovisioningNodePoolDefaults *AutoprovisioningNodePoolDefaults `json:"autoprovisioningNodePoolDefaults,omitempty"`
 
 	// AutoscalingProfile: Defines autoscaling behaviour.
@@ -1262,8 +1122,7 @@ type ClusterAutoscaling struct {
 	EnableNodeAutoprovisioning bool `json:"enableNodeAutoprovisioning,omitempty"`
 
 	// ResourceLimits: Contains global constraints regarding minimum and
-	// maximum
-	// amount of resources in the cluster.
+	// maximum amount of resources in the cluster.
 	ResourceLimits []*ResourceLimit `json:"resourceLimits,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g.
@@ -1326,10 +1185,8 @@ func (s *ClusterTelemetry) MarshalJSON() ([]byte, error) {
 }
 
 // ClusterUpdate: ClusterUpdate describes an update to the cluster.
-// Exactly one update can
-// be applied to a cluster with each request, so at most one field can
-// be
-// provided.
+// Exactly one update can be applied to a cluster with each request, so
+// at most one field can be provided.
 type ClusterUpdate struct {
 	// DesiredAddonsConfig: Configurations for the various addons available
 	// to run in the cluster.
@@ -1349,45 +1206,45 @@ type ClusterUpdate struct {
 	// DesiredDatabaseEncryption: Configuration of etcd encryption.
 	DesiredDatabaseEncryption *DatabaseEncryption `json:"desiredDatabaseEncryption,omitempty"`
 
+	// DesiredDatapathProvider: The desired datapath provider for the
+	// cluster.
+	//
+	// Possible values:
+	//   "DATAPATH_PROVIDER_UNSPECIFIED" - Default value.
+	//   "LEGACY_DATAPATH" - Use the IPTables implementation based on
+	// kube-proxy.
+	//   "ADVANCED_DATAPATH" - Use the eBPF based data plane with additional
+	// visibility features.
+	DesiredDatapathProvider string `json:"desiredDatapathProvider,omitempty"`
+
 	// DesiredDefaultSnatStatus: The desired status of whether to disable
 	// default sNAT for this cluster.
 	DesiredDefaultSnatStatus *DefaultSnatStatus `json:"desiredDefaultSnatStatus,omitempty"`
 
-	// DesiredImageType: The desired image type for the node pool.
-	// NOTE: Set the "desired_node_pool" field as well.
+	// DesiredImageType: The desired image type for the node pool. NOTE: Set
+	// the "desired_node_pool" field as well.
 	DesiredImageType string `json:"desiredImageType,omitempty"`
 
 	// DesiredIntraNodeVisibilityConfig: The desired config of Intra-node
 	// visibility.
 	DesiredIntraNodeVisibilityConfig *IntraNodeVisibilityConfig `json:"desiredIntraNodeVisibilityConfig,omitempty"`
 
-	// DesiredLocations: The desired list of Google Compute
-	// Engine
+	// DesiredLocations: The desired list of Google Compute Engine
 	// [zones](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster's nodes should be located. Changing the locations a cluster
-	// is in
-	// will result in nodes being either created or removed from the
-	// cluster,
-	// depending on whether locations are being added or removed.
-	//
-	// This list must always include the cluster's primary zone.
+	// which the cluster's nodes should be located. Changing the locations a
+	// cluster is in will result in nodes being either created or removed
+	// from the cluster, depending on whether locations are being added or
+	// removed. This list must always include the cluster's primary zone.
 	DesiredLocations []string `json:"desiredLocations,omitempty"`
 
 	// DesiredLoggingService: The logging service the cluster should use to
-	// write logs.
-	// Currently available options:
-	//
-	// * `logging.googleapis.com/kubernetes` - The Cloud Logging
-	// service with a Kubernetes-native resource model
-	// * `logging.googleapis.com` - The legacy Cloud Logging service (no
-	// longer
-	//   available as of GKE 1.15).
-	// * `none` - no logs will be exported from the cluster.
-	//
-	// If left as an empty string,`logging.googleapis.com/kubernetes` will
-	// be
-	// used for GKE 1.14+ or `logging.googleapis.com` for earlier versions.
+	// write logs. Currently available options: *
+	// `logging.googleapis.com/kubernetes` - The Cloud Logging service with
+	// a Kubernetes-native resource model * `logging.googleapis.com` - The
+	// legacy Cloud Logging service (no longer available as of GKE 1.15). *
+	// `none` - no logs will be exported from the cluster. If left as an
+	// empty string,`logging.googleapis.com/kubernetes` will be used for GKE
+	// 1.14+ or `logging.googleapis.com` for earlier versions.
 	DesiredLoggingService string `json:"desiredLoggingService,omitempty"`
 
 	// DesiredMaster: Configuration for master components.
@@ -1398,70 +1255,52 @@ type ClusterUpdate struct {
 	DesiredMasterAuthorizedNetworksConfig *MasterAuthorizedNetworksConfig `json:"desiredMasterAuthorizedNetworksConfig,omitempty"`
 
 	// DesiredMasterVersion: The Kubernetes version to change the master to.
-	// The only valid value is the
-	// latest supported version.
-	//
-	// Users may specify either explicit versions offered by
-	// Kubernetes Engine or version aliases, which have the following
-	// behavior:
-	//
-	// - "latest": picks the highest valid Kubernetes version
-	// - "1.X": picks the highest valid patch+gke.N patch in the 1.X
+	// The only valid value is the latest supported version. Users may
+	// specify either explicit versions offered by Kubernetes Engine or
+	// version aliases, which have the following behavior: - "latest": picks
+	// the highest valid Kubernetes version - "1.X": picks the highest valid
+	// patch+gke.N patch in the 1.X version - "1.X.Y": picks the highest
+	// valid gke.N patch in the 1.X.Y version - "1.X.Y-gke.N": picks an
+	// explicit Kubernetes version - "-": picks the default Kubernetes
 	// version
-	// - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y version
-	// - "1.X.Y-gke.N": picks an explicit Kubernetes version
-	// - "-": picks the default Kubernetes version
 	DesiredMasterVersion string `json:"desiredMasterVersion,omitempty"`
 
 	// DesiredMonitoringService: The monitoring service the cluster should
-	// use to write metrics.
-	// Currently available options:
-	//
-	// * "monitoring.googleapis.com/kubernetes" - The Cloud
-	// Monitoring
-	// service with a Kubernetes-native resource model
-	// * `monitoring.googleapis.com` - The legacy Cloud Monitoring service
-	// (no
-	//   longer available as of GKE 1.15).
-	// * `none` - No metrics will be exported from the cluster.
-	//
-	// If left as an empty string,`monitoring.googleapis.com/kubernetes`
-	// will be
-	// used for GKE 1.14+ or `monitoring.googleapis.com` for earlier
+	// use to write metrics. Currently available options: *
+	// "monitoring.googleapis.com/kubernetes" - The Cloud Monitoring service
+	// with a Kubernetes-native resource model * `monitoring.googleapis.com`
+	// - The legacy Cloud Monitoring service (no longer available as of GKE
+	// 1.15). * `none` - No metrics will be exported from the cluster. If
+	// left as an empty string,`monitoring.googleapis.com/kubernetes` will
+	// be used for GKE 1.14+ or `monitoring.googleapis.com` for earlier
 	// versions.
 	DesiredMonitoringService string `json:"desiredMonitoringService,omitempty"`
 
 	// DesiredNodePoolAutoscaling: Autoscaler configuration for the node
-	// pool specified in
-	// desired_node_pool_id. If there is only one pool in the
-	// cluster and desired_node_pool_id is not provided then
-	// the change applies to that single node pool.
+	// pool specified in desired_node_pool_id. If there is only one pool in
+	// the cluster and desired_node_pool_id is not provided then the change
+	// applies to that single node pool.
 	DesiredNodePoolAutoscaling *NodePoolAutoscaling `json:"desiredNodePoolAutoscaling,omitempty"`
 
 	// DesiredNodePoolId: The node pool to be upgraded. This field is
-	// mandatory if
-	// "desired_node_version",
-	// "desired_image_family",
+	// mandatory if "desired_node_version", "desired_image_family",
 	// "desired_node_pool_autoscaling", or
-	// "desired_workload_metadata_config"
-	// is specified and there is more than one node pool on the cluster.
+	// "desired_workload_metadata_config" is specified and there is more
+	// than one node pool on the cluster.
 	DesiredNodePoolId string `json:"desiredNodePoolId,omitempty"`
 
 	// DesiredNodeVersion: The Kubernetes version to change the nodes to
-	// (typically an
-	// upgrade).
-	//
-	// Users may specify either explicit versions offered by
-	// Kubernetes Engine or version aliases, which have the following
-	// behavior:
-	//
-	// - "latest": picks the highest valid Kubernetes version
-	// - "1.X": picks the highest valid patch+gke.N patch in the 1.X
-	// version
-	// - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y version
-	// - "1.X.Y-gke.N": picks an explicit Kubernetes version
-	// - "-": picks the Kubernetes master version
+	// (typically an upgrade). Users may specify either explicit versions
+	// offered by Kubernetes Engine or version aliases, which have the
+	// following behavior: - "latest": picks the highest valid Kubernetes
+	// version - "1.X": picks the highest valid patch+gke.N patch in the 1.X
+	// version - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y
+	// version - "1.X.Y-gke.N": picks an explicit Kubernetes version - "-":
+	// picks the Kubernetes master version
 	DesiredNodeVersion string `json:"desiredNodeVersion,omitempty"`
+
+	// DesiredNotificationConfig: The desired notification configuration.
+	DesiredNotificationConfig *NotificationConfig `json:"desiredNotificationConfig,omitempty"`
 
 	// DesiredPodSecurityPolicyConfig: The desired configuration options for
 	// the PodSecurityPolicy feature.
@@ -1518,31 +1357,25 @@ func (s *ClusterUpdate) MarshalJSON() ([]byte, error) {
 // CompleteIPRotationRequest: CompleteIPRotationRequest moves the
 // cluster master back into single-IP mode.
 type CompleteIPRotationRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster.
-	// This field has been deprecated and replaced by the name field.
+	// ClusterId: Required. Deprecated. The name of the cluster. This field
+	// has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// Name: The name (project, location, cluster id) of the cluster to
-	// complete IP
-	// rotation. Specified in the format
+	// complete IP rotation. Specified in the format
 	// `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://developers.google.com/console/help/new/#projec
-	// tnumber).
-	// This field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://developers.google.com/console/help/new/#projectnumber)
+	// . This field has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -1601,10 +1434,8 @@ func (s *ConfigConnectorConfig) MarshalJSON() ([]byte, error) {
 // metering.
 type ConsumptionMeteringConfig struct {
 	// Enabled: Whether to enable consumption metering for this cluster. If
-	// enabled, a
-	// second BigQuery table will be created to hold resource
-	// consumption
-	// records.
+	// enabled, a second BigQuery table will be created to hold resource
+	// consumption records.
 	Enabled bool `json:"enabled,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Enabled") to
@@ -1632,32 +1463,25 @@ func (s *ConsumptionMeteringConfig) MarshalJSON() ([]byte, error) {
 
 // CreateClusterRequest: CreateClusterRequest creates a cluster.
 type CreateClusterRequest struct {
-	// Cluster: Required. A
-	// [cluster
-	// resource](https://cloud.google.com/container-engine/reference
-	// /rest/v1beta1/projects.locations.clusters)
+	// Cluster: Required. A [cluster
+	// resource](https://cloud.google.com/container-engine/reference/rest/v1b
+	// eta1/projects.locations.clusters)
 	Cluster *Cluster `json:"cluster,omitempty"`
 
 	// Parent: The parent (project and location) where the cluster will be
-	// created.
-	// Specified in the format `projects/*/locations/*`.
+	// created. Specified in the format `projects/*/locations/*`.
 	Parent string `json:"parent,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the parent field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the parent field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// parent
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the parent field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Cluster") to
@@ -1686,34 +1510,28 @@ func (s *CreateClusterRequest) MarshalJSON() ([]byte, error) {
 // CreateNodePoolRequest: CreateNodePoolRequest creates a node pool for
 // a cluster.
 type CreateNodePoolRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster.
-	// This field has been deprecated and replaced by the parent field.
+	// ClusterId: Required. Deprecated. The name of the cluster. This field
+	// has been deprecated and replaced by the parent field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// NodePool: Required. The node pool to create.
 	NodePool *NodePool `json:"nodePool,omitempty"`
 
 	// Parent: The parent (project, location, cluster id) where the node
-	// pool will be
-	// created. Specified in the format
+	// pool will be created. Specified in the format
 	// `projects/*/locations/*/clusters/*`.
 	Parent string `json:"parent,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://developers.google.com/console/help/new/#projec
-	// tnumber).
-	// This field has been deprecated and replaced by the parent field.
+	// [project ID or project
+	// number](https://developers.google.com/console/help/new/#projectnumber)
+	// . This field has been deprecated and replaced by the parent field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// parent
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the parent field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -1743,14 +1561,12 @@ func (s *CreateNodePoolRequest) MarshalJSON() ([]byte, error) {
 // operations.
 type DailyMaintenanceWindow struct {
 	// Duration: [Output only] Duration of the time window, automatically
-	// chosen to be
-	// smallest possible in the given scenario.
+	// chosen to be smallest possible in the given scenario.
 	Duration string `json:"duration,omitempty"`
 
 	// StartTime: Time within the maintenance window to start the
-	// maintenance operations.
-	// It must be in format "HH:MM", where HH : [00-23] and MM : [00-59]
-	// GMT.
+	// maintenance operations. It must be in format "HH:MM", where HH :
+	// [00-23] and MM : [00-59] GMT.
 	StartTime string `json:"startTime,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Duration") to
@@ -1779,8 +1595,7 @@ func (s *DailyMaintenanceWindow) MarshalJSON() ([]byte, error) {
 // DatabaseEncryption: Configuration of etcd encryption.
 type DatabaseEncryption struct {
 	// KeyName: Name of CloudKMS key to use for the encryption of secrets in
-	// etcd.
-	// Ex.
+	// etcd. Ex.
 	// projects/my-project/locations/global/keyRings/my-ring/cryptoKeys/my-ke
 	// y
 	KeyName string `json:"keyName,omitempty"`
@@ -1791,8 +1606,8 @@ type DatabaseEncryption struct {
 	//   "UNKNOWN" - Should never be set
 	//   "ENCRYPTED" - Secrets in etcd are encrypted.
 	//   "DECRYPTED" - Secrets in etcd are stored in plain text (at etcd
-	// level) - this is
-	// unrelated to Compute Engine level full disk encryption.
+	// level) - this is unrelated to Compute Engine level full disk
+	// encryption.
 	State string `json:"state,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "KeyName") to
@@ -1819,8 +1634,7 @@ func (s *DatabaseEncryption) MarshalJSON() ([]byte, error) {
 }
 
 // DefaultSnatStatus: DefaultSnatStatus contains the desired state of
-// whether default sNAT should
-// be disabled on the cluster.
+// whether default sNAT should be disabled on the cluster.
 type DefaultSnatStatus struct {
 	// Disabled: Disables cluster default sNAT rules.
 	Disabled bool `json:"disabled,omitempty"`
@@ -1877,17 +1691,11 @@ func (s *DnsCacheConfig) MarshalJSON() ([]byte, error) {
 }
 
 // Empty: A generic empty message that you can re-use to avoid defining
-// duplicated
-// empty messages in your APIs. A typical example is to use it as the
-// request
-// or the response type of an API method. For instance:
-//
-//     service Foo {
-//       rpc Bar(google.protobuf.Empty) returns
-// (google.protobuf.Empty);
-//     }
-//
-// The JSON representation for `Empty` is empty JSON object `{}`.
+// duplicated empty messages in your APIs. A typical example is to use
+// it as the request or the response type of an API method. For
+// instance: service Foo { rpc Bar(google.protobuf.Empty) returns
+// (google.protobuf.Empty); } The JSON representation for `Empty` is
+// empty JSON object `{}`.
 type Empty struct {
 	// ServerResponse contains the HTTP response code and headers from the
 	// server.
@@ -1895,8 +1703,8 @@ type Empty struct {
 }
 
 // GcePersistentDiskCsiDriverConfig: Configuration for the Compute
-// Engine PD CSI driver. This option can only be
-// enabled at cluster creation time.
+// Engine PD CSI driver. This option can only be enabled at cluster
+// creation time.
 type GcePersistentDiskCsiDriverConfig struct {
 	// Enabled: Whether the Compute Engine PD CSI driver is enabled for this
 	// cluster.
@@ -1929,13 +1737,11 @@ func (s *GcePersistentDiskCsiDriverConfig) MarshalJSON() ([]byte, error) {
 // Key Set as specififed in rfc 7517
 type GetJSONWebKeysResponse struct {
 	// CacheHeader: OnePlatform automatically extracts this field and uses
-	// it to set the HTTP
-	// Cache-Control header.
+	// it to set the HTTP Cache-Control header.
 	CacheHeader *HttpCacheControlResponseHeader `json:"cacheHeader,omitempty"`
 
 	// Keys: The public component of the keys used by the cluster to sign
-	// token
-	// requests.
+	// token requests.
 	Keys []*Jwk `json:"keys,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -1966,12 +1772,11 @@ func (s *GetJSONWebKeysResponse) MarshalJSON() ([]byte, error) {
 }
 
 // GetOpenIDConfigResponse: GetOpenIDConfigResponse is an OIDC discovery
-// document for the cluster.
-// See the OpenID Connect Discovery 1.0 specification for details.
+// document for the cluster. See the OpenID Connect Discovery 1.0
+// specification for details.
 type GetOpenIDConfigResponse struct {
 	// CacheHeader: OnePlatform automatically extracts this field and uses
-	// it to set the HTTP
-	// Cache-Control header.
+	// it to set the HTTP Cache-Control header.
 	CacheHeader *HttpCacheControlResponseHeader `json:"cacheHeader,omitempty"`
 
 	// ClaimsSupported: Supported claims.
@@ -2024,16 +1829,13 @@ func (s *GetOpenIDConfigResponse) MarshalJSON() ([]byte, error) {
 }
 
 // HorizontalPodAutoscaling: Configuration options for the horizontal
-// pod autoscaling feature, which
-// increases or decreases the number of replica pods a replication
-// controller
-// has based on the resource usage of the existing pods.
+// pod autoscaling feature, which increases or decreases the number of
+// replica pods a replication controller has based on the resource usage
+// of the existing pods.
 type HorizontalPodAutoscaling struct {
 	// Disabled: Whether the Horizontal Pod Autoscaling feature is enabled
-	// in the cluster.
-	// When enabled, it ensures that metrics are collected into
-	// Stackdriver
-	// Monitoring.
+	// in the cluster. When enabled, it ensures that metrics are collected
+	// into Stackdriver Monitoring.
 	Disabled bool `json:"disabled,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Disabled") to
@@ -2095,15 +1897,12 @@ func (s *HttpCacheControlResponseHeader) MarshalJSON() ([]byte, error) {
 }
 
 // HttpLoadBalancing: Configuration options for the HTTP (L7) load
-// balancing controller addon,
-// which makes it easy to set up HTTP load balancers for services in a
-// cluster.
+// balancing controller addon, which makes it easy to set up HTTP load
+// balancers for services in a cluster.
 type HttpLoadBalancing struct {
 	// Disabled: Whether the HTTP Load Balancing controller is enabled in
-	// the cluster.
-	// When enabled, it runs a small pod in the cluster that manages the
-	// load
-	// balancers.
+	// the cluster. When enabled, it runs a small pod in the cluster that
+	// manages the load balancers.
 	Disabled bool `json:"disabled,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Disabled") to
@@ -2133,23 +1932,16 @@ func (s *HttpLoadBalancing) MarshalJSON() ([]byte, error) {
 // allocated in the cluster.
 type IPAllocationPolicy struct {
 	// AllowRouteOverlap: If true, allow allocation of cluster CIDR ranges
-	// that overlap with certain
-	// kinds of network routes. By default we do not allow cluster CIDR
-	// ranges to
-	// intersect with any user declared routes. With allow_route_overlap ==
-	// true,
-	// we allow overlapping with CIDR ranges that are larger than the
-	// cluster CIDR
-	// range.
-	//
-	// If this field is set to true, then cluster and services CIDRs must
-	// be
-	// fully-specified (e.g. `10.96.0.0/14`, but not `/14`), which means:
-	// 1) When `use_ip_aliases` is true, `cluster_ipv4_cidr_block` and
-	//    `services_ipv4_cidr_block` must be fully-specified.
-	// 2) When `use_ip_aliases` is false, `cluster.cluster_ipv4_cidr` muse
-	// be
-	//    fully-specified.
+	// that overlap with certain kinds of network routes. By default we do
+	// not allow cluster CIDR ranges to intersect with any user declared
+	// routes. With allow_route_overlap == true, we allow overlapping with
+	// CIDR ranges that are larger than the cluster CIDR range. If this
+	// field is set to true, then cluster and services CIDRs must be
+	// fully-specified (e.g. `10.96.0.0/14`, but not `/14`), which means: 1)
+	// When `use_ip_aliases` is true, `cluster_ipv4_cidr_block` and
+	// `services_ipv4_cidr_block` must be fully-specified. 2) When
+	// `use_ip_aliases` is false, `cluster.cluster_ipv4_cidr` muse be
+	// fully-specified.
 	AllowRouteOverlap bool `json:"allowRouteOverlap,omitempty"`
 
 	// ClusterIpv4Cidr: This field is deprecated, use
@@ -2157,68 +1949,41 @@ type IPAllocationPolicy struct {
 	ClusterIpv4Cidr string `json:"clusterIpv4Cidr,omitempty"`
 
 	// ClusterIpv4CidrBlock: The IP address range for the cluster pod IPs.
-	// If this field is set, then
-	// `cluster.cluster_ipv4_cidr` must be left blank.
-	//
-	// This field is only applicable when `use_ip_aliases` is true.
-	//
-	// Set to blank to have a range chosen with the default size.
-	//
-	// Set to /netmask (e.g. `/14`) to have a range chosen with a
-	// specific
-	// netmask.
-	//
-	// Set to
-	// a
+	// If this field is set, then `cluster.cluster_ipv4_cidr` must be left
+	// blank. This field is only applicable when `use_ip_aliases` is true.
+	// Set to blank to have a range chosen with the default size. Set to
+	// /netmask (e.g. `/14`) to have a range chosen with a specific netmask.
+	// Set to a
 	// [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-	//
 	// notation (e.g. `10.96.0.0/14`) from the RFC-1918 private networks
-	// (e.g.
-	// `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) to pick a specific
-	// range
-	// to use.
+	// (e.g. `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) to pick a
+	// specific range to use.
 	ClusterIpv4CidrBlock string `json:"clusterIpv4CidrBlock,omitempty"`
 
 	// ClusterSecondaryRangeName: The name of the secondary range to be used
-	// for the cluster CIDR
-	// block.  The secondary range will be used for pod IP
-	// addresses. This must be an existing secondary range associated
-	// with the cluster subnetwork.
-	//
-	// This field is only applicable with use_ip_aliases
-	// and
-	// create_subnetwork is false.
+	// for the cluster CIDR block. The secondary range will be used for pod
+	// IP addresses. This must be an existing secondary range associated
+	// with the cluster subnetwork. This field is only applicable with
+	// use_ip_aliases and create_subnetwork is false.
 	ClusterSecondaryRangeName string `json:"clusterSecondaryRangeName,omitempty"`
 
 	// CreateSubnetwork: Whether a new subnetwork will be created
-	// automatically for the cluster.
-	//
-	// This field is only applicable when `use_ip_aliases` is true.
+	// automatically for the cluster. This field is only applicable when
+	// `use_ip_aliases` is true.
 	CreateSubnetwork bool `json:"createSubnetwork,omitempty"`
 
 	// NodeIpv4Cidr: This field is deprecated, use node_ipv4_cidr_block.
 	NodeIpv4Cidr string `json:"nodeIpv4Cidr,omitempty"`
 
 	// NodeIpv4CidrBlock: The IP address range of the instance IPs in this
-	// cluster.
-	//
-	// This is applicable only if `create_subnetwork` is true.
-	//
-	// Set to blank to have a range chosen with the default size.
-	//
-	// Set to /netmask (e.g. `/14`) to have a range chosen with a
-	// specific
-	// netmask.
-	//
-	// Set to
-	// a
+	// cluster. This is applicable only if `create_subnetwork` is true. Set
+	// to blank to have a range chosen with the default size. Set to
+	// /netmask (e.g. `/14`) to have a range chosen with a specific netmask.
+	// Set to a
 	// [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-	//
 	// notation (e.g. `10.96.0.0/14`) from the RFC-1918 private networks
-	// (e.g.
-	// `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) to pick a specific
-	// range
-	// to use.
+	// (e.g. `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) to pick a
+	// specific range to use.
 	NodeIpv4CidrBlock string `json:"nodeIpv4CidrBlock,omitempty"`
 
 	// ServicesIpv4Cidr: This field is deprecated, use
@@ -2226,86 +1991,52 @@ type IPAllocationPolicy struct {
 	ServicesIpv4Cidr string `json:"servicesIpv4Cidr,omitempty"`
 
 	// ServicesIpv4CidrBlock: The IP address range of the services IPs in
-	// this cluster. If blank, a range
-	// will be automatically chosen with the default size.
-	//
-	// This field is only applicable when `use_ip_aliases` is true.
-	//
-	// Set to blank to have a range chosen with the default size.
-	//
-	// Set to /netmask (e.g. `/14`) to have a range chosen with a
-	// specific
-	// netmask.
-	//
-	// Set to
-	// a
+	// this cluster. If blank, a range will be automatically chosen with the
+	// default size. This field is only applicable when `use_ip_aliases` is
+	// true. Set to blank to have a range chosen with the default size. Set
+	// to /netmask (e.g. `/14`) to have a range chosen with a specific
+	// netmask. Set to a
 	// [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-	//
 	// notation (e.g. `10.96.0.0/14`) from the RFC-1918 private networks
-	// (e.g.
-	// `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) to pick a specific
-	// range
-	// to use.
+	// (e.g. `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) to pick a
+	// specific range to use.
 	ServicesIpv4CidrBlock string `json:"servicesIpv4CidrBlock,omitempty"`
 
 	// ServicesSecondaryRangeName: The name of the secondary range to be
-	// used as for the services
-	// CIDR block.  The secondary range will be used for service
-	// ClusterIPs. This must be an existing secondary range associated
-	// with the cluster subnetwork.
-	//
-	// This field is only applicable with use_ip_aliases
-	// and
-	// create_subnetwork is false.
+	// used as for the services CIDR block. The secondary range will be used
+	// for service ClusterIPs. This must be an existing secondary range
+	// associated with the cluster subnetwork. This field is only applicable
+	// with use_ip_aliases and create_subnetwork is false.
 	ServicesSecondaryRangeName string `json:"servicesSecondaryRangeName,omitempty"`
 
 	// SubnetworkName: A custom subnetwork name to be used if
-	// `create_subnetwork` is true.  If
-	// this field is empty, then an automatic name will be chosen for the
-	// new
-	// subnetwork.
+	// `create_subnetwork` is true. If this field is empty, then an
+	// automatic name will be chosen for the new subnetwork.
 	SubnetworkName string `json:"subnetworkName,omitempty"`
 
 	// TpuIpv4CidrBlock: The IP address range of the Cloud TPUs in this
-	// cluster. If unspecified, a
-	// range will be automatically chosen with the default size.
-	//
-	// This field is only applicable when `use_ip_aliases` is true.
-	//
-	// If unspecified, the range will use the default size.
-	//
-	// Set to /netmask (e.g. `/14`) to have a range chosen with a
-	// specific
-	// netmask.
-	//
-	// Set to
-	// a
+	// cluster. If unspecified, a range will be automatically chosen with
+	// the default size. This field is only applicable when `use_ip_aliases`
+	// is true. If unspecified, the range will use the default size. Set to
+	// /netmask (e.g. `/14`) to have a range chosen with a specific netmask.
+	// Set to a
 	// [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-	//
 	// notation (e.g. `10.96.0.0/14`) from the RFC-1918 private networks
-	// (e.g.
-	// `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) to pick a specific
-	// range
-	// to use.
-	// This field is deprecated, use cluster.tpu_config.ipv4_cidr_block
-	// instead.
+	// (e.g. `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) to pick a
+	// specific range to use. This field is deprecated, use
+	// cluster.tpu_config.ipv4_cidr_block instead.
 	TpuIpv4CidrBlock string `json:"tpuIpv4CidrBlock,omitempty"`
 
 	// UseIpAliases: Whether alias IPs will be used for pod IPs in the
-	// cluster.
-	// This is used in conjunction with use_routes. It cannot
-	// be true if use_routes is true. If both use_ip_aliases and use_routes
-	// are
+	// cluster. This is used in conjunction with use_routes. It cannot be
+	// true if use_routes is true. If both use_ip_aliases and use_routes are
 	// false, then the server picks the default IP allocation mode
 	UseIpAliases bool `json:"useIpAliases,omitempty"`
 
-	// UseRoutes: Whether routes will be used for pod IPs in the
-	// cluster.
-	// This is used in conjunction with use_ip_aliases. It cannot be true
-	// if
+	// UseRoutes: Whether routes will be used for pod IPs in the cluster.
+	// This is used in conjunction with use_ip_aliases. It cannot be true if
 	// use_ip_aliases is true. If both use_ip_aliases and use_routes are
-	// false,
-	// then the server picks the default IP allocation mode
+	// false, then the server picks the default IP allocation mode
 	UseRoutes bool `json:"useRoutes,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "AllowRouteOverlap")
@@ -2333,8 +2064,7 @@ func (s *IPAllocationPolicy) MarshalJSON() ([]byte, error) {
 }
 
 // IntraNodeVisibilityConfig: IntraNodeVisibilityConfig contains the
-// desired config of the intra-node
-// visibility on this cluster.
+// desired config of the intra-node visibility on this cluster.
 type IntraNodeVisibilityConfig struct {
 	// Enabled: Enables intra node visibility for this cluster.
 	Enabled bool `json:"enabled,omitempty"`
@@ -2507,16 +2237,12 @@ func (s *KubernetesDashboard) MarshalJSON() ([]byte, error) {
 }
 
 // LegacyAbac: Configuration for the legacy Attribute Based Access
-// Control authorization
-// mode.
+// Control authorization mode.
 type LegacyAbac struct {
 	// Enabled: Whether the ABAC authorizer is enabled for this cluster.
-	// When enabled,
-	// identities in the system, including service accounts, nodes,
-	// and
-	// controllers, will have statically granted permissions beyond
-	// those
-	// provided by the RBAC configuration or IAM.
+	// When enabled, identities in the system, including service accounts,
+	// nodes, and controllers, will have statically granted permissions
+	// beyond those provided by the RBAC configuration or IAM.
 	Enabled bool `json:"enabled,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Enabled") to
@@ -2545,22 +2271,10 @@ func (s *LegacyAbac) MarshalJSON() ([]byte, error) {
 // LinuxNodeConfig: Parameters that can be configured on Linux nodes.
 type LinuxNodeConfig struct {
 	// Sysctls: The Linux kernel parameters to be applied to the nodes and
-	// all pods running
-	// on the nodes.
-	//
-	// The following parameters are
-	// supported.
-	//
-	// net.core.netdev_max_backlog
-	// net.core.rmem_max
-	// net.core.wme
-	// m_default
-	// net.core.wmem_max
-	// net.core.optmem_max
-	// net.core.somaxconn
-	// net
-	// .ipv4.tcp_rmem
-	// net.ipv4.tcp_wmem
+	// all pods running on the nodes. The following parameters are
+	// supported. net.core.netdev_max_backlog net.core.rmem_max
+	// net.core.wmem_default net.core.wmem_max net.core.optmem_max
+	// net.core.somaxconn net.ipv4.tcp_rmem net.ipv4.tcp_wmem
 	// net.ipv4.tcp_tw_reuse
 	Sysctls map[string]string `json:"sysctls,omitempty"`
 
@@ -2590,14 +2304,12 @@ func (s *LinuxNodeConfig) MarshalJSON() ([]byte, error) {
 // ListClustersResponse: ListClustersResponse is the result of
 // ListClustersRequest.
 type ListClustersResponse struct {
-	// Clusters: A list of clusters in the project in the specified zone,
-	// or
+	// Clusters: A list of clusters in the project in the specified zone, or
 	// across all ones.
 	Clusters []*Cluster `json:"clusters,omitempty"`
 
 	// MissingZones: If any zones are listed here, the list of clusters
-	// returned
-	// may be missing those zones.
+	// returned may be missing those zones.
 	MissingZones []string `json:"missingZones,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -2628,19 +2340,16 @@ func (s *ListClustersResponse) MarshalJSON() ([]byte, error) {
 }
 
 // ListLocationsResponse: ListLocationsResponse returns the list of all
-// GKE locations and their
-// recommendation state.
+// GKE locations and their recommendation state.
 type ListLocationsResponse struct {
 	// Locations: A full list of GKE locations.
 	Locations []*Location `json:"locations,omitempty"`
 
 	// NextPageToken: Only return ListLocationsResponse that occur after the
-	// page_token. This
-	// value should be populated from the
-	// ListLocationsResponse.next_page_token if
-	// that response token was set (which happens when listing more
-	// Locations than
-	// fit in a single ListLocationsResponse).
+	// page_token. This value should be populated from the
+	// ListLocationsResponse.next_page_token if that response token was set
+	// (which happens when listing more Locations than fit in a single
+	// ListLocationsResponse).
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -2707,8 +2416,7 @@ func (s *ListNodePoolsResponse) MarshalJSON() ([]byte, error) {
 // ListOperationsRequest.
 type ListOperationsResponse struct {
 	// MissingZones: If any zones are listed here, the list of operations
-	// returned
-	// may be missing the operations from those zones.
+	// returned may be missing the operations from those zones.
 	MissingZones []string `json:"missingZones,omitempty"`
 
 	// Operations: A list of operations in the project in the specified
@@ -2743,17 +2451,13 @@ func (s *ListOperationsResponse) MarshalJSON() ([]byte, error) {
 }
 
 // ListUsableSubnetworksResponse: ListUsableSubnetworksResponse is the
-// response of
-// ListUsableSubnetworksRequest.
+// response of ListUsableSubnetworksRequest.
 type ListUsableSubnetworksResponse struct {
 	// NextPageToken: This token allows you to get the next page of results
-	// for list requests.
-	// If the number of results is larger than `page_size`, use
-	// the
-	// `next_page_token` as a value for the query parameter `page_token` in
-	// the
-	// next request. The value will become empty when there are no more
-	// pages.
+	// for list requests. If the number of results is larger than
+	// `page_size`, use the `next_page_token` as a value for the query
+	// parameter `page_token` in the next request. The value will become
+	// empty when there are no more pages.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// Subnetworks: A list of usable subnetworks in the specified network
@@ -2788,19 +2492,18 @@ func (s *ListUsableSubnetworksResponse) MarshalJSON() ([]byte, error) {
 }
 
 // Location: Location returns the location name, and if the location is
-// recommended
-// for GKE cluster scheduling.
+// recommended for GKE cluster scheduling.
 type Location struct {
-	// Name: Contains the name of the resource requested.
-	// Specified in the format `projects/*/locations/*`.
+	// Name: Contains the name of the resource requested. Specified in the
+	// format `projects/*/locations/*`.
 	Name string `json:"name,omitempty"`
 
 	// Recommended: Whether the location is recomended for GKE cluster
 	// scheduling.
 	Recommended bool `json:"recommended,omitempty"`
 
-	// Type: Contains the type of location this Location is for.
-	// Regional or Zonal.
+	// Type: Contains the type of location this Location is for. Regional or
+	// Zonal.
 	//
 	// Possible values:
 	//   "LOCATION_TYPE_UNSPECIFIED" - LOCATION_TYPE_UNSPECIFIED means the
@@ -2836,14 +2539,11 @@ func (s *Location) MarshalJSON() ([]byte, error) {
 // to be used for the cluster.
 type MaintenancePolicy struct {
 	// ResourceVersion: A hash identifying the version of this policy, so
-	// that updates to fields of
-	// the policy won't accidentally undo intermediate changes (and so that
-	// users
-	// of the API unaware of some fields won't accidentally remove other
-	// fields).
-	// Make a <code>get()</code> request to the cluster to get the
-	// current
-	// resource version and include it with requests to set the policy.
+	// that updates to fields of the policy won't accidentally undo
+	// intermediate changes (and so that users of the API unaware of some
+	// fields won't accidentally remove other fields). Make a `get()`
+	// request to the cluster to get the current resource version and
+	// include it with requests to set the policy.
 	ResourceVersion string `json:"resourceVersion,omitempty"`
 
 	// Window: Specifies the maintenance window in which maintenance may be
@@ -2882,15 +2582,13 @@ type MaintenanceWindow struct {
 	DailyMaintenanceWindow *DailyMaintenanceWindow `json:"dailyMaintenanceWindow,omitempty"`
 
 	// MaintenanceExclusions: Exceptions to maintenance window.
-	// Non-emergency maintenance should not
-	// occur in these windows.
+	// Non-emergency maintenance should not occur in these windows.
 	MaintenanceExclusions map[string]TimeWindow `json:"maintenanceExclusions,omitempty"`
 
 	// RecurringWindow: RecurringWindow specifies some number of recurring
-	// time periods for
-	// maintenance to occur. The time windows may be overlapping. If
-	// no
-	// maintenance windows are set, maintenance can occur at any time.
+	// time periods for maintenance to occur. The time windows may be
+	// overlapping. If no maintenance windows are set, maintenance can occur
+	// at any time.
 	RecurringWindow *RecurringTimeWindow `json:"recurringWindow,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g.
@@ -2923,44 +2621,34 @@ type Master struct {
 }
 
 // MasterAuth: The authentication information for accessing the master
-// endpoint.
-// Authentication can be done using HTTP basic auth or using
-// client
-// certificates.
+// endpoint. Authentication can be done using HTTP basic auth or using
+// client certificates.
 type MasterAuth struct {
 	// ClientCertificate: [Output only] Base64-encoded public certificate
-	// used by clients to
-	// authenticate to the cluster endpoint.
+	// used by clients to authenticate to the cluster endpoint.
 	ClientCertificate string `json:"clientCertificate,omitempty"`
 
 	// ClientCertificateConfig: Configuration for client certificate
-	// authentication on the cluster. For
-	// clusters before v1.12, if no configuration is specified, a
-	// client
-	// certificate is issued.
+	// authentication on the cluster. For clusters before v1.12, if no
+	// configuration is specified, a client certificate is issued.
 	ClientCertificateConfig *ClientCertificateConfig `json:"clientCertificateConfig,omitempty"`
 
 	// ClientKey: [Output only] Base64-encoded private key used by clients
-	// to authenticate
-	// to the cluster endpoint.
+	// to authenticate to the cluster endpoint.
 	ClientKey string `json:"clientKey,omitempty"`
 
 	ClusterCaCertificate string `json:"clusterCaCertificate,omitempty"`
 
 	// Password: The password to use for HTTP basic authentication to the
-	// master endpoint.
-	// Because the master endpoint is open to the Internet, you should
-	// create a
-	// strong password.  If a password is provided for cluster creation,
-	// username
-	// must be non-empty.
+	// master endpoint. Because the master endpoint is open to the Internet,
+	// you should create a strong password. If a password is provided for
+	// cluster creation, username must be non-empty.
 	Password string `json:"password,omitempty"`
 
 	// Username: The username to use for HTTP basic authentication to the
-	// master endpoint.
-	// For clusters v1.6.0 and later, basic authentication can be disabled
-	// by
-	// leaving username unspecified (or setting it to the empty string).
+	// master endpoint. For clusters v1.6.0 and later, basic authentication
+	// can be disabled by leaving username unspecified (or setting it to the
+	// empty string).
 	Username string `json:"username,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClientCertificate")
@@ -2988,16 +2676,13 @@ func (s *MasterAuth) MarshalJSON() ([]byte, error) {
 }
 
 // MasterAuthorizedNetworksConfig: Configuration options for the master
-// authorized networks feature. Enabled
-// master authorized networks will disallow all external traffic to
-// access
-// Kubernetes master through HTTPS except traffic from the given CIDR
-// blocks,
-// Google Compute Engine Public IPs and Google Prod IPs.
+// authorized networks feature. Enabled master authorized networks will
+// disallow all external traffic to access Kubernetes master through
+// HTTPS except traffic from the given CIDR blocks, Google Compute
+// Engine Public IPs and Google Prod IPs.
 type MasterAuthorizedNetworksConfig struct {
 	// CidrBlocks: cidr_blocks define up to 10 external networks that could
-	// access
-	// Kubernetes master through HTTPS.
+	// access Kubernetes master through HTTPS.
 	CidrBlocks []*CidrBlock `json:"cidrBlocks,omitempty"`
 
 	// Enabled: Whether or not master authorized networks is enabled.
@@ -3110,47 +2795,50 @@ func (s *Metric) UnmarshalJSON(data []byte) error {
 // NetworkConfig: NetworkConfig reports the relative names of network &
 // subnetwork.
 type NetworkConfig struct {
+	// DatapathProvider: The desired datapath provider for this cluster. By
+	// default, uses the IPTables-based kube-proxy implementation.
+	//
+	// Possible values:
+	//   "DATAPATH_PROVIDER_UNSPECIFIED" - Default value.
+	//   "LEGACY_DATAPATH" - Use the IPTables implementation based on
+	// kube-proxy.
+	//   "ADVANCED_DATAPATH" - Use the eBPF based data plane with additional
+	// visibility features.
+	DatapathProvider string `json:"datapathProvider,omitempty"`
+
 	// DefaultSnatStatus: Whether the cluster disables default in-node sNAT
-	// rules. In-node sNAT rules
-	// will be disabled when default_snat_status is disabled. When disabled
-	// is set
-	// to false, default IP masquerade rules will be applied to the nodes
-	// to
-	// prevent sNAT on cluster internal traffic.
+	// rules. In-node sNAT rules will be disabled when default_snat_status
+	// is disabled. When disabled is set to false, default IP masquerade
+	// rules will be applied to the nodes to prevent sNAT on cluster
+	// internal traffic.
 	DefaultSnatStatus *DefaultSnatStatus `json:"defaultSnatStatus,omitempty"`
 
 	// EnableIntraNodeVisibility: Whether Intra-node visibility is enabled
-	// for this cluster.
-	// This makes same node pod to pod traffic visible for VPC network.
+	// for this cluster. This makes same node pod to pod traffic visible for
+	// VPC network.
 	EnableIntraNodeVisibility bool `json:"enableIntraNodeVisibility,omitempty"`
 
-	// Network: Output only. The relative name of the Google Compute
-	// Engine
-	// network(https://cloud.google.com/compute/docs/networks-and-fire
-	// walls#networks)
-	// to which the cluster is connected.
-	// Example:
+	// Network: Output only. The relative name of the Google Compute Engine
+	// network(https://cloud.google.com/compute/docs/networks-and-firewalls#n
+	// etworks) to which the cluster is connected. Example:
 	// projects/my-project/global/networks/my-network
 	Network string `json:"network,omitempty"`
 
 	// Subnetwork: Output only. The relative name of the Google Compute
-	// Engine
-	// [subnetwork](https://cloud.google.com/compute/docs/vpc) to which
-	// the
-	// cluster is connected.
-	// Example:
+	// Engine [subnetwork](https://cloud.google.com/compute/docs/vpc) to
+	// which the cluster is connected. Example:
 	// projects/my-project/regions/us-central1/subnetworks/my-subnet
 	Subnetwork string `json:"subnetwork,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "DefaultSnatStatus")
-	// to unconditionally include in API requests. By default, fields with
+	// ForceSendFields is a list of field names (e.g. "DatapathProvider") to
+	// unconditionally include in API requests. By default, fields with
 	// empty values are omitted from API requests. However, any non-pointer,
 	// non-interface field appearing in ForceSendFields will be sent to the
 	// server regardless of whether the field is empty or not. This may be
 	// used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "DefaultSnatStatus") to
+	// NullFields is a list of field names (e.g. "DatapathProvider") to
 	// include in API requests with the JSON null value. By default, fields
 	// with empty values are omitted from API requests. However, any field
 	// with an empty value appearing in NullFields will be sent to the
@@ -3166,10 +2854,8 @@ func (s *NetworkConfig) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// NetworkPolicy: Configuration options for the NetworkPolicy
-// feature.
-// https://kubernetes.io/docs/concepts/services-networking/netwo
-// rkpolicies/
+// NetworkPolicy: Configuration options for the NetworkPolicy feature.
+// https://kubernetes.io/docs/concepts/services-networking/networkpolicies/
 type NetworkPolicy struct {
 	// Enabled: Whether network policy is enabled on the cluster.
 	Enabled bool `json:"enabled,omitempty"`
@@ -3205,10 +2891,8 @@ func (s *NetworkPolicy) MarshalJSON() ([]byte, error) {
 }
 
 // NetworkPolicyConfig: Configuration for NetworkPolicy. This only
-// tracks whether the addon
-// is enabled or not on the Master, it does not track whether network
-// policy
-// is enabled for the nodes.
+// tracks whether the addon is enabled or not on the Master, it does not
+// track whether network policy is enabled for the nodes.
 type NetworkPolicyConfig struct {
 	// Disabled: Whether NetworkPolicy is enabled for this cluster.
 	Disabled bool `json:"disabled,omitempty"`
@@ -3239,210 +2923,140 @@ func (s *NetworkPolicyConfig) MarshalJSON() ([]byte, error) {
 // NodeConfig: Parameters that describe the nodes in a cluster.
 type NodeConfig struct {
 	// Accelerators: A list of hardware accelerators to be attached to each
-	// node.
-	// See https://cloud.google.com/compute/docs/gpus for more information
-	// about
-	// support for GPUs.
+	// node. See https://cloud.google.com/compute/docs/gpus for more
+	// information about support for GPUs.
 	Accelerators []*AcceleratorConfig `json:"accelerators,omitempty"`
 
-	// BootDiskKmsKey:
-	// The Customer Managed Encryption Key used to encrypt the boot disk
-	// attached
-	// to each node in the node pool. This should be of the
-	// form
-	// projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAM
-	// E]/cryptoKeys/[KEY_NAME].
-	// For more information about protecting resources with Cloud KMS Keys
-	// please
-	// see:
-	// https://cloud.google.com/compute/docs/disks/customer-manag
-	// ed-encryption
+	// BootDiskKmsKey:  The Customer Managed Encryption Key used to encrypt
+	// the boot disk attached to each node in the node pool. This should be
+	// of the form
+	// projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cr
+	// yptoKeys/[KEY_NAME]. For more information about protecting resources
+	// with Cloud KMS Keys please see:
+	// https://cloud.google.com/compute/docs/disks/customer-managed-encryption
 	BootDiskKmsKey string `json:"bootDiskKmsKey,omitempty"`
 
-	// DiskSizeGb: Size of the disk attached to each node, specified in
-	// GB.
-	// The smallest allowed disk size is 10GB.
-	//
-	// If unspecified, the default disk size is 100GB.
+	// DiskSizeGb: Size of the disk attached to each node, specified in GB.
+	// The smallest allowed disk size is 10GB. If unspecified, the default
+	// disk size is 100GB.
 	DiskSizeGb int64 `json:"diskSizeGb,omitempty"`
 
 	// DiskType: Type of the disk attached to each node (e.g. 'pd-standard'
-	// or 'pd-ssd')
-	//
-	// If unspecified, the default disk type is 'pd-standard'
+	// or 'pd-ssd') If unspecified, the default disk type is 'pd-standard'
 	DiskType string `json:"diskType,omitempty"`
 
 	// ImageType: The image type to use for this node. Note that for a given
-	// image type,
-	// the latest version of it will be used.
+	// image type, the latest version of it will be used.
 	ImageType string `json:"imageType,omitempty"`
 
 	// KubeletConfig: Node kubelet configs.
 	KubeletConfig *NodeKubeletConfig `json:"kubeletConfig,omitempty"`
 
 	// Labels: The map of Kubernetes labels (key/value pairs) to be applied
-	// to each node.
-	// These will added in addition to any default label(s) that
-	// Kubernetes may apply to the node.
-	// In case of conflict in label keys, the applied set may differ
-	// depending on
-	// the Kubernetes version -- it's best to assume the behavior is
-	// undefined
-	// and conflicts should be avoided.
-	// For more information, including usage and the valid values,
-	// see:
-	// https://kubernetes.io/docs/concepts/overview/working-with-objects
-	// /labels/
+	// to each node. These will added in addition to any default label(s)
+	// that Kubernetes may apply to the node. In case of conflict in label
+	// keys, the applied set may differ depending on the Kubernetes version
+	// -- it's best to assume the behavior is undefined and conflicts should
+	// be avoided. For more information, including usage and the valid
+	// values, see:
+	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 	Labels map[string]string `json:"labels,omitempty"`
 
 	// LinuxNodeConfig: Parameters that can be configured on Linux nodes.
 	LinuxNodeConfig *LinuxNodeConfig `json:"linuxNodeConfig,omitempty"`
 
 	// LocalSsdCount: The number of local SSD disks to be attached to the
-	// node.
-	//
-	// The limit for this value is dependent upon the maximum number
-	// of
-	// disks available on a machine per zone.
-	// See:
-	// https://cloud.google.com/compute/docs/disks/local-ssd
-	// for more information.
+	// node. The limit for this value is dependent upon the maximum number
+	// of disks available on a machine per zone. See:
+	// https://cloud.google.com/compute/docs/disks/local-ssd for more
+	// information.
 	LocalSsdCount int64 `json:"localSsdCount,omitempty"`
 
-	// MachineType: The name of a Google Compute Engine
-	// [machine
-	// type](https://cloud.google.com/compute/docs/machine-types)
-	// (e.g.
-	// `n1-standard-1`).
-	//
-	// If unspecified, the default machine type is
-	// `n1-standard-1`.
+	// MachineType: The name of a Google Compute Engine [machine
+	// type](https://cloud.google.com/compute/docs/machine-types). If
+	// unspecified, the default machine type is `e2-medium`.
 	MachineType string `json:"machineType,omitempty"`
 
 	// Metadata: The metadata key/value pairs assigned to instances in the
-	// cluster.
-	//
-	// Keys must conform to the regexp [a-zA-Z0-9-_]+ and be less than 128
-	// bytes
-	// in length. These are reflected as part of a URL in the metadata
-	// server.
-	// Additionally, to avoid ambiguity, keys must not conflict with any
-	// other
-	// metadata keys for the project or be one of the reserved keys:
-	//  "cluster-location"
-	//  "cluster-name"
-	//  "cluster-uid"
-	//  "configure-sh"
-	//  "containerd-configure-sh"
-	//  "enable-oslogin"
-	//  "gci-ensure-gke-docker"
-	//  "gci-metrics-enabled"
-	//  "gci-update-strategy"
-	//  "instance-template"
-	//  "kube-env"
-	//  "startup-script"
-	//  "user-data"
-	//  "disable-address-manager"
-	//  "windows-startup-script-ps1"
-	//  "common-psm1"
-	//  "k8s-node-setup-psm1"
-	//  "install-ssh-psm1"
-	//  "user-profile-psm1"
-	//  "serial-port-logging-enable"
-	// Values are free-form strings, and only have meaning as interpreted
-	// by
-	// the image running in the instance. The only restriction placed on
-	// them is
-	// that each value's size must be less than or equal to 32 KB.
-	//
-	// The total size of all keys and values must be less than 512 KB.
+	// cluster. Keys must conform to the regexp `[a-zA-Z0-9-_]+` and be less
+	// than 128 bytes in length. These are reflected as part of a URL in the
+	// metadata server. Additionally, to avoid ambiguity, keys must not
+	// conflict with any other metadata keys for the project or be one of
+	// the reserved keys: - "cluster-location" - "cluster-name" -
+	// "cluster-uid" - "configure-sh" - "containerd-configure-sh" -
+	// "enable-oslogin" - "gci-ensure-gke-docker" - "gci-metrics-enabled" -
+	// "gci-update-strategy" - "instance-template" - "kube-env" -
+	// "startup-script" - "user-data" - "disable-address-manager" -
+	// "windows-startup-script-ps1" - "common-psm1" - "k8s-node-setup-psm1"
+	// - "install-ssh-psm1" - "user-profile-psm1" -
+	// "serial-port-logging-enable" Values are free-form strings, and only
+	// have meaning as interpreted by the image running in the instance. The
+	// only restriction placed on them is that each value's size must be
+	// less than or equal to 32 KB. The total size of all keys and values
+	// must be less than 512 KB.
 	Metadata map[string]string `json:"metadata,omitempty"`
 
 	// MinCpuPlatform: Minimum CPU platform to be used by this instance. The
-	// instance may be
-	// scheduled on the specified or newer CPU platform. Applicable values
-	// are the
-	// friendly names of CPU platforms, such as
-	// <code>minCpuPlatform: &quot;Intel Haswell&quot;</code>
-	// or
-	// <code>minCpuPlatform: &quot;Intel Sandy Bridge&quot;</code>. For
-	// more
-	// information, read [how to specify min
-	// CPU
-	// platform](https://cloud.google.com/compute/docs/instances/specify-
-	// min-cpu-platform)
+	// instance may be scheduled on the specified or newer CPU platform.
+	// Applicable values are the friendly names of CPU platforms, such as
+	// `minCpuPlatform: "Intel Haswell" or `minCpuPlatform: "Intel Sandy
+	// Bridge". For more information, read [how to specify min CPU
+	// platform](https://cloud.google.com/compute/docs/instances/specify-min-
+	// cpu-platform)
 	MinCpuPlatform string `json:"minCpuPlatform,omitempty"`
 
+	// NodeGroup: Setting this field will assign instances of this pool to
+	// run on the specified node group. This is useful for running workloads
+	// on [sole tenant
+	// nodes](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes).
+	NodeGroup string `json:"nodeGroup,omitempty"`
+
 	// OauthScopes: The set of Google API scopes to be made available on all
-	// of the
-	// node VMs under the "default" service account.
-	//
-	// The following scopes are recommended, but not required, and by
-	// default are
-	// not included:
-	//
-	// * `https://www.googleapis.com/auth/compute` is required for
-	// mounting
-	// persistent storage on your nodes.
-	// * `https://www.googleapis.com/auth/devstorage.read_only` is required
-	// for
-	// communicating with **gcr.io**
-	// (the [Google
-	// Container
-	// Registry](https://cloud.google.com/container-registry/)).
-	//
-	// I
-	// f unspecified, no scopes are added, unless Cloud Logging or
-	// Cloud
+	// of the node VMs under the "default" service account. The following
+	// scopes are recommended, but not required, and by default are not
+	// included: * `https://www.googleapis.com/auth/compute` is required for
+	// mounting persistent storage on your nodes. *
+	// `https://www.googleapis.com/auth/devstorage.read_only` is required
+	// for communicating with **gcr.io** (the [Google Container
+	// Registry](https://cloud.google.com/container-registry/)). If
+	// unspecified, no scopes are added, unless Cloud Logging or Cloud
 	// Monitoring are enabled, in which case their required scopes will be
 	// added.
 	OauthScopes []string `json:"oauthScopes,omitempty"`
 
 	// Preemptible: Whether the nodes are created as preemptible VM
-	// instances.
-	// See:
-	// https://cloud.google.com/compute/docs/instances/preemptible for
-	// more
+	// instances. See:
+	// https://cloud.google.com/compute/docs/instances/preemptible for more
 	// inforamtion about preemptible VM instances.
 	Preemptible bool `json:"preemptible,omitempty"`
 
 	// ReservationAffinity: The optional reservation affinity. Setting this
-	// field will apply
-	// the specified [Zonal
-	// Compute
-	// Reservation](https://cloud.google.com/compute/docs/instances/r
-	// eserving-zonal-resources)
-	// to this node pool.
+	// field will apply the specified [Zonal Compute
+	// Reservation](https://cloud.google.com/compute/docs/instances/reserving
+	// -zonal-resources) to this node pool.
 	ReservationAffinity *ReservationAffinity `json:"reservationAffinity,omitempty"`
 
 	// SandboxConfig: Sandbox configuration for this node.
 	SandboxConfig *SandboxConfig `json:"sandboxConfig,omitempty"`
 
 	// ServiceAccount: The Google Cloud Platform Service Account to be used
-	// by the node VMs.
-	// Specify the email address of the Service Account; otherwise, if no
-	// Service
-	// Account is specified, the "default" service account is used.
+	// by the node VMs. Specify the email address of the Service Account;
+	// otherwise, if no Service Account is specified, the "default" service
+	// account is used.
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 
 	// ShieldedInstanceConfig: Shielded Instance options.
 	ShieldedInstanceConfig *ShieldedInstanceConfig `json:"shieldedInstanceConfig,omitempty"`
 
 	// Tags: The list of instance tags applied to all nodes. Tags are used
-	// to identify
-	// valid sources or targets for network firewalls and are specified
-	// by
-	// the client during cluster or node pool creation. Each tag within the
-	// list
-	// must comply with RFC1035.
+	// to identify valid sources or targets for network firewalls and are
+	// specified by the client during cluster or node pool creation. Each
+	// tag within the list must comply with RFC1035.
 	Tags []string `json:"tags,omitempty"`
 
-	// Taints: List of kubernetes taints to be applied to each node.
-	//
-	// For more information, including usage and the valid values,
-	// see:
-	// https://kubernetes.io/docs/concepts/configuration/taint-and-toler
-	// ation/
+	// Taints: List of kubernetes taints to be applied to each node. For
+	// more information, including usage and the valid values, see:
+	// https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
 	Taints []*NodeTaint `json:"taints,omitempty"`
 
 	// WorkloadMetadataConfig: The workload metadata configuration for this
@@ -3475,46 +3089,24 @@ func (s *NodeConfig) MarshalJSON() ([]byte, error) {
 // NodeKubeletConfig: Node kubelet configs.
 type NodeKubeletConfig struct {
 	// CpuCfsQuota: Enable CPU CFS quota enforcement for containers that
-	// specify CPU limits.
-	//
-	// If this option is enabled, kubelet uses CFS
-	// quota
-	// (https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.tx
-	// t) to
+	// specify CPU limits. If this option is enabled, kubelet uses CFS quota
+	// (https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt) to
 	// enforce container CPU limits. Otherwise, CPU limits will not be
-	// enforced at
-	// all.
-	//
-	// Disable this option to mitigate CPU throttling problems while still
-	// having
-	// your pods to be in Guaranteed QoS class by specifying the CPU
-	// limits.
-	//
-	// The default value is 'true' if unspecified.
+	// enforced at all. Disable this option to mitigate CPU throttling
+	// problems while still having your pods to be in Guaranteed QoS class
+	// by specifying the CPU limits. The default value is 'true' if
+	// unspecified.
 	CpuCfsQuota bool `json:"cpuCfsQuota,omitempty"`
 
 	// CpuCfsQuotaPeriod: Set the CPU CFS quota period value
-	// 'cpu.cfs_period_us'.
-	//
-	// The string must be a sequence of decimal numbers, each with
-	// optional
-	// fraction and a unit suffix, such as "300ms".
-	// Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
-	// The value must be a positive duration.
+	// 'cpu.cfs_period_us'. The string must be a sequence of decimal
+	// numbers, each with optional fraction and a unit suffix, such as
+	// "300ms". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m",
+	// "h". The value must be a positive duration.
 	CpuCfsQuotaPeriod string `json:"cpuCfsQuotaPeriod,omitempty"`
 
-	// CpuManagerPolicy: Control the CPU management policy on the
-	// node.
-	// See
-	// https://kubernetes.io/docs/tasks/administer-cluster/cpu-mana
-	// gement-policies/
-	//
-	// The following values are allowed.
-	//   - "none": the default, which represents the existing scheduling
-	// behavior.
-	//   - "static": allows pods with certain resource characteristics to
-	// be
-	//               granted increased CPU affinity and exclusivity on the
+	// CpuManagerPolicy: Control the CPU management policy on the node. See
+	// https://kubernetes.io/docs/tasks/administer-cluster/cpu-management-policies/ The following values are allowed. - "none": the default, which represents the existing scheduling behavior. - "static": allows pods with certain resource characteristics to be granted increased CPU affinity and exclusivity on the
 	// node.
 	CpuManagerPolicy string `json:"cpuManagerPolicy,omitempty"`
 
@@ -3542,8 +3134,7 @@ func (s *NodeKubeletConfig) MarshalJSON() ([]byte, error) {
 }
 
 // NodeManagement: NodeManagement defines the set of node management
-// services turned on for the
-// node pool.
+// services turned on for the node pool.
 type NodeManagement struct {
 	// AutoRepair: Whether the nodes will be automatically repaired.
 	AutoRepair bool `json:"autoRepair,omitempty"`
@@ -3578,20 +3169,14 @@ func (s *NodeManagement) MarshalJSON() ([]byte, error) {
 }
 
 // NodePool: NodePool contains the name and configuration for a
-// cluster's node pool.
-// Node pools are a set of nodes (i.e. VM's), with a common
-// configuration and
-// specification, under the control of the cluster master. They may have
-// a set
-// of Kubernetes labels applied to them, which may be used to reference
-// them
-// during pod scheduling. They may also be resized up or down, to
-// accommodate
-// the workload.
+// cluster's node pool. Node pools are a set of nodes (i.e. VM's), with
+// a common configuration and specification, under the control of the
+// cluster master. They may have a set of Kubernetes labels applied to
+// them, which may be used to reference them during pod scheduling. They
+// may also be resized up or down, to accommodate the workload.
 type NodePool struct {
 	// Autoscaling: Autoscaler configuration for this NodePool. Autoscaler
-	// is enabled
-	// only if a valid configuration is present.
+	// is enabled only if a valid configuration is present.
 	Autoscaling *NodePoolAutoscaling `json:"autoscaling,omitempty"`
 
 	// Conditions: Which conditions caused the current node pool state.
@@ -3601,34 +3186,28 @@ type NodePool struct {
 	Config *NodeConfig `json:"config,omitempty"`
 
 	// InitialNodeCount: The initial node count for the pool. You must
-	// ensure that your
-	// Compute Engine [resource
-	// quota](https://cloud.google.com/compute/quotas)
-	// is sufficient for this number of instances. You must also have
-	// available
-	// firewall and routes quota.
+	// ensure that your Compute Engine [resource
+	// quota](https://cloud.google.com/compute/quotas) is sufficient for
+	// this number of instances. You must also have available firewall and
+	// routes quota.
 	InitialNodeCount int64 `json:"initialNodeCount,omitempty"`
 
 	// InstanceGroupUrls: [Output only] The resource URLs of the [managed
 	// instance
-	// groups](https://cloud.google.com/compute/docs/instance-groups
-	// /creating-groups-of-managed-instances)
-	// associated with this node pool.
+	// groups](https://cloud.google.com/compute/docs/instance-groups/creating
+	// -groups-of-managed-instances) associated with this node pool.
 	InstanceGroupUrls []string `json:"instanceGroupUrls,omitempty"`
 
-	// Locations: The list of Google Compute
-	// Engine
+	// Locations: The list of Google Compute Engine
 	// [zones](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// NodePool's nodes should be located.
+	// which the NodePool's nodes should be located.
 	Locations []string `json:"locations,omitempty"`
 
 	// Management: NodeManagement configuration for this NodePool.
 	Management *NodeManagement `json:"management,omitempty"`
 
 	// MaxPodsConstraint: The constraint on the maximum number of pods that
-	// can be run
-	// simultaneously on a node in the node pool.
+	// can be run simultaneously on a node in the node pool.
 	MaxPodsConstraint *MaxPodsConstraint `json:"maxPodsConstraint,omitempty"`
 
 	// Name: The name of the node pool.
@@ -3648,29 +3227,22 @@ type NodePool struct {
 	//   "PROVISIONING" - The PROVISIONING state indicates the node pool is
 	// being created.
 	//   "RUNNING" - The RUNNING state indicates the node pool has been
-	// created
-	// and is fully usable.
+	// created and is fully usable.
 	//   "RUNNING_WITH_ERROR" - The RUNNING_WITH_ERROR state indicates the
-	// node pool has been created
-	// and is partially usable. Some error state has occurred and
-	// some
-	// functionality may be impaired. Customer may need to reissue a
-	// request
-	// or trigger a new update.
+	// node pool has been created and is partially usable. Some error state
+	// has occurred and some functionality may be impaired. Customer may
+	// need to reissue a request or trigger a new update.
 	//   "RECONCILING" - The RECONCILING state indicates that some work is
-	// actively being done on
-	// the node pool, such as upgrading node software. Details can
-	// be found in the `statusMessage` field.
+	// actively being done on the node pool, such as upgrading node
+	// software. Details can be found in the `statusMessage` field.
 	//   "STOPPING" - The STOPPING state indicates the node pool is being
 	// deleted.
 	//   "ERROR" - The ERROR state indicates the node pool may be unusable.
-	// Details
-	// can be found in the `statusMessage` field.
+	// Details can be found in the `statusMessage` field.
 	Status string `json:"status,omitempty"`
 
 	// StatusMessage: [Output only] Additional information about the current
-	// status of this
-	// node pool instance, if available.
+	// status of this node pool instance, if available.
 	StatusMessage string `json:"statusMessage,omitempty"`
 
 	// UpgradeSettings: Upgrade settings control disruption and speed of the
@@ -3708,8 +3280,8 @@ func (s *NodePool) MarshalJSON() ([]byte, error) {
 }
 
 // NodePoolAutoscaling: NodePoolAutoscaling contains information
-// required by cluster autoscaler to
-// adjust the size of the node pool to the current cluster usage.
+// required by cluster autoscaler to adjust the size of the node pool to
+// the current cluster usage.
 type NodePoolAutoscaling struct {
 	// Autoprovisioned: Can this node pool be deleted automatically.
 	Autoprovisioned bool `json:"autoprovisioned,omitempty"`
@@ -3718,13 +3290,11 @@ type NodePoolAutoscaling struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// MaxNodeCount: Maximum number of nodes in the NodePool. Must be >=
-	// min_node_count. There
-	// has to enough quota to scale up the cluster.
+	// min_node_count. There has to enough quota to scale up the cluster.
 	MaxNodeCount int64 `json:"maxNodeCount,omitempty"`
 
 	// MinNodeCount: Minimum number of nodes in the NodePool. Must be >= 1
-	// and <=
-	// max_node_count.
+	// and <= max_node_count.
 	MinNodeCount int64 `json:"minNodeCount,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Autoprovisioned") to
@@ -3752,14 +3322,10 @@ func (s *NodePoolAutoscaling) MarshalJSON() ([]byte, error) {
 }
 
 // NodeTaint: Kubernetes taint is comprised of three fields: key, value,
-// and effect. Effect
-// can only be one of three types:  NoSchedule, PreferNoSchedule or
-// NoExecute.
-//
-// See
-// [here](https://kubernetes.io/docs/concepts/configurati
-// on/taint-and-toleration)
-// for more information, including usage and the valid values.
+// and effect. Effect can only be one of three types: NoSchedule,
+// PreferNoSchedule or NoExecute. See
+// [here](https://kubernetes.io/docs/concepts/configuration/taint-and-tol
+// eration) for more information, including usage and the valid values.
 type NodeTaint struct {
 	// Effect: Effect for taint.
 	//
@@ -3799,36 +3365,65 @@ func (s *NodeTaint) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// NotificationConfig: NotificationConfig is the configuration of
+// notifications.
+type NotificationConfig struct {
+	// Pubsub: Notification config for Pub/Sub.
+	Pubsub *PubSub `json:"pubsub,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Pubsub") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Pubsub") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *NotificationConfig) MarshalJSON() ([]byte, error) {
+	type NoMethod NotificationConfig
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // Operation: This operation resource represents operations that may
-// have happened or are
-// happening on the cluster. All fields are output only.
+// have happened or are happening on the cluster. All fields are output
+// only.
 type Operation struct {
 	// ClusterConditions: Which conditions caused the current cluster state.
+	// Deprecated. Use field error instead.
 	ClusterConditions []*StatusCondition `json:"clusterConditions,omitempty"`
 
 	// Detail: Detailed operation progress, if available.
 	Detail string `json:"detail,omitempty"`
 
-	// EndTime: [Output only] The time the operation completed,
-	// in
+	// EndTime: [Output only] The time the operation completed, in
 	// [RFC3339](https://www.ietf.org/rfc/rfc3339.txt) text format.
 	EndTime string `json:"endTime,omitempty"`
 
-	// Location: [Output only] The name of the Google Compute
-	// Engine
-	// [zone](https://cloud.google.com/compute/docs/regions-zones/regi
-	// ons-zones#available)
-	// or
-	// [region](https://cloud.google.com/compute/docs
-	// /regions-zones/regions-zones#available)
-	// in which the cluster resides.
+	// Error: The error result of the operation in case of failure.
+	Error *Status `json:"error,omitempty"`
+
+	// Location: [Output only] The name of the Google Compute Engine
+	// [zone](https://cloud.google.com/compute/docs/regions-zones/regions-zon
+	// es#available) or
+	// [region](https://cloud.google.com/compute/docs/regions-zones/regions-z
+	// ones#available) in which the cluster resides.
 	Location string `json:"location,omitempty"`
 
 	// Name: The server-assigned ID for the operation.
 	Name string `json:"name,omitempty"`
 
 	// NodepoolConditions: Which conditions caused the current node pool
-	// state.
+	// state. Deprecated. Use field error instead.
 	NodepoolConditions []*StatusCondition `json:"nodepoolConditions,omitempty"`
 
 	// OperationType: The operation type.
@@ -3860,8 +3455,7 @@ type Operation struct {
 	// SelfLink: Server-defined URL for the resource.
 	SelfLink string `json:"selfLink,omitempty"`
 
-	// StartTime: [Output only] The time the operation started,
-	// in
+	// StartTime: [Output only] The time the operation started, in
 	// [RFC3339](https://www.ietf.org/rfc/rfc3339.txt) text format.
 	StartTime string `json:"startTime,omitempty"`
 
@@ -3876,18 +3470,16 @@ type Operation struct {
 	Status string `json:"status,omitempty"`
 
 	// StatusMessage: Output only. If an error has occurred, a textual
-	// description of the error.
+	// description of the error. Deprecated. Use field error instead.
 	StatusMessage string `json:"statusMessage,omitempty"`
 
 	// TargetLink: Server-defined URL for the target of the operation.
 	TargetLink string `json:"targetLink,omitempty"`
 
-	// Zone: The name of the Google Compute
-	// Engine
+	// Zone: The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// operation is taking place. This field is deprecated, use location
-	// instead.
+	// which the operation is taking place. This field is deprecated, use
+	// location instead.
 	Zone string `json:"zone,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -3921,23 +3513,21 @@ func (s *Operation) MarshalJSON() ([]byte, error) {
 // OperationProgress: Information about operation (or operation stage)
 // progress.
 type OperationProgress struct {
-	// Metrics: Progress metric bundle, for example:
-	//   metrics: [{name: "nodes done",     int_value: 15},
-	//             {name: "nodes total",    int_value: 32}]
-	// or
-	//   metrics: [{name: "progress",       double_value: 0.56},
-	//             {name: "progress scale", double_value: 1.0}]
+	// Metrics: Progress metric bundle, for example: metrics: [{name: "nodes
+	// done", int_value: 15}, {name: "nodes total", int_value: 32}] or
+	// metrics: [{name: "progress", double_value: 0.56}, {name: "progress
+	// scale", double_value: 1.0}]
 	Metrics []*Metric `json:"metrics,omitempty"`
 
-	// Name: A non-parameterized string describing an operation stage.
-	// Unset for single-stage operations.
+	// Name: A non-parameterized string describing an operation stage. Unset
+	// for single-stage operations.
 	Name string `json:"name,omitempty"`
 
 	// Stages: Substages of an operation or a stage.
 	Stages []*OperationProgress `json:"stages,omitempty"`
 
-	// Status: Status of an operation stage.
-	// Unset for single-stage operations.
+	// Status: Status of an operation stage. Unset for single-stage
+	// operations.
 	//
 	// Possible values:
 	//   "STATUS_UNSPECIFIED" - Not set.
@@ -3974,8 +3564,7 @@ func (s *OperationProgress) MarshalJSON() ([]byte, error) {
 // feature.
 type PodSecurityPolicyConfig struct {
 	// Enabled: Enable the PodSecurityPolicy controller for this cluster. If
-	// enabled, pods
-	// must be valid under a PodSecurityPolicy to be created.
+	// enabled, pods must be valid under a PodSecurityPolicy to be created.
 	Enabled bool `json:"enabled,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Enabled") to
@@ -4008,22 +3597,18 @@ type PrivateClusterConfig struct {
 	EnablePrivateEndpoint bool `json:"enablePrivateEndpoint,omitempty"`
 
 	// EnablePrivateNodes: Whether nodes have internal IP addresses only. If
-	// enabled, all nodes are
-	// given only RFC 1918 private addresses and communicate with the master
-	// via
-	// private networking.
+	// enabled, all nodes are given only RFC 1918 private addresses and
+	// communicate with the master via private networking.
 	EnablePrivateNodes bool `json:"enablePrivateNodes,omitempty"`
 
 	// MasterGlobalAccessConfig: Controls master global access settings.
 	MasterGlobalAccessConfig *PrivateClusterMasterGlobalAccessConfig `json:"masterGlobalAccessConfig,omitempty"`
 
 	// MasterIpv4CidrBlock: The IP range in CIDR notation to use for the
-	// hosted master network. This
-	// range will be used for assigning internal IP addresses to the master
-	// or
-	// set of masters, as well as the ILB VIP. This range must not overlap
-	// with
-	// any other ranges in use within the cluster's network.
+	// hosted master network. This range will be used for assigning internal
+	// IP addresses to the master or set of masters, as well as the ILB VIP.
+	// This range must not overlap with any other ranges in use within the
+	// cluster's network.
 	MasterIpv4CidrBlock string `json:"masterIpv4CidrBlock,omitempty"`
 
 	// PeeringName: Output only. The peering name in the customer VPC used
@@ -4092,43 +3677,60 @@ func (s *PrivateClusterMasterGlobalAccessConfig) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// PubSub: Pub/Sub specific notification config.
+type PubSub struct {
+	// Enabled: Enable notifications for Pub/Sub.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Topic: The desired Pub/Sub topic to which notifications will be sent
+	// by GKE. Format is `projects/{project}/topics/{topic}`.
+	Topic string `json:"topic,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Enabled") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Enabled") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *PubSub) MarshalJSON() ([]byte, error) {
+	type NoMethod PubSub
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // RecurringTimeWindow: Represents an arbitrary window of time that
 // recurs.
 type RecurringTimeWindow struct {
 	// Recurrence: An RRULE
-	// (https://tools.ietf.org/html/rfc5545#section-3.8.5.3) for how
-	// this window reccurs. They go on for the span of time between the
-	// start and
-	// end time.
-	//
-	// For example, to have something repeat every weekday, you'd use:
-	//   <code>FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR</code>
-	// To repeat some window daily (equivalent to the
-	// DailyMaintenanceWindow):
-	//   <code>FREQ=DAILY</code>
-	// For the first weekend of every month:
-	//   <code>FREQ=MONTHLY;BYSETPOS=1;BYDAY=SA,SU</code>
+	// (https://tools.ietf.org/html/rfc5545#section-3.8.5.3) for how this
+	// window reccurs. They go on for the span of time between the start and
+	// end time. For example, to have something repeat every weekday, you'd
+	// use: `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR` To repeat some window daily
+	// (equivalent to the DailyMaintenanceWindow): `FREQ=DAILY` For the
+	// first weekend of every month: `FREQ=MONTHLY;BYSETPOS=1;BYDAY=SA,SU`
 	// This specifies how frequently the window starts. Eg, if you wanted to
-	// have
-	// a 9-5 UTC-4 window every weekday, you'd use something like:
-	// <code>
-	//   start time = 2019-01-01T09:00:00-0400
-	//   end time = 2019-01-01T17:00:00-0400
-	//   recurrence = FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR
-	// </code>
-	// Windows can span multiple days. Eg, to make the window encompass
-	// every
-	// weekend from midnight Saturday till the last minute of Sunday
-	// UTC:
-	// <code>
-	//   start time = 2019-01-05T00:00:00Z
-	//   end time = 2019-01-07T23:59:00Z
-	//   recurrence = FREQ=WEEKLY;BYDAY=SA
-	// </code>
-	// Note the start and end time's specific dates are largely arbitrary
-	// except
-	// to specify duration of the window and when it first starts.
-	// The FREQ values of HOURLY, MINUTELY, and SECONDLY are not supported.
+	// have a 9-5 UTC-4 window every weekday, you'd use something like: ```
+	// start time = 2019-01-01T09:00:00-0400 end time =
+	// 2019-01-01T17:00:00-0400 recurrence =
+	// FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR ``` Windows can span multiple days.
+	// Eg, to make the window encompass every weekend from midnight Saturday
+	// till the last minute of Sunday UTC: ``` start time =
+	// 2019-01-05T00:00:00Z end time = 2019-01-07T23:59:00Z recurrence =
+	// FREQ=WEEKLY;BYDAY=SA ``` Note the start and end time's specific dates
+	// are largely arbitrary except to specify duration of the window and
+	// when it first starts. The FREQ values of HOURLY, MINUTELY, and
+	// SECONDLY are not supported.
 	Recurrence string `json:"recurrence,omitempty"`
 
 	// Window: The window of the first recurrence.
@@ -4158,14 +3760,10 @@ func (s *RecurringTimeWindow) MarshalJSON() ([]byte, error) {
 }
 
 // ReleaseChannel: ReleaseChannel indicates which release channel a
-// cluster is
-// subscribed to. Release channels are arranged in order of risk.
-//
-// When a cluster is subscribed to a release channel, Google
-// maintains
-// both the master version and the node version. Node
-// auto-upgrade
-// defaults to true and cannot be disabled.
+// cluster is subscribed to. Release channels are arranged in order of
+// risk. When a cluster is subscribed to a release channel, Google
+// maintains both the master version and the node version. Node
+// auto-upgrade defaults to true and cannot be disabled.
 type ReleaseChannel struct {
 	// Channel: channel specifies which release channel the cluster is
 	// subscribed to.
@@ -4173,22 +3771,14 @@ type ReleaseChannel struct {
 	// Possible values:
 	//   "UNSPECIFIED" - No channel specified.
 	//   "RAPID" - RAPID channel is offered on an early access basis for
-	// customers who want
-	// to test new releases.
-	//
-	// WARNING: Versions available in the RAPID Channel may be subject
-	// to
-	// unresolved issues with no known workaround and are not subject to
-	// any
-	// SLAs.
+	// customers who want to test new releases. WARNING: Versions available
+	// in the RAPID Channel may be subject to unresolved issues with no
+	// known workaround and are not subject to any SLAs.
 	//   "REGULAR" - Clusters subscribed to REGULAR receive versions that
-	// are considered GA
-	// quality. REGULAR is intended for production users who want to
-	// take
-	// advantage of new features.
+	// are considered GA quality. REGULAR is intended for production users
+	// who want to take advantage of new features.
 	//   "STABLE" - Clusters subscribed to STABLE receive versions that are
-	// known to be
-	// stable and reliable in production.
+	// known to be stable and reliable in production.
 	Channel string `json:"channel,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Channel") to
@@ -4217,10 +3807,8 @@ func (s *ReleaseChannel) MarshalJSON() ([]byte, error) {
 // ReleaseChannelConfig: ReleaseChannelConfig exposes configuration for
 // a release channel.
 type ReleaseChannelConfig struct {
-	// AvailableVersions: Deprecated.
-	// This field has been deprecated and replaced with the
-	// valid_versions
-	// field.
+	// AvailableVersions: Deprecated. This field has been deprecated and
+	// replaced with the valid_versions field.
 	AvailableVersions []*AvailableVersion `json:"availableVersions,omitempty"`
 
 	// Channel: The release channel this configuration applies to.
@@ -4228,22 +3816,14 @@ type ReleaseChannelConfig struct {
 	// Possible values:
 	//   "UNSPECIFIED" - No channel specified.
 	//   "RAPID" - RAPID channel is offered on an early access basis for
-	// customers who want
-	// to test new releases.
-	//
-	// WARNING: Versions available in the RAPID Channel may be subject
-	// to
-	// unresolved issues with no known workaround and are not subject to
-	// any
-	// SLAs.
+	// customers who want to test new releases. WARNING: Versions available
+	// in the RAPID Channel may be subject to unresolved issues with no
+	// known workaround and are not subject to any SLAs.
 	//   "REGULAR" - Clusters subscribed to REGULAR receive versions that
-	// are considered GA
-	// quality. REGULAR is intended for production users who want to
-	// take
-	// advantage of new features.
+	// are considered GA quality. REGULAR is intended for production users
+	// who want to take advantage of new features.
 	//   "STABLE" - Clusters subscribed to STABLE receive versions that are
-	// known to be
-	// stable and reliable in production.
+	// known to be stable and reliable in production.
 	Channel string `json:"channel,omitempty"`
 
 	// DefaultVersion: The default version for newly created clusters on the
@@ -4279,10 +3859,8 @@ func (s *ReleaseChannelConfig) MarshalJSON() ([]byte, error) {
 
 // ReservationAffinity:
 // [ReservationAffinity](https://cloud.google.com/compute/docs/instances/
-// reserving-zonal-resources)
-// is the configuration of desired reservation which instances could
-// take
-// capacity from.
+// reserving-zonal-resources) is the configuration of desired
+// reservation which instances could take capacity from.
 type ReservationAffinity struct {
 	// ConsumeReservationType: Corresponds to the type of reservation
 	// consumption.
@@ -4292,15 +3870,13 @@ type ReservationAffinity struct {
 	//   "NO_RESERVATION" - Do not consume from any reserved capacity.
 	//   "ANY_RESERVATION" - Consume any reservation available.
 	//   "SPECIFIC_RESERVATION" - Must consume from a specific reservation.
-	// Must specify key value fields
-	// for specifying the reservations.
+	// Must specify key value fields for specifying the reservations.
 	ConsumeReservationType string `json:"consumeReservationType,omitempty"`
 
 	// Key: Corresponds to the label key of a reservation resource. To
-	// target a
-	// SPECIFIC_RESERVATION by name, specify
-	// "googleapis.com/reservation-name" as
-	// the key and specify the name of your reservation as its value.
+	// target a SPECIFIC_RESERVATION by name, specify
+	// "googleapis.com/reservation-name" as the key and specify the name of
+	// your reservation as its value.
 	Key string `json:"key,omitempty"`
 
 	// Values: Corresponds to the label value(s) of reservation resource(s).
@@ -4332,8 +3908,7 @@ func (s *ReservationAffinity) MarshalJSON() ([]byte, error) {
 }
 
 // ResourceLimit: Contains information about amount of some resource in
-// the cluster.
-// For memory, value should be in GB.
+// the cluster. For memory, value should be in GB.
 type ResourceLimit struct {
 	// Maximum: Maximum amount of the resource in the cluster.
 	Maximum int64 `json:"maximum,omitempty,string"`
@@ -4379,9 +3954,8 @@ type ResourceUsageExportConfig struct {
 	ConsumptionMeteringConfig *ConsumptionMeteringConfig `json:"consumptionMeteringConfig,omitempty"`
 
 	// EnableNetworkEgressMetering: Whether to enable network egress
-	// metering for this cluster. If enabled, a
-	// daemonset will be created in the cluster to meter network egress
-	// traffic.
+	// metering for this cluster. If enabled, a daemonset will be created in
+	// the cluster to meter network egress traffic.
 	EnableNetworkEgressMetering bool `json:"enableNetworkEgressMetering,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "BigqueryDestination")
@@ -4409,43 +3983,33 @@ func (s *ResourceUsageExportConfig) MarshalJSON() ([]byte, error) {
 }
 
 // RollbackNodePoolUpgradeRequest: RollbackNodePoolUpgradeRequest
-// rollbacks the previously Aborted or Failed
-// NodePool upgrade. This will be an no-op if the last upgrade
-// successfully
-// completed.
+// rollbacks the previously Aborted or Failed NodePool upgrade. This
+// will be an no-op if the last upgrade successfully completed.
 type RollbackNodePoolUpgradeRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// rollback.
+	// ClusterId: Required. Deprecated. The name of the cluster to rollback.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// Name: The name (project, location, cluster, node pool id) of the node
-	// poll to
-	// rollback upgrade.
-	// Specified in the format
+	// poll to rollback upgrade. Specified in the format
 	// `projects/*/locations/*/clusters/*/nodePools/*`.
 	Name string `json:"name,omitempty"`
 
 	// NodePoolId: Required. Deprecated. The name of the node pool to
-	// rollback.
-	// This field has been deprecated and replaced by the name field.
+	// rollback. This field has been deprecated and replaced by the name
+	// field.
 	NodePoolId string `json:"nodePoolId,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -4561,35 +4125,27 @@ func (s *ServerConfig) MarshalJSON() ([]byte, error) {
 // with the cluster.
 type SetAddonsConfigRequest struct {
 	// AddonsConfig: Required. The desired configurations for the various
-	// addons available to run in the
-	// cluster.
+	// addons available to run in the cluster.
 	AddonsConfig *AddonsConfig `json:"addonsConfig,omitempty"`
 
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// upgrade.
+	// ClusterId: Required. Deprecated. The name of the cluster to upgrade.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// Name: The name (project, location, cluster) of the cluster to set
-	// addons.
-	// Specified in the format `projects/*/locations/*/clusters/*`.
+	// addons. Specified in the format `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "AddonsConfig") to
@@ -4616,51 +4172,38 @@ func (s *SetAddonsConfigRequest) MarshalJSON() ([]byte, error) {
 }
 
 // SetLabelsRequest: SetLabelsRequest sets the Google Cloud Platform
-// labels on a Google Container
-// Engine cluster, which will in turn set them for Google Compute
-// Engine
-// resources used by that cluster
+// labels on a Google Container Engine cluster, which will in turn set
+// them for Google Compute Engine resources used by that cluster
 type SetLabelsRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster.
-	// This field has been deprecated and replaced by the name field.
+	// ClusterId: Required. Deprecated. The name of the cluster. This field
+	// has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// LabelFingerprint: Required. The fingerprint of the previous set of
-	// labels for this resource,
-	// used to detect conflicts. The fingerprint is initially generated
-	// by
-	// Kubernetes Engine and changes after every request to modify or
-	// update
-	// labels. You must always provide an up-to-date fingerprint hash
-	// when
-	// updating or changing labels. Make a <code>get()</code> request to
-	// the
-	// resource to get the latest fingerprint.
+	// labels for this resource, used to detect conflicts. The fingerprint
+	// is initially generated by Kubernetes Engine and changes after every
+	// request to modify or update labels. You must always provide an
+	// up-to-date fingerprint hash when updating or changing labels. Make a
+	// `get()` request to the resource to get the latest fingerprint.
 	LabelFingerprint string `json:"labelFingerprint,omitempty"`
 
 	// Name: The name (project, location, cluster id) of the cluster to set
-	// labels.
-	// Specified in the format `projects/*/locations/*/clusters/*`.
+	// labels. Specified in the format `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://developers.google.com/console/help/new/#projec
-	// tnumber).
-	// This field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://developers.google.com/console/help/new/#projectnumber)
+	// . This field has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
 	// ResourceLabels: Required. The labels to set for that cluster.
 	ResourceLabels map[string]string `json:"resourceLabels,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -4687,11 +4230,9 @@ func (s *SetLabelsRequest) MarshalJSON() ([]byte, error) {
 }
 
 // SetLegacyAbacRequest: SetLegacyAbacRequest enables or disables the
-// ABAC authorization mechanism for
-// a cluster.
+// ABAC authorization mechanism for a cluster.
 type SetLegacyAbacRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// update.
+	// ClusterId: Required. Deprecated. The name of the cluster to update.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
@@ -4700,25 +4241,20 @@ type SetLegacyAbacRequest struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// Name: The name (project, location, cluster id) of the cluster to set
-	// legacy abac.
-	// Specified in the format `projects/*/locations/*/clusters/*`.
+	// legacy abac. Specified in the format
+	// `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -4747,44 +4283,33 @@ func (s *SetLegacyAbacRequest) MarshalJSON() ([]byte, error) {
 // SetLocationsRequest: SetLocationsRequest sets the locations of the
 // cluster.
 type SetLocationsRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// upgrade.
+	// ClusterId: Required. Deprecated. The name of the cluster to upgrade.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
-	// Locations: Required. The desired list of Google Compute
-	// Engine
+	// Locations: Required. The desired list of Google Compute Engine
 	// [zones](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster's nodes should be located. Changing the locations a cluster
-	// is in
-	// will result in nodes being either created or removed from the
-	// cluster,
-	// depending on whether locations are being added or removed.
-	//
-	// This list must always include the cluster's primary zone.
+	// which the cluster's nodes should be located. Changing the locations a
+	// cluster is in will result in nodes being either created or removed
+	// from the cluster, depending on whether locations are being added or
+	// removed. This list must always include the cluster's primary zone.
 	Locations []string `json:"locations,omitempty"`
 
 	// Name: The name (project, location, cluster) of the cluster to set
-	// locations.
-	// Specified in the format `projects/*/locations/*/clusters/*`.
+	// locations. Specified in the format
+	// `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -4813,47 +4338,34 @@ func (s *SetLocationsRequest) MarshalJSON() ([]byte, error) {
 // SetLoggingServiceRequest: SetLoggingServiceRequest sets the logging
 // service of a cluster.
 type SetLoggingServiceRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// upgrade.
+	// ClusterId: Required. Deprecated. The name of the cluster to upgrade.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// LoggingService: Required. The logging service the cluster should use
-	// to write logs.
-	// Currently available options:
-	//
-	// * `logging.googleapis.com/kubernetes` - The Cloud Logging
-	// service with a Kubernetes-native resource model
-	// * `logging.googleapis.com` - The legacy Cloud Logging service (no
-	// longer
-	//   available as of GKE 1.15).
-	// * `none` - no logs will be exported from the cluster.
-	//
-	// If left as an empty string,`logging.googleapis.com/kubernetes` will
-	// be
-	// used for GKE 1.14+ or `logging.googleapis.com` for earlier versions.
+	// to write logs. Currently available options: *
+	// `logging.googleapis.com/kubernetes` - The Cloud Logging service with
+	// a Kubernetes-native resource model * `logging.googleapis.com` - The
+	// legacy Cloud Logging service (no longer available as of GKE 1.15). *
+	// `none` - no logs will be exported from the cluster. If left as an
+	// empty string,`logging.googleapis.com/kubernetes` will be used for GKE
+	// 1.14+ or `logging.googleapis.com` for earlier versions.
 	LoggingService string `json:"loggingService,omitempty"`
 
 	// Name: The name (project, location, cluster) of the cluster to set
-	// logging.
-	// Specified in the format `projects/*/locations/*/clusters/*`.
+	// logging. Specified in the format `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -4886,26 +4398,21 @@ type SetMaintenancePolicyRequest struct {
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// MaintenancePolicy: Required. The maintenance policy to be set for the
-	// cluster. An empty field
-	// clears the existing maintenance policy.
+	// cluster. An empty field clears the existing maintenance policy.
 	MaintenancePolicy *MaintenancePolicy `json:"maintenancePolicy,omitempty"`
 
 	// Name: The name (project, location, cluster id) of the cluster to set
-	// maintenance
-	// policy.
-	// Specified in the format `projects/*/locations/*/clusters/*`.
+	// maintenance policy. Specified in the format
+	// `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProjectId: Required. The Google Developers Console [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
+	// project number](https://support.google.com/cloud/answer/6158840).
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. The name of the Google Compute
-	// Engine
+	// Zone: Required. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides.
+	// which the cluster resides.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -4941,43 +4448,33 @@ type SetMasterAuthRequest struct {
 	//   "UNKNOWN" - Operation is unknown and will error out.
 	//   "SET_PASSWORD" - Set the password to a user generated value.
 	//   "GENERATE_PASSWORD" - Generate a new password and set it to that.
-	//   "SET_USERNAME" - Set the username.  If an empty username is
-	// provided, basic authentication
-	// is disabled for the cluster.  If a non-empty username is provided,
-	// basic
-	// authentication is enabled, with either a provided password or a
-	// generated
-	// one.
+	//   "SET_USERNAME" - Set the username. If an empty username is
+	// provided, basic authentication is disabled for the cluster. If a
+	// non-empty username is provided, basic authentication is enabled, with
+	// either a provided password or a generated one.
 	Action string `json:"action,omitempty"`
 
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// upgrade.
+	// ClusterId: Required. Deprecated. The name of the cluster to upgrade.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// Name: The name (project, location, cluster) of the cluster to set
-	// auth.
-	// Specified in the format `projects/*/locations/*/clusters/*`.
+	// auth. Specified in the format `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
 	// Update: Required. A description of the update.
 	Update *MasterAuth `json:"update,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Action") to
@@ -5006,49 +4503,36 @@ func (s *SetMasterAuthRequest) MarshalJSON() ([]byte, error) {
 // SetMonitoringServiceRequest: SetMonitoringServiceRequest sets the
 // monitoring service of a cluster.
 type SetMonitoringServiceRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// upgrade.
+	// ClusterId: Required. Deprecated. The name of the cluster to upgrade.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// MonitoringService: Required. The monitoring service the cluster
-	// should use to write metrics.
-	// Currently available options:
-	//
-	// * "monitoring.googleapis.com/kubernetes" - The Cloud
-	// Monitoring
-	// service with a Kubernetes-native resource model
-	// * `monitoring.googleapis.com` - The legacy Cloud Monitoring service
-	// (no
-	//   longer available as of GKE 1.15).
-	// * `none` - No metrics will be exported from the cluster.
-	//
-	// If left as an empty string,`monitoring.googleapis.com/kubernetes`
-	// will be
-	// used for GKE 1.14+ or `monitoring.googleapis.com` for earlier
+	// should use to write metrics. Currently available options: *
+	// "monitoring.googleapis.com/kubernetes" - The Cloud Monitoring service
+	// with a Kubernetes-native resource model * `monitoring.googleapis.com`
+	// - The legacy Cloud Monitoring service (no longer available as of GKE
+	// 1.15). * `none` - No metrics will be exported from the cluster. If
+	// left as an empty string,`monitoring.googleapis.com/kubernetes` will
+	// be used for GKE 1.14+ or `monitoring.googleapis.com` for earlier
 	// versions.
 	MonitoringService string `json:"monitoringService,omitempty"`
 
 	// Name: The name (project, location, cluster) of the cluster to set
-	// monitoring.
-	// Specified in the format `projects/*/locations/*/clusters/*`.
+	// monitoring. Specified in the format
+	// `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -5077,13 +4561,13 @@ func (s *SetMonitoringServiceRequest) MarshalJSON() ([]byte, error) {
 // SetNetworkPolicyRequest: SetNetworkPolicyRequest enables/disables
 // network policy for a cluster.
 type SetNetworkPolicyRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster.
-	// This field has been deprecated and replaced by the name field.
+	// ClusterId: Required. Deprecated. The name of the cluster. This field
+	// has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// Name: The name (project, location, cluster id) of the cluster to set
-	// networking
-	// policy. Specified in the format `projects/*/locations/*/clusters/*`.
+	// networking policy. Specified in the format
+	// `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// NetworkPolicy: Required. Configuration options for the NetworkPolicy
@@ -5091,20 +4575,15 @@ type SetNetworkPolicyRequest struct {
 	NetworkPolicy *NetworkPolicy `json:"networkPolicy,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://developers.google.com/console/help/new/#projec
-	// tnumber).
-	// This field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://developers.google.com/console/help/new/#projectnumber)
+	// . This field has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -5136,38 +4615,30 @@ type SetNodePoolAutoscalingRequest struct {
 	// Autoscaling: Required. Autoscaling configuration for the node pool.
 	Autoscaling *NodePoolAutoscaling `json:"autoscaling,omitempty"`
 
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// upgrade.
+	// ClusterId: Required. Deprecated. The name of the cluster to upgrade.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// Name: The name (project, location, cluster, node pool) of the node
-	// pool to set
-	// autoscaler settings. Specified in the
-	// format
+	// pool to set autoscaler settings. Specified in the format
 	// `projects/*/locations/*/clusters/*/nodePools/*`.
 	Name string `json:"name,omitempty"`
 
 	// NodePoolId: Required. Deprecated. The name of the node pool to
-	// upgrade.
-	// This field has been deprecated and replaced by the name field.
+	// upgrade. This field has been deprecated and replaced by the name
+	// field.
 	NodePoolId string `json:"nodePoolId,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Autoscaling") to
@@ -5194,11 +4665,9 @@ func (s *SetNodePoolAutoscalingRequest) MarshalJSON() ([]byte, error) {
 }
 
 // SetNodePoolManagementRequest: SetNodePoolManagementRequest sets the
-// node management properties of a node
-// pool.
+// node management properties of a node pool.
 type SetNodePoolManagementRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// update.
+	// ClusterId: Required. Deprecated. The name of the cluster to update.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
@@ -5206,32 +4675,25 @@ type SetNodePoolManagementRequest struct {
 	Management *NodeManagement `json:"management,omitempty"`
 
 	// Name: The name (project, location, cluster, node pool id) of the node
-	// pool to set
-	// management properties. Specified in the
-	// format
+	// pool to set management properties. Specified in the format
 	// `projects/*/locations/*/clusters/*/nodePools/*`.
 	Name string `json:"name,omitempty"`
 
 	// NodePoolId: Required. Deprecated. The name of the node pool to
-	// update.
-	// This field has been deprecated and replaced by the name field.
+	// update. This field has been deprecated and replaced by the name
+	// field.
 	NodePoolId string `json:"nodePoolId,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -5257,19 +4719,15 @@ func (s *SetNodePoolManagementRequest) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// SetNodePoolSizeRequest: SetNodePoolSizeRequest sets the size a
-// node
+// SetNodePoolSizeRequest: SetNodePoolSizeRequest sets the size a node
 // pool.
 type SetNodePoolSizeRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// update.
+	// ClusterId: Required. Deprecated. The name of the cluster to update.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// Name: The name (project, location, cluster, node pool id) of the node
-	// pool to set
-	// size.
-	// Specified in the format
+	// pool to set size. Specified in the format
 	// `projects/*/locations/*/clusters/*/nodePools/*`.
 	Name string `json:"name,omitempty"`
 
@@ -5277,25 +4735,20 @@ type SetNodePoolSizeRequest struct {
 	NodeCount int64 `json:"nodeCount,omitempty"`
 
 	// NodePoolId: Required. Deprecated. The name of the node pool to
-	// update.
-	// This field has been deprecated and replaced by the name field.
+	// update. This field has been deprecated and replaced by the name
+	// field.
 	NodePoolId string `json:"nodePoolId,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -5324,25 +4777,16 @@ func (s *SetNodePoolSizeRequest) MarshalJSON() ([]byte, error) {
 // ShieldedInstanceConfig: A set of Shielded Instance options.
 type ShieldedInstanceConfig struct {
 	// EnableIntegrityMonitoring: Defines whether the instance has integrity
-	// monitoring enabled.
-	//
-	// Enables monitoring and attestation of the boot integrity of the
-	// instance.
-	// The attestation is performed against the integrity policy baseline.
-	// This
-	// baseline is initially derived from the implicitly trusted boot image
-	// when
-	// the instance is created.
+	// monitoring enabled. Enables monitoring and attestation of the boot
+	// integrity of the instance. The attestation is performed against the
+	// integrity policy baseline. This baseline is initially derived from
+	// the implicitly trusted boot image when the instance is created.
 	EnableIntegrityMonitoring bool `json:"enableIntegrityMonitoring,omitempty"`
 
 	// EnableSecureBoot: Defines whether the instance has Secure Boot
-	// enabled.
-	//
-	// Secure Boot helps ensure that the system only runs authentic software
-	// by
-	// verifying the digital signature of all boot components, and halting
-	// the
-	// boot process if signature verification fails.
+	// enabled. Secure Boot helps ensure that the system only runs authentic
+	// software by verifying the digital signature of all boot components,
+	// and halting the boot process if signature verification fails.
 	EnableSecureBoot bool `json:"enableSecureBoot,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g.
@@ -5400,37 +4844,31 @@ func (s *ShieldedNodes) MarshalJSON() ([]byte, error) {
 }
 
 // StartIPRotationRequest: StartIPRotationRequest creates a new IP for
-// the cluster and then performs
-// a node upgrade on each node pool to point to the new IP.
+// the cluster and then performs a node upgrade on each node pool to
+// point to the new IP.
 type StartIPRotationRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster.
-	// This field has been deprecated and replaced by the name field.
+	// ClusterId: Required. Deprecated. The name of the cluster. This field
+	// has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// Name: The name (project, location, cluster id) of the cluster to
-	// start IP
-	// rotation. Specified in the format
+	// start IP rotation. Specified in the format
 	// `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://developers.google.com/console/help/new/#projec
-	// tnumber).
-	// This field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://developers.google.com/console/help/new/#projectnumber)
+	// . This field has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
 	// RotateCredentials: Whether to rotate credentials during IP rotation.
 	RotateCredentials bool `json:"rotateCredentials,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -5456,30 +4894,25 @@ func (s *StartIPRotationRequest) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// StatusCondition: StatusCondition describes why a cluster or a node
-// pool has a certain status
-// (e.g., ERROR or DEGRADED).
-type StatusCondition struct {
-	// Code: Machine-friendly representation of the condition
-	//
-	// Possible values:
-	//   "UNKNOWN" - UNKNOWN indicates a generic condition.
-	//   "GCE_STOCKOUT" - GCE_STOCKOUT indicates that Google Compute Engine
-	// resources are
-	// temporarily unavailable.
-	//   "GKE_SERVICE_ACCOUNT_DELETED" - GKE_SERVICE_ACCOUNT_DELETED
-	// indicates that the user deleted their robot
-	// service account.
-	//   "GCE_QUOTA_EXCEEDED" - Google Compute Engine quota was exceeded.
-	//   "SET_BY_OPERATOR" - Cluster state was manually changed by an SRE
-	// due to a system logic error.
-	//   "CLOUD_KMS_KEY_ERROR" - Unable to perform an encrypt operation
-	// against the CloudKMS key used for
-	// etcd level encryption.
-	// More codes TBA
-	Code string `json:"code,omitempty"`
+// Status: The `Status` type defines a logical error model that is
+// suitable for different programming environments, including REST APIs
+// and RPC APIs. It is used by [gRPC](https://github.com/grpc). Each
+// `Status` message contains three pieces of data: error code, error
+// message, and error details. You can find out more about this error
+// model and how to work with it in the [API Design
+// Guide](https://cloud.google.com/apis/design/errors).
+type Status struct {
+	// Code: The status code, which should be an enum value of
+	// google.rpc.Code.
+	Code int64 `json:"code,omitempty"`
 
-	// Message: Human-friendly representation of the condition
+	// Details: A list of messages that carry the error details. There is a
+	// common set of message types for APIs to use.
+	Details []googleapi.RawMessage `json:"details,omitempty"`
+
+	// Message: A developer-facing error message, which should be in
+	// English. Any user-facing error message should be localized and sent
+	// in the google.rpc.Status.details field, or localized by the client.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -5499,6 +4932,144 @@ type StatusCondition struct {
 	NullFields []string `json:"-"`
 }
 
+func (s *Status) MarshalJSON() ([]byte, error) {
+	type NoMethod Status
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// StatusCondition: StatusCondition describes why a cluster or a node
+// pool has a certain status (e.g., ERROR or DEGRADED).
+type StatusCondition struct {
+	// CanonicalCode: Canonical code of the condition.
+	//
+	// Possible values:
+	//   "OK" - Not an error; returned on success HTTP Mapping: 200 OK
+	//   "CANCELLED" - The operation was cancelled, typically by the caller.
+	// HTTP Mapping: 499 Client Closed Request
+	//   "UNKNOWN" - Unknown error. For example, this error may be returned
+	// when a `Status` value received from another address space belongs to
+	// an error space that is not known in this address space. Also errors
+	// raised by APIs that do not return enough error information may be
+	// converted to this error. HTTP Mapping: 500 Internal Server Error
+	//   "INVALID_ARGUMENT" - The client specified an invalid argument. Note
+	// that this differs from `FAILED_PRECONDITION`. `INVALID_ARGUMENT`
+	// indicates arguments that are problematic regardless of the state of
+	// the system (e.g., a malformed file name). HTTP Mapping: 400 Bad
+	// Request
+	//   "DEADLINE_EXCEEDED" - The deadline expired before the operation
+	// could complete. For operations that change the state of the system,
+	// this error may be returned even if the operation has completed
+	// successfully. For example, a successful response from a server could
+	// have been delayed long enough for the deadline to expire. HTTP
+	// Mapping: 504 Gateway Timeout
+	//   "NOT_FOUND" - Some requested entity (e.g., file or directory) was
+	// not found. Note to server developers: if a request is denied for an
+	// entire class of users, such as gradual feature rollout or
+	// undocumented allowlist, `NOT_FOUND` may be used. If a request is
+	// denied for some users within a class of users, such as user-based
+	// access control, `PERMISSION_DENIED` must be used. HTTP Mapping: 404
+	// Not Found
+	//   "ALREADY_EXISTS" - The entity that a client attempted to create
+	// (e.g., file or directory) already exists. HTTP Mapping: 409 Conflict
+	//   "PERMISSION_DENIED" - The caller does not have permission to
+	// execute the specified operation. `PERMISSION_DENIED` must not be used
+	// for rejections caused by exhausting some resource (use
+	// `RESOURCE_EXHAUSTED` instead for those errors). `PERMISSION_DENIED`
+	// must not be used if the caller can not be identified (use
+	// `UNAUTHENTICATED` instead for those errors). This error code does not
+	// imply the request is valid or the requested entity exists or
+	// satisfies other pre-conditions. HTTP Mapping: 403 Forbidden
+	//   "UNAUTHENTICATED" - The request does not have valid authentication
+	// credentials for the operation. HTTP Mapping: 401 Unauthorized
+	//   "RESOURCE_EXHAUSTED" - Some resource has been exhausted, perhaps a
+	// per-user quota, or perhaps the entire file system is out of space.
+	// HTTP Mapping: 429 Too Many Requests
+	//   "FAILED_PRECONDITION" - The operation was rejected because the
+	// system is not in a state required for the operation's execution. For
+	// example, the directory to be deleted is non-empty, an rmdir operation
+	// is applied to a non-directory, etc. Service implementors can use the
+	// following guidelines to decide between `FAILED_PRECONDITION`,
+	// `ABORTED`, and `UNAVAILABLE`: (a) Use `UNAVAILABLE` if the client can
+	// retry just the failing call. (b) Use `ABORTED` if the client should
+	// retry at a higher level (e.g., when a client-specified test-and-set
+	// fails, indicating the client should restart a read-modify-write
+	// sequence). (c) Use `FAILED_PRECONDITION` if the client should not
+	// retry until the system state has been explicitly fixed. E.g., if an
+	// "rmdir" fails because the directory is non-empty,
+	// `FAILED_PRECONDITION` should be returned since the client should not
+	// retry unless the files are deleted from the directory. HTTP Mapping:
+	// 400 Bad Request
+	//   "ABORTED" - The operation was aborted, typically due to a
+	// concurrency issue such as a sequencer check failure or transaction
+	// abort. See the guidelines above for deciding between
+	// `FAILED_PRECONDITION`, `ABORTED`, and `UNAVAILABLE`. HTTP Mapping:
+	// 409 Conflict
+	//   "OUT_OF_RANGE" - The operation was attempted past the valid range.
+	// E.g., seeking or reading past end-of-file. Unlike `INVALID_ARGUMENT`,
+	// this error indicates a problem that may be fixed if the system state
+	// changes. For example, a 32-bit file system will generate
+	// `INVALID_ARGUMENT` if asked to read at an offset that is not in the
+	// range [0,2^32-1], but it will generate `OUT_OF_RANGE` if asked to
+	// read from an offset past the current file size. There is a fair bit
+	// of overlap between `FAILED_PRECONDITION` and `OUT_OF_RANGE`. We
+	// recommend using `OUT_OF_RANGE` (the more specific error) when it
+	// applies so that callers who are iterating through a space can easily
+	// look for an `OUT_OF_RANGE` error to detect when they are done. HTTP
+	// Mapping: 400 Bad Request
+	//   "UNIMPLEMENTED" - The operation is not implemented or is not
+	// supported/enabled in this service. HTTP Mapping: 501 Not Implemented
+	//   "INTERNAL" - Internal errors. This means that some invariants
+	// expected by the underlying system have been broken. This error code
+	// is reserved for serious errors. HTTP Mapping: 500 Internal Server
+	// Error
+	//   "UNAVAILABLE" - The service is currently unavailable. This is most
+	// likely a transient condition, which can be corrected by retrying with
+	// a backoff. Note that it is not always safe to retry non-idempotent
+	// operations. See the guidelines above for deciding between
+	// `FAILED_PRECONDITION`, `ABORTED`, and `UNAVAILABLE`. HTTP Mapping:
+	// 503 Service Unavailable
+	//   "DATA_LOSS" - Unrecoverable data loss or corruption. HTTP Mapping:
+	// 500 Internal Server Error
+	CanonicalCode string `json:"canonicalCode,omitempty"`
+
+	// Code: Machine-friendly representation of the condition Deprecated.
+	// Use canonical_code instead.
+	//
+	// Possible values:
+	//   "UNKNOWN" - UNKNOWN indicates a generic condition.
+	//   "GCE_STOCKOUT" - GCE_STOCKOUT indicates that Google Compute Engine
+	// resources are temporarily unavailable.
+	//   "GKE_SERVICE_ACCOUNT_DELETED" - GKE_SERVICE_ACCOUNT_DELETED
+	// indicates that the user deleted their robot service account.
+	//   "GCE_QUOTA_EXCEEDED" - Google Compute Engine quota was exceeded.
+	//   "SET_BY_OPERATOR" - Cluster state was manually changed by an SRE
+	// due to a system logic error.
+	//   "CLOUD_KMS_KEY_ERROR" - Unable to perform an encrypt operation
+	// against the CloudKMS key used for etcd level encryption. More codes
+	// TBA
+	Code string `json:"code,omitempty"`
+
+	// Message: Human-friendly representation of the condition
+	Message string `json:"message,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "CanonicalCode") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "CanonicalCode") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
 func (s *StatusCondition) MarshalJSON() ([]byte, error) {
 	type NoMethod StatusCondition
 	raw := NoMethod(*s)
@@ -5508,8 +5079,7 @@ func (s *StatusCondition) MarshalJSON() ([]byte, error) {
 // TimeWindow: Represents an arbitrary window of time.
 type TimeWindow struct {
 	// EndTime: The time that the window ends. The end time should take
-	// place after the
-	// start time.
+	// place after the start time.
 	EndTime string `json:"endTime,omitempty"`
 
 	// StartTime: The time that the window first starts.
@@ -5576,34 +5146,27 @@ func (s *TpuConfig) MarshalJSON() ([]byte, error) {
 // UpdateClusterRequest: UpdateClusterRequest updates the settings of a
 // cluster.
 type UpdateClusterRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// upgrade.
+	// ClusterId: Required. Deprecated. The name of the cluster to upgrade.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
-	// Name: The name (project, location, cluster) of the cluster to
-	// update.
+	// Name: The name (project, location, cluster) of the cluster to update.
 	// Specified in the format `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
 	// Update: Required. A description of the update.
 	Update *ClusterUpdate `json:"update,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -5632,46 +5195,34 @@ func (s *UpdateClusterRequest) MarshalJSON() ([]byte, error) {
 // UpdateMasterRequest: UpdateMasterRequest updates the master of the
 // cluster.
 type UpdateMasterRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// upgrade.
+	// ClusterId: Required. Deprecated. The name of the cluster to upgrade.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
 	// MasterVersion: Required. The Kubernetes version to change the master
-	// to.
-	//
-	// Users may specify either explicit versions offered by
-	// Kubernetes Engine or version aliases, which have the following
-	// behavior:
-	//
-	// - "latest": picks the highest valid Kubernetes version
-	// - "1.X": picks the highest valid patch+gke.N patch in the 1.X
-	// version
-	// - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y version
-	// - "1.X.Y-gke.N": picks an explicit Kubernetes version
-	// - "-": picks the default Kubernetes version
+	// to. Users may specify either explicit versions offered by Kubernetes
+	// Engine or version aliases, which have the following behavior: -
+	// "latest": picks the highest valid Kubernetes version - "1.X": picks
+	// the highest valid patch+gke.N patch in the 1.X version - "1.X.Y":
+	// picks the highest valid gke.N patch in the 1.X.Y version -
+	// "1.X.Y-gke.N": picks an explicit Kubernetes version - "-": picks the
+	// default Kubernetes version
 	MasterVersion string `json:"masterVersion,omitempty"`
 
-	// Name: The name (project, location, cluster) of the cluster to
-	// update.
+	// Name: The name (project, location, cluster) of the cluster to update.
 	// Specified in the format `projects/*/locations/*/clusters/*`.
 	Name string `json:"name,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -5700,8 +5251,7 @@ func (s *UpdateMasterRequest) MarshalJSON() ([]byte, error) {
 // UpdateNodePoolRequest: SetNodePoolVersionRequest updates the version
 // of a node pool.
 type UpdateNodePoolRequest struct {
-	// ClusterId: Required. Deprecated. The name of the cluster to
-	// upgrade.
+	// ClusterId: Required. Deprecated. The name of the cluster to upgrade.
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
@@ -5714,51 +5264,38 @@ type UpdateNodePoolRequest struct {
 	// LinuxNodeConfig: Parameters that can be configured on Linux nodes.
 	LinuxNodeConfig *LinuxNodeConfig `json:"linuxNodeConfig,omitempty"`
 
-	// Locations: The desired list of Google Compute
-	// Engine
+	// Locations: The desired list of Google Compute Engine
 	// [zones](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// node pool's nodes should be located. Changing the locations for a
-	// node pool
-	// will result in nodes being either created or removed from the node
-	// pool,
-	// depending on whether locations are being added or removed.
+	// which the node pool's nodes should be located. Changing the locations
+	// for a node pool will result in nodes being either created or removed
+	// from the node pool, depending on whether locations are being added or
+	// removed.
 	Locations []string `json:"locations,omitempty"`
 
 	// Name: The name (project, location, cluster, node pool) of the node
-	// pool to
-	// update. Specified in the
-	// format
+	// pool to update. Specified in the format
 	// `projects/*/locations/*/clusters/*/nodePools/*`.
 	Name string `json:"name,omitempty"`
 
 	// NodePoolId: Required. Deprecated. The name of the node pool to
-	// upgrade.
-	// This field has been deprecated and replaced by the name field.
+	// upgrade. This field has been deprecated and replaced by the name
+	// field.
 	NodePoolId string `json:"nodePoolId,omitempty"`
 
 	// NodeVersion: Required. The Kubernetes version to change the nodes to
-	// (typically an
-	// upgrade).
-	//
-	// Users may specify either explicit versions offered by Kubernetes
-	// Engine or
-	// version aliases, which have the following behavior:
-	//
-	// - "latest": picks the highest valid Kubernetes version
-	// - "1.X": picks the highest valid patch+gke.N patch in the 1.X
-	// version
-	// - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y version
-	// - "1.X.Y-gke.N": picks an explicit Kubernetes version
-	// - "-": picks the Kubernetes master version
+	// (typically an upgrade). Users may specify either explicit versions
+	// offered by Kubernetes Engine or version aliases, which have the
+	// following behavior: - "latest": picks the highest valid Kubernetes
+	// version - "1.X": picks the highest valid patch+gke.N patch in the 1.X
+	// version - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y
+	// version - "1.X.Y-gke.N": picks an explicit Kubernetes version - "-":
+	// picks the Kubernetes master version
 	NodeVersion string `json:"nodeVersion,omitempty"`
 
 	// ProjectId: Required. Deprecated. The Google Developers Console
-	// [project ID or
-	// project
-	// number](https://support.google.com/cloud/answer/6158840).
-	// This
-	//  field has been deprecated and replaced by the name field.
+	// [project ID or project
+	// number](https://support.google.com/cloud/answer/6158840). This field
+	// has been deprecated and replaced by the name field.
 	ProjectId string `json:"projectId,omitempty"`
 
 	// UpgradeSettings: Upgrade settings control disruption and speed of the
@@ -5769,13 +5306,10 @@ type UpdateNodePoolRequest struct {
 	// node pool.
 	WorkloadMetadataConfig *WorkloadMetadataConfig `json:"workloadMetadataConfig,omitempty"`
 
-	// Zone: Required. Deprecated. The name of the Google Compute
-	// Engine
+	// Zone: Required. Deprecated. The name of the Google Compute Engine
 	// [zone](https://cloud.google.com/compute/docs/zones#available) in
-	// which the
-	// cluster resides. This field has been deprecated and replaced by the
-	// name
-	// field.
+	// which the cluster resides. This field has been deprecated and
+	// replaced by the name field.
 	Zone string `json:"zone,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterId") to
@@ -5801,52 +5335,84 @@ func (s *UpdateNodePoolRequest) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// UpgradeEvent: UpgradeEvent is a notification sent to customers by the
+// cluster server when a resource is upgrading.
+type UpgradeEvent struct {
+	// CurrentVersion: Required. The current version before the upgrade.
+	CurrentVersion string `json:"currentVersion,omitempty"`
+
+	// Operation: Required. The operation associated with this upgrade.
+	Operation string `json:"operation,omitempty"`
+
+	// OperationStartTime: Required. The time when the operation was
+	// started.
+	OperationStartTime string `json:"operationStartTime,omitempty"`
+
+	// Resource: Optional. Optional relative path to the resource. For
+	// example in node pool upgrades, the relative path of the node pool.
+	Resource string `json:"resource,omitempty"`
+
+	// ResourceType: Required. The resource type that is upgrading.
+	//
+	// Possible values:
+	//   "UPGRADE_RESOURCE_TYPE_UNSPECIFIED" - Default value. This shouldn't
+	// be used.
+	//   "MASTER" - Master / control plane
+	//   "NODE_POOL" - Node pool
+	ResourceType string `json:"resourceType,omitempty"`
+
+	// TargetVersion: Required. The target version for the upgrade.
+	TargetVersion string `json:"targetVersion,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "CurrentVersion") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "CurrentVersion") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *UpgradeEvent) MarshalJSON() ([]byte, error) {
+	type NoMethod UpgradeEvent
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // UpgradeSettings: These upgrade settings control the level of
-// parallelism and the level of
-// disruption caused by an upgrade.
-//
+// parallelism and the level of disruption caused by an upgrade.
 // maxUnavailable controls the number of nodes that can be
-// simultaneously
-// unavailable.
-//
-// maxSurge controls the number of additional nodes that can be added to
-// the
-// node pool temporarily for the time of the upgrade to increase the
-// number of
-// available nodes.
-//
+// simultaneously unavailable. maxSurge controls the number of
+// additional nodes that can be added to the node pool temporarily for
+// the time of the upgrade to increase the number of available nodes.
 // (maxUnavailable + maxSurge) determines the level of parallelism (how
-// many
-// nodes are being upgraded at the same time).
-//
-// Note: upgrades inevitably introduce some disruption since workloads
-// need to
-// be moved from old nodes to new, upgraded ones. Even if
-// maxUnavailable=0,
-// this holds true. (Disruption stays within the limits
-// of
-// PodDisruptionBudget, if it is configured.)
-//
-// Consider a hypothetical node pool with 5 nodes having
-// maxSurge=2,
-// maxUnavailable=1. This means the upgrade process upgrades 3
-// nodes
-// simultaneously. It creates 2 additional (upgraded) nodes, then it
-// brings
-// down 3 old (not yet upgraded) nodes at the same time. This ensures
-// that
-// there are always at least 4 nodes available.
+// many nodes are being upgraded at the same time). Note: upgrades
+// inevitably introduce some disruption since workloads need to be moved
+// from old nodes to new, upgraded ones. Even if maxUnavailable=0, this
+// holds true. (Disruption stays within the limits of
+// PodDisruptionBudget, if it is configured.) Consider a hypothetical
+// node pool with 5 nodes having maxSurge=2, maxUnavailable=1. This
+// means the upgrade process upgrades 3 nodes simultaneously. It creates
+// 2 additional (upgraded) nodes, then it brings down 3 old (not yet
+// upgraded) nodes at the same time. This ensures that there are always
+// at least 4 nodes available.
 type UpgradeSettings struct {
 	// MaxSurge: The maximum number of nodes that can be created beyond the
-	// current size
-	// of the node pool during the upgrade process.
+	// current size of the node pool during the upgrade process.
 	MaxSurge int64 `json:"maxSurge,omitempty"`
 
 	// MaxUnavailable: The maximum number of nodes that can be
-	// simultaneously unavailable during
-	// the upgrade process. A node is considered available if its status
-	// is
-	// Ready.
+	// simultaneously unavailable during the upgrade process. A node is
+	// considered available if its status is Ready.
 	MaxUnavailable int64 `json:"maxUnavailable,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "MaxSurge") to
@@ -5873,31 +5439,27 @@ func (s *UpgradeSettings) MarshalJSON() ([]byte, error) {
 }
 
 // UsableSubnetwork: UsableSubnetwork resource returns the subnetwork
-// name, its associated network
-// and the primary CIDR range.
+// name, its associated network and the primary CIDR range.
 type UsableSubnetwork struct {
 	// IpCidrRange: The range of internal addresses that are owned by this
 	// subnetwork.
 	IpCidrRange string `json:"ipCidrRange,omitempty"`
 
-	// Network: Network Name.
-	// Example: projects/my-project/global/networks/my-network
+	// Network: Network Name. Example:
+	// projects/my-project/global/networks/my-network
 	Network string `json:"network,omitempty"`
 
 	// SecondaryIpRanges: Secondary IP ranges.
 	SecondaryIpRanges []*UsableSubnetworkSecondaryRange `json:"secondaryIpRanges,omitempty"`
 
 	// StatusMessage: A human readable status message representing the
-	// reasons for cases where
-	// the caller cannot use the secondary ranges under the subnet. For
-	// example if
-	// the secondary_ip_ranges is empty due to a permission issue, an
-	// insufficient
-	// permission message will be given by status_message.
+	// reasons for cases where the caller cannot use the secondary ranges
+	// under the subnet. For example if the secondary_ip_ranges is empty due
+	// to a permission issue, an insufficient permission message will be
+	// given by status_message.
 	StatusMessage string `json:"statusMessage,omitempty"`
 
-	// Subnetwork: Subnetwork Name.
-	// Example:
+	// Subnetwork: Subnetwork Name. Example:
 	// projects/my-project/regions/us-central1/subnetworks/my-subnet
 	Subnetwork string `json:"subnetwork,omitempty"`
 
@@ -5932,8 +5494,7 @@ type UsableSubnetworkSecondaryRange struct {
 	IpCidrRange string `json:"ipCidrRange,omitempty"`
 
 	// RangeName: The name associated with this subnetwork secondary range,
-	// used when adding
-	// an alias IP range to a VM instance.
+	// used when adding an alias IP range to a VM instance.
 	RangeName string `json:"rangeName,omitempty"`
 
 	// Status: This field is to determine the status of the secondary range
@@ -5945,16 +5506,15 @@ type UsableSubnetworkSecondaryRange struct {
 	//   "UNUSED" - UNUSED denotes that this range is unclaimed by any
 	// cluster.
 	//   "IN_USE_SERVICE" - IN_USE_SERVICE denotes that this range is
-	// claimed by a cluster for
-	// services. It cannot be used for other clusters.
+	// claimed by a cluster for services. It cannot be used for other
+	// clusters.
 	//   "IN_USE_SHAREABLE_POD" - IN_USE_SHAREABLE_POD denotes this range
-	// was created by the network admin
-	// and is currently claimed by a cluster for pods. It can only be used
-	// by
-	// other clusters as a pod range.
+	// was created by the network admin and is currently claimed by a
+	// cluster for pods. It can only be used by other clusters as a pod
+	// range.
 	//   "IN_USE_MANAGED_POD" - IN_USE_MANAGED_POD denotes this range was
-	// created by GKE and is claimed
-	// for pods. It cannot be used for other clusters.
+	// created by GKE and is claimed for pods. It cannot be used for other
+	// clusters.
 	Status string `json:"status,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "IpCidrRange") to
@@ -5981,9 +5541,8 @@ func (s *UsableSubnetworkSecondaryRange) MarshalJSON() ([]byte, error) {
 }
 
 // VerticalPodAutoscaling: VerticalPodAutoscaling contains global,
-// per-cluster information
-// required by Vertical Pod Autoscaler to automatically adjust
-// the resources of pods controlled by it.
+// per-cluster information required by Vertical Pod Autoscaler to
+// automatically adjust the resources of pods controlled by it.
 type VerticalPodAutoscaling struct {
 	// Enabled: Enables vertical pod autoscaling.
 	Enabled bool `json:"enabled,omitempty"`
@@ -6012,12 +5571,15 @@ func (s *VerticalPodAutoscaling) MarshalJSON() ([]byte, error) {
 }
 
 // WorkloadIdentityConfig: Configuration for the use of Kubernetes
-// Service Accounts in GCP IAM
-// policies.
+// Service Accounts in GCP IAM policies.
 type WorkloadIdentityConfig struct {
 	// IdentityNamespace: IAM Identity Namespace to attach all Kubernetes
 	// Service Accounts to.
 	IdentityNamespace string `json:"identityNamespace,omitempty"`
+
+	// IdentityProvider: identity provider is the third party identity
+	// provider.
+	IdentityProvider string `json:"identityProvider,omitempty"`
 
 	// WorkloadPool: The workload pool to attach all Kubernetes service
 	// accounts to.
@@ -6048,56 +5610,39 @@ func (s *WorkloadIdentityConfig) MarshalJSON() ([]byte, error) {
 }
 
 // WorkloadMetadataConfig: WorkloadMetadataConfig defines the metadata
-// configuration to expose to
-// workloads on the node pool.
+// configuration to expose to workloads on the node pool.
 type WorkloadMetadataConfig struct {
 	// Mode: Mode is the configuration for how to expose metadata to
-	// workloads running
-	// on the node pool.
+	// workloads running on the node pool.
 	//
 	// Possible values:
 	//   "MODE_UNSPECIFIED" - Not set.
 	//   "GCE_METADATA" - Expose all Compute Engine metadata to pods.
 	//   "GKE_METADATA" - Run the GKE Metadata Server on this node. The GKE
-	// Metadata Server exposes
-	// a metadata API to workloads that is compatible with the V1
-	// Compute
-	// Metadata APIs exposed by the Compute Engine and App Engine
-	// Metadata
-	// Servers. This feature can only be enabled if Workload Identity is
-	// enabled
-	// at the cluster level.
+	// Metadata Server exposes a metadata API to workloads that is
+	// compatible with the V1 Compute Metadata APIs exposed by the Compute
+	// Engine and App Engine Metadata Servers. This feature can only be
+	// enabled if Workload Identity is enabled at the cluster level.
 	Mode string `json:"mode,omitempty"`
 
 	// NodeMetadata: NodeMetadata is the configuration for how to expose
-	// metadata to the
-	// workloads running on the node.
+	// metadata to the workloads running on the node.
 	//
 	// Possible values:
 	//   "UNSPECIFIED" - Not set.
 	//   "SECURE" - Prevent workloads not in hostNetwork from accessing
-	// certain VM metadata,
-	// specifically kube-env, which contains Kubelet credentials, and
-	// the
-	// instance identity token.
-	//
-	// Metadata concealment is a temporary security solution available while
-	// the
-	// bootstrapping process for cluster nodes is being redesigned
-	// with
-	// significant security improvements.  This feature is scheduled to
-	// be
-	// deprecated in the future and later removed.
+	// certain VM metadata, specifically kube-env, which contains Kubelet
+	// credentials, and the instance identity token. Metadata concealment is
+	// a temporary security solution available while the bootstrapping
+	// process for cluster nodes is being redesigned with significant
+	// security improvements. This feature is scheduled to be deprecated in
+	// the future and later removed.
 	//   "EXPOSE" - Expose all VM metadata to pods.
 	//   "GKE_METADATA_SERVER" - Run the GKE Metadata Server on this node.
-	// The GKE Metadata Server exposes
-	// a metadata API to workloads that is compatible with the V1
-	// Compute
-	// Metadata APIs exposed by the Compute Engine and App Engine
-	// Metadata
-	// Servers. This feature can only be enabled if Workload Identity is
-	// enabled
-	// at the cluster level.
+	// The GKE Metadata Server exposes a metadata API to workloads that is
+	// compatible with the V1 Compute Metadata APIs exposed by the Compute
+	// Engine and App Engine Metadata Servers. This feature can only be
+	// enabled if Workload Identity is enabled at the cluster level.
 	NodeMetadata string `json:"nodeMetadata,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Mode") to
@@ -6143,11 +5688,9 @@ func (r *ProjectsAggregatedUsableSubnetworksService) List(parent string) *Projec
 }
 
 // Filter sets the optional parameter "filter": Filtering currently only
-// supports equality on the networkProjectId and must
-// be in the form: "networkProjectId=[PROJECTID]", where
-// `networkProjectId`
-// is the project which owns the listed subnetworks. This defaults to
-// the
+// supports equality on the networkProjectId and must be in the form:
+// "networkProjectId=[PROJECTID]", where `networkProjectId` is the
+// project which owns the listed subnetworks. This defaults to the
 // parent project ID.
 func (c *ProjectsAggregatedUsableSubnetworksListCall) Filter(filter string) *ProjectsAggregatedUsableSubnetworksListCall {
 	c.urlParams_.Set("filter", filter)
@@ -6155,11 +5698,9 @@ func (c *ProjectsAggregatedUsableSubnetworksListCall) Filter(filter string) *Pro
 }
 
 // PageSize sets the optional parameter "pageSize": The max number of
-// results per page that should be returned. If the number
-// of available results is larger than `page_size`, a `next_page_token`
-// is
-// returned which can be used to get the next page of results in
-// subsequent
+// results per page that should be returned. If the number of available
+// results is larger than `page_size`, a `next_page_token` is returned
+// which can be used to get the next page of results in subsequent
 // requests. Acceptable values are 0 to 500, inclusive. (Default: 500)
 func (c *ProjectsAggregatedUsableSubnetworksListCall) PageSize(pageSize int64) *ProjectsAggregatedUsableSubnetworksListCall {
 	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
@@ -6167,8 +5708,8 @@ func (c *ProjectsAggregatedUsableSubnetworksListCall) PageSize(pageSize int64) *
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Set this to the nextPageToken returned by
-// previous list requests to get the next page of results.
+// token to use. Set this to the nextPageToken returned by previous list
+// requests to get the next page of results.
 func (c *ProjectsAggregatedUsableSubnetworksListCall) PageToken(pageToken string) *ProjectsAggregatedUsableSubnetworksListCall {
 	c.urlParams_.Set("pageToken", pageToken)
 	return c
@@ -6211,7 +5752,7 @@ func (c *ProjectsAggregatedUsableSubnetworksListCall) Header() http.Header {
 
 func (c *ProjectsAggregatedUsableSubnetworksListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6282,23 +5823,23 @@ func (c *ProjectsAggregatedUsableSubnetworksListCall) Do(opts ...googleapi.CallO
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Filtering currently only supports equality on the networkProjectId and must\nbe in the form: \"networkProjectId=[PROJECTID]\", where `networkProjectId`\nis the project which owns the listed subnetworks. This defaults to the\nparent project ID.",
+	//       "description": "Filtering currently only supports equality on the networkProjectId and must be in the form: \"networkProjectId=[PROJECTID]\", where `networkProjectId` is the project which owns the listed subnetworks. This defaults to the parent project ID.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "pageSize": {
-	//       "description": "The max number of results per page that should be returned. If the number\nof available results is larger than `page_size`, a `next_page_token` is\nreturned which can be used to get the next page of results in subsequent\nrequests. Acceptable values are 0 to 500, inclusive. (Default: 500)",
+	//       "description": "The max number of results per page that should be returned. If the number of available results is larger than `page_size`, a `next_page_token` is returned which can be used to get the next page of results in subsequent requests. Acceptable values are 0 to 500, inclusive. (Default: 500)",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Set this to the nextPageToken returned by\nprevious list requests to get the next page of results.",
+	//       "description": "Specifies a page token to use. Set this to the nextPageToken returned by previous list requests to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "parent": {
-	//       "description": "Required. The parent project where subnetworks are usable.\nSpecified in the format `projects/*`.",
+	//       "description": "Required. The parent project where subnetworks are usable. Specified in the format `projects/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+$",
 	//       "required": true,
@@ -6357,24 +5898,19 @@ func (r *ProjectsLocationsService) GetServerConfig(name string) *ProjectsLocatio
 }
 
 // ProjectId sets the optional parameter "projectId": Required.
-// Deprecated. The Google Developers Console [project ID or
-// project
-// number](https://support.google.com/cloud/answer/6158840).
-// This
-//  field has been deprecated and replaced by the name field.
+// Deprecated. The Google Developers Console [project ID or project
+// number](https://support.google.com/cloud/answer/6158840). This field
+// has been deprecated and replaced by the name field.
 func (c *ProjectsLocationsGetServerConfigCall) ProjectId(projectId string) *ProjectsLocationsGetServerConfigCall {
 	c.urlParams_.Set("projectId", projectId)
 	return c
 }
 
 // Zone sets the optional parameter "zone": Required. Deprecated. The
-// name of the Google Compute
-// Engine
+// name of the Google Compute Engine
 // [zone](https://cloud.google.com/compute/docs/zones#available) to
-// return
-// operations for. This field has been deprecated and replaced by the
-// name
-// field.
+// return operations for. This field has been deprecated and replaced by
+// the name field.
 func (c *ProjectsLocationsGetServerConfigCall) Zone(zone string) *ProjectsLocationsGetServerConfigCall {
 	c.urlParams_.Set("zone", zone)
 	return c
@@ -6417,7 +5953,7 @@ func (c *ProjectsLocationsGetServerConfigCall) Header() http.Header {
 
 func (c *ProjectsLocationsGetServerConfigCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6488,19 +6024,19 @@ func (c *ProjectsLocationsGetServerConfigCall) Do(opts ...googleapi.CallOption) 
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project and location) of the server config to get,\nspecified in the format `projects/*/locations/*`.",
+	//       "description": "The name (project and location) of the server config to get, specified in the format `projects/*/locations/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+$",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) to return\noperations for. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) to return operations for. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     }
@@ -6571,7 +6107,7 @@ func (c *ProjectsLocationsListCall) Header() http.Header {
 
 func (c *ProjectsLocationsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6642,7 +6178,7 @@ func (c *ProjectsLocationsListCall) Do(opts ...googleapi.CallOption) (*ListLocat
 	//   ],
 	//   "parameters": {
 	//     "parent": {
-	//       "description": "Required. Contains the name of the resource requested.\nSpecified in the format `projects/*`.",
+	//       "description": "Required. Contains the name of the resource requested. Specified in the format `projects/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+$",
 	//       "required": true,
@@ -6706,7 +6242,7 @@ func (c *ProjectsLocationsClustersCompleteIpRotationCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersCompleteIpRotationCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6779,7 +6315,7 @@ func (c *ProjectsLocationsClustersCompleteIpRotationCall) Do(opts ...googleapi.C
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster id) of the cluster to complete IP\nrotation. Specified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster id) of the cluster to complete IP rotation. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -6812,24 +6348,14 @@ type ProjectsLocationsClustersCreateCall struct {
 }
 
 // Create: Creates a cluster, consisting of the specified number and
-// type of Google
-// Compute Engine instances.
-//
-// By default, the cluster is created in the
-// project's
-// [default
-// network](https://cloud.google.com/compute/docs/netw
-// orks-and-firewalls#networks).
-//
-// One firewall is added for the cluster. After cluster creation,
-// the Kubelet creates routes for each node to allow the containers
-// on that node to communicate with all other instances in
-// the
-// cluster.
-//
-// Finally, an entry is added to the project's global metadata
-// indicating
-// which CIDR range the cluster is using.
+// type of Google Compute Engine instances. By default, the cluster is
+// created in the project's [default
+// network](https://cloud.google.com/compute/docs/networks-and-firewalls#
+// networks). One firewall is added for the cluster. After cluster
+// creation, the Kubelet creates routes for each node to allow the
+// containers on that node to communicate with all other instances in
+// the cluster. Finally, an entry is added to the project's global
+// metadata indicating which CIDR range the cluster is using.
 func (r *ProjectsLocationsClustersService) Create(parent string, createclusterrequest *CreateClusterRequest) *ProjectsLocationsClustersCreateCall {
 	c := &ProjectsLocationsClustersCreateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -6864,7 +6390,7 @@ func (c *ProjectsLocationsClustersCreateCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6928,7 +6454,7 @@ func (c *ProjectsLocationsClustersCreateCall) Do(opts ...googleapi.CallOption) (
 	}
 	return ret, nil
 	// {
-	//   "description": "Creates a cluster, consisting of the specified number and type of Google\nCompute Engine instances.\n\nBy default, the cluster is created in the project's\n[default\nnetwork](https://cloud.google.com/compute/docs/networks-and-firewalls#networks).\n\nOne firewall is added for the cluster. After cluster creation,\nthe Kubelet creates routes for each node to allow the containers\non that node to communicate with all other instances in the\ncluster.\n\nFinally, an entry is added to the project's global metadata indicating\nwhich CIDR range the cluster is using.",
+	//   "description": "Creates a cluster, consisting of the specified number and type of Google Compute Engine instances. By default, the cluster is created in the project's [default network](https://cloud.google.com/compute/docs/networks-and-firewalls#networks). One firewall is added for the cluster. After cluster creation, the Kubelet creates routes for each node to allow the containers on that node to communicate with all other instances in the cluster. Finally, an entry is added to the project's global metadata indicating which CIDR range the cluster is using.",
 	//   "flatPath": "v1beta1/projects/{projectsId}/locations/{locationsId}/clusters",
 	//   "httpMethod": "POST",
 	//   "id": "container.projects.locations.clusters.create",
@@ -6937,7 +6463,7 @@ func (c *ProjectsLocationsClustersCreateCall) Do(opts ...googleapi.CallOption) (
 	//   ],
 	//   "parameters": {
 	//     "parent": {
-	//       "description": "The parent (project and location) where the cluster will be created.\nSpecified in the format `projects/*/locations/*`.",
+	//       "description": "The parent (project and location) where the cluster will be created. Specified in the format `projects/*/locations/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+$",
 	//       "required": true,
@@ -6969,17 +6495,11 @@ type ProjectsLocationsClustersDeleteCall struct {
 }
 
 // Delete: Deletes the cluster, including the Kubernetes endpoint and
-// all worker
-// nodes.
-//
-// Firewalls and routes that were configured during cluster creation
-// are also deleted.
-//
-// Other Google Compute Engine resources that might be in use by the
-// cluster,
-// such as load balancer resources, are not deleted if they weren't
-// present
-// when the cluster was initially created.
+// all worker nodes. Firewalls and routes that were configured during
+// cluster creation are also deleted. Other Google Compute Engine
+// resources that might be in use by the cluster, such as load balancer
+// resources, are not deleted if they weren't present when the cluster
+// was initially created.
 func (r *ProjectsLocationsClustersService) Delete(name string) *ProjectsLocationsClustersDeleteCall {
 	c := &ProjectsLocationsClustersDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -6987,32 +6507,27 @@ func (r *ProjectsLocationsClustersService) Delete(name string) *ProjectsLocation
 }
 
 // ClusterId sets the optional parameter "clusterId": Required.
-// Deprecated. The name of the cluster to delete.
-// This field has been deprecated and replaced by the name field.
+// Deprecated. The name of the cluster to delete. This field has been
+// deprecated and replaced by the name field.
 func (c *ProjectsLocationsClustersDeleteCall) ClusterId(clusterId string) *ProjectsLocationsClustersDeleteCall {
 	c.urlParams_.Set("clusterId", clusterId)
 	return c
 }
 
 // ProjectId sets the optional parameter "projectId": Required.
-// Deprecated. The Google Developers Console [project ID or
-// project
-// number](https://support.google.com/cloud/answer/6158840).
-// This
-//  field has been deprecated and replaced by the name field.
+// Deprecated. The Google Developers Console [project ID or project
+// number](https://support.google.com/cloud/answer/6158840). This field
+// has been deprecated and replaced by the name field.
 func (c *ProjectsLocationsClustersDeleteCall) ProjectId(projectId string) *ProjectsLocationsClustersDeleteCall {
 	c.urlParams_.Set("projectId", projectId)
 	return c
 }
 
 // Zone sets the optional parameter "zone": Required. Deprecated. The
-// name of the Google Compute
-// Engine
+// name of the Google Compute Engine
 // [zone](https://cloud.google.com/compute/docs/zones#available) in
-// which the
-// cluster resides. This field has been deprecated and replaced by the
-// name
-// field.
+// which the cluster resides. This field has been deprecated and
+// replaced by the name field.
 func (c *ProjectsLocationsClustersDeleteCall) Zone(zone string) *ProjectsLocationsClustersDeleteCall {
 	c.urlParams_.Set("zone", zone)
 	return c
@@ -7045,7 +6560,7 @@ func (c *ProjectsLocationsClustersDeleteCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7104,7 +6619,7 @@ func (c *ProjectsLocationsClustersDeleteCall) Do(opts ...googleapi.CallOption) (
 	}
 	return ret, nil
 	// {
-	//   "description": "Deletes the cluster, including the Kubernetes endpoint and all worker\nnodes.\n\nFirewalls and routes that were configured during cluster creation\nare also deleted.\n\nOther Google Compute Engine resources that might be in use by the cluster,\nsuch as load balancer resources, are not deleted if they weren't present\nwhen the cluster was initially created.",
+	//   "description": "Deletes the cluster, including the Kubernetes endpoint and all worker nodes. Firewalls and routes that were configured during cluster creation are also deleted. Other Google Compute Engine resources that might be in use by the cluster, such as load balancer resources, are not deleted if they weren't present when the cluster was initially created.",
 	//   "flatPath": "v1beta1/projects/{projectsId}/locations/{locationsId}/clusters/{clustersId}",
 	//   "httpMethod": "DELETE",
 	//   "id": "container.projects.locations.clusters.delete",
@@ -7113,24 +6628,24 @@ func (c *ProjectsLocationsClustersDeleteCall) Do(opts ...googleapi.CallOption) (
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to delete.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to delete. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "name": {
-	//       "description": "The name (project, location, cluster) of the cluster to delete.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster) of the cluster to delete. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     }
@@ -7165,32 +6680,27 @@ func (r *ProjectsLocationsClustersService) Get(name string) *ProjectsLocationsCl
 }
 
 // ClusterId sets the optional parameter "clusterId": Required.
-// Deprecated. The name of the cluster to retrieve.
-// This field has been deprecated and replaced by the name field.
+// Deprecated. The name of the cluster to retrieve. This field has been
+// deprecated and replaced by the name field.
 func (c *ProjectsLocationsClustersGetCall) ClusterId(clusterId string) *ProjectsLocationsClustersGetCall {
 	c.urlParams_.Set("clusterId", clusterId)
 	return c
 }
 
 // ProjectId sets the optional parameter "projectId": Required.
-// Deprecated. The Google Developers Console [project ID or
-// project
-// number](https://support.google.com/cloud/answer/6158840).
-// This
-//  field has been deprecated and replaced by the name field.
+// Deprecated. The Google Developers Console [project ID or project
+// number](https://support.google.com/cloud/answer/6158840). This field
+// has been deprecated and replaced by the name field.
 func (c *ProjectsLocationsClustersGetCall) ProjectId(projectId string) *ProjectsLocationsClustersGetCall {
 	c.urlParams_.Set("projectId", projectId)
 	return c
 }
 
 // Zone sets the optional parameter "zone": Required. Deprecated. The
-// name of the Google Compute
-// Engine
+// name of the Google Compute Engine
 // [zone](https://cloud.google.com/compute/docs/zones#available) in
-// which the
-// cluster resides. This field has been deprecated and replaced by the
-// name
-// field.
+// which the cluster resides. This field has been deprecated and
+// replaced by the name field.
 func (c *ProjectsLocationsClustersGetCall) Zone(zone string) *ProjectsLocationsClustersGetCall {
 	c.urlParams_.Set("zone", zone)
 	return c
@@ -7233,7 +6743,7 @@ func (c *ProjectsLocationsClustersGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7304,24 +6814,24 @@ func (c *ProjectsLocationsClustersGetCall) Do(opts ...googleapi.CallOption) (*Cl
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to retrieve.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to retrieve. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "name": {
-	//       "description": "The name (project, location, cluster) of the cluster to retrieve.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster) of the cluster to retrieve. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     }
@@ -7348,12 +6858,9 @@ type ProjectsLocationsClustersGetJwksCall struct {
 	header_      http.Header
 }
 
-// GetJwks: Gets the public component of the cluster signing keys
-// in
-// JSON Web Key format.
-// This API is not yet intended for general use, and is not available
-// for all
-// clusters.
+// GetJwks: Gets the public component of the cluster signing keys in
+// JSON Web Key format. This API is not yet intended for general use,
+// and is not available for all clusters.
 func (r *ProjectsLocationsClustersService) GetJwks(parent string) *ProjectsLocationsClustersGetJwksCall {
 	c := &ProjectsLocationsClustersGetJwksCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -7397,7 +6904,7 @@ func (c *ProjectsLocationsClustersGetJwksCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersGetJwksCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7459,7 +6966,7 @@ func (c *ProjectsLocationsClustersGetJwksCall) Do(opts ...googleapi.CallOption) 
 	}
 	return ret, nil
 	// {
-	//   "description": "Gets the public component of the cluster signing keys in\nJSON Web Key format.\nThis API is not yet intended for general use, and is not available for all\nclusters.",
+	//   "description": "Gets the public component of the cluster signing keys in JSON Web Key format. This API is not yet intended for general use, and is not available for all clusters.",
 	//   "flatPath": "v1beta1/projects/{projectsId}/locations/{locationsId}/clusters/{clustersId}/jwks",
 	//   "httpMethod": "GET",
 	//   "id": "container.projects.locations.clusters.getJwks",
@@ -7468,7 +6975,7 @@ func (c *ProjectsLocationsClustersGetJwksCall) Do(opts ...googleapi.CallOption) 
 	//   ],
 	//   "parameters": {
 	//     "parent": {
-	//       "description": "The cluster (project, location, cluster id) to get keys for. Specified in\nthe format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The cluster (project, location, cluster id) to get keys for. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -7495,8 +7002,7 @@ type ProjectsLocationsClustersListCall struct {
 }
 
 // List: Lists all clusters owned by a project in either the specified
-// zone or all
-// zones.
+// zone or all zones.
 func (r *ProjectsLocationsClustersService) List(parent string) *ProjectsLocationsClustersListCall {
 	c := &ProjectsLocationsClustersListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -7504,24 +7010,19 @@ func (r *ProjectsLocationsClustersService) List(parent string) *ProjectsLocation
 }
 
 // ProjectId sets the optional parameter "projectId": Required.
-// Deprecated. The Google Developers Console [project ID or
-// project
-// number](https://support.google.com/cloud/answer/6158840).
-// This
-//  field has been deprecated and replaced by the parent field.
+// Deprecated. The Google Developers Console [project ID or project
+// number](https://support.google.com/cloud/answer/6158840). This field
+// has been deprecated and replaced by the parent field.
 func (c *ProjectsLocationsClustersListCall) ProjectId(projectId string) *ProjectsLocationsClustersListCall {
 	c.urlParams_.Set("projectId", projectId)
 	return c
 }
 
 // Zone sets the optional parameter "zone": Required. Deprecated. The
-// name of the Google Compute
-// Engine
+// name of the Google Compute Engine
 // [zone](https://cloud.google.com/compute/docs/zones#available) in
-// which the
-// cluster resides, or "-" for all zones. This field has been deprecated
-// and
-// replaced by the parent field.
+// which the cluster resides, or "-" for all zones. This field has been
+// deprecated and replaced by the parent field.
 func (c *ProjectsLocationsClustersListCall) Zone(zone string) *ProjectsLocationsClustersListCall {
 	c.urlParams_.Set("zone", zone)
 	return c
@@ -7564,7 +7065,7 @@ func (c *ProjectsLocationsClustersListCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7626,7 +7127,7 @@ func (c *ProjectsLocationsClustersListCall) Do(opts ...googleapi.CallOption) (*L
 	}
 	return ret, nil
 	// {
-	//   "description": "Lists all clusters owned by a project in either the specified zone or all\nzones.",
+	//   "description": "Lists all clusters owned by a project in either the specified zone or all zones.",
 	//   "flatPath": "v1beta1/projects/{projectsId}/locations/{locationsId}/clusters",
 	//   "httpMethod": "GET",
 	//   "id": "container.projects.locations.clusters.list",
@@ -7635,19 +7136,19 @@ func (c *ProjectsLocationsClustersListCall) Do(opts ...googleapi.CallOption) (*L
 	//   ],
 	//   "parameters": {
 	//     "parent": {
-	//       "description": "The parent (project and location) where the clusters will be listed.\nSpecified in the format `projects/*/locations/*`.\nLocation \"-\" matches all zones and all regions.",
+	//       "description": "The parent (project and location) where the clusters will be listed. Specified in the format `projects/*/locations/*`. Location \"-\" matches all zones and all regions.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+$",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the parent field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the parent field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides, or \"-\" for all zones. This field has been deprecated and\nreplaced by the parent field.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides, or \"-\" for all zones. This field has been deprecated and replaced by the parent field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     }
@@ -7709,7 +7210,7 @@ func (c *ProjectsLocationsClustersSetAddonsCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersSetAddonsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7782,7 +7283,7 @@ func (c *ProjectsLocationsClustersSetAddonsCall) Do(opts ...googleapi.CallOption
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster) of the cluster to set addons.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster) of the cluster to set addons. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -7850,7 +7351,7 @@ func (c *ProjectsLocationsClustersSetLegacyAbacCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersSetLegacyAbacCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7923,7 +7424,7 @@ func (c *ProjectsLocationsClustersSetLegacyAbacCall) Do(opts ...googleapi.CallOp
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster id) of the cluster to set legacy abac.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster id) of the cluster to set legacy abac. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -7955,13 +7456,11 @@ type ProjectsLocationsClustersSetLocationsCall struct {
 	header_             http.Header
 }
 
-// SetLocations: Sets the locations for a specific cluster.
-// Deprecated.
+// SetLocations: Sets the locations for a specific cluster. Deprecated.
 // Use
-// [projects.locations.clusters.update](https://cloud.google.com/kube
-// rnetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters/
-// update)
-// instead.
+// [projects.locations.clusters.update](https://cloud.google.com/kubernet
+// es-engine/docs/reference/rest/v1beta1/projects.locations.clusters/upda
+// te) instead.
 func (r *ProjectsLocationsClustersService) SetLocations(name string, setlocationsrequest *SetLocationsRequest) *ProjectsLocationsClustersSetLocationsCall {
 	c := &ProjectsLocationsClustersSetLocationsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -7996,7 +7495,7 @@ func (c *ProjectsLocationsClustersSetLocationsCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersSetLocationsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8060,7 +7559,7 @@ func (c *ProjectsLocationsClustersSetLocationsCall) Do(opts ...googleapi.CallOpt
 	}
 	return ret, nil
 	// {
-	//   "description": "Sets the locations for a specific cluster.\nDeprecated. Use\n[projects.locations.clusters.update](https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters/update)\ninstead.",
+	//   "description": "Sets the locations for a specific cluster. Deprecated. Use [projects.locations.clusters.update](https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters/update) instead.",
 	//   "flatPath": "v1beta1/projects/{projectsId}/locations/{locationsId}/clusters/{clustersId}:setLocations",
 	//   "httpMethod": "POST",
 	//   "id": "container.projects.locations.clusters.setLocations",
@@ -8069,7 +7568,7 @@ func (c *ProjectsLocationsClustersSetLocationsCall) Do(opts ...googleapi.CallOpt
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster) of the cluster to set locations.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster) of the cluster to set locations. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -8136,7 +7635,7 @@ func (c *ProjectsLocationsClustersSetLoggingCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersSetLoggingCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8209,7 +7708,7 @@ func (c *ProjectsLocationsClustersSetLoggingCall) Do(opts ...googleapi.CallOptio
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster) of the cluster to set logging.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster) of the cluster to set logging. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -8276,7 +7775,7 @@ func (c *ProjectsLocationsClustersSetMaintenancePolicyCall) Header() http.Header
 
 func (c *ProjectsLocationsClustersSetMaintenancePolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8349,7 +7848,7 @@ func (c *ProjectsLocationsClustersSetMaintenancePolicyCall) Do(opts ...googleapi
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster id) of the cluster to set maintenance\npolicy.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster id) of the cluster to set maintenance policy. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -8382,10 +7881,8 @@ type ProjectsLocationsClustersSetMasterAuthCall struct {
 }
 
 // SetMasterAuth: Sets master auth materials. Currently supports
-// changing the admin password
-// or a specific cluster, either via password generation or explicitly
-// setting
-// the password.
+// changing the admin password or a specific cluster, either via
+// password generation or explicitly setting the password.
 func (r *ProjectsLocationsClustersService) SetMasterAuth(name string, setmasterauthrequest *SetMasterAuthRequest) *ProjectsLocationsClustersSetMasterAuthCall {
 	c := &ProjectsLocationsClustersSetMasterAuthCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -8420,7 +7917,7 @@ func (c *ProjectsLocationsClustersSetMasterAuthCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersSetMasterAuthCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8484,7 +7981,7 @@ func (c *ProjectsLocationsClustersSetMasterAuthCall) Do(opts ...googleapi.CallOp
 	}
 	return ret, nil
 	// {
-	//   "description": "Sets master auth materials. Currently supports changing the admin password\nor a specific cluster, either via password generation or explicitly setting\nthe password.",
+	//   "description": "Sets master auth materials. Currently supports changing the admin password or a specific cluster, either via password generation or explicitly setting the password.",
 	//   "flatPath": "v1beta1/projects/{projectsId}/locations/{locationsId}/clusters/{clustersId}:setMasterAuth",
 	//   "httpMethod": "POST",
 	//   "id": "container.projects.locations.clusters.setMasterAuth",
@@ -8493,7 +7990,7 @@ func (c *ProjectsLocationsClustersSetMasterAuthCall) Do(opts ...googleapi.CallOp
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster) of the cluster to set auth.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster) of the cluster to set auth. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -8560,7 +8057,7 @@ func (c *ProjectsLocationsClustersSetMonitoringCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersSetMonitoringCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8633,7 +8130,7 @@ func (c *ProjectsLocationsClustersSetMonitoringCall) Do(opts ...googleapi.CallOp
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster) of the cluster to set monitoring.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster) of the cluster to set monitoring. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -8700,7 +8197,7 @@ func (c *ProjectsLocationsClustersSetNetworkPolicyCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersSetNetworkPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8773,7 +8270,7 @@ func (c *ProjectsLocationsClustersSetNetworkPolicyCall) Do(opts ...googleapi.Cal
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster id) of the cluster to set networking\npolicy. Specified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster id) of the cluster to set networking policy. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -8840,7 +8337,7 @@ func (c *ProjectsLocationsClustersSetResourceLabelsCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersSetResourceLabelsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8913,7 +8410,7 @@ func (c *ProjectsLocationsClustersSetResourceLabelsCall) Do(opts ...googleapi.Ca
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster id) of the cluster to set labels.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster id) of the cluster to set labels. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -8980,7 +8477,7 @@ func (c *ProjectsLocationsClustersStartIpRotationCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersStartIpRotationCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9053,7 +8550,7 @@ func (c *ProjectsLocationsClustersStartIpRotationCall) Do(opts ...googleapi.Call
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster id) of the cluster to start IP\nrotation. Specified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster id) of the cluster to start IP rotation. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -9120,7 +8617,7 @@ func (c *ProjectsLocationsClustersUpdateCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersUpdateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9193,7 +8690,7 @@ func (c *ProjectsLocationsClustersUpdateCall) Do(opts ...googleapi.CallOption) (
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster) of the cluster to update.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster) of the cluster to update. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -9260,7 +8757,7 @@ func (c *ProjectsLocationsClustersUpdateMasterCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersUpdateMasterCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9333,7 +8830,7 @@ func (c *ProjectsLocationsClustersUpdateMasterCall) Do(opts ...googleapi.CallOpt
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster) of the cluster to update.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster) of the cluster to update. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -9400,7 +8897,7 @@ func (c *ProjectsLocationsClustersNodePoolsCreateCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersNodePoolsCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9473,7 +8970,7 @@ func (c *ProjectsLocationsClustersNodePoolsCreateCall) Do(opts ...googleapi.Call
 	//   ],
 	//   "parameters": {
 	//     "parent": {
-	//       "description": "The parent (project, location, cluster id) where the node pool will be\ncreated. Specified in the format\n`projects/*/locations/*/clusters/*`.",
+	//       "description": "The parent (project, location, cluster id) where the node pool will be created. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -9512,40 +9009,35 @@ func (r *ProjectsLocationsClustersNodePoolsService) Delete(name string) *Project
 }
 
 // ClusterId sets the optional parameter "clusterId": Required.
-// Deprecated. The name of the cluster.
-// This field has been deprecated and replaced by the name field.
+// Deprecated. The name of the cluster. This field has been deprecated
+// and replaced by the name field.
 func (c *ProjectsLocationsClustersNodePoolsDeleteCall) ClusterId(clusterId string) *ProjectsLocationsClustersNodePoolsDeleteCall {
 	c.urlParams_.Set("clusterId", clusterId)
 	return c
 }
 
 // NodePoolId sets the optional parameter "nodePoolId": Required.
-// Deprecated. The name of the node pool to delete.
-// This field has been deprecated and replaced by the name field.
+// Deprecated. The name of the node pool to delete. This field has been
+// deprecated and replaced by the name field.
 func (c *ProjectsLocationsClustersNodePoolsDeleteCall) NodePoolId(nodePoolId string) *ProjectsLocationsClustersNodePoolsDeleteCall {
 	c.urlParams_.Set("nodePoolId", nodePoolId)
 	return c
 }
 
 // ProjectId sets the optional parameter "projectId": Required.
-// Deprecated. The Google Developers Console [project ID or
-// project
-// number](https://developers.google.com/console/help/new/#projec
-// tnumber).
-// This field has been deprecated and replaced by the name field.
+// Deprecated. The Google Developers Console [project ID or project
+// number](https://developers.google.com/console/help/new/#projectnumber)
+// . This field has been deprecated and replaced by the name field.
 func (c *ProjectsLocationsClustersNodePoolsDeleteCall) ProjectId(projectId string) *ProjectsLocationsClustersNodePoolsDeleteCall {
 	c.urlParams_.Set("projectId", projectId)
 	return c
 }
 
 // Zone sets the optional parameter "zone": Required. Deprecated. The
-// name of the Google Compute
-// Engine
+// name of the Google Compute Engine
 // [zone](https://cloud.google.com/compute/docs/zones#available) in
-// which the
-// cluster resides. This field has been deprecated and replaced by the
-// name
-// field.
+// which the cluster resides. This field has been deprecated and
+// replaced by the name field.
 func (c *ProjectsLocationsClustersNodePoolsDeleteCall) Zone(zone string) *ProjectsLocationsClustersNodePoolsDeleteCall {
 	c.urlParams_.Set("zone", zone)
 	return c
@@ -9578,7 +9070,7 @@ func (c *ProjectsLocationsClustersNodePoolsDeleteCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersNodePoolsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9646,29 +9138,29 @@ func (c *ProjectsLocationsClustersNodePoolsDeleteCall) Do(opts ...googleapi.Call
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "name": {
-	//       "description": "The name (project, location, cluster, node pool id) of the node pool to\ndelete. Specified in the format\n`projects/*/locations/*/clusters/*/nodePools/*`.",
+	//       "description": "The name (project, location, cluster, node pool id) of the node pool to delete. Specified in the format `projects/*/locations/*/clusters/*/nodePools/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+/nodePools/[^/]+$",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "nodePoolId": {
-	//       "description": "Required. Deprecated. The name of the node pool to delete.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the node pool to delete. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://developers.google.com/console/help/new/#projectnumber).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://developers.google.com/console/help/new/#projectnumber). This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     }
@@ -9703,40 +9195,35 @@ func (r *ProjectsLocationsClustersNodePoolsService) Get(name string) *ProjectsLo
 }
 
 // ClusterId sets the optional parameter "clusterId": Required.
-// Deprecated. The name of the cluster.
-// This field has been deprecated and replaced by the name field.
+// Deprecated. The name of the cluster. This field has been deprecated
+// and replaced by the name field.
 func (c *ProjectsLocationsClustersNodePoolsGetCall) ClusterId(clusterId string) *ProjectsLocationsClustersNodePoolsGetCall {
 	c.urlParams_.Set("clusterId", clusterId)
 	return c
 }
 
 // NodePoolId sets the optional parameter "nodePoolId": Required.
-// Deprecated. The name of the node pool.
-// This field has been deprecated and replaced by the name field.
+// Deprecated. The name of the node pool. This field has been deprecated
+// and replaced by the name field.
 func (c *ProjectsLocationsClustersNodePoolsGetCall) NodePoolId(nodePoolId string) *ProjectsLocationsClustersNodePoolsGetCall {
 	c.urlParams_.Set("nodePoolId", nodePoolId)
 	return c
 }
 
 // ProjectId sets the optional parameter "projectId": Required.
-// Deprecated. The Google Developers Console [project ID or
-// project
-// number](https://developers.google.com/console/help/new/#projec
-// tnumber).
-// This field has been deprecated and replaced by the name field.
+// Deprecated. The Google Developers Console [project ID or project
+// number](https://developers.google.com/console/help/new/#projectnumber)
+// . This field has been deprecated and replaced by the name field.
 func (c *ProjectsLocationsClustersNodePoolsGetCall) ProjectId(projectId string) *ProjectsLocationsClustersNodePoolsGetCall {
 	c.urlParams_.Set("projectId", projectId)
 	return c
 }
 
 // Zone sets the optional parameter "zone": Required. Deprecated. The
-// name of the Google Compute
-// Engine
+// name of the Google Compute Engine
 // [zone](https://cloud.google.com/compute/docs/zones#available) in
-// which the
-// cluster resides. This field has been deprecated and replaced by the
-// name
-// field.
+// which the cluster resides. This field has been deprecated and
+// replaced by the name field.
 func (c *ProjectsLocationsClustersNodePoolsGetCall) Zone(zone string) *ProjectsLocationsClustersNodePoolsGetCall {
 	c.urlParams_.Set("zone", zone)
 	return c
@@ -9779,7 +9266,7 @@ func (c *ProjectsLocationsClustersNodePoolsGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersNodePoolsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9850,29 +9337,29 @@ func (c *ProjectsLocationsClustersNodePoolsGetCall) Do(opts ...googleapi.CallOpt
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "name": {
-	//       "description": "The name (project, location, cluster, node pool id) of the node pool to\nget. Specified in the format\n`projects/*/locations/*/clusters/*/nodePools/*`.",
+	//       "description": "The name (project, location, cluster, node pool id) of the node pool to get. Specified in the format `projects/*/locations/*/clusters/*/nodePools/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+/nodePools/[^/]+$",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "nodePoolId": {
-	//       "description": "Required. Deprecated. The name of the node pool.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the node pool. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://developers.google.com/console/help/new/#projectnumber).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://developers.google.com/console/help/new/#projectnumber). This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     }
@@ -9907,32 +9394,27 @@ func (r *ProjectsLocationsClustersNodePoolsService) List(parent string) *Project
 }
 
 // ClusterId sets the optional parameter "clusterId": Required.
-// Deprecated. The name of the cluster.
-// This field has been deprecated and replaced by the parent field.
+// Deprecated. The name of the cluster. This field has been deprecated
+// and replaced by the parent field.
 func (c *ProjectsLocationsClustersNodePoolsListCall) ClusterId(clusterId string) *ProjectsLocationsClustersNodePoolsListCall {
 	c.urlParams_.Set("clusterId", clusterId)
 	return c
 }
 
 // ProjectId sets the optional parameter "projectId": Required.
-// Deprecated. The Google Developers Console [project ID or
-// project
-// number](https://developers.google.com/console/help/new/#projec
-// tnumber).
-// This field has been deprecated and replaced by the parent field.
+// Deprecated. The Google Developers Console [project ID or project
+// number](https://developers.google.com/console/help/new/#projectnumber)
+// . This field has been deprecated and replaced by the parent field.
 func (c *ProjectsLocationsClustersNodePoolsListCall) ProjectId(projectId string) *ProjectsLocationsClustersNodePoolsListCall {
 	c.urlParams_.Set("projectId", projectId)
 	return c
 }
 
 // Zone sets the optional parameter "zone": Required. Deprecated. The
-// name of the Google Compute
-// Engine
+// name of the Google Compute Engine
 // [zone](https://cloud.google.com/compute/docs/zones#available) in
-// which the
-// cluster resides. This field has been deprecated and replaced by the
-// parent
-// field.
+// which the cluster resides. This field has been deprecated and
+// replaced by the parent field.
 func (c *ProjectsLocationsClustersNodePoolsListCall) Zone(zone string) *ProjectsLocationsClustersNodePoolsListCall {
 	c.urlParams_.Set("zone", zone)
 	return c
@@ -9975,7 +9457,7 @@ func (c *ProjectsLocationsClustersNodePoolsListCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersNodePoolsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10046,24 +9528,24 @@ func (c *ProjectsLocationsClustersNodePoolsListCall) Do(opts ...googleapi.CallOp
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster.\nThis field has been deprecated and replaced by the parent field.",
+	//       "description": "Required. Deprecated. The name of the cluster. This field has been deprecated and replaced by the parent field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "parent": {
-	//       "description": "The parent (project, location, cluster id) where the node pools will be\nlisted. Specified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The parent (project, location, cluster id) where the node pools will be listed. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://developers.google.com/console/help/new/#projectnumber).\nThis field has been deprecated and replaced by the parent field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://developers.google.com/console/help/new/#projectnumber). This field has been deprecated and replaced by the parent field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the parent\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the parent field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     }
@@ -10090,8 +9572,7 @@ type ProjectsLocationsClustersNodePoolsRollbackCall struct {
 	header_                        http.Header
 }
 
-// Rollback: Rolls back a previously Aborted or Failed NodePool
-// upgrade.
+// Rollback: Rolls back a previously Aborted or Failed NodePool upgrade.
 // This makes no changes if the last upgrade successfully completed.
 func (r *ProjectsLocationsClustersNodePoolsService) Rollback(name string, rollbacknodepoolupgraderequest *RollbackNodePoolUpgradeRequest) *ProjectsLocationsClustersNodePoolsRollbackCall {
 	c := &ProjectsLocationsClustersNodePoolsRollbackCall{s: r.s, urlParams_: make(gensupport.URLParams)}
@@ -10127,7 +9608,7 @@ func (c *ProjectsLocationsClustersNodePoolsRollbackCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersNodePoolsRollbackCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10191,7 +9672,7 @@ func (c *ProjectsLocationsClustersNodePoolsRollbackCall) Do(opts ...googleapi.Ca
 	}
 	return ret, nil
 	// {
-	//   "description": "Rolls back a previously Aborted or Failed NodePool upgrade.\nThis makes no changes if the last upgrade successfully completed.",
+	//   "description": "Rolls back a previously Aborted or Failed NodePool upgrade. This makes no changes if the last upgrade successfully completed.",
 	//   "flatPath": "v1beta1/projects/{projectsId}/locations/{locationsId}/clusters/{clustersId}/nodePools/{nodePoolsId}:rollback",
 	//   "httpMethod": "POST",
 	//   "id": "container.projects.locations.clusters.nodePools.rollback",
@@ -10200,7 +9681,7 @@ func (c *ProjectsLocationsClustersNodePoolsRollbackCall) Do(opts ...googleapi.Ca
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster, node pool id) of the node poll to\nrollback upgrade.\nSpecified in the format `projects/*/locations/*/clusters/*/nodePools/*`.",
+	//       "description": "The name (project, location, cluster, node pool id) of the node poll to rollback upgrade. Specified in the format `projects/*/locations/*/clusters/*/nodePools/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+/nodePools/[^/]+$",
 	//       "required": true,
@@ -10268,7 +9749,7 @@ func (c *ProjectsLocationsClustersNodePoolsSetAutoscalingCall) Header() http.Hea
 
 func (c *ProjectsLocationsClustersNodePoolsSetAutoscalingCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10341,7 +9822,7 @@ func (c *ProjectsLocationsClustersNodePoolsSetAutoscalingCall) Do(opts ...google
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster, node pool) of the node pool to set\nautoscaler settings. Specified in the format\n`projects/*/locations/*/clusters/*/nodePools/*`.",
+	//       "description": "The name (project, location, cluster, node pool) of the node pool to set autoscaler settings. Specified in the format `projects/*/locations/*/clusters/*/nodePools/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+/nodePools/[^/]+$",
 	//       "required": true,
@@ -10408,7 +9889,7 @@ func (c *ProjectsLocationsClustersNodePoolsSetManagementCall) Header() http.Head
 
 func (c *ProjectsLocationsClustersNodePoolsSetManagementCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10481,7 +9962,7 @@ func (c *ProjectsLocationsClustersNodePoolsSetManagementCall) Do(opts ...googlea
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster, node pool id) of the node pool to set\nmanagement properties. Specified in the format\n`projects/*/locations/*/clusters/*/nodePools/*`.",
+	//       "description": "The name (project, location, cluster, node pool id) of the node pool to set management properties. Specified in the format `projects/*/locations/*/clusters/*/nodePools/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+/nodePools/[^/]+$",
 	//       "required": true,
@@ -10548,7 +10029,7 @@ func (c *ProjectsLocationsClustersNodePoolsSetSizeCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersNodePoolsSetSizeCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10621,7 +10102,7 @@ func (c *ProjectsLocationsClustersNodePoolsSetSizeCall) Do(opts ...googleapi.Cal
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster, node pool id) of the node pool to set\nsize.\nSpecified in the format `projects/*/locations/*/clusters/*/nodePools/*`.",
+	//       "description": "The name (project, location, cluster, node pool id) of the node pool to set size. Specified in the format `projects/*/locations/*/clusters/*/nodePools/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+/nodePools/[^/]+$",
 	//       "required": true,
@@ -10689,7 +10170,7 @@ func (c *ProjectsLocationsClustersNodePoolsUpdateCall) Header() http.Header {
 
 func (c *ProjectsLocationsClustersNodePoolsUpdateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10762,7 +10243,7 @@ func (c *ProjectsLocationsClustersNodePoolsUpdateCall) Do(opts ...googleapi.Call
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, cluster, node pool) of the node pool to\nupdate. Specified in the format\n`projects/*/locations/*/clusters/*/nodePools/*`.",
+	//       "description": "The name (project, location, cluster, node pool) of the node pool to update. Specified in the format `projects/*/locations/*/clusters/*/nodePools/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+/nodePools/[^/]+$",
 	//       "required": true,
@@ -10795,16 +10276,10 @@ type ProjectsLocationsClustersWellKnownGetOpenidConfigurationCall struct {
 }
 
 // GetOpenidConfiguration: Gets the OIDC discovery document for the
-// cluster.
-// See the
-// [OpenID Connect Discovery
-// 1.0
-// specification](https://openid.net/specs/openid-connect-discovery-1
-// _0.html)
-// for details.
-// This API is not yet intended for general use, and is not available
-// for all
-// clusters.
+// cluster. See the [OpenID Connect Discovery 1.0
+// specification](https://openid.net/specs/openid-connect-discovery-1_0.h
+// tml) for details. This API is not yet intended for general use, and
+// is not available for all clusters.
 func (r *ProjectsLocationsClustersWellKnownService) GetOpenidConfiguration(parent string) *ProjectsLocationsClustersWellKnownGetOpenidConfigurationCall {
 	c := &ProjectsLocationsClustersWellKnownGetOpenidConfigurationCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.parent = parent
@@ -10848,7 +10323,7 @@ func (c *ProjectsLocationsClustersWellKnownGetOpenidConfigurationCall) Header() 
 
 func (c *ProjectsLocationsClustersWellKnownGetOpenidConfigurationCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10910,7 +10385,7 @@ func (c *ProjectsLocationsClustersWellKnownGetOpenidConfigurationCall) Do(opts .
 	}
 	return ret, nil
 	// {
-	//   "description": "Gets the OIDC discovery document for the cluster.\nSee the\n[OpenID Connect Discovery 1.0\nspecification](https://openid.net/specs/openid-connect-discovery-1_0.html)\nfor details.\nThis API is not yet intended for general use, and is not available for all\nclusters.",
+	//   "description": "Gets the OIDC discovery document for the cluster. See the [OpenID Connect Discovery 1.0 specification](https://openid.net/specs/openid-connect-discovery-1_0.html) for details. This API is not yet intended for general use, and is not available for all clusters.",
 	//   "flatPath": "v1beta1/projects/{projectsId}/locations/{locationsId}/clusters/{clustersId}/.well-known/openid-configuration",
 	//   "httpMethod": "GET",
 	//   "id": "container.projects.locations.clusters.well-known.getOpenid-configuration",
@@ -10919,7 +10394,7 @@ func (c *ProjectsLocationsClustersWellKnownGetOpenidConfigurationCall) Do(opts .
 	//   ],
 	//   "parameters": {
 	//     "parent": {
-	//       "description": "The cluster (project, location, cluster id) to get the discovery document\nfor. Specified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The cluster (project, location, cluster id) to get the discovery document for. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/clusters/[^/]+$",
 	//       "required": true,
@@ -10980,7 +10455,7 @@ func (c *ProjectsLocationsOperationsCancelCall) Header() http.Header {
 
 func (c *ProjectsLocationsOperationsCancelCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11053,7 +10528,7 @@ func (c *ProjectsLocationsOperationsCancelCall) Do(opts ...googleapi.CallOption)
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, operation id) of the operation to cancel.\nSpecified in the format `projects/*/locations/*/operations/*`.",
+	//       "description": "The name (project, location, operation id) of the operation to cancel. Specified in the format `projects/*/locations/*/operations/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/operations/[^/]+$",
 	//       "required": true,
@@ -11093,32 +10568,27 @@ func (r *ProjectsLocationsOperationsService) Get(name string) *ProjectsLocations
 }
 
 // OperationId sets the optional parameter "operationId": Required.
-// Deprecated. The server-assigned `name` of the operation.
-// This field has been deprecated and replaced by the name field.
+// Deprecated. The server-assigned `name` of the operation. This field
+// has been deprecated and replaced by the name field.
 func (c *ProjectsLocationsOperationsGetCall) OperationId(operationId string) *ProjectsLocationsOperationsGetCall {
 	c.urlParams_.Set("operationId", operationId)
 	return c
 }
 
 // ProjectId sets the optional parameter "projectId": Required.
-// Deprecated. The Google Developers Console [project ID or
-// project
-// number](https://support.google.com/cloud/answer/6158840).
-// This
-//  field has been deprecated and replaced by the name field.
+// Deprecated. The Google Developers Console [project ID or project
+// number](https://support.google.com/cloud/answer/6158840). This field
+// has been deprecated and replaced by the name field.
 func (c *ProjectsLocationsOperationsGetCall) ProjectId(projectId string) *ProjectsLocationsOperationsGetCall {
 	c.urlParams_.Set("projectId", projectId)
 	return c
 }
 
 // Zone sets the optional parameter "zone": Required. Deprecated. The
-// name of the Google Compute
-// Engine
+// name of the Google Compute Engine
 // [zone](https://cloud.google.com/compute/docs/zones#available) in
-// which the
-// cluster resides. This field has been deprecated and replaced by the
-// name
-// field.
+// which the cluster resides. This field has been deprecated and
+// replaced by the name field.
 func (c *ProjectsLocationsOperationsGetCall) Zone(zone string) *ProjectsLocationsOperationsGetCall {
 	c.urlParams_.Set("zone", zone)
 	return c
@@ -11161,7 +10631,7 @@ func (c *ProjectsLocationsOperationsGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsOperationsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11232,24 +10702,24 @@ func (c *ProjectsLocationsOperationsGetCall) Do(opts ...googleapi.CallOption) (*
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, operation id) of the operation to get.\nSpecified in the format `projects/*/locations/*/operations/*`.",
+	//       "description": "The name (project, location, operation id) of the operation to get. Specified in the format `projects/*/locations/*/operations/*`.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+/operations/[^/]+$",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "operationId": {
-	//       "description": "Required. Deprecated. The server-assigned `name` of the operation.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The server-assigned `name` of the operation. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     }
@@ -11285,24 +10755,19 @@ func (r *ProjectsLocationsOperationsService) List(parent string) *ProjectsLocati
 }
 
 // ProjectId sets the optional parameter "projectId": Required.
-// Deprecated. The Google Developers Console [project ID or
-// project
-// number](https://support.google.com/cloud/answer/6158840).
-// This
-//  field has been deprecated and replaced by the parent field.
+// Deprecated. The Google Developers Console [project ID or project
+// number](https://support.google.com/cloud/answer/6158840). This field
+// has been deprecated and replaced by the parent field.
 func (c *ProjectsLocationsOperationsListCall) ProjectId(projectId string) *ProjectsLocationsOperationsListCall {
 	c.urlParams_.Set("projectId", projectId)
 	return c
 }
 
 // Zone sets the optional parameter "zone": Required. Deprecated. The
-// name of the Google Compute
-// Engine
+// name of the Google Compute Engine
 // [zone](https://cloud.google.com/compute/docs/zones#available) to
-// return
-// operations for, or `-` for all zones. This field has been deprecated
-// and
-// replaced by the parent field.
+// return operations for, or `-` for all zones. This field has been
+// deprecated and replaced by the parent field.
 func (c *ProjectsLocationsOperationsListCall) Zone(zone string) *ProjectsLocationsOperationsListCall {
 	c.urlParams_.Set("zone", zone)
 	return c
@@ -11345,7 +10810,7 @@ func (c *ProjectsLocationsOperationsListCall) Header() http.Header {
 
 func (c *ProjectsLocationsOperationsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11416,19 +10881,19 @@ func (c *ProjectsLocationsOperationsListCall) Do(opts ...googleapi.CallOption) (
 	//   ],
 	//   "parameters": {
 	//     "parent": {
-	//       "description": "The parent (project and location) where the operations will be listed.\nSpecified in the format `projects/*/locations/*`.\nLocation \"-\" matches all zones and all regions.",
+	//       "description": "The parent (project and location) where the operations will be listed. Specified in the format `projects/*/locations/*`. Location \"-\" matches all zones and all regions.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/locations/[^/]+$",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the parent field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the parent field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) to return\noperations for, or `-` for all zones. This field has been deprecated and\nreplaced by the parent field.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) to return operations for, or `-` for all zones. This field has been deprecated and replaced by the parent field.",
 	//       "location": "query",
 	//       "type": "string"
 	//     }
@@ -11466,8 +10931,8 @@ func (r *ProjectsZonesService) GetServerconfig(projectId string, zone string) *P
 }
 
 // Name sets the optional parameter "name": The name (project and
-// location) of the server config to get,
-// specified in the format `projects/*/locations/*`.
+// location) of the server config to get, specified in the format
+// `projects/*/locations/*`.
 func (c *ProjectsZonesGetServerconfigCall) Name(name string) *ProjectsZonesGetServerconfigCall {
 	c.urlParams_.Set("name", name)
 	return c
@@ -11510,7 +10975,7 @@ func (c *ProjectsZonesGetServerconfigCall) Header() http.Header {
 
 func (c *ProjectsZonesGetServerconfigCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11583,18 +11048,18 @@ func (c *ProjectsZonesGetServerconfigCall) Do(opts ...googleapi.CallOption) (*Se
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project and location) of the server config to get,\nspecified in the format `projects/*/locations/*`.",
+	//       "description": "The name (project and location) of the server config to get, specified in the format `projects/*/locations/*`.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) to return\noperations for. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) to return operations for. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -11661,7 +11126,7 @@ func (c *ProjectsZonesClustersAddonsCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersAddonsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11738,19 +11203,19 @@ func (c *ProjectsZonesClustersAddonsCall) Do(opts ...googleapi.CallOption) (*Ope
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to upgrade.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to upgrade. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -11820,7 +11285,7 @@ func (c *ProjectsZonesClustersCompleteIpRotationCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersCompleteIpRotationCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11897,19 +11362,19 @@ func (c *ProjectsZonesClustersCompleteIpRotationCall) Do(opts ...googleapi.CallO
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://developers.google.com/console/help/new/#projectnumber).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://developers.google.com/console/help/new/#projectnumber). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -11942,24 +11407,14 @@ type ProjectsZonesClustersCreateCall struct {
 }
 
 // Create: Creates a cluster, consisting of the specified number and
-// type of Google
-// Compute Engine instances.
-//
-// By default, the cluster is created in the
-// project's
-// [default
-// network](https://cloud.google.com/compute/docs/netw
-// orks-and-firewalls#networks).
-//
-// One firewall is added for the cluster. After cluster creation,
-// the Kubelet creates routes for each node to allow the containers
-// on that node to communicate with all other instances in
-// the
-// cluster.
-//
-// Finally, an entry is added to the project's global metadata
-// indicating
-// which CIDR range the cluster is using.
+// type of Google Compute Engine instances. By default, the cluster is
+// created in the project's [default
+// network](https://cloud.google.com/compute/docs/networks-and-firewalls#
+// networks). One firewall is added for the cluster. After cluster
+// creation, the Kubelet creates routes for each node to allow the
+// containers on that node to communicate with all other instances in
+// the cluster. Finally, an entry is added to the project's global
+// metadata indicating which CIDR range the cluster is using.
 func (r *ProjectsZonesClustersService) Create(projectId string, zone string, createclusterrequest *CreateClusterRequest) *ProjectsZonesClustersCreateCall {
 	c := &ProjectsZonesClustersCreateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.projectId = projectId
@@ -11995,7 +11450,7 @@ func (c *ProjectsZonesClustersCreateCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12060,7 +11515,7 @@ func (c *ProjectsZonesClustersCreateCall) Do(opts ...googleapi.CallOption) (*Ope
 	}
 	return ret, nil
 	// {
-	//   "description": "Creates a cluster, consisting of the specified number and type of Google\nCompute Engine instances.\n\nBy default, the cluster is created in the project's\n[default\nnetwork](https://cloud.google.com/compute/docs/networks-and-firewalls#networks).\n\nOne firewall is added for the cluster. After cluster creation,\nthe Kubelet creates routes for each node to allow the containers\non that node to communicate with all other instances in the\ncluster.\n\nFinally, an entry is added to the project's global metadata indicating\nwhich CIDR range the cluster is using.",
+	//   "description": "Creates a cluster, consisting of the specified number and type of Google Compute Engine instances. By default, the cluster is created in the project's [default network](https://cloud.google.com/compute/docs/networks-and-firewalls#networks). One firewall is added for the cluster. After cluster creation, the Kubelet creates routes for each node to allow the containers on that node to communicate with all other instances in the cluster. Finally, an entry is added to the project's global metadata indicating which CIDR range the cluster is using.",
 	//   "flatPath": "v1beta1/projects/{projectId}/zones/{zone}/clusters",
 	//   "httpMethod": "POST",
 	//   "id": "container.projects.zones.clusters.create",
@@ -12070,13 +11525,13 @@ func (c *ProjectsZonesClustersCreateCall) Do(opts ...googleapi.CallOption) (*Ope
 	//   ],
 	//   "parameters": {
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the parent field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the parent field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the parent\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the parent field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -12109,17 +11564,11 @@ type ProjectsZonesClustersDeleteCall struct {
 }
 
 // Delete: Deletes the cluster, including the Kubernetes endpoint and
-// all worker
-// nodes.
-//
-// Firewalls and routes that were configured during cluster creation
-// are also deleted.
-//
-// Other Google Compute Engine resources that might be in use by the
-// cluster,
-// such as load balancer resources, are not deleted if they weren't
-// present
-// when the cluster was initially created.
+// all worker nodes. Firewalls and routes that were configured during
+// cluster creation are also deleted. Other Google Compute Engine
+// resources that might be in use by the cluster, such as load balancer
+// resources, are not deleted if they weren't present when the cluster
+// was initially created.
 func (r *ProjectsZonesClustersService) Delete(projectId string, zone string, clusterId string) *ProjectsZonesClustersDeleteCall {
 	c := &ProjectsZonesClustersDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.projectId = projectId
@@ -12129,8 +11578,8 @@ func (r *ProjectsZonesClustersService) Delete(projectId string, zone string, clu
 }
 
 // Name sets the optional parameter "name": The name (project, location,
-// cluster) of the cluster to delete.
-// Specified in the format `projects/*/locations/*/clusters/*`.
+// cluster) of the cluster to delete. Specified in the format
+// `projects/*/locations/*/clusters/*`.
 func (c *ProjectsZonesClustersDeleteCall) Name(name string) *ProjectsZonesClustersDeleteCall {
 	c.urlParams_.Set("name", name)
 	return c
@@ -12163,7 +11612,7 @@ func (c *ProjectsZonesClustersDeleteCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12224,7 +11673,7 @@ func (c *ProjectsZonesClustersDeleteCall) Do(opts ...googleapi.CallOption) (*Ope
 	}
 	return ret, nil
 	// {
-	//   "description": "Deletes the cluster, including the Kubernetes endpoint and all worker\nnodes.\n\nFirewalls and routes that were configured during cluster creation\nare also deleted.\n\nOther Google Compute Engine resources that might be in use by the cluster,\nsuch as load balancer resources, are not deleted if they weren't present\nwhen the cluster was initially created.",
+	//   "description": "Deletes the cluster, including the Kubernetes endpoint and all worker nodes. Firewalls and routes that were configured during cluster creation are also deleted. Other Google Compute Engine resources that might be in use by the cluster, such as load balancer resources, are not deleted if they weren't present when the cluster was initially created.",
 	//   "flatPath": "v1beta1/projects/{projectId}/zones/{zone}/clusters/{clusterId}",
 	//   "httpMethod": "DELETE",
 	//   "id": "container.projects.zones.clusters.delete",
@@ -12235,24 +11684,24 @@ func (c *ProjectsZonesClustersDeleteCall) Do(opts ...googleapi.CallOption) (*Ope
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to delete.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to delete. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "name": {
-	//       "description": "The name (project, location, cluster) of the cluster to delete.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster) of the cluster to delete. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -12292,8 +11741,8 @@ func (r *ProjectsZonesClustersService) Get(projectId string, zone string, cluste
 }
 
 // Name sets the optional parameter "name": The name (project, location,
-// cluster) of the cluster to retrieve.
-// Specified in the format `projects/*/locations/*/clusters/*`.
+// cluster) of the cluster to retrieve. Specified in the format
+// `projects/*/locations/*/clusters/*`.
 func (c *ProjectsZonesClustersGetCall) Name(name string) *ProjectsZonesClustersGetCall {
 	c.urlParams_.Set("name", name)
 	return c
@@ -12336,7 +11785,7 @@ func (c *ProjectsZonesClustersGetCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12411,24 +11860,24 @@ func (c *ProjectsZonesClustersGetCall) Do(opts ...googleapi.CallOption) (*Cluste
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to retrieve.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to retrieve. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "name": {
-	//       "description": "The name (project, location, cluster) of the cluster to retrieve.\nSpecified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The name (project, location, cluster) of the cluster to retrieve. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -12496,7 +11945,7 @@ func (c *ProjectsZonesClustersLegacyAbacCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersLegacyAbacCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12573,19 +12022,19 @@ func (c *ProjectsZonesClustersLegacyAbacCall) Do(opts ...googleapi.CallOption) (
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to update.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to update. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -12618,8 +12067,7 @@ type ProjectsZonesClustersListCall struct {
 }
 
 // List: Lists all clusters owned by a project in either the specified
-// zone or all
-// zones.
+// zone or all zones.
 func (r *ProjectsZonesClustersService) List(projectId string, zone string) *ProjectsZonesClustersListCall {
 	c := &ProjectsZonesClustersListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.projectId = projectId
@@ -12628,9 +12076,9 @@ func (r *ProjectsZonesClustersService) List(projectId string, zone string) *Proj
 }
 
 // Parent sets the optional parameter "parent": The parent (project and
-// location) where the clusters will be listed.
-// Specified in the format `projects/*/locations/*`.
-// Location "-" matches all zones and all regions.
+// location) where the clusters will be listed. Specified in the format
+// `projects/*/locations/*`. Location "-" matches all zones and all
+// regions.
 func (c *ProjectsZonesClustersListCall) Parent(parent string) *ProjectsZonesClustersListCall {
 	c.urlParams_.Set("parent", parent)
 	return c
@@ -12673,7 +12121,7 @@ func (c *ProjectsZonesClustersListCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12736,7 +12184,7 @@ func (c *ProjectsZonesClustersListCall) Do(opts ...googleapi.CallOption) (*ListC
 	}
 	return ret, nil
 	// {
-	//   "description": "Lists all clusters owned by a project in either the specified zone or all\nzones.",
+	//   "description": "Lists all clusters owned by a project in either the specified zone or all zones.",
 	//   "flatPath": "v1beta1/projects/{projectId}/zones/{zone}/clusters",
 	//   "httpMethod": "GET",
 	//   "id": "container.projects.zones.clusters.list",
@@ -12746,18 +12194,18 @@ func (c *ProjectsZonesClustersListCall) Do(opts ...googleapi.CallOption) (*ListC
 	//   ],
 	//   "parameters": {
 	//     "parent": {
-	//       "description": "The parent (project and location) where the clusters will be listed.\nSpecified in the format `projects/*/locations/*`.\nLocation \"-\" matches all zones and all regions.",
+	//       "description": "The parent (project and location) where the clusters will be listed. Specified in the format `projects/*/locations/*`. Location \"-\" matches all zones and all regions.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the parent field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the parent field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides, or \"-\" for all zones. This field has been deprecated and\nreplaced by the parent field.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides, or \"-\" for all zones. This field has been deprecated and replaced by the parent field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -12787,13 +12235,10 @@ type ProjectsZonesClustersLocationsCall struct {
 	header_             http.Header
 }
 
-// Locations: Sets the locations for a specific cluster.
-// Deprecated.
-// Use
-// [projects.locations.clusters.update](https://cloud.google.com/kube
-// rnetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters/
-// update)
-// instead.
+// Locations: Sets the locations for a specific cluster. Deprecated. Use
+// [projects.locations.clusters.update](https://cloud.google.com/kubernet
+// es-engine/docs/reference/rest/v1beta1/projects.locations.clusters/upda
+// te) instead.
 func (r *ProjectsZonesClustersService) Locations(projectId string, zone string, clusterId string, setlocationsrequest *SetLocationsRequest) *ProjectsZonesClustersLocationsCall {
 	c := &ProjectsZonesClustersLocationsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.projectId = projectId
@@ -12830,7 +12275,7 @@ func (c *ProjectsZonesClustersLocationsCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersLocationsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12896,7 +12341,7 @@ func (c *ProjectsZonesClustersLocationsCall) Do(opts ...googleapi.CallOption) (*
 	}
 	return ret, nil
 	// {
-	//   "description": "Sets the locations for a specific cluster.\nDeprecated. Use\n[projects.locations.clusters.update](https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters/update)\ninstead.",
+	//   "description": "Sets the locations for a specific cluster. Deprecated. Use [projects.locations.clusters.update](https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters/update) instead.",
 	//   "flatPath": "v1beta1/projects/{projectId}/zones/{zone}/clusters/{clusterId}/locations",
 	//   "httpMethod": "POST",
 	//   "id": "container.projects.zones.clusters.locations",
@@ -12907,19 +12352,19 @@ func (c *ProjectsZonesClustersLocationsCall) Do(opts ...googleapi.CallOption) (*
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to upgrade.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to upgrade. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -12989,7 +12434,7 @@ func (c *ProjectsZonesClustersLoggingCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersLoggingCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13066,19 +12511,19 @@ func (c *ProjectsZonesClustersLoggingCall) Do(opts ...googleapi.CallOption) (*Op
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to upgrade.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to upgrade. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -13148,7 +12593,7 @@ func (c *ProjectsZonesClustersMasterCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersMasterCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13225,19 +12670,19 @@ func (c *ProjectsZonesClustersMasterCall) Do(opts ...googleapi.CallOption) (*Ope
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to upgrade.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to upgrade. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -13307,7 +12752,7 @@ func (c *ProjectsZonesClustersMonitoringCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersMonitoringCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13384,19 +12829,19 @@ func (c *ProjectsZonesClustersMonitoringCall) Do(opts ...googleapi.CallOption) (
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to upgrade.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to upgrade. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -13466,7 +12911,7 @@ func (c *ProjectsZonesClustersResourceLabelsCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersResourceLabelsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13543,19 +12988,19 @@ func (c *ProjectsZonesClustersResourceLabelsCall) Do(opts ...googleapi.CallOptio
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://developers.google.com/console/help/new/#projectnumber).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://developers.google.com/console/help/new/#projectnumber). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -13625,7 +13070,7 @@ func (c *ProjectsZonesClustersSetMaintenancePolicyCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersSetMaintenancePolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13708,13 +13153,13 @@ func (c *ProjectsZonesClustersSetMaintenancePolicyCall) Do(opts ...googleapi.Cal
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).",
+	//       "description": "Required. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840).",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides.",
+	//       "description": "Required. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -13748,10 +13193,8 @@ type ProjectsZonesClustersSetMasterAuthCall struct {
 }
 
 // SetMasterAuth: Sets master auth materials. Currently supports
-// changing the admin password
-// or a specific cluster, either via password generation or explicitly
-// setting
-// the password.
+// changing the admin password or a specific cluster, either via
+// password generation or explicitly setting the password.
 func (r *ProjectsZonesClustersService) SetMasterAuth(projectId string, zone string, clusterId string, setmasterauthrequest *SetMasterAuthRequest) *ProjectsZonesClustersSetMasterAuthCall {
 	c := &ProjectsZonesClustersSetMasterAuthCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.projectId = projectId
@@ -13788,7 +13231,7 @@ func (c *ProjectsZonesClustersSetMasterAuthCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersSetMasterAuthCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13854,7 +13297,7 @@ func (c *ProjectsZonesClustersSetMasterAuthCall) Do(opts ...googleapi.CallOption
 	}
 	return ret, nil
 	// {
-	//   "description": "Sets master auth materials. Currently supports changing the admin password\nor a specific cluster, either via password generation or explicitly setting\nthe password.",
+	//   "description": "Sets master auth materials. Currently supports changing the admin password or a specific cluster, either via password generation or explicitly setting the password.",
 	//   "flatPath": "v1beta1/projects/{projectId}/zones/{zone}/clusters/{clusterId}:setMasterAuth",
 	//   "httpMethod": "POST",
 	//   "id": "container.projects.zones.clusters.setMasterAuth",
@@ -13865,19 +13308,19 @@ func (c *ProjectsZonesClustersSetMasterAuthCall) Do(opts ...googleapi.CallOption
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to upgrade.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to upgrade. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -13947,7 +13390,7 @@ func (c *ProjectsZonesClustersSetNetworkPolicyCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersSetNetworkPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14024,19 +13467,19 @@ func (c *ProjectsZonesClustersSetNetworkPolicyCall) Do(opts ...googleapi.CallOpt
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://developers.google.com/console/help/new/#projectnumber).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://developers.google.com/console/help/new/#projectnumber). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -14106,7 +13549,7 @@ func (c *ProjectsZonesClustersStartIpRotationCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersStartIpRotationCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14183,19 +13626,19 @@ func (c *ProjectsZonesClustersStartIpRotationCall) Do(opts ...googleapi.CallOpti
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://developers.google.com/console/help/new/#projectnumber).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://developers.google.com/console/help/new/#projectnumber). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -14265,7 +13708,7 @@ func (c *ProjectsZonesClustersUpdateCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersUpdateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14342,19 +13785,19 @@ func (c *ProjectsZonesClustersUpdateCall) Do(opts ...googleapi.CallOption) (*Ope
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to upgrade.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to upgrade. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -14426,7 +13869,7 @@ func (c *ProjectsZonesClustersNodePoolsAutoscalingCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersNodePoolsAutoscalingCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14505,25 +13948,25 @@ func (c *ProjectsZonesClustersNodePoolsAutoscalingCall) Do(opts ...googleapi.Cal
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to upgrade.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to upgrade. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "nodePoolId": {
-	//       "description": "Required. Deprecated. The name of the node pool to upgrade.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the node pool to upgrade. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -14593,7 +14036,7 @@ func (c *ProjectsZonesClustersNodePoolsCreateCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersNodePoolsCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14670,19 +14113,19 @@ func (c *ProjectsZonesClustersNodePoolsCreateCall) Do(opts ...googleapi.CallOpti
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster.\nThis field has been deprecated and replaced by the parent field.",
+	//       "description": "Required. Deprecated. The name of the cluster. This field has been deprecated and replaced by the parent field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://developers.google.com/console/help/new/#projectnumber).\nThis field has been deprecated and replaced by the parent field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://developers.google.com/console/help/new/#projectnumber). This field has been deprecated and replaced by the parent field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the parent\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the parent field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -14726,10 +14169,8 @@ func (r *ProjectsZonesClustersNodePoolsService) Delete(projectId string, zone st
 }
 
 // Name sets the optional parameter "name": The name (project, location,
-// cluster, node pool id) of the node pool to
-// delete. Specified in the
-// format
-// `projects/*/locations/*/clusters/*/nodePools/*`.
+// cluster, node pool id) of the node pool to delete. Specified in the
+// format `projects/*/locations/*/clusters/*/nodePools/*`.
 func (c *ProjectsZonesClustersNodePoolsDeleteCall) Name(name string) *ProjectsZonesClustersNodePoolsDeleteCall {
 	c.urlParams_.Set("name", name)
 	return c
@@ -14762,7 +14203,7 @@ func (c *ProjectsZonesClustersNodePoolsDeleteCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersNodePoolsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14836,30 +14277,30 @@ func (c *ProjectsZonesClustersNodePoolsDeleteCall) Do(opts ...googleapi.CallOpti
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "name": {
-	//       "description": "The name (project, location, cluster, node pool id) of the node pool to\ndelete. Specified in the format\n`projects/*/locations/*/clusters/*/nodePools/*`.",
+	//       "description": "The name (project, location, cluster, node pool id) of the node pool to delete. Specified in the format `projects/*/locations/*/clusters/*/nodePools/*`.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "nodePoolId": {
-	//       "description": "Required. Deprecated. The name of the node pool to delete.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the node pool to delete. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://developers.google.com/console/help/new/#projectnumber).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://developers.google.com/console/help/new/#projectnumber). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -14901,10 +14342,8 @@ func (r *ProjectsZonesClustersNodePoolsService) Get(projectId string, zone strin
 }
 
 // Name sets the optional parameter "name": The name (project, location,
-// cluster, node pool id) of the node pool to
-// get. Specified in the
-// format
-// `projects/*/locations/*/clusters/*/nodePools/*`.
+// cluster, node pool id) of the node pool to get. Specified in the
+// format `projects/*/locations/*/clusters/*/nodePools/*`.
 func (c *ProjectsZonesClustersNodePoolsGetCall) Name(name string) *ProjectsZonesClustersNodePoolsGetCall {
 	c.urlParams_.Set("name", name)
 	return c
@@ -14947,7 +14386,7 @@ func (c *ProjectsZonesClustersNodePoolsGetCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersNodePoolsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -15024,30 +14463,30 @@ func (c *ProjectsZonesClustersNodePoolsGetCall) Do(opts ...googleapi.CallOption)
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "name": {
-	//       "description": "The name (project, location, cluster, node pool id) of the node pool to\nget. Specified in the format\n`projects/*/locations/*/clusters/*/nodePools/*`.",
+	//       "description": "The name (project, location, cluster, node pool id) of the node pool to get. Specified in the format `projects/*/locations/*/clusters/*/nodePools/*`.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "nodePoolId": {
-	//       "description": "Required. Deprecated. The name of the node pool.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the node pool. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://developers.google.com/console/help/new/#projectnumber).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://developers.google.com/console/help/new/#projectnumber). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -15087,8 +14526,8 @@ func (r *ProjectsZonesClustersNodePoolsService) List(projectId string, zone stri
 }
 
 // Parent sets the optional parameter "parent": The parent (project,
-// location, cluster id) where the node pools will be
-// listed. Specified in the format `projects/*/locations/*/clusters/*`.
+// location, cluster id) where the node pools will be listed. Specified
+// in the format `projects/*/locations/*/clusters/*`.
 func (c *ProjectsZonesClustersNodePoolsListCall) Parent(parent string) *ProjectsZonesClustersNodePoolsListCall {
 	c.urlParams_.Set("parent", parent)
 	return c
@@ -15131,7 +14570,7 @@ func (c *ProjectsZonesClustersNodePoolsListCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersNodePoolsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -15206,24 +14645,24 @@ func (c *ProjectsZonesClustersNodePoolsListCall) Do(opts ...googleapi.CallOption
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster.\nThis field has been deprecated and replaced by the parent field.",
+	//       "description": "Required. Deprecated. The name of the cluster. This field has been deprecated and replaced by the parent field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "parent": {
-	//       "description": "The parent (project, location, cluster id) where the node pools will be\nlisted. Specified in the format `projects/*/locations/*/clusters/*`.",
+	//       "description": "The parent (project, location, cluster id) where the node pools will be listed. Specified in the format `projects/*/locations/*/clusters/*`.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://developers.google.com/console/help/new/#projectnumber).\nThis field has been deprecated and replaced by the parent field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://developers.google.com/console/help/new/#projectnumber). This field has been deprecated and replaced by the parent field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the parent\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the parent field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -15254,8 +14693,7 @@ type ProjectsZonesClustersNodePoolsRollbackCall struct {
 	header_                        http.Header
 }
 
-// Rollback: Rolls back a previously Aborted or Failed NodePool
-// upgrade.
+// Rollback: Rolls back a previously Aborted or Failed NodePool upgrade.
 // This makes no changes if the last upgrade successfully completed.
 func (r *ProjectsZonesClustersNodePoolsService) Rollback(projectId string, zone string, clusterId string, nodePoolId string, rollbacknodepoolupgraderequest *RollbackNodePoolUpgradeRequest) *ProjectsZonesClustersNodePoolsRollbackCall {
 	c := &ProjectsZonesClustersNodePoolsRollbackCall{s: r.s, urlParams_: make(gensupport.URLParams)}
@@ -15294,7 +14732,7 @@ func (c *ProjectsZonesClustersNodePoolsRollbackCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersNodePoolsRollbackCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -15361,7 +14799,7 @@ func (c *ProjectsZonesClustersNodePoolsRollbackCall) Do(opts ...googleapi.CallOp
 	}
 	return ret, nil
 	// {
-	//   "description": "Rolls back a previously Aborted or Failed NodePool upgrade.\nThis makes no changes if the last upgrade successfully completed.",
+	//   "description": "Rolls back a previously Aborted or Failed NodePool upgrade. This makes no changes if the last upgrade successfully completed.",
 	//   "flatPath": "v1beta1/projects/{projectId}/zones/{zone}/clusters/{clusterId}/nodePools/{nodePoolId}:rollback",
 	//   "httpMethod": "POST",
 	//   "id": "container.projects.zones.clusters.nodePools.rollback",
@@ -15373,25 +14811,25 @@ func (c *ProjectsZonesClustersNodePoolsRollbackCall) Do(opts ...googleapi.CallOp
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to rollback.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to rollback. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "nodePoolId": {
-	//       "description": "Required. Deprecated. The name of the node pool to rollback.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the node pool to rollback. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -15463,7 +14901,7 @@ func (c *ProjectsZonesClustersNodePoolsSetManagementCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersNodePoolsSetManagementCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -15542,25 +14980,25 @@ func (c *ProjectsZonesClustersNodePoolsSetManagementCall) Do(opts ...googleapi.C
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to update.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to update. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "nodePoolId": {
-	//       "description": "Required. Deprecated. The name of the node pool to update.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the node pool to update. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -15632,7 +15070,7 @@ func (c *ProjectsZonesClustersNodePoolsSetSizeCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersNodePoolsSetSizeCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -15711,25 +15149,25 @@ func (c *ProjectsZonesClustersNodePoolsSetSizeCall) Do(opts ...googleapi.CallOpt
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to update.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to update. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "nodePoolId": {
-	//       "description": "Required. Deprecated. The name of the node pool to update.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the node pool to update. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -15802,7 +15240,7 @@ func (c *ProjectsZonesClustersNodePoolsUpdateCall) Header() http.Header {
 
 func (c *ProjectsZonesClustersNodePoolsUpdateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -15881,25 +15319,25 @@ func (c *ProjectsZonesClustersNodePoolsUpdateCall) Do(opts ...googleapi.CallOpti
 	//   ],
 	//   "parameters": {
 	//     "clusterId": {
-	//       "description": "Required. Deprecated. The name of the cluster to upgrade.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the cluster to upgrade. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "nodePoolId": {
-	//       "description": "Required. Deprecated. The name of the node pool to upgrade.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The name of the node pool to upgrade. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -15969,7 +15407,7 @@ func (c *ProjectsZonesOperationsCancelCall) Header() http.Header {
 
 func (c *ProjectsZonesOperationsCancelCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -16046,19 +15484,19 @@ func (c *ProjectsZonesOperationsCancelCall) Do(opts ...googleapi.CallOption) (*E
 	//   ],
 	//   "parameters": {
 	//     "operationId": {
-	//       "description": "Required. Deprecated. The server-assigned `name` of the operation.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The server-assigned `name` of the operation. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\noperation resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the operation resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -16101,8 +15539,8 @@ func (r *ProjectsZonesOperationsService) Get(projectId string, zone string, oper
 }
 
 // Name sets the optional parameter "name": The name (project, location,
-// operation id) of the operation to get.
-// Specified in the format `projects/*/locations/*/operations/*`.
+// operation id) of the operation to get. Specified in the format
+// `projects/*/locations/*/operations/*`.
 func (c *ProjectsZonesOperationsGetCall) Name(name string) *ProjectsZonesOperationsGetCall {
 	c.urlParams_.Set("name", name)
 	return c
@@ -16145,7 +15583,7 @@ func (c *ProjectsZonesOperationsGetCall) Header() http.Header {
 
 func (c *ProjectsZonesOperationsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -16220,24 +15658,24 @@ func (c *ProjectsZonesOperationsGetCall) Do(opts ...googleapi.CallOption) (*Oper
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The name (project, location, operation id) of the operation to get.\nSpecified in the format `projects/*/locations/*/operations/*`.",
+	//       "description": "The name (project, location, operation id) of the operation to get. Specified in the format `projects/*/locations/*/operations/*`.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "operationId": {
-	//       "description": "Required. Deprecated. The server-assigned `name` of the operation.\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The server-assigned `name` of the operation. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the name field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) in which the\ncluster resides. This field has been deprecated and replaced by the name\nfield.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) in which the cluster resides. This field has been deprecated and replaced by the name field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -16276,9 +15714,9 @@ func (r *ProjectsZonesOperationsService) List(projectId string, zone string) *Pr
 }
 
 // Parent sets the optional parameter "parent": The parent (project and
-// location) where the operations will be listed.
-// Specified in the format `projects/*/locations/*`.
-// Location "-" matches all zones and all regions.
+// location) where the operations will be listed. Specified in the
+// format `projects/*/locations/*`. Location "-" matches all zones and
+// all regions.
 func (c *ProjectsZonesOperationsListCall) Parent(parent string) *ProjectsZonesOperationsListCall {
 	c.urlParams_.Set("parent", parent)
 	return c
@@ -16321,7 +15759,7 @@ func (c *ProjectsZonesOperationsListCall) Header() http.Header {
 
 func (c *ProjectsZonesOperationsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200707")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -16394,18 +15832,18 @@ func (c *ProjectsZonesOperationsListCall) Do(opts ...googleapi.CallOption) (*Lis
 	//   ],
 	//   "parameters": {
 	//     "parent": {
-	//       "description": "The parent (project and location) where the operations will be listed.\nSpecified in the format `projects/*/locations/*`.\nLocation \"-\" matches all zones and all regions.",
+	//       "description": "The parent (project and location) where the operations will be listed. Specified in the format `projects/*/locations/*`. Location \"-\" matches all zones and all regions.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project\nnumber](https://support.google.com/cloud/answer/6158840).\nThis field has been deprecated and replaced by the parent field.",
+	//       "description": "Required. Deprecated. The Google Developers Console [project ID or project number](https://support.google.com/cloud/answer/6158840). This field has been deprecated and replaced by the parent field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "zone": {
-	//       "description": "Required. Deprecated. The name of the Google Compute Engine\n[zone](https://cloud.google.com/compute/docs/zones#available) to return\noperations for, or `-` for all zones. This field has been deprecated and\nreplaced by the parent field.",
+	//       "description": "Required. Deprecated. The name of the Google Compute Engine [zone](https://cloud.google.com/compute/docs/zones#available) to return operations for, or `-` for all zones. This field has been deprecated and replaced by the parent field.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"

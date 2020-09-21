@@ -56,8 +56,8 @@ This directory contains Ingress conformance tests for Knative Ingress resource.
 
 ## Building the test images
 
-Note: this is only required when you run conformance/e2e tests locally with
-`go test` commands.
+NOTE: this is only required when you run conformance/e2e tests locally with
+`go test` commands, and may be required periodically.
 
 The [`upload-test-images.sh`](../../upload-test-images.sh) script can be used to
 build and push the test images used by the conformance and e2e tests. The script
@@ -101,6 +101,7 @@ import (
 func TestYourIngressConformance(t *testing.T) {
 	ingress.RunConformance(t)
 }
+```
 
 ### Running the tests from `net-istio` repository
 
