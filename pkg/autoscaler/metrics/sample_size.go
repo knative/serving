@@ -43,7 +43,8 @@ const (
 //   n = N*X / (N + X – 1), X = C^2 * σ^2 / MOE^2,
 //
 // where N is the population size, C is the critical value of the Normal distribution
-// for a given confidence level of 95%, MOE is the margin of error.
+// for a given confidence level of 95%, MOE is the margin of error and σ^2 is the
+// population variance.
 func populationMeanSampleSize(population float64) float64 {
 	if population <= 3 {
 		return math.Max(population, 0)
