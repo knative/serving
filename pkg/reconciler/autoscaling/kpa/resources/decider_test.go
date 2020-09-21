@@ -27,7 +27,8 @@ import (
 
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	. "knative.dev/serving/pkg/testing"
 )
@@ -197,15 +198,15 @@ func TestGetInitialScale(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(map[string]string{})
+			ac, _ := asconfig.NewConfigFromMap(map[string]string{})
 			if test.configMutator != nil {
-				test.configMutator(autoscalerConfig)
+				test.configMutator(ac)
 			}
 			pa := pa()
 			if test.paMutation != nil {
 				test.paMutation(pa)
 			}
-			got := int(GetInitialScale(autoscalerConfig, pa))
+			got := int(GetInitialScale(ac, pa))
 			if want := test.want; got != want {
 				t.Errorf("got = %v, want: %v", got, want)
 			}

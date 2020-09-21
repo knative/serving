@@ -41,7 +41,8 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
@@ -85,11 +86,11 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 // test cluster.
 func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
 	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get(
-		context.Background(), autoscalerconfig.ConfigName, metav1.GetOptions{})
+		context.Background(), asconfig.ConfigName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	return autoscalerconfig.NewConfigFromMap(autoscalerCM.Data)
+	return asconfig.NewConfigFromMap(autoscalerCM.Data)
 }
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.

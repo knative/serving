@@ -40,7 +40,7 @@ import (
 	defaultconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 	"knative.dev/serving/pkg/reconciler/revision/config"
@@ -810,7 +810,7 @@ func ReconcilerTestConfig() *config.Config {
 		Logging:  &logging.Config{},
 		Tracing:  &tracingconfig.Config{},
 		Defaults: &defaultconfig.Defaults{},
-		Autoscaler: &asconfig.Config{
+		Autoscaler: &autoscalerconfig.Config{
 			InitialScale:          1,
 			AllowZeroInitialScale: false,
 		},
