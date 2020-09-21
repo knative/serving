@@ -26,7 +26,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
 var podCondSet = apis.NewLivingConditionSet(
@@ -83,7 +83,7 @@ func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
 // `(min, max int32)`. The value of 0 for any of min or max means the bound is
 // not set.
 // Note: min will be ignored if the PA is not reachable
-func (pa *PodAutoscaler) ScaleBounds(asConfig *sharedconfig.Config) (int32, int32) {
+func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (int32, int32) {
 	var min int32
 	if pa.Spec.Reachability != ReachabilityUnreachable {
 		min, _ = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)

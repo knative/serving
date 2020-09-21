@@ -22,7 +22,7 @@ import (
 
 	cm "knative.dev/pkg/configmap"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -39,8 +39,8 @@ const (
 	defaultTargetUtilization = 0.7
 )
 
-func defaultConfig() *sharedconfig.Config {
-	return &sharedconfig.Config{
+func defaultConfig() *autoscalerconfig.Config {
+	return &autoscalerconfig.Config{
 		EnableScaleToZero:                  true,
 		ContainerConcurrencyTargetFraction: defaultTargetUtilization,
 		ContainerConcurrencyTargetDefault:  100,
@@ -66,7 +66,7 @@ func defaultConfig() *sharedconfig.Config {
 }
 
 // NewConfigFromMap creates a Config from the supplied map
-func NewConfigFromMap(data map[string]string) (*sharedconfig.Config, error) {
+func NewConfigFromMap(data map[string]string) (*autoscalerconfig.Config, error) {
 	lc := defaultConfig()
 
 	if err := cm.Parse(data,
@@ -108,7 +108,7 @@ func NewConfigFromMap(data map[string]string) (*sharedconfig.Config, error) {
 	return validate(lc)
 }
 
-func validate(lc *sharedconfig.Config) (*sharedconfig.Config, error) {
+func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 	if lc.ScaleToZeroGracePeriod < autoscaling.WindowMin {
 		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least %v, was: %v", autoscaling.WindowMin, lc.ScaleToZeroGracePeriod)
 	}
@@ -187,6 +187,6 @@ func validate(lc *sharedconfig.Config) (*sharedconfig.Config, error) {
 }
 
 // NewConfigFromConfigMap creates a Config from the supplied ConfigMap
-func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*sharedconfig.Config, error) {
+func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*autoscalerconfig.Config, error) {
 	return NewConfigFromMap(configMap.Data)
 }

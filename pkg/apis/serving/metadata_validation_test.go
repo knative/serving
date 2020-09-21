@@ -31,7 +31,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
 func TestValidateObjectMetadata(t *testing.T) {
@@ -161,7 +161,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 		},
 	}, {
 		name: "revision initial scale not parseable",
-		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &sharedconfig.Config{AllowZeroInitialScale: true}}),
+		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
@@ -171,7 +171,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 		expectErr: apis.ErrInvalidValue("invalid", "annotations."+autoscaling.InitialScaleAnnotationKey),
 	}, {
 		name: "negative revision initial scale",
-		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &sharedconfig.Config{AllowZeroInitialScale: true}}),
+		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
@@ -181,7 +181,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 		expectErr: apis.ErrInvalidValue("-2", "annotations."+autoscaling.InitialScaleAnnotationKey),
 	}, {
 		name: "cluster allows zero revision initial scale",
-		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &sharedconfig.Config{AllowZeroInitialScale: true}}),
+		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
@@ -202,7 +202,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if c.ctx == nil {
-				c.ctx = config.ToContext(context.Background(), &config.Config{Autoscaler: &sharedconfig.Config{AllowZeroInitialScale: false}})
+				c.ctx = config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: false}})
 			}
 			err := ValidateObjectMetadata(c.ctx, c.objectMeta)
 			if got, want := err.Error(), c.expectErr.Error(); got != want {

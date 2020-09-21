@@ -29,7 +29,7 @@ import (
 	apistest "knative.dev/pkg/apis/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
 func TestPodAutoscalerDuckTypes(t *testing.T) {
@@ -530,7 +530,7 @@ func TestScaleBounds(t *testing.T) {
 		name         string
 		min          string
 		max          string
-		config       sharedconfig.Config
+		config       autoscalerconfig.Config
 		reachability ReachabilityType
 		wantMin      int32
 		wantMax      int32
@@ -554,14 +554,14 @@ func TestScaleBounds(t *testing.T) {
 		min:     "1",
 		wantMin: 1,
 		wantMax: 10,
-		config: sharedconfig.Config{
+		config: autoscalerconfig.Config{
 			MaxScale: 10,
 		},
 	}, {
 		name:    "max and config",
 		max:     "5",
 		wantMax: 5,
-		config: sharedconfig.Config{
+		config: autoscalerconfig.Config{
 			MaxScale: 10,
 		},
 	}, {

@@ -76,7 +76,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/deployment"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
@@ -111,7 +111,7 @@ func defaultConfigMapData() map[string]string {
 	}
 }
 
-func initialScaleZeroASConfig() *sharedconfig.Config {
+func initialScaleZeroASConfig() *autoscalerconfig.Config {
 	asconfig, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
 	asconfig.AllowZeroInitialScale = true
 	asconfig.InitialScale = 0
@@ -1180,7 +1180,7 @@ func TestReconcile(t *testing.T) {
 
 		testConfigs := defaultConfig()
 		if asConfig := ctx.Value(asConfigKey{}); asConfig != nil {
-			testConfigs.Autoscaler = asConfig.(*sharedconfig.Config)
+			testConfigs.Autoscaler = asConfig.(*autoscalerconfig.Config)
 		}
 		psf := podscalable.Get(ctx)
 		scaler := newScaler(ctx, psf, func(interface{}, time.Duration) {})
