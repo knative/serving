@@ -112,21 +112,21 @@ func defaultConfigMapData() map[string]string {
 }
 
 func initialScaleZeroASConfig() *autoscalerconfig.Config {
-	asconfig, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
-	asconfig.AllowZeroInitialScale = true
-	asconfig.InitialScale = 0
-	asconfig.EnableScaleToZero = true
-	return asconfig
+	ac, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
+	ac.AllowZeroInitialScale = true
+	ac.InitialScale = 0
+	ac.EnableScaleToZero = true
+	return ac
 }
 
 func defaultConfig() *config.Config {
-	asconfig, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
+	ac, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
 	deploymentConfig, _ := deployment.NewConfigFromMap(map[string]string{
 		deployment.QueueSidecarImageKey: "bob",
 		deployment.ProgressDeadlineKey:  progressDeadline.String(),
 	})
 	return &config.Config{
-		Autoscaler: asconfig,
+		Autoscaler: ac,
 		Deployment: deploymentConfig,
 	}
 }
@@ -1230,7 +1230,7 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 	return s
 }
 
-func TestGlobalResyncOnUpdateasconfigMap(t *testing.T) {
+func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
