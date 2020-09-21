@@ -31,3 +31,9 @@ issues:
     - path: test # Excludes /test, *_test.go etc.
       linters:
         - gosec
+
+    # Allow source and sink receivers in conversion code for clarity.
+    - path: _conversion\.go
+      text: "ST1016:"
+      linters:
+        - stylecheck

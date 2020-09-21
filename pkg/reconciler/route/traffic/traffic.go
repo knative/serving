@@ -300,18 +300,18 @@ func (cb *configBuilder) addFlattenedTarget(target RevisionTarget) {
 	}
 }
 
-func (cfg *configBuilder) build() (*Config, error) {
-	if cfg.deferredTargetErr != nil {
-		cfg.targets = nil
-		cfg.revisionTargets = nil
+func (cb *configBuilder) build() (*Config, error) {
+	if cb.deferredTargetErr != nil {
+		cb.targets = nil
+		cb.revisionTargets = nil
 	}
 	return &Config{
-		Targets:         consolidateAll(cfg.targets),
-		revisionTargets: cfg.revisionTargets,
-		Configurations:  cfg.configurations,
-		Revisions:       cfg.revisions,
-		MissingTargets:  cfg.missingTargets,
-	}, cfg.deferredTargetErr
+		Targets:         consolidateAll(cb.targets),
+		revisionTargets: cb.revisionTargets,
+		Configurations:  cb.configurations,
+		Revisions:       cb.revisions,
+		MissingTargets:  cb.missingTargets,
+	}, cb.deferredTargetErr
 }
 
 func consolidateAll(targets map[string]RevisionTargets) map[string]RevisionTargets {
