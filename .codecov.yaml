@@ -1,3 +1,11 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 80
+        threshold: 1%
+    patch:
+      default: false
 ignore:
   - "**/zz_generated*.go" # Ignore generated files.
   - "**/*.pb.go" # Ignore proto-generated files.
