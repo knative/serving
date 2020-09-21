@@ -74,3 +74,4 @@ jobs:
             curl https://storage.googleapis.com/knative-nightly/${{ matrix.nightly }}/latest/$x > ${GITHUB_WORKSPACE}/${{ matrix.directory }}/$x
           done
           ```
+          /assign tcnghia nak3 ZhiminXiang mattmoor
