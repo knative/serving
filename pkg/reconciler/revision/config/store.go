@@ -25,7 +25,7 @@ import (
 	"knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/config"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
 	"knative.dev/serving/pkg/deployment"
 )
@@ -67,13 +67,13 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"revision",
 			logger,
 			configmap.Constructors{
-				autoscalerconfig.ConfigName: autoscalerconfig.NewConfigFromConfigMap,
-				config.DefaultsConfigName:   config.NewDefaultsConfigFromConfigMap,
-				deployment.ConfigName:       deployment.NewConfigFromConfigMap,
-				logging.ConfigMapName():     logging.NewConfigFromConfigMap,
-				metrics.ConfigMapName():     metrics.NewObservabilityConfigFromConfigMap,
-				network.ConfigName:          network.NewConfigFromConfigMap,
-				pkgtracing.ConfigName:       pkgtracing.NewTracingConfigFromConfigMap,
+				asconfig.ConfigName:       asconfig.NewConfigFromConfigMap,
+				config.DefaultsConfigName: config.NewDefaultsConfigFromConfigMap,
+				deployment.ConfigName:     deployment.NewConfigFromConfigMap,
+				logging.ConfigMapName():   logging.NewConfigFromConfigMap,
+				metrics.ConfigMapName():   metrics.NewObservabilityConfigFromConfigMap,
+				network.ConfigName:        network.NewConfigFromConfigMap,
+				pkgtracing.ConfigName:     pkgtracing.NewTracingConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -114,7 +114,7 @@ func (s *Store) Load() *Config {
 	if tr, ok := s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config); ok {
 		cfg.Tracing = tr.DeepCopy()
 	}
-	if as, ok := s.UntypedLoad(autoscalerconfig.ConfigName).(*sharedconfig.Config); ok {
+	if as, ok := s.UntypedLoad(asconfig.ConfigName).(*sharedconfig.Config); ok {
 		cfg.Autoscaler = as.DeepCopy()
 	}
 

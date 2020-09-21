@@ -75,7 +75,7 @@ import (
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/deployment"
@@ -112,21 +112,21 @@ func defaultConfigMapData() map[string]string {
 }
 
 func initialScaleZeroASConfig() *sharedconfig.Config {
-	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
-	autoscalerConfig.AllowZeroInitialScale = true
-	autoscalerConfig.InitialScale = 0
-	autoscalerConfig.EnableScaleToZero = true
-	return autoscalerConfig
+	asconfig, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
+	asconfig.AllowZeroInitialScale = true
+	asconfig.InitialScale = 0
+	asconfig.EnableScaleToZero = true
+	return asconfig
 }
 
 func defaultConfig() *config.Config {
-	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
+	asconfig, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
 	deploymentConfig, _ := deployment.NewConfigFromMap(map[string]string{
 		deployment.QueueSidecarImageKey: "bob",
 		deployment.ProgressDeadlineKey:  progressDeadline.String(),
 	})
 	return &config.Config{
-		Autoscaler: autoscalerConfig,
+		Autoscaler: asconfig,
 		Deployment: deploymentConfig,
 	}
 }
@@ -135,7 +135,7 @@ func newConfigWatcher() configmap.Watcher {
 	return configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      autoscalerconfig.ConfigName,
+			Name:      asconfig.ConfigName,
 		},
 		Data: defaultConfigMapData(),
 	}, &corev1.ConfigMap{
@@ -1230,7 +1230,7 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 	return s
 }
 
-func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
+func TestGlobalResyncOnUpdateasconfigMap(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
@@ -1240,7 +1240,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	// Load default config
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      autoscalerconfig.ConfigName,
+			Name:      asconfig.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: defaultConfigMapData(),
@@ -1300,7 +1300,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	data["container-concurrency-target-default"] = fmt.Sprint(concurrencyTargetAfterUpdate)
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      autoscalerconfig.ConfigName,
+			Name:      asconfig.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: data,

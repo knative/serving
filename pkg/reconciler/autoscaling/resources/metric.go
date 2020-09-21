@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
 )
 
@@ -47,8 +47,8 @@ func MakeMetric(pa *v1alpha1.PodAutoscaler, metricSvc string, config *sharedconf
 		panicWindowPercentage = config.PanicWindowPercentage
 	}
 	panicWindow := time.Duration(float64(stableWindow) * panicWindowPercentage / 100.0).Round(time.Second)
-	if panicWindow < autoscalerconfig.BucketSize {
-		panicWindow = autoscalerconfig.BucketSize
+	if panicWindow < asconfig.BucketSize {
+		panicWindow = asconfig.BucketSize
 	}
 	return &v1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
