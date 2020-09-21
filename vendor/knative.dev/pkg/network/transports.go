@@ -34,7 +34,7 @@ func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return rt(r)
 }
 
-func newAutoTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTripper {
+func newAutoTransport(v1, v2 http.RoundTripper) http.RoundTripper {
 	return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		t := v1
 		if r.ProtoMajor == 2 {

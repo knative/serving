@@ -50,7 +50,7 @@ type steadyUpPacer struct {
 }
 
 // NewSteadyUp returns a new SteadyUpPacer with the given config.
-func NewSteadyUp(min vegeta.Rate, max vegeta.Rate, upDuration time.Duration) (vegeta.Pacer, error) {
+func NewSteadyUp(min, max vegeta.Rate, upDuration time.Duration) (vegeta.Pacer, error) {
 	if upDuration <= 0 || min.Freq <= 0 || min.Per <= 0 || max.Freq <= 0 || max.Per <= 0 {
 		return nil, errors.New("configuration for this SteadyUpPacer is invalid")
 	}

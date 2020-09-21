@@ -244,7 +244,7 @@ func WriteResourcePercentages(outputFile string,
 func CleanupJunitFiles(artifactsDir string) {
 	filepath.Walk(artifactsDir, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() && jUnitFileRegexExpr.MatchString(info.Name()) {
-			os.Remove(path)
+			return os.Remove(path)
 		}
 		return nil
 	})

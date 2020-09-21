@@ -44,7 +44,7 @@ func (s *StructKindNode) initialize(field string, parent NodeInterface, t reflec
 func (s *StructKindNode) buildChildNodes(t reflect.Type) {
 	// For types that are part of the standard package, we treat them as leaf nodes and don't expand further.
 	// https://golang.org/pkg/reflect/#StructField.
-	if len(s.FieldType.PkgPath()) == 0 {
+	if s.FieldType.PkgPath() == "" {
 		s.LeafNode = true
 		return
 	}
