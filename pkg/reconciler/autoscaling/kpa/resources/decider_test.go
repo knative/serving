@@ -198,15 +198,15 @@ func TestGetInitialScale(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			asconfig, _ := asconfig.NewConfigFromMap(map[string]string{})
+			ac, _ := asconfig.NewConfigFromMap(map[string]string{})
 			if test.configMutator != nil {
-				test.configMutator(asconfig)
+				test.configMutator(ac)
 			}
 			pa := pa()
 			if test.paMutation != nil {
 				test.paMutation(pa)
 			}
-			got := int(GetInitialScale(asconfig, pa))
+			got := int(GetInitialScale(ac, pa))
 			if want := test.want; got != want {
 				t.Errorf("got = %v, want: %v", got, want)
 			}
