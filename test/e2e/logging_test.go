@@ -84,7 +84,7 @@ func TestRequestLogs(t *testing.T) {
 		v1test.RetryingRouteInconsistency(pkgtest.MatchesAllOf(pkgtest.IsStatusOK, pkgtest.MatchesBody(test.HelloWorldText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		t.Fatalf("The endpoint didn't serve the expected text %q: %v", test.HelloWorldText, err)
 	}
