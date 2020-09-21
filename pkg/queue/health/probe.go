@@ -17,7 +17,6 @@ limitations under the License.
 package health
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -58,16 +57,15 @@ func TCPProbe(config TCPProbeConfigOptions) error {
 
 // HTTPProbe checks that HTTP connection can be established to the address.
 func HTTPProbe(config HTTPProbeConfigOptions) error {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	// nolint:gosec // We explicitly don't need to check certs here.
+	transport.TLSClientConfig.InsecureSkipVerify = true
+	transport.DisableKeepAlives = true
 	httpClient := &http.Client{
-		Transport: &http.Transport{
-			DisableKeepAlives: true,
-			TLSClientConfig: &tls.Config{
-				// nolint:gosec // We explicitly don't need to check certs here.
-				InsecureSkipVerify: true,
-			},
-		},
-		Timeout: config.Timeout,
+		Transport: transport,
+		Timeout:   config.Timeout,
 	}
+
 	url := url.URL{
 		Scheme: string(config.Scheme),
 		Host:   net.JoinHostPort(config.Host, config.Port.String()),

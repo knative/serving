@@ -200,10 +200,9 @@ func main() {
 	if *readinessProbeTimeout >= 0 {
 		// Use a unix socket rather than TCP to avoid going via entire TCP stack
 		// when we're actually in the same container.
-		transport := &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", unixSocketPath)
-			},
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.DialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
+			return net.Dial("unix", unixSocketPath)
 		}
 
 		os.Exit(standaloneProbeMain(*readinessProbeTimeout, transport))
