@@ -83,6 +83,6 @@ type MetricList struct {
 }
 
 // GetStatus retrieves the status of the Metric. Implements the KRShaped interface.
-func (t *Metric) GetStatus() *duckv1.Status {
-	return &t.Status.Status
+func (m *Metric) GetStatus() *duckv1.Status {
+	return &m.Status.Status
 }

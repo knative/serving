@@ -74,7 +74,7 @@ func TestActivatorOverload(t *testing.T) {
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("Error probing %s: %v", resources.Route.Status.URL.URL(), err)
 	}
@@ -85,7 +85,7 @@ func TestActivatorOverload(t *testing.T) {
 	}
 
 	domain := resources.Route.Status.URL.Host
-	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
+	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		t.Fatal("Error creating the Spoofing client:", err)
 	}

@@ -167,7 +167,7 @@ func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNa
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"CheckingEndpointAfterUpdating",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS),
 	)
 	return err
 }

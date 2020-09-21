@@ -151,6 +151,6 @@ type PodAutoscalerList struct {
 }
 
 // GetStatus retrieves the status of the PodAutoscaler. Implements the KRShaped interface.
-func (t *PodAutoscaler) GetStatus() *duckv1.Status {
-	return &t.Status.Status
+func (pa *PodAutoscaler) GetStatus() *duckv1.Status {
+	return &pa.Status.Status
 }

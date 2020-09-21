@@ -464,7 +464,7 @@ func newDecider() *Decider {
 
 func TestSameSign(t *testing.T) {
 	tests := []struct {
-		а, b int32
+		a, b int32
 		want bool
 	}{{1982, 1984, true},
 		{-1984, -1988, true},
@@ -473,8 +473,8 @@ func TestSameSign(t *testing.T) {
 		{0, 1, true}, // 0 is considered positive for our needs
 		{0, -42, false}}
 	for _, test := range tests {
-		if got, want := sameSign(test.а, test.b), test.want; got != want {
-			t.Errorf("%d <=> %d: got: %v, want: %v", test.а, test.b, got, want)
+		if got, want := sameSign(test.a, test.b), test.want; got != want {
+			t.Errorf("%d <=> %d: got: %v, want: %v", test.a, test.b, got, want)
 		}
 	}
 }

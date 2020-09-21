@@ -183,7 +183,7 @@ func checkResponses(t pkgTest.TLegacy, num, min int, domain string, expectedResp
 // we see each body in "expectedResponses" at least "min" times.
 func CheckDistribution(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, num, min int, expectedResponses []string) error {
 	ctx := context.Background()
-	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.Https))
+	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return err
 	}

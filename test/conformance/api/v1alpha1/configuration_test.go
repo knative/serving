@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
@@ -122,7 +121,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 }
 
 func fetchConfiguration(name string, clients *test.Clients, t *testing.T) *v1alpha1.Configuration {
-	cfg, err := clients.ServingAlphaClient.Configs.Get(context.Background(), name, v1.GetOptions{})
+	cfg, err := clients.ServingAlphaClient.Configs.Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get configuration %s: %v", name, err)
 	}

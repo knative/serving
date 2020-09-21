@@ -38,7 +38,7 @@ import (
 // sendRequests send a request to "endpoint", returns error if unexpected response code, nil otherwise.
 func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	initialSleep, sleep time.Duration, expectedResponseCode int) error {
-	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
+	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return fmt.Errorf("error creating Spoofing client: %w", err)
 	}
@@ -130,7 +130,7 @@ func TestRevisionTimeout(t *testing.T) {
 					v1a1test.RetryingRouteInconsistency(pkgTest.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout)),
 					"WaitForSuccessfulResponse",
 					test.ServingFlags.ResolvableDomain,
-					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https)); err != nil {
+					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 					t.Fatalf("Error probing %s: %v", serviceURL, err)
 				}
 			}
