@@ -225,11 +225,12 @@ func MakeDeployment(rev *v1.Revision,
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
 	}
 
-	replicaCount := int(autoscalerConfig.InitialScale)
+	replicaCount := autoscalerConfig.InitialScale
 	ann, found := rev.Annotations[autoscaling.InitialScaleAnnotationKey]
 	if found {
 		// Ignore errors and no error checking because already validated in webhook.
-		replicaCount, _ = strconv.Atoi(ann)
+		rc, _ := strconv.ParseInt(ann, 10, 32)
+		replicaCount = int32(rc)
 	}
 
 	labels := makeLabels(rev)
@@ -244,7 +245,7 @@ func MakeDeployment(rev *v1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas:                ptr.Int32(int32(replicaCount)),
+			Replicas:                ptr.Int32(replicaCount),
 			Selector:                makeSelector(rev),
 			ProgressDeadlineSeconds: ptr.Int32(int32(deploymentConfig.ProgressDeadline.Seconds())),
 			Template: corev1.PodTemplateSpec{
