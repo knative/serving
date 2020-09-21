@@ -32,7 +32,7 @@ import (
 const targetURI = "http://example.com"
 
 func TestNewRequestMetricsHandlerFailure(t *testing.T) {
-	defer reset()
+	t.Cleanup(reset)
 	if _, err := NewRequestMetricsHandler(nil /*next*/, "a", "b", "c", "d", "shøüld fail"); err == nil {
 		t.Error("Should get error when tag value is not ascii")
 	}
