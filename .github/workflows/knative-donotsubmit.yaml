@@ -49,10 +49,7 @@ jobs:
           echo '::group:: Running DO NOT SUBMIT with reviewdog 🐶 ...'
           # Don't fail because of grep
           set +o pipefail
-          find . -path './vendor' -prune \
-                 -o -path './third_party' -prune \
-                 -o -path './.github/workflows' -prune \
-                 -o -type f |
+          find . -type f -not -path './vendor/*' -not -path './third_party/*' -not -path './.git/*' -not -path './.github/workflows/*' |
           xargs grep -n "DO NOT SUBMIT" |
           reviewdog -efm="%f:%l:%m" \
                 -name="DO NOT SUBMIT" \
