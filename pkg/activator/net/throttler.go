@@ -62,15 +62,29 @@ const (
 	revisionMaxConcurrency = queue.MaxBreakerCapacity
 )
 
+func newPodTracker(dest string, b breaker) *podTracker {
+	tracker := &podTracker{
+		dest: dest,
+		b:    b,
+	}
+	tracker.decreaseWeight = func() { tracker.weight.Add(-1) }
+
+	return tracker
+}
+
 type podTracker struct {
 	dest string
 	b    breaker
+
 	// weight is used for LB policy implementations.
 	weight atomic.Int32
+	// decreaseWeight is an allocation optimization for the randomChoice2 policy.
+	decreaseWeight func()
 }
 
-func (p *podTracker) addWeight(w int32) {
-	p.weight.Add(w)
+func (p *podTracker) increaseWeight() func() {
+	p.weight.Add(1)
+	return p.decreaseWeight
 }
 
 func (p *podTracker) getWeight() int32 {
@@ -417,16 +431,13 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 			tracker, ok := trackersMap[newDest]
 			if !ok {
 				if rt.containerConcurrency == 0 {
-					tracker = &podTracker{dest: newDest}
+					tracker = newPodTracker(newDest, nil)
 				} else {
-					tracker = &podTracker{
-						dest: newDest,
-						b: queue.NewBreaker(queue.BreakerParams{
-							QueueDepth:      breakerQueueDepth,
-							MaxConcurrency:  rt.containerConcurrency,
-							InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
-						}),
-					}
+					tracker = newPodTracker(newDest, queue.NewBreaker(queue.BreakerParams{
+						QueueDepth:      breakerQueueDepth,
+						MaxConcurrency:  rt.containerConcurrency,
+						InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
+					}))
 				}
 			}
 			trackers = append(trackers, tracker)
@@ -436,9 +447,7 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 		return
 	}
 
-	rt.updateThrottlerState(throttler, len(update.Dests), nil /*trackers*/, &podTracker{
-		dest: update.ClusterIPDest,
-	})
+	rt.updateThrottlerState(throttler, len(update.Dests), nil /*trackers*/, newPodTracker(update.ClusterIPDest, nil))
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
