@@ -229,7 +229,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 	return eg.Wait()
 }
 
-func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1.Route, desiredCert *netv1alpha1.Certificate) (*netv1alpha1.Certificate, error) {
+func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1.Route, desiredCert *netv1alpha1.Certificate) error {
 	recorder := controller.GetEventRecorder(ctx)
 
 	cert, err := c.certificateLister.Certificates(desiredCert.Namespace).Get(desiredCert.Name)
@@ -237,30 +237,30 @@ func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1.Route, desi
 		cert, err = c.netclient.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(ctx, desiredCert, metav1.CreateOptions{})
 		if err != nil {
 			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Certificate: %v", err)
-			return nil, fmt.Errorf("failed to create Certificate: %w", err)
+			return fmt.Errorf("failed to create Certificate: %w", err)
 		}
 		recorder.Eventf(r, corev1.EventTypeNormal, "Created",
 			"Created Certificate %s/%s", cert.Namespace, cert.Name)
-		return cert, nil
+		return nil
 	} else if err != nil {
-		return nil, err
+		return err
 	} else if !metav1.IsControlledBy(cert, r) {
 		// Surface an error in the route's status, and return an error.
 		r.Status.MarkCertificateNotOwned(cert.Name)
-		return nil, fmt.Errorf("route: %s does not own certificate: %s", r.Name, cert.Name)
+		return fmt.Errorf("route: %s does not own certificate: %s", r.Name, cert.Name)
 	} else if !equality.Semantic.DeepEqual(cert.Spec, desiredCert.Spec) {
 		// Don't modify the informers copy
 		existing := cert.DeepCopy()
 		existing.Spec = desiredCert.Spec
-		cert, err := c.netclient.NetworkingV1alpha1().Certificates(existing.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
+		_, err := c.netclient.NetworkingV1alpha1().Certificates(existing.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
 		if err != nil {
 			recorder.Eventf(r, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)
-			return nil, err
+			return err
 		}
 		recorder.Eventf(existing, corev1.EventTypeNormal, "Updated",
 			"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
-		return cert, nil
+		return nil
 	}
-	return cert, nil
+	return nil
 }

@@ -33,7 +33,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 )
 
-func decodeTemplate(ctx context.Context, val interface{}) (*v1.RevisionTemplateSpec, error) {
+func decodeTemplate(val interface{}) (*v1.RevisionTemplateSpec, error) {
 	templ := &v1.RevisionTemplateSpec{}
 	asData, ok := val.(map[string]interface{})
 	if !ok {

@@ -27,7 +27,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 )
 
-func (r *Revision) checkImmutableFields(ctx context.Context, original *Revision) *apis.FieldError {
+func (r *Revision) checkImmutableFields(original *Revision) *apis.FieldError {
 	if diff, err := kmp.ShortDiff(original.Spec, r.Spec); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff Revision",
@@ -49,7 +49,7 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta()).ViaField("metadata")
 	if apis.IsInUpdate(ctx) {
 		old := apis.GetBaseline(ctx).(*Revision)
-		errs = errs.Also(r.checkImmutableFields(ctx, old))
+		errs = errs.Also(r.checkImmutableFields(old))
 	} else {
 		errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
