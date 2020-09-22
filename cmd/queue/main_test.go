@@ -36,15 +36,11 @@ import (
 	tracetesting "knative.dev/pkg/tracing/testing"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
-
-	. "knative.dev/pkg/logging/testing"
 )
 
 const wantHost = "a-better-host.com"
 
 func TestProbeHandler(t *testing.T) {
-	logger := TestLogger(t)
-
 	testcases := []struct {
 		name          string
 		prober        func() bool
@@ -83,7 +79,7 @@ func TestProbeHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := knativeProbeHandler(logger, healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
+			h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -98,7 +94,6 @@ func TestProbeHandler(t *testing.T) {
 }
 
 func TestQueueTraceSpans(t *testing.T) {
-	logger := TestLogger(t)
 	testcases := []struct {
 		name          string
 		prober        func() bool
@@ -211,7 +206,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				h := queue.ProxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
-				h := knativeProbeHandler(logger, healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
+				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}

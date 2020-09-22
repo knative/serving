@@ -323,7 +323,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 }
 
 func (rt *revisionThrottler) updateThrottlerState(
-	throttler *Throttler, backendCount int,
+	backendCount int,
 	trackers []*podTracker, clusterIPDest *podTracker) {
 	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d",
 		clusterIPDest, len(trackers), backendCount)
@@ -408,7 +408,7 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*po
 
 // This function will never be called in parallel but `try` can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
-func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionDestsUpdate) {
+func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 	rt.logger.Debugw("Handling update",
 		zap.String("ClusterIP", update.ClusterIPDest), zap.Object("dests", logging.StringSet(update.Dests)))
 
@@ -442,11 +442,11 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 			trackers = append(trackers, tracker)
 		}
 
-		rt.updateThrottlerState(throttler, len(update.Dests), trackers, nil /*clusterIP*/)
+		rt.updateThrottlerState(len(update.Dests), trackers, nil /*clusterIP*/)
 		return
 	}
 
-	rt.updateThrottlerState(throttler, len(update.Dests), nil /*trackers*/, newPodTracker(update.ClusterIPDest, nil))
+	rt.updateThrottlerState(len(update.Dests), nil /*trackers*/, newPodTracker(update.ClusterIPDest, nil))
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
@@ -595,7 +595,7 @@ func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 				zap.Object(logkey.Key, logging.NamespacedName(update.Rev)))
 		}
 	} else {
-		rt.handleUpdate(t, update)
+		rt.handleUpdate(update)
 	}
 }
 
