@@ -221,21 +221,17 @@ func main() {
 		servers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
 	}
 
-	errCh := make(chan error, len(servers)+1)
-	listeners := make(map[string]net.Listener, len(servers))
-	for name, server := range servers {
-		l, err := net.Listen("tcp", server.Addr)
-		if err != nil {
-			logger.Fatalw("listen failed", zap.Error(err))
-		}
-
-		listeners[name] = l
-	}
-
+	errCh := make(chan error)
 	for name, server := range servers {
 		go func(name string, s *http.Server) {
+			l, err := net.Listen("tcp", s.Addr)
+			if err != nil {
+				errCh <- fmt.Errorf("%s server failed: %w", name, err)
+				return
+			}
+
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
-			if err := s.Serve(listeners[name]); err != nil && err != http.ErrServerClosed {
+			if err := s.Serve(l); err != nil && err != http.ErrServerClosed {
 				errCh <- fmt.Errorf("%s server failed: %w", name, err)
 			}
 		}(name, server)
@@ -246,11 +242,11 @@ func main() {
 	go func() {
 		l, err := net.Listen("unix", unixSocketPath)
 		if err != nil {
-			errCh <- err
+			errCh <- fmt.Errorf("failed to listen to unix socket: %w", err)
 			return
 		}
 		if err := http.Serve(l, server.Handler); err != nil {
-			errCh <- err
+			errCh <- fmt.Errorf("server failed on unix socket: %w", err)
 		}
 	}()
 
