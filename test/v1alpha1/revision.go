@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
 )
@@ -75,10 +76,10 @@ func IsRevisionReady(r *v1alpha1.Revision) (bool, error) {
 	return r.Generation == r.Status.ObservedGeneration && r.Status.IsReady(), nil
 }
 
-// IsRevisionPinned will check if the revision is pinned to a route.
-func IsRevisionPinned(r *v1alpha1.Revision) (bool, error) {
-	_, pinned := r.Annotations[serving.RevisionLastPinnedAnnotationKey]
-	return pinned, nil
+// IsRevisionRoutingActive will check if the revision is pinned to a route.
+func IsRevisionRoutingActive(r *v1.Revision) (bool, error) {
+	routingState := r.Labels[serving.RoutingStateLabelKey]
+	return v1.RoutingState(routingState) == v1.RoutingStateActive, nil
 }
 
 // IsRevisionAtExpectedGeneration returns a function that will check if the annotations
