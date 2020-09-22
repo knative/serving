@@ -49,16 +49,14 @@ const (
 	retryTimeout       = 3 * time.Second
 	retryInterval      = 100 * time.Millisecond
 
-	// Retry at most 16 seconds to process a stat. NOTE: Retrying could
+	// Retry at most 15 seconds to process a stat. NOTE: Retrying could
 	// cause high delay and inaccurate scaling decision because we use
 	// the timestamp on receiving.
-	maxProcessingRetry          = 40
-	fastMaxProcessRetry         = 10
-	fastRetryProcessingInterval = 100 * time.Microsecond
-	slowRetryProcessingInterval = 500 * time.Millisecond
+	maxProcessingRetry      = 30
+	retryProcessingInterval = 500 * time.Millisecond
 )
 
-var svcURLPostfix = fmt.Sprintf("svc.%s:%d", network.GetClusterDomainName(), autoscalerPort)
+var svcURLSuffix = fmt.Sprintf("svc.%s:%d", network.GetClusterDomainName(), autoscalerPort)
 
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)
@@ -317,7 +315,7 @@ func (f *Forwarder) createProcessor(ns, bkt, holder string) *bucketProcessor {
 
 	return newForwardProcessor(f.logger.With(zap.String("bucket", bkt)), bkt, holder,
 		fmt.Sprintf("ws://%s:%d", holder, autoscalerPort),
-		fmt.Sprintf("ws://%s.%s.%s", bkt, ns, svcURLPostfix))
+		fmt.Sprintf("ws://%s.%s.%s", bkt, ns, svcURLSuffix))
 }
 
 // Process enqueues the given Stat for processing asynchronously.
@@ -368,11 +366,7 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
 	go func() {
 		defer f.retryWg.Done()
 		// TODO(yanweiguo): Use RateLimitingInterface and NewItemFastSlowRateLimiter.
-		interval := fastRetryProcessingInterval
-		if s.retry > fastMaxProcessRetry {
-			interval = slowRetryProcessingInterval
-		}
-		time.Sleep(interval)
+		time.Sleep(retryProcessingInterval)
 		logger.Debug("Enqueuing stat for retry.")
 		f.statCh <- s
 	}()

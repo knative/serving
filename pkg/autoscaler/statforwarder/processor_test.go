@@ -40,26 +40,12 @@ func TestProcessorForwardingViaPodIP(t *testing.T) {
 	p := newForwardProcessor(logger, bucket1, testIP1, url, url)
 	defer p.shutdown()
 
-	// Wait connection via IP to be established.
-	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return p.podConn != nil && p.podConn.Status() == nil, nil
-	}); err != nil {
-		t.Fatal("Timeout waiting for connection established")
-	}
-
 	p.process(stat1)
 
 	select {
 	case <-received:
 	case <-time.After(time.Second):
 		t.Error("Timeout waiting for receiving stat")
-	}
-
-	if got, wanted := p.podAddressable, true; got != wanted {
-		t.Errorf("podsAddressable = %v, want = %v", got, wanted)
-	}
-	if p.svcConn != nil {
-		t.Error("Unexpected connection via SVC")
 	}
 }
 
@@ -73,21 +59,9 @@ func TestProcessorForwardingViaSvc(t *testing.T) {
 	p := newForwardProcessor(logger, bucket1, testIP1, "ws://something.not.working", "ws"+strings.TrimPrefix(s.URL, "http"))
 	defer p.shutdown()
 
-	// Send a request to trigger the SVC connection creation.
-	if err := p.process(stat1); err == nil {
-		// In most case the error will not be nil because the WS connection was just created
-		// and it needs some time to be establish. The request should be failed.
-		// Add this check to reduce flakiness.
-		select {
-		case <-received:
-		case <-time.After(time.Second):
-			t.Error("Timeout waiting for receiving stat")
-		}
-	}
-
 	// Wait connection via SVC to be established.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return p.svcConn != nil && p.svcConn.Status() == nil, nil
+		return p.conn != nil && p.conn.Status() == nil, nil
 	}); err != nil {
 		t.Fatal("Timeout waiting for connection established")
 	}
@@ -98,13 +72,6 @@ func TestProcessorForwardingViaSvc(t *testing.T) {
 	case <-received:
 	case <-time.After(time.Second):
 		t.Error("Timeout waiting for receiving stat")
-	}
-
-	if got, wanted := p.podAddressable, false; got != wanted {
-		t.Errorf("podsAddressable = %v, want = %v", got, wanted)
-	}
-	if p.podConn != nil {
-		t.Error("Expected connection via Pod IP to be closed but not")
 	}
 }
 

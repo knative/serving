@@ -17,12 +17,20 @@ limitations under the License.
 package statforwarder
 
 import (
+	"time"
+
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
+
+// The timeout value for a Websocket connection to be established. If a connection via IP
+// address can not be established within this value, we assume the Pods can not be
+// accessed by IP address directly due to the network mesh.
+const establishTimeout = 500 * time.Millisecond
 
 // bucketProcessor includes the information about how to process
 // the StatMessage owned by a bucket.
@@ -32,30 +40,29 @@ type bucketProcessor struct {
 	bkt string
 	// holder is the HolderIdentity for a bucket from the Lease.
 	holder string
-
-	// podAddressable indicates whether pod is accessible with IP address.
-	podAddressable bool
-	svcDNS         string
-	// podConn is the WebSocket connection to the holder pod with pod IP.
-	podConn *websocket.ManagedConnection
-	// svcConn is the WebSocket connection to the holder pod with bucket Service.
-	svcConn *websocket.ManagedConnection
-
+	// podConn is the WebSocket connection to the holder pod.
+	conn *websocket.ManagedConnection
 	// `accept` is the function to process a StatMessage which doesn't need
 	// to be forwarded.
 	accept statProcessor
 }
 
 func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS string) *bucketProcessor {
-	logger.Infof("Connecting to Autoscaler bucket at %s and %s.", podDNS, svcDNS)
-	// Initial with `podAddressable` true and a connection via IP address only.
+	// First try to connect via Pod IP address synchronously. If the connection can
+	// not be established within `establishTimeout`, we assume the pods can not be
+	// accessed by IP address. Then try to connect via Pod IP address asynchronously
+	// to avoid nil check.
+	logger.Infof("Connecting to Autoscaler bucket at ", podDNS)
+	c, err := newConnection(podDNS, logger)
+	if err != nil {
+		logger.Info("Autoscaler pods can't be accessed by IP address. Connecting to Autoscaler bucket at ", svcDNS)
+		c = websocket.NewDurableSendingConnection(svcDNS, logger)
+	}
 	return &bucketProcessor{
-		logger:         logger,
-		bkt:            bkt,
-		holder:         holder,
-		podAddressable: true,
-		podConn:        websocket.NewDurableSendingConnection(podDNS, logger),
-		svcDNS:         svcDNS,
+		logger: logger,
+		bkt:    bkt,
+		holder: holder,
+		conn:   c,
 	}
 }
 
@@ -74,43 +81,25 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 		return err
 	}
 
-	if p.podAddressable && p.podConn.SendRaw(gorillawebsocket.BinaryMessage, b) == nil {
-		// Pod is accessible via IP address, close the connection via SVC.
-		if p.svcConn != nil {
-			p.svcConn.Shutdown()
-			p.svcConn = nil
-		}
-		return nil
-	}
-
-	if p.svcConn == nil {
-		p.logger.Info("Connecting to Autoscaler bucket via service ", p.svcDNS)
-		p.svcConn = websocket.NewDurableSendingConnection(p.svcDNS, p.logger)
-	}
-
-	if err := p.svcConn.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
-		// Sending via IP address and SVC both fail, return the error.
-		return err
-	}
-
-	// Pod is accessible via SVC only, mark podAddressable false and close the connection via Pod IP.
-	if p.podAddressable {
-		p.logger.Info("Autoscaler pods can't be accessed by IP address")
-		p.podAddressable = false
-		if p.podConn != nil {
-			p.podConn.Shutdown()
-			p.podConn = nil
-		}
-	}
-
-	return nil
+	return p.conn.SendRaw(gorillawebsocket.BinaryMessage, b)
 }
 
 func (p *bucketProcessor) shutdown() {
-	if p.svcConn != nil {
-		p.svcConn.Shutdown()
+	if p.conn != nil {
+		p.conn.Shutdown()
 	}
-	if p.podConn != nil {
-		p.podConn.Shutdown()
+}
+
+// TODO(yanweiguo): use websocket.NewDurableSendingConnectionGuaranteed instead once knative.dev/pkg
+// is unpined.
+func newConnection(dns string, logger *zap.SugaredLogger) (*websocket.ManagedConnection, error) {
+	c := websocket.NewDurableSendingConnection(dns, logger)
+	if err := wait.PollImmediate(10*time.Millisecond, establishTimeout, func() (bool, error) {
+		return c.Status() == nil, nil
+	}); err != nil {
+		c.Shutdown()
+		return nil, websocket.ErrConnectionNotEstablished
 	}
+
+	return c, nil
 }

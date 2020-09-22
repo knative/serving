@@ -166,6 +166,14 @@ func TestForwarderReconcile(t *testing.T) {
 	}); err != nil {
 		t.Fatal("Timeout to get the Endpoints:", lastErr)
 	}
+
+	// Wait for websocket connection to created before terminating the test to avoid logging after test.
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		p1 := f1.getProcessor(bucket1)
+		return p1 != nil && p1.conn != nil, nil
+	}); err != nil {
+		t.Fatalf("Timeout waiting Websocket connection got created")
+	}
 }
 
 func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
@@ -404,7 +412,7 @@ func TestProcess(t *testing.T) {
 		waitInformers()
 	}()
 
-	// Make a cached channel so it won't block the fowarder process.
+	// Make a buffered channel so it won't block the forwarder process.
 	acceptCh := make(chan int, 2)
 	acceptCount := 0
 	accept := func(sm asmetrics.StatMessage) {
@@ -437,8 +445,7 @@ func TestProcess(t *testing.T) {
 	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		p1 := f.getProcessor(bucket1)
 		p2 := f.getProcessor(bucket2)
-		return p1 != nil && p2 != nil && p1.holder == testIP1 && p2.holder == testIP2 &&
-			p1.podConn == nil && p2.podConn != nil && p1.svcConn == nil, nil
+		return p1 != nil && p2 != nil && p1.holder == testIP1 && p2.holder == testIP2 && p1.conn == nil && p2.conn != nil, nil
 	}); err != nil {
 		t.Fatalf("Timeout waiting f.processors got updated")
 	}
