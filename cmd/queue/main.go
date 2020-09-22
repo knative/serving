@@ -31,7 +31,6 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
@@ -39,6 +38,7 @@ import (
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/pkg/injection/sharedmain"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
@@ -144,7 +144,6 @@ func knativeProbeHandler(logger *zap.SugaredLogger, healthState *health.State, p
 
 func main() {
 	flag.Parse()
-	ctx := signals.NewContext()
 
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
@@ -158,6 +157,9 @@ func main() {
 		os.Exit(standaloneProbeMain(*readinessProbeTimeout, transport))
 	}
 
+	// Otherwise, we run as the queue-proxy service.
+	ctx := signals.NewContext()
+
 	// Parse the environment.
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
@@ -167,10 +169,9 @@ func main() {
 
 	// Setup the logger.
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
-	logger = logger.Named("queueproxy")
 	defer flush(logger)
 
-	logger = logger.With(
+	logger = logger.Named("queueproxy").With(
 		zap.Object(logkey.Key, pkglogging.NamespacedName(types.NamespacedName{
 			Namespace: env.ServingNamespace,
 			Name:      env.ServingRevision,
@@ -178,11 +179,7 @@ func main() {
 		zap.String(logkey.Pod, env.ServingPod))
 
 	// Report stats on Go memory usage every 30 seconds.
-	msp := metrics.NewMemStatsAll()
-	msp.Start(context.Background(), 30*time.Second)
-	if err := view.Register(msp.DefaultViews()...); err != nil {
-		logger.Fatalw("Error exporting go memstats view", zap.Error(err))
-	}
+	sharedmain.MemStatsOrDie(ctx)
 
 	// Setup reporters and processes to handle stat reporting.
 	promStatReporter, err := queue.NewPrometheusStatsReporter(
