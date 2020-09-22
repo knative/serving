@@ -40,7 +40,7 @@ type bucketProcessor struct {
 	bkt string
 	// holder is the HolderIdentity for a bucket from the Lease.
 	holder string
-	// podConn is the WebSocket connection to the holder pod.
+	// conn is the WebSocket connection to the holder pod.
 	conn *websocket.ManagedConnection
 	// `accept` is the function to process a StatMessage which doesn't need
 	// to be forwarded.
