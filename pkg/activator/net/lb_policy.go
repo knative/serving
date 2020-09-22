@@ -46,8 +46,8 @@ func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *pod
 	// One tracker = no choice.
 	if l == 1 {
 		pick := targets[0]
-		cb := pick.increaseWeight()
-		return cb, pick
+		pick.increaseWeight()
+		return pick.decreaseWeight, pick
 	}
 	r1, r2 := 0, 1
 	// Two trackers - we know both contestants,
@@ -69,8 +69,8 @@ func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *pod
 	if pick.getWeight() > alt.getWeight() {
 		pick = alt
 	}
-	cb := pick.increaseWeight()
-	return cb, pick
+	pick.increaseWeight()
+	return pick.decreaseWeight, pick
 }
 
 // firstAvailableLBPolicy is a load balancer policy, that picks the first target

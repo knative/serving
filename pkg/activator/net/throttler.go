@@ -82,9 +82,8 @@ type podTracker struct {
 	decreaseWeight func()
 }
 
-func (p *podTracker) increaseWeight() func() {
+func (p *podTracker) increaseWeight() {
 	p.weight.Add(1)
-	return p.decreaseWeight
 }
 
 func (p *podTracker) getWeight() int32 {
