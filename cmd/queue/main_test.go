@@ -40,8 +40,6 @@ import (
 	. "knative.dev/pkg/logging/testing"
 )
 
-const wantHost = "a-better-host.com"
-
 func TestProbeHandler(t *testing.T) {
 	logger := TestLogger(t)
 
