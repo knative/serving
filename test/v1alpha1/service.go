@@ -272,7 +272,7 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 			// We also check that the revision is pinned, meaning it's not a stale revision.
 			// Without this it might happen that the latest created revision is later overridden by a newer one
 			// and the following check for LatestReadyRevisionName would fail.
-			if revErr := CheckRevisionState(clients.ServingAlphaClient, revisionName, IsRevisionPinned); revErr != nil {
+			if revErr := CheckRevisionState(clients.ServingAlphaClient, revisionName, IsRevisionRoutingActive); revErr != nil {
 				return false, nil
 			}
 			return true, nil
