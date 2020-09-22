@@ -637,8 +637,8 @@ func OverrideIngressAnnotation(annotations map[string]string) IngressOption {
 	}
 }
 
-// CreateIngress creates a Knative Ingress resource
-func CreateIngress(ctx context.Context, t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec, io ...IngressOption) (*v1alpha1.Ingress, context.CancelFunc) {
+// createIngress creates a Knative Ingress resource
+func createIngress(ctx context.Context, t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec, io ...IngressOption) (*v1alpha1.Ingress, context.CancelFunc) {
 	t.Helper()
 
 	name := test.ObjectNameForTest(t)
@@ -680,9 +680,9 @@ func CreateIngress(ctx context.Context, t *testing.T, clients *test.Clients, spe
 	}
 }
 
-func CreateIngressReadyDialContext(ctx context.Context, t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (*v1alpha1.Ingress, func(context.Context, string, string) (net.Conn, error), context.CancelFunc) {
+func createIngressReadyDialContext(ctx context.Context, t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (*v1alpha1.Ingress, func(context.Context, string, string) (net.Conn, error), context.CancelFunc) {
 	t.Helper()
-	ing, cancel := CreateIngress(ctx, t, clients, spec)
+	ing, cancel := createIngress(ctx, t, clients, spec)
 
 	if err := WaitForIngressState(ctx, clients.NetworkingClient, ing.Name, IsIngressReady, t.Name()); err != nil {
 		cancel()
@@ -705,7 +705,7 @@ func CreateIngressReady(ctx context.Context, t *testing.T, clients *test.Clients
 	t.Helper()
 
 	// Create a client with a dialer based on the Ingress' public load balancer.
-	ing, dialer, cancel := CreateIngressReadyDialContext(ctx, t, clients, spec)
+	ing, dialer, cancel := createIngressReadyDialContext(ctx, t, clients, spec)
 
 	// TODO(mattmoor): How to get ing?
 	var tlsConfig *tls.Config
@@ -733,11 +733,10 @@ func UpdateIngress(ctx context.Context, t *testing.T, clients *test.Clients, nam
 
 	if err := reconciler.RetryTestErrors(func(attempts int) error {
 		var ing *v1alpha1.Ingress
-		err := reconciler.RetryTestErrors(func(attempts int) (err error) {
+		if err := reconciler.RetryTestErrors(func(attempts int) (err error) {
 			ing, err = clients.NetworkingClient.Ingresses.Get(ctx, name, metav1.GetOptions{})
 			return err
-		})
-		if err != nil {
+		}); err != nil {
 			return err
 		}
 
@@ -747,7 +746,7 @@ func UpdateIngress(ctx context.Context, t *testing.T, clients *test.Clients, nam
 			return err
 		}
 
-		_, err = clients.NetworkingClient.Ingresses.Update(ctx, ing, metav1.UpdateOptions{})
+		_, err := clients.NetworkingClient.Ingresses.Update(ctx, ing, metav1.UpdateOptions{})
 		return err
 	}); err != nil {
 		t.Fatal("Error fetching and updating Ingress:", err)
