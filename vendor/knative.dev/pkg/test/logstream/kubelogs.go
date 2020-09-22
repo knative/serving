@@ -110,7 +110,7 @@ func (k *kubelogs) watchPods(t test.TLegacy) {
 		t.Error("Logstream knative pod watch failed, logs might be missing", "error", err)
 		return
 	}
-	go func() error {
+	go func() {
 		watchedPods := sets.NewString()
 		for ev := range wi.ResultChan() {
 			p := ev.Object.(*corev1.Pod)
@@ -128,7 +128,6 @@ func (k *kubelogs) watchPods(t test.TLegacy) {
 				}
 			}
 		}
-		return nil
 	}()
 }
 

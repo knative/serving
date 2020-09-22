@@ -118,10 +118,12 @@ If `INGRESS_CLASS` is already set, then you can simply `go test ingress_test.go`
 1. In net-istio, add an entry to go.mod that points to your local networking
    folder:
 
-
 1. Make any changes to your local networking E2E tests
 1. Run `go mod vendor` in net-istio
 1. Run `go test test/conformance/ingress_test.go`
 
 NOTE: You will need to run `go mod vendor` for every change you make.
+
+```
+
 ```
