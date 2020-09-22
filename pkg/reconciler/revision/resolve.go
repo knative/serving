@@ -47,7 +47,7 @@ const (
 // at path to the system cert pool.
 //
 // Use this with k8sCertPath to trust the same certs as the cluster.
-func newResolverTransport(path string) (*http.Transport, error) {
+func newResolverTransport(path string, maxIdleConns, maxIdleConnsPerHost int) (*http.Transport, error) {
 	pool, err := x509.SystemCertPool()
 	if err != nil {
 		pool = x509.NewCertPool()
@@ -60,6 +60,8 @@ func newResolverTransport(path string) (*http.Transport, error) {
 	}
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.MaxIdleConns = maxIdleConns
+	transport.MaxIdleConnsPerHost = maxIdleConnsPerHost
 	transport.TLSClientConfig = &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		RootCAs:    pool,
