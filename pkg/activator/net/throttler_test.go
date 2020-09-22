@@ -197,7 +197,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 func makeTrackers(num, cc int) []*podTracker {
 	x := make([]*podTracker, num)
 	for i := 0; i < num; i++ {
-		x[i] = &podTracker{dest: strconv.Itoa(i)}
+		x[i] = newPodTracker(strconv.Itoa(i), nil)
 		if cc > 0 {
 			x[i].b = queue.NewBreaker(queue.BreakerParams{
 				QueueDepth:      1,
