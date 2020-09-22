@@ -77,7 +77,7 @@ func IsRevisionReady(r *v1beta1.Revision) (bool, error) {
 }
 
 // IsRevisionRoutingActive will check if the revision is pinned to a route.
-func IsRevisionRoutingActive(r *v1.Revision) (bool, error) {
+func IsRevisionRoutingActive(r *v1beta1.Revision) (bool, error) {
 	routingState := r.Labels[serving.RoutingStateLabelKey]
 	return v1.RoutingState(routingState) == v1.RoutingStateActive, nil
 }
