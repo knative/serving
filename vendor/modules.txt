@@ -1,16 +1,8 @@
 # cloud.google.com/go v0.65.0
-cloud.google.com/go
 cloud.google.com/go/compute/metadata
 cloud.google.com/go/container/apiv1
-cloud.google.com/go/iam
-cloud.google.com/go/internal
-cloud.google.com/go/internal/optional
-cloud.google.com/go/internal/trace
-cloud.google.com/go/internal/version
 cloud.google.com/go/monitoring/apiv3
 cloud.google.com/go/trace/apiv2
-# cloud.google.com/go/storage v1.10.0
-cloud.google.com/go/storage
 # contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d
 contrib.go.opencensus.io/exporter/ocagent
 # contrib.go.opencensus.io/exporter/prometheus v0.2.1-0.20200609204449-6bcf6f8577f0
@@ -148,10 +140,8 @@ github.com/golang/glog
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.4.2
 github.com/golang/protobuf/descriptor
-github.com/golang/protobuf/internal/gengogrpc
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
-github.com/golang/protobuf/protoc-gen-go
 github.com/golang/protobuf/protoc-gen-go/descriptor
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
@@ -232,10 +222,6 @@ github.com/jmespath/go-jmespath
 github.com/joho/godotenv
 # github.com/json-iterator/go v1.1.10
 github.com/json-iterator/go
-# github.com/jstemmer/go-junit-report v0.9.1
-github.com/jstemmer/go-junit-report
-github.com/jstemmer/go-junit-report/formatter
-github.com/jstemmer/go-junit-report/parser
 # github.com/kelseyhightower/envconfig v1.4.0
 ## explicit
 github.com/kelseyhightower/envconfig
@@ -409,7 +395,6 @@ golang.org/x/text/width
 # golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 golang.org/x/time/rate
 # golang.org/x/tools v0.0.0-20200916195026-c9a70fc28ce3
-golang.org/x/tools/cmd/goimports
 golang.org/x/tools/go/analysis
 golang.org/x/tools/go/analysis/passes/inspect
 golang.org/x/tools/go/ast/astutil
@@ -453,7 +438,6 @@ google.golang.org/api/internal/third_party/uritemplates
 google.golang.org/api/iterator
 google.golang.org/api/option
 google.golang.org/api/option/internaloption
-google.golang.org/api/storage/v1
 google.golang.org/api/support/bundler
 google.golang.org/api/transport/cert
 google.golang.org/api/transport/grpc
@@ -482,12 +466,9 @@ google.golang.org/genproto/googleapis/api/metric
 google.golang.org/genproto/googleapis/api/monitoredres
 google.golang.org/genproto/googleapis/container/v1
 google.golang.org/genproto/googleapis/devtools/cloudtrace/v2
-google.golang.org/genproto/googleapis/iam/v1
 google.golang.org/genproto/googleapis/monitoring/v3
-google.golang.org/genproto/googleapis/rpc/code
 google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/googleapis/type/calendarperiod
-google.golang.org/genproto/googleapis/type/expr
 google.golang.org/genproto/protobuf/field_mask
 # google.golang.org/grpc v1.31.1
 ## explicit
@@ -544,8 +525,6 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 # google.golang.org/protobuf v1.25.0
-google.golang.org/protobuf/cmd/protoc-gen-go/internal_gengo
-google.golang.org/protobuf/compiler/protogen
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
@@ -583,7 +562,6 @@ google.golang.org/protobuf/types/known/fieldmaskpb
 google.golang.org/protobuf/types/known/structpb
 google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/wrapperspb
-google.golang.org/protobuf/types/pluginpb
 # gopkg.in/alecthomas/kingpin.v2 v2.2.6
 gopkg.in/alecthomas/kingpin.v2
 # gopkg.in/inf.v0 v0.9.1
@@ -1150,7 +1128,6 @@ knative.dev/pkg/signals
 knative.dev/pkg/system
 knative.dev/pkg/system/testing
 knative.dev/pkg/test
-knative.dev/pkg/test/gcs
 knative.dev/pkg/test/ghutil
 knative.dev/pkg/test/gke
 knative.dev/pkg/test/ha
@@ -1164,15 +1141,9 @@ knative.dev/pkg/test/mako/alerter/github
 knative.dev/pkg/test/mako/alerter/slack
 knative.dev/pkg/test/mako/config
 knative.dev/pkg/test/monitoring
-knative.dev/pkg/test/prow
 knative.dev/pkg/test/slackutil
 knative.dev/pkg/test/spoof
 knative.dev/pkg/test/vegeta/pacers
-knative.dev/pkg/test/webhook-apicoverage/coveragecalculator
-knative.dev/pkg/test/webhook-apicoverage/resourcetree
-knative.dev/pkg/test/webhook-apicoverage/tools
-knative.dev/pkg/test/webhook-apicoverage/view
-knative.dev/pkg/test/webhook-apicoverage/webhook
 knative.dev/pkg/test/zipkin
 knative.dev/pkg/testutils/clustermanager/perf-tests
 knative.dev/pkg/testutils/clustermanager/perf-tests/pkg
