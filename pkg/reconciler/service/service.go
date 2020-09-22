@@ -59,7 +59,7 @@ var _ ksvcreconciler.Interface = (*Reconciler)(nil)
 func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 
-	config, err := c.config(ctx, logger, service)
+	config, err := c.config(ctx, service)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 		return nil
 	}
 
-	route, err := c.route(ctx, logger, service)
+	route, err := c.route(ctx, service)
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	return nil
 }
 
-func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, service *v1.Service) (*v1.Configuration, error) {
+func (c *Reconciler) config(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
 	recorder := controller.GetEventRecorder(ctx)
 	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
@@ -133,7 +133,7 @@ func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, serv
 	return config, nil
 }
 
-func (c *Reconciler) route(ctx context.Context, logger *zap.SugaredLogger, service *v1.Service) (*v1.Route, error) {
+func (c *Reconciler) route(ctx context.Context, service *v1.Service) (*v1.Route, error) {
 	recorder := controller.GetEventRecorder(ctx)
 	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)

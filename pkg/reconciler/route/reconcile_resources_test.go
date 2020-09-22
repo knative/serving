@@ -247,7 +247,7 @@ func TestReconcileCertificatesInsert(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 	certificate := newCerts([]string{"*.default.example.com"}, r)
-	if _, err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
+	if err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 	created := getCertificateFromClient(ctx, t, certificate)
@@ -265,7 +265,7 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 	certificate := newCerts([]string{"old.example.com"}, r)
-	if _, err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
+	if err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -273,7 +273,7 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 	fakecertinformer.Get(ctx).Informer().GetIndexer().Add(storedCert)
 
 	newCertificate := newCerts([]string{"new.example.com"}, r)
-	if _, err := reconciler.reconcileCertificate(ctx, r, newCertificate); err != nil {
+	if err := reconciler.reconcileCertificate(ctx, r, newCertificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 

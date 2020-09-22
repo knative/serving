@@ -148,7 +148,7 @@ func clearMetaForNotListed(ctx context.Context, r *v1.Route, acc Accessor, names
 // A nil route name will cause the route to be de-referenced, and a non-nil route will cause
 // that route name to be attached to the element.
 func setRoutingMeta(ctx context.Context, acc Accessor, r *v1.Route, name string, remove bool) error {
-	if mergePatch, err := acc.makeMetadataPatch(ctx, r, name, remove); err != nil {
+	if mergePatch, err := acc.makeMetadataPatch(r, name, remove); err != nil {
 		return err
 	} else if mergePatch != nil {
 		patch, err := json.Marshal(mergePatch)

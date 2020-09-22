@@ -93,7 +93,7 @@ func validateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 		return nil
 	}
 
-	templ, err := decodeTemplate(ctx, val)
+	templ, err := decodeTemplate(val)
 	if err != nil {
 		return err
 	}
