@@ -23,6 +23,7 @@ linters:
     - prealloc
     - stylecheck
     - unconvert
+    - unparam
   disable:
     - errcheck
 
@@ -31,6 +32,7 @@ issues:
     - path: test # Excludes /test, *_test.go etc.
       linters:
         - gosec
+        - unparam
 
     # Allow source and sink receivers in conversion code for clarity.
     - path: _conversion\.go
