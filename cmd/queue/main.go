@@ -207,12 +207,12 @@ func main() {
 	probe := buildProbe(logger, env.ServingReadinessProbe)
 	healthState := &health.State{}
 
-	server := buildServer(ctx, env, healthState, probe, stats, logger)
+	mainServer := buildServer(ctx, env, healthState, probe, stats, logger)
 	adminServer := buildAdminServer(logger, healthState)
 	metricsServer := buildMetricsServer(promStatReporter, protoStatReporter)
 
 	servers := map[string]*http.Server{
-		"main":    server,
+		"main":    mainServer,
 		"admin":   adminServer,
 		"metrics": metricsServer,
 	}
@@ -222,12 +222,18 @@ func main() {
 	}
 
 	errCh := make(chan error)
+	listenCh := make(chan struct{})
 	for name, server := range servers {
 		go func(name string, s *http.Server) {
 			l, err := net.Listen("tcp", s.Addr)
 			if err != nil {
 				errCh <- fmt.Errorf("%s server failed: %w", name, err)
 				return
+			}
+
+			// Notify the unix socket setup that the tcp socket for the main server is ready.
+			if s == mainServer {
+				close(listenCh)
 			}
 
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
@@ -240,12 +246,18 @@ func main() {
 	// Listen on a unix socket so that the exec probe can avoid having to go
 	// through the full tcp network stack.
 	go func() {
+		// Only start listening on the unix socket once the tcp socket for the
+		// main server is setup.
+		// This avoids the unix socket path succeeding before the tcp socket path
+		// is actually working and thus it avoids a race.
+		<-listenCh
+
 		l, err := net.Listen("unix", unixSocketPath)
 		if err != nil {
 			errCh <- fmt.Errorf("failed to listen to unix socket: %w", err)
 			return
 		}
-		if err := http.Serve(l, server.Handler); err != nil {
+		if err := http.Serve(l, mainServer.Handler); err != nil {
 			errCh <- fmt.Errorf("server failed on unix socket: %w", err)
 		}
 	}()
@@ -268,7 +280,7 @@ func main() {
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
 			logger.Info("Shutting down main server")
-			if err := server.Shutdown(context.Background()); err != nil {
+			if err := mainServer.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
 			}
 			// Removing the main server from the shutdown logic as we've already shut it down.
