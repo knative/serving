@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 
 	"net/http"
@@ -34,6 +35,7 @@ const (
 	targetHostEnv  = "TARGET_HOST"
 	gatewayHostEnv = "GATEWAY_HOST"
 	portEnv        = "PORT" // Allow port to be customized / randomly assigned by tests
+	probePortEnv   = "PROBE_PORT"
 
 	defaultPort = "8080"
 )
@@ -93,6 +95,22 @@ func main() {
 	if gateway != "" {
 		targetHost = gateway
 	}
+
+	// This is the HTTP server probed by Kubernetes ensuring that the Pod
+	// is considered ready only when it can actually resolve the target host.
+	// This allows slow DNS propagation to be handled cleanly.
+	go func() {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+			addrs, err := net.LookupHost(targetHost)
+			if err != nil || len(addrs) == 0 {
+				msg := fmt.Sprintf("Failed to lookup %q, addrs: %v, err: %v", targetHost, addrs, err)
+				http.Error(w, msg, http.StatusServiceUnavailable)
+			}
+		})
+		http.ListenAndServe(":"+os.Getenv(probePortEnv), mux)
+	}()
+
 	targetURL := fmt.Sprint("http://", targetHost)
 	log.Print("target is " + targetURL)
 	httpProxy = initialHTTPProxy(targetURL)

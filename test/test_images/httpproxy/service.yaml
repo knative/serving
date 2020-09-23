@@ -11,3 +11,11 @@ spec:
         env:
         - name: TARGET_HOST
           value: "helloworld-test-image.default.svc.cluster.local"
+        - name: PROBE_PORT
+          value: 9090
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 9090
+          failureThreshold: 120
+          periodSeconds: 10
