@@ -159,11 +159,7 @@ func TestHealthStateDrainHandler(t *testing.T) {
 	state := &State{}
 	state.setAlive()
 
-	req, err := http.NewRequest(http.MethodGet, "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rr := httptest.NewRecorder()
 
 	completedCh := make(chan struct{}, 1)
