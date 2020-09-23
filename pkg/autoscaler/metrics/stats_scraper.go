@@ -278,7 +278,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 	}
 	pods = append(pods, youngPods...)
 
-	grp, ctx := errgroup.WithContext(context.Background())
+	grp, egCtx := errgroup.WithContext(context.Background())
 	idx := atomic.NewInt32(-1)
 	// Start |sampleSize| threads to scan in parallel.
 	for i := 0; i < sampleSize; i++ {
@@ -295,7 +295,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 
 				// Scrape!
 				target := "http://" + pods[myIdx] + ":" + portAndPath
-				stat, err := s.directClient.Scrape(ctx, target)
+				stat, err := s.directClient.Scrape(egCtx, target)
 				if err == nil {
 					results <- stat
 					return nil
@@ -350,12 +350,12 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 	youngStatCh := make(chan Stat, sampleSize)
 	scrapedPods := &sync.Map{}
 
-	grp, ctx := errgroup.WithContext(context.Background())
+	grp, egCtx := errgroup.WithContext(context.Background())
 	youngPodCutOffSecs := window.Seconds()
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
 			for tries := 1; ; tries++ {
-				stat, err := s.tryScrape(ctx, scrapedPods)
+				stat, err := s.tryScrape(egCtx, scrapedPods)
 				if err != nil {
 					// Return the error if we exhausted our retries and
 					// we had an error returned (we can end up here if

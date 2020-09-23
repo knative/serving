@@ -148,11 +148,11 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, egCtx := errgroup.WithContext(ctx)
 	for _, service := range services {
 		service := service
 		eg.Go(func() error {
-			desiredService, err := resources.MakeK8sService(ctx, route, service.Name, ingress, resources.IsClusterLocalService(service), service.Spec.ClusterIP)
+			desiredService, err := resources.MakeK8sService(egCtx, route, service.Name, ingress, resources.IsClusterLocalService(service), service.Spec.ClusterIP)
 			if err != nil {
 				// Loadbalancer not ready, no need to update.
 				logger.Warn("Failed to update k8s service: ", err)
@@ -184,7 +184,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 	logger := logging.FromContext(ctx)
 	lpDebounce := gcConfig.StaleRevisionLastpinnedDebounce
 
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, egCtx := errgroup.WithContext(ctx)
 	for _, target := range t.Targets {
 		for _, rt := range target {
 			tt := rt.TrafficTarget
@@ -219,7 +219,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 					return err
 				}
 
-				if _, err := c.client.ServingV1().Revisions(route.Namespace).Patch(ctx, rev.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+				if _, err := c.client.ServingV1().Revisions(route.Namespace).Patch(egCtx, rev.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 					return fmt.Errorf("failed to set revision annotation: %w", err)
 				}
 				return nil
