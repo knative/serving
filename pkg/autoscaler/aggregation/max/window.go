@@ -51,8 +51,8 @@ func (m *window) Record(index int, v float64) {
 	// Search backwards because that way we can delete by just decrementing length.
 	// The elements are guaranteed to be in descending order as described in Step Three.
 	for ; m.length > 0; m.length-- {
-		// The elements are sorted, no point continuing.
 		if v < m.maxima[m.index(m.first+m.length-1)].value {
+			// The elements are sorted, no point continuing.
 			break
 		}
 	}
