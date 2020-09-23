@@ -125,8 +125,7 @@ replaced independently.
 
 The current Knative integration with K8s HPA only supports CPU autoscaling.
 However it should be able to scale on concurrency as well. Ultimately, the HPA
-may be able to replace the Knative Autoscaler (KPA) entirely (see
-["make everything better"](https://github.com/knative/serving/blob/master/docs/roadmap/scaling-2018.md#references)).
+may be able to replace the Knative Autoscaler (KPA) entirely.
 Additionally, HPA should be able to scale on user-provided custom metrics as
 well.
 
@@ -157,9 +156,6 @@ upstream and get rid of the queue-proxy sidecar.
 
 However we're not doing that yet because the requirements haven't stablized
 enough yet. And it's still useful to have a component to innovate within.
-
-See
-[2018 What We Are Not Doing Yet](https://github.com/knative/serving/blob/master/docs/roadmap/scaling-2018.md#what-we-are-not-doing-yet)
 
 ### Vertical Pod Autoscaling Beta
 

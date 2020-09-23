@@ -180,14 +180,14 @@ Inbound network connectivity is assumed to use HTTP/1.1 compatible transport.
 
 The container MUST accept HTTP/1.1 requests from the environment. The
 environment SHOULD
-[offer an HTTP/2.0 upgrade option](https://http2.github.io/http2-spec/#discover-http)
+[offer an HTTP/2.0 upgrade option](https://httpwg.org/specs/rfc7540.html#discover-http)
 (`Upgrade: h2c` on either the initial request or an `OPTIONS` request) on the
 same port as HTTP/1.1. The developer MAY specify this port at deployment; if the
 developer does not specify a port, the platform provider MUST provide a default.
 Only one inbound `containerPort`
 [SHALL](https://github.com/knative/serving/blob/master/test/conformance/runtime/container_test.go)
 be specified in the
-[`core.v1.Container`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
+[`core.v1.Container`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#containerport-v1-core)
 specification. The `hostPort` parameter
 [SHOULD NOT](https://github.com/knative/serving/blob/master/test/conformance/runtime/container_test.go)
 be set by the developer or the platform provider, as it can interfere with
@@ -198,16 +198,16 @@ The platform provider SHOULD configure the platform to perform HTTPS termination
 and protocol transformation e.g. between QUIC or HTTP/2 and HTTP/1.1. Developers
 ought not need to implement multiple transports between the platform and their
 code. Unless overridden by setting the
-[`name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
+[`name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#containerport-v1-core)
 field on the inbound port, the platform will perform automatic detection as
 described above. If the
-[`core.v1.Container.ports[0].name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
+[`core.v1.Container.ports[0].name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#containerport-v1-core)
 is set to one of the following values, HTTP negotiation will be disabled and the
 following protocol will be used:
 
 - `http1`: HTTP/1.1 transport and will not attempt to upgrade to h2c..
 - `h2c`: HTTP/2 transport, as described in
-  [section 3.4 of the HTTP2 spec (Starting HTTP/2 with Prior Knowledge)](https://http2.github.io/http2-spec/#known-http)
+  [section 3.4 of the HTTP2 spec (Starting HTTP/2 with Prior Knowledge)](https://httpwg.org/specs/rfc7540.html#known-http)
 
 Developers ought to use automatic content negotiation where available, and MUST
 NOT set the `name` field to arbitrary values, as additional transports might be
@@ -260,7 +260,7 @@ environment specific information.
 #### Meta Requests
 
 The
-[`core.v1.Container`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#container-v1-core)
+[`core.v1.Container`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#container-v1-core)
 object allows specifying both a
 [`readinessProbe`](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#define-readiness-probes)
 and a
