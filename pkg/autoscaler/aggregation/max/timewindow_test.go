@@ -104,7 +104,6 @@ func BenchmarkLargeTimeWindowRecord(b *testing.B) {
 	w := NewTimeWindow(45*time.Minute, 1*time.Second)
 	now := time.Now()
 
-	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		now = now.Add(1 * time.Second)
 		w.Record(now, rand.Float64())
@@ -115,7 +114,6 @@ func BenchmarkLargeTimeWindowAscendingRecord(b *testing.B) {
 	w := NewTimeWindow(45*time.Minute, 1*time.Second)
 	now := time.Now()
 
-	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		now = now.Add(1 * time.Second)
 		w.Record(now, float64(i))
@@ -128,7 +126,6 @@ func BenchmarkLargeTimeWindowDescendingRecord(b *testing.B) {
 			w := NewTimeWindow(duration*time.Minute, 1*time.Second)
 			now := time.Now()
 
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				now = now.Add(1 * time.Second)
 				w.Record(now, float64(math.MaxInt32-i))
