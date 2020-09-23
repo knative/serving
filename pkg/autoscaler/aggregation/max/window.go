@@ -47,12 +47,11 @@ func (m *window) Record(index int, v float64) {
 	// An element that's lower than the new element can never influence the
 	// maximum again, because the new element is both larger _and_ more
 	// recent than it.
-	for l := m.length - 1; l >= 0; l-- {
-		// Search backwards because that way we can delete by just decrementing length.
-		// The elements are guaranteed to be in descending order as described in Step Three.
-		if v >= m.maxima[m.index(m.first+l)].value {
-			m.length--
-		} else {
+
+	// Search backwards because that way we can delete by just decrementing length.
+	// The elements are guaranteed to be in descending order as described in Step Three.
+	for ; m.length > 0; m.length-- {
+		if v < m.maxima[m.index(m.first+m.length-1)].value {
 			// The elements are sorted, no point continuing.
 			break
 		}
