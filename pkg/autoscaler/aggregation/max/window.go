@@ -27,22 +27,22 @@ type entry struct {
 	index int
 }
 
-// Window is a circular buffer which keeps track of the maximum value observed in a particular time.
+// window is a circular buffer which keeps track of the maximum value observed in a particular time.
 // Based on the "ascending minima algorithm" (http://web.archive.org/web/20120805114719/http://home.tiac.net/~cri/2001/slidingmin.html).
-type Window struct {
+type window struct {
 	maxima        []entry
 	first, length int
 }
 
-// NewWindow creates an descending minima window buffer of size size.
-func NewWindow(size int) *Window {
-	return &Window{
+// newWindow creates an descending minima window buffer of size size.
+func newWindow(size int) *window {
+	return &window{
 		maxima: make([]entry, size),
 	}
 }
 
 // Record records a value for a monotonically increasing index.
-func (m *Window) Record(index int, v float64) {
+func (m *window) Record(index int, v float64) {
 	// Step One: Remove any elements where v > element.
 	// An element that's lower than the new element can never influence the
 	// maximum again, because the new element is both larger _and_ more
@@ -98,10 +98,10 @@ func (m *Window) Record(index int, v float64) {
 }
 
 // Current returns the current maximum value observed.
-func (m *Window) Current() float64 {
+func (m *window) Current() float64 {
 	return m.maxima[m.first].value
 }
 
-func (m *Window) index(i int) int {
+func (m *window) index(i int) int {
 	return i % len(m.maxima)
 }

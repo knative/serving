@@ -24,14 +24,14 @@ import (
 // TimeWindow is a descending minima window whose indexes are calculated based
 // on time.Time values.
 type TimeWindow struct {
-	window      *Window
+	window      *window
 	granularity time.Duration
 }
 
 // NewTimeWindow creates a new TimeWindow.
 func NewTimeWindow(duration, granularity time.Duration) *TimeWindow {
 	buckets := int(math.Ceil(float64(duration) / float64(granularity)))
-	return &TimeWindow{window: NewWindow(buckets), granularity: granularity}
+	return &TimeWindow{window: newWindow(buckets), granularity: granularity}
 }
 
 // Record records a value in the bucket derived from the given time.
