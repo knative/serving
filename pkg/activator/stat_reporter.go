@@ -17,22 +17,22 @@ limitations under the License.
 package activator
 
 import (
-	gorillawebsocket "github.com/gorilla/websocket"
+	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
-// RawSender is an interface implemented by things that can send raw byte array
-// messages (such as a gorilla/websocket.Socket).
+// RawSender sends raw byte array messages with a message type
+// (implemented by gorilla/websocket.Socket).
 type RawSender interface {
 	SendRaw(msgType int, msg []byte) error
 }
 
-// ReportStats sends any messages received on the statChan to the statSink. The
-// messages are sent on a goroutine to avoid blocking, which means that
+// ReportStats sends any messages received on the source channel to the sink.
+// The messages are sent on a goroutine to avoid blocking, which means that
 // messages may arrive out of order.
-func ReportStats(logger *zap.SugaredLogger, statSink RawSender, statChan <-chan []metrics.StatMessage) {
-	for sms := range statChan {
+func ReportStats(logger *zap.SugaredLogger, sink RawSender, source <-chan []metrics.StatMessage) {
+	for sms := range source {
 		go func(sms []metrics.StatMessage) {
 			wsms := metrics.ToWireStatMessages(sms)
 			b, err := wsms.Marshal()
@@ -41,7 +41,7 @@ func ReportStats(logger *zap.SugaredLogger, statSink RawSender, statChan <-chan 
 				return
 			}
 
-			if err := statSink.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
+			if err := sink.SendRaw(websocket.BinaryMessage, b); err != nil {
 				logger.Errorw("Error while sending stats", zap.Error(err))
 			}
 		}(sms)
