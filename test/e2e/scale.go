@@ -112,13 +112,13 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 			eg.Go(func() error {
 				ctx, cancel := context.WithTimeout(context.Background(), duration)
-				t.Cleanup(cancel)
 
 				// This go routine runs until the ksvc is ready, at which point we should note that
 				// our part is done.
 				defer func() {
 					wg.Done()
 					t.Logf("Reporting done!")
+					cancel()
 				}()
 
 				// Start the clock for various waypoints towards Service readiness.
