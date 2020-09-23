@@ -16,6 +16,12 @@ limitations under the License.
 
 package max
 
+import (
+	"fmt"
+
+	"github.com/davecgh/go-spew/spew"
+)
+
 type entry struct {
 	value float64
 	index int
@@ -41,11 +47,10 @@ func (m *Window) Record(index int, v float64) {
 	// An element that's lower than the new element can never influence the
 	// maximum again, because the new element is both larger _and_ more
 	// recent than it.
-	originalLength := m.length
-	for i := 0; i < originalLength; i++ {
+	for l := m.length - 1; l >= 0; l-- {
 		// Search backwards because that way we can delete by just decrementing length.
 		// The elements are guaranteed to be in descending order as described in Step Three.
-		if v >= m.maxima[m.index(m.first+originalLength-i-1)].value {
+		if v >= m.maxima[m.index(m.first+l)].value {
 			m.length--
 		} else {
 			// The elements are sorted, no point continuing.
@@ -60,7 +65,7 @@ func (m *Window) Record(index int, v float64) {
 		m.length--
 		m.first++
 
-		// circle around the buffer if neccessary.
+		// Circle around the buffer if neccessary.
 		if m.first == len(m.maxima) {
 			m.first = 0
 		}
@@ -88,7 +93,7 @@ func (m *Window) Record(index int, v float64) {
 	// We removed any items from the list in Step Two that were added more than
 	// len(maxima) ago, so length can never be larger than len(maxima).
 	if m.length > len(m.maxima) {
-		panic("length exceeded buffer size. this is impossible, you win a prize.")
+		panic(fmt.Sprintf("length %d exceeded buffer size %d. This should be impossible. Current state: %v", m.length, len(m.maxima), spew.Sdump(m)))
 	}
 }
 

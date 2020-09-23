@@ -102,7 +102,8 @@ func TestExecHandler(t *testing.T) {
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"echo", "hello"},
-			}},
+			},
+		},
 	})
 
 	if pb.ProbeContainer() {
@@ -528,6 +529,7 @@ func TestKnUnimplementedProbe(t *testing.T) {
 		t.Error("Got probe success. Wanted failure.")
 	}
 }
+
 func TestKnTCPProbeFailure(t *testing.T) {
 	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    0,

@@ -14,13 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package max_test
+package max
 
 import (
 	"reflect"
 	"testing"
-
-	"knative.dev/serving/pkg/autoscaler/aggregation/max"
 )
 
 func TestWindowMax(t *testing.T) {
@@ -106,7 +104,7 @@ func TestWindowMax(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			max := max.NewWindow(5)
+			max := NewWindow(5)
 
 			indexFunc := func(i int) int { return i }
 			if tt.indexFunc != nil {

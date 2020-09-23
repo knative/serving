@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package max_test
+package max
 
 import (
 	"fmt"
@@ -22,8 +22,6 @@ import (
 	"math/rand"
 	"testing"
 	"time"
-
-	"knative.dev/serving/pkg/autoscaler/aggregation/max"
 )
 
 func TestTimedWindowMax(t *testing.T) {
@@ -79,7 +77,7 @@ func TestTimedWindowMax(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := max.NewTimeWindow(5*time.Second, 1*time.Second)
+			m := NewTimeWindow(5*time.Second, 1*time.Second)
 
 			for _, v := range tt.values {
 				m.Record(v.time, v.value)
@@ -93,17 +91,17 @@ func TestTimedWindowMax(t *testing.T) {
 }
 
 func BenchmarkLargeTimeWindowCreate(b *testing.B) {
-	for _, duration := range []time.Duration{5, 15, 30, 45} {
-		b.Run(fmt.Sprintf("duration-%d-minutes", duration), func(b *testing.B) {
+	for _, duration := range []time.Duration{5 * time.Minute, 15 * time.Minute, 30 * time.Minute, 45 * time.Minute} {
+		b.Run(fmt.Sprintf("duration-%v", duration), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_ = max.NewTimeWindow(duration*time.Minute, 1*time.Second)
+				_ = NewTimeWindow(duration, 1*time.Second)
 			}
 		})
 	}
 }
 
 func BenchmarkLargeTimeWindowRecord(b *testing.B) {
-	w := max.NewTimeWindow(45*time.Minute, 1*time.Second)
+	w := NewTimeWindow(45*time.Minute, 1*time.Second)
 	now := time.Now()
 
 	b.ResetTimer()
@@ -114,7 +112,7 @@ func BenchmarkLargeTimeWindowRecord(b *testing.B) {
 }
 
 func BenchmarkLargeTimeWindowAscendingRecord(b *testing.B) {
-	w := max.NewTimeWindow(45*time.Minute, 1*time.Second)
+	w := NewTimeWindow(45*time.Minute, 1*time.Second)
 	now := time.Now()
 
 	b.ResetTimer()
@@ -127,7 +125,7 @@ func BenchmarkLargeTimeWindowAscendingRecord(b *testing.B) {
 func BenchmarkLargeTimeWindowDescendingRecord(b *testing.B) {
 	for _, duration := range []time.Duration{5, 15, 30, 45} {
 		b.Run(fmt.Sprintf("duration-%d-minutes", duration), func(b *testing.B) {
-			w := max.NewTimeWindow(duration*time.Minute, 1*time.Second)
+			w := NewTimeWindow(duration*time.Minute, 1*time.Second)
 			now := time.Now()
 
 			b.ResetTimer()
