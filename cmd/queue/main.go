@@ -208,15 +208,11 @@ func main() {
 	healthState := &health.State{}
 
 	mainServer := buildServer(ctx, env, healthState, probe, stats, logger)
-	adminServer := buildAdminServer(logger, healthState)
-	metricsServer := buildMetricsServer(promStatReporter, protoStatReporter)
-
 	servers := map[string]*http.Server{
 		"main":    mainServer,
-		"admin":   adminServer,
-		"metrics": metricsServer,
+		"admin":   buildAdminServer(logger, healthState),
+		"metrics": buildMetricsServer(promStatReporter, protoStatReporter),
 	}
-
 	if env.EnableProfiling {
 		servers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
 	}
