@@ -88,6 +88,12 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 
+	existingServices, err := c.getServices(route)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch existing services: %w", err)
+	}
+	existingServiceNames := resources.GetNames(existingServices)
+
 	ns := route.Namespace
 	names := make(sets.String, len(targets))
 	for name := range targets {
@@ -124,12 +130,6 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 		services = append(services, service)
 		createdServiceNames.Insert(desiredService.Name)
 	}
-
-	existingServices, err := c.getServices(route)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch existing services: %w", err)
-	}
-	existingServiceNames := resources.GetNames(existingServices)
 
 	// Delete any current services that was no longer desired.
 	if err := c.deleteServices(ctx, ns, existingServiceNames.Difference(createdServiceNames)); err != nil {
