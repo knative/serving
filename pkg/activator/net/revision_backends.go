@@ -215,13 +215,13 @@ func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, er
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 
-	var probeGroup errgroup.Group
+	probeGroup, egCtx := errgroup.WithContext(ctx)
 	healthyDests := make(chan string, toProbe.Len())
 
 	for dest := range toProbe {
 		dest := dest // Standard Go concurrency pattern.
 		probeGroup.Go(func() error {
-			ok, err := rw.probe(ctx, dest)
+			ok, err := rw.probe(egCtx, dest)
 			if ok {
 				healthyDests <- dest
 			}

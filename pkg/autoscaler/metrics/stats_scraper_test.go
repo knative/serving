@@ -759,7 +759,7 @@ type fakeScrapeClient struct {
 }
 
 // Scrape return the next item in the stats and error array of fakeScrapeClient.
-func (c *fakeScrapeClient) Scrape(url string) (Stat, error) {
+func (c *fakeScrapeClient) Scrape(_ context.Context, url string) (Stat, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	ans := c.stats[c.curIdx%len(c.stats)]
