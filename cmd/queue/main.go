@@ -223,7 +223,7 @@ func main() {
 		go func(name string, s *http.Server) {
 			l, err := net.Listen("tcp", s.Addr)
 			if err != nil {
-				errCh <- fmt.Errorf("%s server failed: %w", name, err)
+				errCh <- fmt.Errorf("%s server failed to listen: %w", name, err)
 				return
 			}
 
@@ -234,7 +234,7 @@ func main() {
 
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.Serve(l); err != nil && err != http.ErrServerClosed {
-				errCh <- fmt.Errorf("%s server failed: %w", name, err)
+				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
 			}
 		}(name, server)
 	}
@@ -254,7 +254,7 @@ func main() {
 			return
 		}
 		if err := http.Serve(l, mainServer.Handler); err != nil {
-			errCh <- fmt.Errorf("server failed on unix socket: %w", err)
+			errCh <- fmt.Errorf("serving failed on unix socket: %w", err)
 		}
 	}()
 
