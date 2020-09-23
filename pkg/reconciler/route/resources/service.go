@@ -54,7 +54,7 @@ func SelectorFromRoute(route *v1.Route) labels.Selector {
 }
 
 // MakeK8sPlaceholderService creates a placeholder Service to prevent naming collisions. It's owned by the
-// provided v1.Route. The purpose of this service is to provide a placeholder domain name for Istio routing.
+// provided v1.Route.
 func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, targetName string) (*corev1.Service, error) {
 	hostname, err := domains.HostnameFromTemplate(ctx, route.Name, targetName)
 	if err != nil {
@@ -85,7 +85,6 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, targetName 
 
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in Ingress status. It's owned by the provided v1.Route.
-// The purpose of this service is to provide a domain name for Istio routing.
 func MakeK8sService(ctx context.Context, route *v1.Route, targetName string, ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP string) (*corev1.Service, error) {
 	svcSpec, err := makeServiceSpec(ingress, isPrivate, clusterIP)
 	if err != nil {
@@ -193,25 +192,4 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP str
 		// We'll also need ports info to make it take effect.
 	}
 	return nil, errLoadBalancerNotFound
-}
-
-// GetDesiredServiceNames returns a list of service names that we expect to create
-func GetDesiredServiceNames(ctx context.Context, route *v1.Route) (sets.String, error) {
-	traffic := route.Spec.Traffic
-
-	// We always want create the route with the service name.
-	// If the traffic stanza only contains revision targets, then
-	// this will not be added below, and as a consequence we'll create
-	// a public route to it.
-	names := sets.NewString(route.Name)
-
-	for _, t := range traffic {
-		serviceName, err := domains.HostnameFromTemplate(ctx, route.Name, t.Tag)
-		if err != nil {
-			return nil, err
-		}
-		names.Insert(serviceName)
-	}
-
-	return names, nil
 }

@@ -90,25 +90,22 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 
 	existingServices, err := c.getServices(route)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch existing services: %w", err)
 	}
 	existingServiceNames := resources.GetNames(existingServices)
 
 	ns := route.Namespace
-
 	names := make(sets.String, len(targets))
 	for name := range targets {
 		names.Insert(name)
 	}
 
-	createdServiceNames := sets.String{}
-
 	services := make([]*corev1.Service, 0, names.Len())
+	createdServiceNames := make(sets.String, names.Len())
 	for _, name := range names.List() {
 		desiredService, err := resources.MakeK8sPlaceholderService(ctx, route, name)
 		if err != nil {
-			logger.Warnw("Failed to construct placeholder k8s service", zap.Error(err))
-			return nil, err
+			return nil, fmt.Errorf("failed to construct placeholder k8s service: %w", err)
 		}
 
 		service, err := c.serviceLister.Services(ns).Get(desiredService.Name)
@@ -148,14 +145,14 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 
-	eg, _ := errgroup.WithContext(ctx)
+	eg, ctx := errgroup.WithContext(ctx)
 	for _, service := range services {
 		service := service
 		eg.Go(func() error {
 			desiredService, err := resources.MakeK8sService(ctx, route, service.Name, ingress, resources.IsClusterLocalService(service), service.Spec.ClusterIP)
 			if err != nil {
 				// Loadbalancer not ready, no need to update.
-				logger.Warn("Failed to update k8s service: ", err)
+				logger.Warnw("Failed to update k8s service", zap.Error(err))
 				return nil
 			}
 
