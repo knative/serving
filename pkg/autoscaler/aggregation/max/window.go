@@ -65,7 +65,7 @@ func (m *Window) Record(index int, v float64) {
 		m.length--
 		m.first++
 
-		// Circle around the buffer if neccessary.
+		// Circle around the buffer if necessary.
 		if m.first == len(m.maxima) {
 			m.first = 0
 		}
