@@ -18,6 +18,7 @@ package metrics
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -82,7 +83,7 @@ func TestHTTPScrapeClientScrapeHappyCaseWithOptionals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newHTTPScrapeClient = %v, want no error", err)
 	}
-	got, err := sClient.Scrape(testURL)
+	got, err := sClient.Scrape(context.Background(), testURL)
 	if err != nil {
 		t.Fatalf("Scrape = %v, want no error", err)
 	}
@@ -122,7 +123,7 @@ func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 			if err != nil {
 				t.Fatalf("newHTTPScrapeClient=%v, want no error", err)
 			}
-			_, err = sClient.Scrape(testURL)
+			_, err = sClient.Scrape(context.Background(), testURL)
 			if err == nil {
 				t.Fatal("Got no error")
 			}

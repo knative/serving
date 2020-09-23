@@ -99,7 +99,7 @@ type StatsScraper interface {
 // URL. Internal used only.
 type scrapeClient interface {
 	// Scrape scrapes the given URL.
-	Scrape(url string) (Stat, error)
+	Scrape(ctx context.Context, url string) (Stat, error)
 }
 
 // noKeepAliveTransport is a http.Transport with the default settings, but with
@@ -278,7 +278,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 	}
 	pods = append(pods, youngPods...)
 
-	grp := errgroup.Group{}
+	grp, ctx := errgroup.WithContext(context.Background())
 	idx := atomic.NewInt32(-1)
 	// Start |sampleSize| threads to scan in parallel.
 	for i := 0; i < sampleSize; i++ {
@@ -295,7 +295,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 
 				// Scrape!
 				target := "http://" + pods[myIdx] + ":" + portAndPath
-				stat, err := s.directClient.Scrape(target)
+				stat, err := s.directClient.Scrape(ctx, target)
 				if err == nil {
 					results <- stat
 					return nil
@@ -350,12 +350,12 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 	youngStatCh := make(chan Stat, sampleSize)
 	scrapedPods := &sync.Map{}
 
-	grp := errgroup.Group{}
+	grp, ctx := errgroup.WithContext(context.Background())
 	youngPodCutOffSecs := window.Seconds()
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
 			for tries := 1; ; tries++ {
-				stat, err := s.tryScrape(scrapedPods)
+				stat, err := s.tryScrape(ctx, scrapedPods)
 				if err != nil {
 					// Return the error if we exhausted our retries and
 					// we had an error returned (we can end up here if
@@ -427,8 +427,8 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 
 // tryScrape runs a single scrape and returns stat if this is a pod that has not been
 // seen before. An error otherwise or if scraping failed.
-func (s *serviceScraper) tryScrape(scrapedPods *sync.Map) (Stat, error) {
-	stat, err := s.meshClient.Scrape(s.url)
+func (s *serviceScraper) tryScrape(ctx context.Context, scrapedPods *sync.Map) (Stat, error) {
+	stat, err := s.meshClient.Scrape(ctx, s.url)
 	if err != nil {
 		return emptyStat, err
 	}
