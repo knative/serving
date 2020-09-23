@@ -580,7 +580,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1.Confi
 
 func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
 	r := resources.MakeRevision(testCtx, cfg(name, namespace, generation), testClock)
-	r.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
+	r.SetDefaults(context.Background())
 	for _, opt := range ro {
 		opt(r)
 	}
