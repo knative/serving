@@ -24,7 +24,7 @@ spec:
   group: serving.knative.dev
   versions:
   - &version
-    name: v1beta
+    name: v1beta1
     served: true
     storage: false
     subresources:
