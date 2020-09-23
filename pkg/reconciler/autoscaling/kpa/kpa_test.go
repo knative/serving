@@ -1374,7 +1374,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 		t.Fatal("PA failed to become ready:", err)
 	}
 
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(ctx, testRevision, metav1.DeleteOptions{})
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Delete(ctx, testRevision, metav1.DeleteOptions{})
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(ctx, testRevision, metav1.DeleteOptions{})
 
 	select {
