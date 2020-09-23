@@ -101,7 +101,7 @@ func (c *Reconciler) getServices(route *v1.Route) ([]*corev1.Service, error) {
 		serviceCopy[i] = svc.DeepCopy()
 	}
 
-	return serviceCopy, err
+	return serviceCopy, nil
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
