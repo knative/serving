@@ -60,11 +60,10 @@ func TestReportStats(t *testing.T) {
 	}
 
 	received := make(chan struct{})
-	var output [][]byte
+	output := make([][]byte, len(inputs))
 	go func() {
 		for i := 0; i < len(inputs); i++ {
-			b := <-results
-			output = append(output, b)
+			output[i] = <-results
 		}
 		close(received)
 	}()
@@ -82,9 +81,9 @@ func TestReportStats(t *testing.T) {
 				statNames = append(statNames, m.ToStatMessage().Key.Name)
 			}
 		}
-
-		if got, want := sets.NewString(statNames...), sets.NewString("first-a", "first-b", "second-a", "second-b"); !got.Equal(want) {
-			t.Errorf("Expected to receive all stats (-want, +got): %s", cmp.Diff(want, got))
+		want := sets.NewString("first-a", "first-b", "second-a", "second-b")
+		if got := sets.NewString(statNames...); !got.Equal(want) {
+			t.Errorf("Expected to receive all stats (-want, +got): %s", cmp.Diff(want.List(), got.List()))
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Did not receive results after 2 seconds")
