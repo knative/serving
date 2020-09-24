@@ -68,6 +68,9 @@ type DeciderSpec struct {
 	PanicThreshold float64
 	// StableWindow is needed to determine when to exit panic mode.
 	StableWindow time.Duration
+	// ScaleDownDelay is the time that must pass at reduced concurrency before a
+	// scale-down decision is applied.
+	ScaleDownDelay time.Duration
 	// InitialScale is the calculated initial scale of the revision, taking both
 	// revision initial scale and cluster initial scale into account. Revision initial
 	// scale overrides cluster initial scale.

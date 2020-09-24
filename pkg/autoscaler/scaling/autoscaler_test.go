@@ -83,6 +83,113 @@ func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
 	}
 }
 
+func TestAutoscalerScaleDownDelay(t *testing.T) {
+	pc := &fakePodCounter{}
+	metrics := &metricClient{}
+	spec := &DeciderSpec{
+		TargetValue:      10,
+		MaxScaleDownRate: 10,
+		MaxScaleUpRate:   10,
+		PanicThreshold:   100,
+		ScaleDownDelay:   5 * time.Minute,
+	}
+
+	as, err := New(testNamespace, testRevision, metrics, pc, spec, TestContextWithLogger(t))
+	if err != nil {
+		t.Fatalf("Expected no error with a valid ScaleDownDelay, got %v", err)
+	}
+
+	now := time.Time{}
+
+	t.Run("simple", func(t *testing.T) {
+		// scale up.
+		metrics.SetStableAndPanicConcurrency(40, 40)
+		expectScale(t, as, now.Add(2*time.Second), ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 4,
+			NumActivators:   2,
+		})
+		// five minutes pass at reduced concurrency - should not scale down (less than delay).
+		metrics.SetStableAndPanicConcurrency(0, 0)
+		expectScale(t, as, now.Add(5*time.Minute), ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 4,
+			NumActivators:   2,
+		})
+		// five minutes and 2 seconds pass at reduced concurrency - now we scale down.
+		expectScale(t, as, now.Add(5*time.Minute+2*time.Second), ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 0,
+			NumActivators:   2,
+		})
+	})
+
+	t.Run("gradual", func(t *testing.T) {
+		metrics.SetStableAndPanicConcurrency(40, 40)
+		expectScale(t, as, now.Add(9*time.Minute), ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 4,
+			NumActivators:   2,
+		})
+		metrics.SetStableAndPanicConcurrency(30, 30)
+		expectScale(t, as, now.Add(10*time.Minute), ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 4, // 4 still dominates
+			NumActivators:   2,
+		})
+		metrics.SetStableAndPanicConcurrency(0, 0)
+		expectScale(t, as, now.Add(11*time.Minute), ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 4, // still at 4
+			NumActivators:   2,
+		})
+		expectScale(t, as, now.Add(14*time.Minute), ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 3, // 4 scrolls out, drop to 3
+			NumActivators:   2,
+		})
+		expectScale(t, as, now.Add(15*time.Minute), ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 0, // everything scrolled out, drop to 0
+			NumActivators:   2,
+		})
+	})
+}
+
+func TestAutoscalerScaleDownDelayZero(t *testing.T) {
+	pc := &fakePodCounter{}
+	metrics := &metricClient{}
+	spec := &DeciderSpec{
+		TargetValue:      10,
+		MaxScaleDownRate: 10,
+		MaxScaleUpRate:   10,
+		PanicThreshold:   100,
+		ScaleDownDelay:   0,
+	}
+
+	as, err := New(testNamespace, testRevision, metrics, pc, spec, TestContextWithLogger(t))
+	if err != nil {
+		t.Fatalf("Expected no error with a valid ScaleDownDelay, got %v", err)
+	}
+
+	now := time.Time{}
+
+	metrics.SetStableAndPanicConcurrency(40, 40)
+	expectScale(t, as, now, ScaleResult{
+		ScaleValid:      true,
+		DesiredPodCount: 4,
+		NumActivators:   2,
+	})
+	// With zero delay we should immediately scale down (this is not the case
+	// with a 1-element time window delay).
+	metrics.SetStableAndPanicConcurrency(20, 20)
+	expectScale(t, as, now.Add(500*time.Millisecond), ScaleResult{
+		ScaleValid:      true,
+		DesiredPodCount: 2,
+		NumActivators:   2,
+	})
+}
+
 func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
 	defer reset()
 	metrics := &metricClient{
@@ -549,8 +656,7 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 	if err != nil {
 		t.Fatal("Error creating context:", err)
 	}
-	return newAutoscaler(testNamespace, testRevision,
-		metrics, pc, deciderSpec, ctx), pc
+	return newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, zeroDelay{}, ctx), pc
 }
 
 // approxEquateInt32 equates int32s with given path with ±-1 tolerance.
@@ -588,7 +694,7 @@ func TestStartInPanicMode(t *testing.T) {
 	pc := &fakePodCounter{}
 	for i := 0; i < 2; i++ {
 		pc.readyCount = i
-		a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, context.Background())
+		a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, zeroDelay{}, context.Background())
 		if !a.panicTime.IsZero() {
 			t.Errorf("Create at scale %d had panic mode on", i)
 		}
@@ -599,7 +705,7 @@ func TestStartInPanicMode(t *testing.T) {
 
 	// Now start with 2 and make sure we're in panic mode.
 	pc.readyCount = 2
-	a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, context.Background())
+	a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, zeroDelay{}, context.Background())
 	if a.panicTime.IsZero() {
 		t.Error("Create at scale 2 had panic mode off")
 	}
@@ -621,7 +727,7 @@ func TestNewFail(t *testing.T) {
 	}
 
 	pc := fakePodCounter{err: errors.New("starlight")}
-	a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, context.Background())
+	a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, zeroDelay{}, context.Background())
 	if got, want := int(a.maxPanicPods), 0; got != want {
 		t.Errorf("maxPanicPods = %d, want: 0", got)
 	}

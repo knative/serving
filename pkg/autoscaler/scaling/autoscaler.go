@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/autoscaler/aggregation/max"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/resources"
 
@@ -42,6 +43,10 @@ type podCounter interface {
 	ReadyCount() (int, error)
 }
 
+type delayer interface {
+	Delay(now time.Time, value int32) int32
+}
+
 // autoscaler stores current state of an instance of an autoscaler.
 type autoscaler struct {
 	namespace    string
@@ -53,6 +58,10 @@ type autoscaler struct {
 	// State in panic mode.
 	panicTime    time.Time
 	maxPanicPods int32
+
+	// delayer is a used to delay scale-down decisions until a configurable
+	// time has passed at lower concurrency.
+	delayer delayer
 
 	// specMux guards the current DeciderSpec.
 	specMux     sync.RWMutex
@@ -72,8 +81,14 @@ func New(
 	if reporterCtx == nil {
 		return nil, errors.New("stats reporter must not be nil")
 	}
+
+	var delayer delayer = zeroDelay{}
+	if deciderSpec.ScaleDownDelay > 0 {
+		delayer = timeWindowDelay{window: max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)}
+	}
+
 	return newAutoscaler(namespace, revision, metricClient,
-		podCounter, deciderSpec, reporterCtx), nil
+		podCounter, deciderSpec, delayer, reporterCtx), nil
 }
 
 func newAutoscaler(
@@ -81,6 +96,7 @@ func newAutoscaler(
 	metricClient metrics.MetricClient,
 	podCounter podCounter,
 	deciderSpec *DeciderSpec,
+	delayer delayer,
 	reporterCtx context.Context) *autoscaler {
 
 	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
@@ -112,6 +128,8 @@ func newAutoscaler(
 
 		deciderSpec: deciderSpec,
 		podCounter:  podCounter,
+
+		delayer: delayer,
 
 		panicTime:    pt,
 		maxPanicPods: int32(curC),
@@ -238,6 +256,13 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 		logger.Debug("Operating in stable mode.")
 	}
 
+	// Hold off applying the decision until the scale down delay window passes.
+	delayedPodCount := a.delayer.Delay(now, desiredPodCount)
+	if delayedPodCount != desiredPodCount {
+		logger.Debugf("Delaying scale to %d, staying at %d", desiredPodCount, delayedPodCount)
+		desiredPodCount = delayedPodCount
+	}
+
 	// Here we compute two numbers: excess burst capacity and number of activators
 	// for subsetting.
 	// - the excess burst capacity is based on panic value, since we don't want to
@@ -287,4 +312,21 @@ func (a *autoscaler) currentSpec() *DeciderSpec {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
 	return a.deciderSpec
+}
+
+// zeroDelay is a delayer that imposes no delay at all, this differs from a
+// one-element timeWindowDelay in the case where multiple Delays occur within a
+// single interval.
+type zeroDelay struct{}
+
+func (zeroDelay) Delay(_ time.Time, v int32) int32 { return v }
+
+// timeWindowDelay delays scale down decisions using a TimeWindow.
+type timeWindowDelay struct {
+	window *max.TimeWindow
+}
+
+func (t timeWindowDelay) Delay(now time.Time, v int32) int32 {
+	t.window.Record(now, v)
+	return t.window.Current()
 }
