@@ -75,6 +75,7 @@ func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.U
 		return fmt.Errorf("error with initial domain probing: %w", err)
 	}
 
+	g, egCtx = errgroup.WithContext(context.Background())
 	g.Go(func() error {
 		minBasePercentage := test.MinSplitPercentage
 		if len(baseExpected) == 1 {
