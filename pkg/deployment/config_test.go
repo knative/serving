@@ -27,10 +27,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	. "knative.dev/pkg/configmap/testing"
 	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/test/conformance/api/shared"
+
+	. "knative.dev/pkg/configmap/testing"
+	_ "knative.dev/pkg/system/testing"
 )
 
 const defaultSidecarImage = "defaultImage"
@@ -185,6 +186,13 @@ func TestControllerConfiguration(t *testing.T) {
 		data: map[string]string{
 			QueueSidecarImageKey: defaultSidecarImage,
 			ProgressDeadlineKey:  "0ms",
+		},
+	}, {
+		name:    "controller configuration invalid progress deadline IV",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			ProgressDeadlineKey:  "1982ms",
 		},
 	}}
 

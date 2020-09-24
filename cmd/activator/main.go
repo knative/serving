@@ -30,11 +30,10 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 
-	gorillawebsocket "github.com/gorilla/websocket"
-
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
+	"knative.dev/serving/pkg/activator"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -69,24 +68,6 @@ const (
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort = ":8080"
 )
-
-func statReporter(statSink *websocket.ManagedConnection, statChan <-chan []asmetrics.StatMessage,
-	logger *zap.SugaredLogger) {
-	for sms := range statChan {
-		go func(sms []asmetrics.StatMessage) {
-			wsms := asmetrics.ToWireStatMessages(sms)
-			b, err := wsms.Marshal()
-			if err != nil {
-				logger.Errorw("Error while marshaling stats", zap.Error(err))
-				return
-			}
-
-			if err := statSink.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
-				logger.Errorw("Error while sending stats", zap.Error(err))
-			}
-		}(sms)
-	}
-}
 
 type config struct {
 	PodName string `split_words:"true" required:"true"`
@@ -151,9 +132,6 @@ func main() {
 
 	logger.Info("Starting the knative activator")
 
-	statCh := make(chan []asmetrics.StatMessage)
-	defer close(statCh)
-
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
 	go throttler.Run(ctx)
@@ -173,12 +151,15 @@ func main() {
 	configStore := activatorconfig.NewStore(logger, tracerUpdater)
 	configStore.WatchConfigs(configMapWatcher)
 
+	statCh := make(chan []asmetrics.StatMessage)
+	defer close(statCh)
+
 	// Open a WebSocket connection to the autoscaler.
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s%s", "autoscaler", system.Namespace(), pkgnet.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to Autoscaler at ", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	defer statSink.Shutdown()
-	go statReporter(statSink, statCh, logger)
+	go activator.ReportStats(logger, statSink, statCh)
 
 	// Create and run our concurrency reporter
 	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh)

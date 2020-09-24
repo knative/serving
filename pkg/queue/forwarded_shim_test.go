@@ -88,10 +88,7 @@ func TestForwardedShimHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := ""
 
-			req, err := http.NewRequest(http.MethodGet, "/", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
 
 			if test.xff != "" {
 				req.Header.Set("X-Forwarded-For", test.xff)

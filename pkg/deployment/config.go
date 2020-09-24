@@ -107,6 +107,10 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		return nil, fmt.Errorf("progressDeadline cannot be a non-positive duration, was %v", nc.ProgressDeadline)
 	}
 
+	if nc.ProgressDeadline.Truncate(time.Second) != nc.ProgressDeadline {
+		return nil, fmt.Errorf("ProgressDeadline must be rounded to a whole second, was: %v", nc.ProgressDeadline)
+	}
+
 	if nc.DigestResolutionTimeout <= 0 {
 		return nil, fmt.Errorf("digestResolutionTimeout cannot be a non-positive duration, was %v", nc.DigestResolutionTimeout)
 	}

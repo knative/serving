@@ -18,6 +18,7 @@ package metrics
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -49,8 +50,8 @@ func newHTTPScrapeClient(httpClient *http.Client) (*httpScrapeClient, error) {
 	}, nil
 }
 
-func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+func (c *httpScrapeClient) Scrape(ctx context.Context, url string) (Stat, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return emptyStat, err
 	}

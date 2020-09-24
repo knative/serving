@@ -16,5 +16,6 @@ ignore:
   - "**/*.pb.go" # Ignore proto-generated files.
   - "hack"
   - "pkg/client"
+  - "test"
   - "third_party"
   - "vendor"

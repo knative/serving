@@ -261,7 +261,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	// We'll just use the service URL.
 	tealURL := service.Status.URL.URL().Hostname()
 
-	// But since Istio network programming takes some time to take effect
+	// But since network programming takes some time to take effect
 	// and it doesn't have a Status, we'll probe `green` until it's ready first.
 	if err := validateWebSocketConnection(t, clients, green); err != nil {
 		t.Fatal("Error initializing WS connection:", err)

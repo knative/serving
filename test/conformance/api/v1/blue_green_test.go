@@ -126,8 +126,6 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 	tealURL := service.Status.URL.URL()
 
-	// Istio network programming takes some time to be effective.  Currently Istio
-	// does not expose a Status, so we rely on probes to know when they are effective.
 	// Since we are updating the service the teal domain probe will succeed before our changes
 	// take effect so we probe the green domain.
 	t.Log("Probing", greenURL)
