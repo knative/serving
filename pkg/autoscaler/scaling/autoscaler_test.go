@@ -68,10 +68,10 @@ func (fpc fakePodCounter) ReadyCount() (int, error) {
 	return fpc.readyCount, fpc.err
 }
 
-func TestNewErrorWhenGivenNilReadyPodCounter(t *testing.T) {
+func TestNewErrorWhenGivenNilEndpointsCounter(t *testing.T) {
 	if _, err := New(testNamespace, testRevision, &metricClient{}, nil,
 		&DeciderSpec{TargetValue: 10}, context.Background()); err == nil {
-		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
+		t.Error("Expected error when EndpointsCounter interface is nil, but got none.")
 	}
 }
 
@@ -79,7 +79,7 @@ func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
 	pc := &fakePodCounter{}
 	if _, err := New(testNamespace, testRevision, &metricClient{}, pc,
 		&DeciderSpec{TargetValue: 10}, nil); err == nil {
-		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
+		t.Error("Expected error when stat reporter context is nil, but got none.")
 	}
 }
 
