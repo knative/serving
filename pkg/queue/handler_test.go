@@ -126,14 +126,14 @@ func TestBreakerTimeout(t *testing.T) {
 	<-barrier
 	ctx, cancel = context.WithTimeout(context.Background(), 50*time.Millisecond)
 	t.Cleanup(cancel)
-	req, err = http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8081/time", nil)
+	req2, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8081/time", nil)
 	if err != nil {
 		t.Fatal("NewRequestWithContext =", err)
 	}
 	eg.Go(func() error {
 		defer close(resp) // Make the other request terminate.
 		rec := httptest.NewRecorder()
-		h(rec, req)
+		h(rec, req2)
 		if got, want := rec.Code, http.StatusServiceUnavailable; got != want {
 			return fmt.Errorf("Code = %d, want: %d", got, want)
 		}
