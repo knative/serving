@@ -278,7 +278,13 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	}
 	t.Logf("Saw %d pods. Pods: %s", len(pods.Items), spew.Sdump(pods))
 
+	// The request will sleep for more than 12 seconds.
+	// NOTE: 12s + 6s must be less than drainSleepDuration and TERMINATION_DRAIN_DURATION_SECONDS.
 	u, _ := url.Parse(routeURL.String())
+	q := u.Query()
+	q.Set("sleep", "12001")
+	u.RawQuery = q.Encode()
+
 	httpClient, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		t.Fatal("Error creating spoofing client:", err)
