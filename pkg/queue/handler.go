@@ -66,6 +66,7 @@ func ProxyHandler(breaker *Breaker, stats *network.RequestStats, tracingEnabled 
 				case context.DeadlineExceeded, ErrRequestQueueFull:
 					http.Error(w, err.Error(), http.StatusServiceUnavailable)
 				default:
+					// This line is most likely untestable :-).
 					w.WriteHeader(http.StatusInternalServerError)
 				}
 			}
