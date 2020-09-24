@@ -80,17 +80,17 @@ type DeprecatedRevisionServingStateType string
 
 const (
 	// DeprecatedRevisionServingStateActive is set when the revision is ready to
-	// serve traffic. It should have Kubernetes resources, and the Istio route
+	// serve traffic. It should have Kubernetes resources, and the network
 	// should be pointed to the given resources.
 	DeprecatedRevisionServingStateActive DeprecatedRevisionServingStateType = "Active"
 	// DeprecatedRevisionServingStateReserve is set when the revision is not
 	// currently serving traffic, but could be made to serve traffic quickly. It
-	// should have Kubernetes resources, but the Istio route should be pointed to
+	// should have Kubernetes resources, but the network should be pointed to
 	// the activator.
 	DeprecatedRevisionServingStateReserve DeprecatedRevisionServingStateType = "Reserve"
 	// DeprecatedRevisionServingStateRetired is set when the revision has been
 	// decommissioned and is not needed to serve traffic anymore. It should not
-	// have any Istio routes or Kubernetes resources.  A Revision may be brought
+	// have any network or Kubernetes resources.  A Revision may be brought
 	// out of retirement, but it may take longer than it would from a "Reserve"
 	// state.
 	// Note: currently not set anywhere. See https://github.com/knative/serving/issues/1203

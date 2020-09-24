@@ -57,7 +57,7 @@ tooling developers_, by extension) running code in the environment.
     that tooling which wraps developer code complies with this runtime contract.
 - **Operators** (also known as **platform providers**) provision the compute
   resources and manage the software configuration of Knative and the underlying
-  abstractions (for example, Linux, Kubernetes, Istio, etc).
+  abstractions (for example, Linux, Kubernetes, etc).
 
 ## Runtime and Lifecycle
 
