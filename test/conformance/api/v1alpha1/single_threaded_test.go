@@ -75,13 +75,13 @@ func TestSingleConcurrency(t *testing.T) {
 	concurrency := 5
 	duration := 20 * time.Second
 	t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	group, _ := errgroup.WithContext(context.Background())
+	group, egCtx := errgroup.WithContext(context.Background())
 	for i := 0; i < concurrency; i++ {
 		threadIdx := i
 		group.Go(func() error {
 			requestIdx := 0
 			done := time.After(duration)
-			req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+			req, err := http.NewRequestWithContext(egCtx, http.MethodGet, url.String(), nil)
 			if err != nil {
 				return fmt.Errorf("error creating http request: %w", err)
 			}
