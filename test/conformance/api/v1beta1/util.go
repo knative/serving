@@ -34,12 +34,12 @@ import (
 	v1b1test "knative.dev/serving/test/v1beta1"
 )
 
-func checkForExpectedResponses(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, expectedResponses ...string) error {
-	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+func checkForExpectedResponses(ctx context.Context, t pkgTest.TLegacy, clients *test.Clients, url *url.URL, expectedResponses ...string) error {
+	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
 		return err
 	}
@@ -56,19 +56,19 @@ func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.U
 		subdomains = append(subdomains, subdomain)
 	}
 
-	g, _ := errgroup.WithContext(context.Background())
+	g, egCtx := errgroup.WithContext(context.Background())
 	// We don't have a good way to check if the route is updated so we will wait until a subdomain has
 	// started returning at least one expected result to key that we should validate percentage splits.
 	// In order for tests to succeed reliably, we need to make sure that all domains succeed.
 	g.Go(func() error {
 		t.Log("Checking updated route", baseDomain)
-		return checkForExpectedResponses(t, clients, baseDomain, baseExpected...)
+		return checkForExpectedResponses(egCtx, t, clients, baseDomain, baseExpected...)
 	})
 	for i, s := range subdomains {
 		i, s := i, s
 		g.Go(func() error {
 			t.Log("Checking updated route tags", s)
-			return checkForExpectedResponses(t, clients, s, targetsExpected[i])
+			return checkForExpectedResponses(egCtx, t, clients, s, targetsExpected[i])
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -81,13 +81,13 @@ func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.U
 			minBasePercentage = test.MinDirectPercentage
 		}
 		min := int(math.Floor(test.ConcurrentRequests * minBasePercentage))
-		return shared.CheckDistribution(t, clients, baseDomain, test.ConcurrentRequests, min, baseExpected)
+		return shared.CheckDistribution(egCtx, t, clients, baseDomain, test.ConcurrentRequests, min, baseExpected)
 	})
 	for i, subdomain := range subdomains {
 		i, subdomain := i, subdomain
 		g.Go(func() error {
 			min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-			return shared.CheckDistribution(t, clients, subdomain, test.ConcurrentRequests, min, []string{targetsExpected[i]})
+			return shared.CheckDistribution(egCtx, t, clients, subdomain, test.ConcurrentRequests, min, []string{targetsExpected[i]})
 		})
 	}
 	if err := g.Wait(); err != nil {

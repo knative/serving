@@ -107,17 +107,17 @@ func TestDestroyPodInflight(t *testing.T) {
 		t.Fatal("Error creating spoofing client:", err)
 	}
 
+	g, egCtx := errgroup.WithContext(context.Background())
+
 	// The timeout app sleeps for the time passed via the timeout query parameter in milliseconds
 	u, _ := url.Parse(routeURL.String())
 	q := u.Query()
 	q.Set("timeout", fmt.Sprintf("%d", timeoutRequestDuration.Milliseconds()))
 	u.RawQuery = q.Encode()
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(egCtx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		t.Fatal("Error creating http request:", err)
 	}
-
-	g, _ := errgroup.WithContext(context.Background())
 
 	g.Go(func() error {
 		t.Log("Sending in a long running request")
@@ -142,7 +142,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		time.Sleep(timeoutRequestDuration / 2)
 
 		t.Log("Destroying the configuration (also destroys the pods)")
-		return clients.ServingClient.Configs.Delete(context.Background(), names.Config, metav1.DeleteOptions{})
+		return clients.ServingClient.Configs.Delete(egCtx, names.Config, metav1.DeleteOptions{})
 	})
 
 	if err := g.Wait(); err != nil {
@@ -278,27 +278,29 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	}
 	t.Logf("Saw %d pods. Pods: %s", len(pods.Items), spew.Sdump(pods))
 
-	// The request will sleep for more than 12 seconds.
-	// NOTE: 12s + 6s must be less than drainSleepDuration and TERMINATION_DRAIN_DURATION_SECONDS.
 	u, _ := url.Parse(routeURL.String())
-	q := u.Query()
-	q.Set("sleep", "12001")
-	u.RawQuery = q.Encode()
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	if err != nil {
-		t.Fatal("Error creating HTTP request:", err)
-	}
 	httpClient, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		t.Fatal("Error creating spoofing client:", err)
 	}
 
+	eg, egCtx := errgroup.WithContext(context.Background())
+
 	// Start several requests staggered with 1s delay.
-	var eg errgroup.Group
 	for i := 1; i < 7; i++ {
 		i := i
 		t.Logf("Starting request %d at %v", i, time.Now())
 		eg.Go(func() error {
+			// The request will sleep for more than 12 seconds.
+			// NOTE: 12s + 6s must be less than drainSleepDuration and TERMINATION_DRAIN_DURATION_SECONDS.
+			q := u.Query()
+			q.Set("sleep", "12001")
+			u.RawQuery = q.Encode()
+			req, err := http.NewRequestWithContext(egCtx, http.MethodGet, u.String(), nil)
+			if err != nil {
+				return fmt.Errorf("failed to create HTTP request: %w", err)
+			}
+
 			res, err := httpClient.Do(req)
 			t.Logf("Request %d done at %v", i, time.Now())
 			if err != nil {
