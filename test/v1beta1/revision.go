@@ -79,7 +79,7 @@ func IsRevisionReady(r *v1beta1.Revision) (bool, error) {
 // IsRevisionRoutingActive will check if the revision is actively routing to a route.
 func IsRevisionRoutingActive(r *v1beta1.Revision) (bool, error) {
 	routingState := r.Labels[serving.RoutingStateLabelKey]
-	return routingState == v1.RoutingStateActive, nil
+	return v1.RoutingState(routingState) == v1.RoutingStateActive, nil
 }
 
 // IsRevisionAtExpectedGeneration returns a function that will check if the annotations
