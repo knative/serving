@@ -52,7 +52,7 @@ func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS 
 	// not be established within `establishTimeout`, we assume the pods can not be
 	// accessed by IP address. Then try to connect via Pod IP address asynchronously
 	// to avoid nil check.
-	logger.Infof("Connecting to Autoscaler bucket at ", podDNS)
+	logger.Info("Connecting to Autoscaler bucket at ", podDNS)
 	c, err := newConnection(podDNS, logger)
 	if err != nil {
 		logger.Info("Autoscaler pods can't be accessed by IP address. Connecting to Autoscaler bucket at ", svcDNS)
