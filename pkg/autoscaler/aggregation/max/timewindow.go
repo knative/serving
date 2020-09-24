@@ -35,13 +35,13 @@ func NewTimeWindow(duration, granularity time.Duration) *TimeWindow {
 }
 
 // Record records a value in the bucket derived from the given time.
-func (t *TimeWindow) Record(now time.Time, value float64) {
+func (t *TimeWindow) Record(now time.Time, value int32) {
 	index := int(now.Unix()) / int(t.granularity.Seconds())
 	t.window.Record(index, value)
 }
 
 // Current returns the current maximum value observed in the previous
 // window duration.
-func (t *TimeWindow) Current() float64 {
+func (t *TimeWindow) Current() int32 {
 	return t.window.Current()
 }
