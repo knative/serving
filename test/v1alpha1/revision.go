@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
 )
@@ -78,7 +79,7 @@ func IsRevisionReady(r *v1alpha1.Revision) (bool, error) {
 // IsRevisionRoutingActive will check if the revision is actively routing to a route.
 func IsRevisionRoutingActive(r *v1alpha1.Revision) (bool, error) {
 	routingState := r.Labels[serving.RoutingStateLabelKey]
-	return routingState == "active", nil
+	return routingState == v1.RoutingStateActive, nil
 }
 
 // IsRevisionAtExpectedGeneration returns a function that will check if the annotations
