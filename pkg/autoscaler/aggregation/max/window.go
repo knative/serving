@@ -23,7 +23,7 @@ import (
 )
 
 type entry struct {
-	value float64
+	value int32
 	index int
 }
 
@@ -42,7 +42,7 @@ func newWindow(size int) *window {
 }
 
 // Record records a value for a monotonically increasing index.
-func (m *window) Record(index int, v float64) {
+func (m *window) Record(index int, v int32) {
 	// Step One: Remove any elements where v > element.
 	// An element that's lower than the new element can never influence the
 	// maximum again, because the new element is both larger _and_ more
@@ -97,7 +97,7 @@ func (m *window) Record(index int, v float64) {
 }
 
 // Current returns the current maximum value observed.
-func (m *window) Current() float64 {
+func (m *window) Current() int32 {
 	return m.maxima[m.first].value
 }
 

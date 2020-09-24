@@ -27,14 +27,14 @@ import (
 func TestTimedWindowMax(t *testing.T) {
 	type entry struct {
 		time  time.Time
-		value float64
+		value int32
 	}
 
 	now := time.Now()
 
 	tests := []struct {
 		name   string
-		expect float64
+		expect int32
 		values []entry
 	}{{
 		name: "single value",
@@ -84,7 +84,7 @@ func TestTimedWindowMax(t *testing.T) {
 			}
 
 			if got, want := m.Current(), tt.expect; got != want {
-				t.Errorf("Current() = %f, expected %f", got, want)
+				t.Errorf("Current() = %d, expected %d", got, want)
 			}
 		})
 	}
@@ -106,7 +106,7 @@ func BenchmarkLargeTimeWindowRecord(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		now = now.Add(1 * time.Second)
-		w.Record(now, rand.Float64())
+		w.Record(now, rand.Int31())
 	}
 }
 
@@ -116,7 +116,7 @@ func BenchmarkLargeTimeWindowAscendingRecord(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		now = now.Add(1 * time.Second)
-		w.Record(now, float64(i))
+		w.Record(now, int32(i))
 	}
 }
 
@@ -128,7 +128,7 @@ func BenchmarkLargeTimeWindowDescendingRecord(b *testing.B) {
 
 			for i := 0; i < b.N; i++ {
 				now = now.Add(1 * time.Second)
-				w.Record(now, float64(math.MaxInt32-i))
+				w.Record(now, int32(math.MaxInt32-i))
 			}
 		})
 	}

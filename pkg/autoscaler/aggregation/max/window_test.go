@@ -24,32 +24,32 @@ import (
 func TestWindowMax(t *testing.T) {
 	tests := []struct {
 		name      string
-		values    []float64
+		values    []int32
 		indexFunc func(int) int
-		expect    []float64
+		expect    []int32
 	}{{
 		name:   "single value",
-		values: []float64{1},
-		expect: []float64{1},
+		values: []int32{1},
+		expect: []int32{1},
 	}, {
 		name:   "ascending values",
-		values: []float64{1, 2},
-		expect: []float64{1, 2},
+		values: []int32{1, 2},
+		expect: []int32{1, 2},
 	}, {
 		name:   "descending values",
-		values: []float64{2, 1},
-		expect: []float64{2, 2},
+		values: []int32{2, 1},
+		expect: []int32{2, 2},
 	}, {
 		name:   "up, down, up",
-		values: []float64{1, 2, 1},
-		expect: []float64{1, 2, 2},
+		values: []int32{1, 2, 1},
+		expect: []int32{1, 2, 2},
 	}, {
 		name:   "windowing out",
-		values: []float64{5, 6, 5, 5, 5, 5, 5},
-		expect: []float64{5, 6, 6, 6, 6, 6, 5},
+		values: []int32{5, 6, 5, 5, 5, 5, 5},
+		expect: []int32{5, 6, 6, 6, 6, 6, 5},
 	}, {
 		name:   "windowing out with gaps",
-		values: []float64{6, 5, 2, 1},
+		values: []int32{6, 5, 2, 1},
 		indexFunc: func(i int) int {
 			if i >= 3 {
 				return i + 3
@@ -57,49 +57,49 @@ func TestWindowMax(t *testing.T) {
 
 			return i
 		},
-		expect: []float64{6, 6, 6, 2},
+		expect: []int32{6, 6, 6, 2},
 	}, {
 		name:   "windowing out 2",
-		values: []float64{5, 6, 5, 7, 5, 5, 1},
-		expect: []float64{5, 6, 6, 7, 7, 7, 7},
+		values: []int32{5, 6, 5, 7, 5, 5, 1},
+		expect: []int32{5, 6, 6, 7, 7, 7, 7},
 	}, {
 		name:   "windowing out 3",
-		values: []float64{5, 8, 5, 7, 5, 5},
-		expect: []float64{5, 8, 8, 8, 8, 8},
+		values: []int32{5, 8, 5, 7, 5, 5},
+		expect: []int32{5, 8, 8, 8, 8, 8},
 	}, {
 		name:   "windowing out 4",
-		values: []float64{5, 8, 5, 7, 5, 5, 1},
-		expect: []float64{5, 8, 8, 8, 8, 8, 7},
+		values: []int32{5, 8, 5, 7, 5, 5, 1},
+		expect: []int32{5, 8, 8, 8, 8, 8, 7},
 	}, {
 		name:   "windowing out 5",
-		values: []float64{5, 8, 5, 7, 5, 5, 1, 4, 4, 4},
-		expect: []float64{5, 8, 8, 8, 8, 8, 7, 7, 5, 5},
+		values: []int32{5, 8, 5, 7, 5, 5, 1, 4, 4, 4},
+		expect: []int32{5, 8, 8, 8, 8, 8, 7, 7, 5, 5},
 	}, {
 		name:   "windowing out 6",
-		values: []float64{5, 8, 5, 7, 5, 5, 1, 4, 4, 4, 4},
-		expect: []float64{5, 8, 8, 8, 8, 8, 7, 7, 5, 5, 4},
+		values: []int32{5, 8, 5, 7, 5, 5, 1, 4, 4, 4, 4},
+		expect: []int32{5, 8, 8, 8, 8, 8, 7, 7, 5, 5, 4},
 	}, {
 		name:   "windowing out 7",
-		values: []float64{5, 8, 5, 7, 5, 5, 1, 4, 4, 4, 4, 9},
-		expect: []float64{5, 8, 8, 8, 8, 8, 7, 7, 5, 5, 4, 9},
+		values: []int32{5, 8, 5, 7, 5, 5, 1, 4, 4, 4, 4, 9},
+		expect: []int32{5, 8, 8, 8, 8, 8, 7, 7, 5, 5, 4, 9},
 	}, {
 		name:   "windowing out 8",
-		values: []float64{5, 8, 5, 7, 5, 5, 1, 4, 4, 4, 4, 9, 3, 4, 2, 1, 0},
-		expect: []float64{5, 8, 8, 8, 8, 8, 7, 7, 5, 5, 4, 9, 9, 9, 9, 9, 4},
+		values: []int32{5, 8, 5, 7, 5, 5, 1, 4, 4, 4, 4, 9, 3, 4, 2, 1, 0},
+		expect: []int32{5, 8, 8, 8, 8, 8, 7, 7, 5, 5, 4, 9, 9, 9, 9, 9, 4},
 	}, {
 		name:   "multiple with same index, ascending",
-		values: []float64{1, 2, 3, 4, 5, 6, 7},
+		values: []int32{1, 2, 3, 4, 5, 6, 7},
 		indexFunc: func(int) int {
 			return 1
 		},
-		expect: []float64{1, 2, 3, 4, 5, 6, 7},
+		expect: []int32{1, 2, 3, 4, 5, 6, 7},
 	}, {
 		name:   "multiple with same index, descending",
-		values: []float64{7, 6, 5, 4, 3, 2, 1},
+		values: []int32{7, 6, 5, 4, 3, 2, 1},
 		indexFunc: func(int) int {
 			return 1
 		},
-		expect: []float64{7, 7, 7, 7, 7, 7, 7},
+		expect: []int32{7, 7, 7, 7, 7, 7, 7},
 	}}
 
 	for _, tt := range tests {
@@ -111,14 +111,14 @@ func TestWindowMax(t *testing.T) {
 				indexFunc = tt.indexFunc
 			}
 
-			current := make([]float64, 0, len(tt.expect))
+			current := make([]int32, 0, len(tt.expect))
 			for i, v := range tt.values {
 				max.Record(indexFunc(i), v)
 				current = append(current, max.Current())
 			}
 
 			if got, want := current, tt.expect; !reflect.DeepEqual(got, want) {
-				t.Errorf("Current() = %f, expected %f", got, want)
+				t.Errorf("Current() = %d, expected %d", got, want)
 			}
 		})
 	}
