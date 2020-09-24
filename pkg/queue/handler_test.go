@@ -39,7 +39,7 @@ const (
 	reportingPeriod = time.Second
 )
 
-func TestBreakerQueueFull(t *testing.T) {
+func TestHandlerBreakerQueueFull(t *testing.T) {
 	// This test firest two requests, ensuring queue
 	// is saturated. Third will return immediately.
 	resp := make(chan struct{})
@@ -93,7 +93,7 @@ func TestBreakerQueueFull(t *testing.T) {
 		t.Error(err)
 	}
 }
-func TestBreakerTimeout(t *testing.T) {
+func TestHandlerBreakerTimeout(t *testing.T) {
 	// This test firest a request which will take long to complete.
 	// Then another one with a very short context timeout.
 	// Verifies that the second one fails with timeout.
