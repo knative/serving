@@ -297,11 +297,6 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		i := i
 		t.Logf("Starting request %d at %v", i, time.Now())
 		eg.Go(func() error {
-			// The request will sleep for more than 12 seconds.
-			// NOTE: 12s + 6s must be less than drainSleepDuration and TERMINATION_DRAIN_DURATION_SECONDS.
-			q := u.Query()
-			q.Set("sleep", "12001")
-			u.RawQuery = q.Encode()
 			req, err := http.NewRequestWithContext(egCtx, http.MethodGet, u.String(), nil)
 			if err != nil {
 				return fmt.Errorf("failed to create HTTP request: %w", err)
