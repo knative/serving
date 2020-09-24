@@ -89,7 +89,7 @@ func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames
 			if ensurePinned {
 				// Without this it might happen that the latest created revision is later overridden by a newer one
 				// that is pinned and the following check for LatestReadyRevisionName would fail.
-				return CheckRevisionState(clients.ServingBetaClient, revisionName, IsRevisionPinned) == nil, nil
+				return CheckRevisionState(clients.ServingBetaClient, revisionName, IsRevisionRoutingActive) == nil, nil
 			}
 			return true, nil
 		}

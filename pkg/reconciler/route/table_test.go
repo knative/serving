@@ -1889,8 +1889,7 @@ func TestReconcile_ResponsiveGC(t *testing.T) {
 				WithConfigLabel("serving.knative.dev/route", "stale-lastpinned"),
 			),
 			rev("default", "config", 1, MarkRevisionReady,
-				WithRevName("config-00001"),
-				WithLastPinned(fakeCurTime.Add(-10*time.Minute))),
+				WithRevName("config-00001")),
 			simpleReadyIngress(
 				Route("default", "stale-lastpinned", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
