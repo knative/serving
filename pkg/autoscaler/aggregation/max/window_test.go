@@ -17,8 +17,9 @@ limitations under the License.
 package max
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestWindowMax(t *testing.T) {
@@ -117,8 +118,8 @@ func TestWindowMax(t *testing.T) {
 				current = append(current, max.Current())
 			}
 
-			if got, want := current, tt.expect; !reflect.DeepEqual(got, want) {
-				t.Errorf("Current() = %d, expected %d", got, want)
+			if got, want := current, tt.expect; !cmp.Equal(got, want) {
+				t.Errorf("Current() = %v, expected %v", got, want)
 			}
 		})
 	}
