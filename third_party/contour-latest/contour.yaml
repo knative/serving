@@ -1499,7 +1499,7 @@ spec:
         # if we change this on each version, you can no longer upgrade
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:d61fdaf854b0d8e10a4ddb88b2203bb43dc4781a8b0a82f05ecbd9e1453cd4c6
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:ecc930f519c8c274b4fd54e0348b95fc7267760020e29de0e3f494b45f2c53ed
         imagePullPolicy: Always
         command:
         - contour
@@ -1704,7 +1704,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:d61fdaf854b0d8e10a4ddb88b2203bb43dc4781a8b0a82f05ecbd9e1453cd4c6
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:ecc930f519c8c274b4fd54e0348b95fc7267760020e29de0e3f494b45f2c53ed
         imagePullPolicy: IfNotPresent
         name: contour
         ports:
@@ -1790,7 +1790,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:d61fdaf854b0d8e10a4ddb88b2203bb43dc4781a8b0a82f05ecbd9e1453cd4c6
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:ecc930f519c8c274b4fd54e0348b95fc7267760020e29de0e3f494b45f2c53ed
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -1866,7 +1866,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:d61fdaf854b0d8e10a4ddb88b2203bb43dc4781a8b0a82f05ecbd9e1453cd4c6
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:ecc930f519c8c274b4fd54e0348b95fc7267760020e29de0e3f494b45f2c53ed
         imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
@@ -3393,7 +3393,7 @@ spec:
         # if we change this on each version, you can no longer upgrade
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:d61fdaf854b0d8e10a4ddb88b2203bb43dc4781a8b0a82f05ecbd9e1453cd4c6
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:ecc930f519c8c274b4fd54e0348b95fc7267760020e29de0e3f494b45f2c53ed
         imagePullPolicy: Always
         command:
         - contour
@@ -3598,7 +3598,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:d61fdaf854b0d8e10a4ddb88b2203bb43dc4781a8b0a82f05ecbd9e1453cd4c6
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:ecc930f519c8c274b4fd54e0348b95fc7267760020e29de0e3f494b45f2c53ed
         imagePullPolicy: IfNotPresent
         name: contour
         ports:
@@ -3684,7 +3684,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:d61fdaf854b0d8e10a4ddb88b2203bb43dc4781a8b0a82f05ecbd9e1453cd4c6
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:ecc930f519c8c274b4fd54e0348b95fc7267760020e29de0e3f494b45f2c53ed
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3760,7 +3760,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:d61fdaf854b0d8e10a4ddb88b2203bb43dc4781a8b0a82f05ecbd9e1453cd4c6
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:ecc930f519c8c274b4fd54e0348b95fc7267760020e29de0e3f494b45f2c53ed
         imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
