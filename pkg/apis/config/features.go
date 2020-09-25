@@ -50,6 +50,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecTolerations:      Disabled,
 		ResponsiveRevisionGC:    Allowed,
 		TagHeaderBasedRouting:   Disabled,
+		RuntimeV1VarLogVolume:   Enabled,
 	}
 }
 
@@ -67,6 +68,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-securitycontext", &nc.PodSpecSecurityContext),
 		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
 		asFlag("responsive-revision-gc", &nc.ResponsiveRevisionGC),
+		asFlag("runtime.v1.var-log-volume", &nc.RuntimeV1VarLogVolume),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting)); err != nil {
 		return nil, err
 	}
@@ -90,6 +92,7 @@ type Features struct {
 	PodSpecTolerations      Flag
 	ResponsiveRevisionGC    Flag
 	TagHeaderBasedRouting   Flag
+	RuntimeV1VarLogVolume   Flag
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.

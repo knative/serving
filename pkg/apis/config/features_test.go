@@ -68,6 +68,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			PodSpecTolerations:      Enabled,
 			ResponsiveRevisionGC:    Enabled,
 			TagHeaderBasedRouting:   Enabled,
+			RuntimeV1VarLogVolume:   Enabled,
 		}),
 		data: map[string]string{
 			"multi-container":                     "Enabled",
@@ -79,6 +80,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-tolerations":      "Enabled",
 			"responsive-revision-gc":              "Enabled",
 			"tag-header-based-routing":            "Enabled",
+			"runtime.v1.var-log-volume":           "Enabled",
 		},
 	}, {
 		name:    "multi-container Allowed",
@@ -295,6 +297,22 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"tag-header-based-routing": "Enabled",
+		},
+	}, {
+		name: "runtime.v1.var-log-volume disabled",
+		wantFeatures: defaultWith(&Features{
+			RuntimeV1VarLogVolume: Disabled,
+		}),
+		data: map[string]string{
+			"runtime.v1.var-log-volume": "Disabled",
+		},
+	}, {
+		name: "runtime.v1.var-log-volume allowed",
+		wantFeatures: defaultWith(&Features{
+			RuntimeV1VarLogVolume: Allowed,
+		}),
+		data: map[string]string{
+			"runtime.v1.var-log-volume": "Allowed",
 		},
 	}}
 

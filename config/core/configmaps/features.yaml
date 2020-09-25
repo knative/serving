@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "6a69cdef"
+    knative.dev/example-checksum: "81b553d8"
 data:
   _example: |
     ################################
@@ -111,3 +111,8 @@ data:
     # 1. Enabled: enabling tag header based routing
     # 2. Disabled: disabling tag header based routing
     tag-header-based-routing: "disabled"
+
+    # This feature flags allows users to opt-out of the runtime /var/log mount
+    # requirement in the runtime contract
+    #
+    runtime.v1.var-log-volume: "enabled"
