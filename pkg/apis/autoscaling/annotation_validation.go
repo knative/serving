@@ -26,23 +26,24 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-func getIntGE0(m map[string]string, k string) (int64, *apis.FieldError) {
+func getIntGE0(m map[string]string, k string) (int32, *apis.FieldError) {
 	v, ok := m[k]
 	if !ok {
 		return 0, nil
 	}
+	// Parsing as uint gives a bad format error, rather than invalid range, unfortunately.
 	i, err := strconv.ParseInt(v, 10, 32)
-	if err == nil && i < 0 {
-		return 0, apis.ErrOutOfBoundsValue(v, 0, math.MaxInt32, k)
-	}
 	if err != nil {
 		if nerr, ok := err.(*strconv.NumError); ok && nerr.Err == strconv.ErrRange {
 			return 0, apis.ErrOutOfBoundsValue(v, 0, math.MaxInt32, k)
 		}
 		return 0, apis.ErrInvalidValue(v, k)
 	}
+	if i < 0 {
+		return 0, apis.ErrOutOfBoundsValue(v, 0, math.MaxInt32, k)
+	}
 
-	return i, nil
+	return int32(i), nil
 }
 
 // ValidateAnnotations verifies the autoscaling annotations.
@@ -64,8 +65,7 @@ func validateClass(annotations map[string]string) *apis.FieldError {
 	return nil
 }
 
-func validateFloats(annotations map[string]string) *apis.FieldError {
-	var errs *apis.FieldError
+func validateFloats(annotations map[string]string) (errs *apis.FieldError) {
 	if v, ok := annotations[PanicWindowPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
 			errs = errs.Also(apis.ErrInvalidValue(v, PanicWindowPercentageAnnotationKey))
@@ -106,32 +106,33 @@ func validateFloats(annotations map[string]string) *apis.FieldError {
 }
 
 func validateLastPodRetention(annotations map[string]string) *apis.FieldError {
-	var errs *apis.FieldError
 	if w, ok := annotations[ScaleToZeroPodRetentionPeriodKey]; ok {
 		if d, err := time.ParseDuration(w); err != nil {
-			errs = apis.ErrInvalidValue(w, ScaleToZeroPodRetentionPeriodKey)
+			return apis.ErrInvalidValue(w, ScaleToZeroPodRetentionPeriodKey)
 		} else if d < 0 || d > WindowMax {
 			// Since we disallow windows longer than WindowMax, so we should limit this
 			// as well.
-			errs = apis.ErrOutOfBoundsValue(w, 0*time.Second, WindowMax, ScaleToZeroPodRetentionPeriodKey)
+			return apis.ErrOutOfBoundsValue(w, time.Duration(0), WindowMax, ScaleToZeroPodRetentionPeriodKey)
 		}
 	}
-	return errs
+	return nil
 }
 
 func validateWindow(annotations map[string]string) *apis.FieldError {
-	var errs *apis.FieldError
 	if w, ok := annotations[WindowAnnotationKey]; ok {
 		if annotations[ClassAnnotationKey] == HPA && annotations[MetricAnnotationKey] == CPU {
 			return apis.ErrInvalidKeyName(WindowAnnotationKey, apis.CurrentField, fmt.Sprintf("%s for %s %s", HPA, MetricAnnotationKey, CPU))
 		}
-		if d, err := time.ParseDuration(w); err != nil {
-			errs = apis.ErrInvalidValue(w, WindowAnnotationKey)
-		} else if d < WindowMin || d > WindowMax {
-			errs = apis.ErrOutOfBoundsValue(w, WindowMin, WindowMax, WindowAnnotationKey)
+		switch d, err := time.ParseDuration(w); {
+		case err != nil:
+			return apis.ErrInvalidValue(w, WindowAnnotationKey)
+		case d < WindowMin || d > WindowMax:
+			return apis.ErrOutOfBoundsValue(w, WindowMin, WindowMax, WindowAnnotationKey)
+		case d.Truncate(time.Second) != d:
+			return apis.ErrGeneric("must be specified with at most second precision", WindowAnnotationKey)
 		}
 	}
-	return errs
+	return nil
 }
 
 func validateMinMaxScale(annotations map[string]string) *apis.FieldError {

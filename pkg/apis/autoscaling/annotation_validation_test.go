@@ -172,6 +172,10 @@ func TestValidateAnnotations(t *testing.T) {
 		annotations: map[string]string{WindowAnnotationKey: "365h"},
 		expectErr:   "expected 6s <= 365h <= 1h0m0s: " + WindowAnnotationKey,
 	}, {
+		name:        "window too precise",
+		annotations: map[string]string{WindowAnnotationKey: "1m9s82ms"},
+		expectErr:   "must be specified with at most second precision: " + WindowAnnotationKey,
+	}, {
 		name:        "annotation /window is invalid for class HPA and metric CPU",
 		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
 		expectErr:   fmt.Sprintf("invalid key name %q: \n%s for %s %s", WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
