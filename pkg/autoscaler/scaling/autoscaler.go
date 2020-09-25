@@ -78,10 +78,7 @@ func New(
 		return nil, errors.New("stats reporter must not be nil")
 	}
 
-	delayer := max.NewTimeWindow(tickInterval, tickInterval)
-	if deciderSpec.ScaleDownDelay > 0 {
-		delayer = max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)
-	}
+	delayer := max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)
 
 	return newAutoscaler(namespace, revision, metricClient,
 		podCounter, deciderSpec, delayer, reporterCtx), nil

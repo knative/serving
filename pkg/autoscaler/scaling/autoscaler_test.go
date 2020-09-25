@@ -31,7 +31,6 @@ import (
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
 
-	"knative.dev/serving/pkg/autoscaler/aggregation/max"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	smetrics "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/resources"
@@ -657,7 +656,7 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 	if err != nil {
 		t.Fatal("Error creating context:", err)
 	}
-	return newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, max.NewTimeWindow(tickInterval, tickInterval), ctx), pc
+	return newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, nil, ctx), pc
 }
 
 // approxEquateInt32 equates int32s with given path with ±-1 tolerance.
@@ -695,7 +694,7 @@ func TestStartInPanicMode(t *testing.T) {
 	pc := &fakePodCounter{}
 	for i := 0; i < 2; i++ {
 		pc.readyCount = i
-		a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, max.NewTimeWindow(tickInterval, tickInterval), context.Background())
+		a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, nil, context.Background())
 		if !a.panicTime.IsZero() {
 			t.Errorf("Create at scale %d had panic mode on", i)
 		}
@@ -706,7 +705,7 @@ func TestStartInPanicMode(t *testing.T) {
 
 	// Now start with 2 and make sure we're in panic mode.
 	pc.readyCount = 2
-	a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, max.NewTimeWindow(tickInterval, tickInterval), context.Background())
+	a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, nil, context.Background())
 	if a.panicTime.IsZero() {
 		t.Error("Create at scale 2 had panic mode off")
 	}
@@ -728,7 +727,7 @@ func TestNewFail(t *testing.T) {
 	}
 
 	pc := fakePodCounter{err: errors.New("starlight")}
-	a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, max.NewTimeWindow(tickInterval, tickInterval), context.Background())
+	a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, nil, context.Background())
 	if got, want := int(a.maxPanicPods), 0; got != want {
 		t.Errorf("maxPanicPods = %d, want: 0", got)
 	}
