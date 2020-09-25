@@ -40,14 +40,15 @@ const (
 )
 
 func TestHandlerBreakerQueueFull(t *testing.T) {
-	// This test firest two requests, ensuring queue
+	// This test sends two requests, ensuring queue
 	// is saturated. Third will return immediately.
 	resp := make(chan struct{})
 	blockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		<-resp
 	})
 	breaker := NewBreaker(BreakerParams{
-		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1})
+		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1,
+	})
 	stats := network.NewRequestStats(time.Now())
 
 	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
@@ -93,8 +94,9 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 		t.Error(err)
 	}
 }
+
 func TestHandlerBreakerTimeout(t *testing.T) {
-	// This test firest a request which will take long to complete.
+	// This test sends a request which will take a long time to complete.
 	// Then another one with a very short context timeout.
 	// Verifies that the second one fails with timeout.
 	resp := make(chan struct{})
@@ -102,7 +104,8 @@ func TestHandlerBreakerTimeout(t *testing.T) {
 		<-resp
 	})
 	breaker := NewBreaker(BreakerParams{
-		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1})
+		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1,
+	})
 	stats := network.NewRequestStats(time.Now())
 
 	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
@@ -260,7 +263,7 @@ func TestIgnoreProbe(t *testing.T) {
 }
 
 func BenchmarkProxyHandler(b *testing.B) {
-	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	stats := network.NewRequestStats(time.Now())
 
 	promStatReporter, err := NewPrometheusStatsReporter(
