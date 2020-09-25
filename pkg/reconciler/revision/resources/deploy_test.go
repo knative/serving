@@ -1,4 +1,5 @@
 /*
+
 Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +19,7 @@ package resources
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,6 +40,7 @@ import (
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
@@ -364,9 +367,9 @@ func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSp
 	return podSpec
 }
 
-func withAppendedVolumes(volumes ...corev1.Volume) podSpecOption {
+func withPrependedVolumes(volumes ...corev1.Volume) podSpecOption {
 	return func(ps *corev1.PodSpec) {
-		ps.Volumes = append(ps.Volumes, volumes...)
+		ps.Volumes = append(volumes, ps.Volumes...)
 	}
 }
 
@@ -552,7 +555,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("USER_PORT", "8888"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
 				),
-			}, withAppendedVolumes(corev1.Volume{
+			}, withPrependedVolumes(corev1.Volume{
 				Name: "asdf",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
@@ -972,7 +975,7 @@ func TestMakePodSpec(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := makePodSpec(test.rev, &logConfig, &traceConfig, &test.oc, &deploymentConfig)
+			got, err := makePodSpec(test.rev, features, &logConfig, &traceConfig, &test.oc, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
@@ -988,7 +991,7 @@ var quantityComparer = cmp.Comparer(func(x, y resource.Quantity) bool {
 })
 
 func TestMissingProbeError(t *testing.T) {
-	if _, err := MakeDeployment(revision("bar", "foo"), &logConfig, &traceConfig,
+	if _, err := MakeDeployment(revision("bar", "foo"), features, &logConfig, &traceConfig,
 		&network.Config{}, &obsConfig, &deploymentConfig, &asConfig); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
@@ -1125,7 +1128,7 @@ func TestMakeDeployment(t *testing.T) {
 				test.acMutator(ac)
 			}
 			// Tested above so that we can rely on it here for brevity.
-			podSpec, err := makePodSpec(test.rev, &logConfig, &traceConfig,
+			podSpec, err := makePodSpec(test.rev, features, &logConfig, &traceConfig,
 				&obsConfig, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
@@ -1133,7 +1136,7 @@ func TestMakeDeployment(t *testing.T) {
 			if test.want != nil {
 				test.want.Spec.Template.Spec = *podSpec
 			}
-			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
+			got, err := MakeDeployment(test.rev, features, &logConfig, &traceConfig,
 				&network.Config{}, &obsConfig, &test.dc, ac)
 			if err != nil {
 				t.Fatal("Got unexpected error:", err)
@@ -1142,5 +1145,45 @@ func TestMakeDeployment(t *testing.T) {
 				t.Error("MakeDeployment (-want, +got) =", diff)
 			}
 		})
+	}
+}
+
+func TestVarLogDisabled(t *testing.T) {
+	f := features.DeepCopy()
+	f.RuntimeV1VarLogVolume = config.Disabled
+
+	rev := revision("bar", "foo",
+		withContainers([]corev1.Container{{
+			Name:  servingContainerName,
+			Image: "busybox",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8080,
+			}},
+			ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+		}}),
+	)
+
+	// Drop all the var log additions from the serving
+	// container and pod spec
+	s := servingContainer()
+	env := s.Env[:0]
+	for _, e := range s.Env {
+		if !strings.HasPrefix(e.Name, "K_INTERNAL_") {
+			env = append(env, e)
+		}
+	}
+	s.VolumeMounts = nil
+	s.Env = env
+
+	want := podSpec([]corev1.Container{s, queueContainer()})
+	want.Volumes = nil
+
+	got, err := makePodSpec(rev, f, &logConfig, &traceConfig, &obsConfig, &deploymentConfig)
+	if err != nil {
+		t.Fatal("Got unexpected error:", err)
+	}
+
+	if diff := cmp.Diff(want, got, quantityComparer); diff != "" {
+		t.Error("MakeDeployment (-want, +got) =", diff)
 	}
 }

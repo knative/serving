@@ -39,6 +39,7 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1.Revision) (*a
 
 	deployment, err := resources.MakeDeployment(
 		rev,
+		cfgs.Features,
 		cfgs.Logging,
 		cfgs.Tracing,
 		cfgs.Network,
@@ -60,6 +61,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 
 	deployment, err := resources.MakeDeployment(
 		rev,
+		cfgs.Features,
 		cfgs.Logging,
 		cfgs.Tracing,
 		cfgs.Network,

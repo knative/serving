@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/ptr"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
@@ -90,7 +91,13 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
-func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config) (*corev1.PodSpec, error) {
+func makePodSpec(rev *v1.Revision,
+	features *config.Features,
+	loggingConfig *logging.Config,
+	tracingConfig *tracingconfig.Config,
+	observabilityConfig *metrics.ObservabilityConfig,
+	deploymentConfig *deployment.Config) (*corev1.PodSpec, error) {
+
 	queueContainer, err := makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
 
 	if err != nil {
@@ -98,6 +105,23 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 	}
 
 	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer))
+
+	if features.RuntimeV1VarLogVolume == config.Enabled {
+		podSpec.Volumes = append(podSpec.Volumes, varLogVolume)
+
+		for i, container := range podSpec.Containers {
+			if container.Name == QueueContainerName {
+				continue
+			}
+
+			varLogMount := varLogVolumeMount.DeepCopy()
+			varLogMount.SubPathExpr += container.Name
+			container.VolumeMounts = append(container.VolumeMounts, *varLogMount)
+			container.Env = append(container.Env, buildVarLogSubpathEnvs()...)
+
+			podSpec.Containers[i] = container
+		}
+	}
 
 	return podSpec, nil
 }
@@ -128,13 +152,9 @@ func BuildUserContainers(rev *v1.Revision) []corev1.Container {
 func makeContainer(container corev1.Container, rev *v1.Revision) corev1.Container {
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
-	varLogMount := varLogVolumeMount.DeepCopy()
-	varLogMount.SubPathExpr += container.Name
-
-	container.VolumeMounts = append(container.VolumeMounts, *varLogMount)
 	container.Lifecycle = userLifecycle
 	container.Env = append(container.Env, getKnativeEnvVar(rev)...)
-	container.Env = append(container.Env, buildVarLogSubpathEnvs()...)
+
 	// Explicitly disable stdin and tty allocation
 	container.Stdin = false
 	container.TTY = false
@@ -167,7 +187,7 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 func BuildPodSpec(rev *v1.Revision, containers []corev1.Container) *corev1.PodSpec {
 	pod := rev.Spec.PodSpec.DeepCopy()
 	pod.Containers = containers
-	pod.Volumes = append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...)
+	pod.Volumes = rev.Spec.Volumes
 	pod.TerminationGracePeriodSeconds = rev.Spec.TimeoutSeconds
 	return pod
 }
@@ -216,11 +236,15 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 
 // MakeDeployment constructs a K8s Deployment resource from a revision.
 func MakeDeployment(rev *v1.Revision,
-	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config,
-	observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config,
+	features *config.Features,
+	loggingConfig *logging.Config,
+	tracingConfig *tracingconfig.Config,
+	networkConfig *network.Config,
+	observabilityConfig *metrics.ObservabilityConfig,
+	deploymentConfig *deployment.Config,
 	autoscalerConfig *autoscalerconfig.Config) (*appsv1.Deployment, error) {
 
-	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
+	podSpec, err := makePodSpec(rev, features, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
 	}
