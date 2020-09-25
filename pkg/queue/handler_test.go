@@ -17,15 +17,19 @@ limitations under the License.
 package queue
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
+	"golang.org/x/sync/errgroup"
 	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/activator"
 )
@@ -35,51 +39,165 @@ const (
 	reportingPeriod = time.Second
 )
 
-func TestHandlerReqEvent(t *testing.T) {
-	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(activator.RevisionHeaderName) != "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
+func TestHandlerBreakerQueueFull(t *testing.T) {
+	// This test firest two requests, ensuring queue
+	// is saturated. Third will return immediately.
+	resp := make(chan struct{})
+	blockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-resp
+	})
+	breaker := NewBreaker(BreakerParams{
+		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1})
+	stats := network.NewRequestStats(time.Now())
 
-		if r.Header.Get(activator.RevisionHeaderNamespace) != "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
+	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
 
-		if got, want := r.Host, wantHost; got != want {
-			t.Errorf("Host header = %q, want: %q", got, want)
-		}
-		if got, want := r.Header.Get(network.OriginalHostHeader), ""; got != want {
-			t.Errorf("%s header was preserved", network.OriginalHostHeader)
-		}
-
-		w.WriteHeader(http.StatusOK)
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	t.Cleanup(cancel)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8081/time", nil)
+	if err != nil {
+		t.Fatal("NewRequestWithContext =", err)
 	}
+	var (
+		eg      errgroup.Group
+		barrier sync.WaitGroup
+	)
+	barrier.Add(2)
+	eg.Go(func() error {
+		barrier.Done()
+		h(httptest.NewRecorder(), req)
+		return nil
+	})
+	eg.Go(func() error {
+		barrier.Done()
+		h(httptest.NewRecorder(), req)
+		return nil
+	})
+	barrier.Wait()
+	// Now we know the queue is full next should exit immediately.
 
-	server := httptest.NewServer(httpHandler)
-	serverURL, _ := url.Parse(server.URL)
+	eg.Go(func() error {
+		defer close(resp) // Make the other requests terminate.
+		rec := httptest.NewRecorder()
+		h(rec, req)
+		if got, want := rec.Code, http.StatusServiceUnavailable; got != want {
+			return fmt.Errorf("Code = %d, want: %d", got, want)
+		}
+		const want = "pending request queue full"
+		if got := rec.Body.String(); !strings.Contains(rec.Body.String(), want) {
+			return fmt.Errorf("Body = %q wanted to contain %q", got, want)
+		}
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
+		t.Error(err)
+	}
+}
+func TestHandlerBreakerTimeout(t *testing.T) {
+	// This test firest a request which will take long to complete.
+	// Then another one with a very short context timeout.
+	// Verifies that the second one fails with timeout.
+	resp := make(chan struct{})
+	blockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-resp
+	})
+	breaker := NewBreaker(BreakerParams{
+		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1})
+	stats := network.NewRequestStats(time.Now())
 
-	defer server.Close()
-	proxy := httputil.NewSingleHostReverseProxy(serverURL)
+	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	t.Cleanup(cancel)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8081/time", nil)
+	if err != nil {
+		t.Fatal("NewRequestWithContext =", err)
+	}
+	var eg errgroup.Group
+	barrier := make(chan struct{})
+	eg.Go(func() error {
+		// This will block.
+		close(barrier)
+		h(httptest.NewRecorder(), req)
+		return nil
+	})
+
+	// For proper checks we need to ensure the order of requests.
+	<-barrier
+	ctx, cancel = context.WithTimeout(context.Background(), 50*time.Millisecond)
+	t.Cleanup(cancel)
+	req2, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8081/time", nil)
+	if err != nil {
+		t.Fatal("NewRequestWithContext =", err)
+	}
+	eg.Go(func() error {
+		defer close(resp) // Make the other request terminate.
+		rec := httptest.NewRecorder()
+		h(rec, req2)
+		if got, want := rec.Code, http.StatusServiceUnavailable; got != want {
+			return fmt.Errorf("Code = %d, want: %d", got, want)
+		}
+		const want = "context deadline exceeded"
+		if got := rec.Body.String(); !strings.Contains(rec.Body.String(), want) {
+			return fmt.Errorf("Body = %q wanted to contain %q", got, want)
+		}
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestHandlerReqEvent(t *testing.T) {
 	params := BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := NewBreaker(params)
-	stats := network.NewRequestStats(time.Now())
-	h := ProxyHandler(breaker, stats, true /*tracingEnabled*/, proxy)
+	for _, br := range []*Breaker{breaker, nil} {
+		t.Run(fmt.Sprint("Breaker?=", br == nil), func(t *testing.T) {
+			// This has to be here to capture subtest.
+			var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get(activator.RevisionHeaderName) != "" {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
 
-	writer := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+				if r.Header.Get(activator.RevisionHeaderNamespace) != "" {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
 
-	// Verify the Original host header processing.
-	req.Host = "nimporte.pas"
-	req.Header.Set(network.OriginalHostHeader, wantHost)
+				if got, want := r.Host, wantHost; got != want {
+					t.Errorf("Host header = %q, want: %q", got, want)
+				}
+				if got, want := r.Header.Get(network.OriginalHostHeader), ""; got != want {
+					t.Errorf("%s header was preserved", network.OriginalHostHeader)
+				}
 
-	req.Header.Set(network.ProxyHeaderName, activator.Name)
-	h(writer, req)
+				w.WriteHeader(http.StatusOK)
+			}
 
-	if got := stats.Report(time.Now()).ProxiedRequestCount; got != 1 {
-		t.Errorf("ProxiedRequestCount = %v, want 1", got)
+			server := httptest.NewServer(httpHandler)
+			serverURL, _ := url.Parse(server.URL)
+
+			defer server.Close()
+			proxy := httputil.NewSingleHostReverseProxy(serverURL)
+
+			stats := network.NewRequestStats(time.Now())
+			h := ProxyHandler(br, stats, true /*tracingEnabled*/, proxy)
+
+			writer := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+
+			// Verify the Original host header processing.
+			req.Host = "nimporte.pas"
+			req.Header.Set(network.OriginalHostHeader, wantHost)
+
+			req.Header.Set(network.ProxyHeaderName, activator.Name)
+			h(writer, req)
+
+			if got := stats.Report(time.Now()).ProxiedRequestCount; got != 1 {
+				t.Errorf("ProxiedRequestCount = %v, want 1", got)
+			}
+		})
 	}
 }
 
