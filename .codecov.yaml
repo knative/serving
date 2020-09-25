@@ -11,6 +11,10 @@ coverage:
       # only failing because of overall project coverage threshold.
       # See https://docs.codecov.io/docs/commit-status#disabling-a-status.
       default: false
+comment:
+  # CodeCov will delete the old comment and create a new one, so the
+  # coverage information always hovers near the GitHub PR status box.
+  behavior: new
 ignore:
   - "**/zz_generated*.go" # Ignore generated files.
   - "**/*.pb.go" # Ignore proto-generated files.
