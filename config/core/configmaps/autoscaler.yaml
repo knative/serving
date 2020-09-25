@@ -20,11 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-<<<<<<< HEAD
-    knative.dev/example-checksum: "b48f6747"
-=======
-    knative.dev/example-checksum: "65ad2138"
->>>>>>> 71b0f2319... Update autoscaler CM example block for max-scale-limit
+    knative.dev/example-checksum: "fa417a48"
 data:
   _example: |
     ################################
@@ -199,8 +195,8 @@ data:
     # The default, 0s, imposes no delay at all.
     scale-down-delay: "0s"
 
-    # max-scale-limit ensures that both cluster-wide flag max-scale and per-revision
-    # annotation "autoscaling.knative.dev/maxScale" for new revision will not exceed
-    # this number. If max-scale-limit is greater than 0, it disables both explicitly
-    # setting "autoscaling.knative.dev/maxScale" annotation to 0 and leaving it unset.
+    # max-scale-limit sets the maximum permitted value for the max scale of a revision.
+    # When this is set to a positive value, a revision with a maxScale above that value
+    # (including a maxScale of "0" = unlimited) is disallowed.
+    # A value of zero (the default) allows any limit, including unlimited.
     max-scale-limit: "0"
