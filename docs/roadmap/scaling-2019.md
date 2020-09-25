@@ -13,7 +13,7 @@ on the CI systems and to avoid unwanted regressions.
 
 **Goal**: All relevant performance numbers are tracked and reported.
 
-**Project**: No seperate project for now.
+**Project**: No separate project for now.
 
 ### Sub-Second Cold Start
 
@@ -68,7 +68,7 @@ load.
 
 ## Reliability
 
-### Autoscaling Availabilty
+### Autoscaling Availability
 
 Because Knative scales to zero, the autoscaling system is in the critical-path
 for serving requests. If the Autoscaler or Activator isn't available when an
