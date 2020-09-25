@@ -38,7 +38,7 @@ function install_istio() {
   else
     ISTIO_PROFILE+="-ci"
   fi
-  if [[ -z "$MESH" ]]; then
+  if [[ $MESH -eq 0 ]]; then
     ISTIO_PROFILE+="-no"
   fi
   ISTIO_PROFILE+="-mesh"
