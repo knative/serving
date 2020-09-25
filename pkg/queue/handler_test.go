@@ -53,7 +53,7 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 
 	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
 	t.Cleanup(cancel)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8081/time", nil)
 	if err != nil {
