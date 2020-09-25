@@ -78,7 +78,10 @@ func New(
 		return nil, errors.New("stats reporter must not be nil")
 	}
 
-	delayer := max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)
+	var delayer *max.TimeWindow
+	if deciderSpec.ScaleDownDelay > 0 {
+		delayer = max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)
+	}
 
 	return newAutoscaler(namespace, revision, metricClient,
 		podCounter, deciderSpec, delayer, reporterCtx), nil
@@ -250,11 +253,12 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	}
 
 	// Delay scale down decisions, if a ScaleDownDelay was specified.
-	// We only do this if there's a ScaleDownDelay because although a one-element
-	// delay window is _almost_ the same as no delay at all, it is not the same
-	// in the case where two Scale()s happen in the same time interval (because
-	// the largest will be picked rather than the most recent in that case).
-	if a.deciderSpec.ScaleDownDelay > 0 {
+	// We only do this if there's a non-nil delayWindow because although a
+	// one-element delay window is _almost_ the same as no delay at all, it is
+	// not the same in the case where two Scale()s happen in the same time
+	// interval (because the largest will be picked rather than the most recent
+	// in that case).
+	if a.delayWindow != nil {
 		a.delayWindow.Record(now, desiredPodCount)
 		delayedPodCount := a.delayWindow.Current()
 		if delayedPodCount != desiredPodCount {
