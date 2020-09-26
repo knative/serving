@@ -18,6 +18,8 @@
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 source $(dirname $0)/e2e-networking-library.sh
 
+export GOMAXPROCS=4
+
 CERT_MANAGER_VERSION="0.12.0"
 # Since default is istio, make default ingress as istio
 INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}

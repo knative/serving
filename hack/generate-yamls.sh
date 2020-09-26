@@ -89,40 +89,40 @@ export KO_DOCKER_REPO
 cd "${YAML_REPO_ROOT}"
 
 echo "Building Knative Serving"
-ko resolve ${KO_YAML_FLAGS} -R -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/core/ --jobs=4 | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
 
-ko resolve ${KO_YAML_FLAGS} -f config/post-install/default-domain.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/post-install/default-domain.yaml --jobs=4 | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
 
-ko resolve ${KO_YAML_FLAGS} -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/post-install/storage-version-migration.yaml --jobs=4 | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
 
 # These don't have images, but ko will concatenate them for us.
-ko resolve ${KO_YAML_FLAGS} -f config/core/300-resources/ -f config/core/300-imagecache.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/core/300-resources/ -f config/core/300-imagecache.yaml --jobs=4 | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
 
 # Create hpa-class autoscaling related yaml
-ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ --jobs=4 | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
 
 # Create nscert related yaml
-ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs --jobs=4 | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
 
 # Generate the core monitoring file - basically just the namespace
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml --jobs=4 \
     | "${LABEL_YAML_CMD[@]}" > "${MONITORING_CORE_YAML}"
 
 # Metrics via Prometheus & Grafana
 ko resolve ${KO_YAML_FLAGS} -R \
     -f third_party/config/monitoring/metrics/prometheus \
-    -f config/monitoring/metrics/prometheus | "${LABEL_YAML_CMD[@]}" > "${MONITORING_METRIC_PROMETHEUS_YAML}"
+    -f config/monitoring/metrics/prometheus --jobs=4 | "${LABEL_YAML_CMD[@]}" > "${MONITORING_METRIC_PROMETHEUS_YAML}"
 
 # Logs via ElasticSearch, Fluentd & Kibana
 ko resolve ${KO_YAML_FLAGS} -R \
     -f third_party/config/monitoring/logging/elasticsearch \
-    -f config/monitoring/logging/elasticsearch | "${LABEL_YAML_CMD[@]}" > "${MONITORING_LOG_ELASTICSEARCH_YAML}"
+    -f config/monitoring/logging/elasticsearch --jobs=4--jobs=4 | "${LABEL_YAML_CMD[@]}" > "${MONITORING_LOG_ELASTICSEARCH_YAML}"
 
 # Traces via Zipkin when ElasticSearch is installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin --jobs=4 | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_YAML}"
 
 # Traces via Zipkin in Memory when ElasticSearch is not installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem --jobs=4 | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
 
 echo "Building Monitoring & Logging"
 
@@ -140,10 +140,10 @@ for artifact in "${!CONSOLIDATED_ARTIFACTS[@]}"; do
 done
 
 # Traces via Jaeger when ElasticSearch is installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/elasticsearch -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/elasticsearch -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml --jobs=4 | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_YAML}"
 
 # Traces via Jaeger in Memory when ElasticSearch is not installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/memory -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_IN_MEM_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/memory -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml --jobs=4 | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_IN_MEM_YAML}"
 
 echo "All manifests generated"
 
