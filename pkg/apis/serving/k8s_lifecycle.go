@@ -19,9 +19,9 @@ package serving
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"log"
 )
 
 var depCondSet = apis.NewLivingConditionSet(
@@ -45,6 +45,8 @@ const (
 // a top-level happy state, per our condition conventions.
 func TransformDeploymentStatus(ds *appsv1.DeploymentStatus) *duckv1.Status {
 	s := &duckv1.Status{}
+
+	log.Printf("DO NOT SUBMIT")
 
 	depCondSet.Manage(s).InitializeConditions()
 	// The absence of this condition means no failure has occurred. If we find it

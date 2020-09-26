@@ -101,6 +101,8 @@ data:
     #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
     kubernetes.podspec-dryrun: "allowed"
 
+    new-value: DO NOT SUBMIT
+    
     # Indicates whether new responsive garbage collection is enabled. This
     # feature labels revisions in real-time as they become referenced and
     # dereferenced by Routes. This allows us to reap revisions shortly after

@@ -17,6 +17,7 @@ limitations under the License.
 package serving
 
 import (
+	"log"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -29,6 +30,10 @@ import (
 )
 
 func TestTransformDeploymentStatus(t *testing.T) {
+	log.Printf("DO NOT SUBMIT %v", []struct{}{
+		struct{}{},
+	})
+
 	tests := []struct {
 		name string
 		ds   *appsv1.DeploymentStatus
