@@ -214,7 +214,7 @@ jobs:
           # But exclude the `fmt.Errorf` calls since there's no `fmt.Error` and `errors.New` is not
           # as versatile.
           find . -type f -not -path './vendor/*' -not -path './third_party/*' -not -path './.git/*' |
-          xargs egrep -nE '\.(Errorf|Fatalf|Infof|Warnf|Debugf)\(.*%.",[^,]+)' | grep -v "fmt.Errorf"
+          xargs egrep -nE '\.(Errorf|Fatalf|Infof|Warnf|Debugf)\(.*%.",[^,]+)' | grep -v "fmt.Errorf" |
           reviewdog -efm="%f:%l:%m" \
                 -name="Possibly unnecessary formatting call for tail argument" \
                 -reporter="github-pr-check" \
