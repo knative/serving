@@ -35,6 +35,7 @@ type requestOption func(*http.Request)
 type responseExpectation func(response *http.Response) error
 
 func runtimeRequest(t *testing.T, client *http.Client, url string, opts ...requestOption) *types.RuntimeInfo {
+	t.Helper()
 	return runtimeRequestWithExpectations(t, client, url,
 		[]responseExpectation{statusCodeExpectation(sets.NewInt(http.StatusOK))},
 		false,
