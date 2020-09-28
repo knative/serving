@@ -92,6 +92,8 @@ func (s *Store) WatchConfigs(cmw configmap.Watcher) {
 	s.apiStore.WatchConfigs(cmw)
 }
 
+// OnConfigChanged will invoked the appropriate constructor
+// associated with a config
 func (s *Store) OnConfigChanged(c *corev1.ConfigMap) {
 	if configs.Has(c.Name) {
 		s.UntypedStore.OnConfigChanged(c)
