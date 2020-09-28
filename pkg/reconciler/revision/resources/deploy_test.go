@@ -1183,6 +1183,6 @@ func TestVarLogDisabled(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(want, got, quantityComparer); diff != "" {
-		t.Error("MakeDeployment (-want, +got) =", diff)
+		t.Error("makePodSpec (-want, +got) =", diff)
 	}
 }

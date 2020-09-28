@@ -187,7 +187,6 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 func BuildPodSpec(rev *v1.Revision, containers []corev1.Container) *corev1.PodSpec {
 	pod := rev.Spec.PodSpec.DeepCopy()
 	pod.Containers = containers
-	pod.Volumes = rev.Spec.Volumes
 	pod.TerminationGracePeriodSeconds = rev.Spec.TimeoutSeconds
 	return pod
 }
