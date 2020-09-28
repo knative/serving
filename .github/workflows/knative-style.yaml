@@ -213,7 +213,7 @@ jobs:
           # have only a single formatting argument and that argument is in the last position.
           # But exclude the `fmt.Errorf` calls since there's no `fmt.Error` and `errors.New` is not
           # as versatile.
-          find . -path './vendor' -prune -o -path './third_party' -prune -o -name '*.pb.go' -prune -o -type f -name '*.go' -print 
+          find . -path './vendor' -prune -o -path './third_party' -prune -o -name '*.pb.go' -prune -o -type f -name '*.go' -print
             | xargs sed  -i "" -E 's/([^.]+\.)(Fatalf|Errorf|Warnf|Infof|Debugf)([^\%]+)(%[^wq]",)([^,]+)/\1\2\3",\5/'
 
           # From: https://backreference.org/2009/12/23/how-to-match-newlines-in-sed/
@@ -224,13 +224,9 @@ jobs:
           }
           if [[ $(git diff-index --name-only HEAD --) ]]; then
               for x in $(git diff-index --name-only HEAD --); do
-                echo "::error file=$x::Please run ${{ matrix.tool }} ${{ matrix.options }}.%0A$(git diff $x | urlencode)"
+                echo "::error file=$x::Please consider reformatting.%0A$(git diff $x | urlencode)"
               done
-              echo "${{ github.repository }} is out of style. Please run ${{ matrix.tool }} ${{ matrix.options }}."
-              exit 1
           fi
-          echo "${{ github.repository }} is formatted correctly."
-
           echo '::endgroup::'
 
       # This is mostly copied from https://github.com/get-woke/woke-action-reviewdog/blob/main/entrypoint.sh
