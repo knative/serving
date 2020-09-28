@@ -214,19 +214,14 @@ jobs:
           # But exclude the `fmt.Errorf` calls since there's no `fmt.Error` and `errors.New` is not
           # as versatile.
           fn=$(find . -path './vendor' -prune -o -path './third_party' -prune -o -name '*.pb.go' -prune -o -type f -name '*.go' -print)
-          sed  -i -E 's/([^.]+\.)(Fatalf|Errorf|Warnf|Infof|Debugf)([^\%]+)(%[^wq]",)([^,]+)/\1\2\3",\5/' ${fn}
-
-          # From: https://backreference.org/2009/12/23/how-to-match-newlines-in-sed/
-          # This is to leverage this workaround:
-          # https://github.com/actions/toolkit/issues/193#issuecomment-605394935
-          function urlencode() {
-            sed ':begin;$!N;s/\n/%0A/;tbegin'
-          }
-          if [[ $(git diff-index --name-only HEAD --) ]]; then
-              for x in $(git diff-index --name-only HEAD --); do
-                echo "::error file=$x::Please consider reformatting.%0A$(git diff $x | urlencode)"
-              done
-          fi
+          grep -nE '[^.]+\.(Fatalf|Errorf|Warnf|Infof|Debugf)[^\%]+%[^wq]",[^,]+' $fn |
+            while read -r ent ; do
+              file=$(echo $ent | cut -d':' -f 1);
+              line=$(echo $ent | cut -d':' -f 2);
+              ch=$(echo $ent | cut -d':' -f3-);
+              err=$(echo $ch | sed -E 's/([^.]+\.)(Fatalf|Errorf|Warnf|Infof|Debugf)([^\%]+)(%[^wq]",)([^,]+)/\1\2\3",\5/');
+              echo "::error file=$file,line=$line::Please consider avoiding tail format.%0A$err"
+          done
           echo '::endgroup::'
 
       # This is mostly copied from https://github.com/get-woke/woke-action-reviewdog/blob/main/entrypoint.sh
