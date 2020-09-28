@@ -153,7 +153,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 
 	// Reconcile ingress and its children resources.
 	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), acmeChallenges...)
-
 	if err != nil {
 		return err
 	}
@@ -168,6 +167,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	if err := c.updatePlaceholderServices(ctx, r, services, ingress); err != nil {
 		return err
 	}
+
+	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
+	// Domain should already be present
+	if r.Status.Traffic, err = traffic.GetRevisionTrafficTargets(ctx, r); err != nil {
+		return err
+	}
+	r.Status.MarkTrafficAssigned()
 
 	logger.Info("Route successfully synced")
 	return nil
@@ -338,16 +344,6 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 		// Traffic targets aren't ready, no need to configure Route.
 		return nil, nil
 	}
-
-	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
-
-	// Domain should already be present
-	r.Status.Traffic, err = t.GetRevisionTrafficTargets(ctx, r)
-	if err != nil {
-		return nil, err
-	}
-
-	r.Status.MarkTrafficAssigned()
 
 	return t, nil
 }
