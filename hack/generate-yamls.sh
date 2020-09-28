@@ -38,14 +38,20 @@
 set -o errexit
 set -o pipefail
 
+echo "Start generate yamls" >&2
+
 readonly YAML_REPO_ROOT=${1:?"First argument must be the repo root dir"}
 readonly YAML_LIST_FILE=${2:?"Second argument must be the output file"}
+
+
 
 # Set output directory
 if [[ -z "${YAML_OUTPUT_DIR:-}" ]]; then
   readonly YAML_OUTPUT_DIR="$(mktemp -d)"
 fi
 rm -fr ${YAML_OUTPUT_DIR}/*.yaml
+
+echo "Constants" >&2
 
 # Generated Knative component YAML files
 readonly SERVING_CORE_YAML=${YAML_OUTPUT_DIR}/serving-core.yaml
@@ -65,12 +71,16 @@ readonly MONITORING_TRACE_JAEGER_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-jaeg
 readonly MONITORING_TRACE_JAEGER_IN_MEM_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-jaeger-in-mem.yaml
 readonly MONITORING_LOG_ELASTICSEARCH_YAML=${YAML_OUTPUT_DIR}/monitoring-logs-elasticsearch.yaml
 
+echo "Set up array" >&2
+
 declare -A CONSOLIDATED_ARTIFACTS
 CONSOLIDATED_ARTIFACTS=(
   ["${MONITORING_YAML}"]="${MONITORING_CORE_YAML} ${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_TRACE_ZIPKIN_YAML}"
   ["${SERVING_POST_INSTALL_JOBS_YAML}"]="${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
 )
 readonly CONSOLIDATED_ARTIFACTS
+
+echo "Set up ko flags" >&2
 
 # Flags for all ko commands
 KO_YAML_FLAGS="-P"
@@ -83,48 +93,61 @@ else
   LABEL_YAML_CMD=(cat)
 fi
 
+echo "Pre building serving" >&2
+
 : ${KO_DOCKER_REPO:="ko.local"}
 export KO_DOCKER_REPO
 
 cd "${YAML_REPO_ROOT}"
 
-echo "Building Knative Serving"
+echo "Building $(date)  Knative Serving" >&2
+echo "ko flags are ${KO_YAML_FLAGS}" >&2
 ko resolve ${KO_YAML_FLAGS} -R -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
+
+echo "Building $(date)  default domain" >&2
 
 ko resolve ${KO_YAML_FLAGS} -f config/post-install/default-domain.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
 
+echo "Building $(date)  storage" >&2
 ko resolve ${KO_YAML_FLAGS} -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
 
+echo "Building $(date)  300 imagecache" >&2
 # These don't have images, but ko will concatenate them for us.
 ko resolve ${KO_YAML_FLAGS} -f config/core/300-resources/ -f config/core/300-imagecache.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
 
+echo "Building $(date)  hpa autoscaling" >&2
 # Create hpa-class autoscaling related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
 
+echo "Building $(date)  namespace wildcard certs" >&2
 # Create nscert related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
 
+echo "Building $(date)  100-namespaces"
 # Generate the core monitoring file - basically just the namespace
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
-    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_CORE_YAML}"
+    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_CORE_YAML}" >&2
 
 # Metrics via Prometheus & Grafana
 ko resolve ${KO_YAML_FLAGS} -R \
     -f third_party/config/monitoring/metrics/prometheus \
-    -f config/monitoring/metrics/prometheus | "${LABEL_YAML_CMD[@]}" > "${MONITORING_METRIC_PROMETHEUS_YAML}"
+    -f config/monitoring/metrics/prometheus | "${LABEL_YAML_CMD[@]}" > "${MONITORING_METRIC_PROMETHEUS_YAML}" 
 
+echo "Building $(date)  elasticsearch" >&2
 # Logs via ElasticSearch, Fluentd & Kibana
 ko resolve ${KO_YAML_FLAGS} -R \
     -f third_party/config/monitoring/logging/elasticsearch \
     -f config/monitoring/logging/elasticsearch | "${LABEL_YAML_CMD[@]}" > "${MONITORING_LOG_ELASTICSEARCH_YAML}"
 
+echo "Building $(date)  zipkin" >&2
 # Traces via Zipkin when ElasticSearch is installed
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_YAML}"
 
+echo "Building $(date)  zipkin in mem" >&2
 # Traces via Zipkin in Memory when ElasticSearch is not installed
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
 
-echo "Building Monitoring & Logging"
+echo "Building $(date)  Monitoring & Logging" >&2
 
 # By putting the list of files used to create monitoring.yaml and serving-upgrade.yaml
 # people can choose to exclude certain ones via 'grep' but still keep in-sync

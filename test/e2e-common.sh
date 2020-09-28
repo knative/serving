@@ -144,10 +144,13 @@ function parse_flags() {
 function build_knative_from_source() {
   local YAML_LIST="$(mktemp)"
 
+  echo "Full output set up"
   # Generate manifests, capture environment variables pointing to the YAML files.
   local FULL_OUTPUT="$( \
       source $(dirname $0)/../hack/generate-yamls.sh ${REPO_ROOT_DIR} ${YAML_LIST} ; \
       set | grep _YAML=/)"
+
+  echo "Done output"
   local LOG_OUTPUT="$(echo "${FULL_OUTPUT}" | grep -v _YAML=/)"
   local ENV_OUTPUT="$(echo "${FULL_OUTPUT}" | grep '^[_0-9A-Z]\+_YAML=/')"
   [[ -z "${LOG_OUTPUT}" || -z "${ENV_OUTPUT}" ]] && fail_test "Error generating manifests"
@@ -205,24 +208,24 @@ function install_knative_serving_standard() {
     # Download the latest release of Knative Serving.
     local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
 
-    local SERVING_RELEASE_YAML=${TMP_DIR}/"serving-${LATEST_SERVING_RELEASE_VERSION}.yaml"
+    local SERVING_RELEASE_YAML="${REPO_ROOT_DIR}/config/core"
     local SERVING_POST_INSTALL_JOBS_YAML=${TMP_DIR}/"serving-${LATEST_SERVING_RELEASE_VERSION}-post-install-jobs.yaml"
 
-    wget "${url}/serving-crds.yaml" -O "${SERVING_RELEASE_YAML}" \
-      || fail_test "Unable to download latest knative/serving CRD file."
-    wget "${url}/serving-core.yaml" -O ->> "${SERVING_RELEASE_YAML}" \
-      || fail_test "Unable to download latest knative/serving core file."
+    # wget "${url}/serving-crds.yaml" -O "${SERVING_RELEASE_YAML}" \
+    #   || fail_test "Unable to download latest knative/serving CRD file."
+    # wget "${url}/serving-core.yaml" -O ->> "${SERVING_RELEASE_YAML}" \
+    #   || fail_test "Unable to download latest knative/serving core file."
     # TODO - switch to upgrade yaml (SERVING_POST_INSTALL_JOBS_YAML) after 0.16 is released
     wget "${url}/serving-storage-version-migration.yaml" -O "${SERVING_POST_INSTALL_JOBS_YAML}" \
       || fail_test "Unable to download latest knative/serving post install file."
 
     # Replace the default system namespace with the test's system namespace.
-    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_RELEASE_YAML}
+    # sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_RELEASE_YAML}
     sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_POST_INSTALL_JOBS_YAML}
 
     echo "Knative YAML: ${SERVING_RELEASE_YAML}"
     echo "Time before ko apply: $(date)"
-    ko apply -f "${SERVING_RELEASE_YAML}" --selector=knative.dev/crd-install=true || return 1
+    ko apply -PRf "${SERVING_RELEASE_YAML}" || return 1
     echo "Time after ko apply: $(date)"
   fi
 
