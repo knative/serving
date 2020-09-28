@@ -221,7 +221,9 @@ function install_knative_serving_standard() {
     sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_POST_INSTALL_JOBS_YAML}
 
     echo "Knative YAML: ${SERVING_RELEASE_YAML}"
+    echo "Time before ko apply: $(date)"
     ko apply -f "${SERVING_RELEASE_YAML}" --selector=knative.dev/crd-install=true || return 1
+    echo "Time after ko apply: $(date)"
   fi
 
   echo ">> Installing Ingress"
