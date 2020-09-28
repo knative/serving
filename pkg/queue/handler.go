@@ -26,7 +26,8 @@ import (
 	"knative.dev/serving/pkg/activator"
 )
 
-// Make handler a closure for testing.
+// ProxyHandler sends requests to the `next` handler at a rate controlled by
+// the passed `breaker`, while recording stats to `stats`.
 func ProxyHandler(breaker *Breaker, stats *network.RequestStats, tracingEnabled bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if network.IsKubeletProbe(r) {
@@ -66,6 +67,7 @@ func ProxyHandler(breaker *Breaker, stats *network.RequestStats, tracingEnabled 
 				case context.DeadlineExceeded, ErrRequestQueueFull:
 					http.Error(w, err.Error(), http.StatusServiceUnavailable)
 				default:
+					// This line is most likely untestable :-).
 					w.WriteHeader(http.StatusInternalServerError)
 				}
 			}

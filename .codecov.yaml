@@ -11,6 +11,9 @@ coverage:
       # only failing because of overall project coverage threshold.
       # See https://docs.codecov.io/docs/commit-status#disabling-a-status.
       default: false
+comment:
+  # Update existing comment or create new if deleted.
+  behavior: default
 ignore:
   - "**/zz_generated*.go" # Ignore generated files.
   - "**/*.pb.go" # Ignore proto-generated files.

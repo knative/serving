@@ -22,9 +22,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync"
 	"testing"
 
+	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -94,30 +94,31 @@ func TestActivatorOverload(t *testing.T) {
 
 	t.Log("Starting to send out the requests")
 
-	var group sync.WaitGroup
+	eg, egCtx := errgroup.WithContext(context.Background())
 	// Send requests async and wait for the responses.
 	for i := 0; i < concurrency; i++ {
-		group.Add(1)
-		go func() {
-			defer group.Done()
-
+		eg.Go(func() error {
 			// We need to create a new request per HTTP request because
 			// the spoofing client mutates them.
-			req, err := http.NewRequest(http.MethodGet, url, nil)
+			req, err := http.NewRequestWithContext(egCtx, http.MethodGet, url, nil)
 			if err != nil {
-				t.Errorf("error creating http request: %v", err)
+				return fmt.Errorf("error creating http request: %w", err)
 			}
 
 			res, err := client.Do(req)
 			if err != nil {
-				t.Errorf("unexpected error sending a request, %v", err)
-				return
+				return fmt.Errorf("unexpected error sending a request: %w", err)
 			}
 
 			if res.StatusCode != http.StatusOK {
-				t.Errorf("status = %d, want: %d, response: %s", res.StatusCode, http.StatusOK, res)
+				return fmt.Errorf("status = %d, want: %d, response: %s", res.StatusCode, http.StatusOK, res)
 			}
-		}()
+
+			return nil
+		})
 	}
-	group.Wait()
+
+	if err := eg.Wait(); err != nil {
+		t.Error(err)
+	}
 }

@@ -57,7 +57,7 @@ jobs:
       shell: bash
       run: |
         pushd ./src/knative.dev/${{ github.event.repository.name }}
-        ./hack/update-codegen.sh
+        [[ ! -f hack/update-codegen.sh ]] || ./hack/update-codegen.sh
         popd
 
     - name: Verify

@@ -180,7 +180,7 @@ func (m *manager) Stop() error {
 
 	m.logf("Stopping all probers")
 
-	errgrp := &errgroup.Group{}
+	errgrp := errgroup.Group{}
 	for _, prober := range m.probes {
 		errgrp.Go(prober.Stop)
 	}
