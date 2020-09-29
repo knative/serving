@@ -99,55 +99,38 @@ func TestHandlerBreakerTimeout(t *testing.T) {
 	// This test sends a request which will take a long time to complete.
 	// Then another one with a very short context timeout.
 	// Verifies that the second one fails with timeout.
+	seen := make(chan struct{})
 	resp := make(chan struct{})
+	defer close(resp) // Allow all requests to pass through.
 	blockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen <- struct{}{}
 		<-resp
 	})
 	breaker := NewBreaker(BreakerParams{
 		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1,
 	})
 	stats := network.NewRequestStats(time.Now())
-
 	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	t.Cleanup(cancel)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8081/time", nil)
-	if err != nil {
-		t.Fatal("NewRequestWithContext =", err)
-	}
-	var eg errgroup.Group
-	barrier := make(chan struct{})
-	eg.Go(func() error {
-		// This will block.
-		close(barrier)
-		h(httptest.NewRecorder(), req)
-		return nil
-	})
+	go func() {
+		h(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil))
+	}()
 
-	// For proper checks we need to ensure the order of requests.
-	<-barrier
-	ctx, cancel = context.WithTimeout(context.Background(), 50*time.Millisecond)
-	t.Cleanup(cancel)
-	req2, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8081/time", nil)
-	if err != nil {
-		t.Fatal("NewRequestWithContext =", err)
+	// Wait until the first request has entered the handler.
+	<-seen
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	rec := httptest.NewRecorder()
+	h(rec, httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil).WithContext(ctx))
+	if got, want := rec.Code, http.StatusServiceUnavailable; got != want {
+		t.Fatalf("Code = %d, want: %d", got, want)
 	}
-	eg.Go(func() error {
-		defer close(resp) // Make the other request terminate.
-		rec := httptest.NewRecorder()
-		h(rec, req2)
-		if got, want := rec.Code, http.StatusServiceUnavailable; got != want {
-			return fmt.Errorf("Code = %d, want: %d", got, want)
-		}
-		const want = "context deadline exceeded"
-		if got := rec.Body.String(); !strings.Contains(rec.Body.String(), want) {
-			return fmt.Errorf("Body = %q wanted to contain %q", got, want)
-		}
-		return nil
-	})
-	if err := eg.Wait(); err != nil {
-		t.Error(err)
+
+	want := context.DeadlineExceeded.Error()
+	if got := rec.Body.String(); !strings.Contains(rec.Body.String(), want) {
+		t.Fatalf("Body = %q wanted to contain %q", got, want)
 	}
 }
 
