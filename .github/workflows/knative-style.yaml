@@ -220,8 +220,14 @@ jobs:
               line=$(echo $ent | cut -d':' -f 2);
               ch=$(echo $ent | cut -d':' -f3-);
               err=$(echo $ch | sed -E 's/([^.]+\.)(Fatal|Error|Warn|Info|Debug)f([^\%]+)(%[^wq]",)([^,]+)/\1\2\3",\5/');
-              echo "::error file=$file,line=$line::Please consider avoiding tail format.%0A$err"
-          done
+              echo "$file:$line: Please consider avoiding tail format like this:%0A$err"
+          done | 
+          reviewdog -efm="%f:%l: %m" \
+                -name="Redundant Format" \
+                -reporter="github-pr-check" \
+                -filter-mode="added" \
+                -fail-on-error="true" \
+                -level="error"
           echo '::endgroup::'
 
       # This is mostly copied from https://github.com/get-woke/woke-action-reviewdog/blob/main/entrypoint.sh
