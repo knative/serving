@@ -91,10 +91,6 @@ func standaloneProbeMain(timeout time.Duration, transport http.RoundTripper) (ex
 func probeQueueHealthPath(timeout time.Duration, queueServingPort int, transport http.RoundTripper) error {
 	url := healthURLPrefix + strconv.Itoa(queueServingPort)
 
-	if transport == nil {
-		transport = &http.Transport{}
-	}
-
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("probe failed: error creating request: %w", err)
