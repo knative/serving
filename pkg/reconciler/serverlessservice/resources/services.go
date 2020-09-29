@@ -57,6 +57,21 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 				Protocol:   corev1.ProtocolTCP,
 				Port:       int32(pkgnet.ServicePort(sks.Spec.ProtocolType)),
 				TargetPort: targetPort(sks),
+			}, {
+				Name:       networking.ServicePortProxyName(sks.Spec.ProtocolType),
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.ServiceProxyPort,
+				TargetPort: targetPort(sks),
+			}, {
+				Name:       servingv1.AutoscalingQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.AutoscalingQueueMetricsPort,
+				TargetPort: intstr.FromString(servingv1.AutoscalingQueueMetricsPortName),
+			}, {
+				Name:       servingv1.UserQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.UserQueueMetricsPort,
+				TargetPort: intstr.FromString(servingv1.UserQueueMetricsPortName),
 			}},
 		},
 	}

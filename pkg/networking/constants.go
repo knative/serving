@@ -20,6 +20,18 @@ import "knative.dev/networking/pkg/apis/networking"
 
 // The ports we setup on our services.
 const (
+	// ServicePortNameHTTP1Proxy is the name of the external port of the service for HTTP/1.1
+	// when specifically targeting service pods even if the activator is in path.
+	ServicePortNameHTTP1Proxy = networking.ServicePortNameHTTP1 + "-proxy"
+
+	// ServicePortNameH2CProxy is the name of the external port of the service for HTTP/2
+	// when specifically targeting service pods even if the activator is in path.
+	ServicePortNameH2CProxy = networking.ServicePortNameH2C + "-proxy"
+
+	// ServiceProxyPort is the port used when specifically targeting service pods even if
+	// the activator is in path.
+	ServiceProxyPort = 83
+
 	// BackendHTTPPort is the backend, i.e. `targetPort` that we setup for HTTP services.
 	BackendHTTPPort = 8012
 
@@ -49,6 +61,15 @@ const (
 	// e.g. Public, Private.
 	ServiceTypeKey = networking.GroupName + "/serviceType"
 )
+
+// ServicePortProxyName returns the proxy port for the app level protocol.
+// This port is used to target the service pods directly even if the activator is in path.
+func ServicePortProxyName(proto networking.ProtocolType) string {
+	if proto == networking.ProtocolH2C {
+		return ServicePortNameH2CProxy
+	}
+	return ServicePortNameHTTP1Proxy
+}
 
 // ServiceType is the enumeration type for the Kubernetes services
 // that we have in our system, classified by usage purpose.

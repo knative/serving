@@ -27,7 +27,6 @@ import (
 
 	pkgnet "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -112,6 +111,21 @@ func svc(t networking.ServiceType, mods ...func(*corev1.Service)) *corev1.Servic
 				Protocol:   corev1.ProtocolTCP,
 				Port:       pkgnet.ServiceHTTPPort,
 				TargetPort: intstr.FromInt(networking.BackendHTTPPort),
+			}, {
+				Name:       networking.ServicePortNameHTTP1Proxy,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.ServiceProxyPort,
+				TargetPort: intstr.FromInt(networking.BackendHTTPPort),
+			}, {
+				Name:       servingv1.AutoscalingQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.AutoscalingQueueMetricsPort,
+				TargetPort: intstr.FromString(servingv1.AutoscalingQueueMetricsPortName),
+			}, {
+				Name:       servingv1.UserQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.UserQueueMetricsPort,
+				TargetPort: intstr.FromString(servingv1.UserQueueMetricsPortName),
 			}},
 		},
 	}
@@ -121,30 +135,80 @@ func svc(t networking.ServiceType, mods ...func(*corev1.Service)) *corev1.Servic
 	return base
 }
 
-func privateSvcMod(s *corev1.Service) {
-	s.Name = kmeta.ChildName(s.Name, "-private")
-	if s.Spec.Selector == nil {
-		s.Spec.Selector = map[string]string{
-			"app": "sadness",
-		}
+var portsHTTP2 = []corev1.ServicePort{{
+	Name:       pkgnet.ServicePortNameH2C,
+	Protocol:   corev1.ProtocolTCP,
+	Port:       pkgnet.ServiceHTTP2Port,
+	TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+}, {
+	Name:       networking.ServicePortNameH2CProxy,
+	Protocol:   corev1.ProtocolTCP,
+	Port:       networking.ServiceProxyPort,
+	TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+}, {
+	Name:       servingv1.AutoscalingQueueMetricsPortName,
+	Protocol:   corev1.ProtocolTCP,
+	Port:       networking.AutoscalingQueueMetricsPort,
+	TargetPort: intstr.FromString(servingv1.AutoscalingQueueMetricsPortName),
+}, {
+	Name:       servingv1.UserQueueMetricsPortName,
+	Protocol:   corev1.ProtocolTCP,
+	Port:       networking.UserQueueMetricsPort,
+	TargetPort: intstr.FromString(servingv1.UserQueueMetricsPortName),
+}}
+
+func privSvc(t networking.ServiceType, mods ...func(*corev1.Service)) *corev1.Service {
+	base := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "melon",
+			Name:      "collie-private",
+			Labels: map[string]string{
+				// Those should be propagated.
+				serving.RevisionLabelKey:  "collie",
+				serving.RevisionUID:       "1982",
+				networking.SKSLabelKey:    "collie",
+				networking.ServiceTypeKey: string(t),
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+				Kind:               "ServerlessService",
+				Name:               "collie",
+				UID:                "1982",
+				Controller:         ptr.Bool(true),
+				BlockOwnerDeletion: ptr.Bool(true),
+			}},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"app": "sadness",
+			},
+			Ports: []corev1.ServicePort{{
+				Name:       pkgnet.ServicePortNameHTTP1,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       pkgnet.ServiceHTTPPort,
+				TargetPort: intstr.FromInt(networking.BackendHTTPPort),
+			}, {
+				Name:       servingv1.AutoscalingQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.AutoscalingQueueMetricsPort,
+				TargetPort: intstr.FromString(servingv1.AutoscalingQueueMetricsPortName),
+			}, {
+				Name:       servingv1.UserQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.UserQueueMetricsPort,
+				TargetPort: intstr.FromString(servingv1.UserQueueMetricsPortName),
+			}, {
+				Name:       servingv1.QueueAdminPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.QueueAdminPort,
+				TargetPort: intstr.FromInt(networking.QueueAdminPort),
+			}},
+		},
 	}
-	s.Spec.Ports = append(s.Spec.Ports,
-		[]corev1.ServicePort{{
-			Name:       servingv1.AutoscalingQueueMetricsPortName,
-			Protocol:   corev1.ProtocolTCP,
-			Port:       networking.AutoscalingQueueMetricsPort,
-			TargetPort: intstr.FromString(servingv1.AutoscalingQueueMetricsPortName),
-		}, {
-			Name:       servingv1.UserQueueMetricsPortName,
-			Protocol:   corev1.ProtocolTCP,
-			Port:       networking.UserQueueMetricsPort,
-			TargetPort: intstr.FromString(servingv1.UserQueueMetricsPortName),
-		}, {
-			Name:       servingv1.QueueAdminPortName,
-			Protocol:   corev1.ProtocolTCP,
-			Port:       networking.QueueAdminPort,
-			TargetPort: intstr.FromInt(networking.QueueAdminPort),
-		}}...)
+	for _, mod := range mods {
+		mod(base)
+	}
+	return base
 }
 
 func TestMakePublicService(t *testing.T) {
@@ -171,12 +235,7 @@ func TestMakePublicService(t *testing.T) {
 			s.Spec.ProtocolType = pkgnet.ProtocolH2C
 		}),
 		want: svc(networking.ServiceTypePublic, func(s *corev1.Service) {
-			s.Spec.Ports = []corev1.ServicePort{{
-				Name:       pkgnet.ServicePortNameH2C,
-				Protocol:   corev1.ProtocolTCP,
-				Port:       pkgnet.ServiceHTTP2Port,
-				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
-			}}
+			s.Spec.Ports = portsHTTP2
 			s.Annotations = map[string]string{"cherub": "rock"}
 			s.OwnerReferences[0].UID = "1988"
 		}),
@@ -186,12 +245,7 @@ func TestMakePublicService(t *testing.T) {
 			s.Spec.ProtocolType = pkgnet.ProtocolH2C
 		}),
 		want: svc(networking.ServiceTypePublic, func(s *corev1.Service) {
-			s.Spec.Ports = []corev1.ServicePort{{
-				Name:       pkgnet.ServicePortNameH2C,
-				Protocol:   corev1.ProtocolTCP,
-				Port:       pkgnet.ServiceHTTP2Port,
-				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
-			}}
+			s.Spec.Ports = portsHTTP2
 		}),
 	}, {
 		name: "HTTP2 - proxy",
@@ -201,12 +255,7 @@ func TestMakePublicService(t *testing.T) {
 			s.Labels["infinite"] = "sadness"
 		}),
 		want: svc(networking.ServiceTypePublic, func(s *corev1.Service) {
-			s.Spec.Ports = []corev1.ServicePort{{
-				Name:       pkgnet.ServicePortNameH2C,
-				Protocol:   corev1.ProtocolTCP,
-				Port:       pkgnet.ServiceHTTP2Port,
-				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
-			}}
+			s.Spec.Ports = portsHTTP2
 			s.Labels["infinite"] = "sadness"
 		}),
 	}}
@@ -384,7 +433,7 @@ func TestMakePrivateService(t *testing.T) {
 		selector: map[string]string{
 			"app": "sadness",
 		},
-		want: svc(networking.ServiceTypePrivate, privateSvcMod),
+		want: privSvc(networking.ServiceTypePrivate),
 	}, {
 		name: "HTTP2 and long",
 		sks: sks(func(s *v1alpha1.ServerlessService) {
@@ -397,16 +446,16 @@ func TestMakePrivateService(t *testing.T) {
 		selector: map[string]string{
 			"app": "today",
 		},
-		want: svc(networking.ServiceTypePrivate, func(s *corev1.Service) {
+		want: privSvc(networking.ServiceTypePrivate, func(s *corev1.Service) {
 			// Set base name, that the private helper will tweak.
-			s.Name = "dream-tonight-cherub-rock-mayonaise-hummer-disarm-rocket-soma-quiet"
+			s.Name = "dream-tonight-cherub-ro9598b55360c44122a4442ce54caa8619-private"
 			s.OwnerReferences[0].UID = "1988"
 			s.OwnerReferences[0].Name = "dream-tonight-cherub-rock-mayonaise-hummer-disarm-rocket-soma-quiet"
 			s.Spec.Selector = map[string]string{"app": "today"}
 			s.Labels["ava"] = "adore"
 			s.Labels[networking.SKSLabelKey] = "dream-tonight-cherub-rock-mayonaise-hummer-disarm-rocket-soma-quiet"
 			s.Annotations = map[string]string{"cherub": "rock"}
-		}, privateSvcMod, func(s *corev1.Service) {
+		}, func(s *corev1.Service) {
 			// And now patch port to be http2.
 			s.Spec.Ports[0] = corev1.ServicePort{
 				Name:       pkgnet.ServicePortNameH2C,

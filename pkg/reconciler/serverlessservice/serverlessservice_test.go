@@ -768,6 +768,10 @@ func withHTTP2(svc *corev1.Service) {
 	svc.Spec.Ports[0].Port = pkgnet.ServiceHTTP2Port
 	svc.Spec.Ports[0].Name = "http2"
 	svc.Spec.Ports[0].TargetPort = intstr.FromInt(networking.BackendHTTP2Port)
+
+	svc.Spec.Ports[1].Port = networking.ServiceProxyPort
+	svc.Spec.Ports[1].Name = "http2-proxy"
+	svc.Spec.Ports[1].TargetPort = intstr.FromInt(networking.BackendHTTP2Port)
 }
 
 // For SKS internal tests this sets mode & activator status.
