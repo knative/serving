@@ -90,5 +90,5 @@ sleep 30
 
 # Run conformance and e2e tests.
 
-go_test_e2e -timeout=30m ./test/e2e
+go_test_e2e -timeout=30m ./test/e2e $parallelism
 success
