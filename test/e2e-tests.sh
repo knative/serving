@@ -90,5 +90,49 @@ sleep 30
 
 # Run conformance and e2e tests.
 
-go_test_e2e -timeout=30m ./test/e2e $parallelism
+go_test_e2e -timeout=30m \
+ ./test/conformance/api/... ./test/conformance/runtime/... \
+ ./test/e2e \
+  ${parallelism} \
+  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+
+if (( HTTPS )); then
+  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
+  toggle_feature autoTLS Disabled config-network
+fi
+
+toggle_feature tag-header-based-routing Enabled
+go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
+toggle_feature tag-header-based-routing Disabled
+
+toggle_feature multi-container Enabled
+go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
+toggle_feature multi-container Disabled
+
+# Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
+toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
+go_test_e2e -timeout=2m ./test/e2e/initscale || failed=1
+toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
+
+toggle_feature responsive-revision-gc Enabled
+GC_CONFIG=$(kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml)
+add_trap "kubectl patch cm 'config-gc' -n ${SYSTEM_NAMESPACE} -p ${GC_CONFIG}" SIGKILL SIGTERM SIGQUIT
+immediate_gc
+go_test_e2e -timeout=2m ./test/e2e/gc || failed=1
+kubectl patch cm "config-gc" -n ${SYSTEM_NAMESPACE} -p ${GC_CONFIG}
+toggle_feature responsive-revision-gc Disabled
+
+# Run scale tests.
+# Note that we use a very high -parallel because each ksvc is run as its own
+# sub-test.  If this is not larger than the maximum scale tested then the test
+# simply cannot pass.
+go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
+
+# Run HA tests separately as they're stopping core Knative Serving pods
+# Define short -spoofinterval to ensure frequent probing while stopping pods
+go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha \
+	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
+
+(( failed )) && fail_test
+
 success
