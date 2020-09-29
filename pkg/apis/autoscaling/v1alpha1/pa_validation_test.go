@@ -143,7 +143,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.rs.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %s", diff)
+				t.Error("Validate (-want, +got) =", diff)
 			}
 		})
 	}

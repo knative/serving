@@ -53,7 +53,7 @@ func TestMarkBadTrafficTarget_Missing(t *testing.T) {
 			Severity:           apis.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+			t.Error("Unexpected condition diff (-want +got):", diff)
 		}
 	}
 }
@@ -85,7 +85,7 @@ func TestMarkBadTrafficTarget_NotYetReady(t *testing.T) {
 			Severity:           apis.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+			t.Error("Unexpected condition diff (-want +got):", diff)
 		}
 	}
 }
@@ -117,7 +117,7 @@ func TestMarkBadTrafficTarget_ConfigFailedToBeReady(t *testing.T) {
 			Severity:           apis.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+			t.Error("Unexpected condition diff (-want +got):", diff)
 		}
 	}
 }
@@ -141,7 +141,7 @@ func TestMarkBadTrafficTarget_RevisionFailedToBeReady(t *testing.T) {
 			Severity:           apis.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+			t.Error("Unexpected condition diff (-want +got):", diff)
 		}
 	}
 }
@@ -173,7 +173,7 @@ func TestMarkBadTrafficTarget_RevisionNotYetReady(t *testing.T) {
 			Severity:           apis.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+			t.Error("Unexpected condition diff (-want +got):", diff)
 		}
 	}
 }

@@ -179,7 +179,7 @@ func TestTransformDeploymentStatus(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			want, got := test.want, TransformDeploymentStatus(test.ds)
 			if diff := cmp.Diff(want, got, opts...); diff != "" {
-				t.Errorf("GetCondition refs diff (-want +got): %v", diff)
+				t.Error("GetCondition refs diff (-want +got):", diff)
 			}
 		})
 	}

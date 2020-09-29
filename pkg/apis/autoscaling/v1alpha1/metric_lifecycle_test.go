@@ -143,7 +143,7 @@ func TestMetricGetSetCondition(t *testing.T) {
 	}
 	ms.MarkMetricReady()
 	if diff := cmp.Diff(mc, ms.GetCondition(MetricConditionReady), cmpopts.IgnoreFields(apis.Condition{}, "LastTransitionTime")); diff != "" {
-		t.Errorf("GetCondition refs diff (-want +got): %v", diff)
+		t.Error("GetCondition refs diff (-want +got):", diff)
 	}
 }
 

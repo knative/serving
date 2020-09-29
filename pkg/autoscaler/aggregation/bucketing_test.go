@@ -97,7 +97,7 @@ func TestTimedFloat64BucketsSimple(t *testing.T) {
 			})
 
 			if !cmp.Equal(tt.want, got) {
-				t.Errorf("Unexpected values (-want +got): %v", cmp.Diff(tt.want, got))
+				t.Error("Unexpected values (-want +got):", cmp.Diff(tt.want, got))
 			}
 		})
 	}

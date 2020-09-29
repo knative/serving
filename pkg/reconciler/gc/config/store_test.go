@@ -44,14 +44,14 @@ func TestStoreLoadWithContext(t *testing.T) {
 	t.Run("revision-gc", func(t *testing.T) {
 		expected, _ := gc.NewConfigFromConfigMapFunc(ctx)(gcConfig)
 		if diff := cmp.Diff(expected, config.RevisionGC); diff != "" {
-			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
+			t.Error("Unexpected controller config (-want, +got):", diff)
 		}
 	})
 
 	t.Run("features", func(t *testing.T) {
 		expected, _ := apiconfig.NewFeaturesConfigFromConfigMap(featuresConfig)
 		if diff := cmp.Diff(expected, config.Features); diff != "" {
-			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
+			t.Error("Unexpected controller config (-want, +got):", diff)
 		}
 	})
 }

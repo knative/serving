@@ -59,7 +59,7 @@ func TestContainerErrorMsg(t *testing.T) {
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
-	t.Logf("Creating a new Service %s", names.Service)
+	t.Log("Creating a new Service", names.Service)
 	svc, err := v1b1test.CreateService(t, clients, names)
 	if err != nil {
 		t.Fatal("Failed to create Service:", err)
@@ -167,7 +167,7 @@ func TestContainerExitingMsg(t *testing.T) {
 
 			test.EnsureTearDown(t, clients, &names)
 
-			t.Logf("Creating a new Configuration %s", names.Config)
+			t.Log("Creating a new Configuration", names.Config)
 
 			if _, err := v1b1test.CreateConfiguration(t, clients, names, rtesting.WithConfigReadinessProbe(tt.ReadinessProbe)); err != nil {
 				t.Fatalf("Failed to create configuration %s: %v", names.Config, err)

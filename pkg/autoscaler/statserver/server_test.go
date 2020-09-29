@@ -291,7 +291,7 @@ func assertReceivedJSON(t *testing.T, sm metrics.StatMessage, statSink *websocke
 
 	recv := <-statsCh
 	if !cmp.Equal(sm, recv) {
-		t.Fatalf("StatMessage mismatch: diff (-got, +want) %s", cmp.Diff(recv, sm))
+		t.Fatal("StatMessage mismatch: diff (-got, +want)", cmp.Diff(recv, sm))
 	}
 }
 
@@ -307,7 +307,7 @@ func assertReceivedProto(t *testing.T, sms []metrics.StatMessage, statSink *webs
 		got = append(got, <-statsCh)
 	}
 	if !cmp.Equal(sms, got) {
-		t.Fatalf("StatMessage mismatch: diff (-got, +want) %s", cmp.Diff(got, sms))
+		t.Fatal("StatMessage mismatch: diff (-got, +want)", cmp.Diff(got, sms))
 	}
 }
 

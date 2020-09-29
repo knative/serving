@@ -114,12 +114,12 @@ func TestControllerCanReconcile(t *testing.T) {
 
 	err = ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	if err != nil {
-		t.Errorf("Reconcile() = %v", err)
+		t.Error("Reconcile() =", err)
 	}
 
 	_, err = fakekubeclient.Get(ctx).AutoscalingV2beta1().HorizontalPodAutoscalers(testNamespace).Get(ctx, testRevision, metav1.GetOptions{})
 	if err != nil {
-		t.Errorf("error getting hpa: %v", err)
+		t.Error("error getting hpa:", err)
 	}
 }
 

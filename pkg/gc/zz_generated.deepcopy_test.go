@@ -32,7 +32,7 @@ func TestDeepCopy(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(src, *src.DeepCopy()); diff != "" {
-		t.Errorf("Unexpected DeepCopy (-want, +got): %v", diff)
+		t.Error("Unexpected DeepCopy (-want, +got):", diff)
 	}
 }
 
@@ -47,6 +47,6 @@ func TestDeepCopyInto(t *testing.T) {
 
 	src.DeepCopyInto(&dest)
 	if diff := cmp.Diff(src, dest); diff != "" {
-		t.Errorf("Unexpected DeepCopyInto (-want, +got): %v", diff)
+		t.Error("Unexpected DeepCopyInto (-want, +got):", diff)
 	}
 }

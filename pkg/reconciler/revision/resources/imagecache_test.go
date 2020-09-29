@@ -269,7 +269,7 @@ func TestMakeImageCache(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := MakeImageCache(test.rev, test.containerName, test.image)
 			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("MakeImageCache (-want, +got) = %v", diff)
+				t.Error("MakeImageCache (-want, +got) =", diff)
 			}
 		})
 	}

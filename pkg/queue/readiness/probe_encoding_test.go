@@ -94,6 +94,6 @@ func TestEncodeNilProbe(t *testing.T) {
 	}
 
 	if jsonProbe != "" {
-		t.Errorf("Expected empty probe string; got %s", jsonProbe)
+		t.Error("Expected empty probe string; got", jsonProbe)
 	}
 }

@@ -41,9 +41,9 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 
 	test.EnsureTearDown(t, clients, &names)
 
-	t.Logf("Creating new configuration %s", names.Config)
+	t.Log("Creating new configuration", names.Config)
 	if _, err := v1b1test.CreateConfiguration(t, clients, names); err != nil {
-		t.Fatalf("Failed to create configuration %s", names.Config)
+		t.Fatal("Failed to create configuration", names.Config)
 	}
 
 	// Wait for the configuration to actually be ready to not race in the updates below.
@@ -54,7 +54,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	cfg := fetchConfiguration(names.Config, clients, t)
 	names.Revision = cfg.Status.LatestReadyRevisionName
 
-	t.Logf("Updating labels of Configuration %s", names.Config)
+	t.Log("Updating labels of Configuration", names.Config)
 	newLabels := map[string]string{
 		"labelX": "abc",
 		"labelY": "def",
@@ -78,7 +78,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 			names.Config, expected, actual)
 	}
 
-	t.Logf("Validating labels were not propagated to Revision %s", names.Revision)
+	t.Log("Validating labels were not propagated to Revision", names.Revision)
 	err = v1b1test.CheckRevisionState(clients.ServingBetaClient, names.Revision, func(r *v1beta1.Revision) (bool, error) {
 		// Labels we placed on Configuration should _not_ appear on Revision.
 		return checkNoKeysPresent(newLabels, r.Labels, t), nil
@@ -87,7 +87,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		t.Errorf("The labels for Revision %s of Configuration %s should not have been updated: %v", names.Revision, names.Config, err)
 	}
 
-	t.Logf("Updating annotations of Configuration %s", names.Config)
+	t.Log("Updating annotations of Configuration", names.Config)
 	newAnnotations := map[string]string{
 		"annotationA": "123",
 		"annotationB": "456",
@@ -109,7 +109,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 			names.Config, expected, actual)
 	}
 
-	t.Logf("Validating annotations were not propagated to Revision %s", names.Revision)
+	t.Log("Validating annotations were not propagated to Revision", names.Revision)
 	err = v1b1test.CheckRevisionState(clients.ServingBetaClient, names.Revision, func(r *v1beta1.Revision) (bool, error) {
 		// Annotations we placed on Configuration should _not_ appear on Revision.
 		return checkNoKeysPresent(newAnnotations, r.Annotations, t), nil

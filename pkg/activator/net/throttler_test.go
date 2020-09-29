@@ -490,7 +490,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			}); err != nil {
 				t.Fatal("Timed out waiting for the capacity to be updated")
 			}
-			t.Logf("This activator idx = %d", rt.activatorIndex)
+			t.Log("This activator idx =", rt.activatorIndex)
 
 			tryContext, cancel2 := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel2()
@@ -796,7 +796,7 @@ func TestMultipleActivators(t *testing.T) {
 	}); err != nil {
 		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
-	t.Logf("This activator idx = %d", rt.activatorIndex.Load())
+	t.Log("This activator idx =", rt.activatorIndex.Load())
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
 	var mux sync.Mutex

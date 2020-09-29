@@ -59,6 +59,6 @@ func TestMakeWildcardCertificate(t *testing.T) {
 
 	got := MakeWildcardCertificate(namespace, dnsName, domain, "dns-01.rocks")
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("MakeWildcardCertificate (-want, +got) = %s", diff)
+		t.Error("MakeWildcardCertificate (-want, +got) =", diff)
 	}
 }

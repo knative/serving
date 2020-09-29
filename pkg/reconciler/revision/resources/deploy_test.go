@@ -977,7 +977,7 @@ func TestMakePodSpec(t *testing.T) {
 				t.Fatal("makePodSpec returned error:", err)
 			}
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
-				t.Errorf("makePodSpec (-want, +got) = %v", diff)
+				t.Error("makePodSpec (-want, +got) =", diff)
 			}
 		})
 	}
