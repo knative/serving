@@ -169,8 +169,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	if r.Status.Traffic, err = traffic.GetRevisionTrafficTargets(ctx, r); err != nil {
-		return err
+	// Eliminate the old traffic targets once ingress is pointed to the new ones.
+	if ingress.IsReady() {
+		if r.Status.Traffic, err = traffic.GetRevisionTrafficTargets(ctx, r); err != nil {
+			return err
+		}
+		r.Status.MarkTrafficAssigned()
 	}
 
 	logger.Info("Route successfully synced")
@@ -352,7 +356,6 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
 
 	mergeTraffic(r, tts)
-	r.Status.MarkTrafficAssigned()
 
 	return t, nil
 }
@@ -371,12 +374,11 @@ func mergeTraffic(r *v1.Route, newTraffic []v1.TrafficTarget) {
 		all[tt.RevisionName] = tt
 	}
 
-	combined := make([]v1.TrafficTarget, 0, len(r.Status.Traffic))
+	asSlice := make([]v1.TrafficTarget, 0, len(r.Status.Traffic))
 	for _, tt := range all {
-		combined = append(combined, tt)
+		asSlice = append(asSlice, tt)
 	}
-
-	r.Status.Traffic = combined
+	r.Status.Traffic = asSlice
 }
 
 func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1.Route, visibility map[string]netv1alpha1.IngressVisibility) error {
