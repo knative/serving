@@ -52,37 +52,9 @@ var (
 	}
 )
 
-func TestNewHTTPScrapeClientErrorCases(t *testing.T) {
-	testCases := []struct {
-		name        string
-		client      *http.Client
-		expectedErr string
-	}{{
-		name:        "Empty HTTP client",
-		expectedErr: "HTTP client must not be nil",
-	}}
-
-	for _, test := range testCases {
-		t.Run(test.name, func(t *testing.T) {
-			if _, err := newHTTPScrapeClient(test.client); err != nil {
-				got := err.Error()
-				want := test.expectedErr
-				if got != want {
-					t.Errorf("Got error message: %v. Want: %v", got, want)
-				}
-			} else {
-				t.Error("Expected error from newHTTPScrapeClient, got nil")
-			}
-		})
-	}
-}
-
 func TestHTTPScrapeClientScrapeHappyCaseWithOptionals(t *testing.T) {
 	hClient := newTestHTTPClient(makeProtoResponse(http.StatusOK, stat, network.ProtoAcceptContent), nil)
-	sClient, err := newHTTPScrapeClient(hClient)
-	if err != nil {
-		t.Fatalf("newHTTPScrapeClient = %v, want no error", err)
-	}
+	sClient := newHTTPScrapeClient(hClient)
 	got, err := sClient.Scrape(context.Background(), testURL)
 	if err != nil {
 		t.Fatalf("Scrape = %v, want no error", err)
@@ -119,11 +91,8 @@ func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			hClient := newTestHTTPClient(makeProtoResponse(test.responseCode, test.stat, test.responseType), test.responseErr)
-			sClient, err := newHTTPScrapeClient(hClient)
-			if err != nil {
-				t.Fatalf("newHTTPScrapeClient=%v, want no error", err)
-			}
-			_, err = sClient.Scrape(context.Background(), testURL)
+			sClient := newHTTPScrapeClient(hClient)
+			_, err := sClient.Scrape(context.Background(), testURL)
 			if err == nil {
 				t.Fatal("Got no error")
 			}

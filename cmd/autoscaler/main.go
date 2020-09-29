@@ -208,7 +208,7 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister) asmetrics.StatsS
 		}
 
 		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, revisionName)
-		return asmetrics.NewStatsScraper(metric, podAccessor, logger)
+		return asmetrics.NewStatsScraper(metric, revisionName, podAccessor, logger), nil
 	}
 }
 
