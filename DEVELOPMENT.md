@@ -10,7 +10,7 @@ take a look at:
 
 ## Prerequisites
 
-Follow the instructions below to set up your development environment. Once you
+Follow the `instructions` below to set up your development environment. Once you
 meet these requirements, you can make changes and
 [deploy your own version of Knative Serving](#starting-knative-serving)!
 
