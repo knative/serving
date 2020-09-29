@@ -23,6 +23,8 @@ import (
 	"flag"
 
 	network "knative.dev/networking/pkg"
+
+	// Load the generic flags of knative.dev/pkg too.
 	_ "knative.dev/pkg/test"
 )
 
