@@ -183,10 +183,7 @@ func newServiceScraperWithClient(
 	svcName := metric.Labels[serving.ServiceLabelKey]
 	cfgName := metric.Labels[serving.ConfigurationLabelKey]
 
-	ctx, err := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revName)
-	if err != nil {
-		return nil, err
-	}
+	ctx := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revName)
 
 	return &serviceScraper{
 		directClient:    directClient,
