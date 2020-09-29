@@ -438,7 +438,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "ingresses"),
 		},
 		WantCreates: []runtime.Object{
-			// This is the Create we see for the ingress, but we induce a failure.
+			//This is the Create we see for the ingress, but we induce a failure.
 			simpleIngress(
 				Route("default", "ingress-create-failure", WithConfigTarget("config"),
 					WithURL),
@@ -465,9 +465,16 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "ingress-create-failure", WithConfigTarget("config"),
-				WithRouteFinalizer, WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteFinalizer, WithRouteGeneration(1),
+				MarkIngressNotConfigured, WithRouteObservedGeneration,
 				// Populated by reconciliation when we fail to create the ingress.
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, MarkIngressNotConfigured),
+				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				MarkTrafficAssigned, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "ingress-create-failure"),
@@ -537,8 +544,9 @@ func TestReconcile(t *testing.T) {
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
-						RevisionName: "config-00001",
-						Percent:      ptr.Int64(100),
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
 					}),
 				// The owner is not us, so we are unhappy.
 				MarkServiceNotOwned),
@@ -905,6 +913,20 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "update-ci-failure", WithConfigTarget("config"),
+				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      ptr.Int64(0),
+					},
+					v1.TrafficTarget{
+						RevisionName:   "config-00002",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Ingress: inducing failure for update ingresses"),
@@ -2289,7 +2311,13 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteUID("12-34"),
 				WithRouteGeneration(1), MarkIngressNotConfigured, WithRouteObservedGeneration,
-				WithAddress, WithInitRouteConditions, WithURL, MarkCertificateNotOwned),
+				WithAddress, WithInitRouteConditions, WithURL,
+				MarkTrafficAssigned, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					}), MarkCertificateNotOwned),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),

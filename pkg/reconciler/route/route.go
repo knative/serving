@@ -37,6 +37,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
@@ -173,7 +174,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	if r.Status.Traffic, err = traffic.GetRevisionTrafficTargets(ctx, r); err != nil {
 		return err
 	}
-	r.Status.MarkTrafficAssigned()
 
 	logger.Info("Route successfully synced")
 	return nil
@@ -345,7 +345,35 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 		return nil, nil
 	}
 
+	// Domain should already be present
+	tts, err := t.GetRevisionTrafficTargets(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+
+	mergeTraffic(r, tts)
+	r.Status.MarkTrafficAssigned()
+
 	return t, nil
+}
+
+func mergeTraffic(r *v1.Route, newTraffic []v1.TrafficTarget) {
+	all := make(map[string]v1.TrafficTarget, len(r.Status.Traffic))
+	for _, tt := range r.Status.Traffic {
+		tt.Percent = ptr.Int64(0)
+		tt.LatestRevision = nil
+		all[tt.RevisionName] = tt
+	}
+	for _, tt := range newTraffic {
+		all[tt.RevisionName] = tt
+	}
+
+	combined := make([]v1.TrafficTarget, 0, len(r.Status.Traffic))
+	for _, tt := range all {
+		combined = append(combined, tt)
+	}
+
+	r.Status.Traffic = combined
 }
 
 func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1.Route, visibility map[string]netv1alpha1.IngressVisibility) error {
