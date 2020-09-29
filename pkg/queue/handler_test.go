@@ -24,12 +24,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
-	"golang.org/x/sync/errgroup"
 	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/activator"
 )
@@ -40,8 +38,8 @@ const (
 )
 
 func TestHandlerBreakerQueueFull(t *testing.T) {
-	// This test sends two requests, ensuring queue
-	// is saturated. Third will return immediately.
+	// This test sends three requests of which one should fail immediately as the queue
+	// saturates.
 	resp := make(chan struct{})
 	blockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		<-resp
@@ -50,48 +48,35 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1,
 	})
 	stats := network.NewRequestStats(time.Now())
-
 	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
-	t.Cleanup(cancel)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8081/time", nil)
-	if err != nil {
-		t.Fatal("NewRequestWithContext =", err)
+	req := httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil)
+	resps := make(chan *httptest.ResponseRecorder)
+	for i := 0; i < 3; i++ {
+		go func() {
+			rec := httptest.NewRecorder()
+			h(rec, req)
+			resps <- rec
+		}()
 	}
-	var (
-		eg      errgroup.Group
-		barrier sync.WaitGroup
-	)
-	barrier.Add(2)
-	eg.Go(func() error {
-		barrier.Done()
-		h(httptest.NewRecorder(), req)
-		return nil
-	})
-	eg.Go(func() error {
-		barrier.Done()
-		h(httptest.NewRecorder(), req)
-		return nil
-	})
-	barrier.Wait()
-	// Now we know the queue is full next should exit immediately.
 
-	eg.Go(func() error {
-		defer close(resp) // Make the other requests terminate.
-		rec := httptest.NewRecorder()
-		h(rec, req)
-		if got, want := rec.Code, http.StatusServiceUnavailable; got != want {
-			return fmt.Errorf("Code = %d, want: %d", got, want)
+	// The first we see should've failed.
+	failure := <-resps
+	if got, want := failure.Code, http.StatusServiceUnavailable; got != want {
+		t.Errorf("Code = %d, want: %d", got, want)
+	}
+	const want = "pending request queue full"
+	if got := failure.Body.String(); !strings.Contains(failure.Body.String(), want) {
+		t.Errorf("Body = %q wanted to contain %q", got, want)
+	}
+
+	// Allow the remaining requests to pass.
+	close(resp)
+	for i := 0; i < 2; i++ {
+		res := <-resps
+		if got, want := res.Code, http.StatusOK; got != want {
+			t.Errorf("Code = %d, want: %d", got, want)
 		}
-		const want = "pending request queue full"
-		if got := rec.Body.String(); !strings.Contains(rec.Body.String(), want) {
-			return fmt.Errorf("Body = %q wanted to contain %q", got, want)
-		}
-		return nil
-	})
-	if err := eg.Wait(); err != nil {
-		t.Error(err)
 	}
 }
 
