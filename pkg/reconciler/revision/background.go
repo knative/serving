@@ -254,7 +254,7 @@ type containerMissingError struct {
 }
 
 func (e containerMissingError) Error() string {
-	return v1.RevisionContainerMissingMessage(e.image, fmt.Sprintf("failed to resolve image to digest: %v", e.cause))
+	return v1.RevisionContainerMissingMessage(e.image, fmt.Sprint("failed to resolve image to digest:", e.cause))
 }
 
 func (e containerMissingError) Unwrap() error {

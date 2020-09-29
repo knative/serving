@@ -769,7 +769,7 @@ func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 		thunk()
 		return nil
 	case <-ctx.Done():
-		ib.logger.Infof("Context is closed: %v", ctx.Err())
+		ib.logger.Info("Context is closed: ", ctx.Err())
 		return ctx.Err()
 	}
 }
