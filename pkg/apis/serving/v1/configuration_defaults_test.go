@@ -69,6 +69,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
+							EnableServiceLinks: ptr.Bool(false),
 							Containers: []corev1.Container{{
 								Name:           config.DefaultUserContainerName,
 								Image:          "busybox",
@@ -92,6 +93,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 							Containers: []corev1.Container{{
 								Image: "busybox",
 							}},
+							EnableServiceLinks: ptr.Bool(true),
 						},
 						TimeoutSeconds:       ptr.Int64(60),
 						ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
@@ -110,6 +112,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 								Resources:      defaultResources,
 								ReadinessProbe: defaultProbe,
 							}},
+							EnableServiceLinks: ptr.Bool(true),
 						},
 						TimeoutSeconds:       ptr.Int64(60),
 						ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),

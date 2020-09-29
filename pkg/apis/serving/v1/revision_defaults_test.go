@@ -85,6 +85,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				ContainerConcurrency: ptr.Int64(0),
 				TimeoutSeconds:       ptr.Int64(123),
 				PodSpec: corev1.PodSpec{
+					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
 						Resources:      defaultResources,
@@ -157,10 +158,12 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "with service set",
-		in: &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{
-			EnableServiceLinks: ptr.Bool(false),
-			Containers:         []corev1.Container{{}},
-		}}},
+		in: &Revision{Spec: RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				EnableServiceLinks: ptr.Bool(false),
+				Containers:         []corev1.Container{{}},
+			}},
+		},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logger)
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
@@ -208,6 +211,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				PodSpec: corev1.PodSpec{
+					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{
 						Name:  config.DefaultUserContainerName,
 						Image: "foo",
@@ -246,6 +250,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				ContainerConcurrency: ptr.Int64(0),
 				TimeoutSeconds:       ptr.Int64(456),
 				PodSpec: corev1.PodSpec{
+					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
 						Resources:      defaultResources,
@@ -279,6 +284,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(99),
 				PodSpec: corev1.PodSpec{
+					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{
 						Name:      "foo",
 						Resources: defaultResources,
@@ -316,6 +322,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
+					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{
 						Name:      config.DefaultUserContainerName,
 						Resources: defaultResources,
@@ -343,6 +350,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
+					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
 						Resources:      defaultResources,
@@ -383,6 +391,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
+					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{
 						Name: config.DefaultUserContainerName,
 						Resources: corev1.ResourceRequirements{
@@ -423,6 +432,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
+					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{
 						Name:           "busybox",
 						Resources:      defaultResources,
@@ -470,6 +480,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
+					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{
 						Name:      "user-container-1",
 						Resources: defaultResources,

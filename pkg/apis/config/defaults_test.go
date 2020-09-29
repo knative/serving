@@ -98,10 +98,10 @@ func TestDefaultsConfiguration(t *testing.T) {
 			UserContainerNameTemplate:     DefaultUserContainerName,
 			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero: true,
-			EnableServiceLinks:            ptr.Bool(false),
+			EnableServiceLinks:            ptr.Bool(true),
 		},
 		data: map[string]string{
-			"enable-service-links": "false",
+			"enable-service-links": "true",
 		},
 	}, {
 		name:    "invalid allow container concurrency zero flag value",
