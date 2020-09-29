@@ -194,8 +194,8 @@ func uniScalerFactoryFunc(podLister corev1listers.PodLister,
 		}
 
 		podAccessor := resources.NewPodAccessor(podLister, decider.Namespace, revisionName)
-		return scaling.New(decider.Namespace, decider.Name, metricClient,
-			podAccessor, &decider.Spec, ctx)
+		return scaling.New(ctx, decider.Namespace, decider.Name, metricClient,
+			podAccessor, &decider.Spec)
 	}
 }
 
