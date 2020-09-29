@@ -65,6 +65,7 @@ type autoscaler struct {
 }
 
 // New creates a new instance of default autoscaler implementation.
+// nolint:golint // The reporterContext should explicitly not got first.
 func New(
 	namespace, revision string,
 	metricClient metrics.MetricClient,
@@ -87,6 +88,7 @@ func New(
 		podCounter, deciderSpec, delayer, reporterCtx), nil
 }
 
+// nolint:golint // The reporterContext should explicitly not got first.
 func newAutoscaler(
 	namespace, revision string,
 	metricClient metrics.MetricClient,
