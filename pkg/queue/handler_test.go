@@ -24,12 +24,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
-	"golang.org/x/sync/errgroup"
 	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/activator"
 )
@@ -40,8 +38,8 @@ const (
 )
 
 func TestHandlerBreakerQueueFull(t *testing.T) {
-	// This test sends two requests, ensuring queue
-	// is saturated. Third will return immediately.
+	// This test sends three requests of which one should fail immediately as the queue
+	// saturates.
 	resp := make(chan struct{})
 	blockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		<-resp
@@ -50,48 +48,36 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1,
 	})
 	stats := network.NewRequestStats(time.Now())
-
 	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
-	t.Cleanup(cancel)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8081/time", nil)
-	if err != nil {
-		t.Fatal("NewRequestWithContext =", err)
+	req := httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil)
+	resps := make(chan *httptest.ResponseRecorder)
+	for i := 0; i < 3; i++ {
+		go func() {
+			rec := httptest.NewRecorder()
+			h(rec, req)
+			resps <- rec
+		}()
 	}
-	var (
-		eg      errgroup.Group
-		barrier sync.WaitGroup
-	)
-	barrier.Add(2)
-	eg.Go(func() error {
-		barrier.Done()
-		h(httptest.NewRecorder(), req)
-		return nil
-	})
-	eg.Go(func() error {
-		barrier.Done()
-		h(httptest.NewRecorder(), req)
-		return nil
-	})
-	barrier.Wait()
-	// Now we know the queue is full next should exit immediately.
 
-	eg.Go(func() error {
-		defer close(resp) // Make the other requests terminate.
-		rec := httptest.NewRecorder()
-		h(rec, req)
-		if got, want := rec.Code, http.StatusServiceUnavailable; got != want {
-			return fmt.Errorf("Code = %d, want: %d", got, want)
+	// One of the three requests fails and it should be the first we see since the others
+	// are still held by the resp channel.
+	failure := <-resps
+	if got, want := failure.Code, http.StatusServiceUnavailable; got != want {
+		t.Errorf("Code = %d, want: %d", got, want)
+	}
+	const want = "pending request queue full"
+	if got := failure.Body.String(); !strings.Contains(failure.Body.String(), want) {
+		t.Errorf("Body = %q wanted to contain %q", got, want)
+	}
+
+	// Allow the remaining requests to pass.
+	close(resp)
+	for i := 0; i < 2; i++ {
+		res := <-resps
+		if got, want := res.Code, http.StatusOK; got != want {
+			t.Errorf("Code = %d, want: %d", got, want)
 		}
-		const want = "pending request queue full"
-		if got := rec.Body.String(); !strings.Contains(rec.Body.String(), want) {
-			return fmt.Errorf("Body = %q wanted to contain %q", got, want)
-		}
-		return nil
-	})
-	if err := eg.Wait(); err != nil {
-		t.Error(err)
 	}
 }
 
@@ -99,55 +85,38 @@ func TestHandlerBreakerTimeout(t *testing.T) {
 	// This test sends a request which will take a long time to complete.
 	// Then another one with a very short context timeout.
 	// Verifies that the second one fails with timeout.
+	seen := make(chan struct{})
 	resp := make(chan struct{})
+	defer close(resp) // Allow all requests to pass through.
 	blockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen <- struct{}{}
 		<-resp
 	})
 	breaker := NewBreaker(BreakerParams{
 		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1,
 	})
 	stats := network.NewRequestStats(time.Now())
-
 	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	t.Cleanup(cancel)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8081/time", nil)
-	if err != nil {
-		t.Fatal("NewRequestWithContext =", err)
-	}
-	var eg errgroup.Group
-	barrier := make(chan struct{})
-	eg.Go(func() error {
-		// This will block.
-		close(barrier)
-		h(httptest.NewRecorder(), req)
-		return nil
-	})
+	go func() {
+		h(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil))
+	}()
 
-	// For proper checks we need to ensure the order of requests.
-	<-barrier
-	ctx, cancel = context.WithTimeout(context.Background(), 50*time.Millisecond)
-	t.Cleanup(cancel)
-	req2, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8081/time", nil)
-	if err != nil {
-		t.Fatal("NewRequestWithContext =", err)
+	// Wait until the first request has entered the handler.
+	<-seen
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	rec := httptest.NewRecorder()
+	h(rec, httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil).WithContext(ctx))
+	if got, want := rec.Code, http.StatusServiceUnavailable; got != want {
+		t.Fatalf("Code = %d, want: %d", got, want)
 	}
-	eg.Go(func() error {
-		defer close(resp) // Make the other request terminate.
-		rec := httptest.NewRecorder()
-		h(rec, req2)
-		if got, want := rec.Code, http.StatusServiceUnavailable; got != want {
-			return fmt.Errorf("Code = %d, want: %d", got, want)
-		}
-		const want = "context deadline exceeded"
-		if got := rec.Body.String(); !strings.Contains(rec.Body.String(), want) {
-			return fmt.Errorf("Body = %q wanted to contain %q", got, want)
-		}
-		return nil
-	})
-	if err := eg.Wait(); err != nil {
-		t.Error(err)
+
+	want := context.DeadlineExceeded.Error()
+	if got := rec.Body.String(); !strings.Contains(rec.Body.String(), want) {
+		t.Fatalf("Body = %q wanted to contain %q", got, want)
 	}
 }
 
