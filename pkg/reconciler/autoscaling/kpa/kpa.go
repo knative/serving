@@ -205,10 +205,7 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 	serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
 	configLabel := pa.Labels[serving.ConfigurationLabelKey]
 
-	ctx, err := metrics.RevisionContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
-	if err != nil {
-		return err
-	}
+	ctx := metrics.RevisionContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
 
 	stats := []stats.Measurement{
 		actualPodCountM.M(int64(pc.ready)), notReadyPodCountM.M(int64(pc.notReady)),

@@ -629,10 +629,7 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 	if startInPanic {
 		pc.readyCount = 2
 	}
-	ctx, err := smetrics.RevisionContext(testNamespace, "testSvc", "testConfig", testRevision)
-	if err != nil {
-		t.Fatal("Error creating context:", err)
-	}
+	ctx := smetrics.RevisionContext(testNamespace, "testSvc", "testConfig", testRevision)
 	return newAutoscaler(ctx, testNamespace, testRevision, metrics, pc, deciderSpec, nil), pc
 }
 
