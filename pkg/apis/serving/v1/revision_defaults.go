@@ -31,11 +31,6 @@ import (
 
 // SetDefaults implements apis.Defaultable
 func (r *Revision) SetDefaults(ctx context.Context) {
-	// SetDefaults may update revision spec which is immutable.
-	// See: https://github.com/knative/serving/issues/8128 for details.
-	if apis.IsInUpdate(ctx) {
-		return
-	}
 	r.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
@@ -46,6 +41,11 @@ func (rts *RevisionTemplateSpec) SetDefaults(ctx context.Context) {
 
 // SetDefaults implements apis.Defaultable
 func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
+	// SetDefaults may update revision spec which is immutable.
+	// See: https://github.com/knative/serving/issues/8128 for details.
+	if apis.IsInUpdate(ctx) {
+		return
+	}
 	cfg := config.FromContextOrDefaults(ctx)
 
 	// Default TimeoutSeconds based on our configmap.
@@ -87,11 +87,11 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 			rs.PodSpec.Containers[idx].Name = name
 		}
 
-		rs.applyDefault(&rs.PodSpec.Containers[idx], cfg)
+		rs.applyDefault(ctx, &rs.PodSpec.Containers[idx], cfg)
 	}
 }
 
-func (rs *RevisionSpec) applyDefault(container *corev1.Container, cfg *config.Config) {
+func (rs *RevisionSpec) applyDefault(ctx context.Context, container *corev1.Container, cfg *config.Config) {
 	if container.Resources.Requests == nil {
 		container.Resources.Requests = corev1.ResourceList{}
 	}
@@ -131,7 +131,7 @@ func (rs *RevisionSpec) applyDefault(container *corev1.Container, cfg *config.Co
 		rs.applyProbes(container)
 	}
 
-	if rs.PodSpec.EnableServiceLinks == nil {
+	if rs.PodSpec.EnableServiceLinks == nil && cfg.Defaults.EnableServiceLinks != nil {
 		rs.PodSpec.EnableServiceLinks = cfg.Defaults.EnableServiceLinks
 	}
 
