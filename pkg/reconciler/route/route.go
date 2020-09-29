@@ -169,8 +169,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
-	// Domain should already be present
 	if r.Status.Traffic, err = traffic.GetRevisionTrafficTargets(ctx, r); err != nil {
 		return err
 	}
@@ -351,12 +349,17 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 		return nil, err
 	}
 
+	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
+
 	mergeTraffic(r, tts)
 	r.Status.MarkTrafficAssigned()
 
 	return t, nil
 }
 
+// mergeTraffic appends all new traffic targets, leaving any old or orphaned targets
+// with a zero percent traffic. These will be removed once ingress is directed to
+// all new targets.
 func mergeTraffic(r *v1.Route, newTraffic []v1.TrafficTarget) {
 	all := make(map[string]v1.TrafficTarget, len(r.Status.Traffic))
 	for _, tt := range r.Status.Traffic {
