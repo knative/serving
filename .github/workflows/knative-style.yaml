@@ -214,7 +214,7 @@ jobs:
           # But exclude the `fmt.Errorf` calls since there's no `fmt.Error` and `errors.New` is not
           # as versatile.
           fn=$(find . -path './vendor' -prune -o -path './third_party' -prune -o -name '*.pb.go' -prune -o -type f -name '*.go' -print)
-          grep -nE '[^.]+\.(Fatalf|Errorf|Warnf|Infof|Debugf)[^\%]+%[^wq]",[^,]+' $fn |
+          grep -nE '[^.]+\.(Fatalf|Errorf|Warnf|Infof|Debugf)[^\%]+%[^wq]",[^,]+' $fn | grep -v "fmt.Errorf" |
             while read -r ent ; do
               file=$(echo $ent | cut -d':' -f 1);
               line=$(echo $ent | cut -d':' -f 2);
