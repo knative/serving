@@ -60,7 +60,8 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 		}()
 	}
 
-	// The first we see should've failed.
+	// One of the three requests fails and it should be the first we see since the others
+	// are still held by the resp channel.
 	failure := <-resps
 	if got, want := failure.Code, http.StatusServiceUnavailable; got != want {
 		t.Errorf("Code = %d, want: %d", got, want)
