@@ -78,7 +78,7 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
 # Knative Injection
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   knative.dev/serving/pkg/client knative.dev/serving/pkg/apis \
-  "serving:v1alpha1,v1beta1,v1 autoscaling:v1alpha1" \
+  "serving:v1beta1,v1 autoscaling:v1alpha1" \
   --go-header-file "${boilerplate}"
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen
