@@ -258,7 +258,7 @@ func (c *Reconciler) latestCreatedRevision(config *v1.Configuration) (*v1.Revisi
 		return list[0], nil
 	}
 
-	return nil, errors.NewNotFound(v1.Resource("revisions"), fmt.Sprintf("revision for %s", config.Name))
+	return nil, errors.NewNotFound(v1.Resource("revisions"), "revision for "+config.Name)
 }
 
 func (c *Reconciler) createRevision(ctx context.Context, config *v1.Configuration) (*v1.Revision, error) {

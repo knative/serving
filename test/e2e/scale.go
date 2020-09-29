@@ -75,7 +75,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 		// Wait for all of the service creations to complete (possibly in failure),
 		// and signal the done channel.
 		if err := eg.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
+			t.Error("Wait() =", err)
 		}
 
 		// TODO(mattmoor): Check globalSLO if localSLO isn't 1.0
@@ -103,7 +103,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 				pm.Foreach(func(u *url.URL, p test.Prober) {
 					if err := test.CheckSLO(localSLO, u.String(), p); err != nil {
-						t.Errorf("CheckSLO() = %v", err)
+						t.Error("CheckSLO() =", err)
 					}
 				})
 
@@ -152,7 +152,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					}),
 					rtesting.WithRevisionTimeoutSeconds(10))
 				if err != nil {
-					t.Errorf("CreateLatestService() = %v", err)
+					t.Error("CreateLatestService() =", err)
 					return fmt.Errorf("CreateLatestService() failed: %w", err)
 				}
 
@@ -173,7 +173,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				}, "ServiceUpdatedWithURL")
 
 				if err != nil {
-					t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
+					t.Error("WaitForServiceState(w/ Domain) =", err)
 					return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
 				}
 
@@ -189,7 +189,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					"WaitForEndpointToServeText",
 					test.ServingFlags.ResolvableDomain)
 				if err != nil {
-					t.Errorf("WaitForEndpointState(expected text) = %v", err)
+					t.Error("WaitForEndpointState(expected text) =", err)
 					return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
 				}
 
