@@ -172,7 +172,7 @@ func TestMultiScalerScaling(t *testing.T) {
 	}
 
 	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
-		t.Errorf("Delete() = %v", err)
+		t.Error("Delete() =", err)
 	}
 
 	// Verify that we stop seeing "ticks"
@@ -207,7 +207,7 @@ func TestMultiscalerCreateTBC42(t *testing.T) {
 		t.Errorf("Decider.Status.ExcessBurstCapacity = %d, want: %d", got, want)
 	}
 	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
-		t.Errorf("Delete() = %v", err)
+		t.Error("Delete() =", err)
 	}
 }
 
@@ -234,7 +234,7 @@ func TestMultiscalerCreateTBCMinus1(t *testing.T) {
 		t.Errorf("Decider.Status.ExcessBurstCapacity = %d, want: %d", got, want)
 	}
 	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
-		t.Errorf("Delete() = %v", err)
+		t.Error("Delete() =", err)
 	}
 }
 
@@ -274,7 +274,7 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 	}
 
 	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
-		t.Errorf("Delete() = %v", err)
+		t.Error("Delete() =", err)
 	}
 
 	// Verify that we stop seeing "ticks".
@@ -318,7 +318,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 
 	err = ms.Delete(ctx, decider.Namespace, decider.Name)
 	if err != nil {
-		t.Errorf("Delete() = %v", err)
+		t.Error("Delete() =", err)
 	}
 
 	// Verify that we stop seeing "ticks"
@@ -349,7 +349,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	}
 	metricKey := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	if scaler, exists := ms.scalers[metricKey]; !exists {
-		t.Errorf("Failed to get scaler for metric %s", metricKey)
+		t.Error("Failed to get scaler for metric", metricKey)
 	} else if !scaler.updateLatestScale(ScaleResult{0, 10, 2, true}) {
 		t.Error("Failed to set scale for metric to 0")
 	}
@@ -366,7 +366,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
-		t.Errorf("Delete() = %v", err)
+		t.Error("Delete() =", err)
 	}
 }
 
@@ -386,7 +386,7 @@ func TestMultiScalerUpdate(t *testing.T) {
 	}
 	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
 	if err != nil {
-		t.Errorf("Get() = %v", err)
+		t.Error("Get() =", err)
 	}
 	if got, want := m.Spec.TargetValue, 1.0; got != want {
 		t.Errorf("Got target concurrency %v. Wanted %v", got, want)
@@ -395,17 +395,17 @@ func TestMultiScalerUpdate(t *testing.T) {
 	// Update the target and verify the Spec
 	decider.Spec.TargetValue = 10.0
 	if _, err = ms.Update(ctx, decider); err != nil {
-		t.Errorf("Update() = %v", err)
+		t.Error("Update() =", err)
 	}
 	m, err = ms.Get(ctx, decider.Namespace, decider.Name)
 	if err != nil {
-		t.Errorf("Get() = %v", err)
+		t.Error("Get() =", err)
 	}
 	if got, want := m.Spec.TargetValue, 10.0; got != want {
 		t.Errorf("Got target concurrency %v. Wanted %v", got, want)
 	}
 	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
-		t.Errorf("Delete() = %v", err)
+		t.Error("Delete() =", err)
 	}
 }
 

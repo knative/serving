@@ -51,7 +51,7 @@ func TestRequestLogs(t *testing.T) {
 
 	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get(context.Background(), "config-observability", metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Fail to get ConfigMap config-observability: %v", err)
+		t.Fatal("Fail to get ConfigMap config-observability:", err)
 	}
 
 	if got, want := cm.Data[metrics.ReqLogTemplateKey], template; got != want {
@@ -91,7 +91,7 @@ func TestRequestLogs(t *testing.T) {
 
 	pod, err := theOnlyPod(clients, resources.Revision.Namespace, resources.Revision.Name)
 	if err != nil {
-		t.Fatalf("Fail to fetch the pod: %v", err)
+		t.Fatal("Fail to fetch the pod:", err)
 	}
 
 	// TODO: add logging.enable-request-log check once it doesn't depends on the template.
@@ -100,7 +100,7 @@ func TestRequestLogs(t *testing.T) {
 		return log.HTTPRequest.RequestURL == "/" &&
 			log.HTTPRequest.UserAgent != network.QueueProxyUserAgent
 	}); err != nil {
-		t.Fatalf("Got error waiting for normal request logs: %v", err)
+		t.Fatal("Got error waiting for normal request logs:", err)
 	}
 
 	// Only check probe request logs if the feature is enabled in config-observability.
@@ -110,7 +110,7 @@ func TestRequestLogs(t *testing.T) {
 			return log.HTTPRequest.RequestURL == "/" &&
 				log.HTTPRequest.UserAgent == network.QueueProxyUserAgent
 		}); err != nil {
-			t.Fatalf("Got error waiting for health check log: %v", err)
+			t.Fatal("Got error waiting for health check log:", err)
 		}
 	} else {
 		t.Log("Skipping verifing probe request logs because they are not enabled")

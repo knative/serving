@@ -1238,7 +1238,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 		// We can't probe endpoints (see RT above) and we can't get to probe
 		// cluster IP. But if the service is accessible then we will and probing will
 		// succeed since RT has no rules for that.
-		t.Errorf("Unexpected update, should have had none: %v", x)
+		t.Error("Unexpected update, should have had none:", x)
 	case <-time.After(updateTimeout):
 	}
 }

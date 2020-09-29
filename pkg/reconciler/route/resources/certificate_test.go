@@ -79,7 +79,7 @@ func TestMakeCertificates(t *testing.T) {
 	}
 	got := MakeCertificates(route, dnsNameTagMap, "foo-cert")
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("MakeCertificate (-want, +got) = %v", diff)
+		t.Error("MakeCertificate (-want, +got) =", diff)
 	}
 }
 
@@ -124,6 +124,6 @@ func TestMakeCertificates_FilterLastAppliedAnno(t *testing.T) {
 	}
 	got := MakeCertificates(orgRoute, dnsNameTagMap, "default-cert")
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("MakeCertificate (-want, +got) = %v", diff)
+		t.Error("MakeCertificate (-want, +got) =", diff)
 	}
 }

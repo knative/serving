@@ -352,7 +352,7 @@ func TestSetRoutingState(t *testing.T) {
 	}
 	modified := rev.GetRoutingStateModified()
 	if modified == empty {
-		t.Errorf("expected a timestamp. got %v", modified)
+		t.Error("expected a timestamp. got", modified)
 	}
 
 	// Test that no-op modifications don't bump timestamps.

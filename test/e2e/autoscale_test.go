@@ -131,10 +131,10 @@ func TestTargetBurstCapacity(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		t.Logf("resources.ReadyAddressCount(svcEps) = %d", resources.ReadyAddressCount(svcEps))
+		t.Log("resources.ReadyAddressCount(svcEps) =", resources.ReadyAddressCount(svcEps))
 		return resources.ReadyAddressCount(svcEps) == 2, nil
 	}); err != nil {
-		t.Errorf("Never achieved subset of size 2: %v", err)
+		t.Error("Never achieved subset of size 2:", err)
 	}
 }
 
@@ -207,5 +207,5 @@ func TestFastScaleToZero(t *testing.T) {
 		t.Fatalf("Did not observe %q to actually be emptied", epsN)
 	}
 
-	t.Logf("Total time to scale down: %v", time.Since(st))
+	t.Log("Total time to scale down:", time.Since(st))
 }

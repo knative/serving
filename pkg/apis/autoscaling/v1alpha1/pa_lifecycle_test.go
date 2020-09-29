@@ -63,7 +63,7 @@ func TestPodAutoscalerGetConditionSet(t *testing.T) {
 func TestGeneration(t *testing.T) {
 	r := PodAutoscaler{}
 	if a := r.GetGeneration(); a != 0 {
-		t.Errorf("empty pa generation should be 0 was: %d", a)
+		t.Error("empty pa generation should be 0 was:", a)
 	}
 
 	r.SetGeneration(5)
@@ -620,10 +620,10 @@ func TestMarkResourceNotOwned(t *testing.T) {
 	pa.Status.MarkResourceNotOwned("doesn't", "matter")
 	active := pa.Status.GetCondition("Active")
 	if active.Status != corev1.ConditionFalse {
-		t.Errorf("TestMarkResourceNotOwned expected active.Status: False got: %v", active.Status)
+		t.Error("TestMarkResourceNotOwned expected active.Status: False got:", active.Status)
 	}
 	if active.Reason != "NotOwned" {
-		t.Errorf("TestMarkResourceNotOwned expected active.Reason: NotOwned got: %v", active.Reason)
+		t.Error("TestMarkResourceNotOwned expected active.Reason: NotOwned got:", active.Reason)
 	}
 }
 
@@ -634,10 +634,10 @@ func TestMarkResourceFailedCreation(t *testing.T) {
 
 	active := pa.GetCondition("Active")
 	if active.Status != corev1.ConditionFalse {
-		t.Errorf("TestMarkResourceFailedCreation expected active.Status: False got: %v", active.Status)
+		t.Error("TestMarkResourceFailedCreation expected active.Status: False got:", active.Status)
 	}
 	if active.Reason != "FailedCreate" {
-		t.Errorf("TestMarkResourceFailedCreation expected active.Reason: FailedCreate got: %v", active.Reason)
+		t.Error("TestMarkResourceFailedCreation expected active.Reason: FailedCreate got:", active.Reason)
 	}
 }
 

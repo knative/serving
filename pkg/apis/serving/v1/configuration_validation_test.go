@@ -702,7 +702,7 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 			ctx = apis.WithinSubResourceUpdate(ctx, test.config, test.subresource)
 			got := test.config.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+				t.Error("Validate (-want, +got) =", diff)
 			}
 		})
 	}
@@ -888,7 +888,7 @@ func TestConfigurationAnnotationUpdate(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.prev)
 			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+				t.Error("Validate (-want, +got) =", diff)
 			}
 		})
 	}

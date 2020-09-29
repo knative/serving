@@ -103,7 +103,7 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 		}
 
 		if _, err := uniScalerFactory(decider); err != nil {
-			t.Errorf("got error from uniScalerFactory: %v", err)
+			t.Error("got error from uniScalerFactory:", err)
 		}
 	}
 }

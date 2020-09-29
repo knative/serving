@@ -46,11 +46,11 @@ func TestStatMessageConversion(t *testing.T) {
 	}
 
 	if got, want := sm.ToWireStatMessage(), wsm; !cmp.Equal(got, want) {
-		t.Fatalf("WireStatMessage mismatch: diff (-got, +want) %s", cmp.Diff(got, want))
+		t.Fatal("WireStatMessage mismatch: diff (-got, +want)", cmp.Diff(got, want))
 	}
 
 	if got, want := wsm.ToStatMessage(), sm; !cmp.Equal(got, want) {
-		t.Fatalf("StatMessage mismatch: diff (-got, +want) %s", cmp.Diff(got, want))
+		t.Fatal("StatMessage mismatch: diff (-got, +want)", cmp.Diff(got, want))
 	}
 }
 
@@ -89,6 +89,6 @@ func TestStatMessageSliceConversion(t *testing.T) {
 	wsms := WireStatMessages{Messages: []*WireStatMessage{wsm1, wsm2}}
 
 	if got, want := ToWireStatMessages(sms), wsms; !cmp.Equal(got, want) {
-		t.Fatalf("WireStatMessages mismatch: diff (-got, +want) %s", cmp.Diff(got, want))
+		t.Fatal("WireStatMessages mismatch: diff (-got, +want)", cmp.Diff(got, want))
 	}
 }

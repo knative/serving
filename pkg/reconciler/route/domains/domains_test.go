@@ -258,7 +258,7 @@ func TestGetAllDomainsAndTags(t *testing.T) {
 				return
 			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
-				t.Errorf("GetAllDomains() diff (-want +got): %v", diff)
+				t.Error("GetAllDomains() diff (-want +got):", diff)
 			}
 		})
 	}

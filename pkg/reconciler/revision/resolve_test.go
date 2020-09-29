@@ -154,7 +154,7 @@ func TestResolve(t *testing.T) {
 
 	img, err := random.Image(3, 1024)
 	if err != nil {
-		t.Fatalf("random.Image() = %v", err)
+		t.Fatal("random.Image() =", err)
 	}
 
 	// Stand up a fake registry.

@@ -75,7 +75,7 @@ func TestServiceCreateAndUpdate(t *testing.T) {
 	}
 
 	if err := validateAnnotations(objects); err != nil {
-		t.Errorf("Service annotations are incorrect: %v", err)
+		t.Error("Service annotations are incorrect:", err)
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
@@ -127,7 +127,7 @@ func TestServiceCreateAndUpdate(t *testing.T) {
 	}
 
 	// Update Metadata (Annotations)
-	t.Logf("Updating annotations of RevisionTemplateSpec for service %s", names.Service)
+	t.Log("Updating annotations of RevisionTemplateSpec for service", names.Service)
 	metadata = metav1.ObjectMeta{
 		Annotations: map[string]string{
 			"annotationA": "123",
@@ -221,7 +221,7 @@ func TestServiceBYOName(t *testing.T) {
 	}
 
 	if err := validateAnnotations(objects); err != nil {
-		t.Errorf("Service annotations are incorrect: %v", err)
+		t.Error("Service annotations are incorrect:", err)
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
@@ -274,7 +274,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		t.Fatal("Release shape is incorrect:", err)
 	}
 	if err := validateAnnotations(objects); err != nil {
-		t.Errorf("Service annotations are incorrect: %v", err)
+		t.Error("Service annotations are incorrect:", err)
 	}
 	firstRevision := names.Revision
 
@@ -458,7 +458,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 
 	// Verify in the end it's still the case.
 	if err := validateAnnotations(objects); err != nil {
-		t.Errorf("Service annotations are incorrect: %v", err)
+		t.Error("Service annotations are incorrect:", err)
 	}
 
 	// `candidate` now points to the latest.
@@ -507,7 +507,7 @@ func TestAnnotationPropagation(t *testing.T) {
 	}
 
 	if err := validateAnnotations(objects); err != nil {
-		t.Errorf("Annotations are incorrect: %v", err)
+		t.Error("Annotations are incorrect:", err)
 	}
 
 	if objects.Service, err = v1b1test.PatchService(t, clients, objects.Service,
@@ -535,12 +535,12 @@ func TestAnnotationPropagation(t *testing.T) {
 	}
 	objects, err = v1b1test.GetResourceObjects(clients, names)
 	if err != nil {
-		t.Errorf("Error getting objects: %v", err)
+		t.Error("Error getting objects:", err)
 	}
 
 	// Now we can validate the annotations.
 	if err := validateAnnotations(objects, "juicy"); err != nil {
-		t.Errorf("Annotations are incorrect: %v", err)
+		t.Error("Annotations are incorrect:", err)
 	}
 
 	if objects.Service, err = v1b1test.PatchService(t, clients, objects.Service,
@@ -568,12 +568,12 @@ func TestAnnotationPropagation(t *testing.T) {
 	}
 	objects, err = v1b1test.GetResourceObjects(clients, names)
 	if err != nil {
-		t.Errorf("Error getting objects: %v", err)
+		t.Error("Error getting objects:", err)
 	}
 
 	// Now we can validate the annotations.
 	if err := validateAnnotations(objects); err != nil {
-		t.Errorf("Annotations are incorrect: %v", err)
+		t.Error("Annotations are incorrect:", err)
 	}
 	if _, ok := objects.Config.Annotations["juicy"]; ok {
 		t.Error("Config still has `juicy` annotation")

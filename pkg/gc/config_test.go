@@ -183,7 +183,7 @@ func TestOurConfig(t *testing.T) {
 			}
 
 			if !cmp.Equal(tt.want, got) {
-				t.Errorf("GC config (-want, +got): %s", cmp.Diff(tt.want, got))
+				t.Error("GC config (-want, +got):", cmp.Diff(tt.want, got))
 			}
 		})
 	}

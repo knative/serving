@@ -177,7 +177,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				cfg.Backend = tracingconfig.None
 			}
 			if err := oct.ApplyConfig(&cfg); err != nil {
-				t.Errorf("Failed to apply tracer config: %v", err)
+				t.Error("Failed to apply tracer config:", err)
 			}
 
 			writer := httptest.NewRecorder()

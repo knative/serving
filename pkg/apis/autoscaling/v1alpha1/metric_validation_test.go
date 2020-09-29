@@ -102,7 +102,7 @@ func TestMetricValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if got, want := test.m.Validate(context.Background()).Error(), test.want.Error(); !cmp.Equal(got, want) {
-				t.Errorf("Validate (-want, +got) = %s", cmp.Diff(want, got))
+				t.Error("Validate (-want, +got) =", cmp.Diff(want, got))
 			}
 		})
 	}

@@ -419,7 +419,7 @@ func TestMakePrivateService(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if got, want := MakePrivateService(test.sks, test.selector), test.want; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
-				t.Errorf("Private K8s Service mismatch (-want, +got) = %s", cmp.Diff(want, got, cmpopts.EquateEmpty()))
+				t.Error("Private K8s Service mismatch (-want, +got) =", cmp.Diff(want, got, cmpopts.EquateEmpty()))
 			}
 		})
 	}

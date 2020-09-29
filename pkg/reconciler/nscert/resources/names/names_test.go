@@ -25,7 +25,7 @@ import (
 func TestNamer(t *testing.T) {
 	for in, want := range map[string]string{"*.testns.example.com": "testns.example.com"} {
 		if got := WildcardCertificate(in); !cmp.Equal(got, want) {
-			t.Errorf("WildcardCertificate (-want, +got) = %s", cmp.Diff(want, got))
+			t.Error("WildcardCertificate (-want, +got) =", cmp.Diff(want, got))
 		}
 	}
 }

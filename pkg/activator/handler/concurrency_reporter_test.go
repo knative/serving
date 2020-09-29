@@ -364,7 +364,7 @@ func TestStats(t *testing.T) {
 			})
 
 			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want) {
-				t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
+				t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -409,7 +409,7 @@ func TestConcurrencyReporterRun(t *testing.T) {
 	got = append(got, <-cr.statCh...) // Scale from 0.
 	got = append(got, <-cr.statCh...) // Actual report.
 	if !cmp.Equal(got, want) {
-		t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
+		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
 	}
 }
 
@@ -457,7 +457,7 @@ func TestConcurrencyReporterHandler(t *testing.T) {
 	got = append(got, <-cr.statCh...) // Scale from 0.
 	got = append(got, <-cr.statCh...) // Actual report.
 	if !cmp.Equal(got, want) {
-		t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
+		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
 	}
 }
 
