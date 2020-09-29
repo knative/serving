@@ -219,7 +219,7 @@ jobs:
               file=$(echo $ent | cut -d':' -f 1);
               line=$(echo $ent | cut -d':' -f 2);
               ch=$(echo $ent | cut -d':' -f3-);
-              err=$(echo $ch | sed -E 's/([^.]+\.)(Fatalf|Errorf|Warnf|Infof|Debugf)([^\%]+)(%[^wq]",)([^,]+)/\1\2\3",\5/');
+              err=$(echo $ch | sed -E 's/([^.]+\.)(Fatal|Error|Warn|Info|Debug)f([^\%]+)(%[^wq]",)([^,]+)/\1\2\3",\5/');
               echo "::error file=$file,line=$line::Please consider avoiding tail format.%0A$err"
           done
           echo '::endgroup::'
