@@ -18,7 +18,6 @@ package scaling
 
 import (
 	"context"
-	"errors"
 	"math"
 	"sync"
 	"time"
@@ -70,13 +69,7 @@ func New(
 	namespace, revision string,
 	metricClient metrics.MetricClient,
 	podCounter resources.EndpointsCounter,
-	deciderSpec *DeciderSpec) (UniScaler, error) {
-	if podCounter == nil {
-		return nil, errors.New("'podCounter' must not be nil")
-	}
-	if reporterCtx == nil {
-		return nil, errors.New("stats reporter must not be nil")
-	}
+	deciderSpec *DeciderSpec) UniScaler {
 
 	var delayer *max.TimeWindow
 	if deciderSpec.ScaleDownDelay > 0 {
@@ -84,7 +77,7 @@ func New(
 	}
 
 	return newAutoscaler(reporterCtx, namespace, revision, metricClient,
-		podCounter, deciderSpec, delayer), nil
+		podCounter, deciderSpec, delayer)
 }
 
 func newAutoscaler(

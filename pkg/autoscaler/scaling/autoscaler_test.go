@@ -68,21 +68,6 @@ func (fpc fakePodCounter) ReadyCount() (int, error) {
 	return fpc.readyCount, fpc.err
 }
 
-func TestNewErrorWhenGivenNilEndpointsCounter(t *testing.T) {
-	if _, err := New(context.Background(), testNamespace, testRevision, &metricClient{}, nil,
-		&DeciderSpec{TargetValue: 10}); err == nil {
-		t.Error("Expected error when EndpointsCounter interface is nil, but got none.")
-	}
-}
-
-func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
-	pc := &fakePodCounter{}
-	if _, err := New(nil, testNamespace, testRevision, &metricClient{}, pc,
-		&DeciderSpec{TargetValue: 10}); err == nil {
-		t.Error("Expected error when stat reporter context is nil, but got none.")
-	}
-}
-
 func TestAutoscalerScaleDownDelay(t *testing.T) {
 	pc := &fakePodCounter{}
 	metrics := &metricClient{}
@@ -93,11 +78,7 @@ func TestAutoscalerScaleDownDelay(t *testing.T) {
 		PanicThreshold:   100,
 		ScaleDownDelay:   5 * time.Minute,
 	}
-
-	as, err := New(TestContextWithLogger(t), testNamespace, testRevision, metrics, pc, spec)
-	if err != nil {
-		t.Fatalf("Expected no error with a valid ScaleDownDelay, got %v", err)
-	}
+	as := New(TestContextWithLogger(t), testNamespace, testRevision, metrics, pc, spec)
 
 	now := time.Time{}
 
@@ -166,11 +147,7 @@ func TestAutoscalerScaleDownDelayZero(t *testing.T) {
 		PanicThreshold:   100,
 		ScaleDownDelay:   0,
 	}
-
-	as, err := New(TestContextWithLogger(t), testNamespace, testRevision, metrics, pc, spec)
-	if err != nil {
-		t.Fatalf("Expected no error with a valid ScaleDownDelay, got %v", err)
-	}
+	as := New(TestContextWithLogger(t), testNamespace, testRevision, metrics, pc, spec)
 
 	now := time.Time{}
 
