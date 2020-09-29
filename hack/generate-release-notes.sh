@@ -18,7 +18,7 @@ set -o errexit
 set -o pipefail
 
 # Install https://github.com/kubernetes/release/tree/master/cmd/release-notes
-# Last version  I tested with was 0ffc7ad
+# Last version tested with was 0ffc7ad
 
 readonly ROOT_DIR=$(dirname $0)/..
 
