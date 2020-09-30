@@ -32,11 +32,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"knative.dev/networking/pkg/apis/networking"
 	pkgmetrics "knative.dev/pkg/metrics"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/resources"
 )
 
