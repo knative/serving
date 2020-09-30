@@ -24,7 +24,6 @@ jobs:
 
         test-suite:
         - ./test/conformance/runtime
-        - ./test/conformance/api/v1beta1
         - ./test/conformance/api/v1
         - ./test/e2e
 
