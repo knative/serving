@@ -51,7 +51,7 @@ const (
 	// secretDataFieldKey is the name of the k8s Secret field that contains the Secret's key.
 	secretDataFieldKey = "key.json"
 	// stackdriverApiTimeout is the timeout value of Stackdriver API service side.
-	stackdriverApiTimeout = 12 * time.Second
+	stackdriverAPITimeout = 12 * time.Second
 )
 
 var (
@@ -193,14 +193,14 @@ func newStackdriverExporter(config *metricsConfig, logger *zap.SugaredLogger) (v
 		GetMetricPrefix:         mpf,
 		ReportingInterval:       config.reportingPeriod,
 		DefaultMonitoringLabels: &sd.Labels{},
-		Timeout:                 stackdriverApiTimeout,
+		Timeout:                 stackdriverAPITimeout,
 		BundleCountThreshold:    TestOverrideBundleCount,
 	})
 	if err != nil {
 		logger.Errorw("Failed to create the Stackdriver exporter: ", zap.Error(err))
 		return nil, nil, err
 	}
-	logger.Infof("Created Opencensus Stackdriver exporter with config %v", config)
+	logger.Info("Created Opencensus Stackdriver exporter with config ", config)
 	// We have to return a ResourceExporterFactory here to enable tracking resources, even though we always poll for them.
 	return &pollOnlySDExporter{e},
 		func(r *resource.Resource) (view.Exporter, error) { return &pollOnlySDExporter{}, nil },
@@ -291,7 +291,7 @@ func getStackdriverExporterClientOptions(config *metricsConfig) ([]option.Client
 	// SetStackdriverSecretLocation must have been called by calling package for this to work.
 	if config.stackdriverClientConfig.UseSecret {
 		if config.secret == nil {
-			return co, fmt.Errorf("No secret provided for component %q; cannot use stackdriver-use-secret=true", config.component)
+			return co, fmt.Errorf("no secret provided for component %q; cannot use stackdriver-use-secret=true", config.component)
 		}
 
 		if opt, err := convertSecretToExporterOption(config.secret); err == nil {
@@ -374,7 +374,7 @@ func convertSecretToExporterOption(secret *corev1.Secret) (option.ClientOption, 
 	if data, ok := secret.Data[secretDataFieldKey]; ok {
 		return option.WithCredentialsJSON(data), nil
 	}
-	return nil, fmt.Errorf("Expected Secret to store key in data field named [%s]", secretDataFieldKey)
+	return nil, fmt.Errorf("expected Secret to store key in data field named [%s]", secretDataFieldKey)
 }
 
 // ensureKubeclient is the lazy initializer for kubeclient.

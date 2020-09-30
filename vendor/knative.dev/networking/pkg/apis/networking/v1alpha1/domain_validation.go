@@ -29,22 +29,22 @@ func (d *Domain) Validate(ctx context.Context) *apis.FieldError {
 }
 
 // Validate inspects and validates DomainSpec object.
-func (spec *DomainSpec) Validate(ctx context.Context) *apis.FieldError {
+func (ds *DomainSpec) Validate(ctx context.Context) *apis.FieldError {
 	// Spec must not be empty.
-	if equality.Semantic.DeepEqual(spec, &DomainSpec{}) {
+	if equality.Semantic.DeepEqual(ds, &DomainSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 	var all *apis.FieldError
-	if spec.IngressClass == "" {
+	if ds.IngressClass == "" {
 		all = all.Also(apis.ErrMissingField("ingressClass"))
 	}
-	if len(spec.LoadBalancers) == 0 {
+	if len(ds.LoadBalancers) == 0 {
 		all = all.Also(apis.ErrMissingField("loadBalancers"))
 	}
-	for idx, lbSpec := range spec.LoadBalancers {
+	for idx, lbSpec := range ds.LoadBalancers {
 		all = all.Also(lbSpec.Validate(ctx).ViaFieldIndex("loadBalancers", idx))
 	}
-	for idx, cfg := range spec.Configs {
+	for idx, cfg := range ds.Configs {
 		all = all.Also(cfg.Validate(ctx).ViaFieldIndex("configs", idx))
 	}
 	return all

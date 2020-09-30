@@ -160,6 +160,7 @@ func (o *TLogger) interfacesToFields(things ...interface{}) []interface{} {
 	return fields
 }
 
+// nolint:stylecheck // Returning the error first is okay and expected here.
 func (o *TLogger) errorWithRuntimeCheck(stringThenKeysAndValues ...interface{}) (error, string, []interface{}) {
 	if len(stringThenKeysAndValues) == 0 {
 		return nil, "", nil
@@ -346,8 +347,8 @@ func (o *TLogger) cloneWithNewLogger(l *zap.Logger) *TLogger {
 // If any are errors, it fails the subtest.
 // Currently experimental and likely to be removed
 func (o *TLogger) Collect(key string, value interface{}) {
-	list, has_key := o.errs[key]
-	if has_key {
+	list, hasKey := o.errs[key]
+	if hasKey {
 		list = append(list, value)
 	} else {
 		list = make([]interface{}, 1)
