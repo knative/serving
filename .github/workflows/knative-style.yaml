@@ -120,7 +120,6 @@ jobs:
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.30
-          only-new-issues: true # for initial defensiveness
 
       - name: misspell
         shell: bash
