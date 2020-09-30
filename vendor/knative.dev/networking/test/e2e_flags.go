@@ -31,7 +31,7 @@ var ServingFlags = initializeServingFlags()
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
 	ResolvableDomain    bool   // Resolve Route controller's `domainSuffix`
-	Https               bool   // Indicates where the test service will be created with https
+	HTTPS               bool   // Indicates where the test service will be created with https
 	IngressClass        string // Indicates the class of Ingress provider to test.
 	CertificateClass    string // Indicates the class of Certificate provider to test.
 	SystemNamespace     string // Indicates the system namespace, in which Knative Serving is installed.
@@ -39,6 +39,7 @@ type ServingEnvironmentFlags struct {
 	Replicas            int    // The number of controlplane replicas being run.
 	EnableAlphaFeatures bool   // Indicates whether we run tests for alpha features
 	EnableBetaFeatures  bool   // Indicates whether we run tests for beta features
+	SkipTests           string // Indicates the test names we want to skip in alpha or beta features.
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -50,7 +51,7 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 		false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 
-	flag.BoolVar(&f.Https,
+	flag.BoolVar(&f.HTTPS,
 		"https",
 		false,
 		"Set this flag to true to run all tests with https.")
@@ -78,12 +79,17 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	flag.BoolVar(&f.EnableAlphaFeatures,
 		"enable-alpha",
 		false,
-		"Set this flag to run tests against alpha features")
+		"Set this flag to run tests against alpha features.")
 
 	flag.BoolVar(&f.EnableBetaFeatures,
 		"enable-beta",
 		false,
-		"Set this flag to run tests against beta features")
+		"Set this flag to run tests against beta features.")
+
+	flag.StringVar(&f.SkipTests,
+		"skip-tests",
+		"",
+		"Set this flag to the tests you want to skip in alpha or beta features. Accepts a comma separated list.")
 
 	return &f
 }

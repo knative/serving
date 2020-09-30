@@ -622,23 +622,23 @@ func createPodAndService(ctx context.Context, t *testing.T, clients *test.Client
 		}
 		err = clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
 		if err != nil {
-			t.Errorf("Error cleaning up Pod %s", pod.Name)
+			t.Error("Error cleaning up Pod", pod.Name)
 		}
 	}
 }
 
-// IngressOption enables further configuration of a Ingress.
-type IngressOption func(*v1alpha1.Ingress)
+// Option enables further configuration of a Ingress.
+type Option func(*v1alpha1.Ingress)
 
 // OverrideIngressAnnotation overrides the Ingress annotation.
-func OverrideIngressAnnotation(annotations map[string]string) IngressOption {
+func OverrideIngressAnnotation(annotations map[string]string) Option {
 	return func(ing *v1alpha1.Ingress) {
 		ing.Annotations = annotations
 	}
 }
 
 // createIngress creates a Knative Ingress resource
-func createIngress(ctx context.Context, t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec, io ...IngressOption) (*v1alpha1.Ingress, context.CancelFunc) {
+func createIngress(ctx context.Context, t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec, io ...Option) (*v1alpha1.Ingress, context.CancelFunc) {
 	t.Helper()
 
 	name := test.ObjectNameForTest(t)
@@ -953,7 +953,7 @@ func RuntimeRequestWithExpectations(ctx context.Context, t *testing.T, client *h
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		t.Errorf("Error creating Request: %v", err)
+		t.Error("Error creating Request:", err)
 		return nil
 	}
 
@@ -965,7 +965,7 @@ func RuntimeRequestWithExpectations(ctx context.Context, t *testing.T, client *h
 
 	if err != nil {
 		if !allowDialError || !IsDialError(err) {
-			t.Errorf("Error making GET request: %v", err)
+			t.Error("Error making GET request:", err)
 		}
 		return nil
 	}
@@ -974,7 +974,7 @@ func RuntimeRequestWithExpectations(ctx context.Context, t *testing.T, client *h
 
 	for _, e := range responseExpectations {
 		if err := e(resp); err != nil {
-			t.Errorf("Error meeting response expectations: %v", err)
+			t.Error("Error meeting response expectations:", err)
 			DumpResponse(ctx, t, resp)
 			return nil
 		}
@@ -983,13 +983,13 @@ func RuntimeRequestWithExpectations(ctx context.Context, t *testing.T, client *h
 	if resp.StatusCode == http.StatusOK {
 		b, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			t.Errorf("Unable to read response body: %v", err)
+			t.Error("Unable to read response body:", err)
 			DumpResponse(ctx, t, resp)
 			return nil
 		}
 		ri := &types.RuntimeInfo{}
 		if err := json.Unmarshal(b, ri); err != nil {
-			t.Errorf("Unable to parse runtime image's response payload: %v", err)
+			t.Error("Unable to parse runtime image's response payload:", err)
 			return nil
 		}
 		return ri
@@ -1001,7 +1001,7 @@ func DumpResponse(ctx context.Context, t *testing.T, resp *http.Response) {
 	t.Helper()
 	b, err := httputil.DumpResponse(resp, true)
 	if err != nil {
-		t.Errorf("Error dumping response: %v", err)
+		t.Error("Error dumping response:", err)
 	}
 	t.Log(string(b))
 }

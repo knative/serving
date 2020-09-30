@@ -25,32 +25,32 @@ import (
 )
 
 // Validate inspects and validates ClusterServerlessService object.
-func (ci *ServerlessService) Validate(ctx context.Context) *apis.FieldError {
-	return ci.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
+func (ss *ServerlessService) Validate(ctx context.Context) *apis.FieldError {
+	return ss.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
 }
 
 // Validate inspects and validates ServerlessServiceSpec object.
-func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldError {
+func (sss *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 	// Spec must not be empty.
-	if equality.Semantic.DeepEqual(spec, &ServerlessServiceSpec{}) {
+	if equality.Semantic.DeepEqual(sss, &ServerlessServiceSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 	var all *apis.FieldError
 	// Spec mode must be from the enum
-	switch spec.Mode {
+	switch sss.Mode {
 	case SKSOperationModeProxy, SKSOperationModeServe:
 		break
 	case "":
 		all = all.Also(apis.ErrMissingField("mode"))
 	default:
-		all = all.Also(apis.ErrInvalidValue(spec.Mode, "mode"))
+		all = all.Also(apis.ErrInvalidValue(sss.Mode, "mode"))
 	}
 
-	if spec.NumActivators < 0 {
-		all = all.Also(apis.ErrInvalidValue(spec.NumActivators, "numActivators"))
+	if sss.NumActivators < 0 {
+		all = all.Also(apis.ErrInvalidValue(sss.NumActivators, "numActivators"))
 	}
 
-	all = all.Also(networking.ValidateNamespacedObjectReference(&spec.ObjectRef).ViaField("objectRef"))
+	all = all.Also(networking.ValidateNamespacedObjectReference(&sss.ObjectRef).ViaField("objectRef"))
 
-	return all.Also(spec.ProtocolType.Validate(ctx).ViaField("protocolType"))
+	return all.Also(sss.ProtocolType.Validate(ctx).ViaField("protocolType"))
 }

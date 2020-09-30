@@ -153,7 +153,7 @@ func TestGRPCSplit(t *testing.T) {
 	for i := 0; i < maxRequests; i++ {
 		stream, err := pc.PingStream(ctx)
 		if err != nil {
-			t.Errorf("PingStream() = %v", err)
+			t.Error("PingStream() =", err)
 			continue
 		}
 
@@ -179,15 +179,15 @@ func TestGRPCSplit(t *testing.T) {
 
 func findGRPCSuffix(t *testing.T, stream ping.PingService_PingStreamClient) string {
 	// Establish the suffix that corresponds to this stream.
-	message := fmt.Sprintf("ping - %d", rand.Intn(1000))
+	message := fmt.Sprint("ping -", rand.Intn(1000))
 	if err := stream.Send(&ping.Request{Msg: message}); err != nil {
-		t.Errorf("Error sending request: %v", err)
+		t.Error("Error sending request:", err)
 		return ""
 	}
 
 	resp, err := stream.Recv()
 	if err != nil {
-		t.Errorf("Error receiving response: %v", err)
+		t.Error("Error receiving response:", err)
 		return ""
 	}
 	gotMsg := resp.Msg
@@ -199,15 +199,15 @@ func findGRPCSuffix(t *testing.T, stream ping.PingService_PingStreamClient) stri
 }
 
 func checkGRPCRoundTrip(t *testing.T, stream ping.PingService_PingStreamClient, suffix string) {
-	message := fmt.Sprintf("ping - %d", rand.Intn(1000))
+	message := fmt.Sprint("ping -", rand.Intn(1000))
 	if err := stream.Send(&ping.Request{Msg: message}); err != nil {
-		t.Errorf("Error sending request: %v", err)
+		t.Error("Error sending request:", err)
 		return
 	}
 
 	// Read back the echoed message and compared with sent.
 	if resp, err := stream.Recv(); err != nil {
-		t.Errorf("Error receiving response: %v", err)
+		t.Error("Error receiving response:", err)
 	} else if got, want := resp.Msg, message+suffix; got != want {
 		t.Errorf("Recv() = %s, wanted %s", got, want)
 	}

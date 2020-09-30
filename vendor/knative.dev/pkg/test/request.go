@@ -57,7 +57,7 @@ func Retrying(rc spoof.ResponseChecker, codes ...int) spoof.ResponseChecker {
 		for _, code := range codes {
 			if resp.StatusCode == code {
 				// Returning (false, nil) causes SpoofingClient.Poll to retry.
-				// sc.logger.Infof("Retrying for code %v", resp.StatusCode)
+				// sc.logger.Info("Retrying for code ", resp.StatusCode)
 				return false, nil
 			}
 		}

@@ -19,11 +19,11 @@ package v1alpha1
 import "context"
 
 // SetDefaults sets default values on the ServerlessServiceSpec.
-func (c *ServerlessService) SetDefaults(ctx context.Context) {
-	c.Spec.SetDefaults(ctx)
+func (ss *ServerlessService) SetDefaults(ctx context.Context) {
+	ss.Spec.SetDefaults(ctx)
 }
 
 // SetDefaults sets default values on the ServerlessServiceSpec.
-func (c *ServerlessServiceSpec) SetDefaults(ctx context.Context) {
+func (*ServerlessServiceSpec) SetDefaults(ctx context.Context) {
 	// Nothing is defaultable so far.
 }

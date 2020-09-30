@@ -346,6 +346,7 @@ func prometheusPort() (int, error) {
 
 // JsonToMetricsOptions converts a json string of a
 // ExporterOptions. Returns a non-nil ExporterOptions always.
+// nolint:stylecheck // No rename due to backwards incompatibility.
 func JsonToMetricsOptions(jsonOpts string) (*ExporterOptions, error) {
 	var opts ExporterOptions
 	if jsonOpts == "" {
@@ -360,6 +361,7 @@ func JsonToMetricsOptions(jsonOpts string) (*ExporterOptions, error) {
 }
 
 // MetricsOptionsToJson converts a ExporterOptions to a json string.
+// nolint:stylecheck // No rename due to backwards incompatibility.
 func MetricsOptionsToJson(opts *ExporterOptions) (string, error) {
 	if opts == nil {
 		return "", nil
