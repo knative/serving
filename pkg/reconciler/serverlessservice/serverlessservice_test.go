@@ -41,7 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
-	"knative.dev/networking/pkg/apis/networking"
+	pkgnet "knative.dev/networking/pkg/apis/networking"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	sksreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
 	"knative.dev/pkg/configmap"
@@ -49,6 +49,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 	presources "knative.dev/serving/pkg/resources"
 
@@ -731,7 +732,7 @@ func markNoEndpoints(sks *nv1a1.ServerlessService) {
 }
 
 func withHTTP2Protocol(sks *nv1a1.ServerlessService) {
-	sks.Spec.ProtocolType = networking.ProtocolH2C
+	sks.Spec.ProtocolType = pkgnet.ProtocolH2C
 }
 
 type deploymentOption func(*appsv1.Deployment)
@@ -764,7 +765,7 @@ func withHTTP2Priv(svc *corev1.Service) {
 }
 
 func withHTTP2(svc *corev1.Service) {
-	svc.Spec.Ports[0].Port = networking.ServiceHTTP2Port
+	svc.Spec.Ports[0].Port = pkgnet.ServiceHTTP2Port
 	svc.Spec.Ports[0].Name = "http2"
 	svc.Spec.Ports[0].TargetPort = intstr.FromInt(networking.BackendHTTP2Port)
 }
