@@ -99,7 +99,7 @@ func (ac *reconciler) decodeRequestAndPrepareContext(
 	logger := logging.FromContext(ctx)
 	handler, ok := ac.handlers[gvk]
 	if !ok {
-		logger.Errorf("Unhandled kind: %v", gvk)
+		logger.Error("Unhandled kind: ", gvk)
 		return ctx, nil, fmt.Errorf("unhandled kind: %v", gvk)
 	}
 
@@ -164,7 +164,7 @@ func validate(ctx context.Context, resource resourcesemantics.GenericCRD, req *a
 	case admissionv1.Delete:
 		return nil // Validation handled by optional Callback, but not validatable.
 	default:
-		logger.Infof("Unhandled webhook validation operation, letting it through %v", req.Operation)
+		logger.Info("Unhandled webhook validation operation, letting it through ", req.Operation)
 		return nil
 	}
 

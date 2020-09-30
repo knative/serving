@@ -122,8 +122,8 @@ type RuntimeInfo struct {
 
 // RequestInfo encapsulates information about the request.
 type RequestInfo struct {
-	// Ts is the timestamp of when the request came in from the system time.
-	Ts time.Time `json:"ts"`
+	// Timestamp is the timestamp of when the request came in from the system time.
+	Timestamp time.Time `json:"ts"`
 	// URI is the request-target of the Request-Line.
 	URI string `json:"uri"`
 	// Host is the hostname on which the URL is sought.

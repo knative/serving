@@ -23,6 +23,8 @@ import (
 	"flag"
 
 	network "knative.dev/networking/pkg"
+
+	// Load the generic flags of knative.dev/pkg too.
 	_ "knative.dev/pkg/test"
 )
 
@@ -32,7 +34,7 @@ var ServingFlags = initializeServingFlags()
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
 	ResolvableDomain    bool   // Resolve Route controller's `domainSuffix`
-	Https               bool   // Indicates where the test service will be created with https
+	HTTPS               bool   // Indicates where the test service will be created with https
 	IngressClass        string // Indicates the class of Ingress provider to test.
 	CertificateClass    string // Indicates the class of Certificate provider to test.
 	SystemNamespace     string // Indicates the system namespace, in which Knative Serving is installed.
@@ -57,12 +59,12 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	}
 
 	if fl := flag.Lookup("https"); fl == nil {
-		flag.BoolVar(&f.Https,
+		flag.BoolVar(&f.HTTPS,
 			"https",
 			false,
 			"Set this flag to true to run all tests with https.")
 	} else {
-		f.Https = fl.Value.(flag.Getter).Get().(bool)
+		f.HTTPS = fl.Value.(flag.Getter).Get().(bool)
 	}
 
 	if fl := flag.Lookup("ingressClass"); fl == nil {

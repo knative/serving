@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ func TestMetricCollectorCRUD(t *testing.T) {
 
 		got := coll.collections[key].metric
 		if !cmp.Equal(&defaultMetric, got) {
-			t.Errorf("Get() didn't return the same metric: %v", cmp.Diff(&defaultMetric, got))
+			t.Error("Get() didn't return the same metric:", cmp.Diff(&defaultMetric, got))
 		}
 
 		defaultMetric.Spec.ScrapeTarget = "new-target"
@@ -103,7 +103,7 @@ func TestMetricCollectorCRUD(t *testing.T) {
 
 		got = coll.collections[key].metric
 		if !cmp.Equal(&defaultMetric, got) {
-			t.Errorf("Update() didn't return the same metric: %v", cmp.Diff(&defaultMetric, got))
+			t.Error("Update() didn't return the same metric:", cmp.Diff(&defaultMetric, got))
 		}
 
 		newURL := (coll.collections[key]).scraper.(*testScraper).url
@@ -174,10 +174,10 @@ func TestMetricCollectorScraperMovingTime(t *testing.T) {
 	})
 
 	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err != nil {
-		t.Errorf("StableAndPanicConcurrency() = %v", err)
+		t.Error("StableAndPanicConcurrency() =", err)
 	}
 	if _, _, err := coll.StableAndPanicRPS(metricKey, now); err != nil {
-		t.Errorf("StableAndPanicRPS() = %v", err)
+		t.Error("StableAndPanicRPS() =", err)
 	}
 	if panicConcurrency != wantPConcurrency {
 		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantPConcurrency)
@@ -245,10 +245,10 @@ func TestMetricCollectorScraper(t *testing.T) {
 	})
 
 	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err != nil {
-		t.Errorf("StableAndPanicConcurrency() = %v", err)
+		t.Error("StableAndPanicConcurrency() =", err)
 	}
 	if _, _, err := coll.StableAndPanicRPS(metricKey, now); err != nil {
-		t.Errorf("StableAndPanicRPS() = %v", err)
+		t.Error("StableAndPanicRPS() =", err)
 	}
 	if panicConcurrency != wantPConcurrency {
 		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantPConcurrency)
@@ -328,10 +328,10 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	gotConcurrency, panicConcurrency, errCon := coll.StableAndPanicConcurrency(metricKey, now)
 	gotRPS, panicRPS, errRPS := coll.StableAndPanicRPS(metricKey, now)
 	if errCon != nil {
-		t.Errorf("StableAndPanicConcurrency() = %v", errCon)
+		t.Error("StableAndPanicConcurrency() =", errCon)
 	}
 	if errRPS != nil {
-		t.Errorf("StableAndPanicRPS() = %v", errRPS)
+		t.Error("StableAndPanicRPS() =", errRPS)
 	}
 	if panicConcurrency != wantStat {
 		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantStat)
@@ -359,7 +359,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
 	gotRPS, _, err := coll.StableAndPanicRPS(metricKey, now)
 	if err != nil {
-		t.Errorf("StableAndPanicRPS() = %v", err)
+		t.Error("StableAndPanicRPS() =", err)
 	}
 	if gotRPS != wantRC {
 		t.Errorf("StableRPS() = %v, want %v", gotRPS, wantRC)
@@ -393,10 +393,10 @@ func TestMetricCollectorNoDataError(t *testing.T) {
 	_, _, errCon := coll.StableAndPanicConcurrency(metricKey, now)
 	_, _, errRPS := coll.StableAndPanicRPS(metricKey, now)
 	if errCon != ErrNoData {
-		t.Errorf("StableAndPanicConcurrency() = %v", errCon)
+		t.Error("StableAndPanicConcurrency() =", errCon)
 	}
 	if errRPS != ErrNoData {
-		t.Errorf("StableAndPanicRPS() = %v", errRPS)
+		t.Error("StableAndPanicRPS() =", errRPS)
 	}
 }
 

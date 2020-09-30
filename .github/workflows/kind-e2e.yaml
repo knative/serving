@@ -4,9 +4,14 @@ on:
   pull_request:
     branches: [ 'master' ]
 
+defaults:
+  run:
+    shell: bash
+    working-directory: ./src/knative.dev/serving
+
 jobs:
 
-  ko-resolve:
+  e2e-tests:
     name: e2e tests
     runs-on: ubuntu-latest
     strategy:
@@ -19,8 +24,6 @@ jobs:
 
         test-suite:
         - ./test/conformance/runtime
-        - ./test/conformance/api/v1alpha1
-        - ./test/conformance/api/v1beta1
         - ./test/conformance/api/v1
         - ./test/e2e
 
@@ -54,6 +57,7 @@ jobs:
         go-version: 1.14.x
 
     - name: Install Dependencies
+      working-directory: ./
       run: |
         GO111MODULE=on go get github.com/google/ko/cmd/ko@master
 
@@ -63,7 +67,6 @@ jobs:
         path: ./src/knative.dev/serving
 
     - name: Install KinD
-      working-directory: ./src/knative.dev/serving
       run: |
         set -x
 
@@ -77,7 +80,6 @@ jobs:
         sudo mv kind /usr/local/bin
 
     - name: Create KinD Cluster
-      working-directory: ./src/knative.dev/serving
       run: |
         set -x
 
@@ -109,7 +111,6 @@ jobs:
         kind create cluster --config kind.yaml
 
     - name: Install Knative Serving
-      working-directory: ./src/knative.dev/serving
       run: |
         set -o pipefail
 
@@ -119,8 +120,8 @@ jobs:
         # Build and Publish our containers to the docker daemon (including test assets)
         export GO111MODULE=on
         export GOFLAGS=-mod=vendor
-        ko apply -Pf test/config/
-        ko apply -PRf config/core
+        ko apply --platform=all -Pf test/config/
+        ko apply --platform=all -PRf config/core
 
         # Have Serving use the kingress option.
         kubectl patch configmap/config-network \
@@ -132,13 +133,11 @@ jobs:
         kubectl scale -nknative-serving deployment/chaosduck --replicas=0
 
     - name: Wait for Webhook to be up
-      working-directory: ./src/knative.dev/serving
       run: |
         # We need the webhook to be up
         kubectl wait pod --for=condition=Ready -n knative-serving  -l app=webhook
 
     - name: Install kingress provider (Contour)
-      working-directory: ./src/knative.dev/serving
       if: matrix.kingress == 'contour'
       run: |
         set -o pipefail
@@ -154,7 +153,6 @@ jobs:
         echo "::set-env name=GATEWAY_NAMESPACE_OVERRIDE::contour-external"
 
     - name: Install kingress provider (Kourier)
-      working-directory: ./src/knative.dev/serving
       if: matrix.kingress == 'kourier'
       run: |
         set -o pipefail
@@ -170,26 +168,22 @@ jobs:
         echo "::set-env name=GATEWAY_NAMESPACE_OVERRIDE::kourier-system"
 
     - name: Install kingress provider (Istio)
-      working-directory: ./src/knative.dev/serving
       if: matrix.kingress == 'istio'
       run: |
         # TODO(https://github.com/knative-sandbox/net-istio/issues/285): Istio + NodePort
         exit 1
 
     - name: Upload Test Images
-      working-directory: ./src/knative.dev/serving
       run: |
         # Build and Publish our test images to the docker daemon.
         ./test/upload-test-images.sh
 
     - name: Wait for Serving and KIngress to be up
-      working-directory: ./src/knative.dev/serving
       run: |
         kubectl wait pod --for=condition=Ready -n knative-serving -l '!job-name'
         kubectl wait pod --for=condition=Ready -n "${GATEWAY_NAMESPACE_OVERRIDE}" -l '!job-name'
 
     - name: Run e2e Tests
-      working-directory: ./src/knative.dev/serving
       run: |
         set -x
 

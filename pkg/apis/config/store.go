@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@ import (
 	"context"
 
 	"knative.dev/pkg/configmap"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
 type cfgKey struct{}
@@ -59,7 +60,7 @@ func FromContextOrDefaults(ctx context.Context) *Config {
 	}
 
 	if cfg.Autoscaler == nil {
-		cfg.Autoscaler, _ = autoscalerconfig.NewConfigFromMap(map[string]string{})
+		cfg.Autoscaler, _ = asconfig.NewConfigFromMap(map[string]string{})
 	}
 	return cfg
 }
@@ -83,9 +84,9 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"apis",
 			logger,
 			configmap.Constructors{
-				DefaultsConfigName:          NewDefaultsConfigFromConfigMap,
-				FeaturesConfigName:          NewFeaturesConfigFromConfigMap,
-				autoscalerconfig.ConfigName: autoscalerconfig.NewConfigFromConfigMap,
+				DefaultsConfigName:  NewDefaultsConfigFromConfigMap,
+				FeaturesConfigName:  NewFeaturesConfigFromConfigMap,
+				asconfig.ConfigName: asconfig.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -108,7 +109,7 @@ func (s *Store) Load() *Config {
 	if feat, ok := s.UntypedLoad(FeaturesConfigName).(*Features); ok {
 		cfg.Features = feat.DeepCopy()
 	}
-	if as, ok := s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config); ok {
+	if as, ok := s.UntypedLoad(asconfig.ConfigName).(*autoscalerconfig.Config); ok {
 		cfg.Autoscaler = as.DeepCopy()
 	}
 	return cfg

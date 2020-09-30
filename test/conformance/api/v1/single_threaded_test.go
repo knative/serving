@@ -62,11 +62,11 @@ func TestSingleConcurrency(t *testing.T) {
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https)); err != nil {
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Fatalf("Error probing %s: %v", url, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
+	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		t.Fatal("Error creating spoofing client:", err)
 	}
@@ -74,13 +74,13 @@ func TestSingleConcurrency(t *testing.T) {
 	concurrency := 5
 	duration := 20 * time.Second
 	t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	group, _ := errgroup.WithContext(context.Background())
+	group, egCtx := errgroup.WithContext(context.Background())
 	for i := 0; i < concurrency; i++ {
 		threadIdx := i
 		group.Go(func() error {
 			requestIdx := 0
 			done := time.After(duration)
-			req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+			req, err := http.NewRequestWithContext(egCtx, http.MethodGet, url.String(), nil)
 			if err != nil {
 				return fmt.Errorf("error creating http request: %w", err)
 			}

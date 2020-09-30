@@ -236,7 +236,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				t.Fatal("Failed to generate config:", err)
 			}
 			if err := oct.ApplyConfig(cfg); err != nil {
-				t.Errorf("Failed to apply tracer config: %v", err)
+				t.Error("Failed to apply tracer config:", err)
 			}
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)

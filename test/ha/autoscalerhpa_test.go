@@ -50,7 +50,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to get leader:", err)
 	}
-	t.Logf("Got initial leader set: %v", leaders)
+	t.Log("Got initial leader set:", leaders)
 
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{

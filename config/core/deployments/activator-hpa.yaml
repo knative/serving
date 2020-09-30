@@ -47,7 +47,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 spec:
-  maxUnavailable: 20%
+  minAvailable: 80%
   selector:
     matchLabels:
       app: activator

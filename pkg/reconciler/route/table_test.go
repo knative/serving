@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -1889,8 +1889,7 @@ func TestReconcile_ResponsiveGC(t *testing.T) {
 				WithConfigLabel("serving.knative.dev/route", "stale-lastpinned"),
 			),
 			rev("default", "config", 1, MarkRevisionReady,
-				WithRevName("config-00001"),
-				WithLastPinned(fakeCurTime.Add(-10*time.Minute))),
+				WithRevName("config-00001")),
 			simpleReadyIngress(
 				Route("default", "stale-lastpinned", WithConfigTarget("config"), WithURL),
 				&traffic.Config{

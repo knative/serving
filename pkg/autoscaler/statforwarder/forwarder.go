@@ -344,19 +344,19 @@ func (f *Forwarder) process() {
 			p := f.getProcessor(bkt)
 			if p == nil {
 				l.Warn("Can't find the owner for Revision.")
-				f.maybeRetry(l, s, rev)
+				f.maybeRetry(l, s)
 				continue
 			}
 
 			if err := p.process(s.sm); err != nil {
 				l.Errorw("Error while processing stat", zap.Error(err))
-				f.maybeRetry(l, s, rev)
+				f.maybeRetry(l, s)
 			}
 		}
 	}
 }
 
-func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
+func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat) {
 	if s.retry > maxProcessingRetry {
 		logger.Warn("Exceeding max retries. Dropping the stat.")
 	}

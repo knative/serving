@@ -50,7 +50,7 @@ func TestRouteSpec(t *testing.T) {
 		LatestRevision:    ptr.Bool(true),
 	}}
 	if got, want := r.Spec.Traffic, wantT; !cmp.Equal(got, want) {
-		t.Errorf("Traffic mismatch: diff (-got, +want): %s", cmp.Diff(got, want))
+		t.Error("Traffic mismatch: diff (-got, +want):", cmp.Diff(got, want))
 	}
 	expectOwnerReferencesSetCorrectly(t, r.OwnerReferences)
 

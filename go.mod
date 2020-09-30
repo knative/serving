@@ -7,7 +7,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.1
-	github.com/google/go-cmp v0.5.1
+	github.com/google/go-cmp v0.5.2
 	github.com/google/go-containerregistry v0.1.3
 	github.com/google/gofuzz v1.1.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
@@ -22,20 +22,20 @@ require (
 	go.opencensus.io v0.22.4
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.15.0
-	golang.org/x/net v0.0.0-20200822124328-c89045814202
+	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	google.golang.org/api v0.29.0
-	google.golang.org/grpc v1.31.0
+	google.golang.org/api v0.31.0
+	google.golang.org/grpc v1.31.1
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20200915210741-1070879d7425
-	knative.dev/networking v0.0.0-20200917035342-994d214cdf82
-	knative.dev/pkg v0.0.0-20200916171541-6e0430fd94db
-	knative.dev/test-infra v0.0.0-20200916223841-d362984af929
+	knative.dev/caching v0.0.0-20200929191529-128ba664d15d
+	knative.dev/networking v0.0.0-20200930162730-9f4d4bd01696
+	knative.dev/pkg v0.0.0-20200930201529-29e3385d1b8e
+	knative.dev/test-infra v0.0.0-20200930161929-242b7529399e
 )
 
 replace (

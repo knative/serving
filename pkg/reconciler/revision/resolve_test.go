@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -154,7 +154,7 @@ func TestResolve(t *testing.T) {
 
 	img, err := random.Image(3, 1024)
 	if err != nil {
-		t.Fatalf("random.Image() = %v", err)
+		t.Fatal("random.Image() =", err)
 	}
 
 	// Stand up a fake registry.
@@ -529,7 +529,7 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 			}
 
 			// The actual test.
-			if tr, err := newResolverTransport(path); err != nil && !tc.wantErr {
+			if tr, err := newResolverTransport(path, 100, 100); err != nil && !tc.wantErr {
 				t.Error("Got unexpected err:", err)
 			} else if tc.wantErr && err == nil {
 				t.Error("Didn't get an error when we wanted it")

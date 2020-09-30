@@ -15,6 +15,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package e2e
 
 import (
@@ -178,13 +179,13 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	if _, err = v1test.PatchService(t, clients, resources.Service, func(s *v1.Service) {
 		labels.SetVisibility(&s.ObjectMeta, true)
 	}); err != nil {
-		t.Fatalf("Failed to patch service: %s", err.Error())
+		t.Fatal("Failed to patch service:", err.Error())
 	}
 
 	if err = v1test.WaitForRouteState(clients.ServingClient, resources.Route.Name, func(r *v1.Route) (bool, error) {
 		return isRouteClusterLocal(r.Status), nil
 	}, "Route is cluster local"); err != nil {
-		t.Fatalf("Route did not become cluster local: %s", err.Error())
+		t.Fatal("Route did not become cluster local:", err.Error())
 	}
 
 	clusterLocalRoute, err := clients.ServingClient.Routes.Get(context.Background(), resources.Route.Name, metav1.GetOptions{})
@@ -251,7 +252,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	serviceName := serviceNameForRoute(subrouteTag1, resources.Route.Name)
 	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get k8s service to modify: %s", err.Error())
+		t.Fatal("Failed to get k8s service to modify:", err.Error())
 	}
 
 	svcCopy := svc.DeepCopy()
@@ -263,7 +264,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	}
 
 	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(context.Background(), serviceName, types.JSONPatchType, svcpatchBytes, metav1.PatchOptions{}); err != nil {
-		t.Fatalf("Failed to patch service: %s", err.Error())
+		t.Fatal("Failed to patch service:", err.Error())
 	}
 
 	afterCh := time.After(5 * time.Second)
@@ -285,7 +286,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 			return false, nil
 		}
 	}, "sub routes are not ready"); err != nil {
-		t.Fatalf("Expected sub routes are not cluster local: %s", err.Error())
+		t.Fatal("Expected sub routes are not cluster local:", err.Error())
 	}
 
 	// check route is private
@@ -298,13 +299,13 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	if _, err = v1test.PatchService(t, clients, resources.Service, func(s *v1.Service) {
 		labels.SetVisibility(&s.ObjectMeta, false)
 	}); err != nil {
-		t.Fatalf("Failed to patch service: %s", err.Error())
+		t.Fatal("Failed to patch service:", err.Error())
 	}
 
 	if err = v1test.WaitForRouteState(clients.ServingClient, resources.Route.Name, func(r *v1.Route) (b bool, e error) {
 		return !isRouteClusterLocal(r.Status), nil
 	}, "Route is public"); err != nil {
-		t.Fatalf("Route is not public: %s", err.Error())
+		t.Fatal("Route is not public:", err.Error())
 	}
 
 	publicRoute, err := clients.ServingClient.Routes.Get(context.Background(), resources.Route.Name, metav1.GetOptions{})

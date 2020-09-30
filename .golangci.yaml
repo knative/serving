@@ -18,7 +18,36 @@ run:
 
 linters:
   enable:
-    - unconvert
+    - asciicheck
+    - golint
+    - gosec
     - prealloc
+    - stylecheck
+    - unconvert
+    - unparam
   disable:
     - errcheck
+
+issues:
+  exclude-rules:
+    - path: test # Excludes /test, *_test.go etc.
+      linters:
+        - gosec
+        - unparam
+
+    # Ignore "context.Context should be the first parameter of a function" errors in tests.
+    # See: https://github.com/golang/lint/issues/422
+    - path: test
+      text: "context.Context should be the first"
+      linters:
+        - golint
+
+    # Allow source and sink receivers in conversion code for clarity.
+    - path: _conversion\.go
+      text: "ST1016:"
+      linters:
+        - stylecheck
+    - path: _conversion\.go
+      text: "receiver name"
+      linters:
+        - golint

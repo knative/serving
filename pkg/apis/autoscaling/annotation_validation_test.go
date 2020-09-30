@@ -172,6 +172,10 @@ func TestValidateAnnotations(t *testing.T) {
 		annotations: map[string]string{WindowAnnotationKey: "365h"},
 		expectErr:   "expected 6s <= 365h <= 1h0m0s: " + WindowAnnotationKey,
 	}, {
+		name:        "window too precise",
+		annotations: map[string]string{WindowAnnotationKey: "1m9s82ms"},
+		expectErr:   "must be specified with at most second precision: " + WindowAnnotationKey,
+	}, {
 		name:        "annotation /window is invalid for class HPA and metric CPU",
 		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
 		expectErr:   fmt.Sprintf("invalid key name %q: \n%s for %s %s", WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
@@ -213,6 +217,28 @@ func TestValidateAnnotations(t *testing.T) {
 		name:        "invalid last pod scaledown timeout",
 		annotations: map[string]string{ScaleToZeroPodRetentionPeriodKey: "twenty-two-minutes-and-five-seconds"},
 		expectErr:   "invalid value: twenty-two-minutes-and-five-seconds: " + ScaleToZeroPodRetentionPeriodKey,
+	}, {
+		name:        "valid 0 scale down delay",
+		annotations: map[string]string{ScaleDownDelayAnnotationKey: "0"},
+	}, {
+		name:        "valid positive scale down delay",
+		annotations: map[string]string{ScaleDownDelayAnnotationKey: "21m31s"},
+	}, {
+		name:        "invalid positive scale down delay",
+		annotations: map[string]string{ScaleDownDelayAnnotationKey: "311m"},
+		expectErr:   "expected 0s <= 311m <= 1h0m0s: " + ScaleDownDelayAnnotationKey,
+	}, {
+		name:        "invalid positive scale down delay - too precise",
+		annotations: map[string]string{ScaleDownDelayAnnotationKey: "42.5s"},
+		expectErr:   "must be specified with at most second precision: " + ScaleDownDelayAnnotationKey,
+	}, {
+		name:        "invalid negative scale down delay",
+		annotations: map[string]string{ScaleDownDelayAnnotationKey: "-42s"},
+		expectErr:   "expected 0s <= -42s <= 1h0m0s: " + ScaleDownDelayAnnotationKey,
+	}, {
+		name:        "invalid scale down delay",
+		annotations: map[string]string{ScaleDownDelayAnnotationKey: "twenty-two-minutes-and-five-seconds"},
+		expectErr:   "invalid value: twenty-two-minutes-and-five-seconds: " + ScaleDownDelayAnnotationKey,
 	}, {
 		name: "all together now fail",
 		annotations: map[string]string{

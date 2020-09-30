@@ -105,7 +105,7 @@ func SetupZipkinTracingFromConfigTracing(ctx context.Context, kubeClientset *kub
 // SetupZipkinTracingFromConfigTracingOrFail is same as SetupZipkinTracingFromConfigTracing, but fails the test if an error happens
 func SetupZipkinTracingFromConfigTracingOrFail(ctx context.Context, t testing.TB, kubeClientset *kubernetes.Clientset, configMapNamespace string) {
 	if err := SetupZipkinTracingFromConfigTracing(ctx, kubeClientset, t.Logf, configMapNamespace); err != nil {
-		t.Fatalf("Error while setup Zipkin tracing: %v", err)
+		t.Fatal("Error while setup Zipkin tracing:", err)
 	}
 }
 
@@ -117,7 +117,7 @@ func SetupZipkinTracingFromConfigTracingOrFail(ctx context.Context, t testing.TB
 func SetupZipkinTracing(ctx context.Context, kubeClientset *kubernetes.Clientset, logf logging.FormatLogger, zipkinRemotePort int, zipkinNamespace string) (err error) {
 	setupOnce.Do(func() {
 		if e := monitoring.CheckPortAvailability(zipkinRemotePort); e != nil {
-			err = fmt.Errorf("Zipkin port not available on the machine: %w", err)
+			err = fmt.Errorf("zipkin port not available on the machine: %w", err)
 			return
 		}
 
@@ -145,7 +145,7 @@ func SetupZipkinTracing(ctx context.Context, kubeClientset *kubernetes.Clientset
 // SetupZipkinTracingOrFail is same as SetupZipkinTracing, but fails the test if an error happens
 func SetupZipkinTracingOrFail(ctx context.Context, t testing.TB, kubeClientset *kubernetes.Clientset, zipkinRemotePort int, zipkinNamespace string) {
 	if err := SetupZipkinTracing(ctx, kubeClientset, t.Logf, zipkinRemotePort, zipkinNamespace); err != nil {
-		t.Fatalf("Error while setup zipkin tracing: %v", err)
+		t.Fatal("Error while setup zipkin tracing:", err)
 	}
 }
 
@@ -211,7 +211,7 @@ type TimeoutError struct {
 }
 
 func (t *TimeoutError) Error() string {
-	return fmt.Sprintf("timeout getting JSONTrace, most recent error: %v", t.lastErr)
+	return fmt.Sprint("timeout getting JSONTrace, most recent error:", t.lastErr)
 }
 
 // jsonTrace gets a trace from Zipkin and returns it. Errors returned from this function should be

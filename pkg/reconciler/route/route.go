@@ -101,7 +101,7 @@ func (c *Reconciler) getServices(route *v1.Route) ([]*corev1.Service, error) {
 		serviceCopy[i] = svc.DeepCopy()
 	}
 
-	return serviceCopy, err
+	return serviceCopy, nil
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
@@ -125,7 +125,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	if cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC != cfgmap.Enabled {
+	if config.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC != cfgmap.Enabled {
 		// In all cases we will add annotations to the referred targets.  This is so that when they become
 		// routable we can know (through a listener) and attempt traffic configuration again.
 		if err := c.reconcileTargetRevisions(ctx, traffic, r); err != nil {
@@ -436,7 +436,7 @@ func autoTLSEnabled(ctx context.Context, r *v1.Route) bool {
 	annotationValue := r.Annotations[networking.DisableAutoTLSAnnotationKey]
 
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
-	if err != nil {
+	if annotationValue != "" && err != nil {
 		// validation should've caught an invalid value here.
 		// if we have one anyways, assume not disabled and log a warning.
 		logger.Warnf("Invalid annotation value for %q. Value: %q",

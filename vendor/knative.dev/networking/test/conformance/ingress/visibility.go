@@ -215,7 +215,7 @@ func TestVisibilitySplit(t *testing.T) {
 		})
 	}
 	if err := wg.Wait(); err != nil {
-		t.Errorf("Error while sending requests: %v", err)
+		t.Error("Error while sending requests:", err)
 	}
 	close(resultCh)
 

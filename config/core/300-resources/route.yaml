@@ -23,10 +23,9 @@ metadata:
 spec:
   group: serving.knative.dev
   versions:
-  - &version
-    name: v1alpha1
+  - name: v1
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
     schema:
@@ -47,11 +46,6 @@ spec:
     - name: Reason
       type: string
       jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
-  - << : *version
-    name: v1beta1
-  - << : *version
-    name: v1
-    storage: true
   names:
     kind: Route
     plural: routes
@@ -63,11 +57,3 @@ spec:
     shortNames:
     - rt
   scope: Namespaced
-  conversion:
-    strategy: Webhook
-    webhook:
-      conversionReviewVersions: ["v1", "v1beta1"]
-      clientConfig:
-        service:
-          name: webhook
-          namespace: knative-serving

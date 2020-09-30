@@ -25,7 +25,7 @@ import (
 
 func requestInfo(r *http.Request) *types.RequestInfo {
 	return &types.RequestInfo{
-		Ts:         time.Now(),
+		Timestamp:  time.Now(),
 		URI:        r.RequestURI,
 		Host:       r.Host,
 		Method:     r.Method,

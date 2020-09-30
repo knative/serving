@@ -34,66 +34,11 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	tracetesting "knative.dev/pkg/tracing/testing"
-	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
-
-	. "knative.dev/pkg/logging/testing"
 )
 
-const wantHost = "a-better-host.com"
-
-func TestHandlerReqEvent(t *testing.T) {
-	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(activator.RevisionHeaderName) != "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		if r.Header.Get(activator.RevisionHeaderNamespace) != "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		if got, want := r.Host, wantHost; got != want {
-			t.Errorf("Host header = %q, want: %q", got, want)
-		}
-		if got, want := r.Header.Get(network.OriginalHostHeader), ""; got != want {
-			t.Errorf("%s header was preserved", network.OriginalHostHeader)
-		}
-
-		w.WriteHeader(http.StatusOK)
-	}
-
-	server := httptest.NewServer(httpHandler)
-	serverURL, _ := url.Parse(server.URL)
-
-	defer server.Close()
-	proxy := httputil.NewSingleHostReverseProxy(serverURL)
-
-	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-	breaker := queue.NewBreaker(params)
-	stats := network.NewRequestStats(time.Now())
-	h := proxyHandler(breaker, stats, true /*tracingEnabled*/, proxy)
-
-	writer := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-
-	// Verify the Original host header processing.
-	req.Host = "nimporte.pas"
-	req.Header.Set(network.OriginalHostHeader, wantHost)
-
-	req.Header.Set(network.ProxyHeaderName, activator.Name)
-	h(writer, req)
-
-	if got := stats.Report(time.Now()).ProxiedRequestCount; got != 1 {
-		t.Errorf("ProxiedRequestCount = %v, want 1", got)
-	}
-}
-
 func TestProbeHandler(t *testing.T) {
-	logger := TestLogger(t)
-
 	testcases := []struct {
 		name          string
 		prober        func() bool
@@ -132,7 +77,7 @@ func TestProbeHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := knativeProbeHandler(logger, healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
+			h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -147,7 +92,6 @@ func TestProbeHandler(t *testing.T) {
 }
 
 func TestQueueTraceSpans(t *testing.T) {
-	logger := TestLogger(t)
 	testcases := []struct {
 		name          string
 		prober        func() bool
@@ -233,7 +177,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				cfg.Backend = tracingconfig.None
 			}
 			if err := oct.ApplyConfig(&cfg); err != nil {
-				t.Errorf("Failed to apply tracer config: %v", err)
+				t.Error("Failed to apply tracer config:", err)
 			}
 
 			writer := httptest.NewRecorder()
@@ -257,10 +201,10 @@ func TestQueueTraceSpans(t *testing.T) {
 					Propagation: tracecontextb3.B3Egress,
 				}
 
-				h := proxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
+				h := queue.ProxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
-				h := knativeProbeHandler(logger, healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
+				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}
@@ -297,70 +241,5 @@ func TestQueueTraceSpans(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func BenchmarkProxyHandler(b *testing.B) {
-	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	stats := network.NewRequestStats(time.Now())
-
-	promStatReporter, err := queue.NewPrometheusStatsReporter(
-		"ns", "testksvc", "testksvc",
-		"pod", reportingPeriod)
-	if err != nil {
-		b.Fatal("Failed to create stats reporter:", err)
-	}
-
-	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-	req.Header.Set(network.OriginalHostHeader, wantHost)
-
-	tests := []struct {
-		label        string
-		breaker      *queue.Breaker
-		reportPeriod time.Duration
-	}{{
-		label:        "breaker-10-no-reports",
-		breaker:      queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
-		reportPeriod: time.Hour,
-	}, {
-		label:        "breaker-infinite-no-reports",
-		breaker:      nil,
-		reportPeriod: time.Hour,
-	}, {
-		label:        "breaker-10-many-reports",
-		breaker:      queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
-		reportPeriod: time.Microsecond,
-	}, {
-		label:        "breaker-infinite-many-reports",
-		breaker:      nil,
-		reportPeriod: time.Microsecond,
-	}}
-
-	for _, tc := range tests {
-		reportTicker := time.NewTicker(tc.reportPeriod)
-
-		go func() {
-			for now := range reportTicker.C {
-				promStatReporter.Report(stats.Report(now))
-			}
-		}()
-
-		h := proxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler)
-		b.Run(fmt.Sprintf("sequential-%s", tc.label), func(b *testing.B) {
-			resp := httptest.NewRecorder()
-			for j := 0; j < b.N; j++ {
-				h(resp, req)
-			}
-		})
-		b.Run(fmt.Sprintf("parallel-%s", tc.label), func(b *testing.B) {
-			b.RunParallel(func(pb *testing.PB) {
-				resp := httptest.NewRecorder()
-				for pb.Next() {
-					h(resp, req)
-				}
-			})
-		})
-
-		reportTicker.Stop()
 	}
 }

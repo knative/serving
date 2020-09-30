@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -83,6 +83,6 @@ type MetricList struct {
 }
 
 // GetStatus retrieves the status of the Metric. Implements the KRShaped interface.
-func (t *Metric) GetStatus() *duckv1.Status {
-	return &t.Status.Status
+func (m *Metric) GetStatus() *duckv1.Status {
+	return &m.Status.Status
 }

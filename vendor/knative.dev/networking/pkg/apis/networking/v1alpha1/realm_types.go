@@ -103,6 +103,6 @@ type RealmStatus struct {
 }
 
 // GetStatus retrieves the status of the Realm. Implements the KRShaped interface.
-func (t *Realm) GetStatus() *duckv1.Status {
-	return &t.Status.Status
+func (r *Realm) GetStatus() *duckv1.Status {
+	return &r.Status.Status
 }

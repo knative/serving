@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -165,8 +165,8 @@ func newBuilder(
 }
 
 func (cb *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
-	for _, tt := range traffic {
-		if err := cb.addTrafficTarget(&tt); err != nil {
+	for i := range traffic {
+		if err := cb.addTrafficTarget(&traffic[i]); err != nil {
 			// Other non-traffic target errors shouldn't be ignored.
 			return err
 		}
@@ -300,18 +300,18 @@ func (cb *configBuilder) addFlattenedTarget(target RevisionTarget) {
 	}
 }
 
-func (cfg *configBuilder) build() (*Config, error) {
-	if cfg.deferredTargetErr != nil {
-		cfg.targets = nil
-		cfg.revisionTargets = nil
+func (cb *configBuilder) build() (*Config, error) {
+	if cb.deferredTargetErr != nil {
+		cb.targets = nil
+		cb.revisionTargets = nil
 	}
 	return &Config{
-		Targets:         consolidateAll(cfg.targets),
-		revisionTargets: cfg.revisionTargets,
-		Configurations:  cfg.configurations,
-		Revisions:       cfg.revisions,
-		MissingTargets:  cfg.missingTargets,
-	}, cfg.deferredTargetErr
+		Targets:         consolidateAll(cb.targets),
+		revisionTargets: cb.revisionTargets,
+		Configurations:  cb.configurations,
+		Revisions:       cb.revisions,
+		MissingTargets:  cb.missingTargets,
+	}, cb.deferredTargetErr
 }
 
 func consolidateAll(targets map[string]RevisionTargets) map[string]RevisionTargets {

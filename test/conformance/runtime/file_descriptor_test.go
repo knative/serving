@@ -43,7 +43,7 @@ func TestShouldHaveStdinEOF(t *testing.T) {
 	}
 
 	if stdin.Error != "" {
-		t.Fatalf("Error reading stdin: %v", stdin.Error)
+		t.Fatal("Error reading stdin:", stdin.Error)
 	}
 
 	if got, want := *stdin.EOF, true; got != want {

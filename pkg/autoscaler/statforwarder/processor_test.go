@@ -81,7 +81,7 @@ func testService(t *testing.T, received chan struct{}) *httptest.Server {
 
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			t.Fatalf("error upgrading websocket: %v", err)
+			t.Fatal("error upgrading websocket:", err)
 		}
 
 		defer conn.Close()

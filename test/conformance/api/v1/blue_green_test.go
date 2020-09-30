@@ -126,8 +126,6 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 	tealURL := service.Status.URL.URL()
 
-	// Istio network programming takes some time to be effective.  Currently Istio
-	// does not expose a Status, so we rely on probes to know when they are effective.
 	// Since we are updating the service the teal domain probe will succeed before our changes
 	// take effect so we probe the green domain.
 	t.Log("Probing", greenURL)
@@ -139,23 +137,23 @@ func TestBlueGreenRoute(t *testing.T) {
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https)); err != nil {
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Fatalf("Error probing %s: %v", greenURL, err)
 	}
 
 	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
-	g, _ := errgroup.WithContext(context.Background())
+	g, egCtx := errgroup.WithContext(context.Background())
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinSplitPercentage))
-		return shared.CheckDistribution(t, clients, tealURL, test.ConcurrentRequests, min, []string{expectedBlue, expectedGreen})
+		return shared.CheckDistribution(egCtx, t, clients, tealURL, test.ConcurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return shared.CheckDistribution(t, clients, blueURL, test.ConcurrentRequests, min, []string{expectedBlue})
+		return shared.CheckDistribution(egCtx, t, clients, blueURL, test.ConcurrentRequests, min, []string{expectedBlue})
 	})
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return shared.CheckDistribution(t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
+		return shared.CheckDistribution(egCtx, t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
 		t.Fatal("Error sending requests:", err)

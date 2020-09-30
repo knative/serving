@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package domains
 
 import (
@@ -257,7 +258,7 @@ func TestGetAllDomainsAndTags(t *testing.T) {
 				return
 			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
-				t.Errorf("GetAllDomains() diff (-want +got): %v", diff)
+				t.Error("GetAllDomains() diff (-want +got):", diff)
 			}
 		})
 	}

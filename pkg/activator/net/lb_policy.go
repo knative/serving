@@ -45,15 +45,15 @@ func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *pod
 	l := len(targets)
 	// One tracker = no choice.
 	if l == 1 {
-		targets[0].addWeight(1)
-		return func() {
-			targets[0].addWeight(-1)
-		}, targets[0]
+		pick := targets[0]
+		pick.increaseWeight()
+		return pick.decreaseWeight, pick
 	}
 	r1, r2 := 0, 1
 	// Two trackers - we know both contestants,
 	// otherwise pick 2 random unequal integers.
 	if l > 2 {
+		// nolint:gosec // We don't need cryptographic randomness here.
 		r1, r2 = rand.Intn(l), rand.Intn(l-1)
 		// shift second half of second rand.Intn down so we're picking
 		// from range of numbers other than r1.
@@ -69,10 +69,8 @@ func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *pod
 	if pick.getWeight() > alt.getWeight() {
 		pick = alt
 	}
-	pick.addWeight(1)
-	return func() {
-		pick.addWeight(-1)
-	}, pick
+	pick.increaseWeight()
+	return pick.decreaseWeight, pick
 }
 
 // firstAvailableLBPolicy is a load balancer policy, that picks the first target

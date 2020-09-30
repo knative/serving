@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
 var podCondSet = apis.NewLivingConditionSet(
@@ -136,6 +136,12 @@ func (pa *PodAutoscaler) ScaleToZeroPodRetention() (time.Duration, bool) {
 func (pa *PodAutoscaler) Window() (time.Duration, bool) {
 	// The value is validated in the webhook.
 	return pa.annotationDuration(autoscaling.WindowAnnotationKey)
+}
+
+// ScaleDownDelay returns the scale down delay annotation, or false if not present.
+func (pa *PodAutoscaler) ScaleDownDelay() (time.Duration, bool) {
+	// The value is validated in the webhook.
+	return pa.annotationDuration(autoscaling.ScaleDownDelayAnnotationKey)
 }
 
 // PanicWindowPercentage returns the panic window annotation value, or false if not present.

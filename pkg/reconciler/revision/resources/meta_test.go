@@ -88,7 +88,7 @@ func TestMakeLabels(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := makeLabels(test.rev)
 			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("makeLabels (-want, +got) = %v", diff)
+				t.Error("makeLabels (-want, +got) =", diff)
 			}
 
 			wantSelector := &metav1.LabelSelector{
@@ -96,7 +96,7 @@ func TestMakeLabels(t *testing.T) {
 			}
 			gotSelector := makeSelector(test.rev)
 			if diff := cmp.Diff(wantSelector, gotSelector); diff != "" {
-				t.Errorf("makeLabels (-want, +got) = %v", diff)
+				t.Error("makeLabels (-want, +got) =", diff)
 			}
 
 		})
@@ -136,7 +136,7 @@ func TestMakeAnnotations(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := makeAnnotations(test.rev)
 			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("makeLabels (-want, +got) = %v", diff)
+				t.Error("makeLabels (-want, +got) =", diff)
 			}
 		})
 	}

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	. "knative.dev/pkg/configmap/testing"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
 func TestNewConfig(t *testing.T) {
@@ -31,7 +32,7 @@ func TestNewConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   map[string]string
-		want    *Config
+		want    *autoscalerconfig.Config
 		wantErr bool
 	}{{
 		name:  "default",
@@ -64,7 +65,7 @@ func TestNewConfig(t *testing.T) {
 			"activator-capacity":                      "905",
 			"scale-to-zero-pod-retention-period":      "2m3s",
 		},
-		want: func() *Config {
+		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.TargetBurstCapacity = 12345
 			c.ContainerConcurrencyTargetDefault = 10.5
@@ -92,7 +93,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-threshold-percentage":              "200",
 			"activator-capacity":                      "1",
 		},
-		want: func() *Config {
+		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.ContainerConcurrencyTargetFraction = 0.5
 			c.ContainerConcurrencyTargetDefault = 10
@@ -107,7 +108,7 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"container-concurrency-target-percentage": "55",
 		},
-		want: func() *Config {
+		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.ContainerConcurrencyTargetFraction = 0.55
 			return c
@@ -117,7 +118,7 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"target-burst-capacity": "-1",
 		},
-		want: func() *Config {
+		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.TargetBurstCapacity = -1
 			return c
@@ -133,7 +134,7 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"enable-scale-to-zero": "false",
 		},
-		want: func() *Config {
+		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.EnableScaleToZero = false
 			return c
@@ -144,7 +145,7 @@ func TestNewConfig(t *testing.T) {
 			"enable-scale-to-zero":       "false",
 			"scale-to-zero-grace-period": "33s",
 		},
-		want: func() *Config {
+		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.EnableScaleToZero = false
 			c.ScaleToZeroGracePeriod = 33 * time.Second
@@ -301,7 +302,7 @@ func TestNewConfig(t *testing.T) {
 			"allow-zero-initial-scale": "true",
 			"initial-scale":            "0",
 		},
-		want: func() *Config {
+		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.AllowZeroInitialScale = true
 			c.InitialScale = 0
@@ -324,7 +325,7 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"max-scale": "10",
 		},
-		want: func() *Config {
+		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.MaxScale = 10
 			return c
@@ -348,7 +349,7 @@ func TestNewConfig(t *testing.T) {
 			"max-scale":       "10",
 			"max-scale-limit": "11",
 		},
-		want: func() *Config {
+		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.MaxScale = 10
 			c.MaxScaleLimit = 11
@@ -366,7 +367,7 @@ func TestNewConfig(t *testing.T) {
 				t.Errorf("NewConfigFromConfigMap() = %v, want %v", err, test.wantErr)
 			}
 			if diff := cmp.Diff(test.want, gotCM); diff != "" {
-				t.Errorf("NewConfigFromConfigMap (-want, +got) = %v", diff)
+				t.Error("NewConfigFromConfigMap (-want, +got) =", diff)
 			}
 
 			got, err := NewConfigFromMap(test.input)
@@ -374,7 +375,7 @@ func TestNewConfig(t *testing.T) {
 				t.Errorf("NewConfigFromMap() = %v, want %v", err, test.wantErr)
 			}
 			if diff := cmp.Diff(got, gotCM); diff != "" {
-				t.Errorf("NewConfigFromMap (-got, +gotCM) = %s", diff)
+				t.Error("NewConfigFromMap (-got, +gotCM) =", diff)
 			}
 		})
 	}

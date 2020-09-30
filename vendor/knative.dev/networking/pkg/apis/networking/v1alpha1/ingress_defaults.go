@@ -28,16 +28,16 @@ func (i *Ingress) SetDefaults(ctx context.Context) {
 }
 
 // SetDefaults populates default values in IngressSpec
-func (s *IngressSpec) SetDefaults(ctx context.Context) {
-	for i := range s.TLS {
-		s.TLS[i].SetDefaults(ctx)
+func (is *IngressSpec) SetDefaults(ctx context.Context) {
+	for i := range is.TLS {
+		is.TLS[i].SetDefaults(ctx)
 	}
-	for i := range s.Rules {
-		s.Rules[i].SetDefaults(ctx)
+	for i := range is.Rules {
+		is.Rules[i].SetDefaults(ctx)
 	}
 
 	// Deprecated, do not use.
-	s.DeprecatedVisibility = ""
+	is.DeprecatedVisibility = ""
 }
 
 // SetDefaults populates default values in IngressTLS
@@ -56,18 +56,18 @@ func (r *IngressRule) SetDefaults(ctx context.Context) {
 }
 
 // SetDefaults populates default values in HTTPIngressRuleValue
-func (r *HTTPIngressRuleValue) SetDefaults(ctx context.Context) {
-	for i := range r.Paths {
-		r.Paths[i].SetDefaults(ctx)
+func (h *HTTPIngressRuleValue) SetDefaults(ctx context.Context) {
+	for i := range h.Paths {
+		h.Paths[i].SetDefaults(ctx)
 	}
 }
 
 // SetDefaults populates default values in HTTPIngressPath
-func (p *HTTPIngressPath) SetDefaults(ctx context.Context) {
+func (h *HTTPIngressPath) SetDefaults(ctx context.Context) {
 	// If only one split is specified, we default to 100.
-	if len(p.Splits) == 1 && p.Splits[0].Percent == 0 {
-		p.Splits[0].Percent = 100
+	if len(h.Splits) == 1 && h.Splits[0].Percent == 0 {
+		h.Splits[0].Percent = 100
 	}
 	// Deprecated, do not use.
-	p.DeprecatedRetries = nil
+	h.DeprecatedRetries = nil
 }

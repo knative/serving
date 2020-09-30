@@ -27,8 +27,11 @@ import (
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/mako"
+
 	"knative.dev/serving/test/performance"
 	"knative.dev/serving/test/performance/metrics"
+
+	_ "knative.dev/pkg/system/testing"
 )
 
 var (

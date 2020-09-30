@@ -62,7 +62,7 @@ func TestHelloWorld(t *testing.T) {
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
@@ -115,7 +115,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, test.HelloWorldText, err)
 	}
@@ -142,16 +142,16 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	}
 
 	if container.Resources.Limits.Cpu().Cmp(resource.MustParse("40m")) != 0 {
-		t.Fatalf("queue-proxy should have limit.cpu set to 40m got %v", container.Resources.Limits.Cpu())
+		t.Fatal("queue-proxy should have limit.cpu set to 40m got", container.Resources.Limits.Cpu())
 	}
 	if container.Resources.Limits.Memory().Cmp(resource.MustParse("200Mi")) != 0 {
-		t.Fatalf("queue-proxy should have limit.memory set to 200Mi got %v", container.Resources.Limits.Memory())
+		t.Fatal("queue-proxy should have limit.memory set to 200Mi got", container.Resources.Limits.Memory())
 	}
 	if container.Resources.Requests.Cpu().Cmp(resource.MustParse("25m")) != 0 {
-		t.Fatalf("queue-proxy should have request.cpu set to 25m got %v", container.Resources.Requests.Cpu())
+		t.Fatal("queue-proxy should have request.cpu set to 25m got", container.Resources.Requests.Cpu())
 	}
 	if container.Resources.Requests.Memory().Cmp(resource.MustParse("50Mi")) != 0 {
-		t.Fatalf("queue-proxy should have request.memory set to 50Mi got %v", container.Resources.Requests.Memory())
+		t.Fatal("queue-proxy should have request.memory set to 50Mi got", container.Resources.Requests.Memory())
 	}
 }
 

@@ -28,10 +28,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -49,14 +49,12 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 func TestAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
-
-	RunAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.Concurrency)
+	runAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.Concurrency)
 }
 
 func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
-
-	RunAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.RPS)
+	runAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.RPS)
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
@@ -112,15 +110,16 @@ func TestTargetBurstCapacity(t *testing.T) {
 	})
 
 	// Wait for two stable pods.
+	obsScale := 0.0
 	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
-		x, err := numberOfReadyPods(ctx)
+		obsScale, err = numberOfReadyPods(ctx)
 		if err != nil {
 			return false, err
 		}
 		// We want exactly 2. Not 1, not panicing 3, just 2.
-		return x == 2, nil
+		return obsScale == 2, nil
 	}); err != nil {
-		t.Fatal("Desired scale of 2 never achieved:", err)
+		t.Fatalf("Desired scale of 2 never achieved; last known value %v; err: %v", obsScale, err)
 	}
 
 	// Now read the service endpoints and make sure there are 2 endpoints there.
@@ -132,10 +131,10 @@ func TestTargetBurstCapacity(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		t.Logf("resources.ReadyAddressCount(svcEps) = %d", resources.ReadyAddressCount(svcEps))
+		t.Log("resources.ReadyAddressCount(svcEps) =", resources.ReadyAddressCount(svcEps))
 		return resources.ReadyAddressCount(svcEps) == 2, nil
 	}); err != nil {
-		t.Errorf("Never achieved subset of size 2: %v", err)
+		t.Error("Never achieved subset of size 2:", err)
 	}
 }
 
@@ -208,5 +207,5 @@ func TestFastScaleToZero(t *testing.T) {
 		t.Fatalf("Did not observe %q to actually be emptied", epsN)
 	}
 
-	t.Logf("Total time to scale down: %v", time.Since(st))
+	t.Log("Total time to scale down:", time.Since(st))
 }

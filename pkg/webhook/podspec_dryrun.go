@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors.
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 )
 
-func decodeTemplate(ctx context.Context, val interface{}) (*v1.RevisionTemplateSpec, error) {
+func decodeTemplate(val interface{}) (*v1.RevisionTemplateSpec, error) {
 	templ := &v1.RevisionTemplateSpec{}
 	asData, ok := val.(map[string]interface{})
 	if !ok {

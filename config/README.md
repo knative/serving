@@ -3,8 +3,6 @@
 The files in this directory are organized as follows:
 
 - `core/`: the elements that are required for knative/serving to function,
-- `istio-ingress/`: the configuration needed to plug in the istio ingress
-  implementation,
 - `hpa-autoscaling/`: the configuration needed to extend the core with HPA-class
   autoscaling,
 - `namespace-wildcards/`: the configuration needed to extend the core to

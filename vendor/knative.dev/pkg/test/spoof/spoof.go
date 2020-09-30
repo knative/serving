@@ -39,12 +39,6 @@ import (
 	"go.opencensus.io/trace"
 )
 
-const (
-	// Name of the temporary HTTP header that is added to http.Request to indicate that
-	// it is a SpoofClient.Poll request. This header is removed before making call to backend.
-	pollReqHeader = "X-Kn-Poll-Request-Do-Not-Trace"
-)
-
 // Response is a stripped down subset of http.Response. The is primarily useful
 // for ResponseCheckers to inspect the response body without consuming it.
 // Notably, Body is a byte slice instead of an io.ReadCloser.

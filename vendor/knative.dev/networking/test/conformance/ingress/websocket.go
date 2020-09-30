@@ -45,7 +45,7 @@ func TestWebsocket(t *testing.T) {
 	domain := name + ".example.com"
 
 	// Create a simple Ingress over the Service.
-	_, dialCtx, _ := CreateIngressReadyDialContext(ctx, t, clients, v1alpha1.IngressSpec{
+	_, dialCtx, _ := createIngressReadyDialContext(ctx, t, clients, v1alpha1.IngressSpec{
 		Rules: []v1alpha1.IngressRule{{
 			Hosts:      []string{domain},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -98,7 +98,7 @@ func TestWebsocketSplit(t *testing.T) {
 	// Create a simple Ingress over the Service.
 	name := test.ObjectNameForTest(t)
 	domain := name + ".example.com"
-	_, dialCtx, _ := CreateIngressReadyDialContext(ctx, t, clients, v1alpha1.IngressSpec{
+	_, dialCtx, _ := createIngressReadyDialContext(ctx, t, clients, v1alpha1.IngressSpec{
 		Rules: []v1alpha1.IngressRule{{
 			Hosts:      []string{domain},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -157,20 +157,21 @@ func TestWebsocketSplit(t *testing.T) {
 	}
 
 	// Us getting here means we haven't seen splits.
-	t.Errorf("(over %d requests) (-want, +got) = %s", maxRequests, cmp.Diff(want, got))
+	t.Errorf("(over %d requests) (-want, +got) = %s", maxRequests, cmp.Diff(want.List(), got.List()))
 }
 
 func findWebsocketSuffix(ctx context.Context, t *testing.T, conn *websocket.Conn) string {
+	t.Helper()
 	// Establish the suffix that corresponds to this socket.
-	message := fmt.Sprintf("ping - %d", rand.Intn(1000))
+	message := fmt.Sprint("ping -", rand.Intn(1000))
 	if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
-		t.Errorf("WriteMessage() = %v", err)
+		t.Error("WriteMessage() =", err)
 		return ""
 	}
 
 	_, recv, err := conn.ReadMessage()
 	if err != nil {
-		t.Errorf("ReadMessage() = %v", err)
+		t.Error("ReadMessage() =", err)
 		return ""
 	}
 	gotMsg := string(recv)
@@ -182,15 +183,16 @@ func findWebsocketSuffix(ctx context.Context, t *testing.T, conn *websocket.Conn
 }
 
 func checkWebsocketRoundTrip(ctx context.Context, t *testing.T, conn *websocket.Conn, suffix string) {
-	message := fmt.Sprintf("ping - %d", rand.Intn(1000))
+	t.Helper()
+	message := fmt.Sprint("ping -", rand.Intn(1000))
 	if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
-		t.Errorf("WriteMessage() = %v", err)
+		t.Error("WriteMessage() =", err)
 		return
 	}
 
 	// Read back the echoed message and compared with sent.
 	if _, recv, err := conn.ReadMessage(); err != nil {
-		t.Errorf("ReadMessage() = %v", err)
+		t.Error("ReadMessage() =", err)
 	} else if got, want := string(recv), message+" "+suffix; got != want {
 		t.Errorf("ReadMessage() = %s, wanted %s", got, want)
 	}

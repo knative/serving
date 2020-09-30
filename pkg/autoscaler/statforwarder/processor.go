@@ -21,7 +21,6 @@ import (
 
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
@@ -53,7 +52,7 @@ func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS 
 	// accessed by IP address. Then try to connect via Pod IP address asynchronously
 	// to avoid nil check.
 	logger.Info("Connecting to Autoscaler bucket at ", podDNS)
-	c, err := newConnection(podDNS, logger)
+	c, err := websocket.NewDurableSendingConnectionGuaranteed(podDNS, establishTimeout, logger)
 	if err != nil {
 		logger.Info("Autoscaler pods can't be accessed by IP address. Connecting to Autoscaler bucket at ", svcDNS)
 		c = websocket.NewDurableSendingConnection(svcDNS, logger)
@@ -88,18 +87,4 @@ func (p *bucketProcessor) shutdown() {
 	if p.conn != nil {
 		p.conn.Shutdown()
 	}
-}
-
-// TODO(yanweiguo): use websocket.NewDurableSendingConnectionGuaranteed instead once knative.dev/pkg
-// is unpined.
-func newConnection(dns string, logger *zap.SugaredLogger) (*websocket.ManagedConnection, error) {
-	c := websocket.NewDurableSendingConnection(dns, logger)
-	if err := wait.PollImmediate(10*time.Millisecond, establishTimeout, func() (bool, error) {
-		return c.Status() == nil, nil
-	}); err != nil {
-		c.Shutdown()
-		return nil, websocket.ErrConnectionNotEstablished
-	}
-
-	return c, nil
 }

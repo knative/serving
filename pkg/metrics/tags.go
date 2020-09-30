@@ -56,7 +56,7 @@ func valueOrUnknown(v string) string {
 
 // RevisionContext generates a new base metric reporting context containing
 // the respective revision specific tags.
-func RevisionContext(ns, svc, cfg, rev string) (context.Context, error) {
+func RevisionContext(ns, svc, cfg, rev string) context.Context {
 	key := types.NamespacedName{Namespace: ns, Name: rev}
 	ctx, ok := contextCache.Get(key)
 	if !ok {
@@ -64,7 +64,7 @@ func RevisionContext(ns, svc, cfg, rev string) (context.Context, error) {
 		contextCache.Add(key, rctx)
 		ctx = rctx
 	}
-	return ctx.(context.Context), nil
+	return ctx.(context.Context)
 }
 
 type podCtx struct {

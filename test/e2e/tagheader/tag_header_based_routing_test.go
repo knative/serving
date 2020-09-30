@@ -15,6 +15,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package tagheader
 
 import (
@@ -118,7 +119,7 @@ func TestTagHeaderBasedRouting(t *testing.T) {
 				v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(tt.wantResponse))),
 				"WaitForSuccessfulResponse",
 				test.ServingFlags.ResolvableDomain,
-				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
+				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 				addHeader(tt.header),
 			); err != nil {
 				t.Fatalf("Error probing %s: %v", objects.Service.Status.URL.URL(), err)

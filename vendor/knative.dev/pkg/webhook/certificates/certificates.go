@@ -83,11 +83,11 @@ func (r *reconciler) reconcileCertificate(ctx context.Context) error {
 		// Check the expiration date of the certificate to see if it needs to be updated
 		cert, err := tls.X509KeyPair(secret.Data[certresources.ServerCert], secret.Data[certresources.ServerKey])
 		if err != nil {
-			logger.Warnf("Error creating pem from certificate and key: %v", err)
+			logger.Warn("Error creating pem from certificate and key: ", err)
 		} else {
 			certData, err := x509.ParseCertificate(cert.Certificate[0])
 			if err != nil {
-				logger.Errorf("Error parsing certificate: %v", err)
+				logger.Error("Error parsing certificate: ", err)
 			} else if time.Now().Add(oneWeek).Before(certData.NotAfter) {
 				return nil
 			}

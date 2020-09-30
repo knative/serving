@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -218,7 +218,7 @@ func TestTemplating(t *testing.T) {
 
 			def, err := NewDefaultsConfigFromMap(configMap.Data)
 			if err != nil {
-				t.Errorf("Error parsing defaults: %v", err)
+				t.Error("Error parsing defaults:", err)
 			}
 
 			if diff := cmp.Diff(defCM, def); diff != "" {

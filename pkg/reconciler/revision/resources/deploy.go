@@ -21,7 +21,6 @@ import (
 	"strconv"
 
 	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
@@ -29,8 +28,9 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 
@@ -218,18 +218,19 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 func MakeDeployment(rev *v1.Revision,
 	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config,
 	observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config,
-	autoscalerConfig *asconfig.Config) (*appsv1.Deployment, error) {
+	autoscalerConfig *autoscalerconfig.Config) (*appsv1.Deployment, error) {
 
 	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
 	}
 
-	replicaCount := int(autoscalerConfig.InitialScale)
+	replicaCount := autoscalerConfig.InitialScale
 	ann, found := rev.Annotations[autoscaling.InitialScaleAnnotationKey]
 	if found {
 		// Ignore errors and no error checking because already validated in webhook.
-		replicaCount, _ = strconv.Atoi(ann)
+		rc, _ := strconv.ParseInt(ann, 10, 32)
+		replicaCount = int32(rc)
 	}
 
 	labels := makeLabels(rev)
@@ -244,7 +245,7 @@ func MakeDeployment(rev *v1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas:                ptr.Int32(int32(replicaCount)),
+			Replicas:                ptr.Int32(replicaCount),
 			Selector:                makeSelector(rev),
 			ProgressDeadlineSeconds: ptr.Int32(int32(deploymentConfig.ProgressDeadline.Seconds())),
 			Template: corev1.PodTemplateSpec{

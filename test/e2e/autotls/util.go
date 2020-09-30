@@ -35,6 +35,7 @@ type requestOption func(*http.Request)
 type responseExpectation func(response *http.Response) error
 
 func runtimeRequest(t *testing.T, client *http.Client, url string, opts ...requestOption) *types.RuntimeInfo {
+	t.Helper()
 	return runtimeRequestWithExpectations(t, client, url,
 		[]responseExpectation{statusCodeExpectation(sets.NewInt(http.StatusOK))},
 		false,
@@ -52,7 +53,7 @@ func runtimeRequestWithExpectations(t *testing.T, client *http.Client, url strin
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		t.Errorf("Error creating Request: %v", err)
+		t.Error("Error creating Request:", err)
 		return nil
 	}
 
@@ -64,7 +65,7 @@ func runtimeRequestWithExpectations(t *testing.T, client *http.Client, url strin
 
 	if err != nil {
 		if !allowDialError || !isDialError(err) {
-			t.Errorf("Error making GET request: %v", err)
+			t.Error("Error making GET request:", err)
 		}
 		return nil
 	}
@@ -73,7 +74,7 @@ func runtimeRequestWithExpectations(t *testing.T, client *http.Client, url strin
 
 	for _, e := range responseExpectations {
 		if err := e(resp); err != nil {
-			t.Errorf("Error meeting response expectations: %v", err)
+			t.Error("Error meeting response expectations:", err)
 			dumpResponse(t, resp)
 			return nil
 		}
@@ -82,13 +83,13 @@ func runtimeRequestWithExpectations(t *testing.T, client *http.Client, url strin
 	if resp.StatusCode == http.StatusOK {
 		b, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			t.Errorf("Unable to read response body: %v", err)
+			t.Error("Unable to read response body:", err)
 			dumpResponse(t, resp)
 			return nil
 		}
 		ri := &types.RuntimeInfo{}
 		if err := json.Unmarshal(b, ri); err != nil {
-			t.Errorf("Unable to parse runtime image's response payload: %v", err)
+			t.Error("Unable to parse runtime image's response payload:", err)
 			return nil
 		}
 		return ri
@@ -100,7 +101,7 @@ func dumpResponse(t *testing.T, resp *http.Response) {
 	t.Helper()
 	b, err := httputil.DumpResponse(resp, true)
 	if err != nil {
-		t.Errorf("Error dumping response: %v", err)
+		t.Error("Error dumping response:", err)
 	}
 	t.Log(string(b))
 }
