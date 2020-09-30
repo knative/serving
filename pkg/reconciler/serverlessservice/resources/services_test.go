@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	commonnet "knative.dev/networking/pkg/apis/networking"
+	pkgnet "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
@@ -48,7 +48,7 @@ func sks(mod func(*v1alpha1.ServerlessService)) *v1alpha1.ServerlessService {
 			Annotations: map[string]string{},
 		},
 		Spec: v1alpha1.ServerlessServiceSpec{
-			ProtocolType: commonnet.ProtocolHTTP1,
+			ProtocolType: pkgnet.ProtocolHTTP1,
 			Mode:         v1alpha1.SKSOperationModeServe,
 		},
 	}
@@ -108,9 +108,9 @@ func svc(t networking.ServiceType, mods ...func(*corev1.Service)) *corev1.Servic
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:       commonnet.ServicePortNameHTTP1,
+				Name:       pkgnet.ServicePortNameHTTP1,
 				Protocol:   corev1.ProtocolTCP,
-				Port:       commonnet.ServiceHTTPPort,
+				Port:       pkgnet.ServiceHTTPPort,
 				TargetPort: intstr.FromInt(networking.BackendHTTPPort),
 			}},
 		},
@@ -168,13 +168,13 @@ func TestMakePublicService(t *testing.T) {
 			// Introduce some variability.
 			s.UID = "1988"
 			s.Annotations["cherub"] = "rock"
-			s.Spec.ProtocolType = commonnet.ProtocolH2C
+			s.Spec.ProtocolType = pkgnet.ProtocolH2C
 		}),
 		want: svc(networking.ServiceTypePublic, func(s *corev1.Service) {
 			s.Spec.Ports = []corev1.ServicePort{{
-				Name:       commonnet.ServicePortNameH2C,
+				Name:       pkgnet.ServicePortNameH2C,
 				Protocol:   corev1.ProtocolTCP,
-				Port:       commonnet.ServiceHTTP2Port,
+				Port:       pkgnet.ServiceHTTP2Port,
 				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
 			}}
 			s.Annotations = map[string]string{"cherub": "rock"}
@@ -183,28 +183,28 @@ func TestMakePublicService(t *testing.T) {
 	}, {
 		name: "HTTP2 -  serve - no backends",
 		sks: sks(func(s *v1alpha1.ServerlessService) {
-			s.Spec.ProtocolType = commonnet.ProtocolH2C
+			s.Spec.ProtocolType = pkgnet.ProtocolH2C
 		}),
 		want: svc(networking.ServiceTypePublic, func(s *corev1.Service) {
 			s.Spec.Ports = []corev1.ServicePort{{
-				Name:       commonnet.ServicePortNameH2C,
+				Name:       pkgnet.ServicePortNameH2C,
 				Protocol:   corev1.ProtocolTCP,
-				Port:       commonnet.ServiceHTTP2Port,
+				Port:       pkgnet.ServiceHTTP2Port,
 				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
 			}}
 		}),
 	}, {
 		name: "HTTP2 - proxy",
 		sks: sks(func(s *v1alpha1.ServerlessService) {
-			s.Spec.ProtocolType = commonnet.ProtocolH2C
+			s.Spec.ProtocolType = pkgnet.ProtocolH2C
 			s.Spec.Mode = v1alpha1.SKSOperationModeProxy
 			s.Labels["infinite"] = "sadness"
 		}),
 		want: svc(networking.ServiceTypePublic, func(s *corev1.Service) {
 			s.Spec.Ports = []corev1.ServicePort{{
-				Name:       commonnet.ServicePortNameH2C,
+				Name:       pkgnet.ServicePortNameH2C,
 				Protocol:   corev1.ProtocolTCP,
-				Port:       commonnet.ServiceHTTP2Port,
+				Port:       pkgnet.ServiceHTTP2Port,
 				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
 			}}
 			s.Labels["infinite"] = "sadness"
@@ -389,7 +389,7 @@ func TestMakePrivateService(t *testing.T) {
 		name: "HTTP2 and long",
 		sks: sks(func(s *v1alpha1.ServerlessService) {
 			s.Name = "dream-tonight-cherub-rock-mayonaise-hummer-disarm-rocket-soma-quiet"
-			s.Spec.ProtocolType = commonnet.ProtocolH2C
+			s.Spec.ProtocolType = pkgnet.ProtocolH2C
 			s.Annotations["cherub"] = "rock"
 			s.Labels["ava"] = "adore"
 			s.UID = "1988"
@@ -409,9 +409,9 @@ func TestMakePrivateService(t *testing.T) {
 		}, privateSvcMod, func(s *corev1.Service) {
 			// And now patch port to be http2.
 			s.Spec.Ports[0] = corev1.ServicePort{
-				Name:       commonnet.ServicePortNameH2C,
+				Name:       pkgnet.ServicePortNameH2C,
 				Protocol:   corev1.ProtocolTCP,
-				Port:       commonnet.ServiceHTTPPort,
+				Port:       pkgnet.ServiceHTTPPort,
 				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
 			}
 		}),

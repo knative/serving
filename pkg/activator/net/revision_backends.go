@@ -39,7 +39,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	network "knative.dev/networking/pkg"
-	commonnet "knative.dev/networking/pkg/apis/networking"
+	pkgnet "knative.dev/networking/pkg/apis/networking"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
@@ -94,7 +94,7 @@ type revisionWatcher struct {
 	stopCh   <-chan struct{}
 	cancel   context.CancelFunc
 	rev      types.NamespacedName
-	protocol commonnet.ProtocolType
+	protocol pkgnet.ProtocolType
 	updateCh chan<- revisionDestsUpdate
 	done     chan struct{}
 
@@ -113,7 +113,7 @@ type revisionWatcher struct {
 	podsAddressable bool
 }
 
-func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol commonnet.ProtocolType,
+func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol pkgnet.ProtocolType,
 	updateCh chan<- revisionDestsUpdate, destsCh chan dests,
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
 	logger *zap.SugaredLogger) *revisionWatcher {
@@ -440,7 +440,7 @@ func (rbm *revisionBackendsManager) updates() <-chan revisionDestsUpdate {
 	return rbm.updateCh
 }
 
-func (rbm *revisionBackendsManager) getRevisionProtocol(revID types.NamespacedName) (commonnet.ProtocolType, error) {
+func (rbm *revisionBackendsManager) getRevisionProtocol(revID types.NamespacedName) (pkgnet.ProtocolType, error) {
 	revision, err := rbm.revisionLister.Revisions(revID.Namespace).Get(revID.Name)
 	if err != nil {
 		return "", err
@@ -489,7 +489,7 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 		logger.Errorw("Failed to get revision watcher", zap.Error(err))
 		return
 	}
-	ready, notReady := endpointsToDests(endpoints, commonnet.ServicePortName(rw.protocol))
+	ready, notReady := endpointsToDests(endpoints, pkgnet.ServicePortName(rw.protocol))
 	logger.Debugf("Updating Endpoints: ready backends: %d, not-ready backends: %d", len(ready), len(notReady))
 	select {
 	case <-rbm.ctx.Done():

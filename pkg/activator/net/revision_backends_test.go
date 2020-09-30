@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	commonnet "knative.dev/networking/pkg/apis/networking"
+	pkgnet "knative.dev/networking/pkg/apis/networking"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
@@ -58,11 +58,11 @@ const (
 )
 
 // revisionCC1 - creates a revision with concurrency == 1.
-func revisionCC1(revID types.NamespacedName, protocol commonnet.ProtocolType) *v1.Revision {
+func revisionCC1(revID types.NamespacedName, protocol pkgnet.ProtocolType) *v1.Revision {
 	return revision(revID, protocol, 1)
 }
 
-func revision(revID types.NamespacedName, protocol commonnet.ProtocolType, cc int64) *v1.Revision {
+func revision(revID types.NamespacedName, protocol pkgnet.ProtocolType, cc int64) *v1.Revision {
 	return &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: revID.Namespace,
@@ -119,7 +119,7 @@ func TestRevisionWatcher(t *testing.T) {
 	for _, tc := range []struct {
 		name                  string
 		dests                 dests
-		protocol              commonnet.ProtocolType
+		protocol              pkgnet.ProtocolType
 		clusterPort           corev1.ServicePort
 		clusterIP             string
 		expectUpdates         []revisionDestsUpdate
@@ -159,7 +159,7 @@ func TestRevisionWatcher(t *testing.T) {
 	}, {
 		name:     "single http2 podIP",
 		dests:    dests{ready: sets.NewString("128.0.0.1:1234")},
-		protocol: commonnet.ProtocolH2C,
+		protocol: pkgnet.ProtocolH2C,
 		clusterPort: corev1.ServicePort{
 			Name: "http2",
 			Port: 1234,
@@ -178,7 +178,7 @@ func TestRevisionWatcher(t *testing.T) {
 	}, {
 		name:     "single http2 clusterIP",
 		dests:    dests{ready: sets.NewString("128.0.0.1:1234"), notReady: sets.NewString("128.0.0.2:1234")},
-		protocol: commonnet.ProtocolH2C,
+		protocol: pkgnet.ProtocolH2C,
 		clusterPort: corev1.ServicePort{
 			Name: "http2",
 			Port: 1234,
@@ -392,7 +392,7 @@ func TestRevisionWatcher(t *testing.T) {
 
 			// Default for protocol is http1
 			if tc.protocol == "" {
-				tc.protocol = commonnet.ProtocolHTTP1
+				tc.protocol = pkgnet.ProtocolHTTP1
 			}
 
 			fake := fakekubeclient.Get(ctx)
@@ -529,7 +529,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		name:         "add slow healthy",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
 		revisions: []*v1.Revision{
-			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, commonnet.ProtocolHTTP1),
+			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
@@ -557,7 +557,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		name:         "add slow ready http2",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http2", "128.0.0.1")},
 		revisions: []*v1.Revision{
-			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, commonnet.ProtocolH2C),
+			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolH2C),
 		},
 		services: []*corev1.Service{
 			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
@@ -588,8 +588,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			ep("test-revision2", 1235, "http", "128.1.0.2"),
 		},
 		revisions: []*v1.Revision{
-			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: "test-revision1"}, commonnet.ProtocolHTTP1),
-			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: "test-revision2"}, commonnet.ProtocolHTTP1),
+			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: "test-revision1"}, pkgnet.ProtocolHTTP1),
+			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: "test-revision2"}, pkgnet.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: "test-revision1"}, "129.0.0.1",
@@ -614,7 +614,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		name:         "no pod addressability",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
 		revisions: []*v1.Revision{
-			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, commonnet.ProtocolHTTP1),
+			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
@@ -640,7 +640,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		name:         "unhealthy",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
 		revisions: []*v1.Revision{
-			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, commonnet.ProtocolHTTP1),
+			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
@@ -660,7 +660,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		name:         "unready pod successfully probed",
 		endpointsArr: []*corev1.Endpoints{epNotReady(testRevision, 1234, "http", nil, []string{"128.0.0.1"})},
 		revisions: []*v1.Revision{
-			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, commonnet.ProtocolHTTP1),
+			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
@@ -1163,7 +1163,7 @@ func TestRevisionDeleted(t *testing.T) {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, commonnet.ProtocolHTTP1)
+	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
@@ -1205,7 +1205,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, commonnet.ProtocolHTTP1)
+	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
@@ -1255,7 +1255,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
-	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, commonnet.ProtocolHTTP1)
+	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)

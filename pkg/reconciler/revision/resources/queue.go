@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	network "knative.dev/networking/pkg"
-	commonnet "knative.dev/networking/pkg/apis/networking"
+	pkgnet "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
@@ -246,7 +246,7 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	// We need to configure only one serving port for the Queue proxy, since
 	// we know the protocol that is being used by this application.
 	servingPort := queueHTTPPort
-	if rev.GetProtocol() == commonnet.ProtocolH2C {
+	if rev.GetProtocol() == pkgnet.ProtocolH2C {
 		servingPort = queueHTTP2Port
 	}
 	ports = append(ports, servingPort)

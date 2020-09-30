@@ -17,7 +17,7 @@ limitations under the License.
 package resources
 
 import (
-	commonnet "knative.dev/networking/pkg/apis/networking"
+	pkgnet "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -30,7 +30,7 @@ import (
 
 // targetPort chooses the target (pod) port for the public and private service.
 func targetPort(sks *v1alpha1.ServerlessService) intstr.IntOrString {
-	if sks.Spec.ProtocolType == commonnet.ProtocolH2C {
+	if sks.Spec.ProtocolType == pkgnet.ProtocolH2C {
 		return intstr.FromInt(networking.BackendHTTP2Port)
 	}
 	return intstr.FromInt(networking.BackendHTTPPort)
@@ -53,9 +53,9 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:       commonnet.ServicePortName(sks.Spec.ProtocolType),
+				Name:       pkgnet.ServicePortName(sks.Spec.ProtocolType),
 				Protocol:   corev1.ProtocolTCP,
-				Port:       int32(commonnet.ServicePort(sks.Spec.ProtocolType)),
+				Port:       int32(pkgnet.ServicePort(sks.Spec.ProtocolType)),
 				TargetPort: targetPort(sks),
 			}},
 		},
@@ -127,9 +127,9 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:     commonnet.ServicePortName(sks.Spec.ProtocolType),
+				Name:     pkgnet.ServicePortName(sks.Spec.ProtocolType),
 				Protocol: corev1.ProtocolTCP,
-				Port:     commonnet.ServiceHTTPPort,
+				Port:     pkgnet.ServiceHTTPPort,
 				// This one is matching the public one, since this is the
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),
