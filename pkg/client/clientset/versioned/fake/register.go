@@ -26,7 +26,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 var scheme = runtime.NewScheme()
@@ -34,7 +33,6 @@ var codecs = serializer.NewCodecFactory(scheme)
 var parameterCodec = runtime.NewParameterCodec(scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	autoscalingv1alpha1.AddToScheme,
-	servingv1beta1.AddToScheme,
 	servingv1.AddToScheme,
 }
 
