@@ -213,7 +213,7 @@ func (r *backgroundResolver) processWorkItem(item *workItem) {
 
 	if resolveErr != nil {
 		item.result.statuses = nil
-		item.result.err = containerMissingError{image: item.image, cause: resolveErr}
+		item.result.err = fmt.Errorf("%s: %w", v1.RevisionContainerMissingMessage(item.image, "failed to resolve image to digest"), resolveErr)
 		item.result.completionCallback()
 		return
 	}
@@ -244,19 +244,4 @@ func (r *backgroundResolver) Clear(name types.NamespacedName) {
 
 func (r *resolveResult) ready() bool {
 	return r.remaining == 0 || r.err != nil
-}
-
-// containerMissingError converts an error in to the expected format for the
-// RevisionContainerMissing condition.
-type containerMissingError struct {
-	image string
-	cause error
-}
-
-func (e containerMissingError) Error() string {
-	return v1.RevisionContainerMissingMessage(e.image, fmt.Sprint("failed to resolve image to digest:", e.cause))
-}
-
-func (e containerMissingError) Unwrap() error {
-	return e.cause
 }
