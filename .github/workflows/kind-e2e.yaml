@@ -121,8 +121,8 @@ jobs:
         # Build and Publish our containers to the docker daemon (including test assets)
         export GO111MODULE=on
         export GOFLAGS=-mod=vendor
-        ko apply -Pf test/config/
-        ko apply -PRf config/core
+        ko apply --platform=all -Pf test/config/
+        ko apply --platform=all -PRf config/core
 
         # Have Serving use the kingress option.
         kubectl patch configmap/config-network \
