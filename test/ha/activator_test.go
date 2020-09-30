@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 
@@ -32,6 +31,7 @@ import (
 	pkgnet "knative.dev/pkg/network"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/networking"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
