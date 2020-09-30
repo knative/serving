@@ -51,9 +51,14 @@ func ValidateAnnotations(allowInitScaleZero bool, anns map[string]string) *apis.
 	if len(anns) == 0 {
 		return nil
 	}
-	return validateClass(anns).Also(validateMinMaxScale(anns)).Also(validateFloats(anns)).
-		Also(validateWindow(anns).Also(validateLastPodRetention(anns)).
-			Also(validateMetric(anns).Also(validateInitialScale(allowInitScaleZero, anns))))
+	return validateClass(anns).
+		Also(validateMinMaxScale(anns)).
+		Also(validateFloats(anns)).
+		Also(validateWindow(anns)).
+		Also(validateLastPodRetention(anns)).
+		Also(validateScaleDownDelay(anns)).
+		Also(validateMetric(anns)).
+		Also(validateInitialScale(allowInitScaleZero, anns))
 }
 
 func validateClass(annotations map[string]string) *apis.FieldError {
@@ -100,6 +105,22 @@ func validateFloats(annotations map[string]string) (errs *apis.FieldError) {
 	if v, ok := annotations[TargetBurstCapacityKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < 0 && fv != -1 {
 			errs = errs.Also(apis.ErrInvalidValue(v, TargetBurstCapacityKey))
+		}
+	}
+	return errs
+}
+
+func validateScaleDownDelay(annotations map[string]string) *apis.FieldError {
+	var errs *apis.FieldError
+	if w, ok := annotations[ScaleDownDelayAnnotationKey]; ok {
+		if d, err := time.ParseDuration(w); err != nil {
+			errs = apis.ErrInvalidValue(w, ScaleDownDelayAnnotationKey)
+		} else if d < 0 || d > WindowMax {
+			// Since we disallow windows longer than WindowMax, so we should limit this
+			// as well.
+			errs = apis.ErrOutOfBoundsValue(w, 0*time.Second, WindowMax, ScaleDownDelayAnnotationKey)
+		} else if d.Round(time.Second) != d {
+			errs = apis.ErrGeneric("must be specified with at most second precision", ScaleDownDelayAnnotationKey)
 		}
 	}
 	return errs
