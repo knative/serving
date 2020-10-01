@@ -20,7 +20,7 @@ function install_istio() {
   fi
 
   # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
-  local NET_ISTIO_COMMIT=f0840d3176909af51b09f3e0a3d8a244ab1b991b
+  local NET_ISTIO_COMMIT=6bbca066373b21689b5d90381c27920533809e82
 
   # And checkout the setup script based on that commit.
   local NET_ISTIO_DIR=$(mktemp -d)
