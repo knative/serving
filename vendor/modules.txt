@@ -1007,7 +1007,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/networking v0.0.0-20200930162730-9f4d4bd01696
+# knative.dev/networking v0.0.0-20201001020430-9f4933614459
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1040,7 +1040,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20200930201529-29e3385d1b8e
+# knative.dev/pkg v0.0.0-20201001022229-7c082ac1c01d
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
