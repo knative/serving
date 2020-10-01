@@ -49,7 +49,7 @@ func TestControllerHA(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to get leader:", err)
 	}
-	t.Logf("Got initial leader set: %v", leaders)
+	t.Log("Got initial leader set:", leaders)
 
 	service1Names, resources := createPizzaPlanetService(t)
 	test.EnsureTearDown(t, clients, &service1Names)

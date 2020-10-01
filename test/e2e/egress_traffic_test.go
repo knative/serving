@@ -69,6 +69,6 @@ func TestEgressTraffic(t *testing.T) {
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
-		t.Errorf("Failed to send request to httpproxy: %v", err)
+		t.Error("Failed to send request to httpproxy:", err)
 	}
 }

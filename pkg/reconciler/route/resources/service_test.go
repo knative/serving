@@ -345,13 +345,13 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 			}
 
 			if !cmp.Equal(tt.expectedLabels, got.Labels) {
-				t.Errorf("Unexpected Labels (-want +got): %s", cmp.Diff(tt.expectedLabels, got.Labels))
+				t.Error("Unexpected Labels (-want +got):", cmp.Diff(tt.expectedLabels, got.Labels))
 			}
 			if !cmp.Equal(tt.expectedAnnos, got.ObjectMeta.Annotations) {
-				t.Errorf("Unexpected Annotations (-want +got): %s", cmp.Diff(tt.expectedAnnos, got.ObjectMeta.Annotations))
+				t.Error("Unexpected Annotations (-want +got):", cmp.Diff(tt.expectedAnnos, got.ObjectMeta.Annotations))
 			}
 			if !cmp.Equal(tt.expectedSpec, got.Spec) {
-				t.Errorf("Unexpected ServiceSpec (-want +got): %s", cmp.Diff(tt.expectedSpec, got.Spec))
+				t.Error("Unexpected ServiceSpec (-want +got):", cmp.Diff(tt.expectedSpec, got.Spec))
 			}
 		})
 	}
@@ -427,7 +427,7 @@ func TestGetNames(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetNames(tt.services); !cmp.Equal(got, tt.want) {
-				t.Errorf("GetNames() (-want, +got) = %v", cmp.Diff(tt.want, got))
+				t.Error("GetNames() (-want, +got) =", cmp.Diff(tt.want, got))
 			}
 		})
 	}

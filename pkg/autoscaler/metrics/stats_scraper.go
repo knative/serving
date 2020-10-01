@@ -32,11 +32,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"knative.dev/networking/pkg/apis/networking"
 	pkgmetrics "knative.dev/pkg/metrics"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/resources"
 )
 
@@ -155,38 +155,23 @@ type serviceScraper struct {
 
 // NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewStatsScraper(metric *av1alpha1.Metric, podAccessor resources.PodAccessor,
-	logger *zap.SugaredLogger) (StatsScraper, error) {
-	directClient, err := newHTTPScrapeClient(client)
-	if err != nil {
-		return nil, err
-	}
-	meshClient, err := newHTTPScrapeClient(noKeepaliveClient)
-	if err != nil {
-		return nil, err
-	}
-	return newServiceScraperWithClient(metric, podAccessor, directClient, meshClient, logger)
+func NewStatsScraper(metric *av1alpha1.Metric, revisionName string, podAccessor resources.PodAccessor,
+	logger *zap.SugaredLogger) StatsScraper {
+	directClient := newHTTPScrapeClient(client)
+	meshClient := newHTTPScrapeClient(noKeepaliveClient)
+	return newServiceScraperWithClient(metric, revisionName, podAccessor, directClient, meshClient, logger)
 }
 
 func newServiceScraperWithClient(
 	metric *av1alpha1.Metric,
+	revisionName string,
 	podAccessor resources.PodAccessor,
 	directClient, meshClient scrapeClient,
-	logger *zap.SugaredLogger) (*serviceScraper, error) {
-	if metric == nil {
-		return nil, errors.New("metric must not be nil")
-	}
-	revName := metric.Labels[serving.RevisionLabelKey]
-	if revName == "" {
-		return nil, errors.New("no Revision label found for Metric " + metric.Name)
-	}
+	logger *zap.SugaredLogger) *serviceScraper {
 	svcName := metric.Labels[serving.ServiceLabelKey]
 	cfgName := metric.Labels[serving.ConfigurationLabelKey]
 
-	ctx, err := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revName)
-	if err != nil {
-		return nil, err
-	}
+	ctx := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revisionName)
 
 	return &serviceScraper{
 		directClient:    directClient,
@@ -196,7 +181,7 @@ func newServiceScraperWithClient(
 		podsAddressable: true,
 		statsCtx:        ctx,
 		logger:          logger,
-	}, nil
+	}
 }
 
 var portAndPath = strconv.Itoa(networking.AutoscalingQueueMetricsPort) + "/metrics"

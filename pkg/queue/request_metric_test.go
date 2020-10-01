@@ -82,7 +82,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
 	if err != nil {
-		t.Fatalf("Failed to create handler: %v", err)
+		t.Fatal("Failed to create handler:", err)
 	}
 
 	resp := httptest.NewRecorder()

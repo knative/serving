@@ -138,6 +138,12 @@ func (pa *PodAutoscaler) Window() (time.Duration, bool) {
 	return pa.annotationDuration(autoscaling.WindowAnnotationKey)
 }
 
+// ScaleDownDelay returns the scale down delay annotation, or false if not present.
+func (pa *PodAutoscaler) ScaleDownDelay() (time.Duration, bool) {
+	// The value is validated in the webhook.
+	return pa.annotationDuration(autoscaling.ScaleDownDelayAnnotationKey)
+}
+
 // PanicWindowPercentage returns the panic window annotation value, or false if not present.
 func (pa *PodAutoscaler) PanicWindowPercentage() (percentage float64, ok bool) {
 	// The value is validated in the webhook.

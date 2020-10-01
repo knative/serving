@@ -41,7 +41,7 @@ func configOrDie() *rest.Config {
 
 	cfg, err := getConfig(*serverURL, *kubeconfig)
 	if err != nil {
-		panic(fmt.Sprintf("Error building kubeconfig: %v", err))
+		panic(fmt.Sprint("Error building kubeconfig:", err))
 	}
 
 	return cfg

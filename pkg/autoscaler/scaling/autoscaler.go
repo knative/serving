@@ -18,7 +18,6 @@ package scaling
 
 import (
 	"context"
-	"errors"
 	"math"
 	"sync"
 	"time"
@@ -66,34 +65,28 @@ type autoscaler struct {
 
 // New creates a new instance of default autoscaler implementation.
 func New(
+	reporterCtx context.Context,
 	namespace, revision string,
 	metricClient metrics.MetricClient,
 	podCounter resources.EndpointsCounter,
-	deciderSpec *DeciderSpec,
-	reporterCtx context.Context) (UniScaler, error) {
-	if podCounter == nil {
-		return nil, errors.New("'podCounter' must not be nil")
-	}
-	if reporterCtx == nil {
-		return nil, errors.New("stats reporter must not be nil")
-	}
+	deciderSpec *DeciderSpec) UniScaler {
 
 	var delayer *max.TimeWindow
 	if deciderSpec.ScaleDownDelay > 0 {
 		delayer = max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)
 	}
 
-	return newAutoscaler(namespace, revision, metricClient,
-		podCounter, deciderSpec, delayer, reporterCtx), nil
+	return newAutoscaler(reporterCtx, namespace, revision, metricClient,
+		podCounter, deciderSpec, delayer)
 }
 
 func newAutoscaler(
+	reporterCtx context.Context,
 	namespace, revision string,
 	metricClient metrics.MetricClient,
 	podCounter podCounter,
 	deciderSpec *DeciderSpec,
-	delayWindow *max.TimeWindow,
-	reporterCtx context.Context) *autoscaler {
+	delayWindow *max.TimeWindow) *autoscaler {
 
 	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
 	// If the scale is 0 or 1, normal Autoscaler behavior is fine.

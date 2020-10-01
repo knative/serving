@@ -1263,7 +1263,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	defer func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
+			t.Error("Wait() =", err)
 		}
 		waitInformers()
 	}()
@@ -1374,7 +1374,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 		t.Fatal("PA failed to become ready:", err)
 	}
 
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(ctx, testRevision, metav1.DeleteOptions{})
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Delete(ctx, testRevision, metav1.DeleteOptions{})
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(ctx, testRevision, metav1.DeleteOptions{})
 
 	select {
@@ -1429,7 +1429,7 @@ func TestUpdate(t *testing.T) {
 
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
+		t.Error("Reconcile() =", err)
 	}
 
 	if count := fakeDeciders.createCallCount.Load(); count != 1 {
@@ -1438,13 +1438,13 @@ func TestUpdate(t *testing.T) {
 
 	// Verify decider shape.
 	if got, want := fakeDeciders.decider, decider; !cmp.Equal(got, want) {
-		t.Errorf("decider mismatch: diff(+got, -want): %s", cmp.Diff(got, want))
+		t.Error("decider mismatch: diff(+got, -want):", cmp.Diff(got, want))
 	}
 
 	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 		ctx, kpa.Name, metav1.GetOptions{})
 	if err != nil {
-		t.Errorf("Get() = %v", err)
+		t.Error("Get() =", err)
 	}
 	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
 		t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
@@ -1456,7 +1456,7 @@ func TestUpdate(t *testing.T) {
 	fakepainformer.Get(ctx).Informer().GetIndexer().Update(kpa)
 
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
+		t.Error("Reconcile() =", err)
 	}
 
 	if fakeDeciders.updateCallCount.Load() == 0 {

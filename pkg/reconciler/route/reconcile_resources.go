@@ -117,7 +117,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 					"Failed to create placeholder service %q: %v", desiredService.Name, err)
 				return nil, fmt.Errorf("failed to create placeholder service: %w", err)
 			}
-			logger.Infof("Created service %s", desiredService.Name)
+			logger.Info("Created service ", desiredService.Name)
 			recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created placeholder service %q", desiredService.Name)
 		} else if err != nil {
 			return nil, err

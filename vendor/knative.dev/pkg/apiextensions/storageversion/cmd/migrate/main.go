@@ -50,9 +50,9 @@ func main() {
 	logger.Infof("Migrating %d group resources", len(grs))
 
 	for _, gr := range grs {
-		logger.Infof("Migrating group resource %s", gr)
+		logger.Info("Migrating group resource ", gr)
 		if err := migrator.Migrate(ctx, gr); err != nil {
-			logger.Fatalf("Failed to migrate: %s", err)
+			logger.Fatal("Failed to migrate: ", err)
 		}
 	}
 

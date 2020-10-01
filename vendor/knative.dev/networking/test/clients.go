@@ -21,9 +21,11 @@ package test
 import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	// Allow E2E to run against a cluster using OpenID.
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
 	"knative.dev/networking/pkg/client/clientset/versioned"
 	networkingv1alpha1 "knative.dev/networking/pkg/client/clientset/versioned/typed/networking/v1alpha1"

@@ -28,5 +28,5 @@ func (r *Realm) SetDefaults(ctx context.Context) {
 }
 
 // SetDefaults populates default values in RealmSpec
-func (s *RealmSpec) SetDefaults(ctx context.Context) {
+func (*RealmSpec) SetDefaults(ctx context.Context) {
 }

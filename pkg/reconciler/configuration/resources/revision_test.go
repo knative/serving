@@ -328,7 +328,7 @@ func TestMakeRevisions(t *testing.T) {
 
 			got := MakeRevision(ctx, test.configuration, clock)
 			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("MakeRevision (-want, +got) = %v", diff)
+				t.Error("MakeRevision (-want, +got) =", diff)
 			}
 		})
 	}

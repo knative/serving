@@ -544,7 +544,7 @@ func TestConfigurationStatusPropagation(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(want, svc.Status); diff != "" {
-		t.Errorf("unexpected ServiceStatus (-want +got): %s", diff)
+		t.Error("unexpected ServiceStatus (-want +got):", diff)
 	}
 }
 
@@ -701,6 +701,6 @@ func TestRouteStatusPropagation(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(want, svc.Status); diff != "" {
-		t.Errorf("unexpected ServiceStatus (-want +got): %s", diff)
+		t.Error("unexpected ServiceStatus (-want +got):", diff)
 	}
 }

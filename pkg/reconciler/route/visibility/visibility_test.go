@@ -426,7 +426,7 @@ func TestVisibility(t *testing.T) {
 			ctx := getContext(tt.domainSuffix)
 			visibility, err := NewResolver(lister).GetVisibility(ctx, tt.route)
 			if diff := cmp.Diff(tt.expected, visibility); diff != "" {
-				t.Errorf("Unexpected visibility diff (-want +got): %v", diff)
+				t.Error("Unexpected visibility diff (-want +got):", diff)
 			}
 			if tt.expectedErr != err {
 				t.Errorf("Expected err=%v, saw %v", tt.expectedErr, err)

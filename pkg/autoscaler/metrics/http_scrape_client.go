@@ -40,14 +40,10 @@ var pool = sync.Pool{
 	},
 }
 
-func newHTTPScrapeClient(httpClient *http.Client) (*httpScrapeClient, error) {
-	if httpClient == nil {
-		return nil, errors.New("HTTP client must not be nil")
-	}
-
+func newHTTPScrapeClient(httpClient *http.Client) *httpScrapeClient {
 	return &httpScrapeClient{
 		httpClient: httpClient,
-	}, nil
+	}
 }
 
 func (c *httpScrapeClient) Scrape(ctx context.Context, url string) (Stat, error) {

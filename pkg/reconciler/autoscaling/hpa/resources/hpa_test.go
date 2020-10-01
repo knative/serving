@@ -165,10 +165,10 @@ func TestMakeHPA(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := MakeHPA(tc.pa, config)
 			if equal, err := kmp.SafeEqual(tc.want, got); err != nil {
-				t.Errorf("Got error comparing output, err = %v", err)
+				t.Error("Got error comparing output, err =", err)
 			} else if !equal {
 				if diff, err := kmp.SafeDiff(tc.want, got); err != nil {
-					t.Errorf("Got error diffing output, err = %v", err)
+					t.Error("Got error diffing output, err =", err)
 				} else {
 					t.Errorf("MakeHPA() = (-want, +got):\n%v", diff)
 				}

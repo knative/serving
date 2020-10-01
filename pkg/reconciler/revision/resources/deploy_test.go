@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
@@ -42,6 +41,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 
 	. "knative.dev/serving/pkg/testing/v1"
@@ -977,7 +977,7 @@ func TestMakePodSpec(t *testing.T) {
 				t.Fatal("makePodSpec returned error:", err)
 			}
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
-				t.Errorf("makePodSpec (-want, +got) = %v", diff)
+				t.Error("makePodSpec (-want, +got) =", diff)
 			}
 		})
 	}

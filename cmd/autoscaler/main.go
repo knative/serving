@@ -188,14 +188,11 @@ func uniScalerFactoryFunc(podLister corev1listers.PodLister,
 		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		ctx, err := smetrics.RevisionContext(decider.Namespace, serviceName, configName, revisionName)
-		if err != nil {
-			return nil, err
-		}
+		ctx := smetrics.RevisionContext(decider.Namespace, serviceName, configName, revisionName)
 
 		podAccessor := resources.NewPodAccessor(podLister, decider.Namespace, revisionName)
-		return scaling.New(decider.Namespace, decider.Name, metricClient,
-			podAccessor, &decider.Spec, ctx)
+		return scaling.New(ctx, decider.Namespace, decider.Name, metricClient,
+			podAccessor, &decider.Spec), nil
 	}
 }
 
@@ -211,7 +208,7 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister) asmetrics.StatsS
 		}
 
 		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, revisionName)
-		return asmetrics.NewStatsScraper(metric, podAccessor, logger)
+		return asmetrics.NewStatsScraper(metric, revisionName, podAccessor, logger), nil
 	}
 }
 

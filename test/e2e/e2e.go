@@ -33,7 +33,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	appsv1 "k8s.io/api/apps/v1"
-	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
@@ -43,6 +42,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )

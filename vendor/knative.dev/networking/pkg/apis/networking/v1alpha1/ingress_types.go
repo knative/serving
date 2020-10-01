@@ -366,8 +366,8 @@ const (
 )
 
 // GetStatus retrieves the status of the Ingress. Implements the KRShaped interface.
-func (t *Ingress) GetStatus() *duckv1.Status {
-	return &t.Status.Status
+func (i *Ingress) GetStatus() *duckv1.Status {
+	return &i.Status.Status
 }
 
 // HeaderMatch represents a matching value of Headers in HTTPIngressPath.

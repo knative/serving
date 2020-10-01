@@ -146,7 +146,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	})
 
 	if err := g.Wait(); err != nil {
-		t.Errorf("Something went wrong with the request: %v", err)
+		t.Error("Something went wrong with the request:", err)
 	}
 }
 
@@ -218,7 +218,7 @@ func TestDestroyPodTimely(t *testing.T) {
 		}
 		return true, nil
 	}); err != nil {
-		t.Logf("Latest state: %s", spew.Sprint(latestPodState))
+		t.Log("Latest state:", spew.Sprint(latestPodState))
 
 		// Fetch logs from the queue-proxy.
 		logs, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).GetLogs(podToDelete, &corev1.PodLogOptions{
@@ -322,6 +322,6 @@ func TestDestroyPodWithRequests(t *testing.T) {
 
 	// Make sure all the requests succeed.
 	if err := eg.Wait(); err != nil {
-		t.Errorf("Not all requests finished with success, eg: %v", err)
+		t.Error("Not all requests finished with success, eg:", err)
 	}
 }

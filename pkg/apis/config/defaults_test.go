@@ -218,7 +218,7 @@ func TestTemplating(t *testing.T) {
 
 			def, err := NewDefaultsConfigFromMap(configMap.Data)
 			if err != nil {
-				t.Errorf("Error parsing defaults: %v", err)
+				t.Error("Error parsing defaults:", err)
 			}
 
 			if diff := cmp.Diff(defCM, def); diff != "" {

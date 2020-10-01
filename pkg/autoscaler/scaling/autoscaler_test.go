@@ -68,21 +68,6 @@ func (fpc fakePodCounter) ReadyCount() (int, error) {
 	return fpc.readyCount, fpc.err
 }
 
-func TestNewErrorWhenGivenNilEndpointsCounter(t *testing.T) {
-	if _, err := New(testNamespace, testRevision, &metricClient{}, nil,
-		&DeciderSpec{TargetValue: 10}, context.Background()); err == nil {
-		t.Error("Expected error when EndpointsCounter interface is nil, but got none.")
-	}
-}
-
-func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
-	pc := &fakePodCounter{}
-	if _, err := New(testNamespace, testRevision, &metricClient{}, pc,
-		&DeciderSpec{TargetValue: 10}, nil); err == nil {
-		t.Error("Expected error when stat reporter context is nil, but got none.")
-	}
-}
-
 func TestAutoscalerScaleDownDelay(t *testing.T) {
 	pc := &fakePodCounter{}
 	metrics := &metricClient{}
@@ -93,11 +78,7 @@ func TestAutoscalerScaleDownDelay(t *testing.T) {
 		PanicThreshold:   100,
 		ScaleDownDelay:   5 * time.Minute,
 	}
-
-	as, err := New(testNamespace, testRevision, metrics, pc, spec, TestContextWithLogger(t))
-	if err != nil {
-		t.Fatalf("Expected no error with a valid ScaleDownDelay, got %v", err)
-	}
+	as := New(TestContextWithLogger(t), testNamespace, testRevision, metrics, pc, spec)
 
 	now := time.Time{}
 
@@ -166,11 +147,7 @@ func TestAutoscalerScaleDownDelayZero(t *testing.T) {
 		PanicThreshold:   100,
 		ScaleDownDelay:   0,
 	}
-
-	as, err := New(testNamespace, testRevision, metrics, pc, spec, TestContextWithLogger(t))
-	if err != nil {
-		t.Fatalf("Expected no error with a valid ScaleDownDelay, got %v", err)
-	}
+	as := New(TestContextWithLogger(t), testNamespace, testRevision, metrics, pc, spec)
 
 	now := time.Time{}
 
@@ -652,11 +629,8 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 	if startInPanic {
 		pc.readyCount = 2
 	}
-	ctx, err := smetrics.RevisionContext(testNamespace, "testSvc", "testConfig", testRevision)
-	if err != nil {
-		t.Fatal("Error creating context:", err)
-	}
-	return newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, nil, ctx), pc
+	ctx := smetrics.RevisionContext(testNamespace, "testSvc", "testConfig", testRevision)
+	return newAutoscaler(ctx, testNamespace, testRevision, metrics, pc, deciderSpec, nil), pc
 }
 
 // approxEquateInt32 equates int32s with given path with ±-1 tolerance.
@@ -694,7 +668,7 @@ func TestStartInPanicMode(t *testing.T) {
 	pc := &fakePodCounter{}
 	for i := 0; i < 2; i++ {
 		pc.readyCount = i
-		a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, nil, context.Background())
+		a := newAutoscaler(context.Background(), testNamespace, testRevision, metrics, pc, deciderSpec, nil)
 		if !a.panicTime.IsZero() {
 			t.Errorf("Create at scale %d had panic mode on", i)
 		}
@@ -705,7 +679,7 @@ func TestStartInPanicMode(t *testing.T) {
 
 	// Now start with 2 and make sure we're in panic mode.
 	pc.readyCount = 2
-	a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, nil, context.Background())
+	a := newAutoscaler(context.Background(), testNamespace, testRevision, metrics, pc, deciderSpec, nil)
 	if a.panicTime.IsZero() {
 		t.Error("Create at scale 2 had panic mode off")
 	}
@@ -727,7 +701,7 @@ func TestNewFail(t *testing.T) {
 	}
 
 	pc := fakePodCounter{err: errors.New("starlight")}
-	a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, nil, context.Background())
+	a := newAutoscaler(context.Background(), testNamespace, testRevision, metrics, pc, deciderSpec, nil)
 	if got, want := int(a.maxPanicPods), 0; got != want {
 		t.Errorf("maxPanicPods = %d, want: 0", got)
 	}

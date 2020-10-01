@@ -39,16 +39,6 @@ func TestContexts(t *testing.T) {
 		ctx:   ctx,
 		check: HasDefaultConfigurationName,
 		want:  false,
-	}, {
-		name:  "are upgrading via defaulting",
-		ctx:   WithUpgradeViaDefaulting(ctx),
-		check: IsUpgradeViaDefaulting,
-		want:  true,
-	}, {
-		name:  "aren't upgrading via defaulting",
-		ctx:   ctx,
-		check: IsUpgradeViaDefaulting,
-		want:  false,
 	}}
 
 	for _, tc := range tests {

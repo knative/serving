@@ -53,16 +53,14 @@ type config struct {
 
 var env config
 
-// Technically TLS is proper Go casing for acronyms, but it makes our test naming
-// hyphenate between every character, and we hit length problems.
-func TestTls(t *testing.T) {
+func TestTLS(t *testing.T) {
 	if err := envconfig.Process("", &env); err != nil {
 		t.Fatalf("Failed to process environment variable: %v.", err)
 	}
 	t.Run(env.AutoTLSTestName, testAutoTLS)
 }
 
-func TestTlsDisabledWithAnnotation(t *testing.T) {
+func TestTLSDisabledWithAnnotation(t *testing.T) {
 	clients := e2e.SetupWithNamespace(t, test.TLSNamespace)
 
 	names := test.ResourceNames{

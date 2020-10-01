@@ -42,14 +42,6 @@ const (
 	// resources to indicate which Ingress triggered their creation.
 	IngressLabelKey = GroupName + "/ingress"
 
-	// SKSLabelKey is the label key that SKS Controller attaches to the
-	// underlying resources it controls.
-	SKSLabelKey = GroupName + "/serverlessservice"
-
-	// ServiceTypeKey is the label key attached to a service specifying the type of service.
-	// e.g. Public, Private.
-	ServiceTypeKey = GroupName + "/serviceType"
-
 	// OriginSecretNameLabelKey is the label key attached to the TLS secret to indicate
 	// the name of the origin secret that the TLS secret is copied from.
 	OriginSecretNameLabelKey = GroupName + "/originSecretName"
@@ -73,9 +65,6 @@ const (
 	// Cert-Manager-based Certificate will reconcile into a Cert-Manager Certificate).
 	CertificateClassAnnotationKey = "networking.knative.dev/certificate.class"
 
-	// ActivatorServiceName is the name of the activator Kubernetes service.
-	ActivatorServiceName = "activator-service"
-
 	// DeprecatedDisableWildcardCertLabelKey is the deprecated label key attached to a namespace to indicate that
 	// a wildcard certificate should be not created for it.
 	DeprecatedDisableWildcardCertLabelKey = GroupName + "/disableWildcardCert"
@@ -87,19 +76,6 @@ const (
 	// WildcardCertDomainLabelKey is the label key attached to a certificate to indicate the
 	// domain for which it was issued.
 	WildcardCertDomainLabelKey = "networking.knative.dev/wildcardDomain"
-)
-
-// ServiceType is the enumeration type for the Kubernetes services
-// that we have in our system, classified by usage purpose.
-type ServiceType string
-
-const (
-	// ServiceTypePrivate is the label value for internal only services
-	// for user applications.
-	ServiceTypePrivate ServiceType = "Private"
-	// ServiceTypePublic is the label value for externally reachable
-	// services for user applications.
-	ServiceTypePublic ServiceType = "Public"
 )
 
 // Pseudo-constants

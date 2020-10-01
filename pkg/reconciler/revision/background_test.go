@@ -157,7 +157,7 @@ func TestResolveInBackground(t *testing.T) {
 			}()
 
 			for i := 0; i < 2; i++ {
-				t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
+				t.Run(fmt.Sprint("iteration", i), func(t *testing.T) {
 					statuses, err := subject.Resolve(fakeRevision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), timeout)
 					if err != nil || statuses != nil {
 						// Initial result should be nil, nil since we have nothing in cache.

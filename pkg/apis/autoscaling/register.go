@@ -51,6 +51,9 @@ const (
 	// allow-zero-initial-scale of config-autoscaler is true.
 	InitialScaleAnnotationKey = GroupName + "/initialScale"
 
+	// ScaleDownDelayAnnotationKey is the annotation to specify a scale down delay.
+	ScaleDownDelayAnnotationKey = GroupName + "/scaleDownDelay"
+
 	// MetricAnnotationKey is the annotation to specify what metric the PodAutoscaler
 	// should be scaled on. For example,
 	//   autoscaling.knative.dev/metric: cpu

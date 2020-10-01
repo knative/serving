@@ -347,7 +347,7 @@ func (r *errorResolver) Clear(types.NamespacedName) {
 
 func TestResolutionFailed(t *testing.T) {
 	// Unconditionally return this error during resolution.
-	innerError := errors.New("i am the expected error message, hear me ROAR!")
+	innerError := errors.New("i am the expected error message, hear me ROAR")
 	resolver := &errorResolver{cleared: false, err: innerError}
 	ctx, _, _, controller, _ := newTestController(t, nil /*additional CMs*/, func(r *Reconciler) {
 		r.resolver = resolver

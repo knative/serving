@@ -579,7 +579,7 @@ func TestDisableScaleToZero(t *testing.T) {
 				func(action clientgotesting.Action) (bool, runtime.Object, error) {
 					patch := action.(clientgotesting.PatchAction)
 					if !test.wantScaling {
-						t.Errorf("don't want scaling, but got patch: %s", string(patch.GetPatch()))
+						t.Error("don't want scaling, but got patch:", string(patch.GetPatch()))
 					}
 					gotScaling = true
 					return true, nil, nil

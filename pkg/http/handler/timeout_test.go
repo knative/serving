@@ -168,7 +168,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 
 			if test.wantWriteError {
 				if err := <-writeErrors; err != http.ErrHandlerTimeout {
-					t.Errorf("Expected a timeout error, got %v", err)
+					t.Error("Expected a timeout error, got", err)
 				}
 			}
 		})

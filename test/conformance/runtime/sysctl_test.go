@@ -40,7 +40,7 @@ func TestShouldHaveSysctlReadOnly(t *testing.T) {
 
 	for _, mount := range mounts {
 		if mount.Error != "" {
-			t.Fatalf("Error getting mount information: %s", mount.Error)
+			t.Fatal("Error getting mount information:", mount.Error)
 		}
 		if mount.Path == "/proc/sys" {
 			if got, want := mount.Type, "proc"; got != want {

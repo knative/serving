@@ -83,7 +83,7 @@ func TestReportStats(t *testing.T) {
 		}
 		want := sets.NewString("first-a", "first-b", "second-a", "second-b")
 		if got := sets.NewString(statNames...); !got.Equal(want) {
-			t.Errorf("Expected to receive all stats (-want, +got): %s", cmp.Diff(want.List(), got.List()))
+			t.Error("Expected to receive all stats (-want, +got):", cmp.Diff(want.List(), got.List()))
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Did not receive results after 2 seconds")

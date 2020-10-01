@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"knative.dev/networking/pkg/apis/networking"
+	pkgnet "knative.dev/networking/pkg/apis/networking"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	"knative.dev/pkg/controller"
@@ -47,6 +47,7 @@ import (
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 )
 
@@ -224,7 +225,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 
 	// Add the revision we're testing.
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
-	revision := revisionCC1(revID, networking.ProtocolHTTP1)
+	revision := revisionCC1(revID, pkgnet.ProtocolHTTP1)
 	servfake.ServingV1().Revisions(revision.Namespace).Create(ctx, revision, metav1.CreateOptions{})
 	revisions.Informer().GetIndexer().Add(revision)
 
@@ -275,7 +276,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 
 	// Add the revision we're testing.
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
-	revision := revisionCC1(revID, networking.ProtocolHTTP1)
+	revision := revisionCC1(revID, pkgnet.ProtocolHTTP1)
 	servfake.ServingV1().Revisions(revision.Namespace).Create(ctx, revision, metav1.CreateOptions{})
 	revisions.Informer().GetIndexer().Add(revision)
 
@@ -327,7 +328,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		wantDests   sets.String
 	}{{
 		name:     "single healthy podIP",
-		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1),
+		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
@@ -339,7 +340,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		wantDests: sets.NewString("128.0.0.1:1234"),
 	}, {
 		name:     "single healthy podIP, infinite cc",
-		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1, 0),
+		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1, 0),
 		// Double updates exercise additional paths.
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
@@ -352,7 +353,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		wantDests: sets.NewString("128.0.0.1:1234"),
 	}, {
 		name:     "single healthy clusterIP",
-		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1),
+		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
@@ -365,7 +366,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		wantDests: sets.NewString("129.0.0.1:1234"),
 	}, {
 		name:     "spread podIP load",
-		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1),
+		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			// Double update here exercises some additional paths.
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
@@ -378,7 +379,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		wantDests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234"),
 	}, {
 		name:     "clumping test",
-		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1, 3),
+		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1, 3),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.2:4236", "128.0.0.2:1233", "128.0.0.2:1230"),
@@ -388,7 +389,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 	}, {
 		name: "roundrobin test",
 		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			networking.ProtocolHTTP1, 5 /*cc >3*/),
+			pkgnet.ProtocolHTTP1, 5 /*cc >3*/),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
@@ -398,7 +399,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		wantDests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
 	}, {
 		name:     "multiple ClusterIP requests",
-		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1),
+		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:           types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
@@ -490,7 +491,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			}); err != nil {
 				t.Fatal("Timed out waiting for the capacity to be updated")
 			}
-			t.Logf("This activator idx = %d", rt.activatorIndex)
+			t.Log("This activator idx =", rt.activatorIndex)
 
 			tryContext, cancel2 := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel2()
@@ -539,7 +540,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 	defer cancel()
 
 	throttler := newTestThrottler(ctx)
-	rt := newRevisionThrottler(revName, 42 /*cc*/, networking.ServicePortNameHTTP1, testBreakerParams, logger)
+	rt := newRevisionThrottler(revName, 42 /*cc*/, pkgnet.ServicePortNameHTTP1, testBreakerParams, logger)
 	rt.numActivators.Store(4)
 	rt.activatorIndex.Store(0)
 	throttler.revisionThrottlers[revName] = rt
@@ -593,7 +594,7 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	defer cancel()
 
 	throttler := newTestThrottler(ctx)
-	rt := newRevisionThrottler(revName, 0 /*cc*/, networking.ServicePortNameHTTP1, testBreakerParams, logger)
+	rt := newRevisionThrottler(revName, 0 /*cc*/, pkgnet.ServicePortNameHTTP1, testBreakerParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -645,7 +646,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	}
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
-	rev := revisionCC1(revID, networking.ProtocolH2C)
+	rev := revisionCC1(revID, pkgnet.ProtocolH2C)
 	// Add the revision we're testing.
 	servfake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	revisions.Informer().GetIndexer().Add(rev)
@@ -740,7 +741,7 @@ func TestMultipleActivators(t *testing.T) {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
+	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1)
 	// Add the revision we're testing.
 	servfake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	revisions.Informer().GetIndexer().Add(rev)
@@ -796,7 +797,7 @@ func TestMultipleActivators(t *testing.T) {
 	}); err != nil {
 		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
-	t.Logf("This activator idx = %d", rt.activatorIndex.Load())
+	t.Log("This activator idx =", rt.activatorIndex.Load())
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
 	var mux sync.Mutex
@@ -824,7 +825,7 @@ func TestMultipleActivators(t *testing.T) {
 func TestInfiniteBreakerCreation(t *testing.T) {
 	// This test verifies that we use infiniteBreaker when CC==0.
 	tttl := newRevisionThrottler(types.NamespacedName{Namespace: "a", Name: "b"}, 0, /*cc*/
-		networking.ServicePortNameHTTP1, queue.BreakerParams{}, TestLogger(t))
+		pkgnet.ServicePortNameHTTP1, queue.BreakerParams{}, TestLogger(t))
 	if _, ok := tttl.breaker.(*infiniteBreaker); !ok {
 		t.Errorf("The type of revisionBreaker = %T, want %T", tttl, (*infiniteBreaker)(nil))
 	}
