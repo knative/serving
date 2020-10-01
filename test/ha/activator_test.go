@@ -20,7 +20,6 @@ package ha
 
 import (
 	"context"
-	"log"
 	"testing"
 	"time"
 
@@ -97,7 +96,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	}
 
 	t.Log("Starting prober")
-	prober := test.NewProberManager(log.Printf, clients, minProbes)
+	prober := test.NewProberManager(t.Logf, clients, minProbes)
 	prober.Spawn(resources.Service.Status.URL.URL())
 	defer assertSLO(t, prober, slo)
 

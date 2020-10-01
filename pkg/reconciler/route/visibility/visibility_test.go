@@ -19,7 +19,6 @@ package visibility
 import (
 	"context"
 	"errors"
-	"log"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -458,6 +457,5 @@ func (l *fakeServiceLister) Services(namespace string) listers.ServiceNamespaceL
 }
 
 func (l *fakeServiceLister) Get(name string) (*corev1.Service, error) {
-	log.Panic("not implemented")
-	return nil, nil
+	panic("not implemented")
 }
