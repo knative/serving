@@ -192,10 +192,11 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		expected: map[string]netv1alpha1.IngressVisibility{
@@ -210,10 +211,11 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		domainSuffix: "svc.cluster.local",
@@ -229,10 +231,11 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		services: []*corev1.Service{{
@@ -272,10 +275,11 @@ func TestVisibility(t *testing.T) {
 				},
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		services: []*corev1.Service{{
@@ -312,10 +316,11 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		services: []*corev1.Service{{
@@ -339,10 +344,11 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		services: []*corev1.Service{{
@@ -374,10 +380,11 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		services: []*corev1.Service{{
@@ -424,17 +431,18 @@ func TestVisibility(t *testing.T) {
 			lister := &fakeServiceLister{services: tt.services, listerErr: tt.listerErr}
 			ctx := getContext(tt.domainSuffix)
 			visibility, err := NewResolver(lister).GetVisibility(ctx, tt.route)
-			if diff := cmp.Diff(tt.expected, visibility); diff != "" {
-				t.Error("Unexpected visibility diff (-want +got):", diff)
+			if got, want := visibility, tt.expected; !cmp.Equal(got, want) {
+				t.Errorf("Unexpected visibility diff (-want +got):\n%s", cmp.Diff(want, got))
 			}
 			if tt.expectedErr != err {
-				t.Errorf("Expected err=%v, saw %v", tt.expectedErr, err)
+				t.Errorf("Err = %v, want: %v", err, tt.expectedErr)
 			}
 		})
 	}
 }
 
 type fakeServiceLister struct {
+	listers.ServiceNamespaceLister
 	services  []*corev1.Service
 	listerErr error
 }
@@ -454,8 +462,4 @@ func (l *fakeServiceLister) List(selector labels.Selector) ([]*corev1.Service, e
 
 func (l *fakeServiceLister) Services(namespace string) listers.ServiceNamespaceLister {
 	return l
-}
-
-func (l *fakeServiceLister) Get(name string) (*corev1.Service, error) {
-	panic("not implemented")
 }
