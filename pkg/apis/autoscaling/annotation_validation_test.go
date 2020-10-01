@@ -129,7 +129,7 @@ func TestValidateAnnotations(t *testing.T) {
 		},
 		isInCreate:  true,
 		annotations: map[string]string{MaxScaleAnnotationKey: "0"},
-		expectErr:   "maxScale=0 (unlimited) when MaxScaleLimit=10: " + MaxScaleAnnotationKey,
+		expectErr:   "maxScale=0 (unlimited), must be less than 10: " + MaxScaleAnnotationKey,
 	}, {
 		name: "maxScale is not set when both MaxScaleLimit and default MaxScale are set",
 		configMutator: func(config *autoscalerconfig.Config) {
@@ -143,7 +143,7 @@ func TestValidateAnnotations(t *testing.T) {
 			config.MaxScaleLimit = 10
 		},
 		isInCreate: true,
-		expectErr:  "maxScale=0 (unlimited) when MaxScaleLimit=10: " + MaxScaleAnnotationKey,
+		expectErr:  "maxScale=0 (unlimited), must be less than 10: " + MaxScaleAnnotationKey,
 	}, {
 		name: "maxScale is less than MaxScaleLimit",
 		configMutator: func(config *autoscalerconfig.Config) {
