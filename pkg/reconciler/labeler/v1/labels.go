@@ -83,16 +83,17 @@ func SyncLabels(ctx context.Context, r *v1.Route, cacc *Configuration, racc *Rev
 		}
 	}
 
-	// Use a revision accessor to manipulate the revisions.
-	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, racc, revisions); err != nil {
-		return err
-	}
-	if err := setLabelForListed(ctx, r, racc, revisions); err != nil {
-		return err
+	// Clear old labels only after the route is fully resolved
+	if r.IsReady() || r.IsFailed() {
+		if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, racc, revisions); err != nil {
+			return err
+		}
+		if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, cacc, configs); err != nil {
+			return err
+		}
 	}
 
-	// Use a config access to manipulate the configs.
-	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, cacc, configs); err != nil {
+	if err := setLabelForListed(ctx, r, racc, revisions); err != nil {
 		return err
 	}
 	return setLabelForListed(ctx, r, cacc, configs)

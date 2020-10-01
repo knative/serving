@@ -224,9 +224,9 @@ func TestV1Reconcile(t *testing.T) {
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchRemoveLabel("default", rev("default", "old-config").Name,
 				"serving.knative.dev/route"),
+			patchRemoveLabel("default", "old-config", "serving.knative.dev/route"),
 			patchAddLabel("default", rev("default", "new-config").Name,
 				"serving.knative.dev/route", "config-change"),
-			patchRemoveLabel("default", "old-config", "serving.knative.dev/route"),
 			patchAddLabel("default", "new-config", "serving.knative.dev/route", "config-change"),
 		},
 		Key: "default/config-change",
