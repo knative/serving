@@ -50,10 +50,6 @@ func getIntGE0(m map[string]string, k string) (int32, *apis.FieldError) {
 
 // ValidateAnnotations verifies the autoscaling annotations.
 func ValidateAnnotations(ctx context.Context, config *autoscalerconfig.Config, anns map[string]string) *apis.FieldError {
-	if len(anns) == 0 {
-		// Only need to validate for the case of max scale not set.
-		return validateMinMaxScale(ctx, config, anns)
-	}
 	return validateClass(anns).
 		Also(validateMinMaxScale(ctx, config, anns)).
 		Also(validateFloats(anns)).
