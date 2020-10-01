@@ -19,7 +19,6 @@ package traffic
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
 	"testing"
 	"time"
@@ -917,7 +916,7 @@ func (l revFakeErrorLister) Get(name string) (*v1.Revision, error) {
 }
 
 func (l revFakeErrorLister) List(selector labels.Selector) ([]*v1.Revision, error) {
-	log.Panic("not implemented")
+	panic("not implemented")
 	return nil, nil
 }
 
