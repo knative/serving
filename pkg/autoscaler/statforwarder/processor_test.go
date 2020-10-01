@@ -24,7 +24,6 @@ import (
 	"time"
 
 	gorillawebsocket "github.com/gorilla/websocket"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	. "knative.dev/pkg/logging/testing"
 )
@@ -58,13 +57,6 @@ func TestProcessorForwardingViaSvc(t *testing.T) {
 	logger := TestLogger(t)
 	p := newForwardProcessor(logger, bucket1, testIP1, "ws://something.not.working", "ws"+strings.TrimPrefix(s.URL, "http"))
 	defer p.shutdown()
-
-	// Wait connection via SVC to be established.
-	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return p.conn != nil && p.conn.Status() == nil, nil
-	}); err != nil {
-		t.Fatal("Timeout waiting for connection established")
-	}
 
 	p.process(stat1)
 
