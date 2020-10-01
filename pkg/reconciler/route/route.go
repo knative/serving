@@ -171,9 +171,14 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 
 	// Eliminate the old traffic targets once ingress is pointed to the new ones.
 	if ingress.IsReady() {
-		if r.Status.Traffic, err = traffic.GetRevisionTrafficTargets(ctx, r); err != nil {
+		tts, err := traffic.GetRevisionTrafficTargets(ctx, r)
+		if err != nil {
 			return err
 		}
+
+		logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
+
+		r.Status.Traffic = tts
 		r.Status.MarkTrafficAssigned()
 	}
 
@@ -346,16 +351,6 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 		// Traffic targets aren't ready, no need to configure Route.
 		return nil, nil
 	}
-
-	// Domain should already be present
-	tts, err := t.GetRevisionTrafficTargets(ctx, r)
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
-
-	mergeTraffic(r, tts)
 
 	return t, nil
 }
