@@ -135,6 +135,11 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),
 			}, {
+				Name:       pkgnet.ServicePortName(sks.Spec.ProtocolType) + "-istio",
+				Protocol:   corev1.ProtocolTCP,
+				Port:       targetPort(sks).IntVal,
+				TargetPort: targetPort(sks),
+			}, {
 				Name:       servingv1.AutoscalingQueueMetricsPortName,
 				Protocol:   corev1.ProtocolTCP,
 				Port:       networking.AutoscalingQueueMetricsPort,
