@@ -163,15 +163,15 @@ func TestWebsocketSplit(t *testing.T) {
 func findWebsocketSuffix(ctx context.Context, t *testing.T, conn *websocket.Conn) string {
 	t.Helper()
 	// Establish the suffix that corresponds to this socket.
-	message := fmt.Sprintf("ping - %d", rand.Intn(1000))
+	message := fmt.Sprint("ping -", rand.Intn(1000))
 	if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
-		t.Errorf("WriteMessage() = %v", err)
+		t.Error("WriteMessage() =", err)
 		return ""
 	}
 
 	_, recv, err := conn.ReadMessage()
 	if err != nil {
-		t.Errorf("ReadMessage() = %v", err)
+		t.Error("ReadMessage() =", err)
 		return ""
 	}
 	gotMsg := string(recv)
@@ -184,15 +184,15 @@ func findWebsocketSuffix(ctx context.Context, t *testing.T, conn *websocket.Conn
 
 func checkWebsocketRoundTrip(ctx context.Context, t *testing.T, conn *websocket.Conn, suffix string) {
 	t.Helper()
-	message := fmt.Sprintf("ping - %d", rand.Intn(1000))
+	message := fmt.Sprint("ping -", rand.Intn(1000))
 	if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
-		t.Errorf("WriteMessage() = %v", err)
+		t.Error("WriteMessage() =", err)
 		return
 	}
 
 	// Read back the echoed message and compared with sent.
 	if _, recv, err := conn.ReadMessage(); err != nil {
-		t.Errorf("ReadMessage() = %v", err)
+		t.Error("ReadMessage() =", err)
 	} else if got, want := string(recv), message+" "+suffix; got != want {
 		t.Errorf("ReadMessage() = %s, wanted %s", got, want)
 	}

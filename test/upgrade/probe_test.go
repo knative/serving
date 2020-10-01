@@ -22,7 +22,6 @@ import (
 	"context"
 	"flag"
 	"io/ioutil"
-	"log"
 	"os"
 	"syscall"
 	"testing"
@@ -64,9 +63,7 @@ func TestProbe(t *testing.T) {
 	// This polls until we get a 200 with the right body.
 	assertServiceResourcesUpdated(t, clients, names, url, test.PizzaPlanetText1)
 
-	// Use log.Printf instead of t.Logf because we want to see failures
-	// inline with other logs instead of buffered until the end.
-	prober := test.RunRouteProber(log.Printf, clients, url, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+	prober := test.RunRouteProber(t.Logf, clients, url, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	defer test.CheckSLO(*successFraction, t.Name(), prober)
 
 	// e2e-upgrade-test.sh will close this pipe to signal the upgrade is

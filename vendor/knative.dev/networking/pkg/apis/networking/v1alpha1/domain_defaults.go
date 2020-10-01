@@ -28,5 +28,5 @@ func (d *Domain) SetDefaults(ctx context.Context) {
 }
 
 // SetDefaults populates default values in DomainSpec
-func (s *DomainSpec) SetDefaults(ctx context.Context) {
+func (*DomainSpec) SetDefaults(ctx context.Context) {
 }

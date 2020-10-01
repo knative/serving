@@ -239,7 +239,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	// Set up leader election config
 	leaderElectionConfig, err := GetLeaderElectionConfig(ctx)
 	if err != nil {
-		logger.Fatalf("Error loading leader election configuration: %v", err)
+		logger.Fatal("Error loading leader election configuration: ", err)
 	}
 
 	if !IsHADisabled(ctx) {

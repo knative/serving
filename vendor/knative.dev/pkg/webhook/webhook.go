@@ -140,7 +140,7 @@ func New(
 	}
 
 	webhook.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, fmt.Sprintf("no controller registered for: %s", r.URL.Path), http.StatusBadRequest)
+		http.Error(w, fmt.Sprint("no controller registered for: ", r.URL.Path), http.StatusBadRequest)
 	})
 
 	for _, controller := range controllers {

@@ -137,6 +137,22 @@ func TestMakeDecider(t *testing.T) {
 		pa:   pa(WithMetricAnnotation("rps")),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withMetric("rps"), withMetricAnnotation("rps")),
 	}, {
+		name: "with scale down delay from config",
+		pa:   pa(),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.ScaleDownDelay = 5 * time.Minute
+			return &c
+		},
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withScaleDownDelay(5*time.Minute)),
+	}, {
+		name: "with scale down delay from annotation",
+		pa:   pa(withScaleDownDelayAnnotation("10m")),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.ScaleDownDelay = 5 * time.Minute
+			return &c
+		},
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withScaleDownDelay(10*time.Minute), withDeciderScaleDownDelayAnnotation("10m")),
+	}, {
 		name: "with initial scale",
 		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
 			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
@@ -235,6 +251,18 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 	return p
 }
 
+func withScaleDownDelayAnnotation(sdd string) PodAutoscalerOption {
+	return func(pa *v1alpha1.PodAutoscaler) {
+		pa.Annotations[autoscaling.ScaleDownDelayAnnotationKey] = sdd
+	}
+}
+
+func withDeciderScaleDownDelayAnnotation(sdd string) deciderOption {
+	return func(d *scaling.Decider) {
+		d.Annotations[autoscaling.ScaleDownDelayAnnotationKey] = sdd
+	}
+}
+
 func withTBCAnnotation(tbc string) PodAutoscalerOption {
 	return func(pa *v1alpha1.PodAutoscaler) {
 		pa.Annotations[autoscaling.TargetBurstCapacityKey] = tbc
@@ -300,6 +328,12 @@ func withScaleUpDownRates(up, down float64) deciderOption {
 	return func(decider *scaling.Decider) {
 		decider.Spec.MaxScaleUpRate = up
 		decider.Spec.MaxScaleDownRate = down
+	}
+}
+
+func withScaleDownDelay(d time.Duration) deciderOption {
+	return func(decider *scaling.Decider) {
+		decider.Spec.ScaleDownDelay = d
 	}
 }
 

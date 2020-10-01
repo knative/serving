@@ -121,6 +121,6 @@ type HTTP01Challenge struct {
 }
 
 // GetStatus retrieves the status of the Certificate. Implements the KRShaped interface.
-func (t *Certificate) GetStatus() *duckv1.Status {
-	return &t.Status.Status
+func (c *Certificate) GetStatus() *duckv1.Status {
+	return &c.Status.Status
 }

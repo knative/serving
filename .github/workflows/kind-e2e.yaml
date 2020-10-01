@@ -24,7 +24,6 @@ jobs:
 
         test-suite:
         - ./test/conformance/runtime
-        - ./test/conformance/api/v1beta1
         - ./test/conformance/api/v1
         - ./test/e2e
 
@@ -35,8 +34,7 @@ jobs:
         - k8s-version: v1.17.11
           kind-version: v0.9.0
           kind-image-sha: sha256:5240a7a2c34bf241afb54ac05669f8a46661912eab05705d660971eeb12f6555
-          # TODO(https://github.com/knative-sandbox/net-istio/issues/285): Make this Istio
-          kingress: contour # istio
+          kingress: istio
         - k8s-version: v1.18.8
           kind-version: v0.9.0
           kind-image-sha: sha256:f4bcc97a0ad6e7abaf3f643d890add7efe6ee4ab90baeb374b4f41a4c95567eb
@@ -80,7 +78,8 @@ jobs:
         chmod +x ./kind
         sudo mv kind /usr/local/bin
 
-    - name: Create KinD Cluster
+    - name: Configure KinD Cluster
+      working-directory: ./src/knative.dev/serving
       run: |
         set -x
 
@@ -88,11 +87,6 @@ jobs:
         cat > kind.yaml <<EOF
         apiVersion: kind.x-k8s.io/v1alpha4
         kind: Cluster
-        nodes:
-        - role: control-plane
-          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
-        - role: worker
-          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
 
         # This is needed in order to support projected volumes with service account tokens.
         # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
@@ -106,9 +100,34 @@ jobs:
               extraArgs:
                 "service-account-issuer": "kubernetes.default.svc"
                 "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+
+        nodes:
+        - role: control-plane
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+        - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
         EOF
 
-        # Create a cluster!
+    - name: Add Workers to KinD Cluster (Istio)
+      working-directory: ./src/knative.dev/serving
+      if: matrix.kingress == 'istio'
+      run: |
+        set -x
+
+        cat >> kind.yaml <<EOF
+        - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+        - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+        - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+        EOF
+
+    - name: Create KinD Cluster
+      working-directory: ./src/knative.dev/serving
+      run: |
+        set -x
+
         kind create cluster --config kind.yaml
 
     - name: Install Knative Serving
@@ -121,8 +140,8 @@ jobs:
         # Build and Publish our containers to the docker daemon (including test assets)
         export GO111MODULE=on
         export GOFLAGS=-mod=vendor
-        ko apply -Pf test/config/
-        ko apply -PRf config/core
+        ko apply --platform=all -Pf test/config/
+        ko apply --platform=all -PRf config/core
 
         # Have Serving use the kingress option.
         kubectl patch configmap/config-network \
@@ -171,8 +190,23 @@ jobs:
     - name: Install kingress provider (Istio)
       if: matrix.kingress == 'istio'
       run: |
-        # TODO(https://github.com/knative-sandbox/net-istio/issues/285): Istio + NodePort
-        exit 1
+        set -o pipefail
+
+        source test/e2e-networking-library.sh
+
+        PATCHED_YAML=$(mktemp)
+        ko resolve -f third_party/net-istio.yaml | \
+          sed 's/imagePullPolicy:/# DISABLED: imagePullPolicy:/g' > $PATCHED_YAML
+
+        # TODO: figure out how to use e2e-common.sh directly even if no
+        # custom namespace is used here.
+        TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
+        KNATIVE_DEFAULT_NAMESPACE="knative-serving"
+        SYSTEM_NAMESPACE=$KNATIVE_DEFAULT_NAMESPACE
+        export KIND=true
+        install_istio $PATCHED_YAML
+
+        echo "::set-env name=GATEWAY_NAMESPACE_OVERRIDE::istio-system"
 
     - name: Upload Test Images
       run: |

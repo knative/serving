@@ -19,7 +19,6 @@ package traffic
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
 	"testing"
 	"time"
@@ -27,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	network "knative.dev/networking/pkg"
@@ -910,15 +908,12 @@ func TestBuildTrafficConfigurationMissingRevision(t *testing.T) {
 
 var errAPI = errors.New("failed to connect API")
 
-type revFakeErrorLister struct{}
+type revFakeErrorLister struct {
+	listers.RevisionNamespaceLister
+}
 
 func (l revFakeErrorLister) Get(name string) (*v1.Revision, error) {
 	return nil, errAPI
-}
-
-func (l revFakeErrorLister) List(selector labels.Selector) ([]*v1.Revision, error) {
-	log.Panic("not implemented")
-	return nil, nil
 }
 
 func (l revFakeErrorLister) Revisions(namespace string) listers.RevisionNamespaceLister {
@@ -930,9 +925,9 @@ func TestBuildTrafficConfigurationFailedGetRevision(t *testing.T) {
 		RevisionName: goodNewRev.Name,
 		Percent:      ptr.Int64(50)})))
 	if err != nil && err.Error() != errAPI.Error() {
-		t.Errorf("err: %s, want: %s", err.Error(), errAPI.Error())
+		t.Errorf("err: %v, want: %v", err.Error(), errAPI.Error())
 	} else if err == nil {
-		t.Errorf("err: %s, want: no error", errAPI.Error())
+		t.Errorf("err: %v, want: no error", errAPI.Error())
 	}
 }
 

@@ -64,6 +64,9 @@ type ManagedConnection struct {
 	closeChan chan struct{}
 	closeOnce sync.Once
 
+	establishChan chan struct{}
+	establishOnce sync.Once
+
 	// Used to capture asynchronous processes to be waited
 	// on when shutting the connection down.
 	processingWg sync.WaitGroup
@@ -90,6 +93,25 @@ type ManagedConnection struct {
 // in case of a loss of connectivity.
 func NewDurableSendingConnection(target string, logger *zap.SugaredLogger) *ManagedConnection {
 	return NewDurableConnection(target, nil, logger)
+}
+
+// NewDurableSendingConnectionGuaranteed creates a new websocket connection
+// that can only send messages to the endpoint it connects to. It returns
+// the connection if the connection can be established within the given
+// `duration`. Otherwise it returns the ErrConnectionNotEstablished error.
+//
+// The connection will continuously be kept alive and reconnected
+// in case of a loss of connectivity.
+func NewDurableSendingConnectionGuaranteed(target string, duration time.Duration, logger *zap.SugaredLogger) (*ManagedConnection, error) {
+	c := NewDurableConnection(target, nil, logger)
+
+	select {
+	case <-c.establishChan:
+		return c, nil
+	case <-time.After(duration):
+		c.Shutdown()
+		return nil, ErrConnectionNotEstablished
+	}
 }
 
 // NewDurableConnection creates a new websocket connection, that
@@ -175,6 +197,7 @@ func newConnection(connFactory func() (rawConnection, error), messageChan chan [
 	conn := &ManagedConnection{
 		connectionFactory: connFactory,
 		closeChan:         make(chan struct{}),
+		establishChan:     make(chan struct{}),
 		messageChan:       messageChan,
 		connectionBackoff: wait.Backoff{
 			Duration: 100 * time.Millisecond,
@@ -211,6 +234,9 @@ func (c *ManagedConnection) connect() error {
 			defer c.connectionLock.Unlock()
 
 			c.connection = conn
+			c.establishOnce.Do(func() {
+				close(c.establishChan)
+			})
 			return true, nil
 		case <-c.closeChan:
 			return false, errShuttingDown
@@ -326,12 +352,4 @@ func (c *ManagedConnection) Shutdown() error {
 	err := c.closeConnection()
 	c.processingWg.Wait()
 	return err
-}
-
-// IsEstablished returns true the websocket connection has been established.
-func (c *ManagedConnection) IsEstablished() bool {
-	c.connectionLock.RLock()
-	defer c.connectionLock.RUnlock()
-
-	return c.connection != nil
 }

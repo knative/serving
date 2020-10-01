@@ -8,10 +8,9 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     serving.knative.dev/controller: "true"
 rules:
-- apiGroups: ["projectcontour.io"]
-  resources: ["httpproxies"]
-  verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch",
-    "watch"]
+  - apiGroups: ["projectcontour.io"]
+    resources: ["httpproxies"]
+    verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch", "watch"]
 
 ---
 # Copyright 2019 The Knative Authors
@@ -35,7 +34,7 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: contour
-    serving.knative.dev/release: "v20200925-f9848515"
+    serving.knative.dev/release: "v20201001-600a323c"
 data:
   _example: |
     ################################
@@ -97,34 +96,34 @@ spec:
     spec:
       serviceAccountName: controller
       containers:
-      - name: controller
-        # This is the Go import path for the binary that is containerized
-        # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:d5619e3bec4cd212a07394140b93dd2f61bca9c5ebac1eee15752067b5febd02
-        resources:
-          requests:
-            cpu: 40m
-            memory: 40Mi
-          limits:
-            cpu: 400m
-            memory: 400Mi
-        env:
-        - name: SYSTEM_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CONFIG_LOGGING_NAME
-          value: config-logging
-        - name: CONFIG_OBSERVABILITY_NAME
-          value: config-observability
-        - name: METRICS_DOMAIN
-          value: knative.dev/net-contour
-        ports:
-        - name: metrics
-          containerPort: 9090
-        - name: profiling
-          containerPort: 8008
-        securityContext:
-          allowPrivilegeEscalation: false
+        - name: controller
+          # This is the Go import path for the binary that is containerized
+          # and substituted here.
+          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:1fa7f59701fd0d71911246e45dad1bc046f0b57ed70f34ac73e1c0ff18f00c5d
+          resources:
+            requests:
+              cpu: 40m
+              memory: 40Mi
+            limits:
+              cpu: 400m
+              memory: 400Mi
+          env:
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CONFIG_LOGGING_NAME
+              value: config-logging
+            - name: CONFIG_OBSERVABILITY_NAME
+              value: config-observability
+            - name: METRICS_DOMAIN
+              value: knative.dev/net-contour
+          ports:
+            - name: metrics
+              containerPort: 9090
+            - name: profiling
+              containerPort: 8008
+          securityContext:
+            allowPrivilegeEscalation: false
 
 ---

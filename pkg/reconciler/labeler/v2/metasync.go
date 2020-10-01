@@ -82,16 +82,17 @@ func SyncRoutingMeta(ctx context.Context, r *v1.Route, cacc *Configuration, racc
 		}
 	}
 
-	// Use a revision accessor to manipulate the revisions.
-	if err := clearMetaForNotListed(ctx, r, racc, revisions); err != nil {
-		return err
-	}
-	if err := setMetaForListed(ctx, r, racc, revisions); err != nil {
-		return err
+	// Clear old meta only after the route is fully resolved
+	if r.IsReady() || r.IsFailed() {
+		if err := clearMetaForNotListed(ctx, r, racc, revisions); err != nil {
+			return err
+		}
+		if err := clearMetaForNotListed(ctx, r, cacc, configs); err != nil {
+			return err
+		}
 	}
 
-	// Use a config access to manipulate the configs.
-	if err := clearMetaForNotListed(ctx, r, cacc, configs); err != nil {
+	if err := setMetaForListed(ctx, r, racc, revisions); err != nil {
 		return err
 	}
 	return setMetaForListed(ctx, r, cacc, configs)

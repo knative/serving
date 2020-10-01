@@ -32,22 +32,22 @@ func (i *Ingress) Validate(ctx context.Context) *apis.FieldError {
 }
 
 // Validate inspects and validates IngressSpec object.
-func (spec *IngressSpec) Validate(ctx context.Context) *apis.FieldError {
+func (is *IngressSpec) Validate(ctx context.Context) *apis.FieldError {
 	// Spec must not be empty.
-	if equality.Semantic.DeepEqual(spec, &IngressSpec{}) {
+	if equality.Semantic.DeepEqual(is, &IngressSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 	var all *apis.FieldError
 	// Spec must have at least one rule.
-	if len(spec.Rules) == 0 {
+	if len(is.Rules) == 0 {
 		all = all.Also(apis.ErrMissingField("rules"))
 	}
 	// Validate each rule.
-	for idx, rule := range spec.Rules {
+	for idx, rule := range is.Rules {
 		all = all.Also(rule.Validate(ctx).ViaFieldIndex("rules", idx))
 	}
 	// TLS settings are optional.  However, all provided settings should be valid.
-	for idx, tls := range spec.TLS {
+	for idx, tls := range is.TLS {
 		all = all.Also(tls.Validate(ctx).ViaFieldIndex("tls", idx))
 	}
 	return all
