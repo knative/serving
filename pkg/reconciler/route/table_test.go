@@ -164,12 +164,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("12-34"), WithRouteGeneration(1955), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
-					v1.TrafficTarget{
-						RevisionName:   "config-00001",
-						Percent:        ptr.Int64(100),
-						LatestRevision: ptr.Bool(true),
-					})),
+				MarkIngressNotConfigured),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
@@ -211,13 +206,6 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("12-34"), WithRouteGeneration(1), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithInitRouteConditions,
-				MarkTrafficAssigned,
-				WithStatusTraffic(
-					v1.TrafficTarget{
-						RevisionName:   "config-00001",
-						Percent:        ptr.Int64(100),
-						LatestRevision: ptr.Bool(true),
-					}),
 				WithPropagatedStatus(simpleIngress(Route("default", "ingress-failed"), &traffic.Config{},
 					WithLoadbalancerFailed("TestFailure", "failure")).Status),
 			),
@@ -264,12 +252,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteGeneration(1), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
-					v1.TrafficTarget{
-						RevisionName:   "config-00001",
-						Percent:        ptr.Int64(100),
-						LatestRevision: ptr.Bool(true),
-					})),
+				MarkIngressNotConfigured),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
@@ -322,12 +305,7 @@ func TestReconcile(t *testing.T) {
 				// Populated by reconciliation when all traffic has been assigned.
 				WithLocalDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
 				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
-				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
-					v1.TrafficTarget{
-						RevisionName:   "config-00001",
-						Percent:        ptr.Int64(100),
-						LatestRevision: ptr.Bool(true),
-					})),
+				MarkIngressNotConfigured),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
@@ -465,16 +443,10 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "ingress-create-failure", WithConfigTarget("config"),
-				WithRouteFinalizer, WithRouteGeneration(1),
+				WithRouteFinalizer, WithRouteGeneration(1), WithInitRouteConditions,
 				MarkIngressNotConfigured, WithRouteObservedGeneration,
 				// Populated by reconciliation when we fail to create the ingress.
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				MarkTrafficAssigned, WithStatusTraffic(
-					v1.TrafficTarget{
-						RevisionName:   "config-00001",
-						Percent:        ptr.Int64(100),
-						LatestRevision: ptr.Bool(true),
-					})),
+				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "ingress-create-failure"),
@@ -544,9 +516,8 @@ func TestReconcile(t *testing.T) {
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
-						RevisionName:   "config-00001",
-						Percent:        ptr.Int64(100),
-						LatestRevision: ptr.Bool(true),
+						RevisionName: "config-00001",
+						Percent:      ptr.Int64(100),
 					}),
 				// The owner is not us, so we are unhappy.
 				MarkServiceNotOwned),
@@ -780,15 +751,9 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-local", WithConfigTarget("config"),
 				WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
-				MarkTrafficAssigned, MarkIngressNotConfigured,
+				WithInitRouteConditions, MarkIngressNotConfigured,
 				WithLocalDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
-				WithStatusTraffic(
-					v1.TrafficTarget{
-						RevisionName:   "config-00001",
-						Percent:        ptr.Int64(100),
-						LatestRevision: ptr.Bool(true),
-					})),
+				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
 		}},
 		Key: "default/becomes-local",
 	}, {
@@ -845,14 +810,8 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-public", WithConfigTarget("config"),
 				WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
-				MarkTrafficAssigned, MarkIngressNotConfigured,
-				WithAddress, WithRouteConditionsAutoTLSDisabled, WithURL,
-				WithStatusTraffic(
-					v1.TrafficTarget{
-						RevisionName:   "config-00001",
-						Percent:        ptr.Int64(100),
-						LatestRevision: ptr.Bool(true),
-					})),
+				WithInitRouteConditions, MarkIngressNotConfigured,
+				WithAddress, WithRouteConditionsAutoTLSDisabled, WithURL),
 		}},
 		Key: "default/becomes-public",
 	}, {
@@ -913,20 +872,6 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-		}},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Route("default", "update-ci-failure", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
-				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
-					v1.TrafficTarget{
-						RevisionName: "config-00001",
-						Percent:      ptr.Int64(0),
-					},
-					v1.TrafficTarget{
-						RevisionName:   "config-00002",
-						Percent:        ptr.Int64(100),
-						LatestRevision: ptr.Bool(true),
-					})),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Ingress: inducing failure for update ingresses"),

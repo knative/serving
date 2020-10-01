@@ -37,7 +37,6 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
@@ -353,27 +352,6 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 	}
 
 	return t, nil
-}
-
-// mergeTraffic appends all new traffic targets, leaving any old or orphaned targets
-// with a zero percent traffic. These will be removed once ingress is directed to
-// all new targets.
-func mergeTraffic(r *v1.Route, newTraffic []v1.TrafficTarget) {
-	all := make(map[string]v1.TrafficTarget, len(r.Status.Traffic))
-	for _, tt := range r.Status.Traffic {
-		tt.Percent = ptr.Int64(0)
-		tt.LatestRevision = nil
-		all[tt.RevisionName] = tt
-	}
-	for _, tt := range newTraffic {
-		all[tt.RevisionName] = tt
-	}
-
-	asSlice := make([]v1.TrafficTarget, 0, len(r.Status.Traffic))
-	for _, tt := range all {
-		asSlice = append(asSlice, tt)
-	}
-	r.Status.Traffic = asSlice
 }
 
 func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1.Route, visibility map[string]netv1alpha1.IngressVisibility) error {
