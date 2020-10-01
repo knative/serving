@@ -917,7 +917,6 @@ func (l revFakeErrorLister) Get(name string) (*v1.Revision, error) {
 
 func (l revFakeErrorLister) List(selector labels.Selector) ([]*v1.Revision, error) {
 	panic("not implemented")
-	return nil, nil
 }
 
 func (l revFakeErrorLister) Revisions(namespace string) listers.RevisionNamespaceLister {

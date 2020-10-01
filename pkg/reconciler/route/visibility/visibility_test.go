@@ -458,5 +458,4 @@ func (l *fakeServiceLister) Services(namespace string) listers.ServiceNamespaceL
 
 func (l *fakeServiceLister) Get(name string) (*corev1.Service, error) {
 	panic("not implemented")
-	return nil, nil
 }
