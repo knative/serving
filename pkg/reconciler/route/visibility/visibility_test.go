@@ -461,8 +461,3 @@ func (l *fakeServiceLister) Get(name string) (*corev1.Service, error) {
 	log.Panic("not implemented")
 	return nil, nil
 }
-
-func (l *fakeServiceLister) GetPodServices(pod *corev1.Pod) ([]*corev1.Service, error) {
-	log.Panic("not implemented")
-	return nil, nil
-}
