@@ -47,3 +47,6 @@ rules:
   - apiGroups: ["caching.internal.knative.dev"]
     resources: ["images"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
+  - apiGroups: ["networking.istio.io"]
+    resources: ["destinationrules", "virtualservices"]
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]

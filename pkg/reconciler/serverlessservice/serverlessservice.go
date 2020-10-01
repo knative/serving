@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	sksreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
+	istioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned"
 
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis/duck"
@@ -48,7 +49,8 @@ import (
 
 // reconciler implements controller.Reconciler for Service resources.
 type reconciler struct {
-	kubeclient kubernetes.Interface
+	kubeclient  kubernetes.Interface
+	istioclient istioclientset.Interface
 
 	// listers index properties about resources
 	serviceLister   corev1listers.ServiceLister
@@ -75,11 +77,61 @@ func (r *reconciler) ReconcileKind(ctx context.Context, sks *netv1alpha1.Serverl
 		r.reconcilePrivateService, // First make sure our data source is setup.
 		r.reconcilePublicService,
 		r.reconcilePublicEndpoints,
+		r.reconcileDestinationRule,
+		r.reconcileVirtualService,
 	} {
 		if err := fn(ctx, sks); err != nil {
 			logger.Debugw(strconv.Itoa(i)+": reconcile failed", zap.Error(err))
 			return err
 		}
+	}
+	return nil
+}
+
+func (r *reconciler) reconcileDestinationRule(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
+	logger := logging.FromContext(ctx)
+
+	sn := kmeta.ChildName(sks.Name, "-private")
+	svc, err := r.istioclient.NetworkingV1alpha3().DestinationRules(sks.Namespace).Get(ctx, sn, metav1.GetOptions{})
+	if apierrs.IsNotFound(err) {
+		logger.Info("SKS has no DestinationRule; creating.")
+		svc = resources.MakeDestinationRule(sks)
+		svc, err = r.istioclient.NetworkingV1alpha3().DestinationRules(sks.Namespace).Create(ctx, svc, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to create DestinationRule: %w", err)
+		}
+		logger.Info("Created DestinationRule: ", svc.Name)
+	} else if err != nil {
+		return fmt.Errorf("failed to get DestinationRule: %w", err)
+	} else if !metav1.IsControlledBy(svc, sks) {
+		sks.Status.MarkEndpointsNotOwned("DestinationRule", svc.Name)
+		return fmt.Errorf("SKS: %s does not own DestinationRule: %s", sks.Name, svc.Name)
+	} else {
+		// TODO
+	}
+	return nil
+}
+
+func (r *reconciler) reconcileVirtualService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
+	logger := logging.FromContext(ctx)
+
+	sn := kmeta.ChildName(sks.Name, "-private")
+	svc, err := r.istioclient.NetworkingV1alpha3().VirtualServices(sks.Namespace).Get(ctx, sn, metav1.GetOptions{})
+	if apierrs.IsNotFound(err) {
+		logger.Info("SKS has no virtual service; creating.")
+		svc = resources.MakeVirtualService(sks)
+		svc, err = r.istioclient.NetworkingV1alpha3().VirtualServices(sks.Namespace).Create(ctx, svc, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to Virtual Service: %w", err)
+		}
+		logger.Info("Created virtual service: ", svc.Name)
+	} else if err != nil {
+		return fmt.Errorf("failed to get virtual Service: %w", err)
+	} else if !metav1.IsControlledBy(svc, sks) {
+		sks.Status.MarkEndpointsNotOwned("VirtualService", svc.Name)
+		return fmt.Errorf("SKS: %s does not own VirtualService: %s", sks.Name, svc.Name)
+	} else {
+		// TODO
 	}
 	return nil
 }

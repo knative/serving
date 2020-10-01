@@ -205,6 +205,7 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 	}()
 
 	if s.podsAddressable {
+		s.logger.Info("Scraping pods")
 		stat, err := s.scrapePods(window)
 		// Some pods were scraped, but not enough.
 		if err != errNoPodsScraped {

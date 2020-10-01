@@ -81,6 +81,18 @@ ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   "serving:v1 autoscaling:v1alpha1" \
   --go-header-file "${boilerplate}"
 
+# Knative Injection (for istio)
+${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
+  knative.dev/serving/pkg/client/istio istio.io/client-go/pkg/apis \
+  "networking:v1alpha3" \
+  --go-header-file "${boilerplate}"
+
+# Generate our own client for istio (otherwise injection won't work)
+${CODEGEN_PKG}/generate-groups.sh "client,informer,lister" \
+  knative.dev/serving/pkg/client/istio istio.io/client-go/pkg/apis \
+  "networking:v1alpha3" \
+  --go-header-file "${boilerplate}"
+
 # Depends on generate-groups.sh to install bin/deepcopy-gen
 ${GOPATH}/bin/deepcopy-gen \
   -O zz_generated.deepcopy \

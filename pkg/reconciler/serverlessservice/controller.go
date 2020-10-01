@@ -33,6 +33,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
+	istioclient "knative.dev/serving/pkg/client/istio/injection/client"
 	"knative.dev/serving/pkg/networking"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 )
@@ -53,7 +54,8 @@ func NewController(
 	sksInformer := sksinformer.Get(ctx)
 
 	c := &reconciler{
-		kubeclient: kubeclient.Get(ctx),
+		kubeclient:  kubeclient.Get(ctx),
+		istioclient: istioclient.Get(ctx),
 
 		endpointsLister:   endpointsInformer.Lister(),
 		serviceLister:     serviceInformer.Lister(),
