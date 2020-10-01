@@ -181,7 +181,7 @@ func validateMinMaxScale(ctx context.Context, config *autoscalerconfig.Config, a
 	}
 	if max == 0 {
 		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprintf("maxScale=0 (unlimited), must be less than %d", config.MaxScaleLimit),
+			Message: fmt.Sprint("maxScale=0 (unlimited), must be less than ", config.MaxScaleLimit),
 			Paths:   []string{MaxScaleAnnotationKey},
 		})
 	}
