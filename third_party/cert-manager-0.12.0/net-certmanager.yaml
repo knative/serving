@@ -18,16 +18,16 @@ metadata:
   # These are the permissions needed by the `cert-manager` `Certificate` implementation.
   name: knative-serving-certmanager
   labels:
-    serving.knative.dev/release: "v20200930-1928397"
+    serving.knative.dev/release: "v20201001-1928397"
     serving.knative.dev/controller: "true"
     networking.knative.dev/certificate-provider: cert-manager
 rules:
-- apiGroups: ["cert-manager.io"]
-  resources: ["certificates", "clusterissuers"]
-  verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
-- apiGroups: ["acme.cert-manager.io"]
-  resources: ["challenges"]
-  verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates", "clusterissuers"]
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
+  - apiGroups: ["acme.cert-manager.io"]
+    resources: ["challenges"]
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
 
 ---
 # Copyright 2020 The Knative Authors
@@ -49,21 +49,21 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.net-certmanager.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20200930-1928397"
+    serving.knative.dev/release: "v20201001-1928397"
 webhooks:
-- admissionReviewVersions:
-  - v1beta1
-  clientConfig:
-    service:
-      name: net-certmanager-webhook
-      namespace: knative-serving
-  failurePolicy: Fail
-  sideEffects: None
-  name: config.webhook.net-certmanager.networking.internal.knative.dev
-  namespaceSelector:
-    matchExpressions:
-    - key: serving.knative.dev/release
-      operator: Exists
+  - admissionReviewVersions:
+      - v1beta1
+    clientConfig:
+      service:
+        name: net-certmanager-webhook
+        namespace: knative-serving
+    failurePolicy: Fail
+    sideEffects: None
+    name: config.webhook.net-certmanager.networking.internal.knative.dev
+    namespaceSelector:
+      matchExpressions:
+        - key: serving.knative.dev/release
+          operator: Exists
 
 ---
 # Copyright 2020 The Knative Authors
@@ -86,7 +86,7 @@ metadata:
   name: net-certmanager-webhook-certs
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200930-1928397"
+    serving.knative.dev/release: "v20201001-1928397"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -109,7 +109,7 @@ metadata:
   name: config-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200930-1928397"
+    serving.knative.dev/release: "v20201001-1928397"
     networking.knative.dev/certificate-provider: cert-manager
 data:
   _example: |
@@ -156,7 +156,7 @@ metadata:
   name: networking-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200930-1928397"
+    serving.knative.dev/release: "v20201001-1928397"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   selector:
@@ -168,59 +168,59 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: networking-certmanager
-        serving.knative.dev/release: "v20200930-1928397"
+        serving.knative.dev/release: "v20201001-1928397"
     spec:
       serviceAccountName: controller
       containers:
-      - name: networking-certmanager
-        # This is the Go import path for the binary that is containerized
-        # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:9d4a11f906ab3ed96d34cefd32171dc206d338b581d2548176b6f8ae6bb697cb
-        resources:
-          requests:
-            cpu: 30m
-            memory: 40Mi
-          limits:
-            cpu: 300m
-            memory: 400Mi
-        env:
-        - name: SYSTEM_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CONFIG_LOGGING_NAME
-          value: config-logging
-        - name: CONFIG_OBSERVABILITY_NAME
-          value: config-observability
-        - # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
-          name: METRICS_DOMAIN
-          value: knative.dev/serving
-        securityContext:
-          allowPrivilegeEscalation: false
-        ports:
-        - name: metrics
-          containerPort: 9090
-        - name: profiling
-          containerPort: 8008
+        - name: networking-certmanager
+          # This is the Go import path for the binary that is containerized
+          # and substituted here.
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:2588eb86af00fdfa95cecc8f53fc9651eaba568d68ba86fe8603830be198f333
+          resources:
+            requests:
+              cpu: 30m
+              memory: 40Mi
+            limits:
+              cpu: 300m
+              memory: 400Mi
+          env:
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CONFIG_LOGGING_NAME
+              value: config-logging
+            - name: CONFIG_OBSERVABILITY_NAME
+              value: config-observability
+            # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
+            - name: METRICS_DOMAIN
+              value: knative.dev/serving
+          securityContext:
+            allowPrivilegeEscalation: false
+          ports:
+            - name: metrics
+              containerPort: 9090
+            - name: profiling
+              containerPort: 8008
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
     app: networking-certmanager
-    serving.knative.dev/release: "v20200930-1928397"
+    serving.knative.dev/release: "v20201001-1928397"
     networking.knative.dev/certificate-provider: cert-manager
   name: networking-certmanager
   namespace: knative-serving
 spec:
   ports:
-  - # Define metrics and profiling for them to be accessible within service meshes.
-    name: http-metrics
-    port: 9090
-    targetPort: 9090
-  - name: http-profiling
-    port: 8008
-    targetPort: 8008
+    # Define metrics and profiling for them to be accessible within service meshes.
+    - name: http-metrics
+      port: 9090
+      targetPort: 9090
+    - name: http-profiling
+      port: 8008
+      targetPort: 8008
   selector:
     app: networking-certmanager
 
@@ -245,7 +245,7 @@ metadata:
   name: net-certmanager-webhook
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200930-1928397"
+    serving.knative.dev/release: "v20201001-1928397"
 spec:
   selector:
     matchLabels:
@@ -258,44 +258,44 @@ spec:
       labels:
         app: net-certmanager-webhook
         role: net-certmanager-webhook
-        serving.knative.dev/release: "v20200930-1928397"
+        serving.knative.dev/release: "v20201001-1928397"
     spec:
       serviceAccountName: controller
       containers:
-      - name: webhook
-        # This is the Go import path for the binary that is containerized
-        # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:0ae059854a5b1e5b7fce754c8c82060a61a55e0992887de85051ed090df47bad
-        resources:
-          requests:
-            cpu: 20m
-            memory: 20Mi
-          limits:
-            cpu: 200m
-            memory: 200Mi
-        env:
-        - name: SYSTEM_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CONFIG_LOGGING_NAME
-          value: config-logging
-        - name: CONFIG_OBSERVABILITY_NAME
-          value: config-observability
-        - # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
-          name: METRICS_DOMAIN
-          value: knative.dev/net-certmanager
-        - name: WEBHOOK_NAME
-          value: net-certmanager-webhook
-        securityContext:
-          allowPrivilegeEscalation: false
-        ports:
-        - name: metrics
-          containerPort: 9090
-        - name: profiling
-          containerPort: 8008
-        - name: https-webhook
-          containerPort: 8443
+        - name: webhook
+          # This is the Go import path for the binary that is containerized
+          # and substituted here.
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:852459f246ff3f9f9ec1a6f11e4e83d74a7612f9b6a5137a66d34039b00890c0
+          resources:
+            requests:
+              cpu: 20m
+              memory: 20Mi
+            limits:
+              cpu: 200m
+              memory: 200Mi
+          env:
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CONFIG_LOGGING_NAME
+              value: config-logging
+            - name: CONFIG_OBSERVABILITY_NAME
+              value: config-observability
+            # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
+            - name: METRICS_DOMAIN
+              value: knative.dev/net-certmanager
+            - name: WEBHOOK_NAME
+              value: net-certmanager-webhook
+          securityContext:
+            allowPrivilegeEscalation: false
+          ports:
+            - name: metrics
+              containerPort: 9090
+            - name: profiling
+              containerPort: 8008
+            - name: https-webhook
+              containerPort: 8443
 
 ---
 # Copyright 2020 The Knative Authors
@@ -319,19 +319,19 @@ metadata:
   namespace: knative-serving
   labels:
     role: net-certmanager-webhook
-    serving.knative.dev/release: "v20200930-1928397"
+    serving.knative.dev/release: "v20201001-1928397"
 spec:
   ports:
-  - # Define metrics and profiling for them to be accessible within service meshes.
-    name: http-metrics
-    port: 9090
-    targetPort: 9090
-  - name: http-profiling
-    port: 8008
-    targetPort: 8008
-  - name: https-webhook
-    port: 443
-    targetPort: 8443
+    # Define metrics and profiling for them to be accessible within service meshes.
+    - name: http-metrics
+      port: 9090
+      targetPort: 9090
+    - name: http-profiling
+      port: 8008
+      targetPort: 8008
+    - name: https-webhook
+      port: 443
+      targetPort: 8443
   selector:
     app: net-certmanager-webhook
 
