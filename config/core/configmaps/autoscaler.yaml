@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "b48f6747"
+    knative.dev/example-checksum: "12baeac1"
 data:
   _example: |
     ################################
@@ -194,3 +194,9 @@ data:
     # more requests come in within the scale down delay period.
     # The default, 0s, imposes no delay at all.
     scale-down-delay: "0s"
+
+    # max-scale-limit sets the maximum permitted value for the max scale of a revision.
+    # When this is set to a positive value, a revision with a maxScale above that value
+    # (including a maxScale of "0" = unlimited) is disallowed.
+    # A value of zero (the default) allows any limit, including unlimited.
+    max-scale-limit: "0"
