@@ -36,17 +36,19 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
-	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 	tracingconfig "knative.dev/pkg/tracing/config"
+	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/revision/config"
+
+	_ "knative.dev/pkg/metrics/testing"
+	_ "knative.dev/pkg/system/testing"
 )
 
 var (
@@ -73,9 +75,11 @@ var (
 	logConfig        logging.Config
 	obsConfig        metrics.ObservabilityConfig
 	traceConfig      tracingconfig.Config
+	defaults, _      = apicfg.NewDefaultsConfigFromMap(nil)
 	revCfg           = config.Config{
 		Autoscaler:    &asConfig,
 		Deployment:    &deploymentConfig,
+		Defaults:      defaults,
 		Logging:       &logConfig,
 		Network:       &network.Config{},
 		Observability: &obsConfig,
