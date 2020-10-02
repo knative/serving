@@ -31,8 +31,8 @@ import (
 // This test checks if the activator can probe the service when Istio
 // RequestAuthentication and AuthorizationPolicy is applied on the service.
 // This test requires Istio sidecar injection and Istio RequestAuthentication/AuthorizationPolicy enabled.
-// The RequestAuthentication and AuthorizationPolicy are located at test/config/security/requestauthentication.yaml
-// and need to be applied before running the test.
+// The RequestAuthentication and AuthorizationPolicy are located at
+// test/config/security/serving-test-security-authorization.yaml and need to be applied before running the test.
 func TestAllowedProbes(t *testing.T) {
 	t.Parallel()
 
