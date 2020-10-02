@@ -404,7 +404,8 @@ func TestProcess(t *testing.T) {
 		waitInformers()
 	}()
 
-	acceptCh := make(chan int)
+	// Make a buffered channel so it won't block the forwarder process.
+	acceptCh := make(chan int, 2)
 	acceptCount := 0
 	accept := func(sm asmetrics.StatMessage) {
 		acceptCount++
@@ -436,7 +437,7 @@ func TestProcess(t *testing.T) {
 	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		p1 := f.getProcessor(bucket1)
 		p2 := f.getProcessor(bucket2)
-		return p1 != nil && p2 != nil && p1.holder == testIP1 && p2.holder == testIP2 && p1.conn == nil && p2.conn != nil, nil
+		return p1 != nil && p2 != nil && p1.holder == testIP1 && p2.holder == testIP2, nil
 	}); err != nil {
 		t.Fatalf("Timeout waiting f.processors got updated")
 	}

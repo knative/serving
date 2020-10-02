@@ -17,12 +17,20 @@ limitations under the License.
 package statforwarder
 
 import (
+	"sync"
+	"time"
+
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
+
+// The timeout value for a Websocket connection to be established. If a connection via IP
+// address can not be established within this value, we assume the Pods can not be
+// accessed by IP address directly due to the network mesh.
+const establishTimeout = 500 * time.Millisecond
 
 // bucketProcessor includes the information about how to process
 // the StatMessage owned by a bucket.
@@ -31,12 +39,45 @@ type bucketProcessor struct {
 	// The name of the bucket
 	bkt string
 	// holder is the HolderIdentity for a bucket from the Lease.
-	holder string
+	holder   string
+	svcDNS   string
+	connLock sync.RWMutex
 	// conn is the WebSocket connection to the holder pod.
 	conn *websocket.ManagedConnection
 	// `accept` is the function to process a StatMessage which doesn't need
 	// to be forwarded.
 	accept statProcessor
+}
+
+func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS string) *bucketProcessor {
+	// First try to connect via Pod IP address synchronously. If the connection can
+	// not be established within `establishTimeout`, we assume the pods can not be
+	// accessed by IP address. Then try to connect via Pod IP address synchronously.
+	logger.Info("Connecting to Autoscaler bucket at ", podDNS)
+	c, err := websocket.NewDurableSendingConnectionGuaranteed(podDNS, establishTimeout, logger)
+	if err != nil {
+		logger.Info("Autoscaler pods can't be accessed by IP address. Connecting to Autoscaler bucket at ", svcDNS)
+		c, _ = websocket.NewDurableSendingConnectionGuaranteed(svcDNS, establishTimeout, logger)
+	}
+	return &bucketProcessor{
+		logger: logger,
+		bkt:    bkt,
+		holder: holder,
+		conn:   c,
+		svcDNS: svcDNS,
+	}
+}
+
+func (p *bucketProcessor) getConn() *websocket.ManagedConnection {
+	p.connLock.RLock()
+	defer p.connLock.RUnlock()
+	return p.conn
+}
+
+func (p *bucketProcessor) setConn(conn *websocket.ManagedConnection) {
+	p.connLock.Lock()
+	defer p.connLock.Unlock()
+	p.conn = conn
 }
 
 func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
@@ -54,11 +95,20 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 		return err
 	}
 
-	return p.conn.SendRaw(gorillawebsocket.BinaryMessage, b)
+	c := p.getConn()
+	if c == nil {
+		c, err = websocket.NewDurableSendingConnectionGuaranteed(p.svcDNS, establishTimeout, p.logger)
+		if err != nil {
+			return err
+		}
+		p.setConn(c)
+	}
+
+	return c.SendRaw(gorillawebsocket.BinaryMessage, b)
 }
 
 func (p *bucketProcessor) shutdown() {
-	if p.conn != nil {
-		p.conn.Shutdown()
+	if c := p.getConn(); c != nil {
+		c.Shutdown()
 	}
 }
