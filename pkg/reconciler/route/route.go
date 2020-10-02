@@ -67,6 +67,7 @@ type Reconciler struct {
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
 	serviceLister       corev1listers.ServiceLister
+	endpointsLister     corev1listers.EndpointsLister
 	ingressLister       networkinglisters.IngressLister
 	certificateLister   networkinglisters.CertificateLister
 	tracker             tracker.Interface
@@ -155,7 +156,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 
 	// Reconcile ingress and its children resources.
 	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), acmeChallenges...)
-
 	if err != nil {
 		return err
 	}

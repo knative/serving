@@ -20,8 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -39,6 +39,8 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
+
+var errLoadBalancerNotFound = errors.New("failed to fetch loadbalancer domain/IP from ingress status")
 
 func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {
 	recorder := controller.GetEventRecorder(ctx)
@@ -146,28 +148,48 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 }
 
 func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Route, services []*corev1.Service, ingress *netv1alpha1.Ingress) error {
-	logger := logging.FromContext(ctx)
-	ns := route.Namespace
-
 	eg, egCtx := errgroup.WithContext(ctx)
 	for _, service := range services {
 		service := service
-		eg.Go(func() error {
-			desiredService, err := resources.MakeK8sService(egCtx, route, service.Name, ingress, resources.IsClusterLocalService(service), service.Spec.ClusterIP)
-			if err != nil {
-				// Loadbalancer not ready, no need to update.
-				logger.Warnw("Failed to update k8s service", zap.Error(err))
-				return nil
-			}
 
-			// Make sure that the service has the proper specification.
-			if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {
-				// Don't modify the informers copy.
-				existing := service.DeepCopy()
-				existing.Spec = desiredService.Spec
-				if _, err := c.kubeclient.CoreV1().Services(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+		ingressStatus := ingress.Status
+
+		lbStatus := ingressStatus.PublicLoadBalancer
+		if resources.IsClusterLocalService(service) || ingressStatus.PrivateLoadBalancer != nil {
+			// Always use private load balancer if it exists,
+			// because k8s service is only useful for inter-cluster communication.
+			// External communication will be handle via ingress gateway, which won't be affected by what is configured here.
+			lbStatus = ingressStatus.PrivateLoadBalancer
+		}
+
+		if lbStatus == nil || len(lbStatus.Ingress) == 0 {
+			//return errLoadBalancerNotFound
+			return nil
+		}
+		if len(lbStatus.Ingress) > 1 {
+			// Return error as we only support one LoadBalancer currently.
+			return errors.New(
+				"more than one ingress are specified in status(LoadBalancer) of Ingress " + ingress.GetName())
+		}
+		balancer := lbStatus.Ingress[0]
+
+		eg.Go(func() error {
+			switch {
+			case balancer.DomainInternal != "":
+				if err := c.reconcileEndpoints(ctx, egCtx, balancer.DomainInternal, service, route); err != nil {
 					return err
 				}
+				return c.reconcilePlaceholderServicePort(ctx, egCtx, balancer.DomainInternal, service, route)
+			case balancer.Domain != "":
+				if err := c.reconcileEndpoints(ctx, egCtx, balancer.Domain, service, route); err != nil {
+					return err
+				}
+				return c.reconcilePlaceholderServicePort(ctx, egCtx, balancer.Domain, service, route)
+			case balancer.MeshOnly:
+				// No need to update Placeholderr service.
+			case balancer.IP != "":
+				// TODO(lichuqiang): deal with LoadBalancer IP.
+				// We'll also need ports info to make it take effect.
 			}
 			return nil
 		})
@@ -176,6 +198,62 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 	// TODO(mattmoor): This is where we'd look at the state of the Service and
 	// reflect any necessary state into the Route.
 	return eg.Wait()
+}
+
+func (c *Reconciler) reconcileEndpoints(ctx, egCtx context.Context, ingress string, service *corev1.Service, route *v1.Route) error {
+	parts := strings.Split(ingress, ".")
+	name, namespace := parts[0], parts[1]
+
+	// Get Ingress's endpoints.
+	ingEp, err := c.endpointsLister.Endpoints(namespace).Get(name)
+	if err != nil {
+		return fmt.Errorf("Failed to find ingress endpoint: %w", err)
+	}
+
+	// Copy ingress endpoints' subsets to local endpoints.
+	desiredEp := resources.MakeEndpoints(ctx, service, route, ingEp)
+
+	// Create or update local ingress endpoint.
+	localEp, err := c.endpointsLister.Endpoints(service.Namespace).Get(service.Name)
+	if apierrs.IsNotFound(err) {
+		if _, err = c.kubeclient.CoreV1().Endpoints(service.Namespace).Create(ctx, desiredEp, metav1.CreateOptions{}); err != nil {
+			return fmt.Errorf("Failed to create local endpoints: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("Failed to get local endpoints: %w", err)
+	} else {
+		// Make sure that the service has the proper specification.
+		if !equality.Semantic.DeepEqual(localEp.Subsets, desiredEp.Subsets) {
+			// Don't modify the informers copy
+			existing := localEp.DeepCopy()
+			existing.Subsets = desiredEp.Subsets
+			if _, err = c.kubeclient.CoreV1().Endpoints(service.Namespace).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Reconciler) reconcilePlaceholderServicePort(ctx, egCtx context.Context, ingress string, service *corev1.Service, route *v1.Route) error {
+	parts := strings.Split(ingress, ".")
+	name, namespace := parts[0], parts[1]
+
+	ingService, err := c.serviceLister.Services(namespace).Get(name)
+	if err != nil {
+		return fmt.Errorf("Failed to find ingress service: %w", err)
+	}
+
+	// Make sure that the service has the proper specification.
+	if !equality.Semantic.DeepEqual(service.Spec.Ports, ingService.Spec.Ports) {
+		// Don't modify the informers copy.
+		existing := service.DeepCopy()
+		existing.Spec.Ports = ingService.Spec.Ports
+		if _, err := c.kubeclient.CoreV1().Services(service.Namespace).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Update the lastPinned annotation on revisions we target so they don't get GC'd.
