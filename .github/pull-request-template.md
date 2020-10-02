@@ -1,9 +1,3 @@
-<!--
-Request Prow to automatically lint any go code in this PR:
-
-/lint
--->
-
 Fixes #
 
 <!-- Please include the 'why' behind your changes if no issue exists -->
