@@ -101,6 +101,7 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 		if err != nil {
 			return err
 		}
+		p.setConn(c)
 	}
 
 	return c.SendRaw(gorillawebsocket.BinaryMessage, b)
