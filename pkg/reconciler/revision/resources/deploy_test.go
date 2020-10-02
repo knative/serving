@@ -972,12 +972,14 @@ func TestMakePodSpec(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := makePodSpec(test.rev, &logConfig, &traceConfig, &test.oc, &deploymentConfig)
+			cfg := revCfg
+			cfg.Observability = &test.oc
+			got, err := makePodSpec(test.rev, &cfg)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
-				t.Error("makePodSpec (-want, +got) =", diff)
+				t.Errorf("makePodSpec (-want, +got) =\n%s", diff)
 			}
 		})
 	}
@@ -988,8 +990,7 @@ var quantityComparer = cmp.Comparer(func(x, y resource.Quantity) bool {
 })
 
 func TestMissingProbeError(t *testing.T) {
-	if _, err := MakeDeployment(revision("bar", "foo"), &logConfig, &traceConfig,
-		&network.Config{}, &obsConfig, &deploymentConfig, &asConfig); err == nil {
+	if _, err := MakeDeployment(revision("bar", "foo"), &revCfg); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
@@ -1125,21 +1126,23 @@ func TestMakeDeployment(t *testing.T) {
 				test.acMutator(ac)
 			}
 			// Tested above so that we can rely on it here for brevity.
-			podSpec, err := makePodSpec(test.rev, &logConfig, &traceConfig,
-				&obsConfig, &deploymentConfig)
+			cfg := revCfg
+			cfg.Autoscaler = ac
+			cfg.Deployment = &test.dc
+			podSpec, err := makePodSpec(test.rev, &cfg)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
 			if test.want != nil {
 				test.want.Spec.Template.Spec = *podSpec
 			}
-			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
-				&network.Config{}, &obsConfig, &test.dc, ac)
+			// Copy to override
+			got, err := MakeDeployment(test.rev, &cfg)
 			if err != nil {
 				t.Fatal("Got unexpected error:", err)
 			}
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
-				t.Error("MakeDeployment (-want, +got) =", diff)
+				t.Errorf("MakeDeployment (-want, +got) =\n%s", diff)
 			}
 		})
 	}

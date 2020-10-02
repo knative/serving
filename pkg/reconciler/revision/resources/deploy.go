@@ -22,16 +22,12 @@ import (
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
-	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -90,8 +86,8 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
-func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config) (*corev1.PodSpec, error) {
-	queueContainer, err := makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
+func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) {
+	queueContainer, err := makeQueueContainer(rev, cfg)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
@@ -215,17 +211,14 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 }
 
 // MakeDeployment constructs a K8s Deployment resource from a revision.
-func MakeDeployment(rev *v1.Revision,
-	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config,
-	observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config,
-	autoscalerConfig *autoscalerconfig.Config) (*appsv1.Deployment, error) {
+func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, error) {
 
-	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
+	podSpec, err := makePodSpec(rev, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
 	}
 
-	replicaCount := autoscalerConfig.InitialScale
+	replicaCount := cfg.Autoscaler.InitialScale
 	ann, found := rev.Annotations[autoscaling.InitialScaleAnnotationKey]
 	if found {
 		// Ignore errors and no error checking because already validated in webhook.
@@ -247,7 +240,7 @@ func MakeDeployment(rev *v1.Revision,
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                ptr.Int32(replicaCount),
 			Selector:                makeSelector(rev),
-			ProgressDeadlineSeconds: ptr.Int32(int32(deploymentConfig.ProgressDeadline.Seconds())),
+			ProgressDeadlineSeconds: ptr.Int32(int32(cfg.Deployment.ProgressDeadline.Seconds())),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      labels,
