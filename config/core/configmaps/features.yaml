@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "6a69cdef"
+    knative.dev/example-checksum: "f31ab799"
 data:
   _example: |
     ################################
@@ -41,31 +41,37 @@ data:
     # Indicates whether multi container support is enabled
     #
     # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#multi-containers
     multi-container: "enabled"
 
     # Indicates whether Kubernetes affinity support is enabled
     #
     # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-node-affinity
     kubernetes.podspec-affinity: "disabled"
 
     # Indicates whether Kubernetes nodeSelector support is enabled
     #
     # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-node-selector
     kubernetes.podspec-nodeselector: "disabled"
 
     # Indicates whether Kubernetes tolerations support is enabled
     #
     # WARNING: Cannot safely be disabled once enabled
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-toleration
     kubernetes.podspec-tolerations: "disabled"
 
     # Indicates whether Kubernetes FieldRef support is enabled
     #
     # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-fieldref
     kubernetes.podspec-fieldref: "disabled"
 
     # Indicates whether Kubernetes RuntimeClassName support is enabled
     #
     # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-runtime-class
     kubernetes.podspec-runtimeclassname: "disabled"
 
     # This feature allows end-users to set a subset of fields on the Pod's SecurityContext
@@ -90,6 +96,7 @@ data:
     # from Knative or your service mesh
     #
     # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-security-context
     kubernetes.podspec-securitycontext: "disabled"
 
     # This feature validates PodSpecs from the validating webhook
@@ -99,15 +106,18 @@ data:
     # When "allowed", the server will not run the dry-run validation by default.
     #   However, clients may enable the behavior on an individual Service by
     #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-dry-run
     kubernetes.podspec-dryrun: "allowed"
 
     # Indicates whether new responsive garbage collection is enabled. This
     # feature labels revisions in real-time as they become referenced and
     # dereferenced by Routes. This allows us to reap revisions shortly after
     # they are no longer active.
+    # See: https://knative.dev/docs/serving/feature-flags/#responsive-revision-garbage-collector
     responsive-revision-gc: "allowed"
 
     # Controls whether tag header based routing feature are enabled or not.
     # 1. Enabled: enabling tag header based routing
     # 2. Disabled: disabling tag header based routing
+    # See: https://knative.dev/docs/serving/feature-flags/#tag-header-based-routing
     tag-header-based-routing: "disabled"
