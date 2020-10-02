@@ -16,7 +16,11 @@ limitations under the License.
 
 package bucket
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+)
 
 func TestIsBucketHost(t *testing.T) {
 	if got, want := IsBucketHost("autoscaler-bucket-00-of-03"), true; got != want {
@@ -29,5 +33,37 @@ func TestIsBucketHost(t *testing.T) {
 
 	if got, want := IsBucketHost("autoscaler-bucket-non-exits"), true; got != want {
 		t.Errorf("IsBucketHost = %v, want = %v", got, want)
+	}
+}
+
+func TestAutoscaleBucketName(t *testing.T) {
+	if got, want := AutoscaleBucketName(0, 10), "autoscaler-bucket-00-of-10"; got != want {
+		t.Errorf("AutoscaleBucketName = %v, want = %v", got, want)
+	}
+
+	if got, want := AutoscaleBucketName(10, 10), "autoscaler-bucket-10-of-10"; got != want {
+		t.Errorf("AutoscaleBucketName = %v, want = %v", got, want)
+	}
+
+	if got, want := AutoscaleBucketName(10, 1), "autoscaler-bucket-10-of-01"; got != want {
+		t.Errorf("AutoscaleBucketName = %v, want = %v", got, want)
+	}
+}
+
+func TestAutoscalerBucketSet(t *testing.T) {
+	want := []string{}
+	if got := AutoscalerBucketSet(0).BucketList(); !cmp.Equal(got, want) {
+		t.Errorf("AutoscalerBucketSet = %v, want = %v", got, want)
+	}
+
+	want = []string{"autoscaler-bucket-00-of-01"}
+	if got := AutoscalerBucketSet(1).BucketList(); !cmp.Equal(got, want) {
+		t.Errorf("AutoscalerBucketSet = %v, want = %v", got, want)
+	}
+
+	want = []string{
+		"autoscaler-bucket-00-of-03", "autoscaler-bucket-01-of-03", "autoscaler-bucket-02-of-03"}
+	if got := AutoscalerBucketSet(3).BucketList(); !cmp.Equal(got, want) {
+		t.Errorf("AutoscalerBucketSet = %v, want = %v", got, want)
 	}
 }
