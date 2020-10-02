@@ -32,10 +32,8 @@ import (
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/metrics"
-	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -44,6 +42,8 @@ import (
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 
+	_ "knative.dev/pkg/metrics/testing"
+	_ "knative.dev/pkg/system/testing"
 	. "knative.dev/serving/pkg/testing/v1"
 )
 

@@ -93,7 +93,7 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
-	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer))
+	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)
 
 	return podSpec, nil
 }
@@ -160,11 +160,15 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 }
 
 // BuildPodSpec creates a PodSpec from the given revision and containers.
-func BuildPodSpec(rev *v1.Revision, containers []corev1.Container) *corev1.PodSpec {
+// cfg can be passed as nil if not within revision reconciliation context.
+func BuildPodSpec(rev *v1.Revision, containers []corev1.Container, cfg *config.Config) *corev1.PodSpec {
 	pod := rev.Spec.PodSpec.DeepCopy()
 	pod.Containers = containers
 	pod.Volumes = append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...)
 	pod.TerminationGracePeriodSeconds = rev.Spec.TimeoutSeconds
+	if cfg != nil && pod.EnableServiceLinks == nil {
+		pod.EnableServiceLinks = cfg.Defaults.EnableServiceLinks
+	}
 	return pod
 }
 
@@ -212,7 +216,6 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 
 // MakeDeployment constructs a K8s Deployment resource from a revision.
 func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, error) {
-
 	podSpec, err := makePodSpec(rev, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
