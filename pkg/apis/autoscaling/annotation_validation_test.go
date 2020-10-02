@@ -17,19 +17,24 @@ limitations under the License.
 package autoscaling
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
+	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
 func TestValidateAnnotations(t *testing.T) {
 	cases := []struct {
-		name               string
-		annotations        map[string]string
-		expectErr          string
-		allowInitScaleZero bool
+		name          string
+		annotations   map[string]string
+		expectErr     string
+		configMutator func(*autoscalerconfig.Config)
+		isInCreate    bool
 	}{{
 		name:        "nil annotations",
 		annotations: nil,
@@ -92,6 +97,60 @@ func TestValidateAnnotations(t *testing.T) {
 			MinScaleAnnotationKey: "0",
 			MaxScaleAnnotationKey: "0",
 		},
+	}, {
+		name: "maxScale is greater than MaxScaleLimit when in create",
+		configMutator: func(config *autoscalerconfig.Config) {
+			config.MaxScaleLimit = 10
+		},
+		isInCreate:  true,
+		annotations: map[string]string{MaxScaleAnnotationKey: "11"},
+		expectErr:   "expected 1 <= 11 <= 10: " + MaxScaleAnnotationKey,
+	}, {
+		name: "maxScale is greater than MaxScaleLimit when in create and default MaxScale is set",
+		configMutator: func(config *autoscalerconfig.Config) {
+			config.MaxScaleLimit = 10
+			config.MaxScale = 11
+		},
+		isInCreate:  true,
+		annotations: map[string]string{MaxScaleAnnotationKey: "20"},
+		expectErr:   "expected 1 <= 20 <= 10: " + MaxScaleAnnotationKey,
+	}, {
+		name: "maxScale is greater than MaxScaleLimit when not in create",
+		configMutator: func(config *autoscalerconfig.Config) {
+			config.MaxScaleLimit = 10
+		},
+		isInCreate:  false,
+		annotations: map[string]string{MaxScaleAnnotationKey: "11"},
+	}, {
+		name: "maxScale is explicitly set to 0 when MaxScaleLimit and default MaxScale are set",
+		configMutator: func(config *autoscalerconfig.Config) {
+			config.MaxScaleLimit = 10
+			config.MaxScale = 11
+		},
+		isInCreate:  true,
+		annotations: map[string]string{MaxScaleAnnotationKey: "0"},
+		expectErr:   "maxScale=0 (unlimited), must be less than 10: " + MaxScaleAnnotationKey,
+	}, {
+		name: "maxScale is not set when both MaxScaleLimit and default MaxScale are set",
+		configMutator: func(config *autoscalerconfig.Config) {
+			config.MaxScaleLimit = 10
+			config.MaxScale = 11
+		},
+		isInCreate: true,
+	}, {
+		name: "neither maxScale nor default MaxScale is set when MaxScaleLimit is set",
+		configMutator: func(config *autoscalerconfig.Config) {
+			config.MaxScaleLimit = 10
+		},
+		isInCreate: true,
+		expectErr:  "maxScale=0 (unlimited), must be less than 10: " + MaxScaleAnnotationKey,
+	}, {
+		name: "maxScale is less than MaxScaleLimit",
+		configMutator: func(config *autoscalerconfig.Config) {
+			config.MaxScaleLimit = 10
+		},
+		isInCreate:  true,
+		annotations: map[string]string{MaxScaleAnnotationKey: "9"},
 	}, {
 		name:        "panic window percentange bad",
 		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "-1"},
@@ -278,29 +337,43 @@ func TestValidateAnnotations(t *testing.T) {
 		name:        "other than HPA and KPA class",
 		annotations: map[string]string{ClassAnnotationKey: "other", MetricAnnotationKey: RPS},
 	}, {
-		name:               "initial scale is zero but cluster doesn't allow",
-		allowInitScaleZero: false,
-		annotations:        map[string]string{InitialScaleAnnotationKey: "0"},
-		expectErr:          "invalid value: 0: autoscaling.knative.dev/initialScale",
+		name:        "initial scale is zero but cluster doesn't allow",
+		annotations: map[string]string{InitialScaleAnnotationKey: "0"},
+		expectErr:   "invalid value: 0: autoscaling.knative.dev/initialScale",
 	}, {
-		name:               "initial scale is zero and cluster allows",
-		allowInitScaleZero: true,
-		annotations:        map[string]string{InitialScaleAnnotationKey: "0"},
+		name: "initial scale is zero and cluster allows",
+		configMutator: func(config *autoscalerconfig.Config) {
+			config.AllowZeroInitialScale = true
+		},
+		annotations: map[string]string{InitialScaleAnnotationKey: "0"},
 	}, {
-		name:               "initial scale is greater than 0",
-		allowInitScaleZero: false,
-		annotations:        map[string]string{InitialScaleAnnotationKey: "2"},
+		name:        "initial scale is greater than 0",
+		annotations: map[string]string{InitialScaleAnnotationKey: "2"},
 	}, {
-		name:               "initial scale non-parseable",
-		allowInitScaleZero: false,
-		annotations:        map[string]string{InitialScaleAnnotationKey: "invalid"},
-		expectErr:          "invalid value: invalid: autoscaling.knative.dev/initialScale",
+		name:        "initial scale non-parseable",
+		annotations: map[string]string{InitialScaleAnnotationKey: "invalid"},
+		expectErr:   "invalid value: invalid: autoscaling.knative.dev/initialScale",
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got, want := ValidateAnnotations(c.allowInitScaleZero, c.annotations).Error(), c.expectErr; !reflect.DeepEqual(got, want) {
+			cfg := defaultConfig()
+			if c.configMutator != nil {
+				c.configMutator(cfg)
+			}
+			ctx := context.Background()
+			if c.isInCreate {
+				ctx = apis.WithinCreate(ctx)
+			}
+			if got, want := ValidateAnnotations(ctx, cfg, c.annotations).Error(), c.expectErr; !reflect.DeepEqual(got, want) {
 				t.Errorf("\nErr = %q,\nwant: %q, diff(-want,+got):\n%s", got, want, cmp.Diff(want, got))
 			}
 		})
+	}
+}
+
+func defaultConfig() *autoscalerconfig.Config {
+	return &autoscalerconfig.Config{
+		AllowZeroInitialScale: false,
+		MaxScaleLimit:         0,
 	}
 }
