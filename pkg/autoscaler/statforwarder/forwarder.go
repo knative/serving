@@ -37,8 +37,8 @@ import (
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
-	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
 
@@ -55,6 +55,8 @@ const (
 	maxProcessingRetry      = 30
 	retryProcessingInterval = 500 * time.Millisecond
 )
+
+var svcURLSuffix = fmt.Sprintf("svc.%s:%d", network.GetClusterDomainName(), autoscalerPort)
 
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)
@@ -171,7 +173,7 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	// be the same as the IP has changed.
 	f.shutdown(f.getProcessor(n))
 	holder := *l.Spec.HolderIdentity
-	f.setProcessor(n, f.createProcessor(n, holder))
+	f.setProcessor(n, f.createProcessor(ns, n, holder))
 
 	if holder != f.selfIP {
 		// Skip creating/updating Service and Endpoints if not the leader.
@@ -301,7 +303,7 @@ func (f *Forwarder) setProcessor(bkt string, p *bucketProcessor) {
 	f.processors[bkt] = p
 }
 
-func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
+func (f *Forwarder) createProcessor(ns, bkt, holder string) *bucketProcessor {
 	if holder == f.selfIP {
 		return &bucketProcessor{
 			bkt:    bkt,
@@ -311,16 +313,9 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 		}
 	}
 
-	// TODO(9235): Currently we use IP directly. This won't work if there
-	// is mesh. Need to fall back to connection via Service.
-	dns := fmt.Sprintf("ws://%s:%d", holder, autoscalerPort)
-	f.logger.Info("Connecting to Autoscaler bucket at ", dns)
-	return &bucketProcessor{
-		bkt:    bkt,
-		logger: f.logger.With(zap.String("bucket", bkt)),
-		holder: holder,
-		conn:   websocket.NewDurableSendingConnection(dns, f.logger),
-	}
+	return newForwardProcessor(f.logger.With(zap.String("bucket", bkt)), bkt, holder,
+		fmt.Sprintf("ws://%s:%d", holder, autoscalerPort),
+		fmt.Sprintf("ws://%s.%s.%s", bkt, ns, svcURLSuffix))
 }
 
 // Process enqueues the given Stat for processing asynchronously.
@@ -370,6 +365,7 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat) {
 	f.retryWg.Add(1)
 	go func() {
 		defer f.retryWg.Done()
+		// TODO(yanweiguo): Use RateLimitingInterface and NewItemFastSlowRateLimiter.
 		time.Sleep(retryProcessingInterval)
 		logger.Debug("Enqueuing stat for retry.")
 		f.statCh <- s

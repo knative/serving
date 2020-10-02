@@ -37,15 +37,7 @@ import (
 func (c *Reconciler) createDeployment(ctx context.Context, rev *v1.Revision) (*appsv1.Deployment, error) {
 	cfgs := config.FromContext(ctx)
 
-	deployment, err := resources.MakeDeployment(
-		rev,
-		cfgs.Logging,
-		cfgs.Tracing,
-		cfgs.Network,
-		cfgs.Observability,
-		cfgs.Deployment,
-		cfgs.Autoscaler,
-	)
+	deployment, err := resources.MakeDeployment(rev, cfgs)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to make deployment: %w", err)
@@ -58,16 +50,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	logger := logging.FromContext(ctx)
 	cfgs := config.FromContext(ctx)
 
-	deployment, err := resources.MakeDeployment(
-		rev,
-		cfgs.Logging,
-		cfgs.Tracing,
-		cfgs.Network,
-		cfgs.Observability,
-		cfgs.Deployment,
-		cfgs.Autoscaler,
-	)
-
+	deployment, err := resources.MakeDeployment(rev, cfgs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update deployment: %w", err)
 	}
