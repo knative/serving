@@ -28,13 +28,11 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-//This test checks if the activator can probe
-//the service when istio end user auth policy is
-//applied on the service.
-//This test needs istio side car injected and
-//istio policy check enabled.
-//policy is present in test/config/security/policy.yaml
-//apply policy before running this test
+// This test checks if the activator can probe the service when Istio
+// RequestAuthentication and AuthorizationPolicy is applied on the service.
+// This test requires Istio sidecar injection and Istio RequestAuthentication/AuthorizationPolicy enabled.
+// The RequestAuthentication and AuthorizationPolicy are located at test/config/security/requestauthentication.yaml
+// and need to be applied before running the test.
 func TestAllowedProbes(t *testing.T) {
 	t.Parallel()
 
