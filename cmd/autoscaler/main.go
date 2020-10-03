@@ -235,13 +235,13 @@ func flush(logger *zap.SugaredLogger) {
 func componentConfig(ctx context.Context, logger *zap.SugaredLogger) leaderelection.ComponentConfig {
 	selfIP := os.Getenv("POD_IP")
 	if selfIP == "" {
-		logger.Fatalf("POD_IP environment variable not set.")
+		logger.Fatal("POD_IP environment variable not set.")
 	}
 
 	// Set up leader election config
 	leaderElectionConfig, err := sharedmain.GetLeaderElectionConfig(ctx)
 	if err != nil {
-		logger.Fatalf("Error loading leader election configuration: %v", err)
+		logger.Fatal("Error loading leader election configuration: ", err)
 	}
 
 	cc := leaderElectionConfig.GetComponentConfig(component)
