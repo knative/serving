@@ -139,8 +139,10 @@ Kubernetes cluster in your designated environment, if necessary.
 ### Deploy Istio
 
 1. Check out `net-istio` repo
-   
-   Follow the [instruction](https://github.com/knative-sandbox/net-istio/blob/master/DEVELOPMENT.md#checkout-your-fork) to check out a `net-istio` repo.
+
+   Follow the
+   [instruction](https://github.com/knative-sandbox/net-istio/blob/master/DEVELOPMENT.md#checkout-your-fork)
+   to check out a `net-istio` repo.
 
 1. Install Istio
    
