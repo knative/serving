@@ -140,7 +140,7 @@ func New(
 	}
 
 	webhook.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, fmt.Sprintf("no controller registered for: %s", r.URL.Path), http.StatusBadRequest)
+		http.Error(w, fmt.Sprint("no controller registered for: ", r.URL.Path), http.StatusBadRequest)
 	})
 
 	for _, controller := range controllers {
@@ -183,6 +183,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 		Handler: drainer,
 		Addr:    fmt.Sprintf(":%d", wh.Options.Port),
 		TLSConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
 			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 				secret, err := wh.secretlister.Secrets(system.Namespace()).Get(wh.Options.SecretName)
 				if err != nil {

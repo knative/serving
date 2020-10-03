@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,10 +37,11 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
-	cfgMap "knative.dev/serving/pkg/apis/config"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
+	"knative.dev/serving/pkg/reconciler/configuration/config"
 
 	. "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
@@ -71,12 +72,12 @@ func TestReconcile(t *testing.T) {
 func TestReconcileNewGCEnabled(t *testing.T) {
 	testClock = clock.NewFakeClock(time.Now())
 
-	c := &cfgMap.Config{
-		Features: &cfgMap.Features{
-			ResponsiveRevisionGC: cfgMap.Enabled,
+	c := &config.Config{
+		Features: &cfgmap.Features{
+			ResponsiveRevisionGC: cfgmap.Enabled,
 		},
 	}
-	testCtx = cfgMap.ToContext(context.Background(), c)
+	testCtx = config.ToContext(context.Background(), c)
 	test(t)
 }
 
@@ -99,7 +100,7 @@ func test(t *testing.T) {
 		Key: "foo/delete-pending",
 	}, {
 		Name: "create revision matching generation, with retry",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("no-revisions-yet", "foo", 1234),
 		},
@@ -132,7 +133,7 @@ func test(t *testing.T) {
 		Key: "foo/no-revisions-yet",
 	}, {
 		Name: "create revision byo name",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("byo-name-create", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-create-foo"
@@ -158,7 +159,7 @@ func test(t *testing.T) {
 		Key: "foo/byo-name-create",
 	}, {
 		Name: "create revision byo name (exists)",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("byo-name-exists", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-exists-foo"
@@ -174,7 +175,7 @@ func test(t *testing.T) {
 		Key: "foo/byo-name-exists",
 	}, {
 		Name: "create revision byo name (exists, wrong generation, right spec)",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		// This example shows what we might see with a `git revert` in GitOps.
 		Objects: []runtime.Object{
 			cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1.Configuration) {
@@ -193,7 +194,7 @@ func test(t *testing.T) {
 		Key: "foo/byo-name-git-revert",
 	}, {
 		Name: "create revision byo name (exists @ wrong generation w/ wrong spec)",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-wrong-gen-wrong-spec-foo"
@@ -215,7 +216,7 @@ func test(t *testing.T) {
 		Key: "foo/byo-name-wrong-gen-wrong-spec",
 	}, {
 		Name: "create revision byo name (exists not owned)",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("byo-rev-not-owned", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-rev-not-owned-foo"
@@ -234,7 +235,7 @@ func test(t *testing.T) {
 		Key: "foo/byo-rev-not-owned",
 	}, {
 		Name: "webhook validation failure",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		// If we attempt to create a Revision with a bad ContainerConcurrency set, we fail.
 		WantErr: true,
 		Objects: []runtime.Object{
@@ -255,7 +256,7 @@ func test(t *testing.T) {
 		Key: "foo/validation-failure",
 	}, {
 		Name: "reconcile revision matching generation (ready: unknown)",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("matching-revision-not-done", "foo", 5432),
 			rev("matching-revision-not-done", "foo", 5432,
@@ -272,7 +273,7 @@ func test(t *testing.T) {
 		Key: "foo/matching-revision-not-done",
 	}, {
 		Name: "reconcile revision matching generation (ready: true)",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("matching-revision-done", "foo", 5555, WithLatestCreated("matching-revision-done-00001"), WithConfigObservedGen),
 			rev("matching-revision-done", "foo", 5555,
@@ -293,7 +294,7 @@ func test(t *testing.T) {
 		Key: "foo/matching-revision-done",
 	}, {
 		Name: "reconcile revision matching generation (ready: true, idempotent)",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("matching-revision-done-idempotent", "foo", 5566,
 				WithConfigObservedGen, WithLatestCreated("matching-revision"), WithLatestReady("matching-revision")),
@@ -303,7 +304,7 @@ func test(t *testing.T) {
 		Key: "foo/matching-revision-done-idempotent",
 	}, {
 		Name: "reconcile revision matching generation (ready: false)",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("matching-revision-failed", "foo", 5555, WithLatestCreated("matching-revision"), WithConfigObservedGen),
 			rev("matching-revision-failed", "foo", 5555,
@@ -323,7 +324,7 @@ func test(t *testing.T) {
 		Key: "foo/matching-revision-failed",
 	}, {
 		Name: "reconcile revision matching generation (ready: bad)",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("bad-condition", "foo", 5555, WithLatestCreated("bad-condition"), WithConfigObservedGen),
 			rev("bad-condition", "foo", 5555,
@@ -345,7 +346,7 @@ func test(t *testing.T) {
 		Key: "foo/bad-condition",
 	}, {
 		Name: "failure creating revision",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		// We induce a failure creating a revision
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -370,7 +371,7 @@ func test(t *testing.T) {
 		Key: "foo/create-revision-failure",
 	}, {
 		Name: "failure updating configuration status",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		// Induce a failure updating the status of the configuration.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -396,7 +397,7 @@ func test(t *testing.T) {
 		Key: "foo/update-config-failure",
 	}, {
 		Name: "failed revision recovers",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("revision-recovers", "foo", 1337,
 				WithLatestCreated("revision-recovers-00001"),
@@ -424,7 +425,7 @@ func test(t *testing.T) {
 		// querying the latest created revision includes the configuration name
 		// as part of the selector
 		Name: "two steady state configs with same generation should be a noop",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			// double-trouble needs to be first for this test to fail
 			// when no fix is present
@@ -445,7 +446,7 @@ func test(t *testing.T) {
 		Key: "foo/double-trouble",
 	}, {
 		Name: "three revisions with the latest revision failed, the latest ready should be updated to the last ready revision",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("threerevs", "foo", 3,
 				WithLatestCreated("threerevs-00002"),
@@ -478,7 +479,7 @@ func test(t *testing.T) {
 		Key: "foo/threerevs",
 	}, {
 		Name: "revision not ready, the latest ready should be updated, but the configuration should still be ready==Unknown",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("revnotready", "foo", 3,
 				WithLatestCreated("revnotready-00002"),
@@ -512,7 +513,7 @@ func test(t *testing.T) {
 		Key: "foo/revnotready",
 	}, {
 		Name: "current LRR doesn't exist, LCR is ready",
-		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("lrrnotexist", "foo", 2,
 				WithLatestCreated("lrrnotexist-00002"),
@@ -579,7 +580,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1.Confi
 
 func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
 	r := resources.MakeRevision(testCtx, cfg(name, namespace, generation), testClock)
-	r.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
+	r.SetDefaults(context.Background())
 	for _, opt := range ro {
 		opt(r)
 	}

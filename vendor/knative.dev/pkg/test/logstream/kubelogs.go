@@ -18,6 +18,7 @@ package logstream
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -75,7 +76,7 @@ func (k *kubelogs) startForPod(pod *corev1.Pod) {
 			}
 
 			req := k.kc.Kube.CoreV1().Pods(psn).GetLogs(pn, options)
-			stream, err := req.Stream()
+			stream, err := req.Stream(context.Background())
 			if err != nil {
 				k.handleGenericLine([]byte(err.Error()), pn)
 				return
@@ -104,12 +105,12 @@ func podIsReady(p *corev1.Pod) bool {
 }
 
 func (k *kubelogs) watchPods(t test.TLegacy) {
-	wi, err := k.kc.Kube.CoreV1().Pods(k.namespace).Watch(metav1.ListOptions{})
+	wi, err := k.kc.Kube.CoreV1().Pods(k.namespace).Watch(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		t.Error("Logstream knative pod watch failed, logs might be missing", "error", err)
 		return
 	}
-	go func() error {
+	go func() {
 		watchedPods := sets.NewString()
 		for ev := range wi.ResultChan() {
 			p := ev.Object.(*corev1.Pod)
@@ -127,7 +128,6 @@ func (k *kubelogs) watchPods(t test.TLegacy) {
 				}
 			}
 		}
-		return nil
 	}()
 }
 

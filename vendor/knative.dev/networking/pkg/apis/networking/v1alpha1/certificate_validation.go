@@ -28,21 +28,20 @@ func (c *Certificate) Validate(ctx context.Context) *apis.FieldError {
 }
 
 // Validate inspects and validates CertificateSpec object.
-func (spec *CertificateSpec) Validate(ctx context.Context) *apis.FieldError {
-	var all *apis.FieldError
+func (spec *CertificateSpec) Validate(ctx context.Context) (all *apis.FieldError) {
 	// Spec must have at least one DNS Name.
 	if len(spec.DNSNames) == 0 {
 		all = all.Also(apis.ErrMissingField("dnsNames"))
 	} else {
-		for index, dnsName := range spec.DNSNames {
-			if len(dnsName) == 0 {
-				all = all.Also(apis.ErrInvalidArrayValue("", "dnsNames", index))
+		for i, dnsName := range spec.DNSNames {
+			if dnsName == "" {
+				all = all.Also(apis.ErrInvalidArrayValue(dnsName, "dnsNames", i))
 			}
 		}
 	}
 
 	// Spec must have secretName.
-	if len(spec.SecretName) == 0 {
+	if spec.SecretName == "" {
 		all = all.Also(apis.ErrMissingField("secretName"))
 	}
 	return all

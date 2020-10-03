@@ -78,7 +78,7 @@ func TestResponseRecorder(t *testing.T) {
 				t.Errorf("got %v, want %v", got, want)
 			}
 			if diff := cmp.Diff(rr.Header(), defaultHeader); diff != "" {
-				t.Errorf("Headers are different (-want, +got) = %v", diff)
+				t.Error("Headers are different (-want, +got) =", diff)
 			}
 		})
 	}

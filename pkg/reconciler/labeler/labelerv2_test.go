@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ import (
 	autoscalercfg "knative.dev/serving/pkg/autoscaler/config"
 
 	. "knative.dev/pkg/reconciler/testing"
+	"knative.dev/serving/pkg/reconciler/configuration/config"
 	labelerv1 "knative.dev/serving/pkg/reconciler/labeler/v1"
 	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -234,9 +235,9 @@ func TestV2Reconcile(t *testing.T) {
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchRemoveRouteAndServingStateLabel("default", rev("default", "old-config").Name, now.Time),
+			patchRemoveRouteAnn("default", "old-config"),
 			patchAddRouteAndServingStateLabel(
 				"default", rev("default", "new-config").Name, "config-change", now.Time),
-			patchRemoveRouteAnn("default", "old-config"),
 			patchAddRouteAnn("default", "new-config", "config-change"),
 		},
 		Key: "default/config-change",
@@ -390,7 +391,8 @@ func revTraffic(name string, latest bool) v1.TrafficTarget {
 
 func routeWithTraffic(namespace, name string, spec, status v1.TrafficTarget, opts ...RouteOption) *v1.Route {
 	return Route(namespace, name,
-		append([]RouteOption{WithSpecTraffic(spec), WithStatusTraffic(status), WithInitRouteConditions}, opts...)...)
+		append([]RouteOption{WithSpecTraffic(spec), WithStatusTraffic(status), WithInitRouteConditions,
+			MarkTrafficAssigned, MarkCertificateReady, MarkIngressReady, WithRouteObservedGeneration}, opts...)...)
 }
 
 func simpleRunLatest(namespace, name, config string, opts ...RouteOption) *v1.Route {
@@ -534,7 +536,7 @@ func TestNew(t *testing.T) {
 }
 
 func setResponsiveGCFeature(ctx context.Context, flag cfgmap.Flag) context.Context {
-	c := cfgmap.FromContextOrDefaults(ctx)
+	c := config.FromContextOrDefaults(ctx)
 	c.Features.ResponsiveRevisionGC = flag
-	return cfgmap.ToContext(ctx, c)
+	return config.ToContext(ctx, c)
 }

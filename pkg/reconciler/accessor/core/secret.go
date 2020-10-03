@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -46,7 +46,7 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 	}
 	secret, err := accessor.GetSecretLister().Secrets(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
-		secret, err = accessor.GetKubeClient().CoreV1().Secrets(desired.Namespace).Create(desired)
+		secret, err = accessor.GetKubeClient().CoreV1().Secrets(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Secret %s/%s: %v", desired.Namespace, desired.Name, err)
@@ -64,7 +64,7 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 		// Don't modify the informers copy
 		copy := secret.DeepCopy()
 		copy.Data = desired.Data
-		secret, err = accessor.GetKubeClient().CoreV1().Secrets(copy.Namespace).Update(copy)
+		secret, err = accessor.GetKubeClient().CoreV1().Secrets(copy.Namespace).Update(ctx, copy, metav1.UpdateOptions{})
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Secret %s/%s: %v", desired.Namespace, desired.Name, err)
 			return nil, fmt.Errorf("failed to update Secret: %w", err)

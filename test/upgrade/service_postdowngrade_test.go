@@ -19,6 +19,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"context"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +41,7 @@ func TestServicePostDowngrade(t *testing.T) {
 	}
 
 	t.Logf("Getting service %q", names.Service)
-	svc, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	svc, err := clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get Service:", err)
 	}

@@ -115,7 +115,7 @@ func SetupHelper(ctx context.Context, benchmarkKey *string, benchmarkName *strin
 	}
 
 	// Determine the number of Kubernetes nodes through the kubernetes client.
-	nodes, err := kc.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := kc.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}

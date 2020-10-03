@@ -21,17 +21,13 @@ import (
 	"strconv"
 
 	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -83,21 +79,21 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 		// between probes and real requests.
 		p.HTTPGet.HTTPHeaders = append(p.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
 			Name:  network.KubeletProbeHeaderName,
-			Value: "queue",
+			Value: queue.Name,
 		})
 	case p.TCPSocket != nil:
 		p.TCPSocket.Port = intstr.FromInt(userPort)
 	}
 }
 
-func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config) (*corev1.PodSpec, error) {
-	queueContainer, err := makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
+func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) {
+	queueContainer, err := makeQueueContainer(rev, cfg)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
-	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer))
+	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)
 
 	return podSpec, nil
 }
@@ -164,11 +160,15 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 }
 
 // BuildPodSpec creates a PodSpec from the given revision and containers.
-func BuildPodSpec(rev *v1.Revision, containers []corev1.Container) *corev1.PodSpec {
+// cfg can be passed as nil if not within revision reconciliation context.
+func BuildPodSpec(rev *v1.Revision, containers []corev1.Container, cfg *config.Config) *corev1.PodSpec {
 	pod := rev.Spec.PodSpec.DeepCopy()
 	pod.Containers = containers
 	pod.Volumes = append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...)
 	pod.TerminationGracePeriodSeconds = rev.Spec.TimeoutSeconds
+	if cfg != nil && pod.EnableServiceLinks == nil {
+		pod.EnableServiceLinks = cfg.Defaults.EnableServiceLinks
+	}
 	return pod
 }
 
@@ -215,21 +215,18 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 }
 
 // MakeDeployment constructs a K8s Deployment resource from a revision.
-func MakeDeployment(rev *v1.Revision,
-	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config,
-	observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config,
-	autoscalerConfig *asconfig.Config) (*appsv1.Deployment, error) {
-
-	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
+func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, error) {
+	podSpec, err := makePodSpec(rev, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
 	}
 
-	replicaCount := int(autoscalerConfig.InitialScale)
+	replicaCount := cfg.Autoscaler.InitialScale
 	ann, found := rev.Annotations[autoscaling.InitialScaleAnnotationKey]
 	if found {
 		// Ignore errors and no error checking because already validated in webhook.
-		replicaCount, _ = strconv.Atoi(ann)
+		rc, _ := strconv.ParseInt(ann, 10, 32)
+		replicaCount = int32(rc)
 	}
 
 	labels := makeLabels(rev)
@@ -244,9 +241,9 @@ func MakeDeployment(rev *v1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas:                ptr.Int32(int32(replicaCount)),
+			Replicas:                ptr.Int32(replicaCount),
 			Selector:                makeSelector(rev),
-			ProgressDeadlineSeconds: ptr.Int32(int32(deploymentConfig.ProgressDeadline.Seconds())),
+			ProgressDeadlineSeconds: ptr.Int32(int32(cfg.Deployment.ProgressDeadline.Seconds())),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      labels,

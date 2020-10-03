@@ -47,9 +47,8 @@ var (
 // ValidateObjectMetadata validates that `metadata` stanza of the
 // resources is correct.
 func ValidateObjectMetadata(ctx context.Context, meta metav1.Object) *apis.FieldError {
-	allowZeroInitialScale := config.FromContextOrDefaults(ctx).Autoscaler.AllowZeroInitialScale
 	return apis.ValidateObjectMetadata(meta).
-		Also(autoscaling.ValidateAnnotations(allowZeroInitialScale, meta.GetAnnotations()).
+		Also(autoscaling.ValidateAnnotations(ctx, config.FromContextOrDefaults(ctx).Autoscaler, meta.GetAnnotations()).
 			Also(validateKnativeAnnotations(meta.GetAnnotations())).
 			ViaField("annotations"))
 }
@@ -61,6 +60,19 @@ func validateKnativeAnnotations(annotations map[string]string) (errs *apis.Field
 		}
 	}
 	return
+}
+
+// ValidateHasNoAutoscalingAnnotation validates that the respective entity does not have
+// annotations from the autoscaling group. It's to be used to validate Service and
+// Configuration.
+func ValidateHasNoAutoscalingAnnotation(annotations map[string]string) (errs *apis.FieldError) {
+	for key := range annotations {
+		if strings.HasPrefix(key, autoscaling.GroupName) {
+			errs = errs.Also(
+				apis.ErrInvalidKeyName(key, apis.CurrentField, `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`))
+		}
+	}
+	return errs
 }
 
 // ValidateQueueSidecarAnnotation validates QueueSideCarResourcePercentageAnnotation
@@ -115,9 +127,9 @@ func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int
 }
 
 // ValidateClusterVisibilityLabel function validates the visibility label on a Route
-func ValidateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
+func ValidateClusterVisibilityLabel(label, key string) (errs *apis.FieldError) {
 	if label != VisibilityClusterLocal {
-		errs = apis.ErrInvalidValue(label, VisibilityLabelKey)
+		errs = apis.ErrInvalidValue(label, key)
 	}
 	return
 }

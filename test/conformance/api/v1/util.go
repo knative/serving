@@ -22,6 +22,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"testing"
 
 	"golang.org/x/sync/errgroup"
 
@@ -33,12 +34,12 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-func checkForExpectedResponses(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, expectedResponses ...string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+func checkForExpectedResponses(ctx context.Context, t pkgTest.TLegacy, clients *test.Clients, url *url.URL, expectedResponses ...string) error {
+	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
 		return err
 	}
@@ -55,38 +56,39 @@ func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.U
 		subdomains[i] = subdomain
 	}
 
-	g, _ := errgroup.WithContext(context.Background())
+	g, egCtx := errgroup.WithContext(context.Background())
 	// We don't have a good way to check if the route is updated so we will wait until a subdomain has
 	// started returning at least one expected result to key that we should validate percentage splits.
 	// In order for tests to succeed reliably, we need to make sure that all domains succeed.
 	g.Go(func() error {
 		t.Log("Checking updated route", baseDomain)
-		return checkForExpectedResponses(t, clients, baseDomain, baseExpected...)
+		return checkForExpectedResponses(egCtx, t, clients, baseDomain, baseExpected...)
 	})
 	for i, s := range subdomains {
 		i, s := i, s
 		g.Go(func() error {
 			t.Log("Checking updated route tags", s)
-			return checkForExpectedResponses(t, clients, s, targetsExpected[i])
+			return checkForExpectedResponses(egCtx, t, clients, s, targetsExpected[i])
 		})
 	}
 	if err := g.Wait(); err != nil {
 		return fmt.Errorf("error with initial domain probing: %w", err)
 	}
 
+	g, egCtx = errgroup.WithContext(context.Background())
 	g.Go(func() error {
 		minBasePercentage := test.MinSplitPercentage
 		if len(baseExpected) == 1 {
 			minBasePercentage = test.MinDirectPercentage
 		}
 		min := int(math.Floor(test.ConcurrentRequests * minBasePercentage))
-		return shared.CheckDistribution(t, clients, baseDomain, test.ConcurrentRequests, min, baseExpected)
+		return shared.CheckDistribution(egCtx, t, clients, baseDomain, test.ConcurrentRequests, min, baseExpected)
 	})
 	for i, subdomain := range subdomains {
 		i, subdomain := i, subdomain
 		g.Go(func() error {
 			min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-			return shared.CheckDistribution(t, clients, subdomain, test.ConcurrentRequests, min, []string{targetsExpected[i]})
+			return shared.CheckDistribution(egCtx, t, clients, subdomain, test.ConcurrentRequests, min, []string{targetsExpected[i]})
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -101,13 +103,14 @@ func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.U
 func validateDataPlane(t pkgTest.TLegacy, clients *test.Clients, names test.ResourceNames, expectedText string) error {
 	t.Log("Checking that the endpoint vends the expected text:", expectedText)
 	_, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %w", names.Route, names.URL, expectedText, err)
 	}
@@ -118,16 +121,13 @@ func validateDataPlane(t pkgTest.TLegacy, clients *test.Clients, names test.Reso
 // Validates the state of Configuration, Revision, and Route objects for a runLatest Service.
 // The checks in this method should be able to be performed at any point in a
 // runLatest Service's lifecycle so long as the service is in a "Ready" state.
-func validateControlPlane(t pkgTest.T, clients *test.Clients, names test.ResourceNames, expectedGeneration string) error {
+func validateControlPlane(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedGeneration string) error {
 	t.Log("Checking to ensure Revision is in desired state with", "generation", expectedGeneration)
 	err := v1test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1.Revision) (bool, error) {
 		if ready, err := v1test.IsRevisionReady(r); !ready {
 			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %w", names.Revision, err)
 		}
-		if r.Status.DeprecatedImageDigest == "" {
-			return false, fmt.Errorf("imageDigest not present for revision %s", names.Revision)
-		}
-		if validDigest, err := shared.ValidateImageDigest(names.Image, r.Status.DeprecatedImageDigest); !validDigest {
+		if validDigest, err := shared.ValidateImageDigest(t, names.Image, r.Status.DeprecatedImageDigest); !validDigest {
 			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.DeprecatedImageDigest, names.Image, err)
 		}
 		return true, nil

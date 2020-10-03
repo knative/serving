@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -91,7 +91,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
 		pa.Status.MarkSKSNotReady(noPrivateServiceName) // In both cases this is true.
-		return computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger)
+		computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger)
+		return nil
 	}
 
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
@@ -162,7 +163,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-	return computeStatus(ctx, pa, pc, logger)
+	computeStatus(ctx, pa, pc, logger)
+	return nil
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*scaling.Decider, error) {
@@ -188,27 +190,19 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func computeStatus(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) error {
+func computeStatus(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) {
 	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
 
-	if err := reportMetrics(pa, pc); err != nil {
-		return fmt.Errorf("error reporting metrics: %w", err)
-	}
-
+	reportMetrics(pa, pc)
 	computeActiveCondition(ctx, pa, pc)
 	logger.Debugf("PA Status after reconcile: %#v", pa.Status.Status)
-
-	return nil
 }
 
-func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
+func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
 	configLabel := pa.Labels[serving.ConfigurationLabelKey]
 
-	ctx, err := metrics.RevisionContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
-	if err != nil {
-		return err
-	}
+	ctx := metrics.RevisionContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
 
 	stats := []stats.Measurement{
 		actualPodCountM.M(int64(pc.ready)), notReadyPodCountM.M(int64(pc.notReady)),
@@ -219,7 +213,6 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 		stats = append(stats, requestedPodCountM.M(int64(pc.want)))
 	}
 	pkgmetrics.RecordBatch(ctx, stats...)
-	return nil
 }
 
 // computeActiveCondition updates the status of a PA given the current scale (got), desired scale (want)

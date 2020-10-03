@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
@@ -273,11 +272,7 @@ func TestReconcile(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "networking.internal.knative.dev",
-					Version:  "v1alpha1",
-					Resource: "certificates",
-				},
+				Resource:  v1alpha1.SchemeGroupVersion.WithResource("certificates"),
 			},
 			Name: "foo.example.com",
 		}},
@@ -317,13 +312,13 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	defer cancel()
 
 	namespace := kubeNamespace("testns")
-	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(namespace)
+	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
 	fakensinformer.Get(ctx).Informer().GetIndexer().Add(namespace)
 
 	want := []string{fmt.Sprintf("*.%s.%s", namespace.Name, routecfg.DefaultDomain)}
 	cert := <-certEvents
 	if diff := cmp.Diff(want, cert.Spec.DNSNames); diff != "" {
-		t.Errorf("DNSNames (-want, +got) = %s", diff)
+		t.Error("DNSNames (-want, +got) =", diff)
 	}
 
 	// Update the domain template to something matched by the existing DNSName
@@ -363,7 +358,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	want = []string{fmt.Sprintf("*.subdomain.%s.%s", namespace.Name, routecfg.DefaultDomain)}
 	cert = <-certEvents
 	if diff := cmp.Diff(want, cert.Spec.DNSNames); diff != "" {
-		t.Errorf("DNSNames (-want, +got) = %s", diff)
+		t.Error("DNSNames (-want, +got) =", diff)
 	}
 
 	// Invalid domain template for wildcard certs
@@ -386,7 +381,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		case cert := <-certEvents:
 			// We don't expect the domain of cert to be changed.
 			if diff := cmp.Diff(oldDomain, cert.Spec.DNSNames); diff != "" {
-				t.Fatalf("DNSNames should not be changed: (-want, +got) = %s", diff)
+				t.Fatal("DNSNames should not be changed: (-want, +got) =", diff)
 			}
 		case <-done:
 			return
@@ -409,7 +404,7 @@ func TestChangeDefaultDomain(t *testing.T) {
 	defer cancel()
 
 	namespace := kubeNamespace("testns")
-	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(namespace)
+	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
 	fakensinformer.Get(ctx).Informer().GetIndexer().Add(namespace)
 
 	// The certificate should be created with the default domain.
@@ -437,7 +432,7 @@ func TestChangeDefaultDomain(t *testing.T) {
 	}
 
 	// Assert we have exactly one certificate.
-	certs, _ := fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(namespace.Name).List(metav1.ListOptions{})
+	certs, _ := fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(namespace.Name).List(ctx, metav1.ListOptions{})
 	if len(certs.Items) > 1 {
 		t.Errorf("Expected 1 certificate, got %d.", len(certs.Items))
 	}
@@ -510,7 +505,7 @@ func TestDomainConfigDomain(t *testing.T) {
 			ctx = configStore.ToContext(ctx)
 			r.ReconcileKind(ctx, namespace)
 
-			cert, err := fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(ns).Get(test.wantCertName, metav1.GetOptions{})
+			cert, err := fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(ns).Get(ctx, test.wantCertName, metav1.GetOptions{})
 			if err != nil {
 				t.Fatal("Could not get certificate:", err)
 			}

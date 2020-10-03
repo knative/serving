@@ -27,6 +27,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -76,7 +77,7 @@ func (ac *reconciler) Reconcile(ctx context.Context, key string) error {
 
 	secret, err := ac.secretlister.Secrets(system.Namespace()).Get(ac.secretName)
 	if err != nil {
-		logger.Errorf("Error fetching secret: %v", err)
+		logger.Error("Error fetching secret: ", err)
 		return err
 	}
 
@@ -99,7 +100,7 @@ func (ac *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionR
 	switch request.Operation {
 	case admissionv1.Create, admissionv1.Update:
 	default:
-		logger.Infof("Unhandled webhook operation, letting it through %v", request.Operation)
+		logger.Info("Unhandled webhook operation, letting it through ", request.Operation)
 		return &admissionv1.AdmissionResponse{Allowed: true}
 	}
 
@@ -157,7 +158,7 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 	} else if !ok {
 		logger.Info("Updating webhook")
 		vwhclient := ac.client.AdmissionregistrationV1().ValidatingWebhookConfigurations()
-		if _, err := vwhclient.Update(webhook); err != nil {
+		if _, err := vwhclient.Update(ctx, webhook, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update webhook: %w", err)
 		}
 	} else {
@@ -181,7 +182,7 @@ func (ac *reconciler) validate(ctx context.Context, req *admissionv1.AdmissionRe
 
 	resourceGVK := corev1.SchemeGroupVersion.WithKind("ConfigMap")
 	if gvk != resourceGVK {
-		logger.Errorf("Unhandled kind: %v", gvk)
+		logger.Error("Unhandled kind: ", gvk)
 		return fmt.Errorf("unhandled kind: %v", gvk)
 	}
 
@@ -200,8 +201,8 @@ func (ac *reconciler) validate(ctx context.Context, req *admissionv1.AdmissionRe
 		if hasExampleData && hasExampleChecksumAnnotation &&
 			exampleChecksum != configmap.Checksum(exampleData) {
 			return fmt.Errorf(
-				"%q modified, you likely wanted to create an unindented configuration",
-				configmap.ExampleKey)
+				"the update modifies a key in %q which is probably not what you want. Instead, copy the respective setting to the top-level of the ConfigMap, directly below %q",
+				configmap.ExampleKey, "data")
 		}
 
 		inputs := []reflect.Value{

@@ -104,7 +104,7 @@ func TestControllerCanReconcile(t *testing.T) {
 	}()
 
 	podAutoscaler := pa(testNamespace, testRevision, WithHPAClass)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(ctx, podAutoscaler, metav1.CreateOptions{})
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(podAutoscaler)
 
 	// The Reconciler won't do any work until it becomes the leader.
@@ -114,12 +114,12 @@ func TestControllerCanReconcile(t *testing.T) {
 
 	err = ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	if err != nil {
-		t.Errorf("Reconcile() = %v", err)
+		t.Error("Reconcile() =", err)
 	}
 
-	_, err = fakekubeclient.Get(ctx).AutoscalingV2beta1().HorizontalPodAutoscalers(testNamespace).Get(testRevision, metav1.GetOptions{})
+	_, err = fakekubeclient.Get(ctx).AutoscalingV2beta1().HorizontalPodAutoscalers(testNamespace).Get(ctx, testRevision, metav1.GetOptions{})
 	if err != nil {
-		t.Errorf("error getting hpa: %v", err)
+		t.Error("error getting hpa:", err)
 	}
 }
 

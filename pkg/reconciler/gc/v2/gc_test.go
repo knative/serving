@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors.
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -112,11 +111,7 @@ func TestCollectMin(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "serving.knative.dev",
-					Version:  "v1",
-					Resource: "revisions",
-				},
+				Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
 			},
 			Name: "5554",
 		}},
@@ -144,11 +139,7 @@ func TestCollectMin(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "serving.knative.dev",
-					Version:  "v1",
-					Resource: "revisions",
-				},
+				Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
 			},
 			Name: "5554",
 		}},
@@ -211,11 +202,7 @@ func TestCollectMin(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "serving.knative.dev",
-					Version:  "v1",
-					Resource: "revisions",
-				},
+				Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
 			},
 			Name: "5555",
 		}},
@@ -303,11 +290,7 @@ func TestCollectMax(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "serving.knative.dev",
-					Version:  "v1",
-					Resource: "revisions",
-				},
+				Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
 			},
 			Name: "5553",
 		}},
@@ -390,11 +373,7 @@ func TestCollectSettings(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "serving.knative.dev",
-					Version:  "v1",
-					Resource: "revisions",
-				},
+				Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
 			},
 			Name: "5554",
 		}},
@@ -410,11 +389,7 @@ func TestCollectSettings(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "serving.knative.dev",
-					Version:  "v1",
-					Resource: "revisions",
-				},
+				Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
 			},
 			Name: "5554",
 		}},

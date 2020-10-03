@@ -87,7 +87,7 @@ func (ac *reconciler) Reconcile(ctx context.Context, key string) error {
 	// Look up the webhook secret, and fetch the CA cert bundle.
 	secret, err := ac.secretlister.Secrets(system.Namespace()).Get(ac.secretName)
 	if err != nil {
-		logger.Errorf("Error fetching secret: %v", err)
+		logger.Error("Error fetching secret: ", err)
 		return err
 	}
 	caCert, ok := secret.Data[certresources.CACert]
@@ -114,7 +114,7 @@ func (ac *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionR
 	switch request.Operation {
 	case admissionv1.Create, admissionv1.Update:
 	default:
-		logger.Infof("Unhandled webhook operation, letting it through %v", request.Operation)
+		logger.Info("Unhandled webhook operation, letting it through ", request.Operation)
 		return &admissionv1.AdmissionResponse{Allowed: true}
 	}
 
@@ -205,7 +205,7 @@ func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 	} else if !ok {
 		logger.Info("Updating webhook")
 		mwhclient := ac.client.AdmissionregistrationV1().MutatingWebhookConfigurations()
-		if _, err := mwhclient.Update(webhook); err != nil {
+		if _, err := mwhclient.Update(ctx, webhook, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update webhook: %w", err)
 		}
 	} else {
@@ -228,7 +228,7 @@ func (ac *reconciler) mutate(ctx context.Context, req *admissionv1.AdmissionRequ
 	logger := logging.FromContext(ctx)
 	handler, ok := ac.handlers[gvk]
 	if !ok {
-		logger.Errorf("Unhandled kind: %v", gvk)
+		logger.Error("Unhandled kind: ", gvk)
 		return nil, fmt.Errorf("unhandled kind: %v", gvk)
 	}
 

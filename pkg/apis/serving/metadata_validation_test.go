@@ -26,11 +26,12 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
 func TestValidateObjectMetadata(t *testing.T) {
@@ -211,6 +212,43 @@ func TestValidateObjectMetadata(t *testing.T) {
 	}
 }
 
+func TestValidateHasNoAutoscalingAnnotation(t *testing.T) {
+	cases := []struct {
+		name       string
+		annotation map[string]string
+		expectErr  *apis.FieldError
+	}{{
+		name:       "nil",
+		annotation: nil,
+	}, {
+		name:       "empty",
+		annotation: map[string]string{},
+	}, {
+		name:       "no offender",
+		annotation: map[string]string{"foo": "bar"},
+	}, {
+		name:       "only offender",
+		annotation: map[string]string{"autoscaling.knative.dev/foo": "bar"},
+		expectErr:  apis.ErrInvalidKeyName("autoscaling.knative.dev/foo", apis.CurrentField, `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`),
+	}, {
+		name: "offender and non-offender",
+		annotation: map[string]string{
+			"autoscaling.knative.dev/foo": "bar",
+			"foo":                         "bar",
+		},
+		expectErr: apis.ErrInvalidKeyName("autoscaling.knative.dev/foo", apis.CurrentField, `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`),
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := ValidateHasNoAutoscalingAnnotation(c.annotation)
+			if got, want := err.Error(), c.expectErr.Error(); got != want {
+				t.Errorf("\nGot:  %q\nwant: %q", got, want)
+			}
+		})
+	}
+}
+
 func TestValidateQueueSidecarAnnotation(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -370,19 +408,19 @@ func TestValidateClusterVisibilityLabel(t *testing.T) {
 	}{{
 		name:      "empty label",
 		label:     "",
-		expectErr: apis.ErrInvalidValue("", VisibilityLabelKey),
+		expectErr: apis.ErrInvalidValue("", network.VisibilityLabelKey),
 	}, {
 		name:  "valid label",
 		label: VisibilityClusterLocal,
 	}, {
 		name:      "invalid label",
 		label:     "not-cluster-local",
-		expectErr: apis.ErrInvalidValue("not-cluster-local", VisibilityLabelKey),
+		expectErr: apis.ErrInvalidValue("not-cluster-local", network.VisibilityLabelKey),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := ValidateClusterVisibilityLabel(test.label)
+			err := ValidateClusterVisibilityLabel(test.label, network.VisibilityLabelKey)
 			if got, want := err.Error(), test.expectErr.Error(); got != want {
 				t.Errorf("\nGot:  %q\nwant: %q", got, want)
 			}

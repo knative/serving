@@ -144,6 +144,6 @@ const (
 )
 
 // GetStatus retrieves the status of the ServerlessService. Implements the KRShaped interface.
-func (t *ServerlessService) GetStatus() *duckv1.Status {
-	return &t.Status.Status
+func (ss *ServerlessService) GetStatus() *duckv1.Status {
+	return &ss.Status.Status
 }

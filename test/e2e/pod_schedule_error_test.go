@@ -15,9 +15,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -48,7 +50,7 @@ func TestPodScheduleError(t *testing.T) {
 
 	test.EnsureTearDown(t, clients, &names)
 
-	t.Logf("Creating a new Service %s", names.Image)
+	t.Log("Creating a new Service", names.Image)
 	resources := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU: resource.MustParse("50000m"),
@@ -109,7 +111,7 @@ func TestPodScheduleError(t *testing.T) {
 
 // Get revision name from configuration.
 func revisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
-	config, err := clients.ServingClient.Configs.Get(configName, metav1.GetOptions{})
+	config, err := clients.ServingClient.Configs.Get(context.Background(), configName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

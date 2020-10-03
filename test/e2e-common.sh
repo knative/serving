@@ -14,14 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Temporarily increasing the cluster size for serving tests to rule out
-# resource/eviction as causes of flakiness. These env vars are consumed
-# in the test-infra/scripts/e2e-tests.sh. Use the existing value, if provided
-# with the job config.
-E2E_MIN_CLUSTER_NODES=${E2E_MIN_CLUSTER_NODES:-4}
-E2E_MAX_CLUSTER_NODES=${E2E_MAX_CLUSTER_NODES:-4}
-E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-e2-standard-8}
-
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 source $(dirname $0)/e2e-networking-library.sh
@@ -229,7 +221,7 @@ function install_knative_serving_standard() {
     sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_POST_INSTALL_JOBS_YAML}
 
     echo "Knative YAML: ${SERVING_RELEASE_YAML}"
-    ko apply -f "${SERVING_RELEASE_YAML}" --selector=knative.dev/crd-install=true || return 1
+    ko apply --platform=all -f "${SERVING_RELEASE_YAML}" --selector=knative.dev/crd-install=true || return 1
   fi
 
   echo ">> Installing Ingress"
@@ -297,7 +289,7 @@ function install_knative_serving_standard() {
   else
     echo "Knative YAML: ${SERVING_RELEASE_YAML}"
     # We use ko because it has better filtering support for CRDs.
-    ko apply -f "${SERVING_RELEASE_YAML}" || return 1
+    ko apply --platform=all -f "${SERVING_RELEASE_YAML}" || return 1
     ko create -f "${SERVING_POST_INSTALL_JOBS_YAML}" || return 1
     UNINSTALL_LIST+=( "${SERVING_RELEASE_YAML}" )
 
@@ -412,12 +404,12 @@ function test_setup() {
 
   local TEST_CONFIG_DIR=${TEST_DIR}/config
   echo ">> Creating test resources (${TEST_CONFIG_DIR}/)"
-  ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/ || return 1
+  ko apply --platform=all ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/ || return 1
   if (( MESH )); then
     kubectl label namespace serving-tests istio-injection=enabled
     kubectl label namespace serving-tests-alt istio-injection=enabled
     kubectl label namespace serving-tests-security istio-injection=enabled
-    ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/security/ --selector=test.knative.dev/dependency=istio-sidecar || return 1
+    ko apply --platform=all ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/security/ --selector=test.knative.dev/dependency=istio-sidecar || return 1
   fi
 
   echo ">> Uploading test images..."

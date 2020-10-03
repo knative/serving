@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,13 +24,13 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/configuration/config"
 )
 
 const controllerAgentName = "configuration-controller"
@@ -55,7 +55,7 @@ func NewControllerWithClock(
 	revisionInformer := revisioninformer.Get(ctx)
 
 	logger.Info("Setting up ConfigMap receivers")
-	configStore := cfgmap.NewStore(logger.Named("config-store"))
+	configStore := config.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
 
 	c := &Reconciler{

@@ -41,7 +41,7 @@ func TestTCPProbe(t *testing.T) {
 	}
 	// Connecting to the server should work
 	if err := TCPProbe(config); err != nil {
-		t.Errorf("Probe failed with: %v", err)
+		t.Error("Probe failed with:", err)
 	}
 
 	// Close the server so probing fails afterwards
@@ -86,10 +86,10 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	}
 	// Connecting to the server should work
 	if err := HTTPProbe(config); err != nil {
-		t.Errorf("Expected probe to succeed but it failed with %v", err)
+		t.Error("Expected probe to succeed but it failed with", err)
 	}
 	if d := cmp.Diff(gotHeader, expectedHeader); d != "" {
-		t.Errorf("Expected probe headers to match but got %s", d)
+		t.Error("Expected probe headers to match but got", d)
 	}
 	if !gotKubeletHeader {
 		t.Error("Expected kubelet probe header to be added to request")
@@ -116,7 +116,7 @@ func TestHTTPsSchemeProbeSuccess(t *testing.T) {
 	}
 	// Connecting to the server should work
 	if err := HTTPProbe(config); err != nil {
-		t.Errorf("Expected probe to succeed but failed with error %v", err)
+		t.Error("Expected probe to succeed but failed with error", err)
 	}
 
 	// Close the server so probing fails afterwards
@@ -215,7 +215,7 @@ func newHTTPGetAction(t *testing.T, serverURL string) *corev1.HTTPGetAction {
 	case "https":
 		uriScheme = corev1.URISchemeHTTPS
 	default:
-		t.Fatalf("Unsupported scheme %s", urlParsed.Scheme)
+		t.Fatal("Unsupported scheme", urlParsed.Scheme)
 	}
 
 	return &corev1.HTTPGetAction{

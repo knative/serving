@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@ limitations under the License.
 package serverlessservice
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -64,18 +65,18 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 
 	// Create activator endpoints.
 	aEps := activatorEndpoints(WithSubsets)
-	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Create(aEps); err != nil {
+	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Create(ctx, aEps, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Error creating activator endpoints:", err)
 	}
 
 	// Private endpoints are supposed to exist, since we're using selector mode for the service.
 	privEps := endpointspriv(ns1, sks1)
-	if _, err := kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(privEps); err != nil {
+	if _, err := kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(ctx, privEps, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Error creating private endpoints:", err)
 	}
 	// This is passive, so no endpoints.
 	privEps = endpointspriv(ns2, sks2, withOtherSubsets)
-	if _, err := kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(privEps); err != nil {
+	if _, err := kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(ctx, privEps, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Error creating private endpoints:", err)
 	}
 
@@ -104,27 +105,27 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	sksObj2 := SKS(ns2, sks2, WithPrivateService, WithPubService, WithDeployRef(sks2), markHappy)
 	sksObj2.Generation = 1
 
-	if _, err := networking.ServerlessServices(ns1).Create(sksObj1); err != nil {
+	if _, err := networking.ServerlessServices(ns1).Create(ctx, sksObj1, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Error creating SKS1:", err)
 	}
-	if _, err := networking.ServerlessServices(ns2).Create(sksObj2); err != nil {
+	if _, err := networking.ServerlessServices(ns2).Create(ctx, sksObj2, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Error creating SKS2:", err)
 	}
 
 	// Wait for the SKSs to be reconciled
-	waitForObservedGen(networking, ns1, sks1, 1)
-	waitForObservedGen(networking, ns2, sks2, 1)
+	waitForObservedGen(ctx, networking, ns1, sks1, 1)
+	waitForObservedGen(ctx, networking, ns2, sks2, 1)
 
 	t.Log("Updating the activator endpoints now...")
 	// Now that we have established the baseline, update the activator endpoints.
 	aEps = activatorEndpoints(withOtherSubsets)
-	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Update(aEps); err != nil {
+	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Update(ctx, aEps, metav1.UpdateOptions{}); err != nil {
 		t.Fatal("Error creating activator endpoints:", err)
 	}
 
 	// Actively wait for the endpoints to change their value.
 	eps := fakeendpointsinformer.Get(ctx).Lister()
-	if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+	if err := wait.PollImmediate(25*time.Millisecond, 5*time.Second, func() (bool, error) {
 		ep, err := eps.Endpoints(ns1).Get(sks1)
 		if err != nil {
 			return false, err
@@ -138,9 +139,9 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	}
 }
 
-func waitForObservedGen(client networkingv1alpha1.NetworkingV1alpha1Interface, ns, name string, generation int64) error {
+func waitForObservedGen(ctx context.Context, client networkingv1alpha1.NetworkingV1alpha1Interface, ns, name string, generation int64) error {
 	return wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		sks, err := client.ServerlessServices(ns).Get(name, metav1.GetOptions{})
+		sks, err := client.ServerlessServices(ns).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

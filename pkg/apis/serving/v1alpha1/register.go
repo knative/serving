@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"knative.dev/serving/pkg/apis/serving"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -44,16 +43,9 @@ var (
 
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypes(SchemeGroupVersion,
-		&Revision{},
-		&RevisionList{},
-		&Configuration{},
-		&ConfigurationList{},
-		&Route{},
-		&RouteList{},
-		&Service{},
-		&ServiceList{},
-	)
-	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
+	// scheme.AddKnownTypes(SchemeGroupVersion,
+	// 	// TODO(mattmoor): Add new alpha types here!
+	// )
+	// metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
 }

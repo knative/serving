@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors.
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ func Collect(
 		case isRevisionStale(cfg, rev, logger):
 			i++
 			logger.Info("Deleting stale revision: ", rev.ObjectMeta.Name)
-			if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
+			if err := client.ServingV1().Revisions(rev.Namespace).Delete(ctx, rev.Name, metav1.DeleteOptions{}); err != nil {
 				logger.Errorw("Failed to GC revision: "+rev.Name, zap.Error(err))
 			}
 		default:
@@ -103,7 +103,7 @@ func Collect(
 		max, len(revs)-max)
 	for _, rev := range revs[max:] {
 		logger.Info("Deleting non-active revision: ", rev.ObjectMeta.Name)
-		if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
+		if err := client.ServingV1().Revisions(rev.Namespace).Delete(ctx, rev.Name, metav1.DeleteOptions{}); err != nil {
 			logger.Errorw("Failed to GC revision: "+rev.Name, zap.Error(err))
 		}
 	}

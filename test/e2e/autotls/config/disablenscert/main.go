@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/kelseyhightower/envconfig"
@@ -48,22 +49,22 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create clients: ", err)
 	}
-	whiteLists := sets.String{}
+	keepCerts := sets.String{}
 	if env.NamespaceWithCert != "" {
-		whiteLists.Insert(env.NamespaceWithCert)
+		keepCerts.Insert(env.NamespaceWithCert)
 	}
-	if err := disableNamespaceCertWithWhiteList(clients, whiteLists); err != nil {
+	if err := disableNamespaceCertWithExclusions(clients, keepCerts); err != nil {
 		log.Fatal("Failed to disable namespace cert: ", err)
 	}
 }
 
-func disableNamespaceCertWithWhiteList(clients *test.Clients, whiteLists sets.String) error {
-	namespaces, err := clients.KubeClient.Kube.CoreV1().Namespaces().List(metav1.ListOptions{})
+func disableNamespaceCertWithExclusions(clients *test.Clients, keepCerts sets.String) error {
+	namespaces, err := clients.KubeClient.Kube.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
 	for _, ns := range namespaces.Items {
-		if whiteLists.Has(ns.Name) {
+		if keepCerts.Has(ns.Name) {
 			delete(ns.Labels, networking.DisableWildcardCertLabelKey)
 			delete(ns.Labels, networking.DeprecatedDisableWildcardCertLabelKey)
 		} else {
@@ -72,7 +73,7 @@ func disableNamespaceCertWithWhiteList(clients *test.Clients, whiteLists sets.St
 			}
 			ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
 		}
-		if _, err := clients.KubeClient.Kube.CoreV1().Namespaces().Update(&ns); err != nil {
+		if _, err := clients.KubeClient.Kube.CoreV1().Namespaces().Update(context.Background(), &ns, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}

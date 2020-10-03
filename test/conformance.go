@@ -52,6 +52,7 @@ const (
 	PizzaPlanetText1 = "What a spaceport!"
 	PizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
 	HelloWorldText   = "Hello World! How about some tasty noodles?"
+	HelloHTTP2Text   = "Hello, New World! How about donuts and coffee?"
 
 	MultiContainerResponse = "Yay!! multi-container works"
 

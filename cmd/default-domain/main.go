@@ -40,12 +40,13 @@ import (
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/networking/pkg/client/clientset/versioned"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 var (
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	serverURL  = flag.String("server", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	magicDNS   = flag.String("magic-dns", "", "The hostname for the magic DNS service, e.g. xip.io or nip.io")
 )
@@ -59,7 +60,7 @@ const (
 )
 
 func clientsFromFlags() (*kubernetes.Clientset, *versioned.Clientset, error) {
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+	cfg, err := clientcmd.BuildConfigFromFlags(*serverURL, *kubeconfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error building kubeconfig: %w", err)
 	}
@@ -74,12 +75,12 @@ func clientsFromFlags() (*kubernetes.Clientset, *versioned.Clientset, error) {
 	return kubeClient, client, nil
 }
 
-func lookupConfigMap(kubeClient *kubernetes.Clientset, name string) (*corev1.ConfigMap, error) {
-	return kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(name, metav1.GetOptions{})
+func lookupConfigMap(ctx context.Context, kubeClient *kubernetes.Clientset, name string) (*corev1.ConfigMap, error) {
+	return kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, name, metav1.GetOptions{})
 }
 
-func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clientset) (*corev1.LoadBalancerIngress, error) {
-	netCM, err := lookupConfigMap(kubeclient, network.ConfigName)
+func findGatewayAddress(ctx context.Context, kubeclient *kubernetes.Clientset, client *versioned.Clientset) (*corev1.LoadBalancerIngress, error) {
+	netCM, err := lookupConfigMap(ctx, kubeclient, network.ConfigName)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +90,7 @@ func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clie
 	}
 
 	// Create a KIngress that points at that Service
-	ing, err := client.NetworkingV1alpha1().Ingresses(system.Namespace()).Create(&v1alpha1.Ingress{
+	ing, err := client.NetworkingV1alpha1().Ingresses(system.Namespace()).Create(ctx, &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "default-domain-",
 			Namespace:    system.Namespace(),
@@ -114,16 +115,16 @@ func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clie
 				},
 			}},
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
-	defer client.NetworkingV1alpha1().Ingresses(system.Namespace()).Delete(ing.Name, &metav1.DeleteOptions{})
+	defer client.NetworkingV1alpha1().Ingresses(system.Namespace()).Delete(ctx, ing.Name, metav1.DeleteOptions{})
 
 	// Wait for the Ingress to be Ready.
 	if err := wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
 		ing, err = client.NetworkingV1alpha1().Ingresses(system.Namespace()).Get(
-			ing.Name, metav1.GetOptions{})
+			ctx, ing.Name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
@@ -147,7 +148,7 @@ func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clie
 	// Wait for the Ingress Service to have an external IP.
 	var svc *corev1.Service
 	if err := wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
-		svc, err = kubeclient.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+		svc, err = kubeclient.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
@@ -160,7 +161,8 @@ func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clie
 
 func main() {
 	flag.Parse()
-	logger := logging.FromContext(context.Background()).Named(appName)
+	ctx := signals.NewContext()
+	logger := logging.FromContext(ctx).Named(appName)
 	defer logger.Sync()
 
 	kubeClient, client, err := clientsFromFlags()
@@ -169,7 +171,7 @@ func main() {
 	}
 
 	// Fetch and parse the domain ConfigMap from the system namespace.
-	domainCM, err := lookupConfigMap(kubeClient, routecfg.DomainConfigName)
+	domainCM, err := lookupConfigMap(ctx, kubeClient, routecfg.DomainConfigName)
 	if err != nil {
 		logger.Fatalw("Error getting ConfigMap", zap.Error(err))
 	}
@@ -192,7 +194,7 @@ func main() {
 	go server.ListenAndServe()
 
 	// Determine the address of the gateway service.
-	address, err := findGatewayAddress(kubeClient, client)
+	address, err := findGatewayAddress(ctx, kubeClient, client)
 	if err != nil {
 		logger.Fatalw("Error finding gateway address", zap.Error(err))
 	}
@@ -216,7 +218,7 @@ func main() {
 	// and send it back to the API server.
 	domain := fmt.Sprintf("%s.%s", ip, *magicDNS)
 	domainCM.Data[domain] = ""
-	if _, err = kubeClient.CoreV1().ConfigMaps(system.Namespace()).Update(domainCM); err != nil {
+	if _, err = kubeClient.CoreV1().ConfigMaps(system.Namespace()).Update(ctx, domainCM, metav1.UpdateOptions{}); err != nil {
 		logger.Fatalw("Error updating ConfigMap", zap.Error(err))
 	}
 

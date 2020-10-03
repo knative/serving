@@ -79,7 +79,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 
 	for _, cgroup := range cgroups {
 		if cgroup.Error != "" {
-			t.Errorf("Error getting cgroup information: %v", cgroup.Error)
+			t.Error("Error getting cgroup information:", cgroup.Error)
 			continue
 		}
 
@@ -131,7 +131,7 @@ func TestShouldHaveCgroupReadOnly(t *testing.T) {
 
 	for _, cgroup := range cgroups {
 		if cgroup.Error != "" {
-			t.Errorf("Error getting cgroup information: %v", cgroup.Error)
+			t.Error("Error getting cgroup information:", cgroup.Error)
 			continue
 		}
 		if got, want := *cgroup.ReadOnly, true; got != want {

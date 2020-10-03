@@ -29,14 +29,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/reconciler"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-
-	_ "knative.dev/pkg/metrics/testing"
 )
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {
@@ -61,22 +60,22 @@ func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNam
 
 // GetResourceObjects obtains the services resources from the k8s API server.
 func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*ResourceObjects, error) {
-	routeObject, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	routeObject, err := clients.ServingClient.Routes.Get(context.Background(), names.Route, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	serviceObject, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	serviceObject, err := clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	configObject, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
+	configObject, err := clients.ServingClient.Configs.Get(context.Background(), names.Config, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	revisionObject, err := clients.ServingClient.Revisions.Get(names.Revision, metav1.GetOptions{})
+	revisionObject, err := clients.ServingClient.Revisions.Get(context.Background(), names.Revision, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -154,29 +153,35 @@ func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames,
 	return createService(t, clients, svc)
 }
 
-func createService(t pkgTest.T, clients *test.Clients, service *v1.Service) (*v1.Service, error) {
+func createService(t pkgTest.T, clients *test.Clients, service *v1.Service) (svc *v1.Service, err error) {
 	test.AddTestAnnotation(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
-	return clients.ServingClient.Services.Create(service)
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingClient.Services.Create(context.Background(), service, metav1.CreateOptions{})
+		return err
+	})
 }
 
 // PatchService patches the existing service passed in with the applied mutations.
 // Returns the latest service object
-func PatchService(t pkgTest.T, clients *test.Clients, svc *v1.Service, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
-	newSvc := svc.DeepCopy()
+func PatchService(t pkgTest.T, clients *test.Clients, service *v1.Service, fopt ...rtesting.ServiceOption) (svc *v1.Service, err error) {
+	newSvc := service.DeepCopy()
 	for _, opt := range fopt {
 		opt(newSvc)
 	}
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
+	patchBytes, err := duck.CreateBytePatch(service, newSvc)
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingClient.Services.Patch(context.Background(), service.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	})
 }
 
 // UpdateServiceRouteSpec updates a service to use the route name in names.
-func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (*v1.Service, error) {
+func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (svc *v1.Service, err error) {
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/traffic",
@@ -186,7 +191,10 @@ func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.Resou
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingClient.Services.Patch(context.Background(), names.Service, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	})
 }
 
 // WaitForServiceLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
@@ -197,10 +205,9 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 	if err := WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
 		if s.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = s.Status.LatestCreatedRevisionName
-			// We also check that the revision is pinned, meaning it's not a stale revision.
 			// Without this it might happen that the latest created revision is later overridden by a newer one
 			// and the following check for LatestReadyRevisionName would fail.
-			if revErr := CheckRevisionState(clients.ServingClient, revisionName, IsRevisionPinned); revErr != nil {
+			if revErr := CheckRevisionState(clients.ServingClient, revisionName, IsRevisionRoutingActive); revErr != nil {
 				return false, nil
 			}
 			return true, nil
@@ -237,8 +244,10 @@ func WaitForServiceState(client *test.ServingClients, name string, inState func(
 
 	var lastState *v1.Service
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		var err error
-		lastState, err = client.Services.Get(name, metav1.GetOptions{})
+		err := reconciler.RetryTestErrors(func(int) (err error) {
+			lastState, err = client.Services.Get(context.Background(), name, metav1.GetOptions{})
+			return err
+		})
 		if err != nil {
 			return true, err
 		}
@@ -255,7 +264,11 @@ func WaitForServiceState(client *test.ServingClients, name string, inState func(
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForServiceState.
 func CheckServiceState(client *test.ServingClients, name string, inState func(s *v1.Service) (bool, error)) error {
-	s, err := client.Services.Get(name, metav1.GetOptions{})
+	var s *v1.Service
+	err := reconciler.RetryTestErrors(func(int) (err error) {
+		s, err = client.Services.Get(context.Background(), name, metav1.GetOptions{})
+		return err
+	})
 	if err != nil {
 		return err
 	}

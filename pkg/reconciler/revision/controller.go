@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
@@ -43,6 +45,11 @@ import (
 )
 
 const controllerAgentName = "revision-controller"
+
+// digestResolutionWorkers is the number of image digest resolutions that can
+// take place in parallel. MaxIdleConns and MaxIdleConnsPerHost for the digest
+// resolution's Transport will also be set to this value.
+const digestResolutionWorkers = 100
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
@@ -60,13 +67,6 @@ func newControllerWithOptions(
 	cmw configmap.Watcher,
 	opts ...reconcilerOption,
 ) *controller.Impl {
-	transport := http.DefaultTransport
-	if rt, err := newResolverTransport(k8sCertPath); err != nil {
-		logging.FromContext(ctx).Errorf("Failed to create resolver transport: %v", err)
-	} else {
-		transport = rt
-	}
-
 	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
@@ -82,11 +82,8 @@ func newControllerWithOptions(
 		podAutoscalerLister: paInformer.Lister(),
 		imageLister:         imageInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
-		resolver: &digestResolver{
-			client:    kubeclient.Get(ctx),
-			transport: transport,
-		},
 	}
+
 	impl := revisionreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		configsToResync := []interface{}{
 			&network.Config{},
@@ -106,9 +103,27 @@ func newControllerWithOptions(
 		return controller.Options{ConfigStore: configStore}
 	})
 
+	transport := http.DefaultTransport
+	if rt, err := newResolverTransport(k8sCertPath, digestResolutionWorkers, digestResolutionWorkers); err != nil {
+		logging.FromContext(ctx).Error("Failed to create resolver transport: ", err)
+	} else {
+		transport = rt
+	}
+
+	resolver := newBackgroundResolver(logger, &digestResolver{client: kubeclient.Get(ctx), transport: transport}, impl.EnqueueKey)
+	resolver.Start(ctx.Done(), digestResolutionWorkers)
+	c.resolver = resolver
+
 	// Set up an event handler for when the resource types of interest change
 	logger.Info("Setting up event handlers")
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj interface{}) {
+			if om, ok := obj.(metav1.Object); ok {
+				resolver.Clear(types.NamespacedName{Namespace: om.GetNamespace(), Name: om.GetName()})
+			}
+		},
+	})
 
 	handleMatchingControllers := cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterControllerGK(v1.Kind("Revision")),

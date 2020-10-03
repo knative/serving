@@ -22,6 +22,7 @@ import (
 
 	cm "knative.dev/pkg/configmap"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -38,73 +39,8 @@ const (
 	defaultTargetUtilization = 0.7
 )
 
-// Config defines the tunable autoscaler parameters
-// +k8s:deepcopy-gen=true
-type Config struct {
-	// Feature flags.
-	EnableScaleToZero bool
-
-	// Target concurrency knobs for different container concurrency configurations.
-	ContainerConcurrencyTargetFraction float64
-	ContainerConcurrencyTargetDefault  float64
-	// TargetUtilization is used for the metrics other than concurrency. This is not
-	// configurable now. Customers can override it by specifying
-	// autoscaling.knative.dev/targetUtilizationPercentage in Revision annotation.
-	// TODO(yanweiguo): Expose this to config-autoscaler configmap and eventually
-	// deprecate ContainerConcurrencyTargetFraction.
-	TargetUtilization float64
-	// RPSTargetDefault is the default target value for requests per second.
-	RPSTargetDefault float64
-	// NB: most of our computations are in floats, so this is float to avoid casting.
-	TargetBurstCapacity float64
-
-	// ActivatorCapacity is the number of the concurrent requests an activator
-	// task can accept. This is used in activator subsetting algorithm, to determine
-	// the number of activators per revision.
-	ActivatorCapacity float64
-
-	// AllowZeroInitialScale indicates whether InitialScale and
-	// autoscaling.internal.knative.dev/initialScale are allowed to be set to 0.
-	AllowZeroInitialScale bool
-
-	// InitialScale is the cluster-wide default initial revision size for newly deployed
-	// services. This can be set to 0 iff AllowZeroInitialScale is true.
-	InitialScale int32
-
-	// MaxScale is the default max scale for any revision created without an
-	// autoscaling.knative.dev/maxScale annotation
-	MaxScale int32
-
-	// General autoscaler algorithm configuration.
-	MaxScaleUpRate           float64
-	MaxScaleDownRate         float64
-	StableWindow             time.Duration
-	PanicWindowPercentage    float64
-	PanicThresholdPercentage float64
-
-	// ScaleToZeroGracePeriod is the time we will wait for networking to
-	// propagate before scaling down. We may wait less than this if it is safe to
-	// do so, for example if the Activator has already been in the path for
-	// longer than the window.
-	ScaleToZeroGracePeriod time.Duration
-
-	// ScaleToZeroPodRetentionPeriod is the minimum amount of time we will wait
-	// before scaling down the last pod.
-	ScaleToZeroPodRetentionPeriod time.Duration
-
-	// ScaleDownDelay is the amount of time that must pass at reduced concurrency
-	// before a scale-down decision is applied. This can be useful for keeping
-	// scaled-up revisions "warm" for a certain period before scaling down. This
-	// applies to all scale-down decisions, not just the very last pod.
-	// It is independent of ScaleToZeroPodRetentionPeriod, which can be used to
-	// add an additional delay to the very last pod, if required.
-	ScaleDownDelay time.Duration
-
-	PodAutoscalerClass string
-}
-
-func defaultConfig() *Config {
-	return &Config{
+func defaultConfig() *autoscalerconfig.Config {
+	return &autoscalerconfig.Config{
 		EnableScaleToZero:                  true,
 		ContainerConcurrencyTargetFraction: defaultTargetUtilization,
 		ContainerConcurrencyTargetDefault:  100,
@@ -125,11 +61,12 @@ func defaultConfig() *Config {
 		AllowZeroInitialScale:         false,
 		InitialScale:                  1,
 		MaxScale:                      0,
+		MaxScaleLimit:                 0,
 	}
 }
 
 // NewConfigFromMap creates a Config from the supplied map
-func NewConfigFromMap(data map[string]string) (*Config, error) {
+func NewConfigFromMap(data map[string]string) (*autoscalerconfig.Config, error) {
 	lc := defaultConfig()
 
 	if err := cm.Parse(data,
@@ -150,6 +87,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 
 		cm.AsInt32("initial-scale", &lc.InitialScale),
 		cm.AsInt32("max-scale", &lc.MaxScale),
+		cm.AsInt32("max-scale-limit", &lc.MaxScaleLimit),
 
 		cm.AsDuration("stable-window", &lc.StableWindow),
 		cm.AsDuration("scale-down-delay", &lc.ScaleDownDelay),
@@ -170,7 +108,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	return validate(lc)
 }
 
-func validate(lc *Config) (*Config, error) {
+func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 	if lc.ScaleToZeroGracePeriod < autoscaling.WindowMin {
 		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least %v, was: %v", autoscaling.WindowMin, lc.ScaleToZeroGracePeriod)
 	}
@@ -238,13 +176,17 @@ func validate(lc *Config) (*Config, error) {
 		return nil, fmt.Errorf("initial-scale = %v, must be at least 0 (or at least 1 when allow-zero-initial-scale is false)", lc.InitialScale)
 	}
 
-	if lc.MaxScale < 0 {
-		return nil, fmt.Errorf("max-scale = %v, must be at least 0", lc.MaxScale)
+	if lc.MaxScale < 0 || (lc.MaxScaleLimit > 0 && lc.MaxScale > lc.MaxScaleLimit) {
+		return nil, fmt.Errorf("max-scale = %v, must be in [0, max-scale-limit] range", lc.MaxScale)
+	}
+
+	if lc.MaxScaleLimit < 0 {
+		return nil, fmt.Errorf("max-scale-limit = %v, must be at least 0", lc.MaxScaleLimit)
 	}
 	return lc, nil
 }
 
 // NewConfigFromConfigMap creates a Config from the supplied ConfigMap
-func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
+func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*autoscalerconfig.Config, error) {
 	return NewConfigFromMap(configMap.Data)
 }

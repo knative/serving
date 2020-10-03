@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -72,22 +73,20 @@ func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverri
 		}, nil
 	}
 
-	endpoint := endpointOverride
-	if endpointOverride == "" {
-		var err error
-		// If the domain that the Route controller is configured to assign to Route.Status.Domain
-		// (the domainSuffix) is not resolvable, we need to retrieve the endpoint and spoof
-		// the Host in our requests.
-		if endpoint, err = ingress.GetIngressEndpoint(kubeClientset); err != nil {
-			return vegeta.Target{}, err
-		}
+	var err error
+	// If the domain that the Route controller is configured to assign to Route.Status.Domain
+	// (the domainSuffix) is not resolvable, we need to retrieve the endpoint and spoof
+	// the Host in our requests.
+	endpoint, mapper, err := ingress.GetIngressEndpoint(context.Background(), kubeClientset, endpointOverride)
+	if err != nil {
+		return vegeta.Target{}, err
 	}
 
 	h := http.Header{}
 	h.Set("Host", domain)
 	return vegeta.Target{
 		Method: http.MethodGet,
-		URL:    fmt.Sprintf("http://%s?sleep=%d", endpoint, autoscaleSleep),
+		URL:    fmt.Sprintf("http://%s:%s?sleep=%d", endpoint, mapper("80"), autoscaleSleep),
 		Header: h,
 	}, nil
 }
@@ -158,17 +157,17 @@ func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration
 	return generateTraffic(ctx, attacker, pacer, duration, stopChan)
 }
 
-type validationFunc func(*testing.T, *test.Clients, test.ResourceNames) error
-
 func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
+	ctx := context.Background()
 	_, err := pkgTest.WaitForEndpointState(
+		ctx,
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"CheckingEndpointAfterUpdating",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS),
 	)
 	return err
 }
@@ -182,14 +181,14 @@ func toPercentageString(f float64) string {
 // data points.
 // It sets up EnsureTearDown to ensure that resources are cleaned up when the
 // test terminates.
-func setup(t *testing.T, class, metric string, target int, targetUtilization float64, image string, validate validationFunc, fopts ...rtesting.ServiceOption) *testContext {
+func setup(t *testing.T, class, metric string, target int, targetUtilization float64, fopts ...rtesting.ServiceOption) *testContext {
 	t.Helper()
 	clients := Setup(t)
 
 	t.Log("Creating a new Route and Configuration")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   image,
+		Image:   autoscaleTestImageName,
 	}
 	test.EnsureTearDown(t, clients, &names)
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
@@ -204,22 +203,21 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 				autoscaling.WindowAnnotationKey: "50s",
 			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("512Mi"),
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 				Requests: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("300Mi"),
+					corev1.ResourceCPU:    resource.MustParse("30m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
 				},
 			}),
 		}, fopts...)...)
 	if err != nil {
-		test.TearDown(clients, &names)
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	if validate != nil {
-		if err := validate(t, clients, names); err != nil {
-			t.Fatalf("Error probing %s: %v", names.URL.Hostname(), err)
-		}
+	if err := validateEndpoint(t, clients, names); err != nil {
+		t.Fatalf("Error probing %s: %v", names.URL.Hostname(), err)
 	}
 
 	return &testContext{
@@ -243,6 +241,7 @@ func assertScaleDown(ctx *testContext) {
 	ctx.t.Log("Wait for all pods to terminate.")
 
 	if err := pkgTest.WaitForPodListState(
+		context.Background(),
 		ctx.clients.KubeClient,
 		func(p *corev1.PodList) (bool, error) {
 			for i := range p.Items {
@@ -269,7 +268,7 @@ func assertScaleDown(ctx *testContext) {
 func numberOfReadyPods(ctx *testContext) (float64, error) {
 	// SKS name matches that of revision.
 	n := ctx.resources.Revision.Name
-	sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(n, metav1.GetOptions{})
+	sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(context.Background(), n, metav1.GetOptions{})
 	if err != nil {
 		ctx.t.Logf("Error getting SKS %q: %v", n, err)
 		return 0, fmt.Errorf("error retrieving sks %q: %w", n, err)
@@ -280,7 +279,7 @@ func numberOfReadyPods(ctx *testContext) (float64, error) {
 		return 0, nil
 	}
 	eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-		sks.Status.PrivateServiceName, metav1.GetOptions{})
+		context.Background(), sks.Status.PrivateServiceName, metav1.GetOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get endpoints %s: %w", sks.Status.PrivateServiceName, err)
 	}
@@ -309,16 +308,10 @@ func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, durat
 				return errors.New("interim scale didn't fulfill constraints: " + mes)
 			}
 			// A quick test succeeds when the number of pods scales up to `targetPods`
-			// (and, for sanity check, no more than `maxPods`).
-			if got >= targetPods && got <= maxPods {
-				if quick {
-					// A quick test succeeds when the number of pods scales up to `targetPods`
-					// (and, for sanity check, no more than `maxPods`).
-					if got >= targetPods && got <= maxPods {
-						ctx.t.Logf("Quick Mode: got %v >= %v", got, targetPods)
-						return nil
-					}
-				}
+			// (and, as an extra check, no more than `maxPods`).
+			if quick && got >= targetPods && got <= maxPods {
+				ctx.t.Logf("Quick Mode: got %v >= %v", got, targetPods)
+				return nil
 			}
 			if minPods < targetPods-1 {
 				// Increase `minPods`, but leave room to reduce flakiness.
@@ -377,15 +370,15 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 	}
 }
 
-// RunAutoscaleUpCountPods is a test kernel to test the chosen autoscaler using the given
+// runAutoscaleUpCountPods is a test kernel to test the chosen autoscaler using the given
 // metric tracks the given target.
-func RunAutoscaleUpCountPods(t *testing.T, class, metric string) {
+func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 	target := containerConcurrency
 	if metric == autoscaling.RPS {
 		target = 10
 	}
 
-	ctx := setup(t, class, metric, target, targetUtilization, autoscaleTestImageName, validateEndpoint)
+	ctx := setup(t, class, metric, target, targetUtilization)
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy

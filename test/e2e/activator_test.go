@@ -7,7 +7,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,11 +19,12 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"net/http"
-	"sync"
 	"testing"
 
+	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -66,13 +67,14 @@ func TestActivatorOverload(t *testing.T) {
 
 	// Make sure the service responds correctly before scaling to 0.
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		resources.Route.Status.URL.URL(),
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("Error probing %s: %v", resources.Route.Status.URL.URL(), err)
 	}
@@ -83,7 +85,7 @@ func TestActivatorOverload(t *testing.T) {
 	}
 
 	domain := resources.Route.Status.URL.Host
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		t.Fatal("Error creating the Spoofing client:", err)
 	}
@@ -92,30 +94,31 @@ func TestActivatorOverload(t *testing.T) {
 
 	t.Log("Starting to send out the requests")
 
-	var group sync.WaitGroup
+	eg, egCtx := errgroup.WithContext(context.Background())
 	// Send requests async and wait for the responses.
 	for i := 0; i < concurrency; i++ {
-		group.Add(1)
-		go func() {
-			defer group.Done()
-
+		eg.Go(func() error {
 			// We need to create a new request per HTTP request because
 			// the spoofing client mutates them.
-			req, err := http.NewRequest(http.MethodGet, url, nil)
+			req, err := http.NewRequestWithContext(egCtx, http.MethodGet, url, nil)
 			if err != nil {
-				t.Errorf("error creating http request: %v", err)
+				return fmt.Errorf("error creating http request: %w", err)
 			}
 
 			res, err := client.Do(req)
 			if err != nil {
-				t.Errorf("unexpected error sending a request, %v", err)
-				return
+				return fmt.Errorf("unexpected error sending a request: %w", err)
 			}
 
 			if res.StatusCode != http.StatusOK {
-				t.Errorf("status = %d, want: %d, response: %s", res.StatusCode, http.StatusOK, res)
+				return fmt.Errorf("status = %d, want: %d, response: %s", res.StatusCode, http.StatusOK, res)
 			}
-		}()
+
+			return nil
+		})
 	}
-	group.Wait()
+
+	if err := eg.Wait(); err != nil {
+		t.Error(err)
+	}
 }

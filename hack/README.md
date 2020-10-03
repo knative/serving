@@ -8,6 +8,8 @@ Knative Serving.
 - `generate-yamls.sh` Builds all the YAMLs that Knative Serving publishes.
 - `release.sh` Creates a new release of Knative Serving.
 - `update-codegen.sh` Updates auto-generated client libraries.
+- `update-checksums.sh` Updates the `knative.dev/example-checksum` annotations
+  in config maps.
 - `update-deps.sh` Updates Go dependencies.
 - `verify-codegen.sh` Verifies that auto-generated client libraries are
   up-to-date.

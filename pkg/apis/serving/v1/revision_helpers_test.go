@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package v1
 
 import (
@@ -351,7 +352,7 @@ func TestSetRoutingState(t *testing.T) {
 	}
 	modified := rev.GetRoutingStateModified()
 	if modified == empty {
-		t.Errorf("expected a timestamp. got %v", modified)
+		t.Error("expected a timestamp. got", modified)
 	}
 
 	// Test that no-op modifications don't bump timestamps.

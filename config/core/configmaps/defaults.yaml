@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "b44360b5"
+    knative.dev/example-checksum: "d19e4f27"
 data:
   _example: |
     ################################
@@ -55,11 +55,15 @@ data:
     # revision-cpu-request contains the cpu allocation to assign
     # to revisions by default.  If omitted, no value is specified
     # and the system default is used.
+    # Below is an example of setting revision-cpu-request.
+    # By default, it is not set by Knative.
     revision-cpu-request: "400m"  # 0.4 of a CPU (aka 400 milli-CPU)
 
     # revision-memory-request contains the memory allocation to assign
     # to revisions by default.  If omitted, no value is specified
     # and the system default is used.
+    # Below is an example of setting revision-memory-request.
+    # By default, it is not set by Knative.
     revision-memory-request: "100M"  # 100 megabytes of memory
 
     # revision-ephemeral-storage-request contains the ephemeral storage
@@ -70,11 +74,15 @@ data:
     # revision-cpu-limit contains the cpu allocation to limit
     # revisions to by default.  If omitted, no value is specified
     # and the system default is used.
+    # Below is an example of setting revision-cpu-limit.
+    # By default, it is not set by Knative.
     revision-cpu-limit: "1000m"  # 1 CPU (aka 1000 milli-CPU)
 
     # revision-memory-limit contains the memory allocation to limit
     # revisions to by default.  If omitted, no value is specified
     # and the system default is used.
+    # Below is an example of setting revision-memory-limit.
+    # By default, it is not set by Knative.
     revision-memory-limit: "200M"  # 200 megabytes of memory
 
     # revision-ephemeral-storage-limit contains the ephemeral storage

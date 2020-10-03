@@ -18,6 +18,7 @@ package metrics
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -39,18 +40,14 @@ var pool = sync.Pool{
 	},
 }
 
-func newHTTPScrapeClient(httpClient *http.Client) (*httpScrapeClient, error) {
-	if httpClient == nil {
-		return nil, errors.New("HTTP client must not be nil")
-	}
-
+func newHTTPScrapeClient(httpClient *http.Client) *httpScrapeClient {
 	return &httpScrapeClient{
 		httpClient: httpClient,
-	}, nil
+	}
 }
 
-func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+func (c *httpScrapeClient) Scrape(ctx context.Context, url string) (Stat, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return emptyStat, err
 	}

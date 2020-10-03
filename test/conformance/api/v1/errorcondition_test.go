@@ -19,11 +19,12 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ptest "knative.dev/pkg/test"
@@ -58,7 +59,7 @@ func TestContainerErrorMsg(t *testing.T) {
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
-	t.Logf("Creating a new Service %s", names.Service)
+	t.Log("Creating a new Service", names.Service)
 	svc, err := v1test.CreateService(t, clients, names)
 	if err != nil {
 		t.Fatal("Failed to create Service:", err)
@@ -67,7 +68,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	names.Config = serviceresourcenames.Configuration(svc)
 	names.Route = serviceresourcenames.Route(svc)
 
-	const manifestUnknown = string(transport.ManifestUnknownErrorCode)
+	manifestUnknown := fmt.Sprint(http.StatusNotFound)
 
 	// Wait for ServiceState becomes NotReady. It also waits for the creation of Configuration.
 	t.Log("When the imagepath is invalid, the Configuration should have error status.")
@@ -166,7 +167,7 @@ func TestContainerExitingMsg(t *testing.T) {
 
 			test.EnsureTearDown(t, clients, &names)
 
-			t.Logf("Creating a new Configuration %s", names.Config)
+			t.Log("Creating a new Configuration", names.Config)
 
 			if _, err := v1test.CreateConfiguration(t, clients, names, rtesting.WithConfigReadinessProbe(tt.ReadinessProbe)); err != nil {
 				t.Fatalf("Failed to create configuration %s: %v", names.Config, err)
@@ -206,7 +207,7 @@ func TestContainerExitingMsg(t *testing.T) {
 
 // Get revision name from configuration.
 func getRevisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
-	config, err := clients.ServingClient.Configs.Get(configName, metav1.GetOptions{})
+	config, err := clients.ServingClient.Configs.Get(context.Background(), configName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

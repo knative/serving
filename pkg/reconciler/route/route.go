@@ -101,12 +101,22 @@ func (c *Reconciler) getServices(route *v1.Route) ([]*corev1.Service, error) {
 		serviceCopy[i] = svc.DeepCopy()
 	}
 
-	return serviceCopy, err
+	return serviceCopy, nil
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 	logger.Debugf("Reconciling route: %#v", r.Spec)
+
+	// When a new generation is observed for the first time, we need to make sure that we
+	// do not report ourselves as being ready prematurely due to an error during
+	// reconciliation.  For instance, if we were to hit an error creating new placeholder
+	// service, we might report "Ready: True" with a bumped ObservedGeneration without
+	// having updated the kingress at all!
+	// We hit this in: https://github.com/knative-sandbox/net-contour/issues/238
+	if r.GetObjectMeta().GetGeneration() != r.Status.ObservedGeneration {
+		r.Status.MarkIngressNotConfigured()
+	}
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
@@ -115,7 +125,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	if cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC != cfgmap.Enabled {
+	if config.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC != cfgmap.Enabled {
 		// In all cases we will add annotations to the referred targets.  This is so that when they become
 		// routable we can know (through a listener) and attempt traffic configuration again.
 		if err := c.reconcileTargetRevisions(ctx, traffic, r); err != nil {
@@ -426,7 +436,7 @@ func autoTLSEnabled(ctx context.Context, r *v1.Route) bool {
 	annotationValue := r.Annotations[networking.DisableAutoTLSAnnotationKey]
 
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
-	if err != nil {
+	if annotationValue != "" && err != nil {
 		// validation should've caught an invalid value here.
 		// if we have one anyways, assume not disabled and log a warning.
 		logger.Warnf("Invalid annotation value for %q. Value: %q",

@@ -19,11 +19,15 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"path"
 	"path/filepath"
 	"testing"
 
+	"github.com/dgrijalva/jwt-go"
 	"knative.dev/pkg/ptr"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -47,14 +51,14 @@ func TestConfigMapVolume(t *testing.T) {
 	text := test.AppendRandomString("hello-volumes-")
 
 	// Create the ConfigMap with random text.
-	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(&corev1.ConfigMap{
+	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(context.Background(), &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Service, // Give it the same name as the service.
 		},
 		Data: map[string]string{
 			filepath.Base(test.HelloVolumePath): text,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create configmap:", err)
 	}
@@ -63,12 +67,12 @@ func TestConfigMapVolume(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
-		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(configMap.Name, nil); err != nil {
-			t.Errorf("ConfigMaps().Delete() = %v", err)
+		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{}); err != nil {
+			t.Error("ConfigMaps().Delete() =", err)
 		}
 	})
 
-	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("projectedv", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		ConfigMap: &corev1.ConfigMapVolumeSource{
 			LocalObjectReference: corev1.LocalObjectReference{
 				Name: configMap.Name,
@@ -114,14 +118,14 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 	text := test.AppendRandomString("hello-volumes-")
 
 	// Create the ConfigMap with random text.
-	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(&corev1.ConfigMap{
+	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(context.Background(), &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Service, // Give it the same name as the service.
 		},
 		Data: map[string]string{
 			filepath.Base(test.HelloVolumePath): text,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create configmap:", err)
 	}
@@ -130,12 +134,12 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
-		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(configMap.Name, nil); err != nil {
-			t.Errorf("ConfigMaps().Delete() = %v", err)
+		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{}); err != nil {
+			t.Error("ConfigMaps().Delete() =", err)
 		}
 	})
 
-	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("projectedv", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Projected: &corev1.ProjectedVolumeSource{
 			Sources: []corev1.VolumeProjection{{
 				ConfigMap: &corev1.ConfigMapProjection{
@@ -183,14 +187,14 @@ func TestSecretVolume(t *testing.T) {
 	text := test.ObjectNameForTest(t)
 
 	// Create the Secret with random text.
-	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{
+	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(context.Background(), &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Service, // name the Secret the same as the Service.
 		},
 		StringData: map[string]string{
 			filepath.Base(test.HelloVolumePath): text,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create secret:", err)
 	}
@@ -199,12 +203,12 @@ func TestSecretVolume(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
-		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
-			t.Errorf("Secrets().Delete() = %v", err)
+		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(context.Background(), secret.Name, metav1.DeleteOptions{}); err != nil {
+			t.Error("Secrets().Delete() =", err)
 		}
 	})
 
-	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("projectedv", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
 			SecretName: secret.Name,
 			Optional:   ptr.Bool(false),
@@ -246,14 +250,14 @@ func TestProjectedSecretVolume(t *testing.T) {
 	text := test.ObjectNameForTest(t)
 
 	// Create the Secret with random text.
-	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{
+	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(context.Background(), &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Service, // name the Secret the same as the Service.
 		},
 		StringData: map[string]string{
 			filepath.Base(test.HelloVolumePath): text,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create secret:", err)
 	}
@@ -262,12 +266,12 @@ func TestProjectedSecretVolume(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
-		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
-			t.Errorf("Secrets().Delete() = %v", err)
+		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(context.Background(), secret.Name, metav1.DeleteOptions{}); err != nil {
+			t.Error("Secrets().Delete() =", err)
 		}
 	})
 
-	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("projectedv", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Projected: &corev1.ProjectedVolumeSource{
 			Sources: []corev1.VolumeProjection{{
 				Secret: &corev1.SecretProjection{
@@ -315,7 +319,7 @@ func TestProjectedComplex(t *testing.T) {
 	text3 := test.ObjectNameForTest(t)
 
 	// Create the ConfigMap with random text.
-	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(&corev1.ConfigMap{
+	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(context.Background(), &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Service, // Give it the same name as the service.
 		},
@@ -323,21 +327,21 @@ func TestProjectedComplex(t *testing.T) {
 			filepath.Base(test.HelloVolumePath): text1,
 			"other":                             text2,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create configmap:", err)
 	}
 	t.Log("Successfully created configMap:", configMap)
 
 	// Create the Secret with random text.
-	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{
+	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(context.Background(), &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Service, // name the Secret the same as the Service.
 		},
 		StringData: map[string]string{
 			filepath.Base(test.HelloVolumePath): text3,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create secret:", err)
 	}
@@ -346,12 +350,12 @@ func TestProjectedComplex(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
-		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
-			t.Errorf("Secrets().Delete() = %v", err)
+		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(context.Background(), secret.Name, metav1.DeleteOptions{}); err != nil {
+			t.Error("Secrets().Delete() =", err)
 		}
 	})
 
-	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("projectedv", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Projected: &corev1.ProjectedVolumeSource{
 			Sources: []corev1.VolumeProjection{{
 				ConfigMap: &corev1.ConfigMapProjection{
@@ -399,6 +403,77 @@ func TestProjectedComplex(t *testing.T) {
 	// second source, which was partially shadowed in our check above.
 	names.URL.Path = path.Join(names.URL.Path, "another")
 	if err = validateDataPlane(t, clients, names, text2); err != nil {
+		t.Error(err)
+	}
+}
+
+// TestProjectedServiceAccountToken tests that a valid JWT service account token can be mounted.
+func TestProjectedServiceAccountToken(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "hellovolume",
+	}
+
+	const tokenPath = "token"
+	saPath := filepath.Join(filepath.Dir(test.HelloVolumePath), tokenPath)
+
+	withVolume := WithVolume("projectedv", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+		Projected: &corev1.ProjectedVolumeSource{
+			Sources: []corev1.VolumeProjection{{
+				ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+					Audience: "api",
+					Path:     tokenPath,
+				},
+			}},
+		},
+	})
+	withSubpath := func(svc *v1.Service) {
+		vm := &svc.Spec.Template.Spec.Containers[0].VolumeMounts[0]
+		vm.MountPath = saPath
+		vm.SubPath = filepath.Base(saPath)
+	}
+
+	withRunAsUser := func(svc *v1.Service) {
+		svc.Spec.Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+			// The token will be mounted owned by root, so we need the container to
+			// run as root to be able to read it.
+			RunAsUser: ptr.Int64(0),
+		}
+	}
+
+	serviceOpts := []ServiceOption{withVolume, withSubpath, withRunAsUser}
+
+	// Setup initial Service
+	if _, err := v1test.CreateServiceReady(t, clients, &names, serviceOpts...); err != nil {
+		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+	}
+
+	// Validate State after Creation
+	if err := validateControlPlane(t, clients, names, "1"); err != nil {
+		t.Error(err)
+	}
+	names.URL.Path = path.Join(names.URL.Path, tokenPath)
+	var parsesToken = func(resp *spoof.Response) (bool, error) {
+		jwtToken := string(resp.Body)
+		parser := &jwt.Parser{}
+		if _, _, err := parser.ParseUnverified(jwtToken, jwt.MapClaims{}); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		names.URL,
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, parsesToken)),
+		"WaitForEndpointToServeTheToken",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Error(err)
 	}
 }

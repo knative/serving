@@ -19,6 +19,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"context"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -106,7 +107,7 @@ func updateService(serviceName string, t *testing.T) {
 	}
 
 	t.Logf("Getting service %q", names.Service)
-	svc, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	svc, err := clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get Service:", err)
 	}
@@ -149,7 +150,7 @@ func TestInitialScalePostUpgrade(t *testing.T) {
 	clients := e2e.Setup(t)
 
 	t.Logf("Getting service %q", initialScaleServiceName)
-	svc, err := clients.ServingClient.Services.Get(initialScaleServiceName, metav1.GetOptions{})
+	svc, err := clients.ServingClient.Services.Get(context.Background(), initialScaleServiceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get Service:", err)
 	}

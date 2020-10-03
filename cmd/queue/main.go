@@ -25,21 +25,19 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
 	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"path/filepath"
-
 	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/pkg/injection/sharedmain"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
@@ -49,11 +47,11 @@ import (
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
-	"knative.dev/serving/pkg/activator"
 	activatorutil "knative.dev/serving/pkg/activator/util"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/http/handler"
 	"knative.dev/serving/pkg/logging"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
@@ -104,56 +102,7 @@ type config struct {
 	TracingConfigStackdriverProjectID string                    `split_words:"true"` // optional
 }
 
-// Make handler a closure for testing.
-func proxyHandler(breaker *queue.Breaker, stats *network.RequestStats, tracingEnabled bool, next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if network.IsKubeletProbe(r) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		if tracingEnabled {
-			proxyCtx, proxySpan := trace.StartSpan(r.Context(), "queue_proxy")
-			r = r.WithContext(proxyCtx)
-			defer proxySpan.End()
-		}
-
-		// Metrics for autoscaling.
-		in, out := network.ReqIn, network.ReqOut
-		if activator.Name == network.KnativeProxyHeader(r) {
-			in, out = network.ProxiedIn, network.ProxiedOut
-		}
-		stats.HandleEvent(network.ReqEvent{Time: time.Now(), Type: in})
-		defer func() {
-			stats.HandleEvent(network.ReqEvent{Time: time.Now(), Type: out})
-		}()
-		network.RewriteHostOut(r)
-
-		// Enforce queuing and concurrency limits.
-		if breaker != nil {
-			var waitSpan *trace.Span
-			if tracingEnabled {
-				_, waitSpan = trace.StartSpan(r.Context(), "queue_wait")
-			}
-			if err := breaker.Maybe(r.Context(), func() {
-				waitSpan.End()
-				next.ServeHTTP(w, r)
-			}); err != nil {
-				waitSpan.End()
-				switch err {
-				case context.DeadlineExceeded, queue.ErrRequestQueueFull:
-					http.Error(w, err.Error(), http.StatusServiceUnavailable)
-				default:
-					w.WriteHeader(http.StatusInternalServerError)
-				}
-			}
-		} else {
-			next.ServeHTTP(w, r)
-		}
-	}
-}
-
-func knativeProbeHandler(logger *zap.SugaredLogger, healthState *health.State, prober func() bool, isAggressive bool, tracingEnabled bool, next http.Handler) http.HandlerFunc {
+func knativeProbeHandler(healthState *health.State, prober func() bool, isAggressive bool, tracingEnabled bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := network.KnativeProbeHeader(r)
 
@@ -200,14 +149,16 @@ func main() {
 	if *readinessProbeTimeout >= 0 {
 		// Use a unix socket rather than TCP to avoid going via entire TCP stack
 		// when we're actually in the same container.
-		transport := &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", unixSocketPath)
-			},
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.DialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
+			return net.Dial("unix", unixSocketPath)
 		}
 
 		os.Exit(standaloneProbeMain(*readinessProbeTimeout, transport))
 	}
+
+	// Otherwise, we run as the queue-proxy service.
+	ctx := signals.NewContext()
 
 	// Parse the environment.
 	var env config
@@ -218,10 +169,9 @@ func main() {
 
 	// Setup the logger.
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
-	logger = logger.Named("queueproxy")
 	defer flush(logger)
 
-	logger = logger.With(
+	logger = logger.Named("queueproxy").With(
 		zap.Object(logkey.Key, pkglogging.NamespacedName(types.NamespacedName{
 			Namespace: env.ServingNamespace,
 			Name:      env.ServingRevision,
@@ -229,11 +179,7 @@ func main() {
 		zap.String(logkey.Pod, env.ServingPod))
 
 	// Report stats on Go memory usage every 30 seconds.
-	msp := metrics.NewMemStatsAll()
-	msp.Start(context.Background(), 30*time.Second)
-	if err := view.Register(msp.DefaultViews()...); err != nil {
-		logger.Fatalw("Error exporting go memstats view", zap.Error(err))
-	}
+	sharedmain.MemStatsOrDie(ctx)
 
 	// Setup reporters and processes to handle stat reporting.
 	promStatReporter, err := queue.NewPrometheusStatsReporter(
@@ -261,36 +207,34 @@ func main() {
 	probe := buildProbe(logger, env.ServingReadinessProbe)
 	healthState := &health.State{}
 
-	server := buildServer(env, healthState, probe, stats, logger)
-	adminServer := buildAdminServer(logger, healthState)
-	metricsServer := buildMetricsServer(promStatReporter, protoStatReporter)
-
+	mainServer := buildServer(ctx, env, healthState, probe, stats, logger)
 	servers := map[string]*http.Server{
-		"main":    server,
-		"admin":   adminServer,
-		"metrics": metricsServer,
+		"main":    mainServer,
+		"admin":   buildAdminServer(logger, healthState),
+		"metrics": buildMetricsServer(promStatReporter, protoStatReporter),
 	}
-
 	if env.EnableProfiling {
 		servers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
 	}
 
-	errCh := make(chan error, len(servers)+1)
-	listeners := make(map[string]net.Listener, len(servers))
-	for name, server := range servers {
-		l, err := net.Listen("tcp", server.Addr)
-		if err != nil {
-			logger.Fatalw("listen failed", zap.Error(err))
-		}
-
-		listeners[name] = l
-	}
-
+	errCh := make(chan error)
+	listenCh := make(chan struct{})
 	for name, server := range servers {
 		go func(name string, s *http.Server) {
+			l, err := net.Listen("tcp", s.Addr)
+			if err != nil {
+				errCh <- fmt.Errorf("%s server failed to listen: %w", name, err)
+				return
+			}
+
+			// Notify the unix socket setup that the tcp socket for the main server is ready.
+			if s == mainServer {
+				close(listenCh)
+			}
+
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
-			if err := s.Serve(listeners[name]); err != nil && err != http.ErrServerClosed {
-				errCh <- fmt.Errorf("%s server failed: %w", name, err)
+			if err := s.Serve(l); err != nil && err != http.ErrServerClosed {
+				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
 			}
 		}(name, server)
 	}
@@ -298,13 +242,19 @@ func main() {
 	// Listen on a unix socket so that the exec probe can avoid having to go
 	// through the full tcp network stack.
 	go func() {
+		// Only start listening on the unix socket once the tcp socket for the
+		// main server is setup.
+		// This avoids the unix socket path succeeding before the tcp socket path
+		// is actually working and thus it avoids a race.
+		<-listenCh
+
 		l, err := net.Listen("unix", unixSocketPath)
 		if err != nil {
-			errCh <- err
+			errCh <- fmt.Errorf("failed to listen to unix socket: %w", err)
 			return
 		}
-		if err := http.Serve(l, server.Handler); err != nil {
-			errCh <- err
+		if err := http.Serve(l, mainServer.Handler); err != nil {
+			errCh <- fmt.Errorf("serving failed on unix socket: %w", err)
 		}
 	}()
 
@@ -317,7 +267,7 @@ func main() {
 		// This extra flush is needed because defers are not handled via os.Exit calls.
 		flush(logger)
 		os.Exit(1)
-	case <-signals.SetupSignalHandler():
+	case <-ctx.Done():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		healthState.Shutdown(func() {
 			logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", pkgnet.DefaultDrainTimeout)
@@ -326,7 +276,7 @@ func main() {
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
 			logger.Info("Shutting down main server")
-			if err := server.Shutdown(context.Background()); err != nil {
+			if err := mainServer.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
 			}
 			// Removing the main server from the shutdown logic as we've already shut it down.
@@ -351,7 +301,7 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(env config, healthState *health.State, rp *readiness.Probe, stats *network.RequestStats,
+func buildServer(ctx context.Context, env config, healthState *health.State, rp *readiness.Probe, stats *network.RequestStats,
 	logger *zap.SugaredLogger) *http.Server {
 	target := &url.URL{
 		Scheme: "http",
@@ -371,7 +321,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	activatorutil.SetupHeaderPruning(httpProxy)
 
 	breaker := buildBreaker(logger, env)
-	metricsSupported := supportsMetrics(logger, env)
+	metricsSupported := supportsMetrics(ctx, logger, env)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
 	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
 
@@ -381,7 +331,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
 	}
-	composedHandler = proxyHandler(breaker, stats, tracingEnabled, composedHandler)
+	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = handler.NewTimeToFirstByteTimeoutHandler(composedHandler, "request timeout", handler.StaticTimeoutFunc(timeout))
 
@@ -390,7 +340,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	}
 	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 
-	composedHandler = knativeProbeHandler(logger, healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler)
+	composedHandler = knativeProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler)
 	composedHandler = network.NewProbeHandler(composedHandler)
 	// We might want sometimes capture the probes/healthchecks in the request
 	// logs. Hence we need to have RequestLogHandler to be the first one.
@@ -436,13 +386,13 @@ func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
 	return queue.NewBreaker(params)
 }
 
-func supportsMetrics(logger *zap.SugaredLogger, env config) bool {
+func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config) bool {
 	// Setup request metrics reporting for end-user metrics.
 	if env.ServingRequestMetricsBackend == "" {
 		return false
 	}
 
-	if err := setupMetricsExporter(logger, env.ServingRequestMetricsBackend, env.MetricsCollectorAddress); err != nil {
+	if err := setupMetricsExporter(ctx, logger, env.ServingRequestMetricsBackend, env.MetricsCollectorAddress); err != nil {
 		logger.Errorw("Error setting up request metrics exporter. Request metrics will be unavailable.", zap.Error(err))
 		return false
 	}
@@ -515,7 +465,7 @@ func requestAppMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Han
 	return h
 }
 
-func setupMetricsExporter(logger *zap.SugaredLogger, backend string, collectorAddress string) error {
+func setupMetricsExporter(ctx context.Context, logger *zap.SugaredLogger, backend string, collectorAddress string) error {
 	// Set up OpenCensus exporter.
 	// NOTE: We use revision as the component instead of queue because queue is
 	// implementation specific. The current metrics are request relative. Using
@@ -531,7 +481,7 @@ func setupMetricsExporter(logger *zap.SugaredLogger, backend string, collectorAd
 			"metrics.opencensus-address":  collectorAddress,
 		},
 	}
-	return metrics.UpdateExporter(ops, logger)
+	return metrics.UpdateExporter(ctx, ops, logger)
 }
 
 func flush(logger *zap.SugaredLogger) {

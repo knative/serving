@@ -51,6 +51,9 @@ const (
 	// allow-zero-initial-scale of config-autoscaler is true.
 	InitialScaleAnnotationKey = GroupName + "/initialScale"
 
+	// ScaleDownDelayAnnotationKey is the annotation to specify a scale down delay.
+	ScaleDownDelayAnnotationKey = GroupName + "/scaleDownDelay"
+
 	// MetricAnnotationKey is the annotation to specify what metric the PodAutoscaler
 	// should be scaled on. For example,
 	//   autoscaling.knative.dev/metric: cpu
@@ -169,8 +172,4 @@ const (
 	// PanicThresholdPercentageMax is the counterpart to the PanicThresholdPercentageMin
 	// but bounding from above.
 	PanicThresholdPercentageMax = 1000.0
-
-	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
-	// which services/endpoints should trigger reconciles.
-	KPALabelKey = GroupName + "/kpa"
 )

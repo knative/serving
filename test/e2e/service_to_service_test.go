@@ -6,6 +6,7 @@ Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
@@ -18,6 +19,8 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -25,6 +28,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	network "knative.dev/networking/pkg"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
@@ -72,7 +76,7 @@ var testInjection = []struct {
 
 func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, url *url.URL) (*spoof.Response, error) {
 	t.Logf("The domain of request is %s.", url.Hostname())
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return nil, err
 	}
@@ -94,16 +98,13 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	// When resolvable domain is not set for external access test, use gateway for the endpoint as xip.io is flaky.
 	// ref: https://github.com/knative/serving/issues/5389
 	if !test.ServingFlags.ResolvableDomain && accessibleExternal {
-		gatewayTarget := pkgTest.Flags.IngressEndpoint
-		if gatewayTarget == "" {
-			var err error
-			if gatewayTarget, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
-				t.Fatal("Failed to get gateway IP:", err)
-			}
+		gatewayTarget, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube, pkgTest.Flags.IngressEndpoint)
+		if err != nil {
+			t.Fatal("Failed to get gateway IP:", err)
 		}
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  gatewayHostEnv,
-			Value: gatewayTarget,
+			Value: net.JoinHostPort(gatewayTarget, mapper("80")),
 		})
 	}
 
@@ -127,27 +128,29 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 
 	url := resources.Route.Status.URL.URL()
 	if _, err = pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(helloworldResponse))),
+		v1test.RetryingRouteInconsistency(pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(helloworldResponse)), http.StatusBadGateway)),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatal("Failed to start endpoint of httpproxy:", err)
 	}
 	t.Log("httpproxy is ready.")
 
+	// When we're testing with resolvable domains, we fail earlier trying
+	// to resolve the cluster local domain.
+	if !accessibleExternal && test.ServingFlags.ResolvableDomain {
+		return
+	}
+
 	// As a final check (since we know they are both up), check that if we can
 	// (or cannot) access the helloworld app externally.
 	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldURL)
 	if err != nil {
-		if test.ServingFlags.ResolvableDomain {
-			// When we're testing with resolvable domains, we might fail earlier trying
-			// to resolve the shorter domain(s) off-cluster.
-			return
-		}
 		t.Fatal("Unexpected error when sending request to helloworld:", err)
 	}
 	expectedStatus := http.StatusNotFound
@@ -180,7 +183,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	test.EnsureTearDown(t, clients, &names)
 
 	withInternalVisibility := rtesting.WithServiceLabel(
-		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
+		network.VisibilityLabelKey, serving.VisibilityClusterLocal)
 	resources, err := v1test.CreateServiceReady(t, clients, &names, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -222,7 +225,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	}
 
 	withInternalVisibility := rtesting.WithServiceLabel(
-		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
+		network.VisibilityLabelKey, serving.VisibilityClusterLocal)
 
 	test.EnsureTearDown(t, clients, &testNames)
 
@@ -236,7 +239,11 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	}
 
 	// Wait for the activator endpoints to equalize.
-	if err := waitForActivatorEndpoints(resources, clients); err != nil {
+	if err := waitForActivatorEndpoints(&testContext{
+		t:         t,
+		resources: resources,
+		clients:   clients,
+	}); err != nil {
 		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 

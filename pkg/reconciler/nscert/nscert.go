@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -111,7 +111,7 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 	// need to be updated.
 	existingCert, err := findNamespaceCert(ns, existingCerts)
 	if apierrs.IsNotFound(err) {
-		cert, err := c.client.NetworkingV1alpha1().Certificates(ns.Name).Create(desiredCert)
+		cert, err := c.client.NetworkingV1alpha1().Certificates(ns.Name).Create(ctx, desiredCert, metav1.CreateOptions{})
 		if err != nil {
 			recorder.Eventf(ns, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Knative certificate %s/%s: %v", ns.Name, desiredCert.ObjectMeta.Name, err)
@@ -129,7 +129,7 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 		copy.Spec = desiredCert.Spec
 		copy.Labels[networking.WildcardCertDomainLabelKey] = desiredCert.Labels[networking.WildcardCertDomainLabelKey]
 
-		if _, err := c.client.NetworkingV1alpha1().Certificates(copy.Namespace).Update(copy); err != nil {
+		if _, err := c.client.NetworkingV1alpha1().Certificates(copy.Namespace).Update(ctx, copy, metav1.UpdateOptions{}); err != nil {
 			recorder.Eventf(existingCert, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Knative Certificate %s/%s: %v", existingCert.Namespace, existingCert.Name, err)
 			return fmt.Errorf("failed to update namespace certificate: %w", err)
@@ -146,7 +146,7 @@ func (c *reconciler) deleteNamespaceCerts(ctx context.Context, ns *corev1.Namesp
 	recorder := controller.GetEventRecorder(ctx)
 	for _, cert := range certs {
 		if metav1.IsControlledBy(cert, ns) {
-			if err := c.client.NetworkingV1alpha1().Certificates(cert.Namespace).Delete(cert.Name, &metav1.DeleteOptions{}); err != nil {
+			if err := c.client.NetworkingV1alpha1().Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{}); err != nil {
 				recorder.Eventf(cert, corev1.EventTypeNormal, "DeleteFailed",
 					"Failed to delete Knative Certificate %s/%s: %v", cert.Namespace, cert.Name, err)
 				return err

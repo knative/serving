@@ -31,7 +31,7 @@ Take `dataplane-probe` benchmark for example:
 1. Add the IAM service account
    [here](https://github.com/knative/serving/blob/d73bb8378cab8bb0c1825aa9802bea9ea2e6cb26/test/performance/benchmarks/dataplane-probe/continuous/dev.config#L20)
    (A current owner must apply this before things will work and the SA must be
-   whitelisted) then run:
+   allowed) then run:
 
    ```shell
    mako update_benchmark test/performance/benchmarks/dataplane-probe/dev.config

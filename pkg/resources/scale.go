@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"fmt"
 
 	"knative.dev/pkg/apis"
@@ -39,12 +40,12 @@ func ScaleResourceArguments(ref corev1.ObjectReference) (gvr *schema.GroupVersio
 
 // GetScaleResource returns the current scale resource for the PA.
 // TODO(markusthoemmes): We shouldn't need to pass namespace here.
-func GetScaleResource(namespace string, ref corev1.ObjectReference, psInformerFactory duck.InformerFactory) (*pav1alpha1.PodScalable, error) {
+func GetScaleResource(ctx context.Context, namespace string, ref corev1.ObjectReference, psInformerFactory duck.InformerFactory) (*pav1alpha1.PodScalable, error) {
 	gvr, name, err := ScaleResourceArguments(ref)
 	if err != nil {
 		return nil, fmt.Errorf("error getting the scale arguments: %w", err)
 	}
-	_, lister, err := psInformerFactory.Get(*gvr)
+	_, lister, err := psInformerFactory.Get(ctx, *gvr)
 	if err != nil {
 		return nil, fmt.Errorf("error getting a lister for a pod scalable resource '%+v': %w", gvr, err)
 	}

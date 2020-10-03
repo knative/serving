@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -82,16 +82,17 @@ func SyncRoutingMeta(ctx context.Context, r *v1.Route, cacc *Configuration, racc
 		}
 	}
 
-	// Use a revision accessor to manipulate the revisions.
-	if err := clearMetaForNotListed(ctx, r, racc, revisions); err != nil {
-		return err
-	}
-	if err := setMetaForListed(ctx, r, racc, revisions); err != nil {
-		return err
+	// Clear old meta only after the route is fully resolved
+	if r.IsReady() || r.IsFailed() {
+		if err := clearMetaForNotListed(ctx, r, racc, revisions); err != nil {
+			return err
+		}
+		if err := clearMetaForNotListed(ctx, r, cacc, configs); err != nil {
+			return err
+		}
 	}
 
-	// Use a config access to manipulate the configs.
-	if err := clearMetaForNotListed(ctx, r, cacc, configs); err != nil {
+	if err := setMetaForListed(ctx, r, racc, revisions); err != nil {
 		return err
 	}
 	return setMetaForListed(ctx, r, cacc, configs)
@@ -122,7 +123,7 @@ func setMetaForListed(ctx context.Context, route *v1.Route, acc Accessor, names 
 // not named within our list.  Unlike setMetaForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
 func clearMetaForNotListed(ctx context.Context, r *v1.Route, acc Accessor, names sets.String) error {
-	oldList, err := acc.list(r.Namespace, r.Name, v1.RoutingStateActive)
+	oldList, err := acc.list(ctx, r.Namespace, r.Name, v1.RoutingStateActive)
 	if err != nil {
 		return err
 	}
@@ -157,7 +158,7 @@ func setRoutingMeta(ctx context.Context, acc Accessor, r *v1.Route, name string,
 		}
 		logger := logging.FromContext(ctx)
 		logger.Debugf("Labeler V2 applying patch to %q. patch: %q", name, mergePatch)
-		return acc.patch(r.Namespace, name, types.MergePatchType, patch)
+		return acc.patch(ctx, r.Namespace, name, types.MergePatchType, patch)
 	}
 
 	return nil

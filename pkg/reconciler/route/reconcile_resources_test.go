@@ -47,7 +47,7 @@ import (
 
 func getCertificateFromClient(ctx context.Context, t *testing.T, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
 	t.Helper()
-	created, err := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+	created, err := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Certificates(desired.Namespace).Get(ctx, desired.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Certificates(%s).Get(%s) = %v", desired.Namespace, desired.Name, err)
 	}
@@ -65,7 +65,7 @@ func TestReconcileIngressInsert(t *testing.T) {
 	ci := newTestIngress(t, r)
 
 	if _, err := reconciler.reconcileIngress(ctx, r, ci); err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Error("Unexpected error:", err)
 	}
 }
 
@@ -80,7 +80,7 @@ func TestReconcileIngressUpdate(t *testing.T) {
 
 	ci := newTestIngress(t, r)
 	if _, err := reconciler.reconcileIngress(ctx, r, ci); err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Error("Unexpected error:", err)
 	}
 
 	updated := getRouteIngressFromClient(ctx, t, r)
@@ -96,12 +96,12 @@ func TestReconcileIngressUpdate(t *testing.T) {
 		})
 	})
 	if _, err := reconciler.reconcileIngress(ctx, r, ci2); err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Error("Unexpected error:", err)
 	}
 
 	updated = getRouteIngressFromClient(ctx, t, r)
 	if diff := cmp.Diff(ci2, updated); diff != "" {
-		t.Errorf("Unexpected diff (-want +got): %v", diff)
+		t.Error("Unexpected diff (-want +got):", diff)
 	}
 	if diff := cmp.Diff(ci, updated); diff == "" {
 		t.Error("Expected difference, but found none")
@@ -132,7 +132,7 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 		},
 	})
 
-	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// Get timestamp before reconciling, so that we can compare this to the last pinned timestamp
@@ -147,7 +147,7 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 	}
 
 	// Verify last pinned annotation is updated correctly
-	newRev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Get(rev.Name, metav1.GetOptions{})
+	newRev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Get(ctx, rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Error getting revision:", err)
 	}
@@ -182,7 +182,7 @@ func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
 			StaleRevisionLastpinnedDebounce: time.Minute,
 		},
 	})
-	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// Try reconciling target revisions for a revision that does not exist. No err should be returned
@@ -233,7 +233,7 @@ func newTestIngress(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.C
 	}}
 	ingress, err := resources.MakeIngress(getContext(), r, tc, tls, "foo-ingress")
 	if err != nil {
-		t.Errorf("Unexpected error %v", err)
+		t.Error("Unexpected error", err)
 	}
 	return ingress
 }
@@ -247,12 +247,12 @@ func TestReconcileCertificatesInsert(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 	certificate := newCerts([]string{"*.default.example.com"}, r)
-	if _, err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
-		t.Errorf("Unexpected error: %v", err)
+	if err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
+		t.Error("Unexpected error:", err)
 	}
 	created := getCertificateFromClient(ctx, t, certificate)
 	if diff := cmp.Diff(certificate, created); diff != "" {
-		t.Errorf("Unexpected diff (-want +got): %s", diff)
+		t.Error("Unexpected diff (-want +got):", diff)
 	}
 }
 
@@ -265,21 +265,21 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 	certificate := newCerts([]string{"old.example.com"}, r)
-	if _, err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
-		t.Errorf("Unexpected error: %v", err)
+	if err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
+		t.Error("Unexpected error:", err)
 	}
 
 	storedCert := getCertificateFromClient(ctx, t, certificate)
 	fakecertinformer.Get(ctx).Informer().GetIndexer().Add(storedCert)
 
 	newCertificate := newCerts([]string{"new.example.com"}, r)
-	if _, err := reconciler.reconcileCertificate(ctx, r, newCertificate); err != nil {
-		t.Errorf("Unexpected error: %v", err)
+	if err := reconciler.reconcileCertificate(ctx, r, newCertificate); err != nil {
+		t.Error("Unexpected error:", err)
 	}
 
 	updated := getCertificateFromClient(ctx, t, newCertificate)
 	if diff := cmp.Diff(newCertificate, updated); diff != "" {
-		t.Errorf("Unexpected diff (-want +got): %s", diff)
+		t.Error("Unexpected diff (-want +got):", diff)
 	}
 	if diff := cmp.Diff(certificate, updated); diff == "" {
 		t.Error("Expected difference, but found none")
@@ -298,7 +298,7 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 	r := Route("test-ns", "test-route")
 	ci := newTestIngress(t, r)
 	if _, err := reconciler.reconcileIngress(ctx, r, ci); err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Error("Unexpected error:", err)
 	}
 
 	updated := getRouteIngressFromClient(ctx, t, r)
@@ -309,7 +309,7 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 	ci2.Annotations[networking.IngressClassAnnotationKey] = expClass
 
 	if _, err := reconciler.reconcileIngress(ctx, r, ci2); err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Error("Unexpected error:", err)
 	}
 
 	updated = getRouteIngressFromClient(ctx, t, r)

@@ -38,7 +38,7 @@ controller deployments inside Knative Serving, you can run
 The Knative Serving controller creates Kubernetes resources when Knative Serving
 resources are created and updated. These sub-resources will be created in the
 same namespace as their parent Knative Serving resource, _not_ the
-`knative-serving` namespace. For example, if you create a Knative Serivce in
+`knative-serving` namespace. For example, if you create a Knative Service in
 namespace 'foo' the corresponding Deployment and ReplicaSet resources will also
 be in namespace 'foo'.
 

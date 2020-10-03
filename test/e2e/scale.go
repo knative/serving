@@ -61,8 +61,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 		minProbes = 20
 	)
 
-	ctx, cancel := context.WithTimeout(context.Background(), duration)
-
 	// wg tracks the number of ksvcs that we are still waiting to see become ready.
 	wg := sync.WaitGroup{}
 
@@ -73,12 +71,11 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	t.Cleanup(func() {
 		// Wait for the ksvcs to all become ready (or fail)
 		wg.Wait()
-		cancel()
 
 		// Wait for all of the service creations to complete (possibly in failure),
 		// and signal the done channel.
 		if err := eg.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
+			t.Error("Wait() =", err)
 		}
 
 		// TODO(mattmoor): Check globalSLO if localSLO isn't 1.0
@@ -91,7 +88,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			t.Parallel()
 
 			clients := Setup(t)
-			pm := test.NewProberManager(t.Logf, clients, minProbes, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+			pm := test.NewProberManager(t.Logf, clients, minProbes, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
@@ -106,7 +103,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 				pm.Foreach(func(u *url.URL, p test.Prober) {
 					if err := test.CheckSLO(localSLO, u.String(), p); err != nil {
-						t.Errorf("CheckSLO() = %v", err)
+						t.Error("CheckSLO() =", err)
 					}
 				})
 
@@ -114,11 +111,14 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			})
 
 			eg.Go(func() error {
+				ctx, cancel := context.WithTimeout(context.Background(), duration)
+
 				// This go routine runs until the ksvc is ready, at which point we should note that
 				// our part is done.
 				defer func() {
 					wg.Done()
 					t.Logf("Reporting done!")
+					cancel()
 				}()
 
 				// Start the clock for various waypoints towards Service readiness.
@@ -152,7 +152,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					}),
 					rtesting.WithRevisionTimeoutSeconds(10))
 				if err != nil {
-					t.Errorf("CreateLatestService() = %v", err)
+					t.Error("CreateLatestService() =", err)
 					return fmt.Errorf("CreateLatestService() failed: %w", err)
 				}
 
@@ -173,7 +173,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				}, "ServiceUpdatedWithURL")
 
 				if err != nil {
-					t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
+					t.Error("WaitForServiceState(w/ Domain) =", err)
 					return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
 				}
 
@@ -181,6 +181,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				latencies.Add("time-to-ready", start)
 
 				_, err = pkgTest.WaitForEndpointState(
+					context.Background(),
 					clients.KubeClient,
 					t.Logf,
 					url,
@@ -188,7 +189,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					"WaitForEndpointToServeText",
 					test.ServingFlags.ResolvableDomain)
 				if err != nil {
-					t.Errorf("WaitForEndpointState(expected text) = %v", err)
+					t.Error("WaitForEndpointState(expected text) =", err)
 					return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
 				}
 

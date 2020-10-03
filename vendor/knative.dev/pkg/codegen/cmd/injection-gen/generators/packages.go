@@ -73,7 +73,7 @@ func Packages(context *generator.Context, arguments *args.GeneratorArgs) generat
 
 		// If there's a comment of the form "// +groupGoName=SomeUniqueShortName", use that as
 		// the Go group identifier in CamelCase. It defaults
-		groupGoNames[groupPackageName] = namer.IC(strings.Split(gv.Group.NonEmpty(), ".")[0])
+		groupGoNames[groupPackageName] = namer.IC(strings.SplitN(gv.Group.NonEmpty(), ".", 2)[0])
 		if override := types.ExtractCommentTags("+", p.Comments)["groupGoName"]; override != nil {
 			groupGoNames[groupPackageName] = namer.IC(override[0])
 		}
@@ -236,7 +236,7 @@ func typedInformerPackage(groupPkgName string, gv clientgentypes.GroupVersion, e
 func versionClientsPackages(basePackage string, boilerplate []byte, customArgs *informergenargs.CustomArgs) []generator.Package {
 	packagePath := filepath.Join(basePackage, "client")
 
-	vers := []generator.Package{
+	return []generator.Package{
 		// Impl
 		&generator.DefaultPackage{
 			PackageName: "client",
@@ -283,13 +283,12 @@ func versionClientsPackages(basePackage string, boilerplate []byte, customArgs *
 			},
 		},
 	}
-	return vers
 }
 
 func versionFactoryPackages(basePackage string, boilerplate []byte, customArgs *informergenargs.CustomArgs) []generator.Package {
 	packagePath := filepath.Join(basePackage, "informers", "factory")
 
-	vers := []generator.Package{
+	return []generator.Package{
 		// Impl
 		&generator.DefaultPackage{
 			PackageName: "factory",
@@ -338,7 +337,6 @@ func versionFactoryPackages(basePackage string, boilerplate []byte, customArgs *
 			},
 		},
 	}
-	return vers
 }
 
 func versionInformerPackages(basePackage string, groupPkgName string, gv clientgentypes.GroupVersion, groupGoName string, boilerplate []byte, typesToGenerate []*types.Type, customArgs *informergenargs.CustomArgs) []generator.Package {
@@ -572,7 +570,7 @@ func reconcilerPackages(basePackage string, groupPkgName string, gv clientgentyp
 	return vers
 }
 
-func versionDuckPackages(basePackage string, groupPkgName string, gv clientgentypes.GroupVersion, groupGoName string, boilerplate []byte, typesToGenerate []*types.Type, customArgs *informergenargs.CustomArgs) []generator.Package {
+func versionDuckPackages(basePackage string, groupPkgName string, gv clientgentypes.GroupVersion, groupGoName string, boilerplate []byte, typesToGenerate []*types.Type, _ *informergenargs.CustomArgs) []generator.Package {
 	packagePath := filepath.Join(basePackage, "ducks", groupPkgName, strings.ToLower(gv.Version.NonEmpty()))
 
 	vers := make([]generator.Package, 0, 2*len(typesToGenerate))

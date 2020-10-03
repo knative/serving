@@ -187,7 +187,7 @@ func AssertMetric(t *testing.T, values ...Metric) {
 	EnsureRecorded()
 	for _, v := range values {
 		if diff := cmp.Diff(v, GetOneMetric(v.Name)); diff != "" {
-			t.Errorf("Wrong metric (-want +got): %s", diff)
+			t.Error("Wrong metric (-want +got):", diff)
 		}
 	}
 }

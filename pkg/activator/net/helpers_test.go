@@ -116,10 +116,10 @@ func TestEndpointsToDests(t *testing.T) {
 			ready, notReady := endpointsToDests(&tc.endpoints, networking.ServicePortName(tc.protocol))
 
 			if got, want := ready, tc.expectReady; !got.Equal(want) {
-				t.Errorf("Got unexpected ready dests (-want, +got): %s", cmp.Diff(want, got))
+				t.Error("Got unexpected ready dests (-want, +got):", cmp.Diff(want, got))
 			}
 			if got, want := notReady, tc.expectNotReady; !got.Equal(want) {
-				t.Errorf("Got unexpected notReady dests (-want, +got): %s", cmp.Diff(want, got))
+				t.Error("Got unexpected notReady dests (-want, +got):", cmp.Diff(want, got))
 			}
 		})
 	}

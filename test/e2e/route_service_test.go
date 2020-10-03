@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	netpkg "knative.dev/networking/pkg"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -162,7 +163,7 @@ func TestRouteVisibilityChanges(t *testing.T) {
 			}
 
 			v1test.PatchService(st, clients, svc, func(s *v1.Service) {
-				s.SetLabels(map[string]string{"serving.knative.dev/visibility": "cluster-local"})
+				s.SetLabels(map[string]string{netpkg.VisibilityLabelKey: "cluster-local"})
 			})
 
 			st.Logf("Waiting for Service %q ObservedGeneration to match Generation, and status transition to Ready == True", names.Service)

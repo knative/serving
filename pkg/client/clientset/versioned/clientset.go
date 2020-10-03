@@ -26,15 +26,11 @@ import (
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/autoscaling/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
-	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	AutoscalingV1alpha1() autoscalingv1alpha1.AutoscalingV1alpha1Interface
-	ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface
-	ServingV1beta1() servingv1beta1.ServingV1beta1Interface
 	ServingV1() servingv1.ServingV1Interface
 }
 
@@ -43,24 +39,12 @@ type Interface interface {
 type Clientset struct {
 	*discovery.DiscoveryClient
 	autoscalingV1alpha1 *autoscalingv1alpha1.AutoscalingV1alpha1Client
-	servingV1alpha1     *servingv1alpha1.ServingV1alpha1Client
-	servingV1beta1      *servingv1beta1.ServingV1beta1Client
 	servingV1           *servingv1.ServingV1Client
 }
 
 // AutoscalingV1alpha1 retrieves the AutoscalingV1alpha1Client
 func (c *Clientset) AutoscalingV1alpha1() autoscalingv1alpha1.AutoscalingV1alpha1Interface {
 	return c.autoscalingV1alpha1
-}
-
-// ServingV1alpha1 retrieves the ServingV1alpha1Client
-func (c *Clientset) ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface {
-	return c.servingV1alpha1
-}
-
-// ServingV1beta1 retrieves the ServingV1beta1Client
-func (c *Clientset) ServingV1beta1() servingv1beta1.ServingV1beta1Interface {
-	return c.servingV1beta1
 }
 
 // ServingV1 retrieves the ServingV1Client
@@ -83,21 +67,13 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	configShallowCopy := *c
 	if configShallowCopy.RateLimiter == nil && configShallowCopy.QPS > 0 {
 		if configShallowCopy.Burst <= 0 {
-			return nil, fmt.Errorf("Burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
+			return nil, fmt.Errorf("burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
 		}
 		configShallowCopy.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 	var cs Clientset
 	var err error
 	cs.autoscalingV1alpha1, err = autoscalingv1alpha1.NewForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
-	cs.servingV1alpha1, err = servingv1alpha1.NewForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
-	cs.servingV1beta1, err = servingv1beta1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +94,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.autoscalingV1alpha1 = autoscalingv1alpha1.NewForConfigOrDie(c)
-	cs.servingV1alpha1 = servingv1alpha1.NewForConfigOrDie(c)
-	cs.servingV1beta1 = servingv1beta1.NewForConfigOrDie(c)
 	cs.servingV1 = servingv1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
@@ -130,8 +104,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.autoscalingV1alpha1 = autoscalingv1alpha1.New(c)
-	cs.servingV1alpha1 = servingv1alpha1.New(c)
-	cs.servingV1beta1 = servingv1beta1.New(c)
 	cs.servingV1 = servingv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

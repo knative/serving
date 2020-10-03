@@ -22,9 +22,7 @@ import (
 	"sync"
 	"time"
 
-	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
-
 	coordinationv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -35,13 +33,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-
 	leaseinformer "knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
-	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
 
@@ -51,20 +48,22 @@ const (
 	autoscalerPortName = "http"
 	retryTimeout       = 3 * time.Second
 	retryInterval      = 100 * time.Millisecond
+
+	// Retry at most 15 seconds to process a stat. NOTE: Retrying could
+	// cause high delay and inaccurate scaling decision because we use
+	// the timestamp on receiving.
+	maxProcessingRetry      = 30
+	retryProcessingInterval = 500 * time.Millisecond
 )
+
+var svcURLSuffix = fmt.Sprintf("svc.%s:%d", network.GetClusterDomainName(), autoscalerPort)
 
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)
 
-// bucketProcessor includes the information about how to process
-// the StatMessage owned by a bucket.
-type bucketProcessor struct {
-	// holder is the HolderIdentity for a bucket from the Lease.
-	holder string
-	// conn is the WebSocket connection to the holder pod.
-	conn *websocket.ManagedConnection
-	// proc is the function to process the StatMessage owned by the bucket.
-	proc statProcessor
+type stat struct {
+	sm    asmetrics.StatMessage
+	retry int
 }
 
 // Forwarder does the following things:
@@ -78,6 +77,7 @@ type Forwarder struct {
 	logger          *zap.SugaredLogger
 	kc              kubernetes.Interface
 	endpointsLister corev1listers.EndpointsLister
+
 	// `accept` is the function to process a StatMessage which doesn't need
 	// to be forwarded.
 	accept statProcessor
@@ -86,6 +86,15 @@ type Forwarder struct {
 	// processorsLock is the lock for processors.
 	processorsLock sync.RWMutex
 	processors     map[string]*bucketProcessor
+	// Used to capture asynchronous processes for re-enqueuing to be waited
+	// on when shutting down.
+	retryWg sync.WaitGroup
+	// Used to capture asynchronous processe for stats to be waited
+	// on when shutting down.
+	processingWg sync.WaitGroup
+
+	statCh chan stat
+	stopCh chan struct{}
 }
 
 // New creates a new Forwarder.
@@ -101,7 +110,12 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		bs:              bs,
 		processors:      make(map[string]*bucketProcessor, len(bkts)),
 		accept:          accept,
+		statCh:          make(chan stat, 1000),
+		stopCh:          make(chan struct{}),
 	}
+
+	f.processingWg.Add(1)
+	go f.process()
 
 	leaseInformer := leaseinformer.Get(ctx)
 	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -146,6 +160,7 @@ func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 func (f *Forwarder) leaseUpdated(obj interface{}) {
 	l := obj.(*coordinationv1.Lease)
 	ns, n := l.Namespace, l.Name
+	ctx := context.Background()
 
 	if l.Spec.HolderIdentity == nil {
 		// This shouldn't happen as we filter it out when queueing.
@@ -154,32 +169,34 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 		return
 	}
 
+	// Close existing connection if there's one. The target address won't
+	// be the same as the IP has changed.
+	f.shutdown(f.getProcessor(n))
 	holder := *l.Spec.HolderIdentity
-	f.setProcessor(n, f.createProcessor(n, holder))
+	f.setProcessor(n, f.createProcessor(ns, n, holder))
 
 	if holder != f.selfIP {
 		// Skip creating/updating Service and Endpoints if not the leader.
 		return
 	}
 
-	// TODO(yanweiguo): Better handling these errors instead of just logging.
-	if err := f.createService(ns, n); err != nil {
-		f.logger.Errorf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
+	if err := f.createService(ctx, ns, n); err != nil {
+		f.logger.Fatalf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
 		return
 	}
 	f.logger.Infof("Created Service for Lease %s/%s", ns, n)
 
-	if err := f.createOrUpdateEndpoints(ns, n); err != nil {
-		f.logger.Errorf("Failed to create Endpoints for Lease %s/%s: %v", ns, n, err)
+	if err := f.createOrUpdateEndpoints(ctx, ns, n); err != nil {
+		f.logger.Fatalf("Failed to create Endpoints for Lease %s/%s: %v", ns, n, err)
 		return
 	}
 	f.logger.Infof("Created Endpoints for Lease %s/%s", ns, n)
 }
 
-func (f *Forwarder) createService(ns, n string) error {
+func (f *Forwarder) createService(ctx context.Context, ns, n string) error {
 	var lastErr error
 	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
-		_, lastErr = f.kc.CoreV1().Services(ns).Create(&v1.Service{
+		_, lastErr = f.kc.CoreV1().Services(ns).Create(ctx, &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
 				Namespace: ns,
@@ -191,7 +208,7 @@ func (f *Forwarder) createService(ns, n string) error {
 					TargetPort: intstr.FromInt(autoscalerPort),
 				}},
 			},
-		})
+		}, metav1.CreateOptions{})
 
 		if apierrs.IsAlreadyExists(lastErr) {
 			return true, nil
@@ -209,7 +226,7 @@ func (f *Forwarder) createService(ns, n string) error {
 // createOrUpdateEndpoints creates an Endpoints object with the given namespace and
 // name, and the Forwarder.selfIP. If the Endpoints object already
 // exists, it will update the Endpoints with the Forwarder.selfIP.
-func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
+func (f *Forwarder) createOrUpdateEndpoints(ctx context.Context, ns, n string) error {
 	wantSubsets := []v1.EndpointSubset{{
 		Addresses: []v1.EndpointAddress{{
 			IP: f.selfIP,
@@ -242,7 +259,7 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 
 		want := e.DeepCopy()
 		want.Subsets = wantSubsets
-		if _, lastErr = f.kc.CoreV1().Endpoints(ns).Update(want); lastErr != nil {
+		if _, lastErr = f.kc.CoreV1().Endpoints(ns).Update(ctx, want, metav1.UpdateOptions{}); lastErr != nil {
 			// Do not return the error to cause a retry.
 			return false, nil
 		}
@@ -258,13 +275,13 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	}
 
 	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
-		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(&v1.Endpoints{
+		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(ctx, &v1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
 				Namespace: ns,
 			},
 			Subsets: wantSubsets,
-		})
+		}, metav1.CreateOptions{})
 		// Do not return the error to cause a retry.
 		return lastErr == nil, nil
 	}); err != nil {
@@ -286,67 +303,92 @@ func (f *Forwarder) setProcessor(bkt string, p *bucketProcessor) {
 	f.processors[bkt] = p
 }
 
-func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
+func (f *Forwarder) createProcessor(ns, bkt, holder string) *bucketProcessor {
 	if holder == f.selfIP {
 		return &bucketProcessor{
+			bkt:    bkt,
+			logger: f.logger.With(zap.String("bucket", bkt)),
 			holder: holder,
-			proc: func(sm asmetrics.StatMessage) {
-				l := f.logger.With(zap.String("revision", sm.Key.String()))
-				l.Debug("Accept stat as owner of bucket ", bkt)
-				if f.accept != nil {
-					f.accept(sm)
-				}
-			},
+			accept: f.accept,
 		}
 	}
 
-	// TODO(9235): Currently we use IP directly. This won't work if there
-	// is mesh. Need to fall back to connection via Service.
-	dns := fmt.Sprintf("ws://%s:%d", holder, autoscalerPort)
-	f.logger.Info("Connecting to Autoscaler bucket at ", dns)
-	c := websocket.NewDurableSendingConnection(dns, f.logger)
-	return &bucketProcessor{
-		holder: holder,
-		conn:   c,
-		proc: func(sm asmetrics.StatMessage) {
-			l := f.logger.With(zap.String("revision", sm.Key.String()))
-			l.Debugf("Forward stat of bucket %s to the holder %s", bkt, holder)
-			wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
-			b, err := wsms.Marshal()
-			if err != nil {
-				l.Errorw("Error while marshaling stats", zap.Error(err))
-				return
+	return newForwardProcessor(f.logger.With(zap.String("bucket", bkt)), bkt, holder,
+		fmt.Sprintf("ws://%s:%d", holder, autoscalerPort),
+		fmt.Sprintf("ws://%s.%s.%s", bkt, ns, svcURLSuffix))
+}
+
+// Process enqueues the given Stat for processing asynchronously.
+// It calls Forwarder.accept if the pod where this Forwarder is running is the owner
+// of the given StatMessage. Otherwise it forwards the given StatMessage to the right
+// owner pod. It will retry if any error happens during the processing.
+func (f *Forwarder) Process(sm asmetrics.StatMessage) {
+	f.statCh <- stat{sm: sm, retry: 0}
+}
+
+func (f *Forwarder) process() {
+	defer func() {
+		f.retryWg.Wait()
+		f.processingWg.Done()
+	}()
+
+	for {
+		select {
+		case <-f.stopCh:
+			return
+		case s := <-f.statCh:
+			rev := s.sm.Key.String()
+			l := f.logger.With(zap.String("revision", rev))
+			bkt := f.bs.Owner(rev)
+
+			p := f.getProcessor(bkt)
+			if p == nil {
+				l.Warn("Can't find the owner for Revision.")
+				f.maybeRetry(l, s)
+				continue
 			}
 
-			if err := c.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
-				l.Errorw("Error while sending stats", zap.Error(err))
+			if err := p.process(s.sm); err != nil {
+				l.Errorw("Error while processing stat", zap.Error(err))
+				f.maybeRetry(l, s)
 			}
-		},
+		}
 	}
 }
 
-// Process calls Forwarder.accept if the pod where this Forwarder is running is the owner
-// of the given StatMessage. Otherwise it forwards the given StatMessage to the right
-// owner pod. If it can't find the owner, it drops the StatMessage.
-func (f *Forwarder) Process(sm asmetrics.StatMessage) {
-	rev := sm.Key.String()
-	l := f.logger.With(zap.String("revision", rev))
-	bkt := f.bs.Owner(rev)
-
-	p := f.getProcessor(bkt)
-	if p == nil {
-		l.Warnf("Can't find the owner for Rev %s. Dropping its stat.", rev)
-		return
+func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat) {
+	if s.retry > maxProcessingRetry {
+		logger.Warn("Exceeding max retries. Dropping the stat.")
 	}
 
-	p.proc(sm)
+	s.retry++
+	f.retryWg.Add(1)
+	go func() {
+		defer f.retryWg.Done()
+		// TODO(yanweiguo): Use RateLimitingInterface and NewItemFastSlowRateLimiter.
+		time.Sleep(retryProcessingInterval)
+		logger.Debug("Enqueuing stat for retry.")
+		f.statCh <- s
+	}()
+}
+
+func (f *Forwarder) shutdown(p *bucketProcessor) {
+	if p != nil && p.accept == nil {
+		p.shutdown()
+	}
 }
 
 // Cancel is the function to call when terminating a Forwarder.
 func (f *Forwarder) Cancel() {
+	// Tell process go-runtine to stop.
+	close(f.stopCh)
+
+	f.processorsLock.RLock()
+	defer f.processorsLock.RUnlock()
 	for _, p := range f.processors {
-		if p.conn != nil {
-			p.conn.Shutdown()
-		}
+		f.shutdown(p)
 	}
+
+	f.processingWg.Wait()
+	close(f.statCh)
 }

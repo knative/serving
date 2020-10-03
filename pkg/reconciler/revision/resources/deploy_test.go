@@ -30,19 +30,20 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/metrics"
-	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/queue"
 
+	_ "knative.dev/pkg/metrics/testing"
+	_ "knative.dev/pkg/system/testing"
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
@@ -488,7 +489,7 @@ func TestMakePodSpec(t *testing.T) {
 				}},
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -520,7 +521,7 @@ func TestMakePodSpec(t *testing.T) {
 				}},
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 			func(revision *v1.Revision) {
@@ -568,7 +569,7 @@ func TestMakePodSpec(t *testing.T) {
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			withContainerConcurrency(1),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -589,7 +590,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -616,7 +617,7 @@ func TestMakePodSpec(t *testing.T) {
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			withContainerConcurrency(121),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -639,7 +640,7 @@ func TestMakePodSpec(t *testing.T) {
 			}}),
 			withContainerConcurrency(42),
 			withOwnerReference("parent-config"),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -661,7 +662,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withHTTPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -682,7 +683,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -703,7 +704,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withExecReadinessProbe([]string{"echo", "hello"}),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -733,7 +734,7 @@ func TestMakePodSpec(t *testing.T) {
 					},
 				},
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -749,7 +750,7 @@ func TestMakePodSpec(t *testing.T) {
 							Port: intstr.FromInt(networking.BackendHTTPPort),
 							HTTPHeaders: []corev1.HTTPHeader{{
 								Name:  network.KubeletProbeHeaderName,
-								Value: "queue",
+								Value: queue.Name,
 							}},
 						},
 					}),
@@ -768,7 +769,7 @@ func TestMakePodSpec(t *testing.T) {
 						TCPSocket: &corev1.TCPSocketAction{},
 					}}}},
 			),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -794,7 +795,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 			func(revision *v1.Revision) {
@@ -835,7 +836,7 @@ func TestMakePodSpec(t *testing.T) {
 				Name:  "sidecar-container-2",
 				Image: "alpine",
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}, {
 				ImageDigest: "ubuntu@sha256:deadbffe",
@@ -897,7 +898,7 @@ func TestMakePodSpec(t *testing.T) {
 				Name:  sidecarContainerName,
 				Image: "ubuntu",
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}, {
 				ImageDigest: "ubuntu@sha256:deadbffe",
@@ -971,12 +972,14 @@ func TestMakePodSpec(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := makePodSpec(test.rev, &logConfig, &traceConfig, &test.oc, &deploymentConfig)
+			cfg := revCfg
+			cfg.Observability = &test.oc
+			got, err := makePodSpec(test.rev, &cfg)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
-				t.Errorf("makePodSpec (-want, +got) = %v", diff)
+				t.Errorf("makePodSpec (-want, +got) =\n%s", diff)
 			}
 		})
 	}
@@ -987,8 +990,7 @@ var quantityComparer = cmp.Comparer(func(x, y resource.Quantity) bool {
 })
 
 func TestMissingProbeError(t *testing.T) {
-	if _, err := MakeDeployment(revision("bar", "foo"), &logConfig, &traceConfig,
-		&network.Config{}, &obsConfig, &deploymentConfig, &asConfig); err == nil {
+	if _, err := MakeDeployment(revision("bar", "foo"), &revCfg); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
@@ -999,7 +1001,7 @@ func TestMakeDeployment(t *testing.T) {
 		rev       *v1.Revision
 		want      *appsv1.Deployment
 		dc        deployment.Config
-		acMutator func(*asconfig.Config)
+		acMutator func(*autoscalerconfig.Config)
 	}{{
 		name: "with concurrency=1",
 		rev: revision("bar", "foo",
@@ -1016,7 +1018,7 @@ func TestMakeDeployment(t *testing.T) {
 			}}),
 			withoutLabels,
 			withContainerConcurrency(1),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}, {
 				ImageDigest: "ubuntu@sha256:deadbffe",
@@ -1032,7 +1034,7 @@ func TestMakeDeployment(t *testing.T) {
 			}}),
 			withoutLabels,
 			withOwnerReference("parent-config"),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}})),
 		want: appsv1deployment(),
@@ -1044,7 +1046,7 @@ func TestMakeDeployment(t *testing.T) {
 				Image:          "ubuntu",
 				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 			withoutLabels, func(revision *v1.Revision) {
@@ -1069,7 +1071,7 @@ func TestMakeDeployment(t *testing.T) {
 				Image:          "ubuntu",
 				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}), withoutLabels),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
@@ -1077,7 +1079,7 @@ func TestMakeDeployment(t *testing.T) {
 		}),
 	}, {
 		name: "cluster initial scale",
-		acMutator: func(ac *asconfig.Config) {
+		acMutator: func(ac *autoscalerconfig.Config) {
 			ac.InitialScale = 10
 		},
 		rev: revision("bar", "foo",
@@ -1093,7 +1095,7 @@ func TestMakeDeployment(t *testing.T) {
 		}),
 	}, {
 		name: "cluster initial scale override by revision initial scale",
-		acMutator: func(ac *asconfig.Config) {
+		acMutator: func(ac *autoscalerconfig.Config) {
 			ac.InitialScale = 10
 		},
 		rev: revision("bar", "foo",
@@ -1116,7 +1118,7 @@ func TestMakeDeployment(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ac := &asconfig.Config{
+			ac := &autoscalerconfig.Config{
 				InitialScale:          1,
 				AllowZeroInitialScale: false,
 			}
@@ -1124,21 +1126,23 @@ func TestMakeDeployment(t *testing.T) {
 				test.acMutator(ac)
 			}
 			// Tested above so that we can rely on it here for brevity.
-			podSpec, err := makePodSpec(test.rev, &logConfig, &traceConfig,
-				&obsConfig, &deploymentConfig)
+			cfg := revCfg
+			cfg.Autoscaler = ac
+			cfg.Deployment = &test.dc
+			podSpec, err := makePodSpec(test.rev, &cfg)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
 			if test.want != nil {
 				test.want.Spec.Template.Spec = *podSpec
 			}
-			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
-				&network.Config{}, &obsConfig, &test.dc, ac)
+			// Copy to override
+			got, err := MakeDeployment(test.rev, &cfg)
 			if err != nil {
 				t.Fatal("Got unexpected error:", err)
 			}
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
-				t.Error("MakeDeployment (-want, +got) =", diff)
+				t.Errorf("MakeDeployment (-want, +got) =\n%s", diff)
 			}
 		})
 	}

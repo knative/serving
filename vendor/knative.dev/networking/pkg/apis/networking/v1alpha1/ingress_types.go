@@ -111,8 +111,13 @@ type IngressSpec struct {
 	// +optional
 	Rules []IngressRule `json:"rules,omitempty"`
 
-	// Visibility setting.
-	Visibility IngressVisibility `json:"visibility,omitempty"`
+	// DeprecatedVisibility was used for the fallback when spec.rules.visibility
+	// isn't set.
+	//
+	// Now spec.rules.visibility is not optional and so we make this field deprecated.
+	//
+	// +optional
+	DeprecatedVisibility IngressVisibility `json:"visibility,omitempty"`
 }
 
 // IngressVisibility describes whether the Ingress should be exposed to
@@ -176,7 +181,6 @@ type IngressRule struct {
 
 	// Visibility signifies whether this rule should `ClusterLocal`. If it's not
 	// specified then it defaults to `ExternalIP`.
-	// +optional
 	Visibility IngressVisibility `json:"visibility,omitempty"`
 
 	// HTTP represents a rule to apply against incoming requests. If the
@@ -297,10 +301,10 @@ type HTTPRetry struct {
 type IngressStatus struct {
 	duckv1.Status `json:",inline"`
 
-	// LoadBalancer contains the current status of the load-balancer.
-	// This is to be superseded by the combination of `PublicLoadBalancer` and `PrivateLoadBalancer`
+	// DeprecatedLoadBalancer contains the current status of the load-balancer.
+	// DEPRECATED: Use `PublicLoadBalancer` and `PrivateLoadBalancer` instead.
 	// +optional
-	LoadBalancer *LoadBalancerStatus `json:"loadBalancer,omitempty"`
+	DeprecatedLoadBalancer *LoadBalancerStatus `json:"loadBalancer,omitempty"`
 
 	// PublicLoadBalancer contains the current status of the load-balancer.
 	// +optional
@@ -362,8 +366,8 @@ const (
 )
 
 // GetStatus retrieves the status of the Ingress. Implements the KRShaped interface.
-func (t *Ingress) GetStatus() *duckv1.Status {
-	return &t.Status.Status
+func (i *Ingress) GetStatus() *duckv1.Status {
+	return &i.Status.Status
 }
 
 // HeaderMatch represents a matching value of Headers in HTTPIngressPath.

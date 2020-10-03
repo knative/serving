@@ -35,8 +35,10 @@ function knative_setup() {
 
 # Script entry point.
 
-# Skip installing istio as an add-on
-initialize $@ --skip-istio-addon
+# Skip installing istio as an add-on.
+# Temporarily increasing the cluster size for serving tests to rule out
+# resource/eviction as causes of flakiness.
+initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4
 
 # Run the tests
 header "Running tests"
@@ -60,9 +62,6 @@ if (( HTTPS )); then
   kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
-
-# Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
-kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}' || fail_test
 
 # Keep the bucket count in sync with test/ha/ha.go
 kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
@@ -110,6 +109,11 @@ toggle_feature multi-container Enabled
 go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
 toggle_feature multi-container Disabled
 
+# Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
+toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
+go_test_e2e -timeout=2m ./test/e2e/initscale || failed=1
+toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
+
 toggle_feature responsive-revision-gc Enabled
 GC_CONFIG=$(kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml)
 add_trap "kubectl patch cm 'config-gc' -n ${SYSTEM_NAMESPACE} -p ${GC_CONFIG}" SIGKILL SIGTERM SIGQUIT
@@ -122,7 +126,7 @@ toggle_feature responsive-revision-gc Disabled
 # Note that we use a very high -parallel because each ksvc is run as its own
 # sub-test.  If this is not larger than the maximum scale tested then the test
 # simply cannot pass.
-go_test_e2e -timeout=10m -parallel=200 ./test/scale || failed=1
+go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
 
 # Run HA tests separately as they're stopping core Knative Serving pods
 # Define short -spoofinterval to ensure frequent probing while stopping pods

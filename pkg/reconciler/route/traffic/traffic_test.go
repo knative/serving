@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,12 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package traffic
 
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
 	"testing"
 	"time"
@@ -26,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	network "knative.dev/networking/pkg"
@@ -168,9 +167,9 @@ func TestBuildTrafficConfigurationVanilla(t *testing.T) {
 		},
 	}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(WithSpecTraffic(tts))); err != nil {
-		t.Errorf("Unexpected error %v", err)
+		t.Error("Unexpected error", err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -211,9 +210,9 @@ func TestBuildTrafficConfigurationNoNameRevision(t *testing.T) {
 		Revisions:      map[string]*v1.Revision{goodNewRev.Name: goodNewRev},
 	}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(WithSpecTraffic(tts))); err != nil {
-		t.Errorf("Unexpected error %v", err)
+		t.Error("Unexpected error", err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -254,9 +253,9 @@ func TestBuildTrafficConfigurationVanillaScaledToZero(t *testing.T) {
 		},
 	}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(WithSpecTraffic(tts))); err != nil {
-		t.Errorf("Unexpected error %v", err)
+		t.Error("Unexpected error", err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -319,9 +318,9 @@ func TestBuildTrafficConfigurationTwoConfigs(t *testing.T) {
 		ConfigurationName: goodConfig.Name,
 		Percent:           ptr.Int64(10),
 	}))); err != nil {
-		t.Errorf("Unexpected error %v", err)
+		t.Error("Unexpected error", err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -383,9 +382,9 @@ func TestBuildTrafficConfigurationCanary(t *testing.T) {
 		ConfigurationName: goodConfig.Name,
 		Percent:           ptr.Int64(10),
 	}))); err != nil {
-		t.Errorf("Unexpected error %v", err)
+		t.Error("Unexpected error", err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -500,9 +499,9 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 		ConfigurationName: goodConfig.Name,
 		Percent:           ptr.Int64(1),
 	}))); err != nil {
-		t.Errorf("Unexpected error %v", err)
+		t.Error("Unexpected error", err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -564,9 +563,9 @@ func TestBuildTrafficConfigurationTwoFixedRevisions(t *testing.T) {
 		RevisionName: goodNewRev.Name,
 		Percent:      ptr.Int64(10),
 	}))); err != nil {
-		t.Errorf("Unexpected error %v", err)
+		t.Error("Unexpected error", err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -629,9 +628,9 @@ func TestBuildTrafficConfigurationTwoFixedRevisionsFromTwoConfigurations(t *test
 		RevisionName: niceNewRev.Name,
 		Percent:      ptr.Int64(60),
 	}))); err != nil {
-		t.Errorf("Unexpected error %v", err)
+		t.Error("Unexpected error", err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -777,7 +776,7 @@ func TestBuildTrafficConfigurationMissingConfig(t *testing.T) {
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, r); err != nil && expectedErr.Error() != err.Error() {
 		t.Errorf("Expected %v, saw %v", expectedErr, err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -794,7 +793,7 @@ func TestBuildTrafficConfigurationNotRoutableRevision(t *testing.T) {
 	}))); err != nil && expectedErr.Error() != err.Error() {
 		t.Errorf("Expected error %v, saw %v", expectedErr, err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -811,7 +810,7 @@ func TestBuildTrafficConfigurationNotRoutableConfiguration(t *testing.T) {
 	}))); err != nil && expectedErr.Error() != err.Error() {
 		t.Errorf("Expected error %v, saw %v", expectedErr, err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -831,7 +830,7 @@ func TestBuildTrafficConfigurationEmptyConfiguration(t *testing.T) {
 	}))); err != nil && expectedErr.Error() != err.Error() {
 		t.Errorf("Expected error %v, saw %v", expectedErr, err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -854,7 +853,7 @@ func TestBuildTrafficConfigurationEmptyAndFailedConfigurations(t *testing.T) {
 	}))); err != nil && expectedErr.Error() != err.Error() {
 		t.Errorf("Expected error %v, saw %v", expectedErr, err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -877,7 +876,7 @@ func TestBuildTrafficConfigurationFailedAndEmptyConfigurations(t *testing.T) {
 	}))); err != nil && expectedErr.Error() != err.Error() {
 		t.Errorf("Expected error %v, saw %v", expectedErr, err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
@@ -903,21 +902,18 @@ func TestBuildTrafficConfigurationMissingRevision(t *testing.T) {
 	}))); err != nil && expectedErr.Error() != err.Error() {
 		t.Errorf("Expected %s, saw %s", expectedErr.Error(), err.Error())
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
 var errAPI = errors.New("failed to connect API")
 
-type revFakeErrorLister struct{}
+type revFakeErrorLister struct {
+	listers.RevisionNamespaceLister
+}
 
 func (l revFakeErrorLister) Get(name string) (*v1.Revision, error) {
 	return nil, errAPI
-}
-
-func (l revFakeErrorLister) List(selector labels.Selector) ([]*v1.Revision, error) {
-	log.Panic("not implemented")
-	return nil, nil
 }
 
 func (l revFakeErrorLister) Revisions(namespace string) listers.RevisionNamespaceLister {
@@ -929,9 +925,9 @@ func TestBuildTrafficConfigurationFailedGetRevision(t *testing.T) {
 		RevisionName: goodNewRev.Name,
 		Percent:      ptr.Int64(50)})))
 	if err != nil && err.Error() != errAPI.Error() {
-		t.Errorf("err: %s, want: %s", err.Error(), errAPI.Error())
+		t.Errorf("err: %v, want: %v", err.Error(), errAPI.Error())
 	} else if err == nil {
-		t.Errorf("err: %s, want: no error", errAPI.Error())
+		t.Errorf("err: %v, want: no error", errAPI.Error())
 	}
 }
 
@@ -962,7 +958,7 @@ func TestRoundTripping(t *testing.T) {
 		ConfigurationName: niceConfig.Name,
 	}))
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, route); err != nil {
-		t.Errorf("Unexpected error %v", err)
+		t.Error("Unexpected error", err)
 	} else {
 		targets, err := tc.GetRevisionTrafficTargets(getContext(), route)
 		if err != nil {

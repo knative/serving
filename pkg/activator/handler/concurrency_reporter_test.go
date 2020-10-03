@@ -28,6 +28,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/metrics/metricskey"
@@ -363,7 +364,7 @@ func TestStats(t *testing.T) {
 			})
 
 			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want) {
-				t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
+				t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -402,13 +403,13 @@ func TestConcurrencyReporterRun(t *testing.T) {
 		},
 	}}
 
-	reportCh <- time.Now()
+	reportCh <- now.Add(2)
 
 	got := make([]asmetrics.StatMessage, 0, len(want))
 	got = append(got, <-cr.statCh...) // Scale from 0.
 	got = append(got, <-cr.statCh...) // Actual report.
 	if !cmp.Equal(got, want) {
-		t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
+		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
 	}
 }
 
@@ -456,7 +457,7 @@ func TestConcurrencyReporterHandler(t *testing.T) {
 	got = append(got, <-cr.statCh...) // Scale from 0.
 	got = append(got, <-cr.statCh...) // Actual report.
 	if !cmp.Equal(got, want) {
-		t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
+		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
 	}
 }
 
@@ -471,16 +472,16 @@ func TestMetricsReported(t *testing.T) {
 		close(reportCh)
 	}()
 
-	now := time.Now().Truncate(time.Second)
+	now := time.Time{}
 	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
 	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
 	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
 	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
 
-	now = now.Add(time.Second)
-	reportCh <- now
-	<-cr.statCh
-	<-cr.statCh
+	// Report
+	reportCh <- now.Add(1)
+	<-cr.statCh // scale-from-0 event
+	<-cr.statCh // "proper" event
 
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
@@ -496,12 +497,16 @@ func TestMetricsReported(t *testing.T) {
 		metricskey.ContainerName: "activator",
 	}
 
+	// Should report a concurrency of 3 because the first event was a scale-from-0 (gets discounted)
 	wantMetric := metricstest.FloatMetric("request_concurrency", 3, wantTags).WithResource(wantResource)
 	metricstest.AssertMetric(t, wantMetric)
-	now = now.Add(time.Second)
-	reportCh <- now
+
+	// Report again
+	reportCh <- now.Add(2)
 	<-cr.statCh
-	*wantMetric.Values[0].Float64++
+
+	// The next time round we should report the "real" concurrency
+	wantMetric = metricstest.FloatMetric("request_concurrency", 4, wantTags).WithResource(wantResource)
 	metricstest.AssertMetric(t, wantMetric)
 }
 
@@ -521,7 +526,7 @@ func revisionInformer(ctx context.Context, revs ...*v1.Revision) {
 	revisions := fakerevisioninformer.Get(ctx)
 
 	for _, rev := range revs {
-		fake.ServingV1().Revisions(rev.Namespace).Create(rev)
+		fake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
 	}
 }
@@ -567,7 +572,7 @@ func BenchmarkConcurrencyReporterHandler(b *testing.B) {
 
 		// Create revisions in the fake clients to trigger report logic.
 		rev := revision(key.Namespace, key.Name)
-		fake.ServingV1().Revisions(rev.Namespace).Create(rev)
+		fake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
 	}
 	resp := httptest.NewRecorder()
@@ -600,15 +605,9 @@ func BenchmarkConcurrencyReporterReport(b *testing.B) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
 			defer cancel()
 
-			// Buffer equal to the activator.
-			statCh := make(chan []asmetrics.StatMessage)
+			// Different to the activator but doesn't matter as it isn't used in the test.
+			statCh := make(chan []asmetrics.StatMessage, revs)
 			cr := NewConcurrencyReporter(ctx, activatorPodName, statCh)
-
-			// Just read and ignore all stat messages.
-			go func() {
-				for range <-statCh {
-				}
-			}()
 
 			fake := fakeservingclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)
@@ -620,10 +619,10 @@ func BenchmarkConcurrencyReporterReport(b *testing.B) {
 
 				// Create revisions in the fake clients to trigger report logic.
 				rev := revision(key.Namespace, key.Name)
-				fake.ServingV1().Revisions(rev.Namespace).Create(rev)
+				fake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 				revisions.Informer().GetIndexer().Add(rev)
 
-				// Send a dummy request for each revision to make sure it's reported.
+				// Send a sample request for each revision to make sure it's reported.
 				cr.handleEvent(network.ReqEvent{
 					Time: time.Now(),
 					Type: network.ReqIn,

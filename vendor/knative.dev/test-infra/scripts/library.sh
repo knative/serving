@@ -65,32 +65,16 @@ function abort() {
   exit 1
 }
 
-# Build a resource name based on $REPO_NAME, a suffix and $BUILD_NUMBER.
-# Restricts the name length to 40 chars (the limit for resource names in GCP).
-# Name will have the form $REPO_NAME-<PREFIX>$BUILD_NUMBER.
-# Parameters: $1 - name suffix
-function build_resource_name() {
-  local prefix=${REPO_NAME}-$1
-  local suffix=${BUILD_NUMBER}
-  # Restrict suffix length to 20 chars
-  if [[ -n "${suffix}" ]]; then
-    suffix=${suffix:${#suffix}<20?0:-20}
-  fi
-  local name="${prefix:0:20}${suffix}"
-  # Ensure name doesn't end with "-"
-  echo "${name%-}"
-}
-
 # Display a box banner.
 # Parameters: $1 - character to use for the box.
 #             $2 - banner message.
 function make_banner() {
-    local msg="$1$1$1$1 $2 $1$1$1$1"
-    local border="${msg//[-0-9A-Za-z _.,\/()\']/$1}"
-    echo -e "${border}\n${msg}\n${border}"
-    # TODO(adrcunha): Remove once logs have timestamps on Prow
-    # For details, see https://github.com/kubernetes/test-infra/issues/10100
-    echo -e "$1$1$1$1 $(TZ='America/Los_Angeles' date)\n${border}"
+  local msg="$1$1$1$1 $2 $1$1$1$1"
+  local border="${msg//[-0-9A-Za-z _.,\/()\']/$1}"
+  echo -e "${border}\n${msg}\n${border}"
+  # TODO(adrcunha): Remove once logs have timestamps on Prow
+  # For details, see https://github.com/kubernetes/test-infra/issues/10100
+  echo -e "$1$1$1$1 $(TZ='America/Los_Angeles' date)\n${border}"
 }
 
 # Simple header for logging purposes.
@@ -192,21 +176,8 @@ function wait_until_pods_running() {
 # Waits until all batch jobs complete in the given namespace.
 # Parameters: $1 - namespace.
 function wait_until_batch_job_complete() {
-  echo -n "Waiting until all batch jobs in namespace $1 run to completion."
-  for i in {1..150}; do  # timeout after 5 minutes
-    local jobs=$(kubectl get jobs -n $1 --no-headers \
-                 -ocustom-columns='n:{.metadata.name},c:{.spec.completions},s:{.status.succeeded}')
-    # All jobs must be complete
-    local not_complete=$(echo "${jobs}" | awk '{if ($2!=$3) print $0}' | wc -l)
-    if [[ ${not_complete} -eq 0 ]]; then
-      echo -e "\nAll jobs are complete:\n${jobs}"
-      return 0
-    fi
-    echo -n "."
-    sleep 2
-  done
-  echo -e "\n\nERROR: timeout waiting for jobs to complete\n${jobs}"
-  return 1
+  echo "Waiting until all batch jobs in namespace $1 run to completion."
+  kubectl wait job --for=condition=Complete --all -n "$1" --timeout=5m || return 1
 }
 
 # Waits until the given service has an external address (IP/hostname).

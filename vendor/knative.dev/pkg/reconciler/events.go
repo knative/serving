@@ -24,7 +24,7 @@ import (
 // Event leverages go's 1.13 error wrapping.
 type Event error
 
-// Is reports whether any error in err's chain matches target.
+// EventIs reports whether any error in err's chain matches target.
 //
 // The chain consists of err itself followed by the sequence of errors obtained by
 // repeatedly calling Unwrap.
@@ -34,7 +34,7 @@ type Event error
 // (text from errors/wrap.go)
 var EventIs = errors.Is
 
-// As finds the first error in err's chain that matches target, and if so, sets
+// EventAs finds the first error in err's chain that matches target, and if so, sets
 // target to that error value and returns true.
 //
 // The chain consists of err itself followed by the sequence of errors obtained by

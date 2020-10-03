@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -152,11 +152,11 @@ type RevisionStatus struct {
 	// for both serving and non serving containers.
 	// ref: http://bit.ly/image-digests
 	// +optional
-	ContainerStatuses []ContainerStatuses `json:"containerStatuses,omitempty"`
+	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty"`
 }
 
-// ContainerStatuses holds the information of container name and image digest value
-type ContainerStatuses struct {
+// ContainerStatus holds the information of container name and image digest value
+type ContainerStatus struct {
 	Name        string `json:"name,omitempty"`
 	ImageDigest string `json:"imageDigest,omitempty"`
 }

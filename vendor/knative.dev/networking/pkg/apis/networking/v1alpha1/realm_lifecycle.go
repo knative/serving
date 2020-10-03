@@ -29,6 +29,6 @@ func (*Realm) GetConditionSet() apis.ConditionSet {
 }
 
 // GetGroupVersionKind returns SchemeGroupVersion of an Realm
-func (i *Realm) GetGroupVersionKind() schema.GroupVersionKind {
+func (*Realm) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Realm")
 }

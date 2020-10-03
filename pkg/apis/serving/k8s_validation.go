@@ -28,10 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
-	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/profiling"
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/networking"
 )
 
 const (
@@ -152,8 +152,12 @@ func validateProjectedVolumeSource(vp corev1.VolumeProjection) *apis.FieldError 
 		specified = append(specified, "configMap")
 		errs = errs.Also(validateConfigMapProjection(vp.ConfigMap).ViaField("configMap"))
 	}
+	if vp.ServiceAccountToken != nil {
+		specified = append(specified, "serviceAccountToken")
+		errs = errs.Also(validateServiceAccountTokenProjection(vp.ServiceAccountToken).ViaField("serviceAccountToken"))
+	}
 	if len(specified) == 0 {
-		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap"))
+		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap", "serviceAccountToken"))
 	} else if len(specified) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(specified...))
 	}
@@ -182,6 +186,15 @@ func validateSecretProjection(sp *corev1.SecretProjection) *apis.FieldError {
 	}
 	for i, item := range sp.Items {
 		errs = errs.Also(validateKeyToPath(item).ViaFieldIndex("items", i))
+	}
+	return errs
+}
+
+func validateServiceAccountTokenProjection(sp *corev1.ServiceAccountTokenProjection) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(*sp, *ServiceAccountTokenProjectionMask(sp))
+	// Audience & ExpirationSeconds are optional
+	if sp.Path == "" {
+		errs = errs.Also(apis.ErrMissingField("path"))
 	}
 	return errs
 }
@@ -237,7 +250,8 @@ func validateEnv(ctx context.Context, envVars []corev1.EnvVar) *apis.FieldError 
 
 func validateEnvFrom(envFromList []corev1.EnvFromSource) *apis.FieldError {
 	var errs *apis.FieldError
-	for i, envFrom := range envFromList {
+	for i := range envFromList {
+		envFrom := envFromList[i]
 		errs = errs.Also(apis.CheckDisallowedFields(envFrom, *EnvFromSourceMask(&envFrom)).ViaIndex(i))
 
 		cm := envFrom.ConfigMapRef
@@ -460,7 +474,8 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 	// coverage, and the field restrictions.
 	seenName := make(sets.String, len(mounts))
 	seenMountPath := make(sets.String, len(mounts))
-	for i, vm := range mounts {
+	for i := range mounts {
+		vm := mounts[i]
 		errs = errs.Also(apis.CheckDisallowedFields(vm, *VolumeMountMask(&vm)).ViaIndex(i))
 		// This effectively checks that Name is non-empty because Volume name must be non-empty.
 		if !volumes.Has(vm.Name) {

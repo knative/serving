@@ -57,7 +57,7 @@ func Retrying(rc spoof.ResponseChecker, codes ...int) spoof.ResponseChecker {
 		for _, code := range codes {
 			if resp.StatusCode == code {
 				// Returning (false, nil) causes SpoofingClient.Poll to retry.
-				// sc.logger.Infof("Retrying for code %v", resp.StatusCode)
+				// sc.logger.Info("Retrying for code ", resp.StatusCode)
 				return false, nil
 			}
 		}
@@ -147,8 +147,7 @@ func EventuallyMatchesBody(expected string) spoof.ResponseChecker {
 func MatchesAllOf(checkers ...spoof.ResponseChecker) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
 		for _, checker := range checkers {
-			done, err := checker(resp)
-			if err != nil || !done {
+			if done, err := checker(resp); err != nil || !done {
 				return done, err
 			}
 		}
@@ -163,6 +162,7 @@ func MatchesAllOf(checkers ...spoof.ResponseChecker) spoof.ResponseChecker {
 // desc will be used to name the metric that is emitted to track how long it took for the
 // domain to get into the state checked by inState.  Commas in `desc` must be escaped.
 func WaitForEndpointState(
+	ctx context.Context,
 	kubeClient *KubeClient,
 	logf logging.FormatLogger,
 	url *url.URL,
@@ -170,7 +170,8 @@ func WaitForEndpointState(
 	desc string,
 	resolvable bool,
 	opts ...interface{}) (*spoof.Response, error) {
-	return WaitForEndpointStateWithTimeout(kubeClient, logf, url, inState, desc, resolvable, Flags.SpoofRequestTimeout, opts...)
+	return WaitForEndpointStateWithTimeout(ctx, kubeClient, logf, url, inState,
+		desc, resolvable, Flags.SpoofRequestTimeout, opts...)
 }
 
 // WaitForEndpointStateWithTimeout will poll an endpoint until inState indicates the state is achieved
@@ -180,6 +181,7 @@ func WaitForEndpointState(
 // desc will be used to name the metric that is emitted to track how long it took for the
 // domain to get into the state checked by inState.  Commas in `desc` must be escaped.
 func WaitForEndpointStateWithTimeout(
+	ctx context.Context,
 	kubeClient *KubeClient,
 	logf logging.FormatLogger,
 	url *url.URL,
@@ -188,7 +190,7 @@ func WaitForEndpointStateWithTimeout(
 	resolvable bool,
 	timeout time.Duration,
 	opts ...interface{}) (*spoof.Response, error) {
-	defer logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForEndpointState/%s", desc)).End()
+	defer logging.GetEmitableSpan(ctx, "WaitForEndpointState/"+desc).End()
 
 	if url.Scheme == "" || url.Host == "" {
 		return nil, fmt.Errorf("invalid URL: %q", url.String())
@@ -209,7 +211,7 @@ func WaitForEndpointStateWithTimeout(
 		}
 	}
 
-	client, err := NewSpoofingClient(kubeClient, logf, url.Hostname(), resolvable, tOpts...)
+	client, err := NewSpoofingClient(ctx, kubeClient, logf, url.Hostname(), resolvable, tOpts...)
 	if err != nil {
 		return nil, err
 	}
