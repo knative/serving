@@ -85,7 +85,7 @@ func defaultDefaultsConfig() *Defaults {
 	}
 }
 
-func asTriState(key string, target **bool, defVal *bool) cm.ParseFunc {
+func asTriState(key string, target **bool, defValue *bool) cm.ParseFunc {
 	return func(data map[string]string) error {
 		if raw, ok := data[key]; ok {
 			switch {
@@ -94,7 +94,7 @@ func asTriState(key string, target **bool, defVal *bool) cm.ParseFunc {
 			case strings.EqualFold(raw, "false"):
 				*target = ptr.Bool(false)
 			default:
-				*target = defVal
+				*target = defValue
 			}
 		}
 		return nil
