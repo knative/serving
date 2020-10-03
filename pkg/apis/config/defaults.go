@@ -82,6 +82,7 @@ func defaultDefaultsConfig() *Defaults {
 		ContainerConcurrency:          DefaultContainerConcurrency,
 		ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
 		AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
+		EnableServiceLinks:            ptr.Bool(false),
 	}
 }
 
@@ -93,6 +94,8 @@ func asTriState(key string, target **bool) cm.ParseFunc {
 				*target = ptr.Bool(true)
 			case strings.EqualFold(raw, "false"):
 				*target = ptr.Bool(false)
+			default:
+				*target = nil
 			}
 		}
 		return nil

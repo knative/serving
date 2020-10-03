@@ -35,6 +35,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
@@ -43,7 +44,6 @@ import (
 	"knative.dev/serving/pkg/queue"
 
 	_ "knative.dev/pkg/metrics/testing"
-	_ "knative.dev/pkg/system/testing"
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
@@ -185,6 +185,7 @@ var (
 	defaultPodSpec = &corev1.PodSpec{
 		Volumes:                       []corev1.Volume{varLogVolume},
 		TerminationGracePeriodSeconds: refInt64(45),
+		EnableServiceLinks:            ptr.Bool(false),
 	}
 
 	defaultDeployment = &appsv1.Deployment{
@@ -477,6 +478,7 @@ func TestMakePodSpec(t *testing.T) {
 		name string
 		rev  *v1.Revision
 		oc   metrics.ObservabilityConfig
+		dc   *apicfg.Defaults
 		want *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -560,6 +562,60 @@ func TestMakePodSpec(t *testing.T) {
 					},
 				},
 			})),
+	}, {
+		name: "explicit true service links",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			}, func(p *corev1.PodSpec) {
+				p.EnableServiceLinks = ptr.Bool(true)
+			}),
+		dc: func() *apicfg.Defaults {
+			d, _ := apicfg.NewDefaultsConfigFromMap(map[string]string{
+				"enable-service-links": "true",
+			})
+			return d
+		}(),
+	}, {
+		name: "explicit default service links",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			}, func(p *corev1.PodSpec) {
+				p.EnableServiceLinks = nil
+			}),
+		dc: func() *apicfg.Defaults {
+			d, _ := apicfg.NewDefaultsConfigFromMap(map[string]string{
+				"enable-service-links": "default",
+			})
+			return d
+		}(),
 	}, {
 		name: "concurrency=1 no owner",
 		rev: revision("bar", "foo",
@@ -974,6 +1030,9 @@ func TestMakePodSpec(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := revCfg
 			cfg.Observability = &test.oc
+			if test.dc != nil {
+				cfg.Defaults = test.dc
+			}
 			got, err := makePodSpec(test.rev, &cfg)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
