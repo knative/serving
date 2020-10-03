@@ -145,7 +145,6 @@ Kubernetes cluster in your designated environment, if necessary.
    to check out a `net-istio` repo.
 
 1. Install Istio
-   
    Run the following command to install Istio without mesh
    ```shell
    ${GOPATH}/src/knative.dev/net-istio/third_party/istio-stable/install-istio.sh \
