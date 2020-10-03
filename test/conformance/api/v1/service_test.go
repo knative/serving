@@ -586,6 +586,9 @@ func TestAnnotationPropagation(t *testing.T) {
 // TestServiceCreateWithMultipleContainers tests both Creation paths for a service.
 // The test performs a series of Validate steps to ensure that the service transitions as expected during each step.
 func TestServiceCreateWithMultipleContainers(t *testing.T) {
+	if !test.ServingFlags.EnableAlphaFeatures {
+		return
+	}
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -631,12 +634,4 @@ func TestServiceCreateWithMultipleContainers(t *testing.T) {
 	if err = validateLabelsPropagation(t, *objects, names); err != nil {
 		t.Error(err)
 	}
-
-	if err := validateAnnotations(objects); err != nil {
-		t.Error("Service annotations are incorrect: ", err)
-	}
-
-	// We start a background prober to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, names.URL, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
-	defer test.AssertProberDefault(t, prober)
 }
