@@ -104,6 +104,20 @@ func TestDefaultsConfiguration(t *testing.T) {
 			"enable-service-links": "false",
 		},
 	}, {
+		name:    "service links default",
+		wantErr: false,
+		wantDefaults: &Defaults{
+			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
+			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+			UserContainerNameTemplate:     DefaultUserContainerName,
+			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
+			AllowContainerConcurrencyZero: true,
+			EnableServiceLinks:            nil,
+		},
+		data: map[string]string{
+			"enable-service-links": "default",
+		},
+	}, {
 		name:    "invalid allow container concurrency zero flag value",
 		wantErr: true,
 		data: map[string]string{
