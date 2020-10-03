@@ -152,10 +152,6 @@ Kubernetes cluster in your designated environment, if necessary.
    istio-ci-no-mesh.yaml
    ```
 
-Follow the
-[instructions](https://www.knative.dev/docs/serving/gke-assigning-static-ip-address/)
-if you need to set up static IP for Ingresses in the cluster.
-
 > If you want to customize the `istio*.yaml` files you can refer to the
 > [Istio installation doc](https://github.com/knative/docs/blob/master/docs/install/installing-istio.md)
 > for more information.
