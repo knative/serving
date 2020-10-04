@@ -69,6 +69,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
+							EnableServiceLinks: ptr.Bool(false),
 							Containers: []corev1.Container{{
 								Name:           config.DefaultUserContainerName,
 								Image:          "busybox",
@@ -89,6 +90,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
+							EnableServiceLinks: ptr.Bool(true),
 							Containers: []corev1.Container{{
 								Image: "busybox",
 							}},
@@ -104,6 +106,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
+							EnableServiceLinks: ptr.Bool(true),
 							Containers: []corev1.Container{{
 								Name:           config.DefaultUserContainerName,
 								Image:          "busybox",

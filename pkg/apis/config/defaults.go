@@ -86,7 +86,7 @@ func defaultDefaultsConfig() *Defaults {
 	}
 }
 
-func asTriState(key string, target **bool) cm.ParseFunc {
+func asTriState(key string, target **bool, defValue *bool) cm.ParseFunc {
 	return func(data map[string]string) error {
 		if raw, ok := data[key]; ok {
 			switch {
@@ -95,7 +95,7 @@ func asTriState(key string, target **bool) cm.ParseFunc {
 			case strings.EqualFold(raw, "false"):
 				*target = ptr.Bool(false)
 			default:
-				*target = nil
+				*target = defValue
 			}
 		}
 		return nil
@@ -110,7 +110,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		cm.AsString("container-name-template", &nc.UserContainerNameTemplate),
 
 		cm.AsBool("allow-container-concurrency-zero", &nc.AllowContainerConcurrencyZero),
-		asTriState("enable-service-links", &nc.EnableServiceLinks),
+		asTriState("enable-service-links", &nc.EnableServiceLinks, nil),
 
 		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
 		cm.AsInt64("max-revision-timeout-seconds", &nc.MaxRevisionTimeoutSeconds),

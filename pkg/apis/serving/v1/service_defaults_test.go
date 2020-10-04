@@ -85,6 +85,7 @@ func TestServiceDefaulting(t *testing.T) {
 									Resources:      defaultResources,
 									ReadinessProbe: defaultProbe,
 								}},
+								EnableServiceLinks: ptr.Bool(false),
 							},
 							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
@@ -107,6 +108,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							PodSpec: corev1.PodSpec{
+								EnableServiceLinks: ptr.Bool(true),
 								Containers: []corev1.Container{{
 									Image: "busybox",
 								}},
@@ -130,6 +132,7 @@ func TestServiceDefaulting(t *testing.T) {
 									Resources:      defaultResources,
 									ReadinessProbe: defaultProbe,
 								}},
+								EnableServiceLinks: ptr.Bool(true),
 							},
 							TimeoutSeconds:       ptr.Int64(60),
 							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
@@ -186,6 +189,7 @@ func TestServiceDefaulting(t *testing.T) {
 									Resources:      defaultResources,
 									ReadinessProbe: defaultProbe,
 								}},
+								EnableServiceLinks: ptr.Bool(false),
 							},
 							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
