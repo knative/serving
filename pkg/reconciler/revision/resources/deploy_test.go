@@ -1028,12 +1028,12 @@ func TestMakePodSpec(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := revCfg
+			cfg := (&revCfg).DeepCopy()
 			cfg.Observability = &test.oc
 			if test.dc != nil {
 				cfg.Defaults = test.dc
 			}
-			got, err := makePodSpec(test.rev, &cfg)
+			got, err := makePodSpec(test.rev, cfg)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
@@ -1185,10 +1185,10 @@ func TestMakeDeployment(t *testing.T) {
 				test.acMutator(ac)
 			}
 			// Tested above so that we can rely on it here for brevity.
-			cfg := revCfg
+			cfg := (&revCfg).DeepCopy()
 			cfg.Autoscaler = ac
 			cfg.Deployment = &test.dc
-			podSpec, err := makePodSpec(test.rev, &cfg)
+			podSpec, err := makePodSpec(test.rev, cfg)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
@@ -1196,7 +1196,7 @@ func TestMakeDeployment(t *testing.T) {
 				test.want.Spec.Template.Spec = *podSpec
 			}
 			// Copy to override
-			got, err := MakeDeployment(test.rev, &cfg)
+			got, err := MakeDeployment(test.rev, cfg)
 			if err != nil {
 				t.Fatal("Got unexpected error:", err)
 			}

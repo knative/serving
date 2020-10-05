@@ -459,9 +459,9 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := revCfg
+			cfg := (&revCfg).DeepCopy()
 			cfg.Deployment = &test.dc
-			got, err := makeQueueContainer(test.rev, &cfg)
+			got, err := makeQueueContainer(test.rev, cfg)
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error:", err)
 			}
