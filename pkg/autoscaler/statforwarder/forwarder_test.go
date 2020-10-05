@@ -150,7 +150,7 @@ func TestForwarderReconcile(t *testing.T) {
 
 	// Check that the endpoints got updated.
 	wantSubsets[0].Addresses[0].IP = testIP2
-	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		// Check the endpoints get updated.
 		got, err := el.Get(bucket1)
 		if err != nil {
@@ -434,7 +434,7 @@ func TestProcess(t *testing.T) {
 	lease.Informer().GetIndexer().Add(anotherLease)
 
 	// Wait for the forwarder to become the leader for bucket1.
-	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		p1 := f.getProcessor(bucket1)
 		p2 := f.getProcessor(bucket2)
 		return p1 != nil && p2 != nil && p1.holder == testIP1 && p2.holder == testIP2, nil
