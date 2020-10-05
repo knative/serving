@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -92,7 +93,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	pokeCowForMB := func(mb int) error {
 		u, _ := url.Parse(endpoint.String())
 		q := u.Query()
-		q.Set("bloat", fmt.Sprintf("%d", mb))
+		q.Set("bloat", strconv.Itoa(mb))
 		u.RawQuery = q.Encode()
 		response, err := sendPostRequest(test.ServingFlags.ResolvableDomain, u)
 		if err != nil {

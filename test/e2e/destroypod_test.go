@@ -112,7 +112,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	// The timeout app sleeps for the time passed via the timeout query parameter in milliseconds
 	u, _ := url.Parse(routeURL.String())
 	q := u.Query()
-	q.Set("timeout", fmt.Sprintf("%d", timeoutRequestDuration.Milliseconds()))
+	q.Set("timeout", fmt.Sprint(timeoutRequestDuration.Milliseconds()))
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequestWithContext(egCtx, http.MethodGet, u.String(), nil)
 	if err != nil {

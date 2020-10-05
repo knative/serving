@@ -280,7 +280,7 @@ func TestIsRevisionStale(t *testing.T) {
 				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
 				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
+					"serving.knative.dev/lastPinned": fmt.Sprint(staleTime.Unix()),
 				},
 			},
 		},
@@ -292,7 +292,7 @@ func TestIsRevisionStale(t *testing.T) {
 				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
 				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", curTime.Unix()),
+					"serving.knative.dev/lastPinned": fmt.Sprint(curTime.Unix()),
 				},
 			},
 		},
@@ -304,7 +304,7 @@ func TestIsRevisionStale(t *testing.T) {
 				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
 				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
+					"serving.knative.dev/lastPinned": fmt.Sprint(staleTime.Unix()),
 				},
 			},
 		},
@@ -336,7 +336,7 @@ func TestIsRevisionStale(t *testing.T) {
 			got := isRevisionStale(ctx, test.rev, cfg)
 
 			if got != test.want {
-				t.Errorf("IsRevisionStale want %v got %v", test.want, got)
+				t.Errorf("IsRevisionStale = %v want: %v", got, test.want)
 			}
 		})
 	}

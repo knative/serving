@@ -105,7 +105,7 @@ func main() {
 	selector := labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: *target,
 	})
-	log.Printf("Selector: %v", selector)
+	log.Print("Selector: ", selector)
 	deploymentStatus := metrics.FetchDeploymentsStatus(ctx, namespace, selector, time.Second)
 	// Start the attack!
 	results := attacker.Attack(targeter, rate, *duration, "rollout-test")
