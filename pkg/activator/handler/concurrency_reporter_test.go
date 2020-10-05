@@ -601,7 +601,7 @@ func BenchmarkConcurrencyReporterHandler(b *testing.B) {
 // requests for the respective time too.
 func BenchmarkConcurrencyReporterReport(b *testing.B) {
 	for _, revs := range []int{1, 5, 10, 50, 100, 200} {
-		b.Run(fmt.Sprintf("revs-%d", revs), func(b *testing.B) {
+		b.Run(fmt.Sprint("revs-", revs), func(b *testing.B) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
 			defer cancel()
 
