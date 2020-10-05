@@ -77,9 +77,11 @@ var (
 	traceConfig      tracingconfig.Config
 	defaults, _      = apicfg.NewDefaultsConfigFromMap(nil)
 	revCfg           = config.Config{
-		Autoscaler:    &asConfig,
+		Config: &apicfg.Config{
+			Autoscaler: &asConfig,
+			Defaults:   defaults,
+		},
 		Deployment:    &deploymentConfig,
-		Defaults:      defaults,
 		Logging:       &logConfig,
 		Network:       &network.Config{},
 		Observability: &obsConfig,
