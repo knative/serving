@@ -154,7 +154,7 @@ func main() {
 	cc := componentConfig(ctx, logger)
 	ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeClient, cc)
 
-	// accept is the func to call when this pod owns the given StatMessage.
+	// accept is the func to call when this pod owns the Revision for this StatMessage.
 	accept := func(sm asmetrics.StatMessage) {
 		collector.Record(sm.Key, time.Now(), sm.Stat)
 		multiScaler.Poke(sm.Key, sm.Stat)
@@ -233,9 +233,12 @@ func flush(logger *zap.SugaredLogger) {
 }
 
 func componentConfig(ctx context.Context, logger *zap.SugaredLogger) leaderelection.ComponentConfig {
-	selfIP := os.Getenv("POD_IP")
-	if selfIP == "" {
+	selfIP, existing := os.LookupEnv("POD_IP")
+	if !existing {
 		logger.Fatal("POD_IP environment variable not set.")
+	}
+	if selfIP == "" {
+		logger.Fatal("POD_IP environment variable is empty.")
 	}
 
 	// Set up leader election config
