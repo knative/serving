@@ -96,7 +96,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 	}, {
-		name: "with context, in create",
+		name: "with context, in create, expect ESL set",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logger)
