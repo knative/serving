@@ -246,7 +246,7 @@ func componentConfig(ctx context.Context, logger *zap.SugaredLogger) leaderelect
 
 	cc := leaderElectionConfig.GetComponentConfig(component)
 	cc.LeaseName = func(i uint32) string {
-		return bucket.AutoscaleBucketName(i, cc.Buckets)
+		return bucket.AutoscalerBucketName(i, cc.Buckets)
 	}
 	cc.Identity = selfIP
 
