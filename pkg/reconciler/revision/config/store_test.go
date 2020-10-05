@@ -29,7 +29,7 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
-	apisconfig "knative.dev/serving/pkg/apis/config"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 
@@ -44,9 +44,9 @@ func TestStoreLoadWithContext(t *testing.T) {
 	observabilityConfig, observabilityConfigExample := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
 	loggingConfig, loggingConfigExample := ConfigMapsFromTestFile(t, logging.ConfigMapName())
 	tracingConfig, tracingConfigExample := ConfigMapsFromTestFile(t, pkgtracing.ConfigName)
-	defaultConfig := ConfigMapFromTestFile(t, apisconfig.DefaultsConfigName)
+	defaultConfig := ConfigMapFromTestFile(t, apiconfig.DefaultsConfigName)
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
-	featuresConfig := ConfigMapFromTestFile(t, apisconfig.FeaturesConfigName)
+	featuresConfig := ConfigMapFromTestFile(t, apiconfig.FeaturesConfigName)
 
 	watcher := configmap.NewStaticWatcher(
 		featuresConfig,
@@ -128,7 +128,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	})
 
 	t.Run("defaults", func(t *testing.T) {
-		expected, _ := apisconfig.NewDefaultsConfigFromConfigMap(defaultConfig)
+		expected, _ := apiconfig.NewDefaultsConfigFromConfigMap(defaultConfig)
 		if diff := cmp.Diff(expected, config.Defaults); diff != "" {
 			t.Error("Unexpected defaults config (-want, +got):", diff)
 		}
@@ -142,7 +142,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	})
 
 	t.Run("features", func(t *testing.T) {
-		expected, _ := apisconfig.NewFeaturesConfigFromConfigMap(featuresConfig)
+		expected, _ := apiconfig.NewFeaturesConfigFromConfigMap(featuresConfig)
 		if diff := cmp.Diff(expected, config.Features); diff != "" {
 			t.Error("Unexpected autoscaler config (-want, +got):", diff)
 		}
@@ -157,9 +157,9 @@ func TestStoreImmutableConfig(t *testing.T) {
 		ConfigMapFromTestFile(t, metrics.ConfigMapName()),
 		ConfigMapFromTestFile(t, logging.ConfigMapName()),
 		ConfigMapFromTestFile(t, pkgtracing.ConfigName),
-		ConfigMapFromTestFile(t, apisconfig.DefaultsConfigName),
+		ConfigMapFromTestFile(t, apiconfig.DefaultsConfigName),
 		ConfigMapFromTestFile(t, autoscalerconfig.ConfigName),
-		ConfigMapFromTestFile(t, apisconfig.FeaturesConfigName),
+		ConfigMapFromTestFile(t, apiconfig.FeaturesConfigName),
 	)
 
 	store.WatchConfigs(watcher)
