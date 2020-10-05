@@ -551,45 +551,6 @@ function check_licenses() {
     { echo "--- FAIL: go-licenses failed the license check"; return 1; }
 }
 
-# Run the given linter on the given files, checking it exists first.
-# Parameters: $1 - tool
-#             $2 - tool purpose (for error message if tool not installed)
-#             $3 - tool parameters (quote if multiple parameters used)
-#             $4..$n - files to run linter on
-function run_lint_tool() {
-  local checker=$1
-  local params=$3
-  if ! hash ${checker} 2>/dev/null; then
-    warning "${checker} not installed, not $2"
-    return 127
-  fi
-  shift 3
-  local failed=0
-  for file in $@; do
-    ${checker} ${params} ${file} || failed=1
-  done
-  return ${failed}
-}
-
-# Check links in the given markdown files.
-# Parameters: $1...$n - files to inspect
-function check_links_in_markdown() {
-  # https://github.com/raviqqe/liche
-  local config="${REPO_ROOT_DIR}/test/markdown-link-check-config.rc"
-  [[ ! -e ${config} ]] && config="${_TEST_INFRA_SCRIPTS_DIR}/markdown-link-check-config.rc"
-  local options="$(grep '^-' ${config} | tr \"\n\" ' ')"
-  run_lint_tool liche "checking links in markdown files" "-d ${REPO_ROOT_DIR} ${options}" $@
-}
-
-# Check format of the given markdown files.
-# Parameters: $1..$n - files to inspect
-function lint_markdown() {
-  # https://github.com/markdownlint/markdownlint
-  local config="${REPO_ROOT_DIR}/test/markdown-lint-config.rc"
-  [[ ! -e ${config} ]] && config="${_TEST_INFRA_SCRIPTS_DIR}/markdown-lint-config.rc"
-  run_lint_tool mdl "linting markdown files" "-c ${config}" $@
-}
-
 # Return whether the given parameter is an integer.
 # Parameters: $1 - integer to check
 function is_int() {
