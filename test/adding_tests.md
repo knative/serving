@@ -75,7 +75,7 @@ import (
 
 func Setup(t *testing.T) *test.Clients {
 	ctx := pkgTest.InjectionContext()
-    
+
 	clients, err := test.NewClientsFromCtx(ctx, namespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)

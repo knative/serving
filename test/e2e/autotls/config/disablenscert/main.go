@@ -18,8 +18,9 @@ package main
 
 import (
 	"context"
-	pkgTest "knative.dev/pkg/test"
 	"log"
+
+	pkgTest "knative.dev/pkg/test"
 
 	"github.com/kelseyhightower/envconfig"
 

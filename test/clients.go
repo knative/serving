@@ -20,6 +20,7 @@ package test
 
 import (
 	"context"
+
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 
