@@ -221,5 +221,5 @@ func (rs *RevisionStatus) IsActivationRequired() bool {
 
 // RevisionLastPinnedString returns a string representation of the specified time.
 func RevisionLastPinnedString(t time.Time) string {
-	return fmt.Sprintf("%d", t.Unix())
+	return fmt.Sprint(t.Unix())
 }

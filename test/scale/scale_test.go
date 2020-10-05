@@ -56,7 +56,7 @@ func TestScaleToN(t *testing.T) {
 	tests := []int{10, 200}
 
 	for _, size := range tests {
-		t.Run(fmt.Sprintf("scale-%d", size), func(t *testing.T) {
+		t.Run(fmt.Sprint("scale-", size), func(t *testing.T) {
 			if testing.Short() && size > shortModeMaxScale {
 				t.Skip("Skipping test in short mode")
 			}

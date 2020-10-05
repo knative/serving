@@ -73,7 +73,7 @@ func WaitForScaleToZero(ctx context.Context, namespace string, selector labels.S
 				return false, nil
 			}
 		}
-		log.Printf("All pods are done or terminating after %v", time.Since(begin))
+		log.Print("All pods are done or terminating after ", time.Since(begin))
 		return true, nil
 	})
 }

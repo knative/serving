@@ -277,13 +277,13 @@ func BenchmarkProxyHandler(b *testing.B) {
 		}()
 
 		h := ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler)
-		b.Run(fmt.Sprintf("sequential-%s", tc.label), func(b *testing.B) {
+		b.Run("sequential-"+tc.label, func(b *testing.B) {
 			resp := httptest.NewRecorder()
 			for j := 0; j < b.N; j++ {
 				h(resp, req)
 			}
 		})
-		b.Run(fmt.Sprintf("parallel-%s", tc.label), func(b *testing.B) {
+		b.Run("parallel-"+tc.label, func(b *testing.B) {
 			b.RunParallel(func(pb *testing.PB) {
 				resp := httptest.NewRecorder()
 				for pb.Next() {

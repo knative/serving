@@ -120,7 +120,7 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 	if err := g.Wait(); err != nil {
 		return nil, nil, err
 	}
-	log.Printf("Created all the services in %v", time.Since(begin))
+	log.Print("Created all the services in ", time.Since(begin))
 	return objs, cleanupNames, nil
 }
 
