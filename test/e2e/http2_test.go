@@ -105,4 +105,6 @@ func TestHelloHttp2WithEmptyPortName(t *testing.T) {
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected status code %v: %v", url, names.Route, http.StatusUpgradeRequired, err)
 	}
+
+	t.Skip("HTP2 with empty port name is not implemented yet. See: https://github.com/knative/serving/issues/4283")
 }
