@@ -24,7 +24,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
-	"knative.dev/serving/pkg/apis/config"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/deployment"
 )
 
@@ -33,7 +33,7 @@ type cfgKey struct{}
 // +k8s:deepcopy-gen=false
 // Config contains the configmaps requires for revision reconciliation.
 type Config struct {
-	*config.Config
+	*apiconfig.Config
 	Deployment    *deployment.Config
 	Logging       *logging.Config
 	Network       *network.Config
@@ -54,7 +54,7 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 // +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
-	apiStore *config.Store
+	apiStore *apiconfig.Store
 }
 
 // NewStore creates a new store of Configs and optionally calls functions when ConfigMaps are updated for Revisions
@@ -72,7 +72,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			},
 			onAfterStore...,
 		),
-		apiStore: config.NewStore(logger),
+		apiStore: apiconfig.NewStore(logger),
 	}
 	return store
 }
