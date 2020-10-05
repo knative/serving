@@ -69,13 +69,12 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 	t.Helper()
 	pkgTest.SetupLoggingFlags()
 
-	cancel := logstream.Start(t)
+	ctx := pkgTest.InjectionContext()
+
+	cancel := logstream.Start(ctx, t)
 	t.Cleanup(cancel)
 
-	clients, err := test.NewClients(
-		pkgTest.Flags.Kubeconfig,
-		pkgTest.Flags.Cluster,
-		namespace)
+	clients, err := test.NewClientsFromCtx(ctx, namespace)
 	if err != nil {
 		t.Fatal("Couldn't initialize clients:", err)
 	}

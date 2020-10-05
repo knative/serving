@@ -49,12 +49,12 @@ See [`knative/pkg/test`](https://github.com/knative/pkg/tree/master/test) to:
 These flags are useful for running against an existing cluster, making use of
 your existing [environment setup](../DEVELOPMENT.md#setup-your-environment).
 
-By importing `knative.dev/pkg/test` you get access to a global variable called
-`test.Flags` which holds the values of
+By importing `knative.dev/pkg/test` you get access to a global method called
+`test.Flags()` which holds the values of
 [the command line flags](./README.md#flags).
 
 ```go
-imagePath := strings.Join([]string{test.Flags.DockerRepo, image}, "/"))
+imagePath := strings.Join([]string{test.Flags().DockerRepo, image}, "/"))
 ```
 
 _See
@@ -74,7 +74,9 @@ import (
 )
 
 func Setup(t *testing.T) *test.Clients {
-	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, namespaceName)
+	ctx := pkgTest.InjectionContext()
+    
+	clients, err := test.NewClientsFromCtx(ctx, namespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
 	}

@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	pkgTest "knative.dev/pkg/test"
 	"log"
 
 	"github.com/kelseyhightower/envconfig"
@@ -26,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/pkg/injection/sharedmain"
 	test "knative.dev/serving/test"
 )
 
@@ -41,11 +41,7 @@ func main() {
 		log.Fatal("Failed to process environment variable: ", err)
 	}
 
-	cfg, err := sharedmain.GetConfig("", "")
-	if err != nil {
-		log.Fatal("Failed to build config: ", err)
-	}
-	clients, err := test.NewClientsFromConfig(cfg, test.ServingNamespace)
+	clients, err := test.NewClientsFromCtx(pkgTest.InjectionContext(), test.ServingNamespace)
 	if err != nil {
 		log.Fatal("Failed to create clients: ", err)
 	}

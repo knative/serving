@@ -72,7 +72,7 @@ var (
 
 // SetupZipkinTracingFromConfigTracing setups zipkin tracing like SetupZipkinTracing but retrieving the zipkin configuration
 // from config-tracing config map
-func SetupZipkinTracingFromConfigTracing(ctx context.Context, kubeClientset *kubernetes.Clientset, logf logging.FormatLogger, configMapNamespace string) error {
+func SetupZipkinTracingFromConfigTracing(ctx context.Context, kubeClientset kubernetes.Interface, logf logging.FormatLogger, configMapNamespace string) error {
 	cm, err := kubeClientset.CoreV1().ConfigMaps(configMapNamespace).Get(ctx, "config-tracing", metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("error while retrieving config-tracing config map: %w", err)
@@ -103,7 +103,7 @@ func SetupZipkinTracingFromConfigTracing(ctx context.Context, kubeClientset *kub
 }
 
 // SetupZipkinTracingFromConfigTracingOrFail is same as SetupZipkinTracingFromConfigTracing, but fails the test if an error happens
-func SetupZipkinTracingFromConfigTracingOrFail(ctx context.Context, t testing.TB, kubeClientset *kubernetes.Clientset, configMapNamespace string) {
+func SetupZipkinTracingFromConfigTracingOrFail(ctx context.Context, t testing.TB, kubeClientset kubernetes.Interface, configMapNamespace string) {
 	if err := SetupZipkinTracingFromConfigTracing(ctx, kubeClientset, t.Logf, configMapNamespace); err != nil {
 		t.Fatal("Error while setup Zipkin tracing:", err)
 	}
@@ -114,7 +114,7 @@ func SetupZipkinTracingFromConfigTracingOrFail(ctx context.Context, t testing.TB
 //    (pid of the process doing Port-Forward is stored in a global variable).
 // 2. Enable AlwaysSample config for tracing for the SpoofingClient.
 // The zipkin deployment must have the label app=zipkin
-func SetupZipkinTracing(ctx context.Context, kubeClientset *kubernetes.Clientset, logf logging.FormatLogger, zipkinRemotePort int, zipkinNamespace string) (err error) {
+func SetupZipkinTracing(ctx context.Context, kubeClientset kubernetes.Interface, logf logging.FormatLogger, zipkinRemotePort int, zipkinNamespace string) (err error) {
 	setupOnce.Do(func() {
 		if e := monitoring.CheckPortAvailability(zipkinRemotePort); e != nil {
 			err = fmt.Errorf("zipkin port not available on the machine: %w", err)
@@ -143,7 +143,7 @@ func SetupZipkinTracing(ctx context.Context, kubeClientset *kubernetes.Clientset
 }
 
 // SetupZipkinTracingOrFail is same as SetupZipkinTracing, but fails the test if an error happens
-func SetupZipkinTracingOrFail(ctx context.Context, t testing.TB, kubeClientset *kubernetes.Clientset, zipkinRemotePort int, zipkinNamespace string) {
+func SetupZipkinTracingOrFail(ctx context.Context, t testing.TB, kubeClientset kubernetes.Interface, zipkinRemotePort int, zipkinNamespace string) {
 	if err := SetupZipkinTracing(ctx, kubeClientset, t.Logf, zipkinRemotePort, zipkinNamespace); err != nil {
 		t.Fatal("Error while setup zipkin tracing:", err)
 	}

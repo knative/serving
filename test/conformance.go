@@ -70,10 +70,12 @@ const (
 func Setup(t pkgTest.TLegacy) *Clients {
 	t.Helper()
 
-	cancel := logstream.Start(t)
+	ctx := pkgTest.InjectionContext()
+
+	cancel := logstream.Start(ctx, t)
 	t.Cleanup(cancel)
 
-	clients, err := NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, ServingNamespace)
+	clients, err := NewClientsFromCtx(ctx, ServingNamespace)
 	if err != nil {
 		t.Fatal("Couldn't initialize clients", "error", err.Error())
 	}

@@ -38,7 +38,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"knative.dev/pkg/injection/sharedmain"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	ktest "knative.dev/serving/pkg/testing/v1"
@@ -63,11 +62,7 @@ const (
 )
 
 func clientsFromConfig() (*test.Clients, error) {
-	cfg, err := sharedmain.GetConfig("", "")
-	if err != nil {
-		return nil, fmt.Errorf("error building kubeconfig: %v", err)
-	}
-	return test.NewClientsFromConfig(cfg, testNamespace)
+	return test.NewClientsFromCtx(pkgTest.InjectionContext(), testNamespace)
 }
 
 func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects, func(), error) {

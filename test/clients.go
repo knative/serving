@@ -20,6 +20,8 @@ package test
 
 import (
 	"context"
+	networkingclient "knative.dev/networking/pkg/client/injection/client"
+	"knative.dev/pkg/injection/clients/dynamicclient"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -32,9 +34,11 @@ import (
 
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	networkingv1alpha1 "knative.dev/networking/pkg/client/clientset/versioned/typed/networking/v1alpha1"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/test"
-	"knative.dev/serving/pkg/client/clientset/versioned"
+	serving "knative.dev/serving/pkg/client/clientset/versioned"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 
 	// Every E2E test requires this, so add it here.
 	_ "knative.dev/pkg/metrics/testing"
@@ -108,6 +112,31 @@ func NewClientsFromConfig(cfg *rest.Config, namespace string) (*Clients, error) 
 	return clients, nil
 }
 
+// NewClientsFromCtx returns several clientsets required for making request to
+// the Knative Serving cluster specified by the client injection context.
+// Clients can make requests within namespace.
+func NewClientsFromCtx(ctx context.Context, namespace string) (*Clients, error) {
+	sc := servingclient.Get(ctx)
+	nc := networkingclient.Get(ctx)
+	clients := &Clients{
+		KubeClient: &test.KubeClient{Kube: kubeclient.Get(ctx)},
+		ServingClient: &ServingClients{
+			Configs:   sc.ServingV1().Configurations(namespace),
+			Revisions: sc.ServingV1().Revisions(namespace),
+			Routes:    sc.ServingV1().Routes(namespace),
+			Services:  sc.ServingV1().Services(namespace),
+		},
+		NetworkingClient: &NetworkingClients{
+			ServerlessServices: nc.NetworkingV1alpha1().ServerlessServices(namespace),
+			Ingresses:          nc.NetworkingV1alpha1().Ingresses(namespace),
+			Certificates:       nc.NetworkingV1alpha1().Certificates(namespace),
+		},
+		Dynamic: dynamicclient.Get(ctx),
+	}
+
+	return clients, nil
+}
+
 // newNetworkingClients instantiates and returns the networking clientset required to make requests
 // to Networking resources on the Knative service cluster
 func newNetworkingClients(cfg *rest.Config, namespace string) (*NetworkingClients, error) {
@@ -125,7 +154,7 @@ func newNetworkingClients(cfg *rest.Config, namespace string) (*NetworkingClient
 // newServingClients instantiates and returns the serving clientset required to make requests to the
 // knative serving cluster.
 func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, error) {
-	cs, err := versioned.NewForConfig(cfg)
+	cs, err := serving.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

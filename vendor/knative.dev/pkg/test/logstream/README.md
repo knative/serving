@@ -15,7 +15,7 @@ This is a guide to start using `logstream` in your e2e testing.
 2) Test resources must be named with
    [`test.ObjectNameForTest(t)`](https://github.com/knative/networking/blob/40ef99aa5db0d38730a89a1de7e5b28b8ef6eed5/vendor/knative.dev/pkg/test/helpers/name.go#L50)
 
-3. At the start of your test add: `t.Cleanup(logstream.Start(t))`
+3. At the start of your test add: `t.Cleanup(logstream.Start(ctx, t))`
 
 With that, you will start getting logs from the processes in the system
 namespace interleaved into your test output via `t.Log`.

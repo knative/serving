@@ -21,6 +21,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/client-go/kubernetes"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"strings"
 	"sync"
 	"time"
@@ -37,7 +39,7 @@ import (
 
 type kubelogs struct {
 	namespace string
-	kc        *test.KubeClient
+	c         kubernetes.Interface
 
 	once sync.Once
 	m    sync.RWMutex
@@ -75,7 +77,7 @@ func (k *kubelogs) startForPod(pod *corev1.Pod) {
 				SinceSeconds: ptr.Int64(1),
 			}
 
-			req := k.kc.Kube.CoreV1().Pods(psn).GetLogs(pn, options)
+			req := k.c.CoreV1().Pods(psn).GetLogs(pn, options)
 			stream, err := req.Stream(context.Background())
 			if err != nil {
 				k.handleGenericLine([]byte(err.Error()), pn)
@@ -105,7 +107,7 @@ func podIsReady(p *corev1.Pod) bool {
 }
 
 func (k *kubelogs) watchPods(t test.TLegacy) {
-	wi, err := k.kc.Kube.CoreV1().Pods(k.namespace).Watch(context.Background(), metav1.ListOptions{})
+	wi, err := k.c.CoreV1().Pods(k.namespace).Watch(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		t.Error("Logstream knative pod watch failed, logs might be missing", "error", err)
 		return
@@ -131,15 +133,10 @@ func (k *kubelogs) watchPods(t test.TLegacy) {
 	}()
 }
 
-func (k *kubelogs) init(t test.TLegacy) {
+func (k *kubelogs) init(ctx context.Context, t test.TLegacy) {
 	k.keys = make(map[string]logger, 1)
 
-	kc, err := test.NewKubeClient(test.Flags.Kubeconfig, test.Flags.Cluster)
-	if err != nil {
-		t.Error("Error loading client config", "error", err)
-		return
-	}
-	k.kc = kc
+	k.c = kubeclient.Get(ctx)
 
 	// watchPods will start logging for existing pods as well.
 	k.watchPods(t)
@@ -211,8 +208,8 @@ func (k *kubelogs) handleGenericLine(l []byte, pod string) {
 }
 
 // Start implements streamer.
-func (k *kubelogs) Start(t test.TLegacy) Canceler {
-	k.once.Do(func() { k.init(t) })
+func (k *kubelogs) Start(ctx context.Context, t test.TLegacy) Canceler {
+	k.once.Do(func() { k.init(ctx, t) })
 
 	name := helpers.ObjectPrefixForTest(t)
 

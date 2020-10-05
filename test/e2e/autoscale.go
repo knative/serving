@@ -65,7 +65,7 @@ type testContext struct {
 	metric            string
 }
 
-func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
+func getVegetaTarget(kubeClientset kubernetes.Interface, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
 	if resolvable {
 		return vegeta.Target{
 			Method: http.MethodGet,
@@ -99,7 +99,7 @@ func generateTraffic(
 	stopChan chan struct{}) error {
 
 	target, err := getVegetaTarget(
-		ctx.clients.KubeClient.Kube, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
+		ctx.clients.KubeClient.Kube, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags().IngressEndpoint, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return fmt.Errorf("error creating vegeta target: %w", err)
 	}
