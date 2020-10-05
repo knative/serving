@@ -20,6 +20,7 @@ package e2e
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
@@ -97,11 +98,13 @@ func TestHelloHttp2WithEmptyPortName(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		pkgTest.IsOneOfStatusCodes(426),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsOneOfStatusCodes(http.StatusUpgradeRequired))),
 		"HelloHttp2ServesTextWithEmptyPort",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
-		t.Fatalf("The endpoint %s for Route %s didn't serve the expected status code 426: %v", url, names.Route, err)
+		t.Fatalf("The endpoint %s for Route %s didn't serve the expected status code %v: %v", url, names.Route, http.StatusUpgradeRequired, err)
 	}
+
+	t.Skip("HTP2 with empty port name is not implemented yet. See: https://github.com/knative/serving/issues/4283")
 }
