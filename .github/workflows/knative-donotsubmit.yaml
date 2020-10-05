@@ -31,6 +31,24 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
+      - name: Muck with stuff
+        shell: bash
+        run: |
+         echo ::set-env name=create_pr::true
+      
+      - name: Conditionally true
+        if: env.create_pr == 'true'
+        shell: bash
+        run: |
+          echo true
+      
+      - name: Conditionally false
+        if: env.create_pr == 'false'
+        shell: bash
+        run: |
+          echo false
+
+
       - name: Do Not Submit
         shell: bash
         env:
