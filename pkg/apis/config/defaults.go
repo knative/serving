@@ -82,6 +82,7 @@ func defaultDefaultsConfig() *Defaults {
 		ContainerConcurrency:          DefaultContainerConcurrency,
 		ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
 		AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
+		EnableServiceLinks:            ptr.Bool(false),
 	}
 }
 

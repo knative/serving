@@ -34,6 +34,7 @@ func TestServiceDefaulting(t *testing.T) {
 	tests := []struct {
 		name string
 		in   *Service
+		ctx  context.Context
 		want *Service
 	}{{
 		name: "empty",
@@ -43,6 +44,51 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					}},
+				},
+			},
+		},
+	}, {
+		name: "run latest, in create",
+		in: &Service{
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "busybox",
+								}},
+							},
+						},
+					},
+				},
+			},
+		},
+		ctx: apis.WithinCreate(context.Background()),
+		want: &Service{
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								EnableServiceLinks: ptr.Bool(false),
+								Containers: []corev1.Container{{
+									Name:           config.DefaultUserContainerName,
+									Image:          "busybox",
+									Resources:      defaultResources,
+									ReadinessProbe: defaultProbe,
+								}},
+							},
 							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
@@ -107,6 +153,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							PodSpec: corev1.PodSpec{
+								EnableServiceLinks: ptr.Bool(true),
 								Containers: []corev1.Container{{
 									Image: "busybox",
 								}},
@@ -130,6 +177,7 @@ func TestServiceDefaulting(t *testing.T) {
 									Resources:      defaultResources,
 									ReadinessProbe: defaultProbe,
 								}},
+								EnableServiceLinks: ptr.Bool(true),
 							},
 							TimeoutSeconds:       ptr.Int64(60),
 							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
@@ -215,7 +263,11 @@ func TestServiceDefaulting(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.in
-			got.SetDefaults(context.Background())
+			ctx := context.Background()
+			if test.ctx != nil {
+				ctx = test.ctx
+			}
+			got.SetDefaults(ctx)
 			if !cmp.Equal(got, test.want, ignoreUnexportedResources) {
 				t.Errorf("SetDefaults (-want, +got) = %v",
 					cmp.Diff(test.want, got, ignoreUnexportedResources))
