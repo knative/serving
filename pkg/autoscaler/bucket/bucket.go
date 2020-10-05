@@ -34,18 +34,18 @@ func IsBucketHost(host string) bool {
 	return strings.HasPrefix(host, prefix)
 }
 
-// AutoscaleBucketName returns the name of the Autoscaler bucket with given `ordinal`
+// AutoscalerBucketName returns the name of the Autoscaler bucket with given `ordinal`
 // and `total` bucket count.
-func AutoscaleBucketName(ordinal, total uint32) string {
+func AutoscalerBucketName(ordinal, total uint32) string {
 	return strings.ToLower(fmt.Sprintf("%s-%02d-of-%02d", prefix, ordinal, total))
 }
 
-// AutoscalerBucketSet returns a point of hash.BucketSet consisting of Autoscaler
+// AutoscalerBucketSet returns a hash.BucketSet consisting of Autoscaler
 // buckets with the given `total` count.
 func AutoscalerBucketSet(total uint32) *hash.BucketSet {
 	names := make(sets.String, total)
 	for i := uint32(0); i < total; i++ {
-		names.Insert(AutoscaleBucketName(i, total))
+		names.Insert(AutoscalerBucketName(i, total))
 	}
 	return hash.NewBucketSet(names)
 }
