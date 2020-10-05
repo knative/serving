@@ -19,8 +19,6 @@ package config
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
@@ -59,14 +57,6 @@ type Store struct {
 	apiStore *config.Store
 }
 
-var configs = sets.NewString(
-	deployment.ConfigName,
-	logging.ConfigMapName(),
-	metrics.ConfigMapName(),
-	network.ConfigName,
-	pkgtracing.ConfigName,
-)
-
 // NewStore creates a new store of Configs and optionally calls functions when ConfigMaps are updated for Revisions
 func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
@@ -90,17 +80,6 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 func (s *Store) WatchConfigs(cmw configmap.Watcher) {
 	s.UntypedStore.WatchConfigs(cmw)
 	s.apiStore.WatchConfigs(cmw)
-}
-
-// OnConfigChanged will invoked the appropriate constructor
-// associated with a config
-func (s *Store) OnConfigChanged(c *corev1.ConfigMap) {
-	if configs.Has(c.Name) {
-		s.UntypedStore.OnConfigChanged(c)
-		return
-	}
-
-	s.apiStore.OnConfigChanged(c)
 }
 
 // ToContext persists the config on the context.

@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	network "knative.dev/networking/pkg"
+	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
@@ -45,14 +46,19 @@ func TestStoreLoadWithContext(t *testing.T) {
 	tracingConfig, tracingConfigExample := ConfigMapsFromTestFile(t, pkgtracing.ConfigName)
 	defaultConfig := ConfigMapFromTestFile(t, apisconfig.DefaultsConfigName)
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
+	featuresConfig := ConfigMapFromTestFile(t, apisconfig.FeaturesConfigName)
 
-	store.OnConfigChanged(deploymentConfig)
-	store.OnConfigChanged(networkConfig)
-	store.OnConfigChanged(observabilityConfig)
-	store.OnConfigChanged(loggingConfig)
-	store.OnConfigChanged(tracingConfig)
-	store.OnConfigChanged(defaultConfig)
-	store.OnConfigChanged(autoscalerConfig)
+	watcher := configmap.NewStaticWatcher(
+		featuresConfig,
+		deploymentConfig,
+		networkConfig,
+		observabilityConfig,
+		loggingConfig,
+		tracingConfig,
+		defaultConfig,
+		autoscalerConfig)
+
+	store.WatchConfigs(watcher)
 
 	config := FromContext(store.ToContext(context.Background()))
 
@@ -134,18 +140,29 @@ func TestStoreLoadWithContext(t *testing.T) {
 			t.Error("Unexpected autoscaler config (-want, +got):", diff)
 		}
 	})
+
+	t.Run("features", func(t *testing.T) {
+		expected, _ := apisconfig.NewFeaturesConfigFromConfigMap(featuresConfig)
+		if diff := cmp.Diff(expected, config.Features); diff != "" {
+			t.Error("Unexpected autoscaler config (-want, +got):", diff)
+		}
+	})
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
+	watcher := configmap.NewStaticWatcher(
+		ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey),
+		ConfigMapFromTestFile(t, network.ConfigName),
+		ConfigMapFromTestFile(t, metrics.ConfigMapName()),
+		ConfigMapFromTestFile(t, logging.ConfigMapName()),
+		ConfigMapFromTestFile(t, pkgtracing.ConfigName),
+		ConfigMapFromTestFile(t, apisconfig.DefaultsConfigName),
+		ConfigMapFromTestFile(t, autoscalerconfig.ConfigName),
+		ConfigMapFromTestFile(t, apisconfig.FeaturesConfigName),
+	)
 
-	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, metrics.ConfigMapName()))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, logging.ConfigMapName()))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, pkgtracing.ConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, apisconfig.DefaultsConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
+	store.WatchConfigs(watcher)
 
 	config := store.Load()
 
