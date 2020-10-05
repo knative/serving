@@ -20,7 +20,7 @@ package e2e
 
 import (
 	"context"
-	"http"
+	"net/http"
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
