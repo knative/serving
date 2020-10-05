@@ -27,6 +27,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	pkgTest.Flags()
 	flag.Parse()
 	pkgTest.SetupLoggingFlags()
 	os.Exit(m.Run())
