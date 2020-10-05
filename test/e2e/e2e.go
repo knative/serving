@@ -47,6 +47,11 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+func init() {
+	// Work around to force pkg/test to define flags we pass in but may not use.
+	_ = pkgTest.Flags()
+}
+
 // Setup creates the client objects needed in the e2e tests.
 func Setup(t *testing.T) *test.Clients {
 	return SetupWithNamespace(t, test.ServingNamespace)
