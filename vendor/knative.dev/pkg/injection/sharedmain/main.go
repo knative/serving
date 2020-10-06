@@ -329,7 +329,7 @@ func ParseAndGetConfigOrDie() *rest.Config {
 
 	cfg, err := GetConfig(*serverURL, *kubeconfig)
 	if err != nil {
-		log.Fatalf("Error building kubeconfig: %v", err)
+		log.Fatal("Error building kubeconfig: ", err)
 	}
 
 	return cfg
@@ -342,7 +342,7 @@ func MemStatsOrDie(ctx context.Context) {
 	msp.Start(ctx, 30*time.Second)
 
 	if err := view.Register(msp.DefaultViews()...); err != nil {
-		log.Fatalf("Error exporting go memstats view: %v", err)
+		log.Fatal("Error exporting go memstats view: ", err)
 	}
 }
 
@@ -351,7 +351,7 @@ func MemStatsOrDie(ctx context.Context) {
 func SetupLoggerOrDie(ctx context.Context, component string) (*zap.SugaredLogger, zap.AtomicLevel) {
 	loggingConfig, err := GetLoggingConfig(ctx)
 	if err != nil {
-		log.Fatalf("Error reading/parsing logging configuration: %v", err)
+		log.Fatal("Error reading/parsing logging configuration: ", err)
 	}
 	l, level := logging.NewLoggerFromConfig(loggingConfig, component)
 

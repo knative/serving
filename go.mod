@@ -33,10 +33,10 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20201005022734-8d3017d0882f
-	knative.dev/networking v0.0.0-20201005014534-22c181d0626e
-	knative.dev/pkg v0.0.0-20201005175134-21cb070a8b05
-	knative.dev/test-infra v0.0.0-20201005191434-b298834c10f1
+	knative.dev/caching v0.0.0-20201006030922-ba8d14f49348
+	knative.dev/networking v0.0.0-20201006030922-372eb2857f0d
+	knative.dev/pkg v0.0.0-20201006044120-247841408e57
+	knative.dev/test-infra v0.0.0-20201006044420-26457f2cad45
 )
 
 replace (

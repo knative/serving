@@ -126,7 +126,7 @@ func main() {
 	wait.JitterUntilWithContext(ctx, func(ctx context.Context) {
 		components, err := buildComponents(ctx, kc)
 		if err != nil {
-			log.Printf("Error building components: %v", err)
+			log.Print("Error building components: ", err)
 		}
 		log.Printf("Got components: %#v", components)
 
@@ -141,7 +141,7 @@ func main() {
 			})
 		}
 		if err := eg.Wait(); err != nil {
-			log.Printf("Ended iteration with err: %v", err)
+			log.Print("Ended iteration with err: ", err)
 		}
 	}, tributePeriod, tributeFactor, true /* sliding: do not include the runtime of the above in the interval */)
 }

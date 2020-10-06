@@ -327,7 +327,7 @@ func ErrInvalidArrayValue(value interface{}, field string, index int) *FieldErro
 // invalid value.
 func ErrInvalidValue(value interface{}, fieldPath string) *FieldError {
 	return &FieldError{
-		Message: fmt.Sprintf("invalid value: %v", value),
+		Message: fmt.Sprint("invalid value: ", value),
 		Paths:   []string{fieldPath},
 	}
 }

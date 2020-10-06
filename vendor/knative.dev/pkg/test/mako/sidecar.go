@@ -123,17 +123,17 @@ func SetupHelper(ctx context.Context, benchmarkKey *string, benchmarkName *strin
 
 	// Decorate GCP metadata as tags (when we're running on GCP).
 	if projectID, err := metadata.ProjectID(); err != nil {
-		log.Printf("GCP project ID is not available: %v", err)
+		log.Print("GCP project ID is not available: ", err)
 	} else {
 		tags = append(tags, "project-id="+EscapeTag(projectID))
 	}
 	if zone, err := metadata.Zone(); err != nil {
-		log.Printf("GCP zone is not available: %v", err)
+		log.Print("GCP zone is not available: ", err)
 	} else {
 		tags = append(tags, "zone="+EscapeTag(zone))
 	}
 	if machineType, err := metadata.Get("instance/machine-type"); err != nil {
-		log.Printf("GCP machine type is not available: %v", err)
+		log.Print("GCP machine type is not available: ", err)
 	} else if parts := strings.Split(machineType, "/"); len(parts) != 4 {
 		tags = append(tags, "instanceType="+EscapeTag(parts[3]))
 	}
