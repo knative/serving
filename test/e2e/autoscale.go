@@ -55,7 +55,8 @@ const (
 	autoscaleTestImageName = "autoscale"
 )
 
-type testContext struct {
+// TestContext includes context for autoscaler testing.
+type TestContext struct {
 	t                 *testing.T
 	clients           *test.Clients
 	names             test.ResourceNames
@@ -92,7 +93,7 @@ func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverri
 }
 
 func generateTraffic(
-	ctx *testContext,
+	ctx *TestContext,
 	attacker *vegeta.Attacker,
 	pacer vegeta.Pacer,
 	duration time.Duration,
@@ -141,7 +142,7 @@ func generateTraffic(
 	}
 }
 
-func generateTrafficAtFixedConcurrency(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
+func generateTrafficAtFixedConcurrency(ctx *TestContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{} // Sends requests as quickly as possible, capped by MaxWorkers below.
 	attacker := vegeta.NewAttacker(vegeta.Timeout(duration), vegeta.Workers(uint64(concurrency)), vegeta.MaxWorkers(uint64(concurrency)))
 
@@ -149,7 +150,7 @@ func generateTrafficAtFixedConcurrency(ctx *testContext, concurrency int, durati
 	return generateTraffic(ctx, attacker, pacer, duration, stopChan)
 }
 
-func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration, stopChan chan struct{}) error {
+func generateTrafficAtFixedRPS(ctx *TestContext, rps int, duration time.Duration, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{Freq: rps, Per: time.Second}
 	attacker := vegeta.NewAttacker(vegeta.Timeout(duration))
 
@@ -176,12 +177,12 @@ func toPercentageString(f float64) string {
 	return strconv.FormatFloat(f*100, 'f', -1, 64)
 }
 
-// setup creates a new service, with given service options.
-// It returns a testContext that has resources, K8s clients and other needed
+// SetupSvc creates a new service, with given service options.
+// It returns a TestContext that has resources, K8s clients and other needed
 // data points.
 // It sets up EnsureTearDown to ensure that resources are cleaned up when the
 // test terminates.
-func setup(t *testing.T, class, metric string, target int, targetUtilization float64, fopts ...rtesting.ServiceOption) *testContext {
+func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization float64, fopts ...rtesting.ServiceOption) *TestContext {
 	t.Helper()
 	clients := Setup(t)
 
@@ -220,7 +221,7 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 		t.Fatalf("Error probing %s: %v", names.URL.Hostname(), err)
 	}
 
-	return &testContext{
+	return &TestContext{
 		t:                 t,
 		clients:           clients,
 		names:             names,
@@ -231,7 +232,7 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 	}
 }
 
-func assertScaleDown(ctx *testContext) {
+func assertScaleDown(ctx *TestContext) {
 	deploymentName := resourcenames.Deployment(ctx.resources.Revision)
 	if err := WaitForScaleToZero(ctx.t, deploymentName, ctx.clients); err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
@@ -265,7 +266,7 @@ func assertScaleDown(ctx *testContext) {
 	ctx.t.Log("Scaled down.")
 }
 
-func numberOfReadyPods(ctx *testContext) (float64, error) {
+func numberOfReadyPods(ctx *TestContext) (float64, error) {
 	// SKS name matches that of revision.
 	n := ctx.resources.Revision.Name
 	sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(context.Background(), n, metav1.GetOptions{})
@@ -286,9 +287,12 @@ func numberOfReadyPods(ctx *testContext) (float64, error) {
 	return float64(resources.ReadyAddressCount(eps)), nil
 }
 
-func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, duration time.Duration, quick bool) error {
+func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, duration time.Duration, quick bool) error {
+	return checkPodScaleWithDone(ctx, targetPods, minPods, maxPods, time.After(duration), quick)
+}
+
+func checkPodScaleWithDone(ctx *TestContext, targetPods, minPods, maxPods float64, done <-chan time.Time, quick bool) error {
 	// Short-circuit traffic generation once we exit from the check logic.
-	done := time.After(duration)
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
@@ -336,16 +340,34 @@ func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, durat
 	}
 }
 
-func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, duration time.Duration, quick bool) {
+// assertAutoscaleUpToNumPods asserts the number of pods gets scaled to targetPods.
+// It supports two test modes: quick, and not quick.
+// 1) Quick mode: succeeds when the number of pods meets targetPods.
+// 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
+//    sustains there for the `duration`.
+func assertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, duration time.Duration, quick bool) {
+	assertAutoscaleUpToNumPodsWithDurationAndDone(ctx, curPods, targetPods, duration, time.After(duration), quick)
+}
+
+// AssertAutoscaleUpToNumPodsWithDone asserts the number of pods gets scaled to targetPods and
+// sustains there until the `done` channel sends a signal.
+func AssertAutoscaleUpToNumPodsWithDone(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time) {
+	// We use 10 hours here which should be suffient for the e2e tests.
+	assertAutoscaleUpToNumPodsWithDurationAndDone(ctx, curPods, targetPods, 10*time.Hour, done, false /* quick */)
+}
+
+// assertAutoscaleUpToNumPodsWithDurationAndDone asserts the number of pods gets scaled to targetPods.
+// It supports two test modes: quick, and not quick.
+// 1) Quick mode: succeeds when the number of pods meets targetPods.
+// 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
+//    sustains there until the `done` channel sends a signal.
+// The given `duration` is how long the traffic will be generated. You must make sure that the signal
+// from the given `done` channel will be sent within the `duration`.
+func assertAutoscaleUpToNumPodsWithDurationAndDone(ctx *TestContext, curPods, targetPods float64, duration time.Duration, done <-chan time.Time, quick bool) {
 	ctx.t.Helper()
-	// There are two test modes: quick, and not quick.
-	// 1) Quick mode: succeeds when the number of pods meets targetPods.
-	// 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
-	//    sustains there for the `duration`.
 
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
-
 	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
 	maxPods := math.Ceil(targetPods/ctx.targetUtilization) + 1
 
@@ -362,7 +384,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 
 	grp.Go(func() error {
 		defer close(stopChan)
-		return checkPodScale(ctx, targetPods, minPods, maxPods, duration, quick)
+		return checkPodScaleWithDone(ctx, targetPods, minPods, maxPods, done, quick)
 	})
 
 	if err := grp.Wait(); err != nil {
@@ -378,7 +400,7 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 		target = 10
 	}
 
-	ctx := setup(t, class, metric, target, targetUtilization)
+	ctx := SetupSvc(t, class, metric, target, targetUtilization)
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
