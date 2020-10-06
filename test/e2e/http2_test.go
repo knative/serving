@@ -29,9 +29,9 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-// TestHelloHttp2WithPortNameH2C validates that an http/2-only service can be
+// TestHelloHTTP2WithPortNameH2C validates that an http/2-only service can be
 // reached if the portName is "h2c".
-func TestHelloHttp2WithPortNameH2C(t *testing.T) {
+func TestHelloHTTP2WithPortNameH2C(t *testing.T) {
 	t.Parallel()
 
 	clients := Setup(t)
@@ -59,7 +59,7 @@ func TestHelloHttp2WithPortNameH2C(t *testing.T) {
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloHTTP2Text))),
-		"HelloHttp2ServesTextOnH2C",
+		"HelloHTTP2ServesTextOnH2C",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
@@ -67,11 +67,11 @@ func TestHelloHttp2WithPortNameH2C(t *testing.T) {
 	}
 }
 
-// TestHelloHttp2WithEmptyPortName validates that an http/2-only service
+// TestHelloHTTP2WithEmptyPortName validates that an http/2-only service
 // is unreachable if the port name is not specified.
 // TODO(knative/serving#4283): Once the feature is implemented, this test
 // should succeed.
-func TestHelloHttp2WithEmptyPortName(t *testing.T) {
+func TestHelloHTTP2WithEmptyPortName(t *testing.T) {
 	t.Parallel()
 
 	clients := Setup(t)
@@ -99,7 +99,7 @@ func TestHelloHttp2WithEmptyPortName(t *testing.T) {
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsOneOfStatusCodes(http.StatusUpgradeRequired))),
-		"HelloHttp2ServesTextWithEmptyPort",
+		"HelloHTTP2ServesTextWithEmptyPort",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
