@@ -1847,8 +1847,8 @@ knative.dev/pkg v0.0.0-20200528142800-1c6815d7e4c9/go.mod h1:QgNZTxnwpB/oSpNcfnL
 knative.dev/pkg v0.0.0-20200711004937-22502028e31a/go.mod h1:AqAJV6rYi8IGikDjJ/9ZQd9qKdkXVlesVnVjwx62YB8=
 knative.dev/pkg v0.0.0-20201003175733-ea7374e81105 h1:dx4o9pDAyyYAqpDiCQiIVbcBMjVYGAV+lzgJbVijZtg=
 knative.dev/pkg v0.0.0-20201003175733-ea7374e81105/go.mod h1:o9w/M7OnPc0ou07PIUORHUBSZgszeZebAYZkxQ8GdFw=
-knative.dev/pkg v0.0.0-20201005023334-f9bf419acc95 h1:5J6spbeM8KvvskyibHYeAsUvKYRuwxY0oRwfILxljx4=
-knative.dev/pkg v0.0.0-20201005023334-f9bf419acc95/go.mod h1:xpPYLHYXh306wQISWkRC/5t3+CD76nOcEHrCQ+5pxBM=
+knative.dev/pkg v0.0.0-20201005175134-21cb070a8b05 h1:EKh6IFZisRV8qaT2KqUYsX8VovGJfO6978z3xuQvUuE=
+knative.dev/pkg v0.0.0-20201005175134-21cb070a8b05/go.mod h1:xpPYLHYXh306wQISWkRC/5t3+CD76nOcEHrCQ+5pxBM=
 knative.dev/test-infra v0.0.0-20200407185800-1b88cb3b45a5/go.mod h1:xcdUkMJrLlBswIZqL5zCuBFOC22WIPMQoVX1L35i0vQ=
 knative.dev/test-infra v0.0.0-20200505052144-5ea2f705bb55/go.mod h1:WqF1Azka+FxPZ20keR2zCNtiQA1MP9ZB4BH4HuI+SIU=
 knative.dev/test-infra v0.0.0-20200513011557-d03429a76034/go.mod h1:aMif0KXL4g19YCYwsy4Ocjjz5xgPlseYV+B95Oo4JGE=
@@ -1858,8 +1858,8 @@ knative.dev/test-infra v0.0.0-20201001200229-a6988e3b3b38 h1:g2LdlRp7jB6QHz3D69f
 knative.dev/test-infra v0.0.0-20201001200229-a6988e3b3b38/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
 knative.dev/test-infra v0.0.0-20201002164834-8c07ff018549 h1:8UObRJ0lnWvU9FuD8ubmkwJo14+aZtboq1ncBWbs2uI=
 knative.dev/test-infra v0.0.0-20201002164834-8c07ff018549/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
-knative.dev/test-infra v0.0.0-20201005021934-df2084cec789 h1:/MuFtTXaQXe8romYte5sTLtfCnVh9jYy1BWlWrvLpv4=
-knative.dev/test-infra v0.0.0-20201005021934-df2084cec789/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
+knative.dev/test-infra v0.0.0-20201005191434-b298834c10f1 h1:BCeUtO6TsMQyvH1GpxRViTOY+KANqnfk+n5DdTo4nio=
+knative.dev/test-infra v0.0.0-20201005191434-b298834c10f1/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
 mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed/go.mod h1:Xkxe497xwlCKkIaQYRfC7CSLworTXY9RMqwhhCm+8Nc=
 mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b/go.mod h1:2odslEg/xrtNQqCYg2/jCoyKnw3vv5biOc3JnIcYfL4=
 mvdan.cc/unparam v0.0.0-20190720180237-d51796306d8f/go.mod h1:4G1h5nDURzA3bwVMZIVpwbkw+04kSxk3rAtzlimaUJw=
