@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -333,20 +333,24 @@ func (r *notResolvedYetResolver) Resolve(_ *v1.Revision, _ k8schain.Options, _ s
 func (r *notResolvedYetResolver) Clear(types.NamespacedName) {}
 
 type errorResolver struct {
-	err error
+	err     error
+	cleared bool
 }
 
 func (r *errorResolver) Resolve(_ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
 	return nil, r.err
 }
 
-func (r *errorResolver) Clear(types.NamespacedName) {}
+func (r *errorResolver) Clear(types.NamespacedName) {
+	r.cleared = true
+}
 
 func TestResolutionFailed(t *testing.T) {
 	// Unconditionally return this error during resolution.
-	innerError := errors.New("i am the expected error message, hear me ROAR!")
+	innerError := errors.New("i am the expected error message, hear me ROAR")
+	resolver := &errorResolver{cleared: false, err: innerError}
 	ctx, _, _, controller, _ := newTestController(t, nil /*additional CMs*/, func(r *Reconciler) {
-		r.resolver = &errorResolver{innerError}
+		r.resolver = resolver
 	})
 
 	rev := testRevision(testPodSpec())
@@ -371,6 +375,10 @@ func TestResolutionFailed(t *testing.T) {
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got):\n%s", diff)
 		}
+	}
+
+	if !resolver.cleared {
+		t.Fatal("Expected resolver.Clear() to have been called")
 	}
 }
 

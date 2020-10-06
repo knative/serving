@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -82,16 +82,17 @@ func SyncRoutingMeta(ctx context.Context, r *v1.Route, cacc *Configuration, racc
 		}
 	}
 
-	// Use a revision accessor to manipulate the revisions.
-	if err := clearMetaForNotListed(ctx, r, racc, revisions); err != nil {
-		return err
-	}
-	if err := setMetaForListed(ctx, r, racc, revisions); err != nil {
-		return err
+	// Clear old meta only after the route is fully resolved
+	if r.IsReady() || r.IsFailed() {
+		if err := clearMetaForNotListed(ctx, r, racc, revisions); err != nil {
+			return err
+		}
+		if err := clearMetaForNotListed(ctx, r, cacc, configs); err != nil {
+			return err
+		}
 	}
 
-	// Use a config access to manipulate the configs.
-	if err := clearMetaForNotListed(ctx, r, cacc, configs); err != nil {
+	if err := setMetaForListed(ctx, r, racc, revisions); err != nil {
 		return err
 	}
 	return setMetaForListed(ctx, r, cacc, configs)
@@ -148,7 +149,7 @@ func clearMetaForNotListed(ctx context.Context, r *v1.Route, acc Accessor, names
 // A nil route name will cause the route to be de-referenced, and a non-nil route will cause
 // that route name to be attached to the element.
 func setRoutingMeta(ctx context.Context, acc Accessor, r *v1.Route, name string, remove bool) error {
-	if mergePatch, err := acc.makeMetadataPatch(ctx, r, name, remove); err != nil {
+	if mergePatch, err := acc.makeMetadataPatch(r, name, remove); err != nil {
 		return err
 	} else if mergePatch != nil {
 		patch, err := json.Marshal(mergePatch)

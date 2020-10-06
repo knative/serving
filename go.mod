@@ -7,8 +7,8 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.1
-	github.com/google/go-cmp v0.5.1
-	github.com/google/go-containerregistry v0.1.3-0.20200910230023-d42b6a2ddfd1
+	github.com/google/go-cmp v0.5.2
+	github.com/google/go-containerregistry v0.1.3
 	github.com/google/gofuzz v1.1.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/google/uuid v1.1.1
@@ -22,20 +22,21 @@ require (
 	go.opencensus.io v0.22.4
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.15.0
-	golang.org/x/net v0.0.0-20200822124328-c89045814202
+	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	google.golang.org/api v0.29.0
-	google.golang.org/grpc v1.31.0
+	google.golang.org/api v0.31.0
+	google.golang.org/grpc v1.31.1
 	k8s.io/api v0.18.8
+	k8s.io/apiextensions-apiserver v0.18.8 // indirect
 	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20200915210741-1070879d7425
-	knative.dev/networking v0.0.0-20200916103341-fbb56e96d123
-	knative.dev/pkg v0.0.0-20200915170341-1d4e654a38f0
-	knative.dev/test-infra v0.0.0-20200916050341-8088f305e08c
+	knative.dev/caching v0.0.0-20201005022734-8d3017d0882f
+	knative.dev/networking v0.0.0-20201005014534-22c181d0626e
+	knative.dev/pkg v0.0.0-20201005175134-21cb070a8b05
+	knative.dev/test-infra v0.0.0-20201005191434-b298834c10f1
 )
 
 replace (
@@ -49,7 +50,6 @@ replace (
 	k8s.io/api => k8s.io/api v0.18.8
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.8
 	k8s.io/apimachinery => k8s.io/apimachinery v0.18.8
-	k8s.io/apiserver => k8s.io/apiserver v0.18.8
 	k8s.io/client-go => k8s.io/client-go v0.18.8
 	k8s.io/code-generator => k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6

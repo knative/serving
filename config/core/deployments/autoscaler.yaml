@@ -59,6 +59,10 @@ spec:
             memory: 400Mi
 
         env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         - name: SYSTEM_NAMESPACE
           valueFrom:
             fieldRef:

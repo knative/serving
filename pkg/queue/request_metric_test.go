@@ -32,6 +32,7 @@ import (
 const targetURI = "http://example.com"
 
 func TestNewRequestMetricsHandlerFailure(t *testing.T) {
+	t.Cleanup(reset)
 	if _, err := NewRequestMetricsHandler(nil /*next*/, "a", "b", "c", "d", "shøüld fail"); err == nil {
 		t.Error("Should get error when tag value is not ascii")
 	}
@@ -81,7 +82,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
 	if err != nil {
-		t.Fatalf("Failed to create handler: %v", err)
+		t.Fatal("Failed to create handler:", err)
 	}
 
 	resp := httptest.NewRecorder()

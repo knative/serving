@@ -47,6 +47,7 @@ import (
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/reconciler"
@@ -224,7 +225,16 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 		cfg.Burst = len(ctors) * rest.DefaultBurst
 	}
 
-	ctx = EnableInjectionOrDie(ctx, cfg)
+	// Respect user provided settings, but if omitted customize the default behavior.
+	if cfg.QPS == 0 {
+		cfg.QPS = rest.DefaultQPS
+	}
+	if cfg.Burst == 0 {
+		cfg.Burst = rest.DefaultBurst
+	}
+	ctx = injection.WithConfig(ctx, cfg)
+
+	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
 	logger, atomicLevel := SetupLoggerOrDie(ctx, component)
 	defer flush(logger)
@@ -238,7 +248,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	// Set up leader election config
 	leaderElectionConfig, err := GetLeaderElectionConfig(ctx)
 	if err != nil {
-		logger.Fatalf("Error loading leader election configuration: %v", err)
+		logger.Fatal("Error loading leader election configuration: ", err)
 	}
 
 	if !IsHADisabled(ctx) {
@@ -277,7 +287,11 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 			return wh.Run(ctx.Done())
 		})
 	}
-
+	// Start the injection clients and informers.
+	logging.FromContext(ctx).Info("Starting informers...")
+	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+		logging.FromContext(ctx).Fatalw("Failed to start informers", zap.Error(err))
+	}
 	// Wait for webhook informers to sync.
 	if wh != nil {
 		wh.InformersHaveSynced()
@@ -339,7 +353,16 @@ func SetupLoggerOrDie(ctx context.Context, component string) (*zap.SugaredLogger
 	if err != nil {
 		log.Fatalf("Error reading/parsing logging configuration: %v", err)
 	}
-	return logging.NewLoggerFromConfig(loggingConfig, component)
+	l, level := logging.NewLoggerFromConfig(loggingConfig, component)
+
+	// If PodName is injected into the env vars, set it on the logger.
+	// This is needed for HA components to distinguish logs from different
+	// pods.
+	if pn := os.Getenv("POD_NAME"); pn != "" {
+		l = l.With(zap.String(logkey.Pod, pn))
+	}
+
+	return l, level
 }
 
 // CheckK8sClientMinimumVersionOrDie checks that the hosting Kubernetes cluster

@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package v1
 
 import (
@@ -220,5 +221,5 @@ func (rs *RevisionStatus) IsActivationRequired() bool {
 
 // RevisionLastPinnedString returns a string representation of the specified time.
 func RevisionLastPinnedString(t time.Time) string {
-	return fmt.Sprintf("%d", t.Unix())
+	return fmt.Sprint(t.Unix())
 }

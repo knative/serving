@@ -82,7 +82,7 @@ func createNewService(serviceName string, t *testing.T) {
 
 // createPipe create a named pipe. It fails the test if any error except
 // already exist happens.
-func createPipe(name string, t *testing.T) {
+func createPipe(t *testing.T, name string) {
 	if err := syscall.Mkfifo(name, 0666); err != nil {
 		if !errors.Is(err, os.ErrExist) {
 			t.Fatal("Failed to create pipe:", err)

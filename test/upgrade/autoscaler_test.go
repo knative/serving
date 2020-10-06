@@ -42,7 +42,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	t.Parallel()
 	// Create a named pipe and wait for the upgrade script to write to it
 	// to signal that we should stop testing.
-	createPipe(autoscalingPipe, t)
+	createPipe(t, autoscalingPipe)
 
 	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
@@ -64,7 +64,7 @@ func TestAutoscaleSustainingWithTBC(t *testing.T) {
 	t.Parallel()
 	// Create a named pipe and wait for the upgrade script to write to it
 	// to signal that we should stop testing.
-	createPipe(autoscalingTBCPipe, t)
+	createPipe(t, autoscalingTBCPipe)
 
 	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{

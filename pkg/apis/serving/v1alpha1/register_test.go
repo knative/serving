@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package v1alpha1
 
 import (
@@ -36,6 +37,6 @@ func TestRegisterHelpers(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	if err := addKnownTypes(scheme); err != nil {
-		t.Errorf("addKnownTypes() = %v", err)
+		t.Error("addKnownTypes() =", err)
 	}
 }

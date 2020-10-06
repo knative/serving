@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -580,7 +580,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1.Confi
 
 func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
 	r := resources.MakeRevision(testCtx, cfg(name, namespace, generation), testClock)
-	r.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
+	r.SetDefaults(context.Background())
 	for _, opt := range ro {
 		opt(r)
 	}

@@ -35,14 +35,14 @@ func TestProbeQueueInvalidPort(t *testing.T) {
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
 	for _, port := range []string{"-1", "0", "66000"} {
 		os.Setenv(queuePortEnvVar, port)
-		if rv := standaloneProbeMain(1, nil); rv != 1 {
+		if rv := standaloneProbeMain(1, http.DefaultTransport); rv != 1 {
 			t.Error("Unexpected return code", rv)
 		}
 	}
 }
 
 func TestProbeQueueConnectionFailure(t *testing.T) {
-	if err := probeQueueHealthPath(1, 12345, nil); err == nil {
+	if err := probeQueueHealthPath(1, 12345, http.DefaultTransport); err == nil {
 		t.Error("Expected error, got nil")
 	}
 }
@@ -54,7 +54,7 @@ func TestProbeQueueNotReady(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 	})
 
-	err := probeQueueHealthPath(time.Second, port, nil)
+	err := probeQueueHealthPath(time.Second, port, http.DefaultTransport)
 
 	if err == nil || err.Error() != "probe returned not ready" {
 		t.Error("Unexpected not ready error:", err)
@@ -72,7 +72,7 @@ func TestProbeShuttingDown(t *testing.T) {
 		w.WriteHeader(http.StatusGone)
 	})
 
-	err := probeQueueHealthPath(time.Second, port, nil)
+	err := probeQueueHealthPath(time.Second, port, http.DefaultTransport)
 
 	if err == nil || err.Error() != "failed to probe: failing probe deliberately for shutdown" {
 		t.Error("Unexpected error:", err)
@@ -89,7 +89,7 @@ func TestProbeQueueShuttingDownFailsFast(t *testing.T) {
 	})
 
 	start := time.Now()
-	if err := probeQueueHealthPath(1, port, nil); err == nil {
+	if err := probeQueueHealthPath(1, port, http.DefaultTransport); err == nil {
 		t.Error("probeQueueHealthPath did not fail")
 	}
 
@@ -149,7 +149,7 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	if err := probeQueueHealthPath(readiness.PollTimeout, port, nil); err != nil {
+	if err := probeQueueHealthPath(readiness.PollTimeout, port, http.DefaultTransport); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 }

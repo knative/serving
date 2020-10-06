@@ -27,18 +27,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/pkg/logging"
+	pkgnet "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/readiness"
+	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
 const (
@@ -219,7 +219,7 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 }
 
 // makeQueueContainer creates the container spec for the queue sidecar.
-func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config) (*corev1.Container, error) {
+func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container, error) {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -229,7 +229,7 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	userPort := getUserPort(rev)
 
 	var loggingLevel string
-	if ll, ok := loggingConfig.LoggingLevel["queueproxy"]; ok {
+	if ll, ok := cfg.Logging.LoggingLevel["queueproxy"]; ok {
 		loggingLevel = ll.String()
 	}
 
@@ -239,13 +239,13 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	}
 
 	ports := queueNonServingPorts
-	if observabilityConfig.EnableProfiling {
+	if cfg.Observability.EnableProfiling {
 		ports = append(ports, profilingPort)
 	}
 	// We need to configure only one serving port for the Queue proxy, since
 	// we know the protocol that is being used by this application.
 	servingPort := queueHTTPPort
-	if rev.GetProtocol() == networking.ProtocolH2C {
+	if rev.GetProtocol() == pkgnet.ProtocolH2C {
 		servingPort = queueHTTP2Port
 	}
 	ports = append(ports, servingPort)
@@ -262,8 +262,8 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 
 	return &corev1.Container{
 		Name:            QueueContainerName,
-		Image:           deploymentConfig.QueueSidecarImage,
-		Resources:       createQueueResources(deploymentConfig, rev.GetAnnotations(), container),
+		Image:           cfg.Deployment.QueueSidecarImage,
+		Resources:       createQueueResources(cfg.Deployment, rev.GetAnnotations(), container),
 		Ports:           ports,
 		ReadinessProbe:  makeQueueProbe(rp),
 		SecurityContext: queueSecurityContext,
@@ -304,34 +304,34 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			},
 		}, {
 			Name:  "SERVING_LOGGING_CONFIG",
-			Value: loggingConfig.LoggingConfig,
+			Value: cfg.Logging.LoggingConfig,
 		}, {
 			Name:  "SERVING_LOGGING_LEVEL",
 			Value: loggingLevel,
 		}, {
 			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
-			Value: observabilityConfig.RequestLogTemplate,
+			Value: cfg.Observability.RequestLogTemplate,
 		}, {
 			Name:  "SERVING_ENABLE_REQUEST_LOG",
-			Value: strconv.FormatBool(observabilityConfig.EnableRequestLog),
+			Value: strconv.FormatBool(cfg.Observability.EnableRequestLog),
 		}, {
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
-			Value: observabilityConfig.RequestMetricsBackend,
+			Value: cfg.Observability.RequestMetricsBackend,
 		}, {
 			Name:  "TRACING_CONFIG_BACKEND",
-			Value: string(tracingConfig.Backend),
+			Value: string(cfg.Tracing.Backend),
 		}, {
 			Name:  "TRACING_CONFIG_ZIPKIN_ENDPOINT",
-			Value: tracingConfig.ZipkinEndpoint,
+			Value: cfg.Tracing.ZipkinEndpoint,
 		}, {
 			Name:  "TRACING_CONFIG_STACKDRIVER_PROJECT_ID",
-			Value: tracingConfig.StackdriverProjectID,
+			Value: cfg.Tracing.StackdriverProjectID,
 		}, {
 			Name:  "TRACING_CONFIG_DEBUG",
-			Value: strconv.FormatBool(tracingConfig.Debug),
+			Value: strconv.FormatBool(cfg.Tracing.Debug),
 		}, {
 			Name:  "TRACING_CONFIG_SAMPLE_RATE",
-			Value: fmt.Sprint(tracingConfig.SampleRate),
+			Value: fmt.Sprint(cfg.Tracing.SampleRate),
 		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
@@ -346,13 +346,13 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			Value: probeJSON,
 		}, {
 			Name:  "ENABLE_PROFILING",
-			Value: strconv.FormatBool(observabilityConfig.EnableProfiling),
+			Value: strconv.FormatBool(cfg.Observability.EnableProfiling),
 		}, {
 			Name:  "SERVING_ENABLE_PROBE_REQUEST_LOG",
-			Value: strconv.FormatBool(observabilityConfig.EnableProbeRequestLog),
+			Value: strconv.FormatBool(cfg.Observability.EnableProbeRequestLog),
 		}, {
 			Name:  "METRICS_COLLECTOR_ADDRESS",
-			Value: observabilityConfig.MetricsCollectorAddress,
+			Value: cfg.Observability.MetricsCollectorAddress,
 		}},
 	}, nil
 }

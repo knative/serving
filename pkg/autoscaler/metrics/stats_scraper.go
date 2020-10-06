@@ -32,11 +32,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"knative.dev/networking/pkg/apis/networking"
 	pkgmetrics "knative.dev/pkg/metrics"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/resources"
 )
 
@@ -99,17 +99,33 @@ type StatsScraper interface {
 // URL. Internal used only.
 type scrapeClient interface {
 	// Scrape scrapes the given URL.
-	Scrape(url string) (Stat, error)
+	Scrape(ctx context.Context, url string) (Stat, error)
 }
+
+// noKeepAliveTransport is a http.Transport with the default settings, but with
+// KeepAlive disabled. This is used in the mesh case, where we want to avoid
+// getting the same host on each connection.
+var noKeepAliveTransport = func() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.DisableKeepAlives = true
+	return t
+}()
+
+// keepAliveTransport is a http.Transport with the default settings, but with
+// keepAlive upped to allow 1000 connections.
+var keepAliveTransport = func() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.DisableKeepAlives = false // default, but for clarity.
+	t.MaxIdleConns = 1000
+	return t
+}()
 
 // noKeepaliveClient is a http client with HTTP Keep-Alive disabled.
 // This client is used in the mesh case since we want to get a new connection -
 // and therefore, hopefully, host - on every scrape of the service.
 var noKeepaliveClient = &http.Client{
-	Transport: &http.Transport{
-		DisableKeepAlives: true,
-	},
-	Timeout: httpClientTimeout,
+	Transport: noKeepAliveTransport,
+	Timeout:   httpClientTimeout,
 }
 
 // client is a normal http client with HTTP Keep-Alive enabled.
@@ -117,11 +133,8 @@ var noKeepaliveClient = &http.Client{
 // to take advantage of HTTP Keep-Alive to avoid connection creation overhead
 // between scrapes of the same pod.
 var client = &http.Client{
-	Timeout: httpClientTimeout,
-	Transport: &http.Transport{
-		MaxIdleConns:    1000,
-		IdleConnTimeout: 90 * time.Second,
-	},
+	Timeout:   httpClientTimeout,
+	Transport: keepAliveTransport,
 }
 
 // serviceScraper scrapes Revision metrics via a K8S service by sampling. Which
@@ -142,38 +155,23 @@ type serviceScraper struct {
 
 // NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewStatsScraper(metric *av1alpha1.Metric, podAccessor resources.PodAccessor,
-	logger *zap.SugaredLogger) (StatsScraper, error) {
-	directClient, err := newHTTPScrapeClient(client)
-	if err != nil {
-		return nil, err
-	}
-	meshClient, err := newHTTPScrapeClient(noKeepaliveClient)
-	if err != nil {
-		return nil, err
-	}
-	return newServiceScraperWithClient(metric, podAccessor, directClient, meshClient, logger)
+func NewStatsScraper(metric *av1alpha1.Metric, revisionName string, podAccessor resources.PodAccessor,
+	logger *zap.SugaredLogger) StatsScraper {
+	directClient := newHTTPScrapeClient(client)
+	meshClient := newHTTPScrapeClient(noKeepaliveClient)
+	return newServiceScraperWithClient(metric, revisionName, podAccessor, directClient, meshClient, logger)
 }
 
 func newServiceScraperWithClient(
 	metric *av1alpha1.Metric,
+	revisionName string,
 	podAccessor resources.PodAccessor,
 	directClient, meshClient scrapeClient,
-	logger *zap.SugaredLogger) (*serviceScraper, error) {
-	if metric == nil {
-		return nil, errors.New("metric must not be nil")
-	}
-	revName := metric.Labels[serving.RevisionLabelKey]
-	if revName == "" {
-		return nil, errors.New("no Revision label found for Metric " + metric.Name)
-	}
+	logger *zap.SugaredLogger) *serviceScraper {
 	svcName := metric.Labels[serving.ServiceLabelKey]
 	cfgName := metric.Labels[serving.ConfigurationLabelKey]
 
-	ctx, err := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revName)
-	if err != nil {
-		return nil, err
-	}
+	ctx := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revisionName)
 
 	return &serviceScraper{
 		directClient:    directClient,
@@ -183,7 +181,7 @@ func newServiceScraperWithClient(
 		podsAddressable: true,
 		statsCtx:        ctx,
 		logger:          logger,
-	}, nil
+	}
 }
 
 var portAndPath = strconv.Itoa(networking.AutoscalingQueueMetricsPort) + "/metrics"
@@ -265,7 +263,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 	}
 	pods = append(pods, youngPods...)
 
-	grp := errgroup.Group{}
+	grp, egCtx := errgroup.WithContext(context.Background())
 	idx := atomic.NewInt32(-1)
 	// Start |sampleSize| threads to scan in parallel.
 	for i := 0; i < sampleSize; i++ {
@@ -282,7 +280,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 
 				// Scrape!
 				target := "http://" + pods[myIdx] + ":" + portAndPath
-				stat, err := s.directClient.Scrape(target)
+				stat, err := s.directClient.Scrape(egCtx, target)
 				if err == nil {
 					results <- stat
 					return nil
@@ -337,12 +335,12 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 	youngStatCh := make(chan Stat, sampleSize)
 	scrapedPods := &sync.Map{}
 
-	grp := errgroup.Group{}
+	grp, egCtx := errgroup.WithContext(context.Background())
 	youngPodCutOffSecs := window.Seconds()
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
 			for tries := 1; ; tries++ {
-				stat, err := s.tryScrape(scrapedPods)
+				stat, err := s.tryScrape(egCtx, scrapedPods)
 				if err != nil {
 					// Return the error if we exhausted our retries and
 					// we had an error returned (we can end up here if
@@ -414,8 +412,8 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 
 // tryScrape runs a single scrape and returns stat if this is a pod that has not been
 // seen before. An error otherwise or if scraping failed.
-func (s *serviceScraper) tryScrape(scrapedPods *sync.Map) (Stat, error) {
-	stat, err := s.meshClient.Scrape(s.url)
+func (s *serviceScraper) tryScrape(ctx context.Context, scrapedPods *sync.Map) (Stat, error) {
+	stat, err := s.meshClient.Scrape(ctx, s.url)
 	if err != nil {
 		return emptyStat, err
 	}

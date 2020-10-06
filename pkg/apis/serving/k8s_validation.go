@@ -28,10 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
-	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/profiling"
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/networking"
 )
 
 const (
@@ -250,7 +250,8 @@ func validateEnv(ctx context.Context, envVars []corev1.EnvVar) *apis.FieldError 
 
 func validateEnvFrom(envFromList []corev1.EnvFromSource) *apis.FieldError {
 	var errs *apis.FieldError
-	for i, envFrom := range envFromList {
+	for i := range envFromList {
+		envFrom := envFromList[i]
 		errs = errs.Also(apis.CheckDisallowedFields(envFrom, *EnvFromSourceMask(&envFrom)).ViaIndex(i))
 
 		cm := envFrom.ConfigMapRef
@@ -473,7 +474,8 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 	// coverage, and the field restrictions.
 	seenName := make(sets.String, len(mounts))
 	seenMountPath := make(sets.String, len(mounts))
-	for i, vm := range mounts {
+	for i := range mounts {
+		vm := mounts[i]
 		errs = errs.Also(apis.CheckDisallowedFields(vm, *VolumeMountMask(&vm)).ViaIndex(i))
 		// This effectively checks that Name is non-empty because Volume name must be non-empty.
 		if !volumes.Has(vm.Name) {

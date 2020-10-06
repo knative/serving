@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package core
 
 import (
@@ -102,7 +103,7 @@ func TestReconcileSecretCreate(t *testing.T) {
 
 	desired, err := ReconcileSecret(ctx, ownerObj, desired, accessor)
 	if err != nil {
-		t.Fatalf("ReconcileSecret() = %v", err)
+		t.Fatal("ReconcileSecret() =", err)
 	}
 
 	fake := fakekubeclient.Get(ctx)
@@ -119,7 +120,7 @@ func TestReconcileSecretUpdate(t *testing.T) {
 
 	desired, err := ReconcileSecret(ctx, ownerObj, desired, accessor)
 	if err != nil {
-		t.Fatalf("ReconcileSecret() = %v", err)
+		t.Fatal("ReconcileSecret() =", err)
 	}
 
 	fake := fakekubeclient.Get(ctx)
@@ -139,7 +140,7 @@ func TestNotOwnedFailure(t *testing.T) {
 		t.Error("Expected to get error when calling ReconcileSecret, but got no error.")
 	}
 	if !kaccessor.IsNotOwned(err) {
-		t.Errorf("Expected to get NotOwnedError but got %v", err)
+		t.Error("Expected to get NotOwnedError but got", err)
 	}
 }
 
@@ -158,10 +159,10 @@ func setup(t *testing.T, secrets ...*corev1.Secret) (context.Context, *FakeAcces
 	fakeinformer := fakesecretinformer.Get(ctx)
 	for _, secret := range secrets {
 		if _, err := fake.CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{}); err != nil {
-			t.Fatalf("Error creating secret: %v", err)
+			t.Fatal("Error creating secret:", err)
 		}
 		if err := fakeinformer.Informer().GetIndexer().Add(secret); err != nil {
-			t.Fatalf("Error adding secret to index: %v", err)
+			t.Fatal("Error adding secret to index:", err)
 		}
 	}
 

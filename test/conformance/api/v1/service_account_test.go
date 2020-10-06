@@ -44,7 +44,7 @@ func TestServiceAccountValidation(t *testing.T) {
 
 	test.EnsureTearDown(t, clients, &names)
 
-	t.Logf("Creating a new Service %s", names.Service)
+	t.Log("Creating a new Service", names.Service)
 	service := v1test.Service(names, WithServiceAccountName(invalidServiceAccountName))
 	v1test.LogResourceObject(t, v1test.ResourceObjects{Service: service})
 

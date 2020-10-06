@@ -52,11 +52,11 @@ func TestNewProbe(t *testing.T) {
 	p := NewProbe(v1p)
 
 	if diff := cmp.Diff(p.Probe, v1p); diff != "" {
-		t.Errorf("NewProbe (-want, +got) = %v", diff)
+		t.Error("NewProbe (-want, +got) =", diff)
 	}
 
 	if c := p.count; c != 0 {
-		t.Errorf("Expected Probe.Count == 0, got: %d", c)
+		t.Error("Expected Probe.Count == 0, got:", c)
 	}
 }
 
@@ -619,7 +619,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	listener.Close()
 	time.Sleep(500 * time.Millisecond)
 
-	listener2, err := net.Listen("tcp", fmt.Sprintf(":%d", addr.Port))
+	listener2, err := net.Listen("tcp", fmt.Sprint(":", addr.Port))
 	if err != nil {
 		t.Fatal("Error setting up tcp listener:", err)
 	}

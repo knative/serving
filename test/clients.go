@@ -24,43 +24,28 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	// Allow E2E to run against a cluster using OpenID.
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	networkingv1alpha1 "knative.dev/networking/pkg/client/clientset/versioned/typed/networking/v1alpha1"
 	"knative.dev/pkg/test"
 	"knative.dev/serving/pkg/client/clientset/versioned"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
-	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
+
+	// Every E2E test requires this, so add it here.
+	_ "knative.dev/pkg/metrics/testing"
 )
 
 // Clients holds instances of interfaces for making requests to Knative Serving.
 type Clients struct {
-	KubeClient         *test.KubeClient
-	ServingAlphaClient *ServingAlphaClients
-	ServingBetaClient  *ServingBetaClients
-	ServingClient      *ServingClients
-	NetworkingClient   *NetworkingClients
-	Dynamic            dynamic.Interface
-}
-
-// ServingAlphaClients holds instances of interfaces for making requests to knative serving clients
-type ServingAlphaClients struct {
-	Routes    servingv1alpha1.RouteInterface
-	Configs   servingv1alpha1.ConfigurationInterface
-	Revisions servingv1alpha1.RevisionInterface
-	Services  servingv1alpha1.ServiceInterface
-}
-
-// ServingBetaClients holds instances of interfaces for making requests to knative serving clients
-type ServingBetaClients struct {
-	Routes    servingv1beta1.RouteInterface
-	Configs   servingv1beta1.ConfigurationInterface
-	Revisions servingv1beta1.RevisionInterface
-	Services  servingv1beta1.ServiceInterface
+	KubeClient       *test.KubeClient
+	ServingClient    *ServingClients
+	NetworkingClient *NetworkingClients
+	Dynamic          dynamic.Interface
 }
 
 // ServingClients holds instances of interfaces for making requests to knative serving clients
@@ -105,16 +90,6 @@ func NewClientsFromConfig(cfg *rest.Config, namespace string) (*Clients, error) 
 	}
 	clients.KubeClient = &test.KubeClient{Kube: kubeClient}
 
-	clients.ServingAlphaClient, err = newServingAlphaClients(cfg, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	clients.ServingBetaClient, err = newServingBetaClients(cfg, namespace)
-	if err != nil {
-		return nil, err
-	}
-
 	clients.ServingClient, err = newServingClients(cfg, namespace)
 	if err != nil {
 		return nil, err
@@ -144,38 +119,6 @@ func newNetworkingClients(cfg *rest.Config, namespace string) (*NetworkingClient
 		ServerlessServices: cs.NetworkingV1alpha1().ServerlessServices(namespace),
 		Ingresses:          cs.NetworkingV1alpha1().Ingresses(namespace),
 		Certificates:       cs.NetworkingV1alpha1().Certificates(namespace),
-	}, nil
-}
-
-// newServingAlphaClients instantiates and returns the serving clientset required to make requests to the
-// knative serving cluster.
-func newServingAlphaClients(cfg *rest.Config, namespace string) (*ServingAlphaClients, error) {
-	cs, err := versioned.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ServingAlphaClients{
-		Configs:   cs.ServingV1alpha1().Configurations(namespace),
-		Revisions: cs.ServingV1alpha1().Revisions(namespace),
-		Routes:    cs.ServingV1alpha1().Routes(namespace),
-		Services:  cs.ServingV1alpha1().Services(namespace),
-	}, nil
-}
-
-// newServingBetaClients instantiates and returns the serving clientset required to make requests to the
-// knative serving cluster.
-func newServingBetaClients(cfg *rest.Config, namespace string) (*ServingBetaClients, error) {
-	cs, err := versioned.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ServingBetaClients{
-		Configs:   cs.ServingV1beta1().Configurations(namespace),
-		Revisions: cs.ServingV1beta1().Revisions(namespace),
-		Routes:    cs.ServingV1beta1().Routes(namespace),
-		Services:  cs.ServingV1beta1().Services(namespace),
 	}, nil
 }
 

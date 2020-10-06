@@ -262,7 +262,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
-		t.Errorf("Unexpected rule spec diff (-want +got): %s", diff)
+		t.Error("Unexpected rule spec diff (-want +got):", diff)
 	}
 
 	// Update ingress loadbalancer to trigger placeholder service creation.
@@ -416,7 +416,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
-		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+		t.Error("Unexpected rule spec diff (-want +got):", diff)
 	}
 }
 
@@ -534,7 +534,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
-		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+		t.Error("Unexpected rule spec diff (-want +got):", diff)
 	}
 }
 
@@ -761,7 +761,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
 		fmt.Printf("%+v\n", ci.Spec)
-		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+		t.Error("Unexpected rule spec diff (-want +got):", diff)
 	}
 }
 
@@ -1295,7 +1295,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
 		fmt.Printf("%+v\n", ci.Spec)
-		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+		t.Error("Unexpected rule spec diff (-want +got):", diff)
 	}
 }
 
@@ -1513,7 +1513,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			defer func() {
 				cf()
 				if err := grp.Wait(); err != nil {
-					t.Errorf("Wait() = %v", err)
+					t.Error("Wait() =", err)
 				}
 				waitInformers()
 			}()

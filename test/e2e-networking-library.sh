@@ -20,7 +20,7 @@ function install_istio() {
   fi
 
   # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
-  local NET_ISTIO_COMMIT=f64ed34d3776a444372483dddc15a330c6c1ac53
+  local NET_ISTIO_COMMIT=6bbca066373b21689b5d90381c27920533809e82
 
   # And checkout the setup script based on that commit.
   local NET_ISTIO_DIR=$(mktemp -d)
@@ -32,11 +32,17 @@ function install_istio() {
       && git checkout FETCH_HEAD
   )
 
-  if (( MESH )); then
-    ISTIO_PROFILE="istio-ci-mesh.yaml"
+  ISTIO_PROFILE="istio"
+  if [[ -n "$KIND" ]]; then
+    ISTIO_PROFILE+="-kind"
   else
-    ISTIO_PROFILE="istio-ci-no-mesh.yaml"
+    ISTIO_PROFILE+="-ci"
   fi
+  if [[ $MESH -eq 0 ]]; then
+    ISTIO_PROFILE+="-no"
+  fi
+  ISTIO_PROFILE+="-mesh"
+  ISTIO_PROFILE+=".yaml"
 
   echo ">> Installing Istio"
   echo "Istio version: ${ISTIO_VERSION}"

@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -139,10 +139,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodGet, "/", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
 
 			var reqMux sync.Mutex
 			writeErrors := make(chan error, 1)
@@ -171,7 +168,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 
 			if test.wantWriteError {
 				if err := <-writeErrors; err != http.ErrHandlerTimeout {
-					t.Errorf("Expected a timeout error, got %v", err)
+					t.Error("Expected a timeout error, got", err)
 				}
 			}
 		})

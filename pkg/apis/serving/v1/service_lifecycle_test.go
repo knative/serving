@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package v1
 
 import (
@@ -543,7 +544,7 @@ func TestConfigurationStatusPropagation(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(want, svc.Status); diff != "" {
-		t.Errorf("unexpected ServiceStatus (-want +got): %s", diff)
+		t.Error("unexpected ServiceStatus (-want +got):", diff)
 	}
 }
 
@@ -700,6 +701,6 @@ func TestRouteStatusPropagation(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(want, svc.Status); diff != "" {
-		t.Errorf("unexpected ServiceStatus (-want +got): %s", diff)
+		t.Error("unexpected ServiceStatus (-want +got):", diff)
 	}
 }

@@ -32,8 +32,11 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 	// have changed (i.e. due to config-defaults changes), we elide the metadata and
 	// spec validation.
 	if !apis.IsInStatusUpdate(ctx) {
-		errs = errs.Also(serving.ValidateObjectMetadata(ctx, c.GetObjectMeta()).Also(
-			c.validateLabels().ViaField("labels")).ViaField("metadata"))
+		errs = errs.Also(serving.ValidateObjectMetadata(ctx, c.GetObjectMeta()))
+		errs = errs.Also(c.validateLabels().ViaField("labels"))
+		errs = errs.Also(serving.ValidateHasNoAutoscalingAnnotation(c.GetAnnotations()).ViaField("annotations"))
+		errs = errs.ViaField("metadata")
+
 		ctx = apis.WithinParent(ctx, c.ObjectMeta)
 		errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}

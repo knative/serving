@@ -22,7 +22,6 @@ import (
 	"context"
 	"flag"
 	"io/ioutil"
-	"log"
 	"testing"
 
 	"knative.dev/serving/test"
@@ -42,7 +41,7 @@ func TestProbe(t *testing.T) {
 	// can't coordinate with the test by just sending e.g. SIGCONT, so we
 	// create a named pipe and wait for the upgrade script to write to it
 	// to signal that we should stop probing.
-	createPipe(probePipe, t)
+	createPipe(t, probePipe)
 
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
@@ -61,9 +60,7 @@ func TestProbe(t *testing.T) {
 	// This polls until we get a 200 with the right body.
 	assertServiceResourcesUpdated(t, clients, names, url, test.PizzaPlanetText1)
 
-	// Use log.Printf instead of t.Logf because we want to see failures
-	// inline with other logs instead of buffered until the end.
-	prober := test.RunRouteProber(log.Printf, clients, url, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
+	prober := test.RunRouteProber(t.Logf, clients, url, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	defer test.CheckSLO(*successFraction, t.Name(), prober)
 
 	// e2e-upgrade-test.sh will close this pipe to signal the upgrade is

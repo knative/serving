@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package resources
 
 import (
@@ -327,7 +328,7 @@ func TestMakeRevisions(t *testing.T) {
 
 			got := MakeRevision(ctx, test.configuration, clock)
 			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("MakeRevision (-want, +got) = %v", diff)
+				t.Error("MakeRevision (-want, +got) =", diff)
 			}
 		})
 	}

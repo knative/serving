@@ -69,12 +69,12 @@ function abort() {
 # Parameters: $1 - character to use for the box.
 #             $2 - banner message.
 function make_banner() {
-    local msg="$1$1$1$1 $2 $1$1$1$1"
-    local border="${msg//[-0-9A-Za-z _.,\/()\']/$1}"
-    echo -e "${border}\n${msg}\n${border}"
-    # TODO(adrcunha): Remove once logs have timestamps on Prow
-    # For details, see https://github.com/kubernetes/test-infra/issues/10100
-    echo -e "$1$1$1$1 $(TZ='America/Los_Angeles' date)\n${border}"
+  local msg="$1$1$1$1 $2 $1$1$1$1"
+  local border="${msg//[-0-9A-Za-z _.,\/()\']/$1}"
+  echo -e "${border}\n${msg}\n${border}"
+  # TODO(adrcunha): Remove once logs have timestamps on Prow
+  # For details, see https://github.com/kubernetes/test-infra/issues/10100
+  echo -e "$1$1$1$1 $(TZ='America/Los_Angeles' date)\n${border}"
 }
 
 # Simple header for logging purposes.
@@ -176,21 +176,8 @@ function wait_until_pods_running() {
 # Waits until all batch jobs complete in the given namespace.
 # Parameters: $1 - namespace.
 function wait_until_batch_job_complete() {
-  echo -n "Waiting until all batch jobs in namespace $1 run to completion."
-  for i in {1..150}; do  # timeout after 5 minutes
-    local jobs=$(kubectl get jobs -n $1 --no-headers \
-                 -ocustom-columns='n:{.metadata.name},c:{.spec.completions},s:{.status.succeeded}')
-    # All jobs must be complete
-    local not_complete=$(echo "${jobs}" | awk '{if ($2!=$3) print $0}' | wc -l)
-    if [[ ${not_complete} -eq 0 ]]; then
-      echo -e "\nAll jobs are complete:\n${jobs}"
-      return 0
-    fi
-    echo -n "."
-    sleep 2
-  done
-  echo -e "\n\nERROR: timeout waiting for jobs to complete\n${jobs}"
-  return 1
+  echo "Waiting until all batch jobs in namespace $1 run to completion."
+  kubectl wait job --for=condition=Complete --all -n "$1" --timeout=5m || return 1
 }
 
 # Waits until the given service has an external address (IP/hostname).
@@ -562,45 +549,6 @@ function check_licenses() {
   # Check that we don't have any forbidden licenses.
   run_go_tool github.com/google/go-licenses go-licenses check "${REPO_ROOT_DIR}/..." || \
     { echo "--- FAIL: go-licenses failed the license check"; return 1; }
-}
-
-# Run the given linter on the given files, checking it exists first.
-# Parameters: $1 - tool
-#             $2 - tool purpose (for error message if tool not installed)
-#             $3 - tool parameters (quote if multiple parameters used)
-#             $4..$n - files to run linter on
-function run_lint_tool() {
-  local checker=$1
-  local params=$3
-  if ! hash ${checker} 2>/dev/null; then
-    warning "${checker} not installed, not $2"
-    return 127
-  fi
-  shift 3
-  local failed=0
-  for file in $@; do
-    ${checker} ${params} ${file} || failed=1
-  done
-  return ${failed}
-}
-
-# Check links in the given markdown files.
-# Parameters: $1...$n - files to inspect
-function check_links_in_markdown() {
-  # https://github.com/raviqqe/liche
-  local config="${REPO_ROOT_DIR}/test/markdown-link-check-config.rc"
-  [[ ! -e ${config} ]] && config="${_TEST_INFRA_SCRIPTS_DIR}/markdown-link-check-config.rc"
-  local options="$(grep '^-' ${config} | tr \"\n\" ' ')"
-  run_lint_tool liche "checking links in markdown files" "-d ${REPO_ROOT_DIR} ${options}" $@
-}
-
-# Check format of the given markdown files.
-# Parameters: $1..$n - files to inspect
-function lint_markdown() {
-  # https://github.com/markdownlint/markdownlint
-  local config="${REPO_ROOT_DIR}/test/markdown-lint-config.rc"
-  [[ ! -e ${config} ]] && config="${_TEST_INFRA_SCRIPTS_DIR}/markdown-lint-config.rc"
-  run_lint_tool mdl "linting markdown files" "-c ${config}" $@
 }
 
 # Return whether the given parameter is an integer.

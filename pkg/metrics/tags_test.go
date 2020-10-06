@@ -89,7 +89,7 @@ func TestContexts(t *testing.T) {
 		},
 	}, {
 		name: "revision context",
-		ctx: mustCtx(t, func() (context.Context, error) {
+		ctx: purge(t, func() context.Context {
 			return RevisionContext("testns", "testsvc", "testcfg", "testrev")
 		}),
 		wantTags: map[string]string{},
@@ -104,7 +104,7 @@ func TestContexts(t *testing.T) {
 		},
 	}, {
 		name: "revision context (empty svc)",
-		ctx: mustCtx(t, func() (context.Context, error) {
+		ctx: purge(t, func() context.Context {
 			return RevisionContext("testns", "", "testcfg", "testrev")
 		}),
 		wantTags: map[string]string{},
@@ -262,5 +262,15 @@ func mustCtx(t *testing.T, f func() (context.Context, error)) context.Context {
 	if err != nil {
 		t.Fatal("Failed to create a new context:", err)
 	}
+	return ctx
+}
+
+func purge(t *testing.T, f func() context.Context) context.Context {
+	t.Helper()
+
+	// Force a way around the cache.
+	contextCache.Purge()
+
+	ctx := f()
 	return ctx
 }

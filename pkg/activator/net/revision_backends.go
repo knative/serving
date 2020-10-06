@@ -39,7 +39,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
+	pkgnet "knative.dev/networking/pkg/apis/networking"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
@@ -50,6 +50,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 )
 
@@ -93,7 +94,7 @@ type revisionWatcher struct {
 	stopCh   <-chan struct{}
 	cancel   context.CancelFunc
 	rev      types.NamespacedName
-	protocol networking.ProtocolType
+	protocol pkgnet.ProtocolType
 	updateCh chan<- revisionDestsUpdate
 	done     chan struct{}
 
@@ -112,7 +113,7 @@ type revisionWatcher struct {
 	podsAddressable bool
 }
 
-func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol networking.ProtocolType,
+func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol pkgnet.ProtocolType,
 	updateCh chan<- revisionDestsUpdate, destsCh chan dests,
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
 	logger *zap.SugaredLogger) *revisionWatcher {
@@ -215,13 +216,13 @@ func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, er
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 
-	var probeGroup errgroup.Group
+	probeGroup, egCtx := errgroup.WithContext(ctx)
 	healthyDests := make(chan string, toProbe.Len())
 
 	for dest := range toProbe {
 		dest := dest // Standard Go concurrency pattern.
 		probeGroup.Go(func() error {
-			ok, err := rw.probe(ctx, dest)
+			ok, err := rw.probe(egCtx, dest)
 			if ok {
 				healthyDests <- dest
 			}
@@ -439,7 +440,7 @@ func (rbm *revisionBackendsManager) updates() <-chan revisionDestsUpdate {
 	return rbm.updateCh
 }
 
-func (rbm *revisionBackendsManager) getRevisionProtocol(revID types.NamespacedName) (networking.ProtocolType, error) {
+func (rbm *revisionBackendsManager) getRevisionProtocol(revID types.NamespacedName) (pkgnet.ProtocolType, error) {
 	revision, err := rbm.revisionLister.Revisions(revID.Namespace).Get(revID.Name)
 	if err != nil {
 		return "", err
@@ -488,7 +489,7 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 		logger.Errorw("Failed to get revision watcher", zap.Error(err))
 		return
 	}
-	ready, notReady := endpointsToDests(endpoints, networking.ServicePortName(rw.protocol))
+	ready, notReady := endpointsToDests(endpoints, pkgnet.ServicePortName(rw.protocol))
 	logger.Debugf("Updating Endpoints: ready backends: %d, not-ready backends: %d", len(ready), len(notReady))
 	select {
 	case <-rbm.ctx.Done():

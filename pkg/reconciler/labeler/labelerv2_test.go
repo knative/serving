@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -235,9 +235,9 @@ func TestV2Reconcile(t *testing.T) {
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchRemoveRouteAndServingStateLabel("default", rev("default", "old-config").Name, now.Time),
+			patchRemoveRouteAnn("default", "old-config"),
 			patchAddRouteAndServingStateLabel(
 				"default", rev("default", "new-config").Name, "config-change", now.Time),
-			patchRemoveRouteAnn("default", "old-config"),
 			patchAddRouteAnn("default", "new-config", "config-change"),
 		},
 		Key: "default/config-change",
@@ -391,7 +391,8 @@ func revTraffic(name string, latest bool) v1.TrafficTarget {
 
 func routeWithTraffic(namespace, name string, spec, status v1.TrafficTarget, opts ...RouteOption) *v1.Route {
 	return Route(namespace, name,
-		append([]RouteOption{WithSpecTraffic(spec), WithStatusTraffic(status), WithInitRouteConditions}, opts...)...)
+		append([]RouteOption{WithSpecTraffic(spec), WithStatusTraffic(status), WithInitRouteConditions,
+			MarkTrafficAssigned, MarkCertificateReady, MarkIngressReady, WithRouteObservedGeneration}, opts...)...)
 }
 
 func simpleRunLatest(namespace, name, config string, opts ...RouteOption) *v1.Route {

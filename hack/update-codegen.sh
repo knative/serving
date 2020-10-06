@@ -72,13 +72,13 @@ chmod +x ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   knative.dev/serving/pkg/client knative.dev/serving/pkg/apis \
-  "serving:v1alpha1,v1beta1,v1 autoscaling:v1alpha1" \
+  "serving:v1 autoscaling:v1alpha1" \
   --go-header-file "${boilerplate}"
 
 # Knative Injection
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   knative.dev/serving/pkg/client knative.dev/serving/pkg/apis \
-  "serving:v1alpha1,v1beta1,v1 autoscaling:v1alpha1" \
+  "serving:v1 autoscaling:v1alpha1" \
   --go-header-file "${boilerplate}"
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen
@@ -92,6 +92,7 @@ ${GOPATH}/bin/deepcopy-gen \
   -i knative.dev/serving/pkg/activator/config \
   -i knative.dev/serving/pkg/autoscaler \
   -i knative.dev/serving/pkg/autoscaler/config \
+  -i knative.dev/serving/pkg/autoscaler/config/autoscalerconfig \
   -i knative.dev/serving/pkg/deployment \
   -i knative.dev/serving/pkg/gc \
   -i knative.dev/serving/pkg/logging \

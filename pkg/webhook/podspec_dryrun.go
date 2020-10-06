@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors.
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,9 +23,11 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	"knative.dev/pkg/apis"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
@@ -33,7 +35,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 )
 
-func decodeTemplate(ctx context.Context, val interface{}) (*v1.RevisionTemplateSpec, error) {
+func decodeTemplate(val interface{}) (*v1.RevisionTemplateSpec, error) {
 	templ := &v1.RevisionTemplateSpec{}
 	asData, ok := val.(map[string]interface{})
 	if !ok {
@@ -51,13 +53,13 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string, 
 		Namespace:    namespace,
 	}
 
-	// Create a sample Revision from the template
+	// Create a sample Revision from the template.
 	rev := &v1.Revision{
 		ObjectMeta: om,
 		Spec:       ps,
 	}
 	rev.SetDefaults(ctx)
-	podSpec := resources.BuildPodSpec(rev, resources.BuildUserContainers(rev))
+	podSpec := resources.BuildPodSpec(rev, resources.BuildUserContainers(rev), nil /*configs*/)
 
 	// Make a sample pod with the template Revisions & PodSpec and dryrun call to API-server
 	pod := &corev1.Pod{

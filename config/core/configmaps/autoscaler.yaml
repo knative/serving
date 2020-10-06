@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "7b6520ae"
+    knative.dev/example-checksum: "12baeac1"
 data:
   _example: |
     ################################
@@ -187,3 +187,16 @@ data:
     # unless overridden by the "autoscaling.knative.dev/maxScale" annotation.
     # If set to 0, the revision has no maximum scale.
     max-scale: "0"
+
+    # scale-down-delay is the amount of time that must pass at reduced
+    # concurrency before a scale down decision is applied. This can be useful,
+    # for example, to maintain replica count and avoid a cold start penalty if
+    # more requests come in within the scale down delay period.
+    # The default, 0s, imposes no delay at all.
+    scale-down-delay: "0s"
+
+    # max-scale-limit sets the maximum permitted value for the max scale of a revision.
+    # When this is set to a positive value, a revision with a maxScale above that value
+    # (including a maxScale of "0" = unlimited) is disallowed.
+    # A value of zero (the default) allows any limit, including unlimited.
+    max-scale-limit: "0"

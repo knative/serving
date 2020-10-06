@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -102,6 +102,20 @@ func TestDefaultsConfiguration(t *testing.T) {
 		},
 		data: map[string]string{
 			"enable-service-links": "false",
+		},
+	}, {
+		name:    "service links default",
+		wantErr: false,
+		wantDefaults: &Defaults{
+			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
+			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+			UserContainerNameTemplate:     DefaultUserContainerName,
+			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
+			AllowContainerConcurrencyZero: true,
+			EnableServiceLinks:            nil,
+		},
+		data: map[string]string{
+			"enable-service-links": "default",
 		},
 	}, {
 		name:    "invalid allow container concurrency zero flag value",
@@ -218,7 +232,7 @@ func TestTemplating(t *testing.T) {
 
 			def, err := NewDefaultsConfigFromMap(configMap.Data)
 			if err != nil {
-				t.Errorf("Error parsing defaults: %v", err)
+				t.Error("Error parsing defaults:", err)
 			}
 
 			if diff := cmp.Diff(defCM, def); diff != "" {

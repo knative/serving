@@ -15,5 +15,4 @@ limitations under the License.
 */
 
 // Package shared contains functions and types that can be used across various versions of conformance tests, e.g. checkers, requests senders, etc.
-
 package shared

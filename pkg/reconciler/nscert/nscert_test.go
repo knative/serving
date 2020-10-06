@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -318,7 +318,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	want := []string{fmt.Sprintf("*.%s.%s", namespace.Name, routecfg.DefaultDomain)}
 	cert := <-certEvents
 	if diff := cmp.Diff(want, cert.Spec.DNSNames); diff != "" {
-		t.Errorf("DNSNames (-want, +got) = %s", diff)
+		t.Error("DNSNames (-want, +got) =", diff)
 	}
 
 	// Update the domain template to something matched by the existing DNSName
@@ -358,7 +358,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	want = []string{fmt.Sprintf("*.subdomain.%s.%s", namespace.Name, routecfg.DefaultDomain)}
 	cert = <-certEvents
 	if diff := cmp.Diff(want, cert.Spec.DNSNames); diff != "" {
-		t.Errorf("DNSNames (-want, +got) = %s", diff)
+		t.Error("DNSNames (-want, +got) =", diff)
 	}
 
 	// Invalid domain template for wildcard certs
@@ -381,7 +381,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		case cert := <-certEvents:
 			// We don't expect the domain of cert to be changed.
 			if diff := cmp.Diff(oldDomain, cert.Spec.DNSNames); diff != "" {
-				t.Fatalf("DNSNames should not be changed: (-want, +got) = %s", diff)
+				t.Fatal("DNSNames should not be changed: (-want, +got) =", diff)
 			}
 		case <-done:
 			return

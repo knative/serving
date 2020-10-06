@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ import (
 	defaultconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 	"knative.dev/serving/pkg/reconciler/revision/config"
@@ -746,8 +746,7 @@ func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.D
 	// Do this here instead of in `rev` itself to ensure that we populate defaults
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults(context.Background())
-	deployment, err := resources.MakeDeployment(rev, cfg.Logging, cfg.Tracing, cfg.Network,
-		cfg.Observability, cfg.Deployment, cfg.Autoscaler)
+	deployment, err := resources.MakeDeployment(rev, cfg)
 	if err != nil {
 		t.Fatal("failed to create deployment")
 	}
@@ -810,7 +809,7 @@ func ReconcilerTestConfig() *config.Config {
 		Logging:  &logging.Config{},
 		Tracing:  &tracingconfig.Config{},
 		Defaults: &defaultconfig.Defaults{},
-		Autoscaler: &asconfig.Config{
+		Autoscaler: &autoscalerconfig.Config{
 			InitialScale:          1,
 			AllowZeroInitialScale: false,
 		},

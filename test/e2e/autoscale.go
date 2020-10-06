@@ -168,7 +168,7 @@ func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNa
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"CheckingEndpointAfterUpdating",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS),
 	)
 	return err
 }
@@ -392,9 +392,9 @@ func assertAutoscaleUpToNumPodsWithDurationAndDone(ctx *TestContext, curPods, ta
 	}
 }
 
-// RunAutoscaleUpCountPods is a test kernel to test the chosen autoscaler using the given
+// runAutoscaleUpCountPods is a test kernel to test the chosen autoscaler using the given
 // metric tracks the given target.
-func RunAutoscaleUpCountPods(t *testing.T, class, metric string) {
+func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 	target := containerConcurrency
 	if metric == autoscaling.RPS {
 		target = 10

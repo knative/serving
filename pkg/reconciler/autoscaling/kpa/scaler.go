@@ -33,7 +33,7 @@ import (
 	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/activator"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
@@ -131,7 +131,7 @@ func activatorProbe(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (
 	return prober.Do(context.Background(), transport, paToProbeTarget(pa), probeOptions...)
 }
 
-func lastPodRetention(pa *pav1alpha1.PodAutoscaler, cfg *asconfig.Config) time.Duration {
+func lastPodRetention(pa *pav1alpha1.PodAutoscaler, cfg *autoscalerconfig.Config) time.Duration {
 	d, ok := pa.ScaleToZeroPodRetention()
 	if ok {
 		return d
@@ -320,6 +320,8 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 
 	min, max := pa.ScaleBounds(asConfig)
 	initialScale := kparesources.GetInitialScale(asConfig, pa)
+	logger.Debugf("MinScale = %d, MaxScale = %d, InitialScale = %d, DesiredScale = %d",
+		min, max, initialScale, desiredScale)
 	// If initial scale has been attained, ignore the initialScale altogether.
 	if initialScale > 1 && !pa.Status.IsScaleTargetInitialized() {
 		// Ignore initial scale if minScale >= initialScale.

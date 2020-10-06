@@ -364,7 +364,7 @@ func TestStats(t *testing.T) {
 			})
 
 			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want) {
-				t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
+				t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -409,7 +409,7 @@ func TestConcurrencyReporterRun(t *testing.T) {
 	got = append(got, <-cr.statCh...) // Scale from 0.
 	got = append(got, <-cr.statCh...) // Actual report.
 	if !cmp.Equal(got, want) {
-		t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
+		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
 	}
 }
 
@@ -457,7 +457,7 @@ func TestConcurrencyReporterHandler(t *testing.T) {
 	got = append(got, <-cr.statCh...) // Scale from 0.
 	got = append(got, <-cr.statCh...) // Actual report.
 	if !cmp.Equal(got, want) {
-		t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
+		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
 	}
 }
 
@@ -601,7 +601,7 @@ func BenchmarkConcurrencyReporterHandler(b *testing.B) {
 // requests for the respective time too.
 func BenchmarkConcurrencyReporterReport(b *testing.B) {
 	for _, revs := range []int{1, 5, 10, 50, 100, 200} {
-		b.Run(fmt.Sprintf("revs-%d", revs), func(b *testing.B) {
+		b.Run(fmt.Sprint("revs-", revs), func(b *testing.B) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
 			defer cancel()
 

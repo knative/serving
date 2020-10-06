@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -55,14 +55,6 @@ func mustDigest(t *testing.T, img v1.Image) v1.Hash {
 	return h
 }
 
-func mustRawManifest(t *testing.T, img v1.Image) []byte {
-	m, err := img.RawManifest()
-	if err != nil {
-		t.Fatal("RawManifest() =", err)
-	}
-	return m
-}
-
 func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image) *httptest.Server {
 	manifestPath := fmt.Sprintf("/v2/%s/manifests/latest", repo)
 	const basicAuth = "Basic "
@@ -81,10 +73,24 @@ func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image) *
 			if want := base64.StdEncoding.EncodeToString([]byte(username + ":" + password)); !strings.HasSuffix(hdr, want) {
 				t.Errorf("Header.Get(Authorization) = %q, want suffix %q", hdr, want)
 			}
-			if r.Method != http.MethodGet {
-				t.Errorf("Method = %v, want %v", r.Method, http.MethodGet)
+			if r.Method != http.MethodHead {
+				t.Errorf("Method = %v, want %v", r.Method, http.MethodHead)
 			}
-			w.Write(mustRawManifest(t, img))
+			mt, err := img.MediaType()
+			if err != nil {
+				t.Error("MediaType() =", err)
+			}
+			sz, err := img.Size()
+			if err != nil {
+				t.Error("Size() =", err)
+			}
+			digest, err := img.Digest()
+			if err != nil {
+				t.Error("Digest() =", err)
+			}
+			w.Header().Set("Content-Type", string(mt))
+			w.Header().Set("Content-Length", fmt.Sprint(sz))
+			w.Header().Set("Docker-Content-Digest", digest.String())
 		default:
 			t.Error("Unexpected path:", r.URL.Path)
 		}
@@ -148,7 +154,7 @@ func TestResolve(t *testing.T) {
 
 	img, err := random.Image(3, 1024)
 	if err != nil {
-		t.Fatalf("random.Image() = %v", err)
+		t.Fatal("random.Image() =", err)
 	}
 
 	// Stand up a fake registry.
@@ -523,7 +529,7 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 			}
 
 			// The actual test.
-			if tr, err := newResolverTransport(path); err != nil && !tc.wantErr {
+			if tr, err := newResolverTransport(path, 100, 100); err != nil && !tc.wantErr {
 				t.Error("Got unexpected err:", err)
 			} else if tc.wantErr && err == nil {
 				t.Error("Didn't get an error when we wanted it")

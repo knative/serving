@@ -5,9 +5,9 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-	Unless required by applicable law or agreed to in writing, software
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -94,48 +94,54 @@ func (f *FakeAccessor) GetCertificateLister() listers.CertificateLister {
 }
 
 func TestReconcileCertificateCreate(t *testing.T) {
-	ctx, accessor, done := setup([]*v1alpha1.Certificate{}, t)
-	defer done()
+	ctx, accessor := setup(nil, t)
 
 	ReconcileCertificate(ctx, ownerObj, desired, accessor)
 
-	certInformer := fakecertinformer.Get(ctx)
+	lister := fakecertinformer.Get(ctx).Lister()
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		cert, err := certInformer.Lister().Certificates(desired.Namespace).Get(desired.Name)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return false, nil
-			}
+		cert, err := lister.Certificates(desired.Namespace).Get(desired.Name)
+		if errors.IsNotFound(err) {
+			return false, nil
+		} else if err != nil {
 			return false, err
 		}
-		return cmp.Equal(cert, desired), nil
+
+		if !cmp.Equal(cert, desired) {
+			t.Log("Certificate not yet as expected, diff:", cmp.Diff(cert, desired))
+		}
+		return true, nil
 	}); err != nil {
-		t.Error("Failed seeing creation of cert:", err)
+		t.Fatal("Failed seeing creation of cert:", err)
 	}
 }
 
 func TestReconcileCertificateUpdate(t *testing.T) {
-	ctx, accessor, done := setup([]*v1alpha1.Certificate{origin}, t)
-	defer done()
+	ctx, accessor := setup([]*v1alpha1.Certificate{origin}, t)
 
 	ReconcileCertificate(ctx, ownerObj, desired, accessor)
-	certInformer := fakecertinformer.Get(ctx)
+
+	lister := fakecertinformer.Get(ctx).Lister()
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		cert, err := certInformer.Lister().Certificates(desired.Namespace).Get(desired.Name)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return false, nil
-			}
+		cert, err := lister.Certificates(desired.Namespace).Get(desired.Name)
+		if errors.IsNotFound(err) {
+			return false, nil
+		} else if err != nil {
 			return false, err
 		}
-		return cmp.Equal(cert, desired), nil
+
+		if !cmp.Equal(cert, desired) {
+			t.Log("Certificate not yet as expected, diff:", cmp.Diff(cert, desired))
+		}
+		return true, nil
 	}); err != nil {
-		t.Error("Failed seeing creation of cert:", err)
+		t.Fatal("Failed seeing creation of cert:", err)
 	}
 }
 
-func setup(certs []*v1alpha1.Certificate, t *testing.T) (context.Context, *FakeAccessor, func()) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+func setup(certs []*v1alpha1.Certificate, t *testing.T) (context.Context, *FakeAccessor) {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+
 	fake := fakenetworkingclient.Get(ctx)
 	certInformer := fakecertinformer.Get(ctx)
 
@@ -144,16 +150,17 @@ func setup(certs []*v1alpha1.Certificate, t *testing.T) (context.Context, *FakeA
 		certInformer.Informer().GetIndexer().Add(cert)
 	}
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), certInformer.Informer())
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatal("failed to start Certificate informer:", err)
+		t.Fatal("failed to start informers:", err)
 	}
+	t.Cleanup(func() {
+		cancel()
+		waitInformers()
+	})
 
 	return ctx, &FakeAccessor{
-			netclient:  fake,
-			certLister: certInformer.Lister(),
-		}, func() {
-			cancel()
-			waitInformers()
-		}
+		netclient:  fake,
+		certLister: certInformer.Lister(),
+	}
 }

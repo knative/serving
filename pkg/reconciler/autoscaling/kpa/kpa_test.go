@@ -75,7 +75,8 @@ import (
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/deployment"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
@@ -111,21 +112,21 @@ func defaultConfigMapData() map[string]string {
 }
 
 func initialScaleZeroASConfig() *autoscalerconfig.Config {
-	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
-	autoscalerConfig.AllowZeroInitialScale = true
-	autoscalerConfig.InitialScale = 0
-	autoscalerConfig.EnableScaleToZero = true
-	return autoscalerConfig
+	ac, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
+	ac.AllowZeroInitialScale = true
+	ac.InitialScale = 0
+	ac.EnableScaleToZero = true
+	return ac
 }
 
 func defaultConfig() *config.Config {
-	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
+	ac, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
 	deploymentConfig, _ := deployment.NewConfigFromMap(map[string]string{
 		deployment.QueueSidecarImageKey: "bob",
 		deployment.ProgressDeadlineKey:  progressDeadline.String(),
 	})
 	return &config.Config{
-		Autoscaler: autoscalerConfig,
+		Autoscaler: ac,
 		Deployment: deploymentConfig,
 	}
 }
@@ -134,7 +135,7 @@ func newConfigWatcher() configmap.Watcher {
 	return configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      autoscalerconfig.ConfigName,
+			Name:      asconfig.ConfigName,
 		},
 		Data: defaultConfigMapData(),
 	}, &corev1.ConfigMap{
@@ -1239,7 +1240,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	// Load default config
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      autoscalerconfig.ConfigName,
+			Name:      asconfig.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: defaultConfigMapData(),
@@ -1262,7 +1263,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	defer func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
+			t.Error("Wait() =", err)
 		}
 		waitInformers()
 	}()
@@ -1299,7 +1300,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	data["container-concurrency-target-default"] = fmt.Sprint(concurrencyTargetAfterUpdate)
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      autoscalerconfig.ConfigName,
+			Name:      asconfig.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: data,
@@ -1373,7 +1374,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 		t.Fatal("PA failed to become ready:", err)
 	}
 
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(ctx, testRevision, metav1.DeleteOptions{})
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Delete(ctx, testRevision, metav1.DeleteOptions{})
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(ctx, testRevision, metav1.DeleteOptions{})
 
 	select {
@@ -1428,7 +1429,7 @@ func TestUpdate(t *testing.T) {
 
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
+		t.Error("Reconcile() =", err)
 	}
 
 	if count := fakeDeciders.createCallCount.Load(); count != 1 {
@@ -1437,13 +1438,13 @@ func TestUpdate(t *testing.T) {
 
 	// Verify decider shape.
 	if got, want := fakeDeciders.decider, decider; !cmp.Equal(got, want) {
-		t.Errorf("decider mismatch: diff(+got, -want): %s", cmp.Diff(got, want))
+		t.Error("decider mismatch: diff(+got, -want):", cmp.Diff(got, want))
 	}
 
 	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 		ctx, kpa.Name, metav1.GetOptions{})
 	if err != nil {
-		t.Errorf("Get() = %v", err)
+		t.Error("Get() =", err)
 	}
 	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "True" {
 		t.Errorf("GetCondition(Ready) = %v, wanted True", cond)
@@ -1455,7 +1456,7 @@ func TestUpdate(t *testing.T) {
 	fakepainformer.Get(ctx).Informer().GetIndexer().Update(kpa)
 
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
+		t.Error("Reconcile() =", err)
 	}
 
 	if fakeDeciders.updateCallCount.Load() == 0 {

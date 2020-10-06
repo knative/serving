@@ -34,6 +34,7 @@ import (
 func TestConfigurationDefaulting(t *testing.T) {
 	tests := []struct {
 		name string
+		ctx  context.Context
 		in   *Configuration
 		want *Configuration
 	}{{
@@ -50,7 +51,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			},
 		},
 	}, {
-		name: "run latest",
+		name: "run latest, not create",
 		in: &Configuration{
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
@@ -69,6 +70,41 @@ func TestConfigurationDefaulting(t *testing.T) {
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Name:           config.DefaultUserContainerName,
+								Image:          "busybox",
+								Resources:      defaultResources,
+								ReadinessProbe: defaultProbe,
+							}},
+						},
+						TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+						ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+					},
+				},
+			},
+		},
+	}, {
+		name: "run latest, create",
+		in: &Configuration{
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+					},
+				},
+			},
+		},
+		ctx: apis.WithinCreate(context.Background()),
+		want: &Configuration{
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							EnableServiceLinks: ptr.Bool(false),
 							Containers: []corev1.Container{{
 								Name:           config.DefaultUserContainerName,
 								Image:          "busybox",
@@ -89,6 +125,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
+							EnableServiceLinks: ptr.Bool(true),
 							Containers: []corev1.Container{{
 								Image: "busybox",
 							}},
@@ -104,6 +141,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
+							EnableServiceLinks: ptr.Bool(true),
 							Containers: []corev1.Container{{
 								Name:           config.DefaultUserContainerName,
 								Image:          "busybox",
@@ -122,7 +160,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.in
-			got.SetDefaults(context.Background())
+			ctx := context.Background()
+			if test.ctx != nil {
+				ctx = test.ctx
+			}
+			got.SetDefaults(ctx)
 			if !cmp.Equal(got, test.want, ignoreUnexportedResources) {
 				t.Errorf("SetDefaults (-want, +got) = %v",
 					cmp.Diff(test.want, got, ignoreUnexportedResources))

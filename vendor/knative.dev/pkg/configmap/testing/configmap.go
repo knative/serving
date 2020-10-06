@@ -47,7 +47,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 
 	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", name))
 	if err != nil {
-		t.Fatalf("ReadFile() = %v", err)
+		t.Fatal("ReadFile() =", err)
 	}
 
 	var orig corev1.ConfigMap
@@ -55,7 +55,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 	// Use github.com/ghodss/yaml since it reads json struct
 	// tags so things unmarshal properly
 	if err := yaml.Unmarshal(b, &orig); err != nil {
-		t.Fatalf("yaml.Unmarshal() = %v", err)
+		t.Fatal("yaml.Unmarshal() =", err)
 	}
 
 	// We expect each of the allowed keys, and a key holding an example
@@ -95,7 +95,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 	// Parse exampleBody into exemplar.Data
 	exemplar := orig.DeepCopy()
 	if err := yaml.Unmarshal([]byte(exampleBody), &exemplar.Data); err != nil {
-		t.Fatalf("yaml.Unmarshal() = %v", err)
+		t.Fatal("yaml.Unmarshal() =", err)
 	}
 	// Augment the sample with actual configuration
 	for k, v := range orig.Data {

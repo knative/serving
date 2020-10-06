@@ -24,54 +24,94 @@ import (
 	"time"
 
 	gorillawebsocket "github.com/gorilla/websocket"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	. "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/websocket"
 )
 
-func TestProcessorForwarding(t *testing.T) {
+func TestProcessorForwardingViaPodIP(t *testing.T) {
 	received := make(chan struct{})
-	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		var upgrader gorillawebsocket.Upgrader
 
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			t.Fatalf("error upgrading websocket: %v", err)
-		}
-
-		defer conn.Close()
-		for {
-			_, _, err := conn.ReadMessage()
-			if err != nil {
-				t.Fatalf("error reading message: %v", err)
-			}
-			received <- struct{}{}
-		}
-	}
-
-	s := httptest.NewServer(httpHandler)
+	s := testService(t, received)
 	defer s.Close()
 
 	logger := TestLogger(t)
-	conn := websocket.NewDurableSendingConnection("ws"+strings.TrimPrefix(s.URL, "http"), logger)
-	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return conn.IsEstablished(), nil
-	}); err != nil {
-		t.Fatal("Timeout waiting f.processors got updated")
-	}
-
-	p := bucketProcessor{
-		logger: logger,
-		bkt:    bucket1,
-		conn:   conn,
-	}
+	url := "ws" + strings.TrimPrefix(s.URL, "http")
+	p := newForwardProcessor(logger, bucket1, testIP1, url, url)
 
 	p.process(stat1)
 
 	select {
 	case <-received:
 	case <-time.After(time.Second):
-		t.Error("Timeout waiting for SVC retry")
+		t.Error("Timeout waiting for receiving stat")
 	}
+}
+
+func TestProcessorForwardingViaSvc(t *testing.T) {
+	received := make(chan struct{})
+
+	s := testService(t, received)
+	defer s.Close()
+
+	logger := TestLogger(t)
+	p := newForwardProcessor(logger, bucket1, testIP1, "ws://something.not.working", "ws"+strings.TrimPrefix(s.URL, "http"))
+
+	p.process(stat1)
+
+	select {
+	case <-received:
+	case <-time.After(time.Second):
+		t.Error("Timeout waiting for receiving stat")
+	}
+}
+
+func TestProcessorForwardingViaSvcRetry(t *testing.T) {
+	received := make(chan struct{})
+
+	s := testService(t, received)
+	defer s.Close()
+
+	logger := TestLogger(t)
+	p := newForwardProcessor(logger, bucket1, testIP1, "ws://something.not.working", "ws://something.not.working")
+
+	if p.conn != nil {
+		t.Fatal("Unexpected connection")
+	}
+
+	// Change to a working URL
+	p.svcDNS = "ws" + strings.TrimPrefix(s.URL, "http")
+	p.process(stat1)
+
+	select {
+	case <-received:
+	case <-time.After(time.Second):
+		t.Error("Timeout waiting for receiving stat")
+	}
+
+	if p.conn == nil {
+		t.Fatal("Expected a connection but got nil")
+	}
+}
+
+func testService(t *testing.T, received chan struct{}) *httptest.Server {
+	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+		var upgrader gorillawebsocket.Upgrader
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			t.Fatal("error upgrading websocket:", err)
+		}
+
+		defer conn.Close()
+		for {
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				// This is probably caused by connection closed by client side.
+				return
+			}
+			received <- struct{}{}
+		}
+	}
+
+	return httptest.NewServer(httpHandler)
 }

@@ -97,27 +97,27 @@ func TestDestroyPodInflight(t *testing.T) {
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
 		"TimeoutAppServesText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, routeURL, timeoutExpectedOutput, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, routeURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
+	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, routeURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		t.Fatal("Error creating spoofing client:", err)
 	}
 
+	g, egCtx := errgroup.WithContext(context.Background())
+
 	// The timeout app sleeps for the time passed via the timeout query parameter in milliseconds
 	u, _ := url.Parse(routeURL.String())
 	q := u.Query()
-	q.Set("timeout", fmt.Sprintf("%d", timeoutRequestDuration.Milliseconds()))
+	q.Set("timeout", fmt.Sprint(timeoutRequestDuration.Milliseconds()))
 	u.RawQuery = q.Encode()
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(egCtx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		t.Fatal("Error creating http request:", err)
 	}
-
-	g, _ := errgroup.WithContext(context.Background())
 
 	g.Go(func() error {
 		t.Log("Sending in a long running request")
@@ -142,11 +142,11 @@ func TestDestroyPodInflight(t *testing.T) {
 		time.Sleep(timeoutRequestDuration / 2)
 
 		t.Log("Destroying the configuration (also destroys the pods)")
-		return clients.ServingClient.Configs.Delete(context.Background(), names.Config, metav1.DeleteOptions{})
+		return clients.ServingClient.Configs.Delete(egCtx, names.Config, metav1.DeleteOptions{})
 	})
 
 	if err := g.Wait(); err != nil {
-		t.Errorf("Something went wrong with the request: %v", err)
+		t.Error("Something went wrong with the request:", err)
 	}
 }
 
@@ -181,7 +181,7 @@ func TestDestroyPodTimely(t *testing.T) {
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RouteServes",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
@@ -218,7 +218,7 @@ func TestDestroyPodTimely(t *testing.T) {
 		}
 		return true, nil
 	}); err != nil {
-		t.Logf("Latest state: %s", spew.Sprint(latestPodState))
+		t.Log("Latest state:", spew.Sprint(latestPodState))
 
 		// Fetch logs from the queue-proxy.
 		logs, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).GetLogs(podToDelete, &corev1.PodLogOptions{
@@ -265,7 +265,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RouteServes",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
@@ -284,21 +284,24 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	q := u.Query()
 	q.Set("sleep", "12001")
 	u.RawQuery = q.Encode()
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	if err != nil {
-		t.Fatal("Error creating HTTP request:", err)
-	}
-	httpClient, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
+
+	httpClient, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		t.Fatal("Error creating spoofing client:", err)
 	}
 
+	eg, egCtx := errgroup.WithContext(context.Background())
+
 	// Start several requests staggered with 1s delay.
-	var eg errgroup.Group
 	for i := 1; i < 7; i++ {
 		i := i
 		t.Logf("Starting request %d at %v", i, time.Now())
 		eg.Go(func() error {
+			req, err := http.NewRequestWithContext(egCtx, http.MethodGet, u.String(), nil)
+			if err != nil {
+				return fmt.Errorf("failed to create HTTP request: %w", err)
+			}
+
 			res, err := httpClient.Do(req)
 			t.Logf("Request %d done at %v", i, time.Now())
 			if err != nil {
@@ -319,6 +322,6 @@ func TestDestroyPodWithRequests(t *testing.T) {
 
 	// Make sure all the requests succeed.
 	if err := eg.Wait(); err != nil {
-		t.Errorf("Not all requests finished with success, eg: %v", err)
+		t.Error("Not all requests finished with success, eg:", err)
 	}
 }
