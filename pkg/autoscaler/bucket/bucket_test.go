@@ -16,7 +16,12 @@ limitations under the License.
 
 package bucket
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"knative.dev/pkg/reconciler"
+)
 
 func TestIsBucketHost(t *testing.T) {
 	if got, want := IsBucketHost("autoscaler-bucket-00-of-03"), true; got != want {
@@ -30,4 +35,45 @@ func TestIsBucketHost(t *testing.T) {
 	if got, want := IsBucketHost("autoscaler-bucket-non-exits"), true; got != want {
 		t.Errorf("IsBucketHost = %v, want = %v", got, want)
 	}
+}
+
+func TestAutoscalerBucketName(t *testing.T) {
+	if got, want := AutoscalerBucketName(0, 10), "autoscaler-bucket-00-of-10"; got != want {
+		t.Errorf("AutoscalerBucketName = %v, want = %v", got, want)
+	}
+
+	if got, want := AutoscalerBucketName(10, 10), "autoscaler-bucket-10-of-10"; got != want {
+		t.Errorf("AutoscalerBucketName = %v, want = %v", got, want)
+	}
+
+	if got, want := AutoscalerBucketName(10, 1), "autoscaler-bucket-10-of-01"; got != want {
+		t.Errorf("AutoscalerBucketName = %v, want = %v", got, want)
+	}
+}
+
+func TestAutoscalerBucketSet(t *testing.T) {
+	want := []string{}
+	if got := bucketNames(AutoscalerBucketSet(0).Buckets()); !cmp.Equal(got, want) {
+		t.Errorf("AutoscalerBucketSet = %v, want = %v", got, want)
+	}
+
+	want = []string{"autoscaler-bucket-00-of-01"}
+	if got := bucketNames(AutoscalerBucketSet(1).Buckets()); !cmp.Equal(got, want) {
+		t.Errorf("AutoscalerBucketSet = %v, want = %v", got, want)
+	}
+
+	want = []string{
+		"autoscaler-bucket-00-of-03", "autoscaler-bucket-01-of-03", "autoscaler-bucket-02-of-03"}
+	if got := bucketNames(AutoscalerBucketSet(3).Buckets()); !cmp.Equal(got, want) {
+		t.Errorf("AutoscalerBucketSet = %v, want = %v", got, want)
+	}
+}
+
+func bucketNames(bkts []reconciler.Bucket) []string {
+	ret := make([]string, len(bkts))
+	for i, bkt := range bkts {
+		ret[i] = bkt.Name()
+	}
+
+	return ret
 }
