@@ -92,9 +92,7 @@ func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 		types,
 
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
-		func(ctx context.Context) context.Context {
-			return store.ToContext(ctx)
-		},
+		store.ToContext,
 
 		// Whether to disallow unknown fields.
 		true,
@@ -118,9 +116,7 @@ func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 		types,
 
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
-		func(ctx context.Context) context.Context {
-			return store.ToContext(ctx)
-		},
+		store.ToContext,
 
 		// Whether to disallow unknown fields.
 		true,
