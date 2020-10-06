@@ -60,9 +60,6 @@ metadata:
     networking.knative.dev/ingress-provider: contour
 data:
   contour.yaml: |
-    leaderelection:
-      configmap-name: contour
-      configmap-namespace: contour-external
     # should contour expect to be running inside a k8s cluster
     # incluster: true
     #
@@ -1141,7 +1138,7 @@ spec:
           # if we change this on each version, you can no longer upgrade
           # just by applying the deployment YAML.
           # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:40dc13ed46853af5b4fafa121fa4e8cc3aa0f76c21687ef907e25c46707d20e7
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7ed86511d389a1554168ca6d86af3b36e6c7b7be6d3d71ee4dff654a54626160
           imagePullPolicy: Always
           command:
             - contour
@@ -1160,8 +1157,8 @@ spec:
       serviceAccountName: contour-certgen
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65534
-        runAsGroup: 65534
+        runAsUser: 65532
+        runAsGroup: 65532
   parallelism: 1
   completions: 1
   backoffLimit: 1
@@ -1346,7 +1343,7 @@ spec:
             - --contour-key-file=/certs/tls.key
             - --config-path=/config/contour.yaml
           command: ["contour"]
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:40dc13ed46853af5b4fafa121fa4e8cc3aa0f76c21687ef907e25c46707d20e7
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7ed86511d389a1554168ca6d86af3b36e6c7b7be6d3d71ee4dff654a54626160
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -1387,8 +1384,8 @@ spec:
       serviceAccountName: contour
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65534
-        runAsGroup: 65534
+        runAsUser: 65532
+        runAsGroup: 65532
       volumes:
         - name: contourcert
           secret:
@@ -1432,7 +1429,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:40dc13ed46853af5b4fafa121fa4e8cc3aa0f76c21687ef907e25c46707d20e7
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7ed86511d389a1554168ca6d86af3b36e6c7b7be6d3d71ee4dff654a54626160
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -1508,7 +1505,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:40dc13ed46853af5b4fafa121fa4e8cc3aa0f76c21687ef907e25c46707d20e7
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7ed86511d389a1554168ca6d86af3b36e6c7b7be6d3d71ee4dff654a54626160
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -1596,9 +1593,6 @@ metadata:
     networking.knative.dev/ingress-provider: contour
 data:
   contour.yaml: |
-    leaderelection:
-      configmap-name: contour
-      configmap-namespace: contour-internal
     # should contour expect to be running inside a k8s cluster
     # incluster: true
     #
@@ -2677,7 +2671,7 @@ spec:
           # if we change this on each version, you can no longer upgrade
           # just by applying the deployment YAML.
           # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:40dc13ed46853af5b4fafa121fa4e8cc3aa0f76c21687ef907e25c46707d20e7
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7ed86511d389a1554168ca6d86af3b36e6c7b7be6d3d71ee4dff654a54626160
           imagePullPolicy: Always
           command:
             - contour
@@ -2696,8 +2690,8 @@ spec:
       serviceAccountName: contour-certgen
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65534
-        runAsGroup: 65534
+        runAsUser: 65532
+        runAsGroup: 65532
   parallelism: 1
   completions: 1
   backoffLimit: 1
@@ -2882,7 +2876,7 @@ spec:
             - --contour-key-file=/certs/tls.key
             - --config-path=/config/contour.yaml
           command: ["contour"]
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:40dc13ed46853af5b4fafa121fa4e8cc3aa0f76c21687ef907e25c46707d20e7
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7ed86511d389a1554168ca6d86af3b36e6c7b7be6d3d71ee4dff654a54626160
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2923,8 +2917,8 @@ spec:
       serviceAccountName: contour
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65534
-        runAsGroup: 65534
+        runAsUser: 65532
+        runAsGroup: 65532
       volumes:
         - name: contourcert
           secret:
@@ -2968,7 +2962,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:40dc13ed46853af5b4fafa121fa4e8cc3aa0f76c21687ef907e25c46707d20e7
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7ed86511d389a1554168ca6d86af3b36e6c7b7be6d3d71ee4dff654a54626160
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -3044,7 +3038,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:40dc13ed46853af5b4fafa121fa4e8cc3aa0f76c21687ef907e25c46707d20e7
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7ed86511d389a1554168ca6d86af3b36e6c7b7be6d3d71ee4dff654a54626160
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
