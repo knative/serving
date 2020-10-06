@@ -34,7 +34,7 @@ const configMako = "/etc/config-mako"
 func MustGetBenchmark() *mpb.BenchmarkInfo {
 	bench, err := getBenchmark()
 	if err != nil {
-		log.Fatalf("unable to determine benchmark info: %v", err)
+		log.Fatal("unable to determine benchmark info: ", err)
 	}
 	return bench
 }
