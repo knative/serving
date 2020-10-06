@@ -1009,11 +1009,7 @@ data:
               "min": null,
               "show": false
             }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
+          ]
         },
         {
           "aliasColors": {},
@@ -1022,14 +1018,13 @@ data:
           "dashes": false,
           "datasource": "prometheus",
           "fill": 1,
-          "fillGradient": 0,
           "gridPos": {
             "h": 9,
             "w": 12,
             "x": 12,
             "y": 0
           },
-          "id": 5,
+          "id": 3,
           "legend": {
             "avg": false,
             "current": false,
@@ -1043,9 +1038,6 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
-          "options": {
-            "dataLinks": []
-          },
           "percentage": false,
           "pointradius": 5,
           "points": false,
@@ -1056,7 +1048,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod=~\"$revision.*\", container != \"POD\", container != \"\"}[1m])) by (container)",
+              "expr": "sum(container_memory_usage_bytes{namespace=\"$namespace\", pod=~\"$revision.*\", container != \"POD\", container != \"\"}) by (container)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{container}}",
@@ -1065,9 +1057,8 @@ data:
           ],
           "thresholds": [],
           "timeFrom": null,
-          "timeRegions": [],
           "timeShift": null,
-          "title": "Total CPU Usage",
+          "title": "Total Memory Usage",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -1083,7 +1074,7 @@ data:
           },
           "yaxes": [
             {
-              "format": "s",
+              "format": "decbytes",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -1098,11 +1089,7 @@ data:
               "min": null,
               "show": false
             }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
+          ]
         },
         {
           "aliasColors": {},
@@ -1119,7 +1106,7 @@ data:
             "x": 0,
             "y": 9
           },
-          "id": 3,
+          "id": 4,
           "legend": {
             "avg": false,
             "current": false,
@@ -1145,7 +1132,7 @@ data:
           "stack": false,
           "steppedLine": false,
           "targets": [
-            {
+           {
               "expr": "sum(rate(container_network_receive_bytes_total{namespace=\"$namespace\", container=\"POD\", name=~\"k8s_POD_$deployment.*\"}[1m]))",
               "format": "time_series",
               "intervalFactor": 1,
@@ -1181,9 +1168,9 @@ data:
               "format": "decbytes",
               "label": null,
               "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
+                  "max": null,
+                  "min": null,
+                  "show": true
             },
             {
               "format": "short",
@@ -1195,8 +1182,8 @@ data:
             }
           ],
           "yaxis": {
-            "align": false,
-            "alignLevel": null
+                "align": false,
+                "alignLevel": null
           }
         },
         {
@@ -1214,7 +1201,7 @@ data:
             "x": 12,
             "y": 9
           },
-          "id": 4,
+          "id": 5,
           "legend": {
             "avg": false,
             "current": false,
@@ -1248,7 +1235,9 @@ data:
               "refId": "A"
             },
             {
-              "expr": "sum(rate(container_network_receive_errors_total{namespace=\"$namespace\", container=\"POD\", name=~\"k8s_POD_$deployment.*\"}[1m]))",
+              "expr": "sum(rate(container_network_transmit_errors_total{namespace=\"$namespace\", container=\"POD\", name=~\"k8s_POD_$deployment.*\"}[1m]))",
+              "format": "time_series",
+              "instant": false,
               "legendFormat": "{{transmit errors}}",
               "refId": "B"
             }
@@ -1273,11 +1262,11 @@ data:
           },
           "yaxes": [
             {
-              "format": "s",
-              "label": null,
+              "format": "none",
+              "label": "",
               "logBase": 1,
               "max": null,
-              "min": null,
+              "min": "0",
               "show": true
             },
             {
@@ -1371,10 +1360,10 @@ data:
             "multi": false,
             "name": "deployment",
             "query": "label_values(kube_deployment_labels{label_serving_knative_dev_configuration=~\"$configuration\", label_serving_knative_dev_revision=\"$revision\", namespace=\"$namespace\"}, deployment)",
-            "refresh": 0,
+            "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
-            "sort": 0,
+            "sort": 2,
             "tagValuesQuery": "",
             "tags": [],
             "tagsQuery": "",
