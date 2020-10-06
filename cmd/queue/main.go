@@ -31,7 +31,6 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -58,8 +57,6 @@ import (
 )
 
 const (
-	badProbeTemplate = "unexpected probe header value: %s"
-
 	// reportingPeriod is the interval of time between reporting stats by queue proxy.
 	reportingPeriod = 1 * time.Second
 )
@@ -100,46 +97,6 @@ type config struct {
 	TracingConfigSampleRate           float64                   `split_words:"true"` // optional
 	TracingConfigZipkinEndpoint       string                    `split_words:"true"` // optional
 	TracingConfigStackdriverProjectID string                    `split_words:"true"` // optional
-}
-
-func knativeProbeHandler(healthState *health.State, prober func() bool, isAggressive bool, tracingEnabled bool, next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ph := network.KnativeProbeHeader(r)
-
-		if ph == "" {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		var probeSpan *trace.Span
-		if tracingEnabled {
-			_, probeSpan = trace.StartSpan(r.Context(), "probe")
-			defer probeSpan.End()
-		}
-
-		if ph != queue.Name {
-			http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
-			probeSpan.Annotate([]trace.Attribute{
-				trace.StringAttribute("queueproxy.probe.error", fmt.Sprintf(badProbeTemplate, ph))}, "error")
-			return
-		}
-
-		if prober == nil {
-			http.Error(w, "no probe", http.StatusInternalServerError)
-			probeSpan.Annotate([]trace.Attribute{
-				trace.StringAttribute("queueproxy.probe.error", "no probe")}, "error")
-			return
-		}
-
-		healthState.HandleHealthProbe(func() bool {
-			if !prober() {
-				probeSpan.Annotate([]trace.Attribute{
-					trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
-				return false
-			}
-			return true
-		}, isAggressive, w)
-	}
 }
 
 func main() {
@@ -340,7 +297,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	}
 	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 
-	composedHandler = knativeProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler)
+	composedHandler = health.ProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler)
 	composedHandler = network.NewProbeHandler(composedHandler)
 	// We might want sometimes capture the probes/healthchecks in the request
 	// logs. Hence we need to have RequestLogHandler to be the first one.
