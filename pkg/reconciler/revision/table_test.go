@@ -802,16 +802,18 @@ var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
+		Config: &defaultconfig.Config{
+			Defaults: &defaultconfig.Defaults{},
+			Autoscaler: &autoscalerconfig.Config{
+				InitialScale:          1,
+				AllowZeroInitialScale: false,
+			},
+		},
 		Deployment: testDeploymentConfig(),
 		Observability: &metrics.ObservabilityConfig{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},
-		Logging:  &logging.Config{},
-		Tracing:  &tracingconfig.Config{},
-		Defaults: &defaultconfig.Defaults{},
-		Autoscaler: &autoscalerconfig.Config{
-			InitialScale:          1,
-			AllowZeroInitialScale: false,
-		},
+		Logging: &logging.Config{},
+		Tracing: &tracingconfig.Config{},
 	}
 }
