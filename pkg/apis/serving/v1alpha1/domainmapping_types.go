@@ -96,6 +96,6 @@ const (
 )
 
 // GetStatus retrieves the status of the DomainMapping. Implements the KRShaped interface.
-func (t *DomainMapping) GetStatus() *duckv1.Status {
-	return &t.Status.Status
+func (dm *DomainMapping) GetStatus() *duckv1.Status {
+	return &dm.Status.Status
 }

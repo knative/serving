@@ -31,6 +31,6 @@ func (*DomainMapping) GetConditionSet() apis.ConditionSet {
 }
 
 // GetGroupVersionKind returns the GroupVersionKind.
-func (r *DomainMapping) GetGroupVersionKind() schema.GroupVersionKind {
+func (dm *DomainMapping) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("DomainMapping")
 }
