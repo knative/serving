@@ -32,6 +32,7 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -53,25 +54,39 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired 
 		return ingress, nil
 	} else if err != nil {
 		return nil, err
-	} else if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
-		!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) {
-		// It is notable that one reason for differences here may be defaulting.
-		// When that is the case, the Update will end up being a nop because the
-		// webhook will bring them into alignment and no new reconciliation will occur.
-		// Also, compare annotation in case ingress.Class is updated.
-
-		// Don't modify the informers copy
-		origin := ingress.DeepCopy()
-		origin.Spec = desired.Spec
-		origin.Annotations = desired.Annotations
-		updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(ctx, origin, metav1.UpdateOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to update Ingress: %w", err)
-		}
-		return updated, nil
 	}
 
-	return ingress, err
+	if equal, err := ingressSemanticEquals(ctx, desired, ingress); err != nil {
+		return nil, err
+	} else if equal {
+		return ingress, nil
+	}
+
+	// Don't modify the informers copy
+	origin := ingress.DeepCopy()
+	origin.Spec = desired.Spec
+	origin.Annotations = desired.Annotations
+	origin.Labels = desired.Labels
+	return c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(ctx, origin, metav1.UpdateOptions{})
+}
+
+func ingressSemanticEquals(ctx context.Context, desiredIngress, ingress *netv1alpha1.Ingress) (bool, error) {
+	logger := logging.FromContext(ctx)
+	specDiff, err := kmp.SafeDiff(desiredIngress.Spec, ingress.Spec)
+	if err != nil {
+		logger.Errorw("Error diffing ingress spec", zap.Error(err))
+		return false, fmt.Errorf("failed to diff ingress: %w", err)
+	} else if specDiff != "" {
+		logger.Info("Reconciling ingress diff (-desired, +observed):\n", specDiff)
+	}
+	// It is notable that one reason for differences here may be defaulting.
+	// When that is the case, the Update will end up being a nop because the
+	// webhook will bring them into alignment and no new reconciliation will occur.
+	// Also, compare annotation in case ingress.Class is updated.
+	return equality.Semantic.DeepEqual(desiredIngress.Spec, ingress.Spec) &&
+		equality.Semantic.DeepEqual(desiredIngress.Labels, ingress.Labels) &&
+		equality.Semantic.DeepEqual(desiredIngress.Annotations, ingress.Annotations) &&
+		specDiff == "", nil
 }
 
 func (c *Reconciler) deleteServices(ctx context.Context, namespace string, serviceNames sets.String) error {
