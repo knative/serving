@@ -27,13 +27,14 @@ import (
 	"strings"
 	"time"
 
+	"knative.dev/pkg/injection"
+
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/kflag"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
@@ -116,8 +117,7 @@ func quack(ctx context.Context, kc kubernetes.Interface, component string, leade
 }
 
 func main() {
-	ctx := signals.NewContext()
-	ctx = sharedmain.EnableInjectionOrDie(ctx, nil)
+	ctx, _ := injection.EnableInjectionOrDie(signals.NewContext(), nil)
 
 	kc := kubeclient.Get(ctx)
 
