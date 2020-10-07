@@ -57,7 +57,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 		close(stopCh)
 	}()
 
-	e2e.AssertAutoscaleUpToNumPodsWithDone(ctx, 1, 5, stopCh)
+	e2e.AssertAutoscaleUpToNumPods(ctx, 1, 5, stopCh, false /* quick */)
 }
 
 func TestAutoscaleSustainingWithTBC(t *testing.T) {
@@ -79,5 +79,5 @@ func TestAutoscaleSustainingWithTBC(t *testing.T) {
 		close(stopCh)
 	}()
 
-	e2e.AssertAutoscaleUpToNumPodsWithDone(ctx, 1, 5, stopCh)
+	e2e.AssertAutoscaleUpToNumPods(ctx, 1, 5, stopCh, false /* quick */)
 }
