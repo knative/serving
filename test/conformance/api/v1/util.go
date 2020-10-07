@@ -210,7 +210,7 @@ func validateAnnotations(objs *v1test.ResourceObjects, extraKeys ...string) erro
 		}
 	}
 	anns = objs.Config.GetAnnotations()
-	for _, a := range append([]string{serving.RoutesAnnotationKey, serving.CreatorAnnotation, serving.UpdaterAnnotation}, extraKeys...) {
+	for _, a := range append([]string{serving.CreatorAnnotation, serving.UpdaterAnnotation}, extraKeys...) {
 		if got := anns[a]; got == "" {
 			return fmt.Errorf("config expected %s annotation to be set, but was empty", a)
 		}
