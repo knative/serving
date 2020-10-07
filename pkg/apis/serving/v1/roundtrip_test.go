@@ -29,73 +29,72 @@ import (
 	"knative.dev/pkg/apis/testing/roundtrip"
 )
 
-// FuzzerFuncs includes fuzzing funcs for knative.dev/serving v1 types
+// fuzzerFuncs includes fuzzing funcs for knative.dev/serving v1 types
 //
 // For other examples see
 // https://github.com/kubernetes/apimachinery/blob/master/pkg/apis/meta/fuzzer/fuzzer.go
-var FuzzerFuncs = fuzzer.MergeFuzzerFuncs(
-	func(codecs serializer.CodecFactory) []interface{} {
-		return []interface{}{
-			func(s *ConfigurationStatus, c fuzz.Continue) {
-				c.FuzzNoCustom(s) // fuzz the status object
+var fuzzerFuncs = fuzzer.MergeFuzzerFuncs(
+	pkgfuzzer.Funcs,
+	fuzzer.MergeFuzzerFuncs(
+		func(codecs serializer.CodecFactory) []interface{} {
+			return []interface{}{
+				func(s *ConfigurationStatus, c fuzz.Continue) {
+					c.FuzzNoCustom(s) // fuzz the status object
 
-				// Clear the random fuzzed condition
-				s.Status.SetConditions(nil)
+					// Clear the random fuzzed condition
+					s.Status.SetConditions(nil)
 
-				// Fuzz the known conditions except their type value
-				s.InitializeConditions()
-				pkgfuzzer.FuzzConditions(&s.Status, c)
-			},
-			func(s *RevisionStatus, c fuzz.Continue) {
-				c.FuzzNoCustom(s) // fuzz the status object
+					// Fuzz the known conditions except their type value
+					s.InitializeConditions()
+					pkgfuzzer.FuzzConditions(&s.Status, c)
+				},
+				func(s *RevisionStatus, c fuzz.Continue) {
+					c.FuzzNoCustom(s) // fuzz the status object
 
-				// Clear the random fuzzed condition
-				s.Status.SetConditions(nil)
+					// Clear the random fuzzed condition
+					s.Status.SetConditions(nil)
 
-				// Fuzz the known conditions except their type value
-				s.InitializeConditions()
-				pkgfuzzer.FuzzConditions(&s.Status, c)
-			},
-			func(s *RouteStatus, c fuzz.Continue) {
-				c.FuzzNoCustom(s) // fuzz the status object
+					// Fuzz the known conditions except their type value
+					s.InitializeConditions()
+					pkgfuzzer.FuzzConditions(&s.Status, c)
+				},
+				func(s *RouteStatus, c fuzz.Continue) {
+					c.FuzzNoCustom(s) // fuzz the status object
 
-				// Clear the random fuzzed condition
-				s.Status.SetConditions(nil)
+					// Clear the random fuzzed condition
+					s.Status.SetConditions(nil)
 
-				// Fuzz the known conditions except their type value
-				s.InitializeConditions()
-				pkgfuzzer.FuzzConditions(&s.Status, c)
-			},
-			func(s *ServiceStatus, c fuzz.Continue) {
-				c.FuzzNoCustom(s) // fuzz the status object
+					// Fuzz the known conditions except their type value
+					s.InitializeConditions()
+					pkgfuzzer.FuzzConditions(&s.Status, c)
+				},
+				func(s *ServiceStatus, c fuzz.Continue) {
+					c.FuzzNoCustom(s) // fuzz the status object
 
-				// Clear the random fuzzed condition
-				s.Status.SetConditions(nil)
+					// Clear the random fuzzed condition
+					s.Status.SetConditions(nil)
 
-				// Fuzz the known conditions except their type value
-				s.InitializeConditions()
-				pkgfuzzer.FuzzConditions(&s.Status, c)
-			},
-			func(ps *corev1.PodSpec, c fuzz.Continue) {
-				c.FuzzNoCustom(ps)
+					// Fuzz the known conditions except their type value
+					s.InitializeConditions()
+					pkgfuzzer.FuzzConditions(&s.Status, c)
+				},
+				func(ps *corev1.PodSpec, c fuzz.Continue) {
+					c.FuzzNoCustom(ps)
 
-				if len(ps.Containers) == 0 {
-					// There must be at least 1 container.
-					ps.Containers = append(ps.Containers, corev1.Container{})
-					c.Fuzz(&ps.Containers[0])
-				}
-			},
-		}
-	},
+					if len(ps.Containers) == 0 {
+						// There must be at least 1 container.
+						ps.Containers = append(ps.Containers, corev1.Container{})
+						c.Fuzz(&ps.Containers[0])
+					}
+				},
+			}
+		},
+	),
 )
 
 func TestServingRoundTripTypesToJSON(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(AddToScheme(scheme))
 
-	fuzzerFuncs := fuzzer.MergeFuzzerFuncs(
-		pkgfuzzer.Funcs,
-		FuzzerFuncs,
-	)
 	roundtrip.ExternalTypesViaJSON(t, scheme, fuzzerFuncs)
 }
