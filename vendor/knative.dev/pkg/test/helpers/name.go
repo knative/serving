@@ -71,8 +71,8 @@ func RandomString() string {
 }
 
 // For the same prefix more specific should come first.
-// Note: we expect GRPC.
-var knownNames = []string{"HTTPS", "HTTP2", "HTTP", "GRPC", "TLS", "WS", "H2C"}
+// Note: we expect GRPC vs gRPC.
+var knownNames = []string{"GRPC", "H2C", "HTTPS", "HTTP2", "HTTP", "REST", "TLS", "WS"}
 
 // MakeK8sNamePrefix converts each chunk of non-alphanumeric character into a single dash
 // and also convert camelcase tokens into dash-delimited lowercase tokens.
