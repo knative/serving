@@ -19,11 +19,74 @@ package v1
 import (
 	"testing"
 
+	fuzz "github.com/google/gofuzz"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	pkgfuzzer "knative.dev/pkg/apis/testing/fuzzer"
 	"knative.dev/pkg/apis/testing/roundtrip"
+)
+
+// FuzzerFuncs includes fuzzing funcs for knative.dev/serving v1 types
+//
+// For other examples see
+// https://github.com/kubernetes/apimachinery/blob/master/pkg/apis/meta/fuzzer/fuzzer.go
+var FuzzerFuncs = fuzzer.MergeFuzzerFuncs(
+	func(codecs serializer.CodecFactory) []interface{} {
+		return []interface{}{
+			func(s *ConfigurationStatus, c fuzz.Continue) {
+				c.FuzzNoCustom(s) // fuzz the status object
+
+				// Clear the random fuzzed condition
+				s.Status.SetConditions(nil)
+
+				// Fuzz the known conditions except their type value
+				s.InitializeConditions()
+				pkgfuzzer.FuzzConditions(&s.Status, c)
+			},
+			func(s *RevisionStatus, c fuzz.Continue) {
+				c.FuzzNoCustom(s) // fuzz the status object
+
+				// Clear the random fuzzed condition
+				s.Status.SetConditions(nil)
+
+				// Fuzz the known conditions except their type value
+				s.InitializeConditions()
+				pkgfuzzer.FuzzConditions(&s.Status, c)
+			},
+			func(s *RouteStatus, c fuzz.Continue) {
+				c.FuzzNoCustom(s) // fuzz the status object
+
+				// Clear the random fuzzed condition
+				s.Status.SetConditions(nil)
+
+				// Fuzz the known conditions except their type value
+				s.InitializeConditions()
+				pkgfuzzer.FuzzConditions(&s.Status, c)
+			},
+			func(s *ServiceStatus, c fuzz.Continue) {
+				c.FuzzNoCustom(s) // fuzz the status object
+
+				// Clear the random fuzzed condition
+				s.Status.SetConditions(nil)
+
+				// Fuzz the known conditions except their type value
+				s.InitializeConditions()
+				pkgfuzzer.FuzzConditions(&s.Status, c)
+			},
+			func(ps *corev1.PodSpec, c fuzz.Continue) {
+				c.FuzzNoCustom(ps)
+
+				if len(ps.Containers) == 0 {
+					// There must be at least 1 container.
+					ps.Containers = append(ps.Containers, corev1.Container{})
+					c.Fuzz(&ps.Containers[0])
+				}
+			},
+		}
+	},
 )
 
 func TestServingRoundTripTypesToJSON(t *testing.T) {
