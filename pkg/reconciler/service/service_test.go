@@ -351,14 +351,12 @@ func TestReconcile(t *testing.T) {
 			// Mutate the Service to add some more labels
 			DefaultService("update-child-labels-ignore-route-label", "foo",
 				WithRunLatestRollout, WithInitSvcConditions, WithServiceLabel("new-label", "new-value")),
-			config("update-child-labels-ignore-route-label", "foo",
-				WithRunLatestRollout, WithConfigLabel("serving.knative.dev/route", "update-child-labels-ignore-route-label")),
+			config("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout),
 			route("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/update-child-labels-ignore-route-label",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: config("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithConfigLabel("new-label", "new-value"),
-				WithConfigLabel("serving.knative.dev/route", "update-child-labels-ignore-route-label")),
+			Object: config("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithConfigLabel("new-label", "new-value")),
 		}, {
 			Object: route("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithRouteLabel(map[string]string{"new-label": "new-value",
 				"serving.knative.dev/service": "update-child-labels-ignore-route-label"})),
