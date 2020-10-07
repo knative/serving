@@ -42,9 +42,9 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
 
-	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
+	AssertAutoscaleUpToNumPods(ctx, 1, 2, time.After(60*time.Second), true /* quick */)
 	assertScaleDown(ctx)
-	assertAutoscaleUpToNumPods(ctx, 0, 2, 60*time.Second, true)
+	AssertAutoscaleUpToNumPods(ctx, 0, 2, time.After(60*time.Second), true /* quick */)
 }
 
 func TestAutoscaleUpCountPods(t *testing.T) {
@@ -57,6 +57,29 @@ func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
 	runAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.RPS)
 }
 
+// runAutoscaleUpCountPods is a test kernel to test the chosen autoscaler using the given
+// metric tracks the given target.
+func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
+	target := containerConcurrency
+	if metric == autoscaling.RPS {
+		target = 10
+	}
+
+	ctx := SetupSvc(t, class, metric, target, targetUtilization)
+
+	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
+	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
+
+	// Increase workload for 2 replicas for 60s
+	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
+	// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
+	AssertAutoscaleUpToNumPods(ctx, 1, 2, time.After(60*time.Second), true /* quick */)
+	// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
+	AssertAutoscaleUpToNumPods(ctx, 2, 3, time.After(60*time.Second), true /* quick */)
+	// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
+	AssertAutoscaleUpToNumPods(ctx, 3, 4, time.After(60*time.Second), true /* quick */)
+}
+
 func TestAutoscaleSustaining(t *testing.T) {
 	// When traffic increases, a knative app should scale up and sustain the scale
 	// as long as the traffic sustains, despite whether it is switching modes between
@@ -64,7 +87,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	t.Parallel()
 
 	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
-	assertAutoscaleUpToNumPods(ctx, 1, 10, 2*time.Minute, false)
+	AssertAutoscaleUpToNumPods(ctx, 1, 10, time.After(2*time.Minute), false /* quick */)
 }
 
 func TestTargetBurstCapacity(t *testing.T) {
@@ -92,11 +115,8 @@ func TestTargetBurstCapacity(t *testing.T) {
 	defer grp.Wait()
 	defer close(stopCh)
 
-	// We'll terminate the test via stopCh.
-	const duration = time.Hour
-
 	grp.Go(func() error {
-		return generateTrafficAtFixedConcurrency(ctx, 7, duration, stopCh)
+		return generateTrafficAtFixedConcurrency(ctx, 7, stopCh)
 	})
 
 	// Wait for the activator endpoints to equalize.
@@ -106,7 +126,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 
 	// Start second load generator.
 	grp.Go(func() error {
-		return generateTrafficAtFixedConcurrency(ctx, 5, duration, stopCh)
+		return generateTrafficAtFixedConcurrency(ctx, 5, stopCh)
 	})
 
 	// Wait for two stable pods.
