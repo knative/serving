@@ -48,7 +48,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecRuntimeClassName: Disabled,
 		PodSpecSecurityContext:  Disabled,
 		PodSpecTolerations:      Disabled,
-		ResponsiveRevisionGC:    Allowed,
+		ResponsiveRevisionGC:    Enabled,
 		TagHeaderBasedRouting:   Disabled,
 	}
 }
