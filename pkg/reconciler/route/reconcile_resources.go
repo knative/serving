@@ -54,16 +54,19 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired 
 	} else if err != nil {
 		return nil, err
 	} else if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
-		!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) {
+		!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) ||
+		!equality.Semantic.DeepEqual(ingress.Labels, desired.Labels) {
 		// It is notable that one reason for differences here may be defaulting.
 		// When that is the case, the Update will end up being a nop because the
 		// webhook will bring them into alignment and no new reconciliation will occur.
-		// Also, compare annotation in case ingress.Class is updated.
+		// Also, compare annotation and label in case ingress.Class or parent route's labels
+		// is updated.
 
 		// Don't modify the informers copy
 		origin := ingress.DeepCopy()
 		origin.Spec = desired.Spec
 		origin.Annotations = desired.Annotations
+		origin.Labels = desired.Labels
 		updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(ctx, origin, metav1.UpdateOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to update Ingress: %w", err)

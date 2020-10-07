@@ -599,7 +599,7 @@ func TestReconcile(t *testing.T) {
 			{
 				Object: simpleReadyIngress(
 					Route("default", "different-domain", WithConfigTarget("config"),
-						WithAnotherDomain, WithRouteGeneration(1)),
+						WithAnotherDomain, WithRouteGeneration(1), WithRouteLabel(map[string]string{"app": "prod"})),
 					&traffic.Config{
 						Targets: map[string]traffic.RevisionTargets{
 							traffic.DefaultTarget: {{
@@ -825,8 +825,7 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleIngress(
 				Route("default", "becomes-public", WithConfigTarget("config"),
-					WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
-					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
+					WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
