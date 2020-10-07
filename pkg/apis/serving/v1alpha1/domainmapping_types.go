@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors.
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 // +genreconciler
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DomainMapping is a mapping from a custom hostname to an addresable.
+// DomainMapping is a mapping from a custom hostname to an Addressable.
 type DomainMapping struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
@@ -86,13 +86,12 @@ type DomainMappingStatus struct {
 }
 
 const (
-	// DomainMappingConditionReady is set when
-	// the DomainMapping is configured and the Ingress is ready.
+	// DomainMappingConditionReady is set when the DomainMapping is configured
+	// and the Ingress is ready.
 	DomainMappingConditionReady = apis.ConditionReady
 
-	// DomainMappingConditionIngressReady
-	// reflects the readiness of the underlying
-	// Ingress resource.
+	// DomainMappingConditionIngressReady reflects the readiness of the
+	// underlying Ingress resource.
 	DomainMappingConditionIngressReady apis.ConditionType = "IngressReady"
 )
 
