@@ -103,6 +103,7 @@ func generateTraffic(
 		return fmt.Errorf("error creating vegeta target: %w", err)
 	}
 
+	// The 0 duration means that the attack will only be controlled by the `Stop` function.
 	results := attacker.Attack(vegeta.NewStaticTargeter(target), pacer, 0, "load-test")
 	defer attacker.Stop()
 
@@ -142,15 +143,18 @@ func generateTraffic(
 
 func generateTrafficAtFixedConcurrency(ctx *TestContext, concurrency int, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{} // Sends requests as quickly as possible, capped by MaxWorkers below.
-	attacker := vegeta.NewAttacker(vegeta.Timeout(10*time.Minute), vegeta.Workers(uint64(concurrency)), vegeta.MaxWorkers(uint64(concurrency)))
+	attacker := vegeta.NewAttacker(
+		vegeta.Timeout(0), // No timeout is enforced at all.
+		vegeta.Workers(uint64(concurrency)),
+		vegeta.MaxWorkers(uint64(concurrency)))
 
-	ctx.t.Logf("Maintaining %d concurrent.", concurrency)
+	ctx.t.Logf("Maintaining %d concurrent requests.", concurrency)
 	return generateTraffic(ctx, attacker, pacer, stopChan)
 }
 
 func generateTrafficAtFixedRPS(ctx *TestContext, rps int, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{Freq: rps, Per: time.Second}
-	attacker := vegeta.NewAttacker(vegeta.Timeout(10 * time.Minute))
+	attacker := vegeta.NewAttacker(vegeta.Timeout(0)) // No timeout is enforced at all.
 
 	ctx.t.Logf("Maintaining %v RPS.", rps)
 	return generateTraffic(ctx, attacker, pacer, stopChan)
