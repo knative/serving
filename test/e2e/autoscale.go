@@ -210,7 +210,7 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 		t.Logf,
 		names.URL,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
-		"CheckingEndpointAfterUpdating",
+		"CheckingEndpointAfterCreate",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
