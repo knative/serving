@@ -63,14 +63,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	if errors.IsNotFound(err) {
 		lcr, err = c.createRevision(ctx, config)
 		if err != nil {
-			recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %v", err)
-
 			if !errors.IsAlreadyExists(err) {
 				// Mark the Configuration as not-Ready since creating
 				// its latest revision failed.
 				// Newer revisions with a consistent naming scheme can theoretically
 				// hit this path during normal operation so we don't do this if the
 				// revision we tried to create already existed.
+				recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %v", err)
 				config.Status.MarkRevisionCreationFailed(err.Error())
 			}
 
