@@ -17,6 +17,7 @@ limitations under the License.
 package bucket
 
 import (
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -66,6 +67,96 @@ func TestAutoscalerBucketSet(t *testing.T) {
 		"autoscaler-bucket-00-of-03", "autoscaler-bucket-01-of-03", "autoscaler-bucket-02-of-03"}
 	if got := bucketNames(AutoscalerBucketSet(3).Buckets()); !cmp.Equal(got, want) {
 		t.Errorf("AutoscalerBucketSet = %v, want = %v", got, want)
+	}
+}
+
+func TestIdentity(t *testing.T) {
+	testcases := []struct {
+		name      string
+		noSetIP   bool
+		noSetName bool
+		podIP     string
+		podName   string
+		want      string
+		wantErr   string
+	}{{
+		name:    "happy case",
+		podIP:   "1.2.3.4",
+		podName: "as",
+		want:    "as_1.2.3.4",
+	}, {
+		name:    "another happy case",
+		podIP:   "1.2.3.400",
+		podName: "autoscaler-abcd-efead",
+		want:    "autoscaler-abcd-efead_1.2.3.400",
+	}, {
+		name:    "empty pod IP",
+		podIP:   "",
+		podName: "autoscaler-abcd-efead",
+		wantErr: "POD_IP environment variable is empty",
+	}, {
+		name:    "empty pod name",
+		podIP:   "1.2.3.4",
+		podName: "",
+		wantErr: "POD_NAME environment variable is empty",
+	}, {
+		name:    "pod IP not set",
+		noSetIP: true,
+		podName: "autoscaler-abcd-efead",
+		wantErr: "POD_IP environment variable not set",
+	}, {
+		name:      "pod name not set",
+		podIP:     "1.2.3.4",
+		noSetName: true,
+		wantErr:   "POD_NAME environment variable not set",
+	}}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			if !tc.noSetIP {
+				os.Setenv("POD_IP", tc.podIP)
+				defer os.Unsetenv("POD_IP")
+			}
+			if !tc.noSetName {
+				os.Setenv("POD_NAME", tc.podName)
+				defer os.Unsetenv("POD_NAME")
+			}
+
+			got, err := Identity()
+			if err != nil {
+				if tc.wantErr == "" {
+					t.Fatalf("Unexpect error from Identity(): %v", err)
+				}
+				if got := err.Error(); got != tc.wantErr {
+					t.Errorf("got := %v, want = %v", got, tc.wantErr)
+				}
+			} else {
+				if tc.wantErr != "" {
+					t.Fatal("Expect error from Identity() but got nil")
+				}
+				if got != tc.want {
+					t.Errorf("got := %v, want = %v", got, tc.want)
+				}
+			}
+		})
+	}
+}
+
+func TestExtractPodNameAndIP(t *testing.T) {
+	gotName, gotIP, err := ExtractPodNameAndIP("as_1.2.3.4")
+	if err != nil {
+		t.Fatalf("Unexpect error from Identity(): %v", err)
+	}
+	if wantName := "as"; gotName != wantName {
+		t.Errorf("got := %v, want = %v", gotName, wantName)
+	}
+	if wantIP := "1.2.3.4"; gotIP != wantIP {
+		t.Errorf("got := %v, want = %v", gotIP, wantIP)
+	}
+
+	_, _, err = ExtractPodNameAndIP("1.2.3.4")
+	if err == nil {
+		t.Fatal("Expect error from Identity() but got nil")
 	}
 }
 

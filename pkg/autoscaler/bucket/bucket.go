@@ -52,8 +52,8 @@ func AutoscalerBucketSet(total uint32) *hash.BucketSet {
 	return hash.NewBucketSet(names)
 }
 
-// Identity returns a identify for this Autoscaler pod used as the Lease holder.
-// It's in the format of <POD_NAME>_<POD_IP> whose information is ready from
+// Identity returns a identify for this Autoscaler pod used as the Lease holder
+// identity. It's in the format of <POD-NAME>_<POD-IP> whose information is ready from
 // environment variables.
 func Identity() (string, error) {
 	selfIP, existing := os.LookupEnv("POD_IP")
@@ -75,6 +75,8 @@ func Identity() (string, error) {
 	return podName + "_" + selfIP, nil
 }
 
+// ExtractPodNameAndIP extracts the pod name and IP from the given Lease holder
+// identity.
 func ExtractPodNameAndIP(id string) (string, string, error) {
 	arr := strings.SplitN(id, "_", 2)
 	if len(arr) < 2 {

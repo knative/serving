@@ -94,6 +94,10 @@ type Forwarder struct {
 	// on when shutting down.
 	processingWg sync.WaitGroup
 
+	// id2ip stores the IP extracted from the holder identity to avoid
+	// string split each time.
+	id2ip map[string]string
+
 	statCh chan stat
 	stopCh chan struct{}
 }
@@ -111,6 +115,7 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		bs:              bs,
 		processors:      make(map[string]*bucketProcessor, len(bkts)),
 		accept:          accept,
+		id2ip:           make(map[string]string),
 		statCh:          make(chan stat, 1000),
 		stopCh:          make(chan struct{}),
 	}
@@ -131,6 +136,18 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 	return f
 }
 
+func (f *Forwarder) extractIP(holder string) (string, error) {
+	if ip, ok := f.id2ip[holder]; ok {
+		return ip, nil
+	}
+
+	_, ip, err := bucket.ExtractPodNameAndIP(holder)
+	if err == nil {
+		f.id2ip[holder] = ip
+	}
+	return ip, err
+}
+
 func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 	return func(obj interface{}) bool {
 		l := obj.(*coordinationv1.Lease)
@@ -149,13 +166,13 @@ func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 			return false
 		}
 
-		_, ip, err := bucket.ExtractPodNameAndIP(*l.Spec.HolderIdentity)
-		f.logger.Infof("### extract")
+		// The holder identity is in format of <POD-NAME>_<POD-IP>.
+		ip, err := f.extractIP(*l.Spec.HolderIdentity)
 		if err != nil {
 			f.logger.Warn("Found invalid Lease holder identify ", *l.Spec.HolderIdentity)
 			return false
 		}
-		if p := f.getProcessor(l.Name); p != nil && p.holder == ip {
+		if p := f.getProcessor(l.Name); p != nil && p.ip == ip {
 			// Already up-to-date.
 			return false
 		}
@@ -179,14 +196,11 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	// Close existing connection if there's one. The target address won't
 	// be the same as the IP has changed.
 	f.shutdown(f.getProcessor(n))
-	_, holder, err := bucket.ExtractPodNameAndIP(*l.Spec.HolderIdentity)
-	if err != nil {
-		f.logger.Warn("Found invalid Lease holder identify ", *l.Spec.HolderIdentity)
-		return
-	}
-	f.setProcessor(n, f.createProcessor(ns, n, holder))
+	// The map should have the IP because of the operations in the filter when queueing.
+	ip, _ := f.id2ip[*l.Spec.HolderIdentity]
+	f.setProcessor(n, f.createProcessor(ns, n, ip))
 
-	if holder != f.selfIP {
+	if ip != f.selfIP {
 		// Skip creating/updating Service and Endpoints if not the leader.
 		return
 	}
@@ -314,18 +328,18 @@ func (f *Forwarder) setProcessor(bkt string, p *bucketProcessor) {
 	f.processors[bkt] = p
 }
 
-func (f *Forwarder) createProcessor(ns, bkt, holder string) *bucketProcessor {
-	if holder == f.selfIP {
+func (f *Forwarder) createProcessor(ns, bkt, ip string) *bucketProcessor {
+	if ip == f.selfIP {
 		return &bucketProcessor{
 			bkt:    bkt,
 			logger: f.logger.With(zap.String("bucket", bkt)),
-			holder: holder,
+			ip:     ip,
 			accept: f.accept,
 		}
 	}
 
-	return newForwardProcessor(f.logger.With(zap.String("bucket", bkt)), bkt, holder,
-		fmt.Sprintf("ws://%s:%d", holder, autoscalerPort),
+	return newForwardProcessor(f.logger.With(zap.String("bucket", bkt)), bkt, ip,
+		fmt.Sprintf("ws://%s:%d", ip, autoscalerPort),
 		fmt.Sprintf("ws://%s.%s.%s", bkt, ns, svcURLSuffix))
 }
 
