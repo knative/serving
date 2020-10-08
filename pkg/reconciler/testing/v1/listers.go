@@ -35,9 +35,11 @@ import (
 	"knative.dev/pkg/reconciler/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	fakeservingclientset "knative.dev/serving/pkg/client/clientset/versioned/fake"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
+	servingv1alpha1listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 )
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
@@ -104,6 +106,10 @@ func (l *Listers) GetServiceLister() servinglisters.ServiceLister {
 
 func (l *Listers) GetRouteLister() servinglisters.RouteLister {
 	return servinglisters.NewRouteLister(l.IndexerFor(&v1.Route{}))
+}
+
+func (l *Listers) GetDomainMappingLister() servingv1alpha1listers.DomainMappingLister {
+	return servingv1alpha1listers.NewDomainMappingLister(l.IndexerFor(&v1alpha1.DomainMapping{}))
 }
 
 // GetServerlessServiceLister returns a lister for the ServerlessService objects.
