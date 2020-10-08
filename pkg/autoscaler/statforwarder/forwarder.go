@@ -39,6 +39,7 @@ import (
 	"knative.dev/pkg/hash"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/autoscaler/bucket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
 
@@ -148,7 +149,13 @@ func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 			return false
 		}
 
-		if p := f.getProcessor(l.Name); p != nil && p.holder == *l.Spec.HolderIdentity {
+		_, ip, err := bucket.ExtractPodNameAndIP(*l.Spec.HolderIdentity)
+		f.logger.Infof("### extract")
+		if err != nil {
+			f.logger.Warn("Found invalid Lease holder identify ", *l.Spec.HolderIdentity)
+			return false
+		}
+		if p := f.getProcessor(l.Name); p != nil && p.holder == ip {
 			// Already up-to-date.
 			return false
 		}
@@ -172,7 +179,11 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	// Close existing connection if there's one. The target address won't
 	// be the same as the IP has changed.
 	f.shutdown(f.getProcessor(n))
-	holder := *l.Spec.HolderIdentity
+	_, holder, err := bucket.ExtractPodNameAndIP(*l.Spec.HolderIdentity)
+	if err != nil {
+		f.logger.Warn("Found invalid Lease holder identify ", *l.Spec.HolderIdentity)
+		return
+	}
 	f.setProcessor(n, f.createProcessor(ns, n, holder))
 
 	if holder != f.selfIP {

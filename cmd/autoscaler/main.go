@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"go.uber.org/zap"
@@ -233,12 +232,9 @@ func flush(logger *zap.SugaredLogger) {
 }
 
 func componentConfig(ctx context.Context, logger *zap.SugaredLogger) leaderelection.ComponentConfig {
-	selfIP, existing := os.LookupEnv("POD_IP")
-	if !existing {
-		logger.Fatal("POD_IP environment variable not set.")
-	}
-	if selfIP == "" {
-		logger.Fatal("POD_IP environment variable is empty.")
+	id, err := bucket.Identity()
+	if err != nil {
+		logger.Fatalw("Fail to genrate Lease holder identify", zap.Error(err))
 	}
 
 	// Set up leader election config
@@ -251,7 +247,7 @@ func componentConfig(ctx context.Context, logger *zap.SugaredLogger) leaderelect
 	cc.LeaseName = func(i uint32) string {
 		return bucket.AutoscalerBucketName(i, cc.Buckets)
 	}
-	cc.Identity = selfIP
+	cc.Identity = id
 
 	return cc
 }
