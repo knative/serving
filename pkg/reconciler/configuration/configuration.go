@@ -59,15 +59,20 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	recorder := controller.GetEventRecorder(ctx)
 
 	// First, fetch the revision that should exist for the current generation.
-	lcr, err := c.latestCreatedRevision(config)
+	lcr, err := c.latestCreatedRevision(ctx, config)
 	if errors.IsNotFound(err) {
 		lcr, err = c.createRevision(ctx, config)
 		if err != nil {
 			recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %v", err)
 
-			// Mark the Configuration as not-Ready since creating
-			// its latest revision failed.
-			config.Status.MarkRevisionCreationFailed(err.Error())
+			if !errors.IsAlreadyExists(err) {
+				// Mark the Configuration as not-Ready since creating
+				// its latest revision failed.
+				// Newer revisions with a consistent naming scheme can theoretically
+				// hit this path during normal operation so we don't do this if the
+				// revision we tried to create already existed.
+				config.Status.MarkRevisionCreationFailed(err.Error())
+			}
 
 			return fmt.Errorf("failed to create Revision: %w", err)
 		}
@@ -241,14 +246,16 @@ func CheckNameAvailability(config *v1.Configuration, lister listers.RevisionList
 	return rev, nil
 }
 
-func (c *Reconciler) latestCreatedRevision(config *v1.Configuration) (*v1.Revision, error) {
+func (c *Reconciler) latestCreatedRevision(ctx context.Context, config *v1.Configuration) (*v1.Revision, error) {
 	if rev, err := CheckNameAvailability(config, c.revisionLister); rev != nil || err != nil {
 		return rev, err
 	}
 
 	lister := c.revisionLister.Revisions(config.Namespace)
-	generationKey := serving.ConfigurationGenerationLabelKey
 
+	// Even though we now name revisions consistently and could fetch by name, we have to
+	// keep this code to stay functional for older revisions that predate that change.
+	generationKey := serving.ConfigurationGenerationLabelKey
 	list, err := lister.List(labels.SelectorFromSet(labels.Set{
 		generationKey:                 resources.RevisionLabelValueForKey(generationKey, config),
 		serving.ConfigurationLabelKey: config.Name,
@@ -258,7 +265,9 @@ func (c *Reconciler) latestCreatedRevision(config *v1.Configuration) (*v1.Revisi
 		return list[0], nil
 	}
 
-	return nil, errors.NewNotFound(v1.Resource("revisions"), "revision for "+config.Name)
+	// Fallback to doing a get to name directly, just in case.
+	rev := resources.MakeRevision(ctx, config, c.clock)
+	return lister.Get(rev.Name)
 }
 
 func (c *Reconciler) createRevision(ctx context.Context, config *v1.Configuration) (*v1.Revision, error) {
