@@ -53,18 +53,18 @@ func TestReconcile(t *testing.T) {
 		Name: "first reconcile",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
-			DomainMapping("default", "first-reconcile.com", WithRef("default", "target")),
+			DomainMapping("default", "first-reconcile.com", withRef("default", "target")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DomainMapping("default", "first-reconcile.com",
-				WithRef("default", "target"),
-				WithURL("http", "first-reconcile.com"),
-				WithAddress("http", "first-reconcile.com"),
-				WithInitDomainMappingConditions,
+				withRef("default", "target"),
+				withURL("http", "first-reconcile.com"),
+				withAddress("http", "first-reconcile.com"),
+				withInitDomainMappingConditions,
 			),
 		}},
 		WantCreates: []runtime.Object{
-			resources.MakeIngress(DomainMapping("default", "first-reconcile.com", WithRef("default", "target")), "istio.ingress.networking.knative.dev"),
+			resources.MakeIngress(DomainMapping("default", "first-reconcile.com", withRef("default", "target")), "istio.ingress.networking.knative.dev"),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
@@ -73,19 +73,19 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile changed ref",
 		Key:  "default/ingress-exists.org",
 		Objects: []runtime.Object{
-			DomainMapping("default", "ingress-exists.org", WithRef("default", "changed")),
-			resources.MakeIngress(DomainMapping("default", "ingress-exists.org", WithRef("default", "target")), "istio.ingress.networking.knative.dev"),
+			DomainMapping("default", "ingress-exists.org", withRef("default", "changed")),
+			resources.MakeIngress(DomainMapping("default", "ingress-exists.org", withRef("default", "target")), "istio.ingress.networking.knative.dev"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DomainMapping("default", "ingress-exists.org",
-				WithRef("default", "changed"),
-				WithURL("http", "ingress-exists.org"),
-				WithAddress("http", "ingress-exists.org"),
-				WithInitDomainMappingConditions,
+				withRef("default", "changed"),
+				withURL("http", "ingress-exists.org"),
+				withAddress("http", "ingress-exists.org"),
+				withInitDomainMappingConditions,
 			),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeIngress(DomainMapping("default", "ingress-exists.org", WithRef("default", "changed")), "istio.ingress.networking.knative.dev"),
+			Object: resources.MakeIngress(DomainMapping("default", "ingress-exists.org", withRef("default", "changed")), "istio.ingress.networking.knative.dev"),
 		}},
 	}}
 
@@ -116,20 +116,20 @@ func DomainMapping(namespace, name string, opt ...domainMappingOption) *v1alpha1
 	return dm
 }
 
-func WithRef(namespace, name string) domainMappingOption {
+func withRef(namespace, name string) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Spec.Ref.Namespace = namespace
 		dm.Spec.Ref.Name = name
 	}
 }
 
-func WithURL(scheme, host string) domainMappingOption {
+func withURL(scheme, host string) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Status.URL = &apis.URL{Scheme: scheme, Host: host}
 	}
 }
 
-func WithAddress(scheme, host string) domainMappingOption {
+func withAddress(scheme, host string) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Status.Address = &duckv1.Addressable{URL: &apis.URL{
 			Scheme: scheme,
@@ -138,6 +138,6 @@ func WithAddress(scheme, host string) domainMappingOption {
 	}
 }
 
-func WithInitDomainMappingConditions(dm *v1alpha1.DomainMapping) {
+func withInitDomainMappingConditions(dm *v1alpha1.DomainMapping) {
 	dm.Status.InitializeConditions()
 }
