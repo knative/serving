@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
@@ -59,6 +60,9 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, ingressClass string) *netv1a
 						RewriteHost: targetHostName,
 						Splits: []netv1alpha1.IngressBackendSplit{{
 							Percent: 100,
+							AppendHeaders: map[string]string{
+								network.OriginalHostHeader: dm.Name,
+							},
 							IngressBackend: netv1alpha1.IngressBackend{
 								ServiceName:      targetServiceName,
 								ServiceNamespace: targetServiceNamespace,

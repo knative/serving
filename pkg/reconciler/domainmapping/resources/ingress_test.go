@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	network "knative.dev/networking/pkg"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
@@ -68,6 +69,9 @@ func TestMakeIngress(t *testing.T) {
 						RewriteHost: "the-name.the-namespace.svc.cluster.local",
 						Splits: []netv1alpha1.IngressBackendSplit{{
 							Percent: 100,
+							AppendHeaders: map[string]string{
+								network.OriginalHostHeader: "mapping.com",
+							},
 							IngressBackend: netv1alpha1.IngressBackend{
 								ServiceName:      "the-name",
 								ServiceNamespace: "the-namespace",
