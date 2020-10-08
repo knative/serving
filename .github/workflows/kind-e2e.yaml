@@ -23,9 +23,7 @@ jobs:
         - v1.19.1
 
         test-suite:
-        - ./test/conformance/runtime
-        - ./test/conformance/api/v1
-        - ./test/e2e
+        - ./test/conformance/api/v1new
 
         # Map between K8s and KinD versions.
         # This is attempting to make it a bit clearer what's being tested.
@@ -226,5 +224,4 @@ jobs:
         IPS=( $(kubectl get nodes -lkubernetes.io/hostname!=kind-control-plane -ojsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}') )
 
         # Run the tests tagged as e2e on the KinD cluster.
-        go test -race -count=1 -timeout=20m -tags=e2e ${{ matrix.test-suite }} \
-           --ingressendpoint="${IPS[0]}"
+        go test -race -count=1 -timeout=20m -tags=e2e ${{ matrix.test-suite }}
