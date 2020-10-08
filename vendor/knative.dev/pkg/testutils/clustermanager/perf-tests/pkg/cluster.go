@@ -47,12 +47,13 @@ var (
 	serviceAccount         = flag.String("service-account", "", "service account that will be used on this cluster")
 )
 
-type gkeClient struct {
+// GKEClient is the GKE adapter to operate clusters.
+type GKEClient struct {
 	ops gke.SDKOperations
 }
 
 // NewClient will create a new gkeClient.
-func NewClient(environment string) (*gkeClient, error) {
+func NewClient(environment string) (*GKEClient, error) {
 	endpoint, err := gke.ServiceEndpoint(environment)
 	if err != nil {
 		return nil, err
@@ -63,7 +64,7 @@ func NewClient(environment string) (*gkeClient, error) {
 		return nil, fmt.Errorf("failed to set up GKE client: %w", err)
 	}
 
-	client := &gkeClient{
+	client := &GKEClient{
 		ops: operations,
 	}
 	return client, nil
@@ -71,7 +72,7 @@ func NewClient(environment string) (*gkeClient, error) {
 
 // RecreateClusters will delete and recreate the existing clusters, it will also create the clusters if they do
 // not exist for the corresponding benchmarks.
-func (gc *gkeClient) RecreateClusters(gcpProject, repo, benchmarkRoot string) error {
+func (gc *GKEClient) RecreateClusters(gcpProject, repo, benchmarkRoot string) error {
 	handleExistingCluster := func(cluster container.Cluster, configExists bool, config ClusterConfig) error {
 		// always delete the cluster, even if the cluster config is unchanged
 		return gc.handleExistingClusterHelper(gcpProject, cluster, configExists, config, false)
@@ -90,7 +91,7 @@ func (gc *gkeClient) RecreateClusters(gcpProject, repo, benchmarkRoot string) er
 // 2. If the benchmark's config is changed, delete the old cluster and create a new one with the new config
 // 3. If the benchmark is renamed, delete the old cluster and create a new one with the new name
 // 4. If the benchmark is deleted, delete the corresponding cluster
-func (gc *gkeClient) ReconcileClusters(gcpProject, repo, benchmarkRoot string) error {
+func (gc *GKEClient) ReconcileClusters(gcpProject, repo, benchmarkRoot string) error {
 	handleExistingCluster := func(cluster container.Cluster, configExists bool, config ClusterConfig) error {
 		// retain the cluster, if the cluster config is unchanged
 		return gc.handleExistingClusterHelper(gcpProject, cluster, configExists, config, true)
@@ -103,7 +104,7 @@ func (gc *gkeClient) ReconcileClusters(gcpProject, repo, benchmarkRoot string) e
 }
 
 // DeleteClusters will delete all existing clusters.
-func (gc *gkeClient) DeleteClusters(gcpProject, repo, benchmarkRoot string) error {
+func (gc *GKEClient) DeleteClusters(gcpProject, repo, benchmarkRoot string) error {
 	handleExistingCluster := func(cluster container.Cluster, configExists bool, config ClusterConfig) error {
 		// retain the cluster, if the cluster config is unchanged
 		return gc.deleteClusterWithRetries(gcpProject, cluster)
@@ -117,7 +118,7 @@ func (gc *gkeClient) DeleteClusters(gcpProject, repo, benchmarkRoot string) erro
 
 // processClusters will process existing clusters and configs for new clusters,
 // with the corresponding functions provided by callers.
-func (gc *gkeClient) processClusters(
+func (gc *GKEClient) processClusters(
 	gcpProject, repo, benchmarkRoot string,
 	handleExistingCluster func(cluster container.Cluster, configExists bool, config ClusterConfig) error,
 	handleNewClusterConfig func(name string, config ClusterConfig) error,
@@ -173,7 +174,7 @@ func (gc *gkeClient) processClusters(
 }
 
 // handleExistingClusterHelper is a helper function for handling an existing cluster.
-func (gc *gkeClient) handleExistingClusterHelper(
+func (gc *GKEClient) handleExistingClusterHelper(
 	gcpProject string,
 	cluster container.Cluster, configExists bool, config ClusterConfig,
 	retainIfUnchanged bool,
@@ -208,7 +209,7 @@ func (gc *gkeClient) handleExistingClusterHelper(
 }
 
 // listClustersForRepo will list all the clusters under the gcpProject that belong to the given repo.
-func (gc *gkeClient) listClustersForRepo(gcpProject, repo string) ([]container.Cluster, error) {
+func (gc *GKEClient) listClustersForRepo(gcpProject, repo string) ([]container.Cluster, error) {
 	allClusters, err := gc.ops.ListClustersInProject(gcpProject)
 	if err != nil {
 		return nil, fmt.Errorf("failed listing clusters in project %q: %w", gcpProject, err)
@@ -226,7 +227,7 @@ func (gc *gkeClient) listClustersForRepo(gcpProject, repo string) ([]container.C
 // deleteClusterWithRetries will delete the given cluster,
 // and retry for a maximum of retryTimes if there is an error.
 // TODO(chizhg): maybe move it to clustermanager library.
-func (gc *gkeClient) deleteClusterWithRetries(gcpProject string, cluster container.Cluster) error {
+func (gc *GKEClient) deleteClusterWithRetries(gcpProject string, cluster container.Cluster) error {
 	log.Printf("Deleting cluster %q under project %q", cluster.Name, gcpProject)
 	region, zone := gke.RegionZoneFromLoc(cluster.Location)
 	var err error
@@ -247,7 +248,7 @@ func (gc *gkeClient) deleteClusterWithRetries(gcpProject string, cluster contain
 // createClusterWithRetries will create a new cluster with the given config,
 // and retry for a maximum of retryTimes if there is an error.
 // TODO(chizhg): maybe move it to clustermanager library.
-func (gc *gkeClient) createClusterWithRetries(gcpProject, name string, config ClusterConfig) error {
+func (gc *GKEClient) createClusterWithRetries(gcpProject, name string, config ClusterConfig) error {
 	log.Printf("Creating cluster %q under project %q with config %v", name, gcpProject, config)
 	var addons []string
 	if strings.TrimSpace(config.Addons) != "" {

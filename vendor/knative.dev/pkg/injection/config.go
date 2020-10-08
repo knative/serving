@@ -20,6 +20,7 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"math"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -37,6 +38,9 @@ func ParseAndGetRESTConfigOrDie() *rest.Config {
 			"The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 		kubeconfig = flag.String("kubeconfig", "",
 			"Path to a kubeconfig. Only required if out-of-cluster.")
+
+		burst = flag.Int("kube-api-burst", 0, "Maximum burst for throttle.")
+		qps   = flag.Float64("kube-api-qps", 0, "Maximum QPS to the server from the client.")
 	)
 	klog.InitFlags(flag.CommandLine)
 	flag.Parse()
@@ -45,6 +49,16 @@ func ParseAndGetRESTConfigOrDie() *rest.Config {
 	if err != nil {
 		log.Fatal("Error building kubeconfig: ", err)
 	}
+
+	if *burst < 0 {
+		log.Fatal("Invalid burst value", *burst)
+	}
+	if *qps < 0 || *qps > math.MaxFloat32 {
+		log.Fatal("Invalid QPS value", *qps)
+	}
+
+	cfg.Burst = *burst
+	cfg.QPS = float32(*qps)
 
 	return cfg
 }

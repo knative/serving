@@ -23,7 +23,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto" //nolint apis incompatible with the new version
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
 )
 
