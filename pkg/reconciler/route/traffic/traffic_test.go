@@ -19,10 +19,12 @@ package traffic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -320,6 +322,51 @@ func TestBuildTrafficConfigurationTwoConfigs(t *testing.T) {
 	}))); err != nil {
 		t.Error("Unexpected error", err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
+	}
+}
+
+func TestBuildTrafficConfigurationTwoEntriesSameConfig(t *testing.T) {
+	expected := &Config{
+		Targets: map[string]RevisionTargets{
+			DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: niceConfig.Name,
+					RevisionName:      niceNewRev.Name,
+					Percent:           ptr.Int64(100),
+					LatestRevision:    ptr.Bool(true),
+				},
+				Active:   true,
+				Protocol: net.ProtocolH2C,
+			}},
+		},
+		revisionTargets: []RevisionTarget{{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: niceConfig.Name,
+				RevisionName:      niceNewRev.Name,
+				Percent:           ptr.Int64(100),
+				LatestRevision:    ptr.Bool(true),
+			},
+			Active:   true,
+			Protocol: net.ProtocolH2C,
+		}},
+		Configurations: map[string]*v1.Configuration{
+			niceConfig.Name: niceConfig,
+		},
+		Revisions: map[string]*v1.Revision{
+			niceNewRev.Name: niceNewRev,
+		},
+	}
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
+		ConfigurationName: niceConfig.Name,
+		Percent:           ptr.Int64(90),
+	}, v1.TrafficTarget{
+		ConfigurationName: niceConfig.Name,
+		Percent:           ptr.Int64(10),
+	}))); err != nil {
+		t.Error("Unexpected error", err)
+	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
+		fmt.Println(spew.Sdump(got))
 		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
 	}
 }
