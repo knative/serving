@@ -43,7 +43,10 @@ func TestService(t *ConformanceT) {
 	svc := &v1.Service{}
 	svc.Name = names.Service
 	svc.Spec.Template.Spec.Containers = []corev1.Container{
-		{Image: t.Images.Path("helloworld")},
+		{
+			Image:           t.Images.Path("helloworld"),
+			ImagePullPolicy: corev1.PullIfNotPresent, // kind fix
+		},
 	}
 
 	_, err := t.ServingClients.Services.Create(context.TODO(), svc, metav1.CreateOptions{})
@@ -69,10 +72,14 @@ func TestServiceMultiContainer(t *ConformanceT) {
 	svc.Name = names.Service
 	svc.Spec.Template.Spec.Containers = []corev1.Container{
 		{
-			Image: t.Images.Path("servingcontainer"),
-			Ports: []corev1.ContainerPort{{ContainerPort: 8881}},
+			Image:           t.Images.Path("servingcontainer"),
+			Ports:           []corev1.ContainerPort{{ContainerPort: 8881}},
+			ImagePullPolicy: corev1.PullIfNotPresent,
 		},
-		{Image: t.Images.Path("sidecarcontainer")},
+		{
+			Image:           t.Images.Path("sidecarcontainer"),
+			ImagePullPolicy: corev1.PullIfNotPresent, // kind fix
+		},
 	}
 
 	_, err := t.ServingClients.Services.Create(context.TODO(), svc, metav1.CreateOptions{})
