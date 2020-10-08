@@ -25,6 +25,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
+	pkgnetwork "knative.dev/pkg/network"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -38,7 +39,7 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, ingressClass string) *netv1a
 	// This assumes the target is a KSvc. To support arbitrary addressables
 	// we will need to resolve the reference to a URL in the same way that
 	// eventing does.
-	targetHostName := targetServiceName + "." + targetServiceNamespace + ".svc.cluster.local"
+	targetHostName := pkgnetwork.GetServiceHostname(targetServiceName, targetServiceNamespace)
 
 	return &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
