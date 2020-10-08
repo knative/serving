@@ -101,9 +101,9 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
-type DomainMappingOption func(dm *v1alpha1.DomainMapping)
+type domainMappingOption func(dm *v1alpha1.DomainMapping)
 
-func DomainMapping(namespace, name string, opt ...DomainMappingOption) *v1alpha1.DomainMapping {
+func DomainMapping(namespace, name string, opt ...domainMappingOption) *v1alpha1.DomainMapping {
 	dm := &v1alpha1.DomainMapping{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -116,20 +116,20 @@ func DomainMapping(namespace, name string, opt ...DomainMappingOption) *v1alpha1
 	return dm
 }
 
-func WithRef(namespace, name string) DomainMappingOption {
+func WithRef(namespace, name string) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Spec.Ref.Namespace = namespace
 		dm.Spec.Ref.Name = name
 	}
 }
 
-func WithURL(scheme, host string) DomainMappingOption {
+func WithURL(scheme, host string) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Status.URL = &apis.URL{Scheme: scheme, Host: host}
 	}
 }
 
-func WithAddress(scheme, host string) DomainMappingOption {
+func WithAddress(scheme, host string) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Status.Address = &duckv1.Addressable{URL: &apis.URL{
 			Scheme: scheme,

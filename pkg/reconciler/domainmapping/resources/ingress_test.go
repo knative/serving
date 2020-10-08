@@ -85,6 +85,6 @@ func TestMakeIngress(t *testing.T) {
 	}
 
 	if !cmp.Equal(want, got) {
-		t.Error("Unexpected Ingress (-want, +got):\n", cmp.Diff(want, got))
+		t.Errorf("Unexpected Ingress (-want, +got):\n%s", cmp.Diff(want, got))
 	}
 }

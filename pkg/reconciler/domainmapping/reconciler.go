@@ -68,11 +68,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	logger.Debugf("Mapping %s to %s/%s", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name)
 	desired := resources.MakeIngress(dm, ingressClass)
 	_, err := r.reconcileIngress(ctx, dm, desired)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMapping, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {
