@@ -142,6 +142,20 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatal("Timeout to get the Endpoints:", lastErr)
 	}
 
+	// f1 is the owner of bucket1 while bucket2 has no owner.
+	if got := f1.IsBktOwner(bucket1); got != true {
+		t.Errorf("IsBktOwner(bucket1) = %v, want true", got)
+	}
+	if got := f1.IsBktOwner(bucket2); got != false {
+		t.Errorf("IsBktOwner(bucket1) = %v, want false", got)
+	}
+	if got := f2.IsBktOwner(bucket1); got != false {
+		t.Errorf("IsBktOwner(bucket1) = %v, want false", got)
+	}
+	if got := f2.IsBktOwner(bucket2); got != false {
+		t.Errorf("IsBktOwner(bucket1) = %v, want false", got)
+	}
+
 	// Lease holder gets changed.
 	l := testLease.DeepCopy()
 	l.Spec.HolderIdentity = &testIP2
@@ -165,6 +179,14 @@ func TestForwarderReconcile(t *testing.T) {
 		return true, nil
 	}); err != nil {
 		t.Fatal("Timeout to get the Endpoints:", lastErr)
+	}
+
+	// f2 is the owner of bucket1.
+	if got := f1.IsBktOwner(bucket1); got != false {
+		t.Errorf("IsBktOwner(bucket1) = %v, want false", got)
+	}
+	if got := f2.IsBktOwner(bucket1); got != true {
+		t.Errorf("IsBktOwner(bucket1) = %v, want true", got)
 	}
 }
 

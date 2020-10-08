@@ -137,10 +137,6 @@ func main() {
 		metric.NewController(ctx, cmw, collector),
 	}
 
-	// Set up a statserver.
-	// TODO(yanweiguo): Populate the isBktOwner from statfowarder.Forwarder.
-	statsServer := statserver.New(statsServerAddr, statsCh, logger, nil /* isBktOwner*/)
-
 	// Start watching the configs.
 	if err := cmw.Start(ctx.Done()); err != nil {
 		logger.Fatalw("Failed to start watching configs", zap.Error(err))
@@ -160,6 +156,9 @@ func main() {
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
 	f := statforwarder.New(ctx, logger, kubeClient, cc.Identity, bucket.AutoscalerBucketSet(cc.Buckets), accept)
+
+	// Set up a statserver.
+	statsServer := statserver.New(statsServerAddr, statsCh, logger, f.IsBktOwner)
 
 	defer f.Cancel()
 
