@@ -89,7 +89,7 @@ var (
 	// which should be promoted to Stackdriver Resource labels via opencensus resources.
 	metricToResourceLabels = map[string]*resourceTemplate{}
 
-	// A variable for testing to reduce the size (number of metrics) buffered before
+	// TestOverrideBundleCount is a variable for testing to reduce the size (number of metrics) buffered before
 	// Stackdriver will send a bundled metric report. Only applies if non-zero.
 	TestOverrideBundleCount = 0
 )
