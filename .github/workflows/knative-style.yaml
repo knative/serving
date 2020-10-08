@@ -109,7 +109,7 @@ jobs:
           curl -sfL https://raw.githubusercontent.com/get-woke/woke/main/install.sh | sh -s -- -b "${TEMP_PATH}" "${WOKE_VERSION}" 2>&1
           echo '::endgroup::'
 
-          echo "::add-path::${TEMP_PATH}"
+          echo "${TEMP_PATH}" >> $GITHUB_PATH
 
       - id: golangci_configuration
         uses: andstor/file-existence-action@v1
@@ -179,7 +179,12 @@ jobs:
           echo '::group:: Flagging missing EOF newlines with reviewdog 🐶 ...'
           # Don't fail because of misspell
           set +o pipefail
-          for x in $(find . -type f -not -path './vendor/*' -not -path './third_party/*' -not -path './.git/*'); do
+          # Lint exclude rule:
+          #  - nothing in vendor/
+          #  - nothing in third_party
+          #  - nothing in .git/
+          #  - no *.ai (Adobe Illustrator) files.
+          for x in $(find . -type f -not -name '*.ai' -not -path './vendor/*' -not -path './third_party/*' -not -path './.git/*'); do
             # Based on https://stackoverflow.com/questions/34943632/linux-check-if-there-is-an-empty-line-at-the-end-of-a-file
             if [[ -f $x && ! ( -s "$x" && -z "$(tail -c 1 $x)" ) ]]; then
               # We add 1 to `wc -l` here because of this limitation (from the man page):
@@ -219,7 +224,19 @@ jobs:
               file=$(echo $ent | cut -d':' -f 1);
               line=$(echo $ent | cut -d':' -f 2);
               ch=$(echo $ent | cut -d':' -f3-);
-              err=$(echo $ch | sed -E 's/([^.]+\.)(Fatal|Error|Warn|Info|Debug|Log|Sprint|Print|Fprint)f([^\%]+)(%[^wq]",)([^,]+)/\1\2\3",\5/');
+              err="Unknown printer tool, please file an issue in knative-sandbox/.github and assign to @vagababov: $ch"
+              if echo $ch | grep --quiet -E "^t.(Errorf|Fatalf|Logf)" ; then
+                err=$(echo $ch | sed  -E 's/([^.fm]+t\.)(Fatal|Error|Log)f([^\%]+)( %[^Tq]",)([^,]+)/\1\2\3",\5/')
+                # Not a test. Here we deal with various loggers and fmt helpers.
+              elif echo $ch | grep --quiet "log" ; then
+                # Capture (x)?log(er)?.
+                err=$(echo $ch | sed -E 's/(.*log.*\.)(Print|Fatal|Error|Info|Warn)f([^\%]+)(%[^Tq]",)([^,]+)/\1\2\3",\5/')
+              elif echo $ch | grep --quiet -E "fmt\.Sprintf" ; then
+                # Always space after sprintf
+                err=$(echo $ch | sed -E 's/(fmt\.)(Sprint)f([^%]+) (%s",)([^,]+)/\1\2\3 ",\5/')
+              elif echo $ch | grep --quiet -E "fmt\." ; then  # all other fmt. printers.
+                err=$(echo $ch | sed -E 's/(fmt\.)(Print|Fprint)f([^%]+) (%[^sTxq]",)([^,]+)/\1\2\3",\5/')
+              fi
               echo "$file:$line: Please consider avoiding tail format like this:%0A$err"
           done |
           reviewdog -efm="%f:%l: %m" \
