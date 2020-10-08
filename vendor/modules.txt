@@ -394,7 +394,7 @@ golang.org/x/text/unicode/norm
 golang.org/x/text/width
 # golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 golang.org/x/time/rate
-# golang.org/x/tools v0.0.0-20200916195026-c9a70fc28ce3
+# golang.org/x/tools v0.0.0-20200918201133-e94ab7288189
 golang.org/x/tools/go/analysis
 golang.org/x/tools/go/analysis/passes/inspect
 golang.org/x/tools/go/ast/astutil
@@ -1151,6 +1151,12 @@ knative.dev/pkg/webhook/resourcesemantics
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
+# knative.dev/reconciler-test v0.0.0-00010101000000-000000000000 => github.com/dprotaso/reconciler-test v0.0.0-20201008132341-b98abad6c910
+## explicit
+knative.dev/reconciler-test/pkg/test
+knative.dev/reconciler-test/pkg/test/environment
+knative.dev/reconciler-test/pkg/test/feature
+knative.dev/reconciler-test/pkg/test/requirement
 # knative.dev/test-infra v0.0.0-20201008043522-20ae6ee1a359
 ## explicit
 knative.dev/test-infra/scripts
@@ -1168,3 +1174,4 @@ sigs.k8s.io/yaml
 # k8s.io/client-go => k8s.io/client-go v0.18.8
 # k8s.io/code-generator => k8s.io/code-generator v0.18.8
 # k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
+# knative.dev/reconciler-test => github.com/dprotaso/reconciler-test v0.0.0-20201008132341-b98abad6c910

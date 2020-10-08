@@ -36,6 +36,7 @@ require (
 	knative.dev/caching v0.0.0-20201008043923-06f743d9ad2b
 	knative.dev/networking v0.0.0-20201008041421-a124f20c3c7c
 	knative.dev/pkg v0.0.0-20201008052621-c0496d5e1b2b
+	knative.dev/reconciler-test v0.0.0-00010101000000-000000000000
 	knative.dev/test-infra v0.0.0-20201008043522-20ae6ee1a359
 )
 
@@ -54,3 +55,5 @@ replace (
 	k8s.io/code-generator => k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 )
+
+replace knative.dev/reconciler-test => github.com/dprotaso/reconciler-test v0.0.0-20201008132341-b98abad6c910
