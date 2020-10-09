@@ -20,9 +20,9 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "4437b773"
+    knative.dev/example-checksum: "2cf73688"
 data:
-  _example: |
+  _example: |-
     ################################
     #                              #
     #    EXAMPLE CONFIGURATION     #
@@ -127,3 +127,8 @@ data:
     # 2. Disabled: disabling tag header based routing
     # See: https://knative.dev/docs/serving/feature-flags/#tag-header-based-routing
     tag-header-based-routing: "disabled"
+
+    # Controls whether http2 auto-detection should be enabled or not.
+    # 1. Enabled: http2 connection will be attempted via upgrade.
+    # 2. Disabled: http2 connection will only be attempted when port name is set to "h2c".
+    autodetect-http2: "disabled"

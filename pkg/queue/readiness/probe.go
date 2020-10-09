@@ -17,6 +17,7 @@ limitations under the License.
 package readiness
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -40,8 +41,9 @@ const (
 type Probe struct {
 	*corev1.Probe
 	count       int32
-	pollTimeout time.Duration // To make tests not run for 10 seconds.
-	out         io.Writer     // To make tests not log errors in good cases.
+	pollTimeout time.Duration   // To make tests not run for 10 seconds.
+	out         io.Writer       // To make tests not log errors in good cases.
+	ctx         context.Context // To enable feature flags support.
 
 	// Barrier sync to ensure only one probe is happening at the same time.
 	// When a probe is active `gv` will be non-nil.
@@ -77,11 +79,12 @@ func (gv *gateValue) read() bool {
 }
 
 // NewProbe returns a pointer a new Probe
-func NewProbe(v1p *corev1.Probe) *Probe {
+func NewProbe(ctx context.Context, v1p *corev1.Probe) *Probe {
 	return &Probe{
 		Probe:       v1p,
 		pollTimeout: PollTimeout,
 		out:         os.Stderr,
+		ctx:         ctx,
 	}
 }
 
@@ -199,6 +202,6 @@ func (p *Probe) httpProbe() error {
 
 	return p.doProbe(func(to time.Duration) error {
 		config.Timeout = to
-		return health.HTTPProbe(config)
+		return health.HTTPProbe(p.ctx, config)
 	})
 }

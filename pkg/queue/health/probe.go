@@ -17,6 +17,7 @@ limitations under the License.
 package health
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -27,6 +28,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	network "knative.dev/networking/pkg"
+	pkgnet "knative.dev/pkg/network"
+	apicfg "knative.dev/serving/pkg/apis/config"
 )
 
 // HTTPProbeConfigOptions holds the HTTP probe config options
@@ -35,6 +38,7 @@ type HTTPProbeConfigOptions struct {
 	*corev1.HTTPGetAction
 	KubeMajor string
 	KubeMinor string
+	IsHTTP2   *bool
 }
 
 // TCPProbeConfigOptions holds the TCP probe config options
@@ -55,6 +59,34 @@ func TCPProbe(config TCPProbeConfigOptions) error {
 	return nil
 }
 
+// Returns a transport that uses HTTP/2 if it's known to be supported, and otherwise
+// spoofs the request & response versions to HTTP/1.1.
+func autoDowngradingTransport(isHTTP2 *bool) http.RoundTripper {
+	t := pkgnet.NewProberTransport()
+	return pkgnet.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		// If the user-container can handle HTTP2, we pass through the request as-is.
+		// We have to set r.ProtoMajor to 2, since auto transport relies solely on it
+		// to decide whether to use h2c or http1.1.
+		if isHTTP2 != nil && *isHTTP2 {
+			r.ProtoMajor = 2
+			return t.RoundTrip(r)
+		}
+
+		// Otherwise, save the request HTTP version and downgrade it
+		// to HTTP1 before sending.
+		version := r.ProtoMajor
+		r.ProtoMajor = 1
+		resp, err := t.RoundTrip(r)
+
+		// Restore the request & response HTTP version before sending back.
+		r.ProtoMajor = version
+		if resp != nil {
+			resp.ProtoMajor = version
+		}
+		return resp, err
+	})
+}
+
 var transport = func() *http.Transport {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.DisableKeepAlives = true
@@ -63,18 +95,85 @@ var transport = func() *http.Transport {
 	return t
 }()
 
-// HTTPProbe checks that HTTP connection can be established to the address.
-func HTTPProbe(config HTTPProbeConfigOptions) error {
-	httpClient := &http.Client{
-		Transport: transport,
-		Timeout:   config.Timeout,
-	}
-
+func getURL(config HTTPProbeConfigOptions) url.URL {
 	url := url.URL{
 		Scheme: string(config.Scheme),
 		Host:   net.JoinHostPort(config.Host, config.Port.String()),
 		Path:   config.Path,
 	}
+	return url
+}
+
+// http2UpgradeProbe checks that an HTTP with HTTP2 upgrade request
+// connection can be understood by the address.
+func http2UpgradeProbe(config HTTPProbeConfigOptions) (*bool, bool, error) {
+
+	httpClient := &http.Client{
+		Transport: transport,
+		Timeout:   config.Timeout,
+	}
+	url := getURL(config)
+	req, err := http.NewRequest(http.MethodOptions, url.String(), nil)
+	if err != nil {
+		return nil, false, fmt.Errorf("error constructing probe request %w", err)
+	}
+
+	// An upgrade will need to have at least these 3 headers.
+	req.Header.Add("Connection", "Upgrade, HTTP2-Settings")
+	req.Header.Add("Upgrade", "h2c")
+	req.Header.Add("HTTP2-Settings", "")
+
+	req.Header.Add(network.UserAgentKey, network.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
+
+	res, err := httpClient.Do(req)
+	if err != nil {
+		return nil, false, err
+	}
+	defer res.Body.Close()
+
+	// It is possible that the container might not be ready yet. We
+	if res.StatusCode >= 400 {
+		return nil, false, fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
+	}
+
+	isHTTP2 := false
+	isHTTP1AndReady := false
+	if IsHTTPProbeReady(res) {
+		isHTTP1AndReady = true
+	} else if res.StatusCode == http.StatusSwitchingProtocols && res.Header.Get("Upgrade") == "h2c" {
+		isHTTP2 = true
+	}
+
+	return &isHTTP2, isHTTP1AndReady, nil
+}
+
+// HTTPProbe checks that HTTP connection can be established to the address.
+func HTTPProbe(ctx context.Context, config HTTPProbeConfigOptions) error {
+	cfg := apicfg.FromContextOrDefaults(ctx)
+	autoDetect := cfg.Features.AutoDetectHTTP2
+	if autoDetect == apicfg.Disabled {
+		ishttp := false
+		config.IsHTTP2 = &ishttp
+	}
+	// If we don't know if the connection supports HTTP2, we will try it.
+	// Once we get a non-error response, we won't try again.
+	// It's also possible that we get a ready status, which means both that
+	// the connection didn't support http2 and that the http 1.1 probe was ready.
+	if autoDetect == apicfg.Enabled && config.IsHTTP2 == nil {
+		isHTTP2, isReady, err := http2UpgradeProbe(config)
+		if err != nil {
+			return fmt.Errorf("Failed to run HTTP2 upgrade probe with error: %v", err)
+		}
+		config.IsHTTP2 = isHTTP2
+		if isReady {
+			return nil
+		}
+	}
+	httpClient := &http.Client{
+		Transport: autoDowngradingTransport(config.IsHTTP2),
+		Timeout:   config.Timeout,
+	}
+	url := getURL(config)
 	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
 		return fmt.Errorf("error constructing probe request %w", err)

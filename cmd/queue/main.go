@@ -165,7 +165,7 @@ func main() {
 	}()
 
 	// Setup probe to run for checking user-application healthiness.
-	probe := buildProbe(logger, env.ServingReadinessProbe)
+	probe := buildProbe(ctx, logger, env.ServingReadinessProbe)
 	healthState := health.NewState()
 
 	mainServer := buildServer(ctx, env, healthState, probe, stats, logger)
@@ -254,12 +254,12 @@ func main() {
 	}
 }
 
-func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
+func buildProbe(ctx context.Context, logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 	coreProbe, err := readiness.DecodeProbe(probeJSON)
 	if err != nil {
 		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
 	}
-	return readiness.NewProbe(coreProbe)
+	return readiness.NewProbe(ctx, coreProbe)
 }
 
 func buildServer(ctx context.Context, env config, healthState *health.State, rp *readiness.Probe, stats *network.RequestStats,
