@@ -37,6 +37,11 @@ func (dm *DomainMapping) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("DomainMapping")
 }
 
+// IsReady returns true if the DomainMapping is ready.
+func (dms *DomainMappingStatus) IsReady() bool {
+	return domainMappingCondSet.Manage(dms).IsHappy()
+}
+
 // InitializeConditions sets the initial values to the conditions.
 func (dms *DomainMappingStatus) InitializeConditions() {
 	domainMappingCondSet.Manage(dms).InitializeConditions()

@@ -110,3 +110,105 @@ func TestPropagateIngressStatus(t *testing.T) {
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionIngressReady, t)
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
 }
+
+func TestDomainMappingIsReady(t *testing.T) {
+	cases := []struct {
+		name    string
+		status  DomainMappingStatus
+		isReady bool
+	}{{
+		name:    "empty status should not be ready",
+		status:  DomainMappingStatus{},
+		isReady: false,
+	}, {
+		name: "Different condition type should not be ready",
+		status: DomainMappingStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   DomainMappingConditionIngressReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "False condition status should not be ready",
+		status: DomainMappingStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   DomainMappingConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "Unknown condition status should not be ready",
+		status: DomainMappingStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   DomainMappingConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "Missing condition status should not be ready",
+		status: DomainMappingStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type: DomainMappingConditionReady,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "True condition status should be ready",
+		status: DomainMappingStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   DomainMappingConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status should be ready",
+		status: DomainMappingStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   DomainMappingConditionIngressReady,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   DomainMappingConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status false should not be ready",
+		status: DomainMappingStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   DomainMappingConditionIngressReady,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   DomainMappingConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isReady: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if e, a := tc.isReady, tc.status.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
+	}
+}
