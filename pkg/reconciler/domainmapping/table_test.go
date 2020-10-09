@@ -25,12 +25,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	networkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgnetwork "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
@@ -38,6 +40,7 @@ import (
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
+	. "knative.dev/serving/pkg/testing"
 )
 
 func TestReconcile(t *testing.T) {
@@ -53,18 +56,19 @@ func TestReconcile(t *testing.T) {
 		Name: "first reconcile",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
-			DomainMapping("default", "first-reconcile.com", withRef("default", "target")),
+			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: DomainMapping("default", "first-reconcile.com",
+			Object: domainMapping("default", "first-reconcile.com",
 				withRef("default", "target"),
 				withURL("http", "first-reconcile.com"),
 				withAddress("http", "first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withIngressNotConfigured,
 			),
 		}},
 		WantCreates: []runtime.Object{
-			resources.MakeIngress(DomainMapping("default", "first-reconcile.com", withRef("default", "target")), "istio.ingress.networking.knative.dev"),
+			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "istio.ingress.networking.knative.dev"),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
@@ -73,20 +77,157 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile changed ref",
 		Key:  "default/ingress-exists.org",
 		Objects: []runtime.Object{
-			DomainMapping("default", "ingress-exists.org", withRef("default", "changed")),
-			resources.MakeIngress(DomainMapping("default", "ingress-exists.org", withRef("default", "target")), "istio.ingress.networking.knative.dev"),
+			domainMapping("default", "ingress-exists.org", withRef("default", "changed")),
+			resources.MakeIngress(domainMapping("default", "ingress-exists.org", withRef("default", "target")), "istio.ingress.networking.knative.dev"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: DomainMapping("default", "ingress-exists.org",
+			Object: domainMapping("default", "ingress-exists.org",
 				withRef("default", "changed"),
 				withURL("http", "ingress-exists.org"),
 				withAddress("http", "ingress-exists.org"),
 				withInitDomainMappingConditions,
+				withIngressNotConfigured,
 			),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeIngress(DomainMapping("default", "ingress-exists.org", withRef("default", "changed")), "istio.ingress.networking.knative.dev"),
+			Object: ingress(domainMapping("default", "ingress-exists.org", withRef("default", "changed")), "istio.ingress.networking.knative.dev"),
 		}},
+	}, {
+		Name: "reconcile failed ingress",
+		Key:  "default/ingress-failed.me",
+		Objects: []runtime.Object{
+			domainMapping("default", "ingress-failed.me",
+				withRef("default", "failed"),
+				withURL("http", "ingress-failed.me"),
+				withAddress("http", "ingress-failed.me"),
+				withInitDomainMappingConditions,
+			),
+			ingress(domainMapping("default", "ingress-failed.me", withRef("default", "failed")), "istio.ingress.networking.knative.dev",
+				WithLoadbalancerFailed("fell over", "hurt myself"),
+			),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "ingress-failed.me",
+				withRef("default", "failed"),
+				withURL("http", "ingress-failed.me"),
+				withAddress("http", "ingress-failed.me"),
+				withPropagatedStatus(ingress(domainMapping("default", "ingress-failed.me"), "", WithLoadbalancerFailed("fell over", "hurt myself")).Status),
+			),
+		}},
+	}, {
+		Name: "reconcile unknown ingress",
+		Key:  "default/ingress-unknown.me",
+		Objects: []runtime.Object{
+			domainMapping("default", "ingress-unknown.me", withRef("default", "unknown"),
+				withRef("default", "unknown"),
+				withURL("http", "ingress-unknown.me"),
+				withAddress("http", "ingress-unknown.me"),
+				withInitDomainMappingConditions,
+			),
+			ingress(domainMapping("default", "ingress-unknown.me", withRef("default", "unknown")), "istio.ingress.networking.knative.dev",
+				withIngressNotReady,
+			),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "ingress-unknown.me",
+				withRef("default", "unknown"),
+				withURL("http", "ingress-unknown.me"),
+				withAddress("http", "ingress-unknown.me"),
+				withPropagatedStatus(ingress(domainMapping("default", "ingress-unknown.me"), "", withIngressNotReady).Status),
+			),
+		}},
+	}, {
+		Name: "reconcile ready ingress",
+		Key:  "default/ingress-ready.me",
+		Objects: []runtime.Object{
+			domainMapping("default", "ingress-ready.me",
+				withRef("default", "ready"),
+				withURL("http", "ingress-ready.me"),
+				withAddress("http", "ingress-ready.me"),
+				withInitDomainMappingConditions,
+			),
+			ingress(domainMapping("default", "ingress-ready.me", withRef("default", "ready")), "istio.ingress.networking.knative.dev",
+				withIngressReady,
+			),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "ingress-ready.me",
+				withRef("default", "ready"),
+				withURL("http", "ingress-ready.me"),
+				withAddress("http", "ingress-ready.me"),
+				withPropagatedStatus(ingress(domainMapping("default", "ingress-ready.me"), "", withIngressReady).Status),
+			),
+		}},
+	}, {
+		Name: "fail ingress creation",
+		Key:  "default/cantcreate.this",
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "ingresses"),
+		},
+		Objects: []runtime.Object{
+			domainMapping("default", "cantcreate.this",
+				withRef("default", "cantcreate"),
+				withURL("http", "cantcreate.this"),
+				withAddress("http", "cantcreate.this"),
+				withInitDomainMappingConditions,
+				withGeneration(1),
+			),
+		},
+		WantErr: true,
+		WantCreates: []runtime.Object{
+			// This is the create which we will cause to fail.
+			ingress(domainMapping("default", "cantcreate.this", withRef("default", "cantcreate")), "istio.ingress.networking.knative.dev"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "cantcreate.this",
+				withRef("default", "cantcreate"),
+				withURL("http", "cantcreate.this"),
+				withAddress("http", "cantcreate.this"),
+				withInitDomainMappingConditions,
+				withIngressNotConfigured,
+				withGeneration(1),
+				withObservedGeneration,
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: inducing failure for create ingresses"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Ingress: inducing failure for create ingresses"),
+		},
+	}, {
+		Name: "fail ingress update",
+		Key:  "default/cantupdate.this",
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "ingresses"),
+		},
+		Objects: []runtime.Object{
+			domainMapping("default", "cantupdate.this",
+				withRef("default", "cantupdate"),
+				withURL("http", "cantupdate.this"),
+				withAddress("http", "cantupdate.this"),
+				withInitDomainMappingConditions,
+				withGeneration(1),
+			),
+			ingress(domainMapping("default", "cantupdate.this", withRef("default", "previous-value")), "istio.ingress.networking.knative.dev"),
+		},
+		WantErr: true,
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// This is the update which we will cause to fail.
+			Object: ingress(domainMapping("default", "cantupdate.this", withRef("default", "cantupdate")), "istio.ingress.networking.knative.dev"),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "cantupdate.this",
+				withRef("default", "cantupdate"),
+				withURL("http", "cantupdate.this"),
+				withAddress("http", "cantupdate.this"),
+				withInitDomainMappingConditions,
+				withIngressNotConfigured,
+				withGeneration(1),
+				withObservedGeneration,
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Ingress: inducing failure for update ingresses"),
+		},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -103,7 +244,7 @@ func TestReconcile(t *testing.T) {
 
 type domainMappingOption func(dm *v1alpha1.DomainMapping)
 
-func DomainMapping(namespace, name string, opt ...domainMappingOption) *v1alpha1.DomainMapping {
+func domainMapping(namespace, name string, opt ...domainMappingOption) *v1alpha1.DomainMapping {
 	dm := &v1alpha1.DomainMapping{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -138,6 +279,55 @@ func withAddress(scheme, host string) domainMappingOption {
 	}
 }
 
+func withIngressNotConfigured(dm *v1alpha1.DomainMapping) {
+	dm.Status.MarkIngressNotConfigured()
+}
+
+func withPropagatedStatus(status netv1alpha1.IngressStatus) domainMappingOption {
+	return func(r *v1alpha1.DomainMapping) {
+		r.Status.PropagateIngressStatus(status)
+	}
+}
+
 func withInitDomainMappingConditions(dm *v1alpha1.DomainMapping) {
 	dm.Status.InitializeConditions()
+}
+
+func withGeneration(generation int64) domainMappingOption {
+	return func(dm *v1alpha1.DomainMapping) {
+		dm.Generation = generation
+	}
+}
+
+func withObservedGeneration(dm *v1alpha1.DomainMapping) {
+	dm.Status.ObservedGeneration = dm.Generation
+}
+
+func ingress(dm *v1alpha1.DomainMapping, ingressClass string, opt ...IngressOption) *netv1alpha1.Ingress {
+	ing := resources.MakeIngress(dm, ingressClass)
+	for _, o := range opt {
+		o(ing)
+	}
+
+	return ing
+}
+
+func withIngressReady(ing *netv1alpha1.Ingress) {
+	status := netv1alpha1.IngressStatus{}
+	status.InitializeConditions()
+	status.MarkNetworkConfigured()
+	status.MarkLoadBalancerReady(
+		[]netv1alpha1.LoadBalancerIngressStatus{{
+			DomainInternal: pkgnetwork.GetServiceHostname("istio-ingressgateway", "istio-system"),
+		}},
+		[]netv1alpha1.LoadBalancerIngressStatus{{
+			DomainInternal: pkgnetwork.GetServiceHostname("private-istio-ingressgateway", "istio-system"),
+		}},
+	)
+
+	ing.Status = status
+}
+
+func withIngressNotReady(ing *netv1alpha1.Ingress) {
+	ing.Status.MarkIngressNotReady("progressing", "hold your horses")
 }
