@@ -36,7 +36,7 @@ require (
 	knative.dev/caching v0.0.0-20201008043923-06f743d9ad2b
 	knative.dev/networking v0.0.0-20201008041421-a124f20c3c7c
 	knative.dev/pkg v0.0.0-20201008052621-c0496d5e1b2b
-	knative.dev/test-infra v0.0.0-20201008043522-20ae6ee1a359
+	knative.dev/test-infra v0.0.0-20201008221921-aeca2ff2371a
 )
 
 replace (

@@ -1864,8 +1864,8 @@ knative.dev/test-infra v0.0.0-20201002164834-8c07ff018549/go.mod h1:Pmg2c7Z7q7BG
 knative.dev/test-infra v0.0.0-20201005021934-df2084cec789/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
 knative.dev/test-infra v0.0.0-20201008002321-0e7582f33f9a h1:nFSjeiIZ3bhBXhKuBOfnjuAJlo7GlzCyVV1dDyulZzk=
 knative.dev/test-infra v0.0.0-20201008002321-0e7582f33f9a/go.mod h1:Qj8sZPA2mTFusTOH13YVns7jY7xsnrLsZdPB0aTdejs=
-knative.dev/test-infra v0.0.0-20201008043522-20ae6ee1a359 h1:5bnnjqpixMucz7Xids6VVfqE1JyoBimgrRzLn450RuU=
-knative.dev/test-infra v0.0.0-20201008043522-20ae6ee1a359/go.mod h1:Qj8sZPA2mTFusTOH13YVns7jY7xsnrLsZdPB0aTdejs=
+knative.dev/test-infra v0.0.0-20201008221921-aeca2ff2371a h1:Z+IRS8COiXGmnxgoeqUEvQii8QFc0mbSRjUh4c1jQdM=
+knative.dev/test-infra v0.0.0-20201008221921-aeca2ff2371a/go.mod h1:W4EfffNKnIkYuBHdOjw0UP3YtFbK4ImwDiEoIAbG1zk=
 mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed/go.mod h1:Xkxe497xwlCKkIaQYRfC7CSLworTXY9RMqwhhCm+8Nc=
 mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b/go.mod h1:2odslEg/xrtNQqCYg2/jCoyKnw3vv5biOc3JnIcYfL4=
 mvdan.cc/unparam v0.0.0-20190720180237-d51796306d8f/go.mod h1:4G1h5nDURzA3bwVMZIVpwbkw+04kSxk3rAtzlimaUJw=
