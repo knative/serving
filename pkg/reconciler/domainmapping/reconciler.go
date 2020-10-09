@@ -80,6 +80,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 		return err
 	}
 
+	// Check that the Ingress status reflects the latest ingress applied and propagate if so.
 	if ingress.GetObjectMeta().GetGeneration() != ingress.Status.ObservedGeneration {
 		dm.Status.MarkIngressNotConfigured()
 	} else {
