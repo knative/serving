@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,29 +29,87 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
-
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/test"
-	"knative.dev/pkg/test/helpers"
 )
 
-type kubelogs struct {
-	namespace string
-	kc        *test.KubeClient
-
-	once sync.Once
-	m    sync.RWMutex
-	keys map[string]logger
+func FromNamespace(ctx context.Context, c kubernetes.Interface, namespace string) Source {
+	return &namespaceSource{
+		ctx:       ctx,
+		kc:        c,
+		namespace: namespace,
+		keys:      make(map[string]Callback, 1),
+	}
 }
 
-type logger func(string, ...interface{})
+type namespaceSource struct {
+	namespace string
+	kc        kubernetes.Interface
+	ctx       context.Context
 
-var _ streamer = (*kubelogs)(nil)
+	m        sync.RWMutex
+	once     sync.Once
+	keys     map[string]Callback
+	watchErr error
+}
 
-// timeFormat defines a simple timestamp with millisecond granularity
-const timeFormat = "15:04:05.000"
+func (s *namespaceSource) StartStream(name string, l Callback) (Canceler, error) {
+	s.once.Do(func() { s.watchErr = s.watchPods() })
+	if s.watchErr != nil {
+		return nil, fmt.Errorf("failed to watch pods in namespace %q: %w", s.namespace, s.watchErr)
+	}
 
-func (k *kubelogs) startForPod(pod *corev1.Pod) {
+	// Register a key
+	s.m.Lock()
+	defer s.m.Unlock()
+	s.keys[name] = l
+
+	// Return a function that unregisters that key.
+	return func() {
+		s.m.Lock()
+		defer s.m.Unlock()
+		delete(s.keys, name)
+	}, nil
+}
+
+func (s *namespaceSource) watchPods() error {
+	wi, err := s.kc.CoreV1().Pods(s.namespace).Watch(s.ctx, metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		defer wi.Stop()
+		watchedPods := sets.NewString()
+
+		for {
+			select {
+			case <-s.ctx.Done():
+				return
+			case ev := <-wi.ResultChan():
+				p := ev.Object.(*corev1.Pod)
+				switch ev.Type {
+				case watch.Deleted:
+					watchedPods.Delete(p.Name)
+				case watch.Added, watch.Modified:
+					if watchedPods.Has(p.Name) {
+						continue
+					}
+					if podIsReady(p) {
+						watchedPods.Insert(p.Name)
+						s.startForPod(p)
+						continue
+					}
+				}
+
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (s *namespaceSource) startForPod(pod *corev1.Pod) {
 	// Grab data from all containers in the pods.  We need this in case
 	// an envoy sidecar is injected for mesh installs.  This should be
 	// equivalent to --all-containers.
@@ -59,11 +117,11 @@ func (k *kubelogs) startForPod(pod *corev1.Pod) {
 		// Required for capture below.
 		psn, pn, cn := pod.Namespace, pod.Name, container.Name
 
-		handleLine := k.handleLine
+		handleLine := s.handleLine
 		if cn == "chaosduck" {
 			// Specialcase logs from chaosduck to be able to easily see when pods
 			// have been killed throughout all tests.
-			handleLine = k.handleGenericLine
+			handleLine = s.handleGenericLine
 		}
 
 		go func() {
@@ -75,10 +133,10 @@ func (k *kubelogs) startForPod(pod *corev1.Pod) {
 				SinceSeconds: ptr.Int64(1),
 			}
 
-			req := k.kc.Kube.CoreV1().Pods(psn).GetLogs(pn, options)
+			req := s.kc.CoreV1().Pods(psn).GetLogs(pn, options)
 			stream, err := req.Stream(context.Background())
 			if err != nil {
-				k.handleGenericLine([]byte(err.Error()), pn)
+				s.handleGenericLine([]byte(err.Error()), pn)
 				return
 			}
 			defer stream.Close()
@@ -104,48 +162,10 @@ func podIsReady(p *corev1.Pod) bool {
 	return false
 }
 
-func (k *kubelogs) watchPods(t test.TLegacy) {
-	wi, err := k.kc.Kube.CoreV1().Pods(k.namespace).Watch(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		t.Error("Logstream knative pod watch failed, logs might be missing", "error", err)
-		return
-	}
-	go func() {
-		watchedPods := sets.NewString()
-		for ev := range wi.ResultChan() {
-			p := ev.Object.(*corev1.Pod)
-			switch ev.Type {
-			case watch.Deleted:
-				watchedPods.Delete(p.Name)
-			case watch.Added, watch.Modified:
-				if watchedPods.Has(p.Name) {
-					continue
-				}
-				if podIsReady(p) {
-					watchedPods.Insert(p.Name)
-					k.startForPod(p)
-					continue
-				}
-			}
-		}
-	}()
-}
+// timeFormat defines a simple timestamp with millisecond granularity
+const timeFormat = "15:04:05.000"
 
-func (k *kubelogs) init(t test.TLegacy) {
-	k.keys = make(map[string]logger, 1)
-
-	kc, err := test.NewKubeClient(test.Flags.Kubeconfig, test.Flags.Cluster)
-	if err != nil {
-		t.Error("Error loading client config", "error", err)
-		return
-	}
-	k.kc = kc
-
-	// watchPods will start logging for existing pods as well.
-	k.watchPods(t)
-}
-
-func (k *kubelogs) handleLine(l []byte, pod string) {
+func (s *namespaceSource) handleLine(l []byte, pod string) {
 	// This holds the standard structure of our logs.
 	var line struct {
 		Level      string    `json:"level"`
@@ -166,10 +186,10 @@ func (k *kubelogs) handleLine(l []byte, pod string) {
 		return
 	}
 
-	k.m.RLock()
-	defer k.m.RUnlock()
+	s.m.RLock()
+	defer s.m.RUnlock()
 
-	for name, logf := range k.keys {
+	for name, logf := range s.keys {
 		// TODO(mattmoor): Do a slightly smarter match.
 		if !strings.Contains(line.Key, "/"+name) {
 			continue
@@ -200,31 +220,12 @@ func (k *kubelogs) handleLine(l []byte, pod string) {
 
 // handleGenericLine prints the given logline to all active tests as it cannot be parsed
 // and/or doesn't contain any correlation data (like the chaosduck for example).
-func (k *kubelogs) handleGenericLine(l []byte, pod string) {
-	k.m.RLock()
-	defer k.m.RUnlock()
+func (s *namespaceSource) handleGenericLine(l []byte, pod string) {
+	s.m.RLock()
+	defer s.m.RUnlock()
 
-	for _, logf := range k.keys {
+	for _, logf := range s.keys {
 		// I 15:04:05.000 webhook-699b7b668d-9smk2 this is my message
 		logf("I %s %s %s", time.Now().Format(timeFormat), pod, string(l))
-	}
-}
-
-// Start implements streamer.
-func (k *kubelogs) Start(t test.TLegacy) Canceler {
-	k.once.Do(func() { k.init(t) })
-
-	name := helpers.ObjectPrefixForTest(t)
-
-	// Register a key
-	k.m.Lock()
-	defer k.m.Unlock()
-	k.keys[name] = t.Logf
-
-	// Return a function that unregisters that key.
-	return func() {
-		k.m.Lock()
-		defer k.m.Unlock()
-		delete(k.keys, name)
 	}
 }
