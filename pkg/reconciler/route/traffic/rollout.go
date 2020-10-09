@@ -36,13 +36,18 @@ type Rollout struct {
 
 // ConfigRollout describes the rollout state for a given config+tag pair.
 type ConfigRollout struct {
-	// Name + tag uniquely identifies the rollout target.
-	// `tag` can be empty, if this is the `DefaultTarget`.
+	// Name + tag pair uniquely identifies the rollout target.
+	// `tag` will be empty, if this is the `DefaultTarget`.
 	ConfigName string `json:"configName"`
 	Tag        string `json:"tag"`
 
 	// The revisions in the rollout. In steady state this should
 	// contain 0 (no revision is ready) or 1 (rollout done).
+	// During the actual rollout it will contain N revisions
+	// ordered from oldtest to the newest.
+	// At the end of the rollout the latest (the tail of the list)
+	// will receive 100% of the traffic sent to the key.
+	// Note: that it is not 100% of the route traffic, in more complex cases.
 	Revisions []RevisionRollout
 
 	// TODO(vagababov): more rollout fields here, e.g. duration
