@@ -100,7 +100,8 @@ jobs:
               extraArgs:
                 "service-account-issuer": "kubernetes.default.svc"
                 "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
-
+            networking:
+              dnsDomain: "n${RANDOM}.local"
         nodes:
         - role: control-plane
           image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
