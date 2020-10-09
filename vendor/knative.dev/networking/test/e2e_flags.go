@@ -40,6 +40,7 @@ type ServingEnvironmentFlags struct {
 	EnableAlphaFeatures bool   // Indicates whether we run tests for alpha features
 	EnableBetaFeatures  bool   // Indicates whether we run tests for beta features
 	SkipTests           string // Indicates the test names we want to skip in alpha or beta features.
+	ClusterSuffix       string // Specifies the cluster DNS suffix to be used in tests.
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -90,6 +91,11 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 		"skip-tests",
 		"",
 		"Set this flag to the tests you want to skip in alpha or beta features. Accepts a comma separated list.")
+
+	flag.StringVar(&f.ClusterSuffix,
+		"cluster-suffix",
+		"cluster.local",
+		"Set this flag to the cluster suffix to be used in tests.")
 
 	return &f
 }
