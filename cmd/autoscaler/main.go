@@ -137,10 +137,6 @@ func main() {
 		metric.NewController(ctx, cmw, collector),
 	}
 
-	// Set up a statserver.
-	// TODO(yanweiguo): Populate the isBktOwner from statfowarder.Forwarder.
-	statsServer := statserver.New(statsServerAddr, statsCh, logger, nil /* isBktOwner*/)
-
 	// Start watching the configs.
 	if err := cmw.Start(ctx.Done()); err != nil {
 		logger.Fatalw("Failed to start watching configs", zap.Error(err))
@@ -152,7 +148,7 @@ func main() {
 	}
 
 	cc := componentConfig(ctx, logger)
-	ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeClient, cc)
+	ctx = leaderelection.WithStandardLeaderElectorBuilder(ctx, kubeClient, cc)
 
 	// accept is the func to call when this pod owns the Revision for this StatMessage.
 	accept := func(sm asmetrics.StatMessage) {
@@ -160,6 +156,9 @@ func main() {
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
 	f := statforwarder.New(ctx, logger, kubeClient, cc.Identity, bucket.AutoscalerBucketSet(cc.Buckets), accept)
+
+	// Set up a statserver.
+	statsServer := statserver.New(statsServerAddr, statsCh, logger, f.IsBucketOwner)
 
 	defer f.Cancel()
 

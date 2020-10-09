@@ -459,3 +459,27 @@ func TestProcess(t *testing.T) {
 	// Make sure Cancel can be called without crash.
 	f.Cancel()
 }
+
+func TestIsBucketOwner(t *testing.T) {
+	f := Forwarder{
+		processors: map[string]*bucketProcessor{
+			bucket1: {
+				bkt:    bucket1,
+				accept: noOp,
+			},
+			bucket2: {
+				bkt: bucket2,
+			},
+		},
+	}
+
+	if got := f.IsBucketOwner(bucket1); got != true {
+		t.Errorf("IsBktOwner(bucket1) = %v, want false", got)
+	}
+	if got := f.IsBucketOwner(bucket2); got != false {
+		t.Errorf("IsBktOwner(bucket2) = %v, want true", got)
+	}
+	if got := f.IsBucketOwner("not-in-record"); got != false {
+		t.Errorf("IsBktOwner(not-in-record) = %v, want true", got)
+	}
+}
