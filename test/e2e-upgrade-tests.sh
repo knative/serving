@@ -97,22 +97,14 @@ rm -f /tmp/prober-signal
 rm -f /tmp/autoscaling-signal
 rm -f /tmp/autoscaling-tbc-signal
 
-go_test_e2e -tags=probe -timeout=${PROBE_TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) &
-PROBER_PID=$!
-echo "Prober PID is ${PROBER_PID}"
 
 install_head
 
 header "Running postupgrade tests"
-go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 install_latest_release
 
 header "Running postdowngrade tests"
-go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 # The probe tests are blocking on the following files to know when it should exit.
 #
@@ -123,6 +115,5 @@ echo "done" > /tmp/autoscaling-signal
 echo "done" > /tmp/autoscaling-tbc-signal
 
 header "Waiting for prober test"
-wait ${PROBER_PID} || fail_test "Prober failed"
 
 success
