@@ -142,20 +142,6 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatal("Timeout to get the Endpoints:", lastErr)
 	}
 
-	// f1 is the owner of bucket1 while bucket2 has no owner.
-	if got := f1.IsBktOwner(bucket1); got != true {
-		t.Errorf("IsBktOwner(bucket1) = %v, want true", got)
-	}
-	if got := f1.IsBktOwner(bucket2); got != false {
-		t.Errorf("IsBktOwner(bucket1) = %v, want false", got)
-	}
-	if got := f2.IsBktOwner(bucket1); got != false {
-		t.Errorf("IsBktOwner(bucket1) = %v, want false", got)
-	}
-	if got := f2.IsBktOwner(bucket2); got != false {
-		t.Errorf("IsBktOwner(bucket1) = %v, want false", got)
-	}
-
 	// Lease holder gets changed.
 	l := testLease.DeepCopy()
 	l.Spec.HolderIdentity = &testIP2
@@ -179,14 +165,6 @@ func TestForwarderReconcile(t *testing.T) {
 		return true, nil
 	}); err != nil {
 		t.Fatal("Timeout to get the Endpoints:", lastErr)
-	}
-
-	// f2 is the owner of bucket1.
-	if got := f1.IsBktOwner(bucket1); got != false {
-		t.Errorf("IsBktOwner(bucket1) = %v, want false", got)
-	}
-	if got := f2.IsBktOwner(bucket1); got != true {
-		t.Errorf("IsBktOwner(bucket1) = %v, want true", got)
 	}
 }
 
@@ -480,4 +458,28 @@ func TestProcess(t *testing.T) {
 
 	// Make sure Cancel can be called without crash.
 	f.Cancel()
+}
+
+func TestIsBktOwner(t *testing.T) {
+	f := Forwarder{
+		processors: map[string]*bucketProcessor{
+			bucket1: {
+				bkt:    bucket1,
+				accept: noOp,
+			},
+			bucket2: {
+				bkt: bucket2,
+			},
+		},
+	}
+
+	if got := f.IsBktOwner(bucket1); got != true {
+		t.Errorf("IsBktOwner(bucket1) = %v, want false", got)
+	}
+	if got := f.IsBktOwner(bucket2); got != false {
+		t.Errorf("IsBktOwner(bucket2) = %v, want true", got)
+	}
+	if got := f.IsBktOwner("not-in-record"); got != false {
+		t.Errorf("IsBktOwner(not-in-record) = %v, want true", got)
+	}
 }
