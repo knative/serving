@@ -148,7 +148,7 @@ func main() {
 	}
 
 	cc := componentConfig(ctx, logger)
-	ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeClient, cc)
+	ctx = leaderelection.WithStandardLeaderElectorBuilder(ctx, kubeClient, cc)
 
 	// accept is the func to call when this pod owns the Revision for this StatMessage.
 	accept := func(sm asmetrics.StatMessage) {
