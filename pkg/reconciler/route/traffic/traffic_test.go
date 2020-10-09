@@ -371,6 +371,73 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfig(t *testing.T) {
 	}
 }
 
+func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T) {
+	expected := &Config{
+		Targets: map[string]RevisionTargets{
+			DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: niceConfig.Name,
+					RevisionName:      niceNewRev.Name,
+					Percent:           ptr.Int64(100),
+					LatestRevision:    ptr.Bool(true),
+				},
+				Active:   true,
+				Protocol: net.ProtocolH2C,
+			}},
+			"robert": {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: niceConfig.Name,
+					RevisionName:      niceNewRev.Name,
+					Percent:           ptr.Int64(100),
+					Tag:               "robert",
+					LatestRevision:    ptr.Bool(true),
+				},
+				Active:   true,
+				Protocol: net.ProtocolH2C,
+			}},
+		},
+		revisionTargets: []RevisionTarget{{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: niceConfig.Name,
+				RevisionName:      niceNewRev.Name,
+				Percent:           ptr.Int64(90),
+				LatestRevision:    ptr.Bool(true),
+			},
+			Active:   true,
+			Protocol: net.ProtocolH2C,
+		}, {
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: niceConfig.Name,
+				RevisionName:      niceNewRev.Name,
+				Percent:           ptr.Int64(10),
+				LatestRevision:    ptr.Bool(true),
+				Tag:               "robert",
+			},
+			Active:   true,
+			Protocol: net.ProtocolH2C,
+		}},
+		Configurations: map[string]*v1.Configuration{
+			niceConfig.Name: niceConfig,
+		},
+		Revisions: map[string]*v1.Revision{
+			niceNewRev.Name: niceNewRev,
+		},
+	}
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
+		ConfigurationName: niceConfig.Name,
+		Percent:           ptr.Int64(90),
+	}, v1.TrafficTarget{
+		ConfigurationName: niceConfig.Name,
+		Percent:           ptr.Int64(10),
+		Tag:               "robert",
+	}))); err != nil {
+		t.Error("Unexpected error", err)
+	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
+		fmt.Println(spew.Sdump(got))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
+	}
+}
+
 // Splitting traffic between a fixed revision and the latest revision (canary).
 func TestBuildTrafficConfigurationCanary(t *testing.T) {
 	expected := &Config{
