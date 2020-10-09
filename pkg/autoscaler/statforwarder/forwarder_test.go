@@ -460,7 +460,7 @@ func TestProcess(t *testing.T) {
 	f.Cancel()
 }
 
-func TestIsBktOwner(t *testing.T) {
+func TestIsBucketOwner(t *testing.T) {
 	f := Forwarder{
 		processors: map[string]*bucketProcessor{
 			bucket1: {
@@ -473,13 +473,13 @@ func TestIsBktOwner(t *testing.T) {
 		},
 	}
 
-	if got := f.IsBktOwner(bucket1); got != true {
+	if got := f.IsBucketOwner(bucket1); got != true {
 		t.Errorf("IsBktOwner(bucket1) = %v, want false", got)
 	}
-	if got := f.IsBktOwner(bucket2); got != false {
+	if got := f.IsBucketOwner(bucket2); got != false {
 		t.Errorf("IsBktOwner(bucket2) = %v, want true", got)
 	}
-	if got := f.IsBktOwner("not-in-record"); got != false {
+	if got := f.IsBucketOwner("not-in-record"); got != false {
 		t.Errorf("IsBktOwner(not-in-record) = %v, want true", got)
 	}
 }

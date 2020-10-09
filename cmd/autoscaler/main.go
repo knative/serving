@@ -158,7 +158,7 @@ func main() {
 	f := statforwarder.New(ctx, logger, kubeClient, cc.Identity, bucket.AutoscalerBucketSet(cc.Buckets), accept)
 
 	// Set up a statserver.
-	statsServer := statserver.New(statsServerAddr, statsCh, logger, f.IsBktOwner)
+	statsServer := statserver.New(statsServerAddr, statsCh, logger, f.IsBucketOwner)
 
 	defer f.Cancel()
 

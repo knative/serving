@@ -393,12 +393,9 @@ func (f *Forwarder) Cancel() {
 	close(f.statCh)
 }
 
-// IsBktOwner returns true if this Autoscaler pod is the owner of the given bucket.
-func (f *Forwarder) IsBktOwner(bkt string) bool {
+// IsBucketOwner returns true if this Autoscaler pod is the owner of the given bucket.
+func (f *Forwarder) IsBucketOwner(bkt string) bool {
 	p := f.getProcessor(bkt)
-	if p == nil {
-		return false
-	}
 	// The accept func is not nil iif this Autoscaler is the owner.
-	return p.accept != nil
+	return p != nil && p.accept != nil
 }
