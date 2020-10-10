@@ -21,9 +21,11 @@ limitations under the License.
 
 package traffic
 
+import "knative.dev/networking/pkg/apis/networking"
+
 // RolloutAnnotationKey is the annotation key for storing
 // the rollout state in the Annotations of the Kingress or Route.Status.
-const RolloutAnnotationKey = "networking.intenal.knative.dev/rollout"
+const RolloutAnnotationKey = networking.GroupName + "/rollout"
 
 // Rollout encapsulates the current rollout state of the system.
 // Since the route might reference more than one configuration.
@@ -39,16 +41,16 @@ type ConfigRollout struct {
 	// Name + tag pair uniquely identifies the rollout target.
 	// `tag` will be empty, if this is the `DefaultTarget`.
 	ConfigName string `json:"configName"`
-	Tag        string `json:"tag"`
+	Tag        string `json:"tag,omitempty"`
 
 	// The revisions in the rollout. In steady state this should
 	// contain 0 (no revision is ready) or 1 (rollout done).
 	// During the actual rollout it will contain N revisions
-	// ordered from oldtest to the newest.
+	// ordered from oldest to the newest.
 	// At the end of the rollout the latest (the tail of the list)
 	// will receive 100% of the traffic sent to the key.
 	// Note: that it is not 100% of the route traffic, in more complex cases.
-	Revisions []RevisionRollout
+	Revisions []RevisionRollout `json:"revisions,omitempty"`
 
 	// TODO(vagababov): more rollout fields here, e.g. duration
 	// next step time, etc.
