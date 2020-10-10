@@ -59,11 +59,8 @@ function install_latest_release() {
 function install_head() {
   header "Installing Knative head release"
   install_knative_serving || fail_test "Knative head release installation failed"
-  echo "------before waiting until pods running"
   wait_until_pods_running ${SYSTEM_NAMESPACE}
-  echo "------before waiting until batch job running"
   wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
-  echo "------end"
 }
 
 function knative_setup() {
@@ -100,14 +97,22 @@ rm -f /tmp/prober-signal
 rm -f /tmp/autoscaling-signal
 rm -f /tmp/autoscaling-tbc-signal
 
+go_test_e2e -tags=probe -timeout=${PROBE_TIMEOUT} ./test/upgrade \
+  --resolvabledomain=$(use_resolvable_domain) &
+PROBER_PID=$!
+echo "Prober PID is ${PROBER_PID}"
 
 install_head
 
 header "Running postupgrade tests"
+go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade \
+  --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 install_latest_release
 
 header "Running postdowngrade tests"
+go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade \
+  --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 # The probe tests are blocking on the following files to know when it should exit.
 #
@@ -118,5 +123,6 @@ echo "done" > /tmp/autoscaling-signal
 echo "done" > /tmp/autoscaling-tbc-signal
 
 header "Waiting for prober test"
+wait ${PROBER_PID} || fail_test "Prober failed"
 
 success
