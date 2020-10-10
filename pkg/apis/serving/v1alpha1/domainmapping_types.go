@@ -69,6 +69,7 @@ type DomainMappingList struct {
 // DomainMappingSpec describes the DomainMapping the user wishes to exist.
 type DomainMappingSpec struct {
 	// Ref points to an Addressable.
+	// Currently, Ref must be a KSvc.
 	Ref duckv1.KReference `json:"ref"`
 }
 

@@ -417,3 +417,10 @@ func (f *Forwarder) Cancel() {
 	f.processingWg.Wait()
 	close(f.statCh)
 }
+
+// IsBucketOwner returns true if this Autoscaler pod is the owner of the given bucket.
+func (f *Forwarder) IsBucketOwner(bkt string) bool {
+	p := f.getProcessor(bkt)
+	// The accept func is not nil iif this Autoscaler is the owner.
+	return p != nil && p.accept != nil
+}

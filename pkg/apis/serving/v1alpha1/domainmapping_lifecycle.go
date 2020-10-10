@@ -34,3 +34,8 @@ func (*DomainMapping) GetConditionSet() apis.ConditionSet {
 func (dm *DomainMapping) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("DomainMapping")
 }
+
+// InitializeConditions sets the initial values to the conditions.
+func (dms *DomainMappingStatus) InitializeConditions() {
+	domainMappingCondSet.Manage(dms).InitializeConditions()
+}
