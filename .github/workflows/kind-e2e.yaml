@@ -90,10 +90,6 @@ jobs:
         apiVersion: kind.x-k8s.io/v1alpha4
         kind: Cluster
 
-        containerdConfigPatches:
-        - |-
-          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."$REGISTRY_NAME:$REGISTRY_PORT"]
-            endpoint = ["http://$REGISTRY_NAME:$REGISTRY_PORT"]
         # This is needed in order to support projected volumes with service account tokens.
         # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
         kubeadmConfigPatches:
@@ -113,17 +109,6 @@ jobs:
         - role: worker
           image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
         EOF
-
-    - name: Setup local registry
-      run: |
-        # Run a registry.
-        docker run -d --restart=always \
-          -p $REGISTRY_PORT:$REGISTRY_PORT --name $REGISTRY_NAME registry:2
-        # Connect the registry to the KinD network.
-        docker network connect "kind" $REGISTRY_NAME
-        # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
-        # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
-        sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
 
     - name: Add Workers to KinD Cluster (Istio)
       working-directory: ./src/knative.dev/serving
@@ -146,6 +131,17 @@ jobs:
         set -x
 
         kind create cluster --config kind.yaml
+
+    - name: Setup local registry
+      run: |
+        # Run a registry.
+        docker run -d --restart=always \
+          -p $REGISTRY_PORT:$REGISTRY_PORT --name $REGISTRY_NAME registry:2
+        # Connect the registry to the KinD network.
+        docker network connect "kind" $REGISTRY_NAME
+        # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
+        # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
+        sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
 
     - name: Install Knative Serving
       run: |
