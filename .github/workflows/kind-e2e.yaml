@@ -90,6 +90,11 @@ jobs:
         apiVersion: kind.x-k8s.io/v1alpha4
         kind: Cluster
 
+        containerdConfigPatches:
+        - |-
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."${REGISTRY_NAME}:${REGISTRY_PORT}"]
+            endpoint = ["http://${REGISTRY_NAME}:${REGISTRY_PORT}"]
+
         # This is needed in order to support projected volumes with service account tokens.
         # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
         kubeadmConfigPatches:
@@ -153,8 +158,8 @@ jobs:
         # Build and Publish our containers to the docker daemon (including test assets)
         export GO111MODULE=on
         export GOFLAGS=-mod=vendor
-        ko apply --platform=all -Pf test/config/
-        ko apply --platform=all -PRf config/core
+        ko apply --insecure-registry --platform=all -Pf test/config/
+        ko apply --insecure-registry --platform=all -PRf config/core
 
         # Have Serving use the kingress option.
         kubectl patch configmap/config-network \
@@ -176,7 +181,7 @@ jobs:
         set -o pipefail
 
         # Apply a kingress option.
-        ko resolve -f third_party/contour-latest | \
+        ko resolve --insecure-registry -f third_party/contour-latest | \
           sed 's/LoadBalancer/NodePort/g' | \
           sed 's/imagePullPolicy:/# DISABLED: imagePullPolicy:/g' | \
           kubectl apply -f -
@@ -191,7 +196,7 @@ jobs:
         set -o pipefail
 
         # Apply a kingress option.
-        ko resolve -f third_party/kourier-latest | \
+        ko resolve --insecure-registry -f third_party/kourier-latest | \
           sed 's/LoadBalancer/NodePort/g' | \
           sed 's/imagePullPolicy:/# DISABLED: imagePullPolicy:/g' | \
           kubectl apply -f -
@@ -208,7 +213,7 @@ jobs:
         source test/e2e-networking-library.sh
 
         PATCHED_YAML=$(mktemp)
-        ko resolve -f third_party/net-istio.yaml | \
+        ko resolve --insecure-registry -f third_party/net-istio.yaml | \
           sed 's/imagePullPolicy:/# DISABLED: imagePullPolicy:/g' > $PATCHED_YAML
 
         # TODO: figure out how to use e2e-common.sh directly even if no
