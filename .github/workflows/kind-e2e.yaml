@@ -83,6 +83,11 @@ jobs:
       run: |
         set -x
 
+        # Use a semi-random cluster suffix, but somewhat predictable
+        # so reruns don't just give us a completely new value.
+        CLUSTER_SUFFIX=cluster${GITHUB_RUN_ID}.local
+        echo "CLUSTER_SUFFIX=$CLUSTER_SUFFIX" >> $GITHUB_ENV
+
         # KinD configuration.
         cat > kind.yaml <<EOF
         apiVersion: kind.x-k8s.io/v1alpha4
@@ -101,7 +106,7 @@ jobs:
                 "service-account-issuer": "kubernetes.default.svc"
                 "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
             networking:
-              dnsDomain: "n${RANDOM}.local"
+              dnsDomain: "${CLUSTER_SUFFIX}"
         nodes:
         - role: control-plane
           image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
@@ -228,4 +233,5 @@ jobs:
 
         # Run the tests tagged as e2e on the KinD cluster.
         go test -race -count=1 -timeout=20m -tags=e2e ${{ matrix.test-suite }} \
-           --ingressendpoint="${IPS[0]}"
+           --ingressendpoint="${IPS[0]}" \
+           --clusterSuffix=${CLUSTER_SUFFIX}

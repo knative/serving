@@ -83,7 +83,7 @@ var (
 		"deployment": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://deployment.default.svc.cluster.local?sleep=100",
+				URL:    "http://deployment.default.svc?sleep=100",
 			},
 			stat:      "kd",
 			estat:     "ke",
@@ -92,7 +92,7 @@ var (
 		"istio": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://istio.default.svc.cluster.local?sleep=100",
+				URL:    "http://istio.default.svc?sleep=100",
 			},
 			stat:      "id",
 			estat:     "ie",
@@ -101,7 +101,7 @@ var (
 		"queue": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://queue-proxy.default.svc.cluster.local?sleep=100",
+				URL:    "http://queue-proxy.default.svc?sleep=100",
 			},
 			stat:      "qp",
 			estat:     "qe",
@@ -110,7 +110,7 @@ var (
 		"queue-with-cc": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://queue-proxy-with-cc.default.svc.cluster.local?sleep=100",
+				URL:    "http://queue-proxy-with-cc.default.svc?sleep=100",
 			},
 			stat:  "qc",
 			estat: "re",
@@ -120,7 +120,7 @@ var (
 		"queue-with-cc-10": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://queue-proxy-with-cc-10.default.svc.cluster.local?sleep=100",
+				URL:    "http://queue-proxy-with-cc-10.default.svc?sleep=100",
 			},
 			stat:  "qct",
 			estat: "ret",
@@ -130,7 +130,7 @@ var (
 		"queue-with-cc-1": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://queue-proxy-with-cc-1.default.svc.cluster.local?sleep=100",
+				URL:    "http://queue-proxy-with-cc-1.default.svc?sleep=100",
 			},
 			stat:  "qc1",
 			estat: "re1",
@@ -140,7 +140,7 @@ var (
 		"activator": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://activator.default.svc.cluster.local?sleep=100",
+				URL:    "http://activator.default.svc?sleep=100",
 			},
 			stat:      "a",
 			estat:     "ae",
@@ -149,7 +149,7 @@ var (
 		"activator-with-cc": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://activator-with-cc.default.svc.cluster.local?sleep=100",
+				URL:    "http://activator-with-cc.default.svc?sleep=100",
 			},
 			stat:  "ac",
 			estat: "be",
@@ -159,7 +159,7 @@ var (
 		"activator-with-cc-10": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://activator-with-cc-10.default.svc.cluster.local?sleep=100",
+				URL:    "http://activator-with-cc-10.default.svc?sleep=100",
 			},
 			stat:  "act",
 			estat: "bet",
@@ -169,7 +169,7 @@ var (
 		"activator-with-cc-1": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://activator-with-cc-1.default.svc.cluster.local?sleep=100",
+				URL:    "http://activator-with-cc-1.default.svc?sleep=100",
 			},
 			stat:  "ac1",
 			estat: "be1",

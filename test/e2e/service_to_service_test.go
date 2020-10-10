@@ -56,8 +56,8 @@ var testCases = []struct {
 	suffix string
 }{
 	{"fqdn", ""},
-	{"short", ".cluster.local"},
-	{"shortest", ".svc.cluster.local"},
+	{"short", "." + test.ServingFlags.ClusterSuffix},
+	{"shortest", ".svc." + test.ServingFlags.ClusterSuffix},
 }
 
 // testcases for table-driven testing.
@@ -165,7 +165,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 // In this test, we set up two apps: helloworld and httpproxy.
 // helloworld is a simple app that displays a plaintext string.
 // httpproxy is a proxy that redirects request to internal service of helloworld app
-// with FQDN {route}.{namespace}.svc.cluster.local, or {route}.{namespace}.svc, or
+// with FQDN {route}.{namespace}.svc.${cluster-suffix}, or {route}.{namespace}.svc, or
 // {route}.{namespace}.
 // The expected result is that the request sent to httpproxy app is successfully redirected
 // to helloworld app.
