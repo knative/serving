@@ -197,7 +197,13 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	// be the same as the IP has changed.
 	f.shutdown(f.getProcessor(n))
 	// The map should have the IP because of the operations in the filter when queueing.
-	ip := f.id2ip[*l.Spec.HolderIdentity]
+	ip, ok := f.id2ip[*l.Spec.HolderIdentity]
+	if !ok {
+		// This shouldn't happen because we store the value into the map in the filter
+		// when queueing. Add a log here in case something unexpected happens.
+		f.logger.Warn("IP not found in cached map for ", *l.Spec.HolderIdentity)
+		return
+	}
 	f.setProcessor(n, f.createProcessor(ns, n, ip))
 
 	if ip != f.selfIP {
