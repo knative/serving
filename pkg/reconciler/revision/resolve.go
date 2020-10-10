@@ -81,12 +81,12 @@ func (r *digestResolver) Resolve(
 		return "", fmt.Errorf("failed to initialize authentication: %w", err)
 	}
 
-	if _, err := name.NewDigest(image, name.WeakValidation); err == nil {
+	if _, err := name.NewDigest(image, name.WeakValidation, name.Insecure); err == nil {
 		// Already a digest
 		return image, nil
 	}
 
-	tag, err := name.NewTag(image, name.WeakValidation)
+	tag, err := name.NewTag(image, name.WeakValidation, name.Insecure)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse image name %q into a tag: %w", image, err)
 	}

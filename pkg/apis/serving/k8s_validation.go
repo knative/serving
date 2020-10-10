@@ -413,7 +413,7 @@ func validate(ctx context.Context, container corev1.Container, volumes sets.Stri
 	// Image
 	if container.Image == "" {
 		errs = errs.Also(apis.ErrMissingField("image"))
-	} else if _, err := name.ParseReference(container.Image, name.WeakValidation); err != nil {
+	} else if _, err := name.ParseReference(container.Image, name.WeakValidation, name.Insecure); err != nil {
 		fe := &apis.FieldError{
 			Message: "Failed to parse image reference",
 			Paths:   []string{"image"},

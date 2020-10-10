@@ -166,7 +166,7 @@ func TestResolve(t *testing.T) {
 	}
 
 	// Create a tag pointing to an image on our fake registry.
-	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation)
+	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation, name.Insecure)
 	if err != nil {
 		t.Fatal("NewTag() =", err)
 	}
@@ -206,7 +206,7 @@ func TestResolve(t *testing.T) {
 	}
 
 	// Make sure that we get back the appropriate digest.
-	digest, err := name.NewDigest(resolvedDigest, name.WeakValidation)
+	digest, err := name.NewDigest(resolvedDigest, name.WeakValidation, name.Insecure)
 	if err != nil {
 		t.Fatal("NewDigest() =", err)
 	}
@@ -281,7 +281,7 @@ func TestResolveWithPingFailure(t *testing.T) {
 	}
 
 	// Create a tag pointing to an image on our fake registry
-	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation)
+	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation, name.Insecure)
 	if err != nil {
 		t.Fatal("NewTag() =", err)
 	}
@@ -321,7 +321,7 @@ func TestResolveWithManifestFailure(t *testing.T) {
 	}
 
 	// Create a tag pointing to an image on our fake registry
-	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation)
+	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation, name.Insecure)
 	if err != nil {
 		t.Fatal("NewTag() =", err)
 	}
@@ -373,7 +373,7 @@ func TestResolveTimeout(t *testing.T) {
 	}
 
 	// Create a tag pointing to an image on our fake registry.
-	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, "doesnt/matter"), name.WeakValidation)
+	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, "doesnt/matter"), name.WeakValidation, name.Insecure)
 	if err != nil {
 		t.Fatal("NewTag() =", err)
 	}
