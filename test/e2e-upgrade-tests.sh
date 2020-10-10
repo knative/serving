@@ -59,8 +59,11 @@ function install_latest_release() {
 function install_head() {
   header "Installing Knative head release"
   install_knative_serving || fail_test "Knative head release installation failed"
+  echo "------before waiting until pods running"
   wait_until_pods_running ${SYSTEM_NAMESPACE}
+  echo "------before waiting until batch job running"
   wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
+  echo "------end"
 }
 
 function knative_setup() {
