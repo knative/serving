@@ -253,7 +253,7 @@ function install_knative_serving_standard() {
   echo ">> Installing Cert-Manager"
   readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
   echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
-  kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
+  kubectl get ns cert-manager || kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
   UNINSTALL_LIST+=( "${INSTALL_CERT_MANAGER_YAML}" )
   readonly NET_CERTMANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/net-certmanager.yaml"
   echo "net-certmanager YAML: ${NET_CERTMANAGER_YAML}"
