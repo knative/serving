@@ -28,6 +28,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/apps/v1"
+	"knative.dev/pkg/injection"
 
 	"github.com/google/mako/go/quickstore"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,7 +39,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"knative.dev/pkg/injection/sharedmain"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	ktest "knative.dev/serving/pkg/testing/v1"
@@ -63,7 +63,7 @@ const (
 )
 
 func clientsFromConfig() (*test.Clients, error) {
-	cfg, err := sharedmain.GetConfig("", "")
+	cfg, err := injection.GetRESTConfig("", "")
 	if err != nil {
 		return nil, fmt.Errorf("error building kubeconfig: %v", err)
 	}

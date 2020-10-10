@@ -87,7 +87,7 @@ func main() {
 	// Report stats on Go memory usage every 30 seconds.
 	sharedmain.MemStatsOrDie(ctx)
 
-	cfg := sharedmain.ParseAndGetConfigOrDie()
+	cfg := injection.ParseAndGetRESTConfigOrDie()
 
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
 	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
