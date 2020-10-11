@@ -253,7 +253,7 @@ function install_knative_serving_standard() {
   echo ">> Installing Cert-Manager"
   readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
   echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
-  # We skip installing cert-manager if it has been installed as "kubectl apply" will be stuck when 
+  # We skip installing cert-manager if it has been installed as "kubectl apply" will be stuck when
   # cert-manager has been installed. https://github.com/jetstack/cert-manager/issues/3367
   kubectl get ns cert-manager || kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
   UNINSTALL_LIST+=( "${INSTALL_CERT_MANAGER_YAML}" )
