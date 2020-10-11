@@ -247,7 +247,7 @@ func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
 		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
 	}
 	if got, want := buckets.window, 10*time.Second; got != want {
-		t.Fatalf("Resized bucket windos = %v, want: %v", got, want)
+		t.Fatalf("Resized bucket windows = %v, want: %v", got, want)
 	}
 
 	// Verify values were properly copied.
@@ -338,7 +338,7 @@ func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
 		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
 	}
 	if got, want := buckets.window, 10*time.Second; got != want {
-		t.Fatalf("Resized bucket windos = %v, want: %v", got, want)
+		t.Fatalf("Resized bucket windows = %v, want: %v", got, want)
 	}
 
 	// Verify values were properly copied.
