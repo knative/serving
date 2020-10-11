@@ -488,8 +488,8 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 		FilterFunc: reconciler.LabelFilterFunc(networking.ServiceTypeKey,
 			string(networking.ServiceTypePublic), false),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    t.publicEndspointsUpdated,
-			UpdateFunc: controller.PassNew(t.publicEndspointsUpdated),
+			AddFunc:    t.publicEndpointsUpdated,
+			UpdateFunc: controller.PassNew(t.publicEndpointsUpdated),
 		},
 	})
 	return t
@@ -666,7 +666,7 @@ func inferIndex(eps []string, ipAddress string) int {
 	return idx
 }
 
-func (t *Throttler) publicEndspointsUpdated(newObj interface{}) {
+func (t *Throttler) publicEndpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 	t.logger.Info("Updated public Endpoints: ", endpoints.Name)
 	t.epsUpdateCh <- endpoints
