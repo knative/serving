@@ -43,16 +43,17 @@ jobs:
           kind-version: v0.9.0
           kind-image-sha: sha256:98cf5288864662e37115e362b23e4369c8c4a408f99cbc06e58ac30ddc721600
           kingress: contour
+        # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
+        # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
+        # thus allowing us to test without bypassing tag-to-digest resolution.
+        - registry-name: registry.local
+          registry-port: 5000
+          registry-url: registry.local:5000
 
     env:
       GOPATH: ${{ github.workspace }}
       GO111MODULE: off
-      REGISTRY_PORT: 5000
-      # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
-      # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
-      # thus allowing us to test without bypassing tag-to-digest resolution.
-      REGISTRY_NAME: registry.local
-      KO_DOCKER_REPO: registry.local:5000/knative
+      KO_DOCKER_REPO: ${{ matrix.registry-url }}/knative
 
     steps:
     - name: Set up Go 1.14.x
@@ -93,10 +94,11 @@ jobs:
         apiVersion: kind.x-k8s.io/v1alpha4
         kind: Cluster
 
+        # Configure registry for KinD.
         containerdConfigPatches:
         - |-
-          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."${REGISTRY_NAME}:${REGISTRY_PORT}"]
-            endpoint = ["http://${REGISTRY_NAME}:${REGISTRY_PORT}"]
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."${{ matrix.registry-url }}"]
+            endpoint = ["http://${{ matrix.registry-url }}"]
 
         # This is needed in order to support projected volumes with service account tokens.
         # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
@@ -143,13 +145,16 @@ jobs:
     - name: Setup local registry
       run: |
         # Run a registry.
-        docker run -d --restart=always \
-          -p $REGISTRY_PORT:$REGISTRY_PORT --name $REGISTRY_NAME registry:2
+        docker run --detach --restart=always \
+          --name ${{ matrix.registry-name }} \
+          -p ${{ matrix.registry-port }}:${{ matrix.registry-port }} \
+          registry:2
+
         # Connect the registry to the KinD network.
-        docker network connect "kind" $REGISTRY_NAME
-        # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
-        # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
-        sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
+        docker network connect "kind" ${{ matrix.registry-name }}
+
+        # Set up DNS for `ko`.
+        sudo echo "127.0.0.1 ${{ matrix.registry-name }}" | sudo tee -a /etc/hosts
 
     - name: Install Knative Serving
       run: |
