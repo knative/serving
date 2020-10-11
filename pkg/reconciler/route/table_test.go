@@ -516,7 +516,7 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 			simpleK8sService(Route("default", "steady-state", WithConfigTarget("config")),
-				WithExternalName("private-istio-ingressgateway.istio-system.svc.cluster.local")),
+				WithExternalName(pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system"))),
 		},
 		Key: "default/steady-state",
 	}, {
