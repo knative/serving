@@ -201,7 +201,8 @@ func privateServiceName(t *testing.T, clients *test.Clients, revisionName string
 func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) (latestReady int, err error) {
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
 
-	return latestReady, wait.PollImmediate(250*time.Millisecond, time.Minute, func() (bool, error) {
+	// See https://github.com/knative/serving/issues/7727#issuecomment-706772507 for context.
+	return latestReady, wait.PollImmediate(250*time.Millisecond, 3*time.Minute, func() (bool, error) {
 		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
