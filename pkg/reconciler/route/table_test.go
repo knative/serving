@@ -1111,7 +1111,7 @@ func TestReconcile(t *testing.T) {
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "ingress-mutation"),
 			),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("windemere")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("windermere")),
 			mutateIngress(simpleReadyIngress(
 				Route("default", "ingress-mutation", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -1141,7 +1141,7 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      ptr.Int64(100),
 							},
-							ServiceName: "windemere",
+							ServiceName: "windermere",
 							Active:      true,
 						}},
 					},
