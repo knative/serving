@@ -153,7 +153,7 @@ but doesn't yet. For example, enforcing single-threaded request or reporting
 concurrency metrics in the way we want. Ultimately we should push these features
 upstream and get rid of the queue-proxy sidecar.
 
-However we're not doing that yet because the requirements haven't stablized
+However we're not doing that yet because the requirements haven't stabilized
 enough yet. And it's still useful to have a component to innovate within.
 
 ### Vertical Pod Autoscaling Beta
