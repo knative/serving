@@ -477,7 +477,7 @@ func TestAutoscalerScale(t *testing.T) {
 		wantScale: 90,
 		wantEBC:   expectedEBC(10, 1982, 1, 100),
 	}, {
-		label:     "AutoscalerStableModeDecreseNonReachable",
+		label:     "AutoscalerStableModeDecreaseNonReachable",
 		as:        newTestAutoscalerNoPC(t, 10 /* target */, 1982 /* TBC */, &metricClient{StableConcurrency: 1, PanicConcurrency: 1}),
 		baseScale: 100,
 		prepFunc: func(a *autoscaler) {
