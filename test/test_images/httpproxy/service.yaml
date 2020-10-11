@@ -10,4 +10,4 @@ spec:
       - image: ko://knative.dev/serving/test/test_images/httpproxy
         env:
         - name: TARGET_HOST
-          value: "helloworld-test-image.default.svc.cluster.local"
+          value: "helloworld-test-image.default.svc"

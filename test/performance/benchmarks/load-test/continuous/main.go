@@ -139,7 +139,7 @@ func main() {
 	log.Print("Starting the load test.")
 	// Ramp up load from 1k to 3k in 2 minute steps.
 	const duration = 2 * time.Minute
-	url := fmt.Sprintf("http://load-test-%s.default.svc.cluster.local?sleep=100", *flavor)
+	url := fmt.Sprintf("http://load-test-%s.default.svc?sleep=100", *flavor)
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: http.MethodGet,
 		URL:    url,

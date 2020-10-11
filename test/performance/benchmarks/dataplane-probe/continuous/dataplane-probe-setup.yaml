@@ -185,7 +185,7 @@ kind: Service
 metadata:
   name: istio
 spec:
-  externalName: istio-ingressgateway.istio-system.svc.cluster.local
+  externalName: istio-ingressgateway.istio-system.svc
   sessionAffinity: None
   type: ExternalName
 ---
@@ -195,11 +195,10 @@ metadata:
   name: dataplane-probe
 spec:
   gateways:
-  - knative-ingress-gateway.knative-serving.svc.cluster.local
+  - knative-serving/knative-ingress-gateway
   hosts:
   - istio.default
   - istio.default.svc
-  - istio.default.svc.cluster.local
   http:
   - match:
     - authority:
@@ -210,7 +209,7 @@ spec:
         regex: ^istio\.default\.svc\.cluster\.local(?::\d{1,5})?$
     route:
     - destination:
-        host: deployment.default.svc.cluster.local
+        host: deployment.default.svc
         port:
           number: 80
       weight: 100

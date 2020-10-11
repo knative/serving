@@ -43,7 +43,7 @@ import (
 // In this test, we set up two apps: helloworld and httpproxy.
 // helloworld is a simple app that displays a plaintext string with private visibility.
 // httpproxy is a proxy that redirects request to internal service of helloworld app
-// with {tag}-{route}.{namespace}.svc.cluster.local, or {tag}-{route}.{namespace}.svc, or {tag}-{route}.{namespace}.
+// with {tag}-{route}.{namespace}.svc.{cluster-suffix}, or {tag}-{route}.{namespace}.svc, or {tag}-{route}.{namespace}.
 // The expected result is that the request sent to httpproxy app is successfully redirected
 // to helloworld app when trying to communicate via local address only.
 func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descriptive name because routes will fail DNS checks. (Max 64 characters)

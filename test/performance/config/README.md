@@ -40,7 +40,7 @@ This will produce a series of pretty-printed JSON blocks like:
   "errors": [
     "503 Service Unavailable",
     "502 Bad Gateway",
-    "Get http://autoscale-go.default.svc.cluster.local?sleep=100: net/http: request canceled (Client.Timeout exceeded while awaiting headers)"
+    "Get http://autoscale-go.default.svc?sleep=100: net/http: request canceled (Client.Timeout exceeded while awaiting headers)"
   ],
   "latencies": {
     "50th": 102296894,

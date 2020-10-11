@@ -18,7 +18,7 @@ metadata:
   name: vegeta-payload
 data:
   payload: |
-    GET http://autoscale-go.default.svc.cluster.local?sleep=100
+    GET http://autoscale-go.default.svc?sleep=100
 ---
 apiVersion: batch/v1
 kind: Job

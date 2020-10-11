@@ -67,7 +67,7 @@ var (
 		"queue-proxy": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://queue-proxy.default.svc.cluster.local?sleep=100",
+				URL:    "http://queue-proxy.default.svc?sleep=100",
 			},
 			stat:      "q",
 			estat:     "qe",
@@ -76,7 +76,7 @@ var (
 		"queue-proxy-with-cc": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://queue-proxy-with-cc.default.svc.cluster.local?sleep=100",
+				URL:    "http://queue-proxy-with-cc.default.svc?sleep=100",
 			},
 			stat:  "qc",
 			estat: "qce",
@@ -86,7 +86,7 @@ var (
 		"activator": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://activator.default.svc.cluster.local?sleep=100",
+				URL:    "http://activator.default.svc?sleep=100",
 			},
 			stat:      "a",
 			estat:     "ae",
@@ -95,7 +95,7 @@ var (
 		"activator-with-cc": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://activator-with-cc.default.svc.cluster.local?sleep=100",
+				URL:    "http://activator-with-cc.default.svc?sleep=100",
 			},
 			stat:  "ac",
 			estat: "ace",
