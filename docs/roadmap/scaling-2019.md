@@ -19,7 +19,7 @@ on the CI systems and to avoid unwanted regressions.
 
 As a serverless framework, Knative should only run code when it needs to.
 Including scaling to zero when the Revision is not being used. However the
-Revison must also come back quickly, otherwise the illusion of "serverless" is
+Revision must also come back quickly, otherwise the illusion of "serverless" is
 broken--it must seem as if it was always there. Generally less than one second
 is a good start.
 
