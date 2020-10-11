@@ -303,7 +303,7 @@ func WithFailingContainer(name string, exitCode int, message string) PodOption {
 	}
 }
 
-// WithUnschedulableContainer sets the .Status.Conditionss on the pod to
+// WithUnschedulableContainer sets the .Status.Conditions on the pod to
 // include `PodScheduled` status to `False` with the given message and reason.
 func WithUnschedulableContainer(reason, message string) PodOption {
 	return func(pod *corev1.Pod) {
