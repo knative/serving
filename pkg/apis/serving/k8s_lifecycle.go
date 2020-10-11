@@ -48,7 +48,7 @@ func TransformDeploymentStatus(ds *appsv1.DeploymentStatus) *duckv1.Status {
 
 	depCondSet.Manage(s).InitializeConditions()
 	// The absence of this condition means no failure has occurred. If we find it
-	// below, we'll ovewrwrite this.
+	// below, we'll overwrite this.
 	depCondSet.Manage(s).MarkTrue(DeploymentConditionReplicaSetReady)
 
 	for _, cond := range ds.Conditions {
