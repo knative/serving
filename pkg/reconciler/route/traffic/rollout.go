@@ -40,8 +40,8 @@ type Rollout struct {
 type ConfigRollout struct {
 	// Name + tag pair uniquely identifies the rollout target.
 	// `tag` will be empty, if this is the `DefaultTarget`.
-	ConfigName string `json:"configName"`
-	Tag        string `json:"tag,omitempty"`
+	ConfigurationName string `json:"configurationName"`
+	Tag               string `json:"tag,omitempty"`
 
 	// The revisions in the rollout. In steady state this should
 	// contain 0 (no revision is ready) or 1 (rollout done).
