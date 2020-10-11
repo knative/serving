@@ -42,7 +42,7 @@ data:
 
     # URL to zipkin collector where traces are sent.
     # This must be specified when backend is "zipkin"
-    zipkin-endpoint: "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans"
+    zipkin-endpoint: "http://zipkin.istio-system.svc:9411/api/v2/spans"
 
     # The GCP project into which stackdriver metrics will be written
     # when backend is "stackdriver".  If unspecified, the project-id

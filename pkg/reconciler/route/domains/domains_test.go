@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis"
+	pkgnet "knative.dev/pkg/network"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/apis/serving"
@@ -80,7 +81,7 @@ func TestDomainNameFromTemplate(t *testing.T) {
 		name:     "LocalDash",
 		template: "{{.Name}}-{{.Namespace}}.{{.Domain}}",
 		args:     args{name: "test-name"},
-		want:     "test-name.default.svc.cluster.local",
+		want:     pkgnet.GetServiceHostname("test-name", "default"),
 		local:    true,
 	}, {
 		name:     "Short",

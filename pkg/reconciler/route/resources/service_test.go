@@ -33,6 +33,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
+	pkgnet "knative.dev/pkg/network"
 	apiConfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -154,20 +155,20 @@ func TestNewMakeK8SService(t *testing.T) {
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
 				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "istio-ingressgateway.istio-system.svc.cluster.local"}},
+					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")}},
 				},
 				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "istio-ingressgateway.istio-system.svc.cluster.local"}},
+					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")}},
 				},
 				PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "private-istio-ingressgateway.istio-system.svc.cluster.local"}},
+					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system")}},
 				},
 			},
 		},
 		expectedMeta: expectedMeta,
 		expectedSpec: corev1.ServiceSpec{
 			Type:            corev1.ServiceTypeExternalName,
-			ExternalName:    "private-istio-ingressgateway.istio-system.svc.cluster.local",
+			ExternalName:    pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system"),
 			SessionAffinity: corev1.ServiceAffinityNone,
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortNameH2C,
@@ -312,7 +313,7 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 		route: Route("test-ns", "test-route", WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal})),
 		expectedSpec: corev1.ServiceSpec{
 			Type:            corev1.ServiceTypeExternalName,
-			ExternalName:    "foo-test-route.test-ns.svc.cluster.local",
+			ExternalName:    pkgnet.GetServiceHostname("foo-test-route", "test-ns"),
 			SessionAffinity: corev1.ServiceAffinityNone,
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortNameH2C,
