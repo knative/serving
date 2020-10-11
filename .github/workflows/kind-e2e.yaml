@@ -229,4 +229,5 @@ jobs:
 
         # Run the tests tagged as e2e on the KinD cluster.
         go test -race -count=1 -timeout=20m -tags=e2e ${{ matrix.test-suite }} \
-           --ingressendpoint="${IPS[0]}"
+           --ingressendpoint="${IPS[0]}" \
+           --clusterSuffix="${{ matrix.cluster-suffix }}"
