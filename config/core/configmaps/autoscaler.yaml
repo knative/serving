@@ -157,7 +157,7 @@ data:
     # and the traffic is bursty (requiring smaller windows for fast action),
     # but patchy.
     # The larger of this flag and `scale-to-zero-grace-period` will effectively
-    # detemine how the last pod will hang around.
+    # determine how the last pod will hang around.
     scale-to-zero-pod-retention-period: "0s"
 
     # pod-autoscaler-class specifies the default pod autoscaler class
