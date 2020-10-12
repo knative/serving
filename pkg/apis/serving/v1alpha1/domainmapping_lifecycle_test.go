@@ -209,6 +209,18 @@ func TestDomainMappingIsReady(t *testing.T) {
 			if e, a := tc.isReady, tc.status.IsReady(); e != a {
 				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 			}
+
+			dm := &DomainMapping{}
+			dm.Status = tc.status
+			if e, a := tc.isReady, dm.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+
+			dm.Generation = 2
+			dm.Status.ObservedGeneration = 1
+			if dm.IsReady() {
+				t.Error("Expected DomainMapping not to be Ready when ObservedGeneration != Generation")
+			}
 		})
 	}
 }

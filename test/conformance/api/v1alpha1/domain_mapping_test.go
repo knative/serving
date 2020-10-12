@@ -87,7 +87,7 @@ func TestDomainMapping(t *testing.T) {
 			return true, err
 		}
 
-		return state.Status.IsReady(), nil
+		return state.IsReady(), nil
 	})
 	if waitErr != nil {
 		t.Fatalf("The DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
