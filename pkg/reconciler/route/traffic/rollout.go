@@ -34,11 +34,11 @@ const rolloutAnnotationKey = networking.GroupName + "/rollout"
 // There may be several rollouts going on at the same time for the
 // same configuration if there is a tag configured traffic target.
 type Rollout struct {
-	Configs []ConfigRollout `json:"configs,omitempty"`
+	Configurations []ConfigurationRollout `json:"configurations,omitempty"`
 }
 
 // ConfigRollout describes the rollout state for a given config+tag pair.
-type ConfigRollout struct {
+type ConfigurationRollout struct {
 	// Name + tag pair uniquely identifies the rollout target.
 	// `tag` will be empty, if this is the `DefaultTarget`.
 	ConfigurationName string `json:"configurationName"`
