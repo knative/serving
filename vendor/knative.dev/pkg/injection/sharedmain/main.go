@@ -24,7 +24,6 @@ import (
 	"os"
 	"time"
 
-	"go.opencensus.io/stats/view"
 	_ "go.uber.org/automaxprocs" // automatically set GOMAXPROCS based on cgroups
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -257,12 +256,7 @@ func ParseAndGetConfigOrDie() *rest.Config {
 // MemStatsOrDie sets up reporting on Go memory usage every 30 seconds or dies
 // by calling log.Fatalf.
 func MemStatsOrDie(ctx context.Context) {
-	msp := metrics.NewMemStatsAll()
-	msp.Start(ctx, 30*time.Second)
-
-	if err := view.Register(msp.DefaultViews()...); err != nil {
-		log.Fatal("Error exporting go memstats view: ", err)
-	}
+	metrics.MemStatsOrDie(ctx)
 }
 
 // SetupLoggerOrDie sets up the logger using the config from the given context

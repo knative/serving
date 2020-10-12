@@ -70,7 +70,7 @@ func main() {
 	ctx := signals.NewContext()
 
 	// Report stats on Go memory usage every 30 seconds.
-	sharedmain.MemStatsOrDie(ctx)
+	metrics.MemStatsOrDie(ctx)
 
 	cfg := sharedmain.ParseAndGetConfigOrDie()
 

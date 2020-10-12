@@ -1008,7 +1008,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/networking v0.0.0-20201010092416-48599feb7fad
+# knative.dev/networking v0.0.0-20201012170717-953c086174f1
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1041,7 +1041,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20201011225416-975a1cf9e447
+# knative.dev/pkg v0.0.0-20201012221417-e3b4e9c22943
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1124,6 +1124,7 @@ knative.dev/pkg/test/helpers
 knative.dev/pkg/test/ingress
 knative.dev/pkg/test/logging
 knative.dev/pkg/test/logstream
+knative.dev/pkg/test/logstream/v2
 knative.dev/pkg/test/mako
 knative.dev/pkg/test/mako/alerter
 knative.dev/pkg/test/mako/alerter/github
