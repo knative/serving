@@ -18,7 +18,7 @@
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 source $(dirname $0)/e2e-networking-library.sh
 
-CERT_MANAGER_VERSION="0.12.0"
+CERT_MANAGER_VERSION="latest"
 # Since default is istio, make default ingress as istio
 INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
 ISTIO_VERSION=""
@@ -253,7 +253,9 @@ function install_knative_serving_standard() {
   echo ">> Installing Cert-Manager"
   readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
   echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
-  kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
+  # We skip installing cert-manager if it has been installed as "kubectl apply" will be stuck when
+  # cert-manager has been installed. https://github.com/jetstack/cert-manager/issues/3367
+  kubectl get ns cert-manager || kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
   UNINSTALL_LIST+=( "${INSTALL_CERT_MANAGER_YAML}" )
   readonly NET_CERTMANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/net-certmanager.yaml"
   echo "net-certmanager YAML: ${NET_CERTMANAGER_YAML}"
