@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"go.uber.org/zap"
@@ -147,7 +146,7 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
-	cc := componentConfig(ctx, logger)
+	cc, selfIP := componentConfigAndIP(ctx, logger)
 	ctx = leaderelection.WithStandardLeaderElectorBuilder(ctx, kubeClient, cc)
 
 	// accept is the func to call when this pod owns the Revision for this StatMessage.
@@ -155,7 +154,7 @@ func main() {
 		collector.Record(sm.Key, time.Now(), sm.Stat)
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
-	f := statforwarder.New(ctx, logger, kubeClient, cc.Identity, bucket.AutoscalerBucketSet(cc.Buckets), accept)
+	f := statforwarder.New(ctx, logger, kubeClient, selfIP, bucket.AutoscalerBucketSet(cc.Buckets), accept)
 
 	// Set up a statserver.
 	statsServer := statserver.New(statsServerAddr, statsCh, logger, f.IsBucketOwner)
@@ -231,13 +230,15 @@ func flush(logger *zap.SugaredLogger) {
 	metrics.FlushExporter()
 }
 
-func componentConfig(ctx context.Context, logger *zap.SugaredLogger) leaderelection.ComponentConfig {
-	selfIP, existing := os.LookupEnv("POD_IP")
-	if !existing {
-		logger.Fatal("POD_IP environment variable not set.")
+func componentConfigAndIP(ctx context.Context, logger *zap.SugaredLogger) (leaderelection.ComponentConfig, string) {
+	id, err := bucket.Identity()
+	if err != nil {
+		logger.Fatalw("Failed to generate Lease holder identify", zap.Error(err))
 	}
-	if selfIP == "" {
-		logger.Fatal("POD_IP environment variable is empty.")
+
+	_, ip, err := bucket.ExtractPodNameAndIP(id)
+	if err != nil {
+		logger.Fatalw("Failed to extract IP from identify", zap.Error(err))
 	}
 
 	// Set up leader election config
@@ -250,7 +251,7 @@ func componentConfig(ctx context.Context, logger *zap.SugaredLogger) leaderelect
 	cc.LeaseName = func(i uint32) string {
 		return bucket.AutoscalerBucketName(i, cc.Buckets)
 	}
-	cc.Identity = selfIP
+	cc.Identity = id
 
-	return cc
+	return cc, ip
 }

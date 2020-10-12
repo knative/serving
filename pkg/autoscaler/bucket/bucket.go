@@ -17,7 +17,9 @@ limitations under the License.
 package bucket
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -48,4 +50,37 @@ func AutoscalerBucketSet(total uint32) *hash.BucketSet {
 		names.Insert(AutoscalerBucketName(i, total))
 	}
 	return hash.NewBucketSet(names)
+}
+
+// Identity returns a identify for this Autoscaler pod used as the Lease holder
+// identity. It's in the format of <POD-NAME>_<POD-IP> whose information is ready from
+// environment variables.
+func Identity() (string, error) {
+	selfIP, existing := os.LookupEnv("POD_IP")
+	if !existing {
+		return "", errors.New("POD_IP environment variable not set")
+	}
+	if selfIP == "" {
+		return "", errors.New("POD_IP environment variable is empty")
+	}
+
+	podName, existing := os.LookupEnv("POD_NAME")
+	if !existing {
+		return "", errors.New("POD_NAME environment variable not set")
+	}
+	if podName == "" {
+		return "", errors.New("POD_NAME environment variable is empty")
+	}
+
+	return podName + "_" + selfIP, nil
+}
+
+// ExtractPodNameAndIP extracts the pod name and IP from the given Lease holder
+// identity.
+func ExtractPodNameAndIP(id string) (string, string, error) {
+	arr := strings.SplitN(id, "_", 2)
+	if len(arr) < 2 {
+		return "", "", errors.New("Failed to extract pod name and IP from " + id)
+	}
+	return arr[0], arr[1], nil
 }
