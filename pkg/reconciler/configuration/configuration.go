@@ -59,14 +59,14 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	recorder := controller.GetEventRecorder(ctx)
 
 	// First, fetch the revision that should exist for the current generation.
-	lcr, err := c.latestCreatedRevision(ctx, config)
+	lcr, err := c.latestCreatedRevision(config)
 	if errors.IsNotFound(err) {
 		lcr, err = c.createRevision(ctx, config)
 		if errors.IsAlreadyExists(err) {
 			// Newer revisions with a consistent naming scheme can theoretically hit this
 			// path during normal operation so we don't actually report any failures to
 			// the user.
-			// We fail reconcilation anyway to make sure we get the correct revision for
+			// We fail reconciliation anyway to make sure we get the correct revision for
 			// further processing.
 			return fmt.Errorf("failed to create Revision: %w", err)
 		} else if err != nil {
@@ -245,7 +245,7 @@ func CheckNameAvailability(config *v1.Configuration, lister listers.RevisionList
 	return rev, nil
 }
 
-func (c *Reconciler) latestCreatedRevision(ctx context.Context, config *v1.Configuration) (*v1.Revision, error) {
+func (c *Reconciler) latestCreatedRevision(config *v1.Configuration) (*v1.Revision, error) {
 	if rev, err := CheckNameAvailability(config, c.revisionLister); rev != nil || err != nil {
 		return rev, err
 	}
