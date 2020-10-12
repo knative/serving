@@ -80,7 +80,7 @@ func Identity() (string, error) {
 func ExtractPodNameAndIP(id string) (string, string, error) {
 	arr := strings.SplitN(id, "_", 2)
 	if len(arr) < 2 {
-		return "", "", errors.New("Fail to extract pod name and IP from " + id)
+		return "", "", errors.New("Failed to extract pod name and IP from " + id)
 	}
 	return arr[0], arr[1], nil
 }

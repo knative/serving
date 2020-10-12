@@ -233,12 +233,12 @@ func flush(logger *zap.SugaredLogger) {
 func componentConfigAndIP(ctx context.Context, logger *zap.SugaredLogger) (leaderelection.ComponentConfig, string) {
 	id, err := bucket.Identity()
 	if err != nil {
-		logger.Fatalw("Fail to generate Lease holder identify", zap.Error(err))
+		logger.Fatalw("Failed to generate Lease holder identify", zap.Error(err))
 	}
 
 	_, ip, err := bucket.ExtractPodNameAndIP(id)
 	if err != nil {
-		logger.Fatalw("Fail to extract IP from identify", zap.Error(err))
+		logger.Fatalw("Failed to extract IP from identify", zap.Error(err))
 	}
 
 	// Set up leader election config
