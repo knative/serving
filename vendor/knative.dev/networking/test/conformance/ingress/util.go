@@ -655,7 +655,7 @@ func createIngress(ctx context.Context, t *testing.T, clients *test.Clients, spe
 			Name:      name,
 			Namespace: test.ServingNamespace,
 			Annotations: map[string]string{
-				networking.IngressClassAnnotationKey: test.ServingFlags.IngressClass,
+				networking.IngressClassAnnotationKey: test.NetworkingFlags.IngressClass,
 			},
 		},
 		Spec: spec,

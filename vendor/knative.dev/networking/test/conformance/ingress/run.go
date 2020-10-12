@@ -74,7 +74,7 @@ func RunConformance(t *testing.T) {
 	// dimensions
 	// ie. state - alpha, beta, ga
 	// ie. requirement - must, should, may
-	if test.ServingFlags.EnableBetaFeatures {
+	if test.NetworkingFlags.EnableBetaFeatures {
 		for name, test := range betaTests {
 			if _, ok := skipTests[name]; ok {
 				t.Run(name, skipFunc)
@@ -84,7 +84,7 @@ func RunConformance(t *testing.T) {
 		}
 	}
 
-	if test.ServingFlags.EnableAlphaFeatures {
+	if test.NetworkingFlags.EnableAlphaFeatures {
 		for name, test := range alphaTests {
 			if _, ok := skipTests[name]; ok {
 				t.Run(name, skipFunc)
@@ -100,7 +100,7 @@ var skipFunc = func(t *testing.T) {
 }
 
 func skipTests() map[string]struct{} {
-	skipArray := strings.Split(test.ServingFlags.SkipTests, ",")
+	skipArray := strings.Split(test.NetworkingFlags.SkipTests, ",")
 	skipMap := make(map[string]struct{}, len(skipArray))
 	for _, name := range skipArray {
 		skipMap[name] = struct{}{}
