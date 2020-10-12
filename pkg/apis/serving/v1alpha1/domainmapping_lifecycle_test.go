@@ -19,10 +19,13 @@ package v1alpha1
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	apistest "knative.dev/pkg/apis/testing"
 )
 
 func TestDomainMappingDuckTypes(t *testing.T) {
@@ -62,4 +65,48 @@ func TestDomainMappingGetGroupVersionKind(t *testing.T) {
 	if got := r.GetGroupVersionKind(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
 	}
+}
+
+func TestPropagateIngressStatus(t *testing.T) {
+	dms := &DomainMappingStatus{}
+
+	dms.InitializeConditions()
+	apistest.CheckConditionOngoing(dms, DomainMappingConditionIngressReady, t)
+	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
+
+	dms.PropagateIngressStatus(netv1alpha1.IngressStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   netv1alpha1.IngressConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+	})
+
+	apistest.CheckConditionFailed(dms, DomainMappingConditionIngressReady, t)
+	apistest.CheckConditionFailed(dms, DomainMappingConditionReady, t)
+
+	dms.PropagateIngressStatus(netv1alpha1.IngressStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   netv1alpha1.IngressConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	})
+
+	apistest.CheckConditionSucceeded(dms, DomainMappingConditionIngressReady, t)
+	apistest.CheckConditionSucceeded(dms, DomainMappingConditionReady, t)
+
+	dms.PropagateIngressStatus(netv1alpha1.IngressStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   netv1alpha1.IngressConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+	})
+
+	apistest.CheckConditionOngoing(dms, DomainMappingConditionIngressReady, t)
+	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
 }

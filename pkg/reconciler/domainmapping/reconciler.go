@@ -53,6 +53,14 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	logger := logging.FromContext(ctx)
 	logger.Debugf("Reconciling DomainMapping %s/%s", dm.Namespace, dm.Name)
 
+	// Defensively assume the ingress is not configured until we manage to
+	// successfully reconcile it below. This avoids error cases where we fail
+	// before we've reconciled the ingress and get a new ObservedGeneration but
+	// still have Ingress Ready: True.
+	if dm.GetObjectMeta().GetGeneration() != dm.Status.ObservedGeneration {
+		dm.Status.MarkIngressNotConfigured()
+	}
+
 	// Mapped URL is the metadata.name of the DomainMapping.
 	url := &apis.URL{
 		Scheme: "http",
@@ -67,7 +75,18 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 
 	logger.Debugf("Mapping %s to %s/%s", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name)
 	desired := resources.MakeIngress(dm, ingressClass)
-	_, err := r.reconcileIngress(ctx, dm, desired)
+	ingress, err := r.reconcileIngress(ctx, dm, desired)
+	if err != nil {
+		return err
+	}
+
+	// Check that the Ingress status reflects the latest ingress applied and propagate if so.
+	if ingress.GetObjectMeta().GetGeneration() != ingress.Status.ObservedGeneration {
+		dm.Status.MarkIngressNotConfigured()
+	} else {
+		dm.Status.PropagateIngressStatus(ingress.Status)
+	}
+
 	return err
 }
 
