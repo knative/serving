@@ -44,10 +44,10 @@ func (dms *DomainMappingStatus) IsReady() bool {
 
 // IsReady returns true if the Status condition DomainMappingConditionReady
 // is true and the latest spec has been observed.
-func (r *DomainMapping) IsReady() bool {
-	rs := r.Status
-	return rs.ObservedGeneration == r.Generation &&
-		rs.GetCondition(DomainMappingConditionReady).IsTrue()
+func (dm *DomainMapping) IsReady() bool {
+	dms := dm.Status
+	return dms.ObservedGeneration == dm.Generation &&
+		dms.GetCondition(DomainMappingConditionReady).IsTrue()
 }
 
 // InitializeConditions sets the initial values to the conditions.
