@@ -24,9 +24,10 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"sync/atomic"
 
+	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
+
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
@@ -51,8 +52,8 @@ type prober struct {
 	url           *url.URL
 	minimumProbes int64
 
-	requests int64
-	failures int64
+	requests atomic.Int64
+	failures atomic.Int64
 
 	// This channel is simply closed when minimumProbes has been satisfied.
 	minDoneCh chan struct{}
@@ -67,7 +68,7 @@ var _ Prober = (*prober)(nil)
 
 // SLI implements Prober
 func (p *prober) SLI() (int64, int64) {
-	return atomic.LoadInt64(&p.requests), atomic.LoadInt64(&p.failures)
+	return p.requests.Load(), p.failures.Load()
 }
 
 // Stop implements Prober
@@ -138,7 +139,7 @@ func (m *manager) Spawn(url *url.URL) Prober {
 	m.probes[url] = p
 
 	errGrp.Go(func() error {
-		client, err := pkgTest.NewSpoofingClient(ctx, m.clients.KubeClient, m.logf, url.Hostname(), ServingFlags.ResolvableDomain, m.transportOptions...)
+		client, err := pkgTest.NewSpoofingClient(ctx, m.clients.KubeClient, m.logf, url.Hostname(), NetworkingFlags.ResolvableDomain, m.transportOptions...)
 		if err != nil {
 			return fmt.Errorf("failed to generate client: %w", err)
 		}
@@ -156,16 +157,16 @@ func (m *manager) Spawn(url *url.URL) Prober {
 				return nil
 			default:
 				res, err := client.Do(req)
-				if atomic.AddInt64(&p.requests, 1) == p.minimumProbes {
+				if p.requests.Inc() == p.minimumProbes {
 					close(p.minDoneCh)
 				}
 				if err != nil {
 					p.logf("%q error: %v", p.url, err)
-					atomic.AddInt64(&p.failures, 1)
+					p.failures.Inc()
 				} else if res.StatusCode != http.StatusOK {
 					p.logf("%q status = %d, want: %d", p.url, res.StatusCode, http.StatusOK)
-					p.logf("response: %s", res)
-					atomic.AddInt64(&p.failures, 1)
+					p.logf("Response: %s", res)
+					p.failures.Inc()
 				}
 			}
 		}
