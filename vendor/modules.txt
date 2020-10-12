@@ -1041,7 +1041,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20201011225416-975a1cf9e447
+# knative.dev/pkg v0.0.0-20201011225416-975a1cf9e447 => github.com/vagababov/pkg v0.0.0-20201012182538-2279bdf9ad29
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1124,6 +1124,7 @@ knative.dev/pkg/test/helpers
 knative.dev/pkg/test/ingress
 knative.dev/pkg/test/logging
 knative.dev/pkg/test/logstream
+knative.dev/pkg/test/logstream/v2
 knative.dev/pkg/test/mako
 knative.dev/pkg/test/mako/alerter
 knative.dev/pkg/test/mako/alerter/github

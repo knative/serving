@@ -1146,6 +1146,8 @@ github.com/urfave/cli v0.0.0-20171014202726-7bc6a0acffa5/go.mod h1:70zkFmudgCuE/
 github.com/urfave/cli v1.18.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/uudashr/gocognit v1.0.1/go.mod h1:j44Ayx2KW4+oB6SWMv8KsmHzZrOInQav7D3cQMJ5JUM=
+github.com/vagababov/pkg v0.0.0-20201012182538-2279bdf9ad29 h1:JQ3amW7JHxs86nbgNJDE/wfs7Cl3KYid0gFAWJgx/ms=
+github.com/vagababov/pkg v0.0.0-20201012182538-2279bdf9ad29/go.mod h1:jF4YcBevlRFKFChkMhmMyyf5HzTQRssqV/dKNaDajiw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasthttp v1.2.0/go.mod h1:4vX61m6KN+xDduDNwXrhIAVZaZaZiQ1luJk8LWSxF3s=
 github.com/valyala/quicktemplate v1.2.0/go.mod h1:EH+4AkTd43SvgIbQHYu59/cJyxDoOVRUAfrukLPuGJ4=
@@ -1853,8 +1855,6 @@ knative.dev/pkg v0.0.0-20200711004937-22502028e31a/go.mod h1:AqAJV6rYi8IGikDjJ/9
 knative.dev/pkg v0.0.0-20201009153721-3eb7d13daebe h1:SgdbizTXqDd9ROM5rdNsa+JALupbmd7fS8Yu1mPxeZo=
 knative.dev/pkg v0.0.0-20201009153721-3eb7d13daebe/go.mod h1:AqiTNwkpHWuywH8MtgvqzYrph/qbzACviH5iyEfDAZ8=
 knative.dev/pkg v0.0.0-20201009203521-49103e317020/go.mod h1:9GIsAX8DKQ1LPLKknRXm5/2YAXIFKtxxlDiW42NzsIM=
-knative.dev/pkg v0.0.0-20201011225416-975a1cf9e447 h1:8nZoGgDovrILlLYh48HAGEBJt5ZXsCKzIK5sGU17lw0=
-knative.dev/pkg v0.0.0-20201011225416-975a1cf9e447/go.mod h1:9GIsAX8DKQ1LPLKknRXm5/2YAXIFKtxxlDiW42NzsIM=
 knative.dev/test-infra v0.0.0-20200407185800-1b88cb3b45a5/go.mod h1:xcdUkMJrLlBswIZqL5zCuBFOC22WIPMQoVX1L35i0vQ=
 knative.dev/test-infra v0.0.0-20200505052144-5ea2f705bb55/go.mod h1:WqF1Azka+FxPZ20keR2zCNtiQA1MP9ZB4BH4HuI+SIU=
 knative.dev/test-infra v0.0.0-20200513011557-d03429a76034/go.mod h1:aMif0KXL4g19YCYwsy4Ocjjz5xgPlseYV+B95Oo4JGE=
