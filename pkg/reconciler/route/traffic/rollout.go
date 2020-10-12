@@ -25,6 +25,7 @@ import "knative.dev/networking/pkg/apis/networking"
 
 // rolloutAnnotationKey is the annotation key for storing
 // the rollout state in the Annotations of the Kingress or Route.Status.
+//nolint -- for future use.
 const rolloutAnnotationKey = networking.GroupName + "/rollout"
 
 // Rollout encapsulates the current rollout state of the system.
