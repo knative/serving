@@ -62,16 +62,16 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	lcr, err := c.latestCreatedRevision(ctx, config)
 	if errors.IsNotFound(err) {
 		lcr, err = c.createRevision(ctx, config)
-		if err != nil {
-			if !errors.IsAlreadyExists(err) {
-				// Mark the Configuration as not-Ready since creating
-				// its latest revision failed.
-				// Newer revisions with a consistent naming scheme can theoretically
-				// hit this path during normal operation so we don't do this if the
-				// revision we tried to create already existed.
-				recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %v", err)
-				config.Status.MarkRevisionCreationFailed(err.Error())
-			}
+		if errors.IsAlreadyExists(err) {
+			// Newer revisions with a consistent naming scheme can theoretically hit this
+			// path during normal operation so we don't actually report any failures to
+			// the user.
+			// We fail reconcilation anyway to make sure we get the correct revision for
+			// further processing.
+			return fmt.Errorf("failed to create Revision: %w", err)
+		} else if err != nil {
+			recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %v", err)
+			config.Status.MarkRevisionCreationFailed(err.Error())
 
 			return fmt.Errorf("failed to create Revision: %w", err)
 		}
@@ -264,9 +264,7 @@ func (c *Reconciler) latestCreatedRevision(ctx context.Context, config *v1.Confi
 		return list[0], nil
 	}
 
-	// Fallback to doing a get to name directly, just in case.
-	rev := resources.MakeRevision(ctx, config, c.clock)
-	return lister.Get(rev.Name)
+	return nil, errors.NewNotFound(v1.Resource("revisions"), "revision for "+config.Name)
 }
 
 func (c *Reconciler) createRevision(ctx context.Context, config *v1.Configuration) (*v1.Revision, error) {
