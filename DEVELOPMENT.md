@@ -1,6 +1,6 @@
 # Development
 
-This doc explains how to setup a development environment so you can get started
+This doc explains how to set up a development environment so you can get started
 [contributing](https://www.knative.dev/contributing/) to `Knative Serving`. Also
 take a look at:
 
@@ -18,7 +18,7 @@ Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ### Sign up for GitHub
 
-Start by creating [a GitHub account](https://github.com/join), then setup
+Start by creating [a GitHub account](https://github.com/join), then set up
 [GitHub access via SSH](https://help.github.com/articles/connecting-to-github-with-ssh/).
 
 ### Install requirements
@@ -60,7 +60,7 @@ If you're working on and changing `.proto` files:
 pushing images. Run `gcloud auth configure-docker` if you are using Google
 Container Registry or `docker login` if you are using Docker Hub.
 
-### Setup your environment
+### Set up your environment
 
 To start your environment you'll need to set these environment variables (we
 recommend adding them to your `.bashrc`):
@@ -114,14 +114,14 @@ described below.
 
 ## Starting Knative Serving
 
-Once you've [setup your development environment](#prerequisites), stand up
+Once you've [set up your development environment](#prerequisites), stand up
 `Knative Serving`. Note that if you already installed Knative to your cluster,
 redeploying the new version should work fine, but if you run into trouble, you
 can easily [clean your cluster up](#clean-up) and try again.
 
 Enter the `serving` directory to install the following components.
 
-### Setup cluster admin
+### Set up cluster admin
 
 Your user must be a cluster admin to perform the setup needed for Knative. This
 should be the case by default if you've provisioned your own Kubernetes cluster.
@@ -211,7 +211,7 @@ kubectl apply -f ./third_party/net-istio.yaml
 
 # Optional steps
 
-# Run post-install job to setup nice XIP.IO domain name.  This only works
+# Run post-install job to set up nice XIP.IO domain name.  This only works
 # if your Kubernetes LoadBalancer has an IPv4 address.
 ko delete -f config/post-install/default-domain.yaml --ignore-not-found
 ko apply -f config/post-install/default-domain.yaml
