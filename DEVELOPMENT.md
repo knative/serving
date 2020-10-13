@@ -158,7 +158,7 @@ If you want to adopt preinstalled Istio, please check whether the
 `cluster-local-gateway` Service is deployed in namespace `istio-system` or not
 (you can check by running
 `kubectl get service cluster-local-gateway -n istio-system`). If it's not
-installed, please install it with following command. You could also adjust
+installed, please install it with the following command. You could also adjust
 parameters if needed.
 
 ```shell
