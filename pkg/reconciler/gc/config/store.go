@@ -27,7 +27,6 @@ import (
 
 type cfgKey struct{}
 
-// +k8s:deepcopy-gen=false
 type Config struct {
 	RevisionGC *gc.Config
 	Features   *apiconfig.Features
@@ -41,7 +40,6 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 	return context.WithValue(ctx, cfgKey{}, c)
 }
 
-// +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
 }
