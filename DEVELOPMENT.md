@@ -192,7 +192,7 @@ kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/ma
 ### Deploy Knative Serving
 
 This step includes building Knative Serving, creating and pushing developer
-images and deploying them to your Kubernetes cluster. If you're developing
+images, and deploying them to your Kubernetes cluster. If you're developing
 locally (for example, using
 [Docker-on-Mac](https://knative.dev/docs/install/knative-with-docker-for-mac/)),
 set `KO_DOCKER_REPO=ko.local` (or `KO_DOCKER_REPO=kind.local` respectively) to
