@@ -104,7 +104,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	case rc.IsFalse():
 		logger.Infof("Revision %q of configuration has failed: Reason=%s Message=%q", revName, rc.Reason, rc.Message)
 		beforeReady := config.Status.GetCondition(v1.ConfigurationConditionReady)
-		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.Message)
+		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.GetMessage())
 
 		if !equality.Semantic.DeepEqual(beforeReady, config.Status.GetCondition(v1.ConfigurationConditionReady)) {
 			recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
