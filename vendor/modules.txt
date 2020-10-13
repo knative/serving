@@ -325,6 +325,7 @@ go.opencensus.io/trace/tracestate
 ## explicit
 go.uber.org/atomic
 # go.uber.org/automaxprocs v1.3.0
+## explicit
 go.uber.org/automaxprocs
 go.uber.org/automaxprocs/internal/cgroups
 go.uber.org/automaxprocs/internal/runtime

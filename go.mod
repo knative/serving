@@ -21,6 +21,7 @@ require (
 	github.com/tsenart/vegeta v12.7.1-0.20190725001342-b5f4fca92137+incompatible
 	go.opencensus.io v0.22.4
 	go.uber.org/atomic v1.6.0
+	go.uber.org/automaxprocs v1.3.0
 	go.uber.org/zap v1.15.0
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d

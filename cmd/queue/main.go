@@ -31,6 +31,7 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"go.opencensus.io/plugin/ochttp"
+	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -96,6 +97,10 @@ type config struct {
 	TracingConfigSampleRate           float64                   `split_words:"true"` // optional
 	TracingConfigZipkinEndpoint       string                    `split_words:"true"` // optional
 	TracingConfigStackdriverProjectID string                    `split_words:"true"` // optional
+}
+
+func init() {
+	maxprocs.Set()
 }
 
 func main() {
