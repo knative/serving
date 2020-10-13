@@ -94,10 +94,11 @@ var MustFiles = map[string]FileInfo{
 		IsDir: ptr.Bool(true),
 		Perm:  "rwxrwxrwx",
 	},
-	"/var/log": {
-		IsDir: ptr.Bool(true),
-		Perm:  "rwxrwxrwx",
-	},
+	// TODO(dprotaso) Re-enable this as a potential MAY requirement
+	// "/var/log": {
+	// 	IsDir: ptr.Bool(true),
+	// 	Perm:  "rwxrwxrwx",
+	// },
 }
 
 // ShouldFiles specifies the file paths and expected permissions that SHOULD be set as specified in the runtime contract.

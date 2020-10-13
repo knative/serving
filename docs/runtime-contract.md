@@ -426,10 +426,10 @@ In addition to the filesystems recommended in the OCI, the following filesystems
 [MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/filesystem_test.go)
 be provided:
 
-| Mount      | Description                                                                                                                                                      |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/tmp`     | MUST be Read-write.<p>SHOULD be backed by tmpfs if disk load is a concern.                                                                                       |
-| `/var/log` | MUST be a directory with write permissions for logs storage. Implementations MAY permit the creation of additional subdirectories and log rotation and renaming. |
+| Mount      | Description                                                                                                                                                     |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/tmp`     | MUST be Read-write.<p>SHOULD be backed by tmpfs if disk load is a concern.                                                                                      |
+| `/var/log` | MAY be a directory with write permissions for logs storage. Implementations MAY permit the creation of additional subdirectories and log rotation and renaming. |
 
 To enable DNS resolution, the following files might be overwritten at runtime:
 
