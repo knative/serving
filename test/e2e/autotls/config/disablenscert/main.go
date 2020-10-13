@@ -21,12 +21,12 @@ import (
 	"log"
 
 	"github.com/kelseyhightower/envconfig"
+	"knative.dev/pkg/injection"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/pkg/injection/sharedmain"
 	test "knative.dev/serving/test"
 )
 
@@ -41,7 +41,7 @@ func main() {
 		log.Fatal("Failed to process environment variable: ", err)
 	}
 
-	cfg, err := sharedmain.GetConfig("", "")
+	cfg, err := injection.GetRESTConfig("", "")
 	if err != nil {
 		log.Fatal("Failed to build config: ", err)
 	}
