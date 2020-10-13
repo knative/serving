@@ -28,6 +28,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/apps/v1"
+	"knative.dev/pkg/injection"
 
 	"github.com/google/mako/go/quickstore"
 	"k8s.io/apimachinery/pkg/labels"
@@ -62,7 +63,11 @@ const (
 )
 
 func clientsFromConfig() (*test.Clients, error) {
-	return test.NewClientsFromCtx(pkgTest.InjectionContext(), testNamespace)
+	cfg, err := injection.GetRESTConfig("", "")
+	if err != nil {
+		return nil, fmt.Errorf("error building kubeconfig: %v", err)
+	}
+	return test.NewClientsFromConfig(cfg, testNamespace)
 }
 
 func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects, func(), error) {

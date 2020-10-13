@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/network"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -41,7 +42,7 @@ func TestNamer(t *testing.T) {
 		name:  "K8sServiceFullname",
 		route: getRoute("bar", "default", ""),
 		f:     K8sServiceFullname,
-		want:  "bar.default.svc.cluster.local",
+		want:  network.GetServiceHostname("bar", "default"),
 	}, {
 		name:  "IngressPrefix",
 		route: getRoute("bar", "default", "1234-5678-910"),

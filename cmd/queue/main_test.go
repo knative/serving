@@ -17,17 +17,15 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/plugin/ochttp"
+
 	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/tracing"
@@ -37,59 +35,6 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 )
-
-func TestProbeHandler(t *testing.T) {
-	testcases := []struct {
-		name          string
-		prober        func() bool
-		wantCode      int
-		wantBody      string
-		requestHeader string
-	}{{
-		name:          "unexpected probe header",
-		prober:        func() bool { return true },
-		wantCode:      http.StatusBadRequest,
-		wantBody:      fmt.Sprintf(badProbeTemplate, "test-probe"),
-		requestHeader: "test-probe",
-	}, {
-		name:          "true probe function",
-		prober:        func() bool { return true },
-		wantCode:      http.StatusOK,
-		wantBody:      queue.Name,
-		requestHeader: queue.Name,
-	}, {
-		name:          "nil probe function",
-		prober:        nil,
-		wantCode:      http.StatusInternalServerError,
-		wantBody:      "no probe",
-		requestHeader: queue.Name,
-	}, {
-		name:          "false probe function",
-		prober:        func() bool { return false },
-		wantCode:      http.StatusServiceUnavailable,
-		requestHeader: queue.Name,
-	}}
-
-	healthState := &health.State{}
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			writer := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
-
-			h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
-			h(writer, req)
-
-			if got, want := writer.Code, tc.wantCode; got != want {
-				t.Errorf("probe status = %v, want: %v", got, want)
-			}
-			if got, want := strings.TrimSpace(writer.Body.String()), tc.wantBody; got != want {
-				// \r\n might be inserted, etc.
-				t.Errorf("probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
-			}
-		})
-	}
-}
 
 func TestQueueTraceSpans(t *testing.T) {
 	testcases := []struct {
@@ -204,7 +149,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				h := queue.ProxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
-				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
+				h := health.ProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}

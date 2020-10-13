@@ -32,6 +32,7 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	apiConfig "knative.dev/serving/pkg/apis/config"
@@ -132,7 +133,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 		Hosts: []string{
 			"test-route." + ns,
 			"test-route." + ns + ".svc",
-			"test-route." + ns + ".svc.cluster.local",
+			pkgnet.GetServiceHostname("test-route", ns),
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
@@ -178,7 +179,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 		Hosts: []string{
 			"v1-test-route." + ns,
 			"v1-test-route." + ns + ".svc",
-			"v1-test-route." + ns + ".svc.cluster.local",
+			pkgnet.GetServiceHostname("v1-test-route", ns),
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
@@ -254,7 +255,7 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 			}},
 		},
 		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
-			netv1alpha1.IngressVisibilityClusterLocal: {"myroute.default", "myroute.default.svc", "myroute.default.svc.cluster.local"},
+			netv1alpha1.IngressVisibilityClusterLocal: {"myroute.default", "myroute.default.svc", pkgnet.GetServiceHostname("myroute", "default")},
 			netv1alpha1.IngressVisibilityExternalIP:   {"myroute.default.example.com"},
 		},
 	}, {
@@ -275,7 +276,7 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 			traffic.DefaultTarget: netv1alpha1.IngressVisibilityClusterLocal,
 		},
 		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
-			netv1alpha1.IngressVisibilityClusterLocal: {"myroute.default", "myroute.default.svc", "myroute.default.svc.cluster.local"},
+			netv1alpha1.IngressVisibilityClusterLocal: {"myroute.default", "myroute.default.svc", pkgnet.GetServiceHostname("myroute", "default")},
 		},
 	}, {
 		name:  "unspecified route",
@@ -292,7 +293,7 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 			}},
 		},
 		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
-			netv1alpha1.IngressVisibilityClusterLocal: {"myroute.default", "myroute.default.svc", "myroute.default.svc.cluster.local"},
+			netv1alpha1.IngressVisibilityClusterLocal: {"myroute.default", "myroute.default.svc", pkgnet.GetServiceHostname("myroute", "default")},
 			netv1alpha1.IngressVisibilityExternalIP:   {"myroute.default.example.com"},
 		},
 	}}
@@ -343,7 +344,7 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 		Hosts: []string{
 			"test-route." + ns,
 			"test-route." + ns + ".svc",
-			"test-route." + ns + ".svc.cluster.local",
+			pkgnet.GetServiceHostname("test-route", ns),
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
@@ -433,7 +434,7 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 		Hosts: []string{
 			"v1-test-route." + ns,
 			"v1-test-route." + ns + ".svc",
-			"v1-test-route." + ns + ".svc.cluster.local",
+			pkgnet.GetServiceHostname("v1-test-route", ns),
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
@@ -989,7 +990,7 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 		Hosts: []string{
 			"test-route.test-ns",
 			"test-route.test-ns.svc",
-			"test-route.test-ns.svc.cluster.local",
+			pkgnet.GetServiceHostname("test-route", "test-ns"),
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{

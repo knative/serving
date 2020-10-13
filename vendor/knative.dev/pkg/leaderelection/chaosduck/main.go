@@ -27,13 +27,14 @@ import (
 	"strings"
 	"time"
 
+	"knative.dev/pkg/injection"
+
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/kflag"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
@@ -116,8 +117,7 @@ func quack(ctx context.Context, kc kubernetes.Interface, component string, leade
 }
 
 func main() {
-	ctx := signals.NewContext()
-	ctx = sharedmain.EnableInjectionOrDie(ctx, nil)
+	ctx, _ := injection.EnableInjectionOrDie(signals.NewContext(), nil)
 
 	kc := kubeclient.Get(ctx)
 
@@ -126,7 +126,7 @@ func main() {
 	wait.JitterUntilWithContext(ctx, func(ctx context.Context) {
 		components, err := buildComponents(ctx, kc)
 		if err != nil {
-			log.Printf("Error building components: %v", err)
+			log.Print("Error building components: ", err)
 		}
 		log.Printf("Got components: %#v", components)
 
@@ -141,7 +141,7 @@ func main() {
 			})
 		}
 		if err := eg.Wait(); err != nil {
-			log.Printf("Ended iteration with err: %v", err)
+			log.Print("Ended iteration with err: ", err)
 		}
 	}, tributePeriod, tributeFactor, true /* sliding: do not include the runtime of the above in the interval */)
 }

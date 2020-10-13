@@ -94,7 +94,7 @@ func (h *Handler) UpdateFromConfigMap(configMap *corev1.ConfigMap) {
 	}
 
 	if h.enabled.Swap(enabled) != enabled {
-		h.log.Infof("Profiling enabled: %t", enabled)
+		h.log.Info("Profiling enabled: ", enabled)
 	}
 }
 

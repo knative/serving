@@ -516,7 +516,7 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 			simpleK8sService(Route("default", "steady-state", WithConfigTarget("config")),
-				WithExternalName("private-istio-ingressgateway.istio-system.svc.cluster.local")),
+				WithExternalName(pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system"))),
 		},
 		Key: "default/steady-state",
 	}, {
@@ -599,7 +599,7 @@ func TestReconcile(t *testing.T) {
 			{
 				Object: simpleReadyIngress(
 					Route("default", "different-domain", WithConfigTarget("config"),
-						WithAnotherDomain, WithRouteGeneration(1)),
+						WithAnotherDomain, WithRouteGeneration(1), WithRouteLabel(map[string]string{"app": "prod"})),
 					&traffic.Config{
 						Targets: map[string]traffic.RevisionTargets{
 							traffic.DefaultTarget: {{
@@ -735,7 +735,7 @@ func TestReconcile(t *testing.T) {
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 			simpleIngress(
-				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23"), WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
+				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23")),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -825,8 +825,7 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleIngress(
 				Route("default", "becomes-public", WithConfigTarget("config"),
-					WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
-					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
+					WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -2408,7 +2407,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 			simpleIngress(
-				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23"), WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
+				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23")),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{

@@ -14,7 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +k8s:deepcopy-gen=package
-
-// Package config contains the config for the autoscaler
+// Package config contains the config for the autoscaler.
 package config

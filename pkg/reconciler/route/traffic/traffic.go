@@ -291,11 +291,25 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	return nil
 }
 
+// This find the exact revision+tag pair and if so, just adds the percentages.
+// This expects single digit lists, so just does an O(N) search.
+func mergeIfNecessary(rts RevisionTargets, rt RevisionTarget) RevisionTargets {
+	for i := range rts {
+		if rts[i].Tag == rt.Tag && rts[i].RevisionName == rt.RevisionName &&
+			*rt.LatestRevision == *rts[i].LatestRevision {
+			rts[i].Percent = ptr.Int64(*rts[i].Percent + *rt.Percent)
+			return rts
+		}
+	}
+	return append(rts, rt)
+}
+
 func (cb *configBuilder) addFlattenedTarget(target RevisionTarget) {
 	name := target.TrafficTarget.Tag
-	cb.revisionTargets = append(cb.revisionTargets, target)
+	cb.revisionTargets = mergeIfNecessary(cb.revisionTargets, target)
 	cb.targets[DefaultTarget] = append(cb.targets[DefaultTarget], target)
 	if name != "" {
+		// This should always have just a single entry at most.
 		cb.targets[name] = append(cb.targets[name], target)
 	}
 }

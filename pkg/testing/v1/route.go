@@ -26,6 +26,7 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
@@ -134,7 +135,7 @@ func WithAddress(r *v1.Route) {
 	r.Status.Address = &duckv1.Addressable{
 		URL: &apis.URL{
 			Scheme: "http",
-			Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
+			Host:   network.GetServiceHostname(r.Name, r.Namespace),
 		},
 	}
 }
@@ -147,11 +148,11 @@ func WithAnotherDomain(r *v1.Route) {
 	}
 }
 
-// WithLocalDomain sets the .Status.Domain field to use `svc.cluster.local` suffix.
+// WithLocalDomain sets the .Status.Domain field to use ClusterDomain suffix.
 func WithLocalDomain(r *v1.Route) {
 	r.Status.URL = &apis.URL{
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
+		Host:   network.GetServiceHostname(r.Name, r.Namespace),
 	}
 }
 

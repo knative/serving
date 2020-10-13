@@ -23,6 +23,7 @@ import (
 	pkgTest "knative.dev/pkg/test"
 
 	"github.com/kelseyhightower/envconfig"
+	"knative.dev/pkg/injection"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -42,7 +43,11 @@ func main() {
 		log.Fatal("Failed to process environment variable: ", err)
 	}
 
-	clients, err := test.NewClientsFromCtx(pkgTest.InjectionContext(), test.ServingNamespace)
+	cfg, err := injection.GetRESTConfig("", "")
+	if err != nil {
+		log.Fatal("Failed to build config: ", err)
+	}
+	clients, err := test.NewClientsFromConfig(cfg, test.ServingNamespace)
 	if err != nil {
 		log.Fatal("Failed to create clients: ", err)
 	}

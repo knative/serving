@@ -177,8 +177,8 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerS
 
 	// Don't mark the resources available, if deployment status already determined
 	// it isn't so.
-	resUnavailable := !rs.GetCondition(RevisionConditionResourcesAvailable).IsFalse()
-	if ps.IsScaleTargetInitialized() && resUnavailable {
+	resUnavailable := rs.GetCondition(RevisionConditionResourcesAvailable).IsFalse()
+	if ps.IsScaleTargetInitialized() && !resUnavailable {
 		// Precondition for PA being initialized is SKS being active and
 		// that implies that |service.endpoints| > 0.
 		rs.MarkResourcesAvailableTrue()
@@ -203,7 +203,7 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerS
 		// ScaleTargetInitialized down the road, we would have marked resources
 		// unavailable here, and have no way of recovering later.
 		// If the ResourcesAvailable is already false, don't override the message.
-		if !ps.IsScaleTargetInitialized() && resUnavailable && ps.ServiceName != "" {
+		if !ps.IsScaleTargetInitialized() && !resUnavailable && ps.ServiceName != "" {
 			rs.MarkResourcesAvailableFalse(ReasonProgressDeadlineExceeded,
 				"Initial scale was never achieved")
 		}

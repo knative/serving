@@ -65,7 +65,7 @@ func WaitForDeploymentState(ctx context.Context, client *KubeClient, name string
 // that is emitted to track how long it took to get into the state checked by inState.
 func WaitForPodListState(ctx context.Context, client *KubeClient, inState func(p *corev1.PodList) (bool, error), desc string, namespace string) error {
 	p := client.Kube.CoreV1().Pods(namespace)
-	span := logging.GetEmitableSpan(ctx, fmt.Sprintf("WaitForPodListState/%s", desc))
+	span := logging.GetEmitableSpan(ctx, "WaitForPodListState/"+desc)
 	defer span.End()
 
 	return wait.PollImmediate(interval, podTimeout, func() (bool, error) {

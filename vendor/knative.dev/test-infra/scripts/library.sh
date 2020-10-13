@@ -513,6 +513,65 @@ function add_trap {
   done
 }
 
+# Update go deps.
+# Parameters (parsed as flags):
+#   "--upgrade", bool, do upgrade.
+#   "--release <version>" used with upgrade. The release version to upgrade
+#                         Knative components. ex: --release v0.18. Defaults to
+#                         "master".
+# Additional dependencies can be included in the upgrade by providing them in a
+# global env var: FLOATING_DEPS
+function go_update_deps() {
+  cd "${REPO_ROOT_DIR}" || return 1
+
+  export GO111MODULE=on
+  export GOFLAGS=""
+
+  echo "=== Update Deps for Golang"
+
+  local UPGRADE=0
+  local VERSION="master"
+  while [[ $# -ne 0 ]]; do
+    parameter=$1
+    case ${parameter} in
+      --upgrade) UPGRADE=1 ;;
+      --release) shift; VERSION="$1" ;;
+      *) abort "unknown option ${parameter}" ;;
+    esac
+    shift
+  done
+
+  if (( UPGRADE )); then
+    echo "--- Upgrading to ${VERSION}"
+    FLOATING_DEPS+=( $(run_go_tool knative.dev/test-infra/buoy buoy float ${REPO_ROOT_DIR}/go.mod --release ${VERSION} --domain knative.dev) )
+    if (( ${#FLOATING_DEPS[@]} )); then
+      echo "Floating deps to ${FLOATING_DEPS[@]}"
+      go get -d ${FLOATING_DEPS[@]}
+    else
+      echo "Nothing to upgrade."
+    fi
+  fi
+
+  echo "--- Go mod tidy and vendor"
+
+  # Prune modules.
+  go mod tidy
+  go mod vendor
+
+  echo "--- Removing unwanted vendor files"
+
+  # Remove unwanted vendor files
+  find vendor/ \( -name "OWNERS" -o -name "OWNERS_ALIASES" -o -name "BUILD" -o -name "BUILD.bazel" -o -name "*_test.go" \) -print0 | xargs -0 rm -f
+
+  export GOFLAGS=-mod=vendor
+
+  echo "--- Updating licenses"
+  update_licenses third_party/VENDOR-LICENSE "./..."
+
+  echo "--- Removing broken symlinks"
+  remove_broken_symlinks ./vendor
+}
+
 # Run kntest tool, error out and ask users to install it if it's not currently installed.
 # Parameters: $1..$n - parameters passed to the tool.
 function run_kntest() {

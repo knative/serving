@@ -40,7 +40,7 @@ func MakeRevision(ctx context.Context, configuration *v1.Configuration, clock cl
 	rev.Namespace = configuration.Namespace
 
 	if rev.Name == "" {
-		rev.GenerateName = configuration.Name + "-"
+		rev.Name = kmeta.ChildName(configuration.Name, fmt.Sprintf("-%05d", configuration.Generation))
 	}
 
 	// Pending tells the labeler that we have not processed this revision.

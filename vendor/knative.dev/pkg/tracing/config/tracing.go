@@ -132,8 +132,8 @@ func NewTracingConfigFromConfigMap(config *corev1.ConfigMap) (*Config, error) {
 
 // JsonToTracingConfig converts a json string of a Config.
 // Returns a non-nil Config always and an eventual error.
-// nolint:stylecheck // No rename due to backwards incompatibility.
-func JsonToTracingConfig(jsonCfg string) (*Config, error) {
+func JsonToTracingConfig(jsonCfg string) (*Config, error) { //nolint:stylecheck for backcompat.
+
 	if jsonCfg == "" {
 		return defaultConfig(), errors.New("empty json tracing config")
 	}
@@ -151,8 +151,7 @@ func JsonToTracingConfig(jsonCfg string) (*Config, error) {
 }
 
 // TracingConfigToJson converts a Config to a json string.
-// nolint:stylecheck // No rename due to backwards incompatibility.
-func TracingConfigToJson(cfg *Config) (string, error) {
+func TracingConfigToJson(cfg *Config) (string, error) { //nolint:stylecheck for backcompat.
 	if cfg == nil {
 		return "", nil
 	}

@@ -76,7 +76,7 @@ func setupLogger() *zap.SugaredLogger {
 
 	config, err := logging.NewConfigFromMap(nil)
 	if err != nil {
-		log.Fatalf("Failed to create logging config: %s", err)
+		log.Fatal("Failed to create logging config: ", err)
 	}
 
 	logger, _ := logging.NewLoggerFromConfig(config, component)

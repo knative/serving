@@ -50,7 +50,7 @@ func main() {
 
 	client, err := testPkg.NewClient(gkeEnvironment)
 	if err != nil {
-		log.Fatalf("Failed setting up GKE client, cannot proceed: %v", err)
+		log.Fatal("Failed setting up GKE client, cannot proceed: ", err)
 	}
 	switch {
 	case isRecreate:

@@ -131,7 +131,7 @@ func newTestController(t *testing.T, configs []*corev1.ConfigMap, opts ...reconc
 		Data: map[string]string{
 			"enable":          "true",
 			"debug":           "true",
-			"zipkin-endpoint": "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans",
+			"zipkin-endpoint": "http://zipkin.istio-system.svc:9411/api/v2/spans",
 		},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{

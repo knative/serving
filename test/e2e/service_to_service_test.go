@@ -239,7 +239,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	}
 
 	// Wait for the activator endpoints to equalize.
-	if err := waitForActivatorEndpoints(&testContext{
+	if err := waitForActivatorEndpoints(&TestContext{
 		t:         t,
 		resources: resources,
 		clients:   clients,

@@ -27,7 +27,6 @@ import (
 type cfgKey struct{}
 
 // Config holds the collection of configurations that we attach to contexts.
-// +k8s:deepcopy-gen=false
 type Config struct {
 	Defaults   *Defaults
 	Features   *Features

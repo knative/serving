@@ -49,9 +49,9 @@ function update_knative() {
 
   # Overprovision the Istio gateways and pilot.
   kubectl patch hpa -n istio-system istio-ingressgateway \
-    --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
+    --patch '{"spec": {"minReplicas": 15, "maxReplicas": 15}}'
   kubectl patch deploy -n istio-system cluster-local-gateway \
-    --patch '{"spec": {"replicas": 10}}'
+    --patch '{"spec": {"replicas": 15}}'
 
   echo ">> Updating serving"
   # Retry installation for at most three times as there can sometime be a race condition when applying serving CRDs

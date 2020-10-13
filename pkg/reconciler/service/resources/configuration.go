@@ -32,7 +32,7 @@ import (
 
 // MakeConfiguration creates a Configuration from a Service object.
 func MakeConfiguration(service *v1.Service) (*v1.Configuration, error) {
-	return MakeConfigurationFromExisting(service, &v1.Configuration{}, cfgmap.Allowed)
+	return MakeConfigurationFromExisting(service, &v1.Configuration{}, cfgmap.Enabled)
 }
 
 // MakeConfigurationFromExisting creates a Configuration from a Service object given an existing Configuration.

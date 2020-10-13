@@ -36,7 +36,7 @@ import (
 func Packages(context *generator.Context, arguments *args.GeneratorArgs) generator.Packages {
 	boilerplate, err := arguments.LoadGoBoilerplate()
 	if err != nil {
-		klog.Fatalf("Failed loading boilerplate: %v", err)
+		klog.Fatal("Failed loading boilerplate: ", err)
 	}
 
 	customArgs, ok := arguments.CustomArgs.(*informergenargs.CustomArgs)

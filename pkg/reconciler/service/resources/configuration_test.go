@@ -41,7 +41,7 @@ func TestConfigurationSpec(t *testing.T) {
 	}
 	expectOwnerReferencesSetCorrectly(t, c.OwnerReferences)
 
-	if got, want := len(c.Labels), 2; got != want {
+	if got, want := len(c.Labels), 1; got != want {
 		t.Errorf("expected %d labels got %d", want, got)
 	}
 	if got, want := c.Labels[serving.ServiceLabelKey], testServiceName; got != want {

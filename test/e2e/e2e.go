@@ -122,7 +122,7 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 }
 
 // waitForActivatorEndpoints waits for the Service endpoints to match that of activator.
-func waitForActivatorEndpoints(ctx *testContext) error {
+func waitForActivatorEndpoints(ctx *TestContext) error {
 	var (
 		aset, svcSet sets.String
 		wantAct      int
