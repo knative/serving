@@ -31,7 +31,7 @@ You must install these tools:
 1. [`ko`](https://github.com/google/ko): For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
-1. [`bash`](https://www.gnu.org/software/bash/) v4 or later. On MacOS the
+1. [`bash`](https://www.gnu.org/software/bash/) v4 or later. On macOS the
    default bash is too old, you can use [Homebrew](https://brew.sh) to install a
    later version.
 
