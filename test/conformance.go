@@ -22,6 +22,7 @@ import (
 	// logstream initialization.
 	_ "knative.dev/serving/test/defaultsystem"
 
+	injectiontest "knative.dev/pkg/injection/test"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 
@@ -70,12 +71,10 @@ const (
 func Setup(t pkgTest.TLegacy) *Clients {
 	t.Helper()
 
-	ctx := pkgTest.InjectionContext()
-
-	cancel := logstream.Start(ctx, t)
+	cancel := logstream.Start(t)
 	t.Cleanup(cancel)
 
-	clients, err := NewClientsFromCtx(ctx, ServingNamespace)
+	clients, err := NewClientsFromCtx(injectiontest.InjectionContext(), ServingNamespace)
 	if err != nil {
 		t.Fatal("Couldn't initialize clients", "error", err.Error())
 	}

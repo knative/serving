@@ -16,7 +16,9 @@ limitations under the License.
 
 package logstream
 
-import "knative.dev/pkg/test"
+import (
+	"knative.dev/pkg/test"
+)
 
 type null struct{}
 

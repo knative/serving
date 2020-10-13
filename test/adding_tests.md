@@ -70,13 +70,13 @@ import (
 	testing
 
 	knative.dev/serving/test
-	pkgTest "knative.dev/pkg/test"
+	injectiontest "knative.dev/pkg/injection/test"
 )
 
 func Setup(t *testing.T) *test.Clients {
 	ctx := pkgTest.InjectionContext()
 
-	clients, err := test.NewClientsFromCtx(ctx, namespace)
+	clients, err := test.NewClientsFromCtx(injectiontest.InjectionContext(), namespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
 	}

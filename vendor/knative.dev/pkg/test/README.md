@@ -30,8 +30,8 @@ These flags are useful for running against an existing cluster, making use of
 your existing
 [environment setup](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#environment-setup).
 
-By importing `knative.dev/pkg/test` you get access to a global variable called
-`test.Flags` which holds the values of
+By importing `knative.dev/pkg/test` you get access to a method called
+`test.Flags()` which returns the values of
 [the command line flags](/test/README.md#flags).
 
 ```go

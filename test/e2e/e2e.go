@@ -19,6 +19,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	injectiontest "knative.dev/pkg/injection/test"
 	"strconv"
 	"testing"
 	"time"
@@ -74,12 +75,10 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 	t.Helper()
 	pkgTest.SetupLoggingFlags()
 
-	ctx := pkgTest.InjectionContext()
-
-	cancel := logstream.Start(ctx, t)
+	cancel := logstream.Start(t)
 	t.Cleanup(cancel)
 
-	clients, err := test.NewClientsFromCtx(ctx, namespace)
+	clients, err := test.NewClientsFromCtx(injectiontest.InjectionContext(), namespace)
 	if err != nil {
 		t.Fatal("Couldn't initialize clients:", err)
 	}
