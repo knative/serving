@@ -85,7 +85,7 @@ export PATH="${PATH}:${GOPATH}/bin"
 export KO_DOCKER_REPO='gcr.io/my-gcloud-project-id'
 ```
 
-### Checkout your fork
+### Check out your fork
 
 The Go tools require that you clone the repository to the
 `src/knative.dev/serving` directory in your
