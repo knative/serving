@@ -30,7 +30,6 @@ CERTIFICATE_CLASS=""
 
 HTTPS=0
 MESH=0
-INSTALL_MONITORING=0
 
 # List of custom YAMLs to install, if specified (space-separated).
 INSTALL_CUSTOM_YAMLS=""
@@ -80,10 +79,6 @@ function parse_flags() {
       ;;
     --https)
       readonly HTTPS=1
-      return 1
-      ;;
-    --install-monitoring)
-      readonly INSTALL_MONITORING=1
       return 1
       ;;
     --custom-yamls)
@@ -281,26 +276,12 @@ function install_knative_serving_standard() {
 	    -f "${HPA_YAML_NAME}" || return 1
     UNINSTALL_LIST+=( "${CORE_YAML_NAME}" "${HPA_YAML_NAME}" )
     kubectl create -f ${POST_INSTALL_JOBS_YAML_NAME}
-
-    if (( INSTALL_MONITORING )); then
-      echo ">> Installing Monitoring"
-      echo "Knative Monitoring YAML: ${MONITORING_YAML}"
-      kubectl apply -f "${MONITORING_YAML}" || return 1
-      UNINSTALL_LIST+=( "${MONITORING_YAML}" )
-    fi
   else
     echo "Knative YAML: ${SERVING_RELEASE_YAML}"
     # We use ko because it has better filtering support for CRDs.
     ko apply --platform=all -f "${SERVING_RELEASE_YAML}" || return 1
     ko create -f "${SERVING_POST_INSTALL_JOBS_YAML}" || return 1
     UNINSTALL_LIST+=( "${SERVING_RELEASE_YAML}" )
-
-    if (( INSTALL_MONITORING )); then
-      echo ">> Installing Monitoring"
-      echo "Knative Monitoring YAML: ${2}"
-      kubectl apply -f "${2}" || return 1
-      UNINSTALL_LIST+=( "${2}" )
-    fi
   fi
 
   echo ">> Configuring the default Ingress: ${INGRESS_CLASS}"
@@ -422,11 +403,6 @@ function test_setup() {
 
   echo ">> Waiting for Ingress provider to be running..."
   wait_until_ingress_running || return 1
-
-  if (( INSTALL_MONITORING )); then
-    echo ">> Waiting for Monitoring to be running..."
-    wait_until_pods_running knative-monitoring || return 1
-  fi
 }
 
 # Delete test resources

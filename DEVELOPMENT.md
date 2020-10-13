@@ -249,19 +249,6 @@ check the
 page to ensure that all services are up and running (and not blocked by a quota
 issue, for example).
 
-### Install logging and monitoring backends
-
-Run:
-
-```shell
-kubectl apply -R -f config/monitoring/100-namespace.yaml \
-    -f third_party/config/monitoring/logging/elasticsearch \
-    -f config/monitoring/logging/elasticsearch \
-    -f third_party/config/monitoring/metrics/prometheus \
-    -f config/monitoring/metrics/prometheus \
-    -f config/monitoring/tracing/zipkin
-```
-
 ## Iterating
 
 As you make changes to the code-base, there are two special cases to be aware
@@ -312,7 +299,6 @@ You can delete all of the service components with:
 
 ```shell
 ko delete --ignore-not-found=true \
-  -f config/monitoring/100-namespace.yaml \
   -Rf config/core/ \
   -f ./third_party/net-istio.yaml \
   -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable/istio-minimal.yaml" \
