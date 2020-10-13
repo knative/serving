@@ -121,9 +121,9 @@ can easily [clean your cluster up](#clean-up) and try again.
 
 Enter the `serving` directory to install the following components.
 
-### Set up cluster admin
+### Set up cluster-admin
 
-Your user must be a cluster admin to perform the setup needed for Knative. This
+Your user must be a cluster-admin to perform the setup needed for Knative. This
 should be the case by default if you've provisioned your own Kubernetes cluster.
 In particular, you'll need to be able to create Kubernetes cluster-scoped
 Namespace, CustomResourceDefinition, ClusterRole, and ClusterRoleBinding
