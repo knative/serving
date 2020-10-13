@@ -25,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
+	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	networkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	"knative.dev/pkg/apis"
@@ -33,9 +35,11 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgnetwork "knative.dev/pkg/network"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
+	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -68,17 +72,46 @@ func TestReconcile(t *testing.T) {
 			),
 		}},
 		WantCreates: []runtime.Object{
-			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "istio.ingress.networking.knative.dev"),
+			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-ingress-class"),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
+		},
+	}, {
+		Name: "reconcile with ingressClass annotation",
+		Key:  "default/ingressclass.first-reconcile.com",
+		Objects: []runtime.Object{
+			domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"),
+				withAnnotations(map[string]string{
+					networking.IngressClassAnnotationKey: "overridden-ingress-class",
+				}),
+			),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "ingressclass.first-reconcile.com",
+				withRef("default", "target"),
+				withURL("http", "ingressclass.first-reconcile.com"),
+				withAddress("http", "ingressclass.first-reconcile.com"),
+				withInitDomainMappingConditions,
+				withIngressNotConfigured,
+				withAnnotations(map[string]string{
+					networking.IngressClassAnnotationKey: "overridden-ingress-class",
+				}),
+			),
+		}},
+		WantCreates: []runtime.Object{
+			resources.MakeIngress(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target")),
+				"overridden-ingress-class"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "ingressclass.first-reconcile.com"),
 		},
 	}, {
 		Name: "reconcile changed ref",
 		Key:  "default/ingress-exists.org",
 		Objects: []runtime.Object{
 			domainMapping("default", "ingress-exists.org", withRef("default", "changed")),
-			resources.MakeIngress(domainMapping("default", "ingress-exists.org", withRef("default", "target")), "istio.ingress.networking.knative.dev"),
+			resources.MakeIngress(domainMapping("default", "ingress-exists.org", withRef("default", "target")), "the-ingress-class"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "ingress-exists.org",
@@ -90,7 +123,7 @@ func TestReconcile(t *testing.T) {
 			),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: ingress(domainMapping("default", "ingress-exists.org", withRef("default", "changed")), "istio.ingress.networking.knative.dev"),
+			Object: ingress(domainMapping("default", "ingress-exists.org", withRef("default", "changed")), "the-ingress-class"),
 		}},
 	}, {
 		Name: "reconcile failed ingress",
@@ -102,7 +135,7 @@ func TestReconcile(t *testing.T) {
 				withAddress("http", "ingress-failed.me"),
 				withInitDomainMappingConditions,
 			),
-			ingress(domainMapping("default", "ingress-failed.me", withRef("default", "failed")), "istio.ingress.networking.knative.dev",
+			ingress(domainMapping("default", "ingress-failed.me", withRef("default", "failed")), "the-ingress-class",
 				WithLoadbalancerFailed("fell over", "hurt myself"),
 			),
 		},
@@ -124,7 +157,7 @@ func TestReconcile(t *testing.T) {
 				withAddress("http", "ingress-unknown.me"),
 				withInitDomainMappingConditions,
 			),
-			ingress(domainMapping("default", "ingress-unknown.me", withRef("default", "unknown")), "istio.ingress.networking.knative.dev",
+			ingress(domainMapping("default", "ingress-unknown.me", withRef("default", "unknown")), "the-ingress-class",
 				withIngressNotReady,
 			),
 		},
@@ -146,7 +179,7 @@ func TestReconcile(t *testing.T) {
 				withAddress("http", "ingress-ready.me"),
 				withInitDomainMappingConditions,
 			),
-			ingress(domainMapping("default", "ingress-ready.me", withRef("default", "ready")), "istio.ingress.networking.knative.dev",
+			ingress(domainMapping("default", "ingress-ready.me", withRef("default", "ready")), "the-ingress-class",
 				withIngressReady,
 			),
 		},
@@ -176,7 +209,7 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		WantCreates: []runtime.Object{
 			// This is the create which we will cause to fail.
-			ingress(domainMapping("default", "cantcreate.this", withRef("default", "cantcreate")), "istio.ingress.networking.knative.dev"),
+			ingress(domainMapping("default", "cantcreate.this", withRef("default", "cantcreate")), "the-ingress-class"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "cantcreate.this",
@@ -207,12 +240,12 @@ func TestReconcile(t *testing.T) {
 				withInitDomainMappingConditions,
 				withGeneration(1),
 			),
-			ingress(domainMapping("default", "cantupdate.this", withRef("default", "previous-value")), "istio.ingress.networking.knative.dev"),
+			ingress(domainMapping("default", "cantupdate.this", withRef("default", "previous-value")), "the-ingress-class"),
 		},
 		WantErr: true,
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// This is the update which we will cause to fail.
-			Object: ingress(domainMapping("default", "cantupdate.this", withRef("default", "cantupdate")), "istio.ingress.networking.knative.dev"),
+			Object: ingress(domainMapping("default", "cantupdate.this", withRef("default", "cantupdate")), "the-ingress-class"),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "cantupdate.this",
@@ -236,8 +269,15 @@ func TestReconcile(t *testing.T) {
 			ingressLister: listers.GetIngressLister(),
 		}
 
-		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
-			listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
+		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{
+				config: &config.Config{
+					Network: &network.Config{
+						DefaultIngressClass: "the-ingress-class",
+					},
+				},
+			}},
 		)
 	}))
 }
@@ -255,6 +295,12 @@ func domainMapping(namespace, name string, opt ...domainMappingOption) *v1alpha1
 		o(dm)
 	}
 	return dm
+}
+
+func withAnnotations(ans map[string]string) domainMappingOption {
+	return func(dm *v1alpha1.DomainMapping) {
+		dm.Annotations = ans
+	}
 }
 
 func withRef(namespace, name string) domainMappingOption {
@@ -331,3 +377,13 @@ func withIngressReady(ing *netv1alpha1.Ingress) {
 func withIngressNotReady(ing *netv1alpha1.Ingress) {
 	ing.Status.MarkIngressNotReady("progressing", "hold your horses")
 }
+
+type testConfigStore struct {
+	config *config.Config
+}
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return config.ToContext(ctx, t.config)
+}
+
+var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
