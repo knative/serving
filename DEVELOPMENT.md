@@ -44,7 +44,7 @@ If you're working on and changing `.proto` files:
 
 ### Create a cluster and a repo
 
-1. [Set up a kubernetes cluster](https://kubernetes.io/docs/setup/)
+1. [Set up a Kubernetes cluster](https://kubernetes.io/docs/setup/)
    - Follow the instructions in the Kubernetes doc.
 1. Set up a docker repository for pushing images. You can use any container
    image registry by adjusting the authentication methods and repository paths
