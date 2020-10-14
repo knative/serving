@@ -21,6 +21,7 @@ require (
 	github.com/tsenart/vegeta v12.7.1-0.20190725001342-b5f4fca92137+incompatible
 	go.opencensus.io v0.22.4
 	go.uber.org/atomic v1.6.0
+	go.uber.org/automaxprocs v1.3.0
 	go.uber.org/zap v1.15.0
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
@@ -33,10 +34,10 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20201009222721-d6df27735a7a
-	knative.dev/networking v0.0.0-20201010092416-48599feb7fad
-	knative.dev/pkg v0.0.0-20201011225416-975a1cf9e447
-	knative.dev/test-infra v0.0.0-20201009204121-322fb08edae7
+	knative.dev/caching v0.0.0-20201013020830-6396f6b3272b
+	knative.dev/networking v0.0.0-20201014172631-b3b2c758d7e6
+	knative.dev/pkg v0.0.0-20201014172830-7c6171acf44b
+	knative.dev/test-infra v0.0.0-20201014021030-ae3984a33f82
 )
 
 replace (

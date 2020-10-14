@@ -112,7 +112,7 @@ func TestFastScaleToZero(t *testing.T) {
 		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
 
-	epsL, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).List(context.Background(), metav1.ListOptions{
+	epsL, err := clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s,%s=%s",
 			serving.RevisionLabelKey, ctx.Resources().Revision.Name,
 			networking.ServiceTypeKey, networking.ServiceTypePrivate,
@@ -133,7 +133,7 @@ func TestFastScaleToZero(t *testing.T) {
 	// of 20 runs (11s) + 4s of buffer for reliability.
 	st := time.Now()
 	if err := wait.PollImmediate(1*time.Second, cfg.ScaleToZeroGracePeriod+15*time.Second, func() (bool, error) {
-		eps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(context.Background(), epsN, metav1.GetOptions{})
+		eps, err := clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(context.Background(), epsN, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

@@ -111,9 +111,9 @@ func TestConflictingRouteService(t *testing.T) {
 	}
 
 	altClients := SetupAlternativeNamespace(t)
-	altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Create(context.Background(), svc, metav1.CreateOptions{})
+	altClients.KubeClient.CoreV1().Services(test.AlternativeServingNamespace).Create(context.Background(), svc, metav1.CreateOptions{})
 	test.EnsureCleanup(t, func() {
-		altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{})
+		altClients.KubeClient.CoreV1().Services(test.AlternativeServingNamespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{})
 	})
 
 	clients := Setup(t)

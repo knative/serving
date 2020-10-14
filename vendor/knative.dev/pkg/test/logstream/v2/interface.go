@@ -14,5 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package config contains the config for the autoscaler.
-package config
+package logstream
+
+type (
+	// Canceler is the type of a function returned when a logstream is
+	// started to be deferred so that the logstream can be stopped when
+	// the test is complete.
+	Canceler func()
+
+	// Callback is invoked after pod logs are transformed
+	Callback func(string, ...interface{})
+
+	// Source allows you to create streams for a given resource name
+	Source interface {
+		// Start a log stream for the given resource name and invoke
+		// the callback with the processed log
+		StartStream(name string, l Callback) (Canceler, error)
+	}
+)

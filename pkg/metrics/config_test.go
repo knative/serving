@@ -75,7 +75,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
-				"logging.enable-probe-request-log":            "true",
+				metrics.EnableProbeReqLogKey:                  "true",
 				metrics.EnableReqLogKey:                       "true",
 				"logging.enable-var-log-collection":           "true",
 				metrics.ReqLogTemplateKey:                     `{"requestMethod": "{{.Request.Method}}"}`,
@@ -99,7 +99,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
-				"logging.enable-probe-request-log":            "true",
+				metrics.EnableProbeReqLogKey:                  "true",
 				metrics.EnableReqLogKey:                       "false",
 				"logging.enable-var-log-collection":           "true",
 				"logging.revision-url-template":               "https://logging.io",

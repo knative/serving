@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"k8s.io/client-go/tools/cache"
+	network "knative.dev/networking/pkg"
 	netclient "knative.dev/networking/pkg/client/injection/client"
 	ingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	"knative.dev/pkg/configmap"
@@ -28,6 +29,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/domainmapping"
 	kindreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
+	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 )
 
 // NewController creates a new DomainMapping controller.
@@ -41,7 +43,17 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		netclient:     netclient.Get(ctx),
 	}
 
-	impl := kindreconciler.NewImpl(ctx, r)
+	impl := kindreconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options {
+		configsToResync := []interface{}{
+			&network.Config{},
+		}
+		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+			impl.GlobalResync(domainmappingInformer.Informer())
+		})
+		configStore := config.NewStore(logging.WithLogger(ctx, logger.Named("config-store")), resync)
+		configStore.WatchConfigs(cmw)
+		return controller.Options{ConfigStore: configStore}
+	})
 
 	logger.Info("Setting up event handlers")
 	domainmappingInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

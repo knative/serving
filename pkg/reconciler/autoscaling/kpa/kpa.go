@@ -149,7 +149,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		pa.Status.MarkSKSReady()
 	} else {
 		logger.Debug("SKS is not ready, marking SKS status not ready")
-		pa.Status.MarkSKSNotReady(sks.Status.GetCondition(nv1alpha1.ServerlessServiceConditionReady).Message)
+		pa.Status.MarkSKSNotReady(sks.Status.GetCondition(nv1alpha1.ServerlessServiceConditionReady).GetMessage())
 	}
 
 	logger.Infof("PA scale got=%d, want=%d, desiredPods=%d ebc=%d", ready, want,
@@ -235,7 +235,7 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 	// In pre-0.17 we could have scaled down normally without ever setting ScaleTargetInitialized.
 	// In this case we'll be in the NoTraffic/inactive state.
 	// TODO(taragu): remove after 0.19
-	alreadyScaledDownSuccessfully := minReady > 0 && pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive).Reason == noTrafficReason
+	alreadyScaledDownSuccessfully := minReady > 0 && pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive).GetReason() == noTrafficReason
 	if (pc.ready >= minReady || alreadyScaledDownSuccessfully) && pa.Status.ServiceName != "" {
 		pa.Status.MarkScaleTargetInitialized()
 	}

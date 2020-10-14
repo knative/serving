@@ -32,7 +32,7 @@ import (
 	ingress "knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/activator"
-	apiConfig "knative.dev/serving/pkg/apis/config"
+	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -61,7 +61,7 @@ func MakeIngress(
 	ingressClass string,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (*netv1alpha1.Ingress, error) {
-	spec, err := MakeIngressSpec(ctx, r, tls, tc.Targets, tc.Visibility, acmeChallenges...)
+	spec, err := makeIngressSpec(ctx, r, tls, tc, acmeChallenges...)
 	if err != nil {
 		return nil, err
 	}
@@ -84,19 +84,18 @@ func MakeIngress(
 	}, nil
 }
 
-// MakeIngressSpec creates a new IngressSpec
-func MakeIngressSpec(
+// makeIngressSpec builds a new IngressSpec from inputs.
+func makeIngressSpec(
 	ctx context.Context,
 	r *servingv1.Route,
 	tls []netv1alpha1.IngressTLS,
-	targets map[string]traffic.RevisionTargets,
-	visibility map[string]netv1alpha1.IngressVisibility,
+	tc *traffic.Config,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (netv1alpha1.IngressSpec, error) {
 	// Domain should have been specified in route status
 	// before calling this func.
-	names := make([]string, 0, len(targets))
-	for name := range targets {
+	names := make([]string, 0, len(tc.Targets))
+	for name := range tc.Targets {
 		names = append(names, name)
 	}
 	// Sort the names to give things a deterministic ordering.
@@ -110,7 +109,7 @@ func MakeIngressSpec(
 	for _, name := range names {
 		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
 		// If this is a public target (or not being marked as cluster-local), we also make public rule.
-		if v, ok := visibility[name]; !ok || v == netv1alpha1.IngressVisibilityExternalIP {
+		if v, ok := tc.Visibility[name]; !ok || v == netv1alpha1.IngressVisibilityExternalIP {
 			visibilities = append(visibilities, netv1alpha1.IngressVisibilityExternalIP)
 		}
 		for _, visibility := range visibilities {
@@ -118,8 +117,8 @@ func MakeIngressSpec(
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
-			rule := makeIngressRule(ctx, domains, r.Namespace, visibility, targets[name])
-			if featuresConfig.TagHeaderBasedRouting == apiConfig.Enabled {
+			rule := makeIngressRule(ctx, domains, r.Namespace, visibility, tc.Targets[name])
+			if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string)
 				}
@@ -134,7 +133,7 @@ func MakeIngressSpec(
 					// If a request has one of the `names`(tag name) except the default path,
 					// the request will be routed via one of the ingress paths, corresponding to the tag name.
 					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(ctx, r.Namespace, targets, names), rule.HTTP.Paths...)
+						makeTagBasedRoutingIngressPaths(ctx, r.Namespace, tc, names), rule.HTTP.Paths...)
 				} else {
 					// If a request is routed by a tag-attached hostname instead of the tag header,
 					// the request may not have the tag header "Knative-Serving-Tag",
@@ -230,12 +229,12 @@ func makeIngressRule(ctx context.Context,
 }
 
 func makeTagBasedRoutingIngressPaths(
-	ctx context.Context, ns string, targets map[string]traffic.RevisionTargets, names []string) []netv1alpha1.HTTPIngressPath {
+	ctx context.Context, ns string, tc *traffic.Config, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
 		if name != traffic.DefaultTarget {
-			path := makeBaseIngressPath(ctx, ns, targets[name])
+			path := makeBaseIngressPath(ctx, ns, tc.Targets[name])
 			path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
 			paths = append(paths, *path)
 		}
@@ -277,6 +276,11 @@ func makeBaseIngressPath(
 	}
 }
 
+// We want to set the ingress timeout to a really long timeout to
+// helps with issues like
+// https://github.com/knative/serving/issues/7350#issuecomment-669278261.
+const longTimeout = 48 * time.Hour
+
 // Before https://github.com/knative/networking/pull/64 we used a
 // default value in the KIngress timeout settings. However, that
 // does not work well with gRPC streaming timeout, so we stop the
@@ -289,15 +293,10 @@ func makeBaseIngressPath(
 // implement this `no timeout` behavior we will specify a high
 // timeout value in Route controller in the mean time.
 func ingressTimeout(ctx context.Context) time.Duration {
-	// We want to set the ingress timeout to a really long timeout to
-	// helps with issues like
-	// https://github.com/knative/serving/issues/7350#issuecomment-669278261
-	longTimeout := time.Hour * 48
-
-	// However, if the MaxRevisionTimeout is longer, we should still honor that.
-	if apiConfig.FromContext(ctx) != nil && apiConfig.FromContext(ctx).Defaults != nil {
-		maxRevisionTimeout := time.Duration(
-			apiConfig.FromContext(ctx).Defaults.MaxRevisionTimeoutSeconds) * time.Second
+	// However, if the MaxRevisionTimeout is longer than `longTimeout`,
+	// we should still honor that.
+	if cfg := apicfg.FromContext(ctx); cfg != nil && cfg.Defaults != nil {
+		maxRevisionTimeout := time.Duration(cfg.Defaults.MaxRevisionTimeoutSeconds) * time.Second
 		if maxRevisionTimeout > longTimeout {
 			return maxRevisionTimeout
 		}

@@ -95,6 +95,23 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 
 	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)
 
+	if cfg.Observability.EnableVarLogCollection {
+		podSpec.Volumes = append(podSpec.Volumes, varLogVolume)
+
+		for i, container := range podSpec.Containers {
+			if container.Name == QueueContainerName {
+				continue
+			}
+
+			varLogMount := varLogVolumeMount.DeepCopy()
+			varLogMount.SubPathExpr += container.Name
+			container.VolumeMounts = append(container.VolumeMounts, *varLogMount)
+			container.Env = append(container.Env, buildVarLogSubpathEnvs()...)
+
+			podSpec.Containers[i] = container
+		}
+	}
+
 	return podSpec, nil
 }
 
@@ -124,13 +141,9 @@ func BuildUserContainers(rev *v1.Revision) []corev1.Container {
 func makeContainer(container corev1.Container, rev *v1.Revision) corev1.Container {
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
-	varLogMount := varLogVolumeMount.DeepCopy()
-	varLogMount.SubPathExpr += container.Name
-
-	container.VolumeMounts = append(container.VolumeMounts, *varLogMount)
 	container.Lifecycle = userLifecycle
 	container.Env = append(container.Env, getKnativeEnvVar(rev)...)
-	container.Env = append(container.Env, buildVarLogSubpathEnvs()...)
+
 	// Explicitly disable stdin and tty allocation
 	container.Stdin = false
 	container.TTY = false
@@ -164,7 +177,6 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 func BuildPodSpec(rev *v1.Revision, containers []corev1.Container, cfg *config.Config) *corev1.PodSpec {
 	pod := rev.Spec.PodSpec.DeepCopy()
 	pod.Containers = containers
-	pod.Volumes = append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...)
 	pod.TerminationGracePeriodSeconds = rev.Spec.TimeoutSeconds
 	if cfg != nil && pod.EnableServiceLinks == nil {
 		pod.EnableServiceLinks = cfg.Defaults.EnableServiceLinks

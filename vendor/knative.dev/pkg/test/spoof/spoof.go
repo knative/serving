@@ -86,7 +86,7 @@ type TransportOption func(transport *http.Transport) *http.Transport
 // If that's a problem, see test/request.go#WaitForEndpointState for oneshot spoofing.
 func New(
 	ctx context.Context,
-	kubeClientset *kubernetes.Clientset,
+	kubeClientset kubernetes.Interface,
 	logf logging.FormatLogger,
 	domain string,
 	resolvable bool,
@@ -133,7 +133,7 @@ func New(
 
 // ResolveEndpoint resolves the endpoint address considering whether the domain is resolvable and taking into
 // account whether the user overrode the endpoint address externally
-func ResolveEndpoint(ctx context.Context, kubeClientset *kubernetes.Clientset, domain string, resolvable bool, endpointOverride string) (string, func(string) string, error) {
+func ResolveEndpoint(ctx context.Context, kubeClientset kubernetes.Interface, domain string, resolvable bool, endpointOverride string) (string, func(string) string, error) {
 	id := func(in string) string { return in }
 	// If the domain is resolvable, it can be used directly
 	if resolvable {

@@ -46,7 +46,7 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 		address string
 	)
 
-	address, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube, pkgTest.Flags.IngressEndpoint)
+	address, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient, pkgTest.Flags.IngressEndpoint)
 	if err != nil {
 		return nil, err
 	}

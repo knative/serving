@@ -85,7 +85,7 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 // AutoscalerCM returns the current autoscaler config map deployed to the
 // test cluster.
 func AutoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
-	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get(
+	autoscalerCM, err := clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(
 		context.Background(), asconfig.ConfigName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -126,7 +126,7 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 
 	if rerr := wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
 		// We need to fetch the activator endpoints at every check, since it can change.
-		actEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
+		actEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(
 			system.Namespace()).Get(context.Background(), networking.ActivatorServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
@@ -136,7 +136,7 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 			return false, nil
 		}
 
-		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+		svcEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(
 			context.Background(), ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -190,7 +190,7 @@ func CreateAndVerifyInitialScaleConfiguration(t *testing.T, clients *test.Client
 	t.Logf("Waiting for Configuration %q to transition to Ready with %d number of pods.", names.Config, wantPods)
 	selector := fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Config)
 	if err := v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(s *v1.Configuration) (b bool, e error) {
-		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
+		pods := clients.KubeClient.CoreV1().Pods(test.ServingNamespace)
 		podList, err := pods.List(context.Background(), metav1.ListOptions{
 			LabelSelector: selector,
 			// Include both running and terminating pods, because we will scale down from

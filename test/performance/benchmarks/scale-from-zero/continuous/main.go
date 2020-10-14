@@ -28,6 +28,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/apps/v1"
+	"knative.dev/pkg/injection"
 
 	"github.com/google/mako/go/quickstore"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,7 +39,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"knative.dev/pkg/injection/sharedmain"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	ktest "knative.dev/serving/pkg/testing/v1"
@@ -63,7 +63,7 @@ const (
 )
 
 func clientsFromConfig() (*test.Clients, error) {
-	cfg, err := sharedmain.GetConfig("", "")
+	cfg, err := injection.GetRESTConfig("", "")
 	if err != nil {
 		return nil, fmt.Errorf("error building kubeconfig: %v", err)
 	}
@@ -186,7 +186,7 @@ func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v
 		serving.ServiceLabelKey: ro.Service.Name,
 	})
 
-	watcher, err := clients.KubeClient.Kube.AppsV1().Deployments(testNamespace).Watch(
+	watcher, err := clients.KubeClient.AppsV1().Deployments(testNamespace).Watch(
 		context.Background(), metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		m := fmt.Sprintf("%02d: unable to watch the deployment for the service: %v", idx, err)

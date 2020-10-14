@@ -49,9 +49,17 @@ func TestRequestLogs(t *testing.T) {
 	t.Parallel()
 	clients := Setup(t)
 
-	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get(context.Background(), "config-observability", metav1.GetOptions{})
+	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get(context.Background(),
+		metrics.ConfigMapName(), metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Fail to get ConfigMap config-observability:", err)
+	}
+
+	requestLogEnabled := strings.EqualFold(cm.Data[metrics.EnableReqLogKey], "true")
+	probeLogEnabled := strings.EqualFold(cm.Data[metrics.EnableProbeReqLogKey], "true")
+
+	if !requestLogEnabled && !probeLogEnabled {
+		t.Skip("Skipping verifying request logs because both request and probe logging is disabled")
 	}
 
 	if got, want := cm.Data[metrics.ReqLogTemplateKey], template; got != want {
@@ -73,7 +81,7 @@ func TestRequestLogs(t *testing.T) {
 			autoscaling.MaxScaleAnnotationKey: "1",
 		})}...)
 	if err != nil {
-		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+		t.Fatalf("Failed to create initial Service: %q: %v", names.Service, err)
 	}
 
 	_, err = pkgtest.WaitForEndpointState(
@@ -94,17 +102,21 @@ func TestRequestLogs(t *testing.T) {
 		t.Fatal("Fail to fetch the pod:", err)
 	}
 
-	// TODO: add logging.enable-request-log check once it doesn't depends on the template.
-	// A request was sent to / in WaitForEndpointState.
-	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
-		return log.HTTPRequest.RequestURL == "/" &&
-			log.HTTPRequest.UserAgent != network.QueueProxyUserAgent
-	}); err != nil {
-		t.Fatal("Got error waiting for normal request logs:", err)
+	// Only check request logs if the feature is enabled in config-observability.
+	if requestLogEnabled {
+		// A request was sent to / in WaitForEndpointState.
+		if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
+			return log.HTTPRequest.RequestURL == "/" &&
+				log.HTTPRequest.UserAgent != network.QueueProxyUserAgent
+		}); err != nil {
+			t.Fatal("Got error waiting for normal request logs:", err)
+		}
+	} else {
+		t.Log("Skipping verifing request logs because they are not enabled")
 	}
 
 	// Only check probe request logs if the feature is enabled in config-observability.
-	if strings.EqualFold(cm.Data["logging.enable-probe-request-log"], "true") {
+	if probeLogEnabled {
 		// Health check requests are sent to / with a specific userAgent value periodically.
 		if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
 			return log.HTTPRequest.RequestURL == "/" &&
@@ -118,7 +130,7 @@ func TestRequestLogs(t *testing.T) {
 }
 
 func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{
+	pods, err := clients.KubeClient.CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labels.Set{"app": rev}.String(),
 	})
 
@@ -137,7 +149,7 @@ func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
 // until the given condition is meet or timeout. Most of knative logs are in json format.
 func waitForLog(t *testing.T, clients *test.Clients, ns, podName, container string, condition func(log logLine) bool) error {
 	return wait.PollImmediate(time.Second, 30*time.Second, func() (bool, error) {
-		req := clients.KubeClient.Kube.CoreV1().Pods(ns).GetLogs(podName, &corev1.PodLogOptions{
+		req := clients.KubeClient.CoreV1().Pods(ns).GetLogs(podName, &corev1.PodLogOptions{
 			Container: container,
 		})
 		podLogs, err := req.Stream(context.Background())

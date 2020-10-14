@@ -93,7 +93,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// We poll, since network programming takes times, but the timeout is set for
 	// uniformness with one above.
 	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
-		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+		svcEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(
 			context.Background(), ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -113,7 +113,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
 
-	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
+	aeps, err := ctx.clients.KubeClient.CoreV1().Endpoints(
 		system.Namespace()).Get(context.Background(), networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Error getting activator endpoints:", err)
