@@ -168,10 +168,10 @@ func newBuilder(
 // BuildRollout builds the current rollout state.
 // It is expected to be invoked after applySpecTraffic.
 // TODO(vagababov): actually deal with rollouts, vs just report desired state.
-func (cb *Config) BuildRollout() *Rollout {
+func (cfg *Config) BuildRollout() *Rollout {
 	rollout := &Rollout{}
 
-	for _, rt := range cb.RevisionTargets {
+	for _, rt := range cfg.RevisionTargets {
 		if rt.LatestRevision == nil || !*rt.LatestRevision {
 			continue
 		}
