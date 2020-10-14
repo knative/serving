@@ -56,18 +56,8 @@ readonly SERVING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-crds.yaml
 readonly SERVING_NSCERT_YAML=${YAML_OUTPUT_DIR}/serving-nscert.yaml
 readonly SERVING_POST_INSTALL_JOBS_YAML=${YAML_OUTPUT_DIR}/serving-post-install-jobs.yaml
 
-readonly MONITORING_YAML=${YAML_OUTPUT_DIR}/monitoring.yaml
-readonly MONITORING_CORE_YAML=${YAML_OUTPUT_DIR}/monitoring-core.yaml
-readonly MONITORING_METRIC_PROMETHEUS_YAML=${YAML_OUTPUT_DIR}/monitoring-metrics-prometheus.yaml
-readonly MONITORING_TRACE_ZIPKIN_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin.yaml
-readonly MONITORING_TRACE_ZIPKIN_IN_MEM_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin-in-mem.yaml
-readonly MONITORING_TRACE_JAEGER_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-jaeger.yaml
-readonly MONITORING_TRACE_JAEGER_IN_MEM_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-jaeger-in-mem.yaml
-readonly MONITORING_LOG_ELASTICSEARCH_YAML=${YAML_OUTPUT_DIR}/monitoring-logs-elasticsearch.yaml
-
 declare -A CONSOLIDATED_ARTIFACTS
 CONSOLIDATED_ARTIFACTS=(
-  ["${MONITORING_YAML}"]="${MONITORING_CORE_YAML} ${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_TRACE_ZIPKIN_YAML}"
   ["${SERVING_POST_INSTALL_JOBS_YAML}"]="${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
 )
 readonly CONSOLIDATED_ARTIFACTS
@@ -104,29 +94,7 @@ ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" 
 # Create nscert related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
 
-# Generate the core monitoring file - basically just the namespace
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
-    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_CORE_YAML}"
-
-# Metrics via Prometheus & Grafana
-ko resolve ${KO_YAML_FLAGS} -R \
-    -f third_party/config/monitoring/metrics/prometheus \
-    -f config/monitoring/metrics/prometheus | "${LABEL_YAML_CMD[@]}" > "${MONITORING_METRIC_PROMETHEUS_YAML}"
-
-# Logs via ElasticSearch, Fluentd & Kibana
-ko resolve ${KO_YAML_FLAGS} -R \
-    -f third_party/config/monitoring/logging/elasticsearch \
-    -f config/monitoring/logging/elasticsearch | "${LABEL_YAML_CMD[@]}" > "${MONITORING_LOG_ELASTICSEARCH_YAML}"
-
-# Traces via Zipkin when ElasticSearch is installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_YAML}"
-
-# Traces via Zipkin in Memory when ElasticSearch is not installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
-
-echo "Building Monitoring & Logging"
-
-# By putting the list of files used to create monitoring.yaml and serving-upgrade.yaml
+# By putting the list of files used to create serving-upgrade.yaml
 # people can choose to exclude certain ones via 'grep' but still keep in-sync
 # with the complete list if things change in the future
 for artifact in "${!CONSOLIDATED_ARTIFACTS[@]}"; do
@@ -138,12 +106,6 @@ for artifact in "${!CONSOLIDATED_ARTIFACTS[@]}"; do
     cat ${component} >> ${artifact}
   done
 done
-
-# Traces via Jaeger when ElasticSearch is installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/elasticsearch -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_YAML}"
-
-# Traces via Jaeger in Memory when ElasticSearch is not installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/memory -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_IN_MEM_YAML}"
 
 echo "All manifests generated"
 
@@ -157,12 +119,4 @@ ${SERVING_POST_INSTALL_JOBS_YAML}
 ${SERVING_HPA_YAML}
 ${SERVING_CRD_YAML}
 ${SERVING_NSCERT_YAML}
-${MONITORING_YAML}
-${MONITORING_CORE_YAML}
-${MONITORING_METRIC_PROMETHEUS_YAML}
-${MONITORING_TRACE_ZIPKIN_YAML}
-${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}
-${MONITORING_TRACE_JAEGER_YAML}
-${MONITORING_TRACE_JAEGER_IN_MEM_YAML}
-${MONITORING_LOG_ELASTICSEARCH_YAML}
 EOF
