@@ -25,6 +25,7 @@ jobs:
         test-suite:
         - ./test/conformance/runtime
         - ./test/conformance/api/v1
+        - ./test/conformance/api/v1alpha1
         - ./test/e2e
 
         # Map between K8s and KinD versions.
@@ -43,6 +44,8 @@ jobs:
           kind-version: v0.9.0
           kind-image-sha: sha256:98cf5288864662e37115e362b23e4369c8c4a408f99cbc06e58ac30ddc721600
           kingress: contour
+        - test-suite: ./test/conformance/api/v1alpha1
+          test-flags: "--enable-alpha"
 
     env:
       GOPATH: ${{ github.workspace }}
@@ -155,6 +158,9 @@ jobs:
         sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
 
     - name: Install Knative Serving
+      env:
+        GO111MODULE: on
+        GOFLAGS: -mod=vendor
       run: |
         set -o pipefail
 
@@ -162,8 +168,6 @@ jobs:
         kubectl apply -f config/core/300-imagecache.yaml
 
         # Build and Publish our containers to the docker daemon (including test assets)
-        export GO111MODULE=on
-        export GOFLAGS=-mod=vendor
         ko apply --platform=all -Pf test/config/
         ko apply --platform=all -PRf config/core
 
@@ -175,6 +179,14 @@ jobs:
 
         # Be KinD to these tests.
         kubectl scale -nknative-serving deployment/chaosduck --replicas=0
+
+    - name: Install Alpha Components
+      if: contains(matrix.test-flags, '--enable-alpha')
+      env:
+        GO111MODULE: on
+        GOFLAGS: -mod=vendor
+      run: |
+        ko apply --platform=all -PRf config/domain-mapping
 
     - name: Wait for Webhook to be up
       run: |
@@ -251,4 +263,5 @@ jobs:
 
         # Run the tests tagged as e2e on the KinD cluster.
         go test -race -count=1 -timeout=20m -tags=e2e ${{ matrix.test-suite }} \
-           --ingressendpoint="${IPS[0]}"
+           --ingressendpoint="${IPS[0]}" \
+           ${{ matrix.test-flags }}
