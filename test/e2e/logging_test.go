@@ -129,7 +129,7 @@ func TestRequestLogs(t *testing.T) {
 }
 
 func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{
+	pods, err := clients.KubeClient.CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labels.Set{"app": rev}.String(),
 	})
 
@@ -148,7 +148,7 @@ func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
 // until the given condition is meet or timeout. Most of knative logs are in json format.
 func waitForLog(t *testing.T, clients *test.Clients, ns, podName, container string, condition func(log logLine) bool) error {
 	return wait.PollImmediate(time.Second, 30*time.Second, func() (bool, error) {
-		req := clients.KubeClient.Kube.CoreV1().Pods(ns).GetLogs(podName, &corev1.PodLogOptions{
+		req := clients.KubeClient.CoreV1().Pods(ns).GetLogs(podName, &corev1.PodLogOptions{
 			Container: container,
 		})
 		podLogs, err := req.Stream(context.Background())

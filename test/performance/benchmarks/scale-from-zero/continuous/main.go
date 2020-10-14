@@ -186,7 +186,7 @@ func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v
 		serving.ServiceLabelKey: ro.Service.Name,
 	})
 
-	watcher, err := clients.KubeClient.Kube.AppsV1().Deployments(testNamespace).Watch(
+	watcher, err := clients.KubeClient.AppsV1().Deployments(testNamespace).Watch(
 		context.Background(), metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		m := fmt.Sprintf("%02d: unable to watch the deployment for the service: %v", idx, err)

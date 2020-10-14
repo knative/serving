@@ -66,7 +66,7 @@ type TestContext struct {
 	metric            string
 }
 
-func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
+func getVegetaTarget(kubeClientset kubernetes.Interface, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
 	if resolvable {
 		return vegeta.Target{
 			Method: http.MethodGet,
@@ -98,7 +98,7 @@ func generateTraffic(
 	stopChan chan struct{}) error {
 
 	target, err := getVegetaTarget(
-		ctx.clients.KubeClient.Kube, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
+		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return fmt.Errorf("error creating vegeta target: %w", err)
 	}
@@ -275,7 +275,7 @@ func numberOfReadyPods(ctx *TestContext) (float64, error) {
 		// Not an error, but no pods either.
 		return 0, nil
 	}
-	eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+	eps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(
 		context.Background(), sks.Status.PrivateServiceName, metav1.GetOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get endpoints %s: %w", sks.Status.PrivateServiceName, err)
