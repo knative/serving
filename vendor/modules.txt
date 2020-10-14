@@ -126,7 +126,7 @@ github.com/go-openapi/jsonreference
 github.com/go-openapi/spec
 # github.com/go-openapi/swag v0.19.7
 github.com/go-openapi/swag
-# github.com/gobuffalo/envy v1.6.5
+# github.com/gobuffalo/envy v1.7.1
 github.com/gobuffalo/envy
 # github.com/gogo/protobuf v1.3.1
 ## explicit
@@ -195,7 +195,7 @@ github.com/google/mako/spec/proto/mako_go_proto
 github.com/google/uuid
 # github.com/googleapis/gax-go/v2 v2.0.5
 github.com/googleapis/gax-go/v2
-# github.com/googleapis/gnostic v0.3.1
+# github.com/googleapis/gnostic v0.4.0
 github.com/googleapis/gnostic/OpenAPIv2
 github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
@@ -273,6 +273,10 @@ github.com/prometheus/procfs/internal/util
 # github.com/prometheus/statsd_exporter v0.15.0
 github.com/prometheus/statsd_exporter/pkg/mapper
 github.com/prometheus/statsd_exporter/pkg/mapper/fsm
+# github.com/rogpeppe/go-internal v1.5.2
+github.com/rogpeppe/go-internal/modfile
+github.com/rogpeppe/go-internal/module
+github.com/rogpeppe/go-internal/semver
 # github.com/sirupsen/logrus v1.6.0
 github.com/sirupsen/logrus
 # github.com/spf13/pflag v1.0.5
@@ -986,7 +990,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20201013114130-602db5ee124d => ../pkg
+# knative.dev/pkg v0.0.0-20201014022930-ad2e1b82ee6a
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1097,7 +1101,7 @@ knative.dev/pkg/webhook/resourcesemantics
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20201013100530-45e0761df397
+# knative.dev/test-infra v0.0.0-20201014021030-ae3984a33f82
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/structured-merge-diff/v3 v3.0.1-0.20200706213357-43c19bbb7fba
@@ -1114,4 +1118,3 @@ sigs.k8s.io/yaml
 # k8s.io/client-go => k8s.io/client-go v0.18.8
 # k8s.io/code-generator => k8s.io/code-generator v0.18.8
 # k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
-# knative.dev/pkg => ../pkg

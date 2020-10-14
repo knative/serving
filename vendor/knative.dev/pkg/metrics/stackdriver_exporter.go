@@ -69,7 +69,7 @@ var (
 	newStackdriverExporterFunc func(sd.Options) (view.Exporter, error)
 
 	// kubeclient is the in-cluster Kubernetes kubeclient, which is lazy-initialized on first use.
-	kubeclient kubernetes.Interface
+	kubeclient *kubernetes.Clientset
 	// initClientOnce is the lazy initializer for kubeclient.
 	initClientOnce sync.Once
 	// kubeclientInitErr capture an error during initClientOnce

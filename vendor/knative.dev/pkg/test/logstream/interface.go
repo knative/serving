@@ -44,7 +44,7 @@ func Start(t test.TLegacy) Canceler {
 				return
 			}
 
-			stream = &shim{logstreamv2.FromNamespace(context.TODO(), kc, ns)}
+			stream = &shim{logstreamv2.FromNamespace(context.TODO(), kc.Kube, ns)}
 
 		} else {
 			// Otherwise set up a null stream.
