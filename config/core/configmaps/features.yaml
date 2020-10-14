@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "f31ab799"
+    knative.dev/example-checksum: "2d4c16b9"
 data:
   _example: |
     ################################
@@ -114,7 +114,7 @@ data:
     # dereferenced by Routes. This allows us to reap revisions shortly after
     # they are no longer active.
     # See: https://knative.dev/docs/serving/feature-flags/#responsive-revision-garbage-collector
-    responsive-revision-gc: "allowed"
+    responsive-revision-gc: "enabled"
 
     # Controls whether tag header based routing feature are enabled or not.
     # 1. Enabled: enabling tag header based routing

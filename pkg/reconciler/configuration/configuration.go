@@ -62,11 +62,15 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	lcr, err := c.latestCreatedRevision(config)
 	if errors.IsNotFound(err) {
 		lcr, err = c.createRevision(ctx, config)
-		if err != nil {
+		if errors.IsAlreadyExists(err) {
+			// Newer revisions with a consistent naming scheme can theoretically hit this
+			// path during normal operation so we don't actually report any failures to
+			// the user.
+			// We fail reconciliation anyway to make sure we get the correct revision for
+			// further processing.
+			return fmt.Errorf("failed to create Revision: %w", err)
+		} else if err != nil {
 			recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %v", err)
-
-			// Mark the Configuration as not-Ready since creating
-			// its latest revision failed.
 			config.Status.MarkRevisionCreationFailed(err.Error())
 
 			return fmt.Errorf("failed to create Revision: %w", err)
@@ -104,7 +108,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	case rc.IsFalse():
 		logger.Infof("Revision %q of configuration has failed: Reason=%s Message=%q", revName, rc.Reason, rc.Message)
 		beforeReady := config.Status.GetCondition(v1.ConfigurationConditionReady)
-		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.Message)
+		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.GetMessage())
 
 		if !equality.Semantic.DeepEqual(beforeReady, config.Status.GetCondition(v1.ConfigurationConditionReady)) {
 			recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
@@ -247,8 +251,10 @@ func (c *Reconciler) latestCreatedRevision(config *v1.Configuration) (*v1.Revisi
 	}
 
 	lister := c.revisionLister.Revisions(config.Namespace)
-	generationKey := serving.ConfigurationGenerationLabelKey
 
+	// Even though we now name revisions consistently and could fetch by name, we have to
+	// keep this code to stay functional for older revisions that predate that change.
+	generationKey := serving.ConfigurationGenerationLabelKey
 	list, err := lister.List(labels.SelectorFromSet(labels.Set{
 		generationKey:                 resources.RevisionLabelValueForKey(generationKey, config),
 		serving.ConfigurationLabelKey: config.Name,

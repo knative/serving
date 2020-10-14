@@ -31,12 +31,12 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"go.opencensus.io/plugin/ochttp"
+	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	network "knative.dev/networking/pkg"
-	"knative.dev/pkg/injection/sharedmain"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
@@ -99,6 +99,10 @@ type config struct {
 	TracingConfigStackdriverProjectID string                    `split_words:"true"` // optional
 }
 
+func init() {
+	maxprocs.Set()
+}
+
 func main() {
 	flag.Parse()
 
@@ -136,7 +140,7 @@ func main() {
 		zap.String(logkey.Pod, env.ServingPod))
 
 	// Report stats on Go memory usage every 30 seconds.
-	sharedmain.MemStatsOrDie(ctx)
+	metrics.MemStatsOrDie(ctx)
 
 	// Setup reporters and processes to handle stat reporting.
 	promStatReporter, err := queue.NewPrometheusStatsReporter(

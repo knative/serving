@@ -31,6 +31,9 @@ You must install these tools:
 1. [`ko`](https://github.com/google/ko): For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
+1. [`bash`](https://www.gnu.org/software/bash/) v4 or later. On MacOS the
+   default bash is too old, you can use [Homebrew](https://brew.sh) to install a
+   later version.
 
 If you're working on and changing `.proto` files:
 
@@ -192,7 +195,7 @@ This step includes building Knative Serving, creating and pushing developer
 images and deploying them to your Kubernetes cluster. If you're developing
 locally (for example, using
 [Docker-on-Mac](https://knative.dev/docs/install/knative-with-docker-for-mac/)),
-set `KO_DOCKER_REPO=ko.local` (or `KO_DOCKER_REPO=kind.local` respectively to
+set `KO_DOCKER_REPO=ko.local` (or `KO_DOCKER_REPO=kind.local` respectively) to
 avoid needing to push your images to an off-machine registry.
 
 Run:

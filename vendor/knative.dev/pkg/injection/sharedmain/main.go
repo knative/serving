@@ -24,10 +24,10 @@ import (
 	"os"
 	"time"
 
-	"go.opencensus.io/stats/view"
-	_ "go.uber.org/automaxprocs" // automatically set GOMAXPROCS based on cgroups
+	"go.uber.org/automaxprocs/maxprocs" // automatically set GOMAXPROCS based on cgroups
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,6 +50,10 @@ import (
 	"knative.dev/pkg/version"
 	"knative.dev/pkg/webhook"
 )
+
+func init() {
+	maxprocs.Set()
+}
 
 // GetConfig returns a rest.Config to be used for kubernetes client creation.
 // It does so in the following order:
@@ -156,7 +160,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	log.Printf("Registering %d informers", len(injection.Default.GetInformers()))
 	log.Printf("Registering %d controllers", len(ctors))
 
-	MemStatsOrDie(ctx)
+	metrics.MemStatsOrDie(ctx)
 
 	// Respect user provided settings, but if omitted customize the default behavior.
 	if cfg.QPS == 0 {
@@ -249,20 +253,9 @@ func flush(logger *zap.SugaredLogger) {
 
 // ParseAndGetConfigOrDie parses the rest config flags and creates a client or
 // dies by calling log.Fatalf.
-// Deprecated: use injeciton.ParseAndGetRESTConfigOrDie
+// Deprecated: use injection.ParseAndGetRESTConfigOrDie
 func ParseAndGetConfigOrDie() *rest.Config {
 	return injection.ParseAndGetRESTConfigOrDie()
-}
-
-// MemStatsOrDie sets up reporting on Go memory usage every 30 seconds or dies
-// by calling log.Fatalf.
-func MemStatsOrDie(ctx context.Context) {
-	msp := metrics.NewMemStatsAll()
-	msp.Start(ctx, 30*time.Second)
-
-	if err := view.Register(msp.DefaultViews()...); err != nil {
-		log.Fatal("Error exporting go memstats view: ", err)
-	}
 }
 
 // SetupLoggerOrDie sets up the logger using the config from the given context

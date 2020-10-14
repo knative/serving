@@ -120,15 +120,15 @@ func test(t *testing.T) {
 			Object: cfg("no-revisions-yet", "foo", 1234,
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
-				WithLatestCreated("no-revisions-yet-00001"), WithConfigObservedGen),
+				WithLatestCreated("no-revisions-yet-01234"), WithConfigObservedGen),
 		}, {
 			Object: cfg("no-revisions-yet", "foo", 1234,
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
-				WithLatestCreated("no-revisions-yet-00001"), WithConfigObservedGen),
+				WithLatestCreated("no-revisions-yet-01234"), WithConfigObservedGen),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "no-revisions-yet-00001"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "no-revisions-yet-01234"),
 		},
 		Key: "foo/no-revisions-yet",
 	}, {
@@ -388,10 +388,10 @@ func test(t *testing.T) {
 				// These would be the status updates after a first
 				// reconcile, which we use to trigger the update
 				// where we've induced a failure.
-				WithLatestCreated("update-config-failure-00001"), WithConfigObservedGen),
+				WithLatestCreated("update-config-failure-01234"), WithConfigObservedGen),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "update-config-failure-00001"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "update-config-failure-01234"),
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", `Failed to update status for "update-config-failure": inducing failure for update configurations`),
 		},
 		Key: "foo/update-config-failure",

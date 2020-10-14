@@ -14,5 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package config contains the config for the autoscaler.
+// Package config holds the typed objects that define the schemas for
+// assorted ConfigMap objects on which the DomainMapping controller depends.
 package config
