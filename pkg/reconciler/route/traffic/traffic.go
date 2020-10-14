@@ -60,8 +60,9 @@ type Config struct {
 	Visibility map[string]netv1alpha1.IngressVisibility
 
 	// A list traffic targets, flattened to the Revision level.  This
-	// is used to populate the Route.Status.TrafficTarget field.
-	revisionTargets RevisionTargets
+	// is used to populate the Route.Status.TrafficTarget field as well
+	// as compute the rollout state.
+	RevisionTargets RevisionTargets
 
 	// The referred `Configuration`s and `Revision`s.
 	Configurations map[string]*v1.Configuration
@@ -89,8 +90,8 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
 func (cfg *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route) ([]v1.TrafficTarget, error) {
-	results := make([]v1.TrafficTarget, len(cfg.revisionTargets))
-	for i, tt := range cfg.revisionTargets {
+	results := make([]v1.TrafficTarget, len(cfg.RevisionTargets))
+	for i, tt := range cfg.RevisionTargets {
 		var pp *int64
 		if tt.Percent != nil {
 			pp = ptr.Int64(*tt.Percent)
@@ -162,6 +163,34 @@ func newBuilder(
 		configurations: make(map[string]*v1.Configuration),
 		revisions:      make(map[string]*v1.Revision),
 	}
+}
+
+// BuildRollout builds the current rollout state.
+// It is expected to be invoked after applySpecTraffic.
+// TODO(vagababov): actually deal with rollouts, vs just report desired state.
+func (cb *Config) BuildRollout() *Rollout {
+	rollout := &Rollout{}
+
+	for _, rt := range cb.RevisionTargets {
+		if rt.LatestRevision == nil || !*rt.LatestRevision {
+			continue
+		}
+
+		// We know here that mergeIfNecessary will pack the same config targets together.
+		// So no need to check for duplicates.
+		rollout.Configurations = append(rollout.Configurations, ConfigurationRollout{
+			ConfigurationName: rt.ConfigurationName,
+			Tag:               rt.Tag,
+			// TODO(vagababov): here will go all the fancy math.
+			Revisions: []RevisionRollout{{
+				RevisionName: rt.RevisionName,
+				// After defaulting and validation this must not be non nil.
+				// We will keep `0` values, even though we won't be rolling them out,
+				Percent: int(*rt.Percent),
+			}},
+		})
+	}
+	return rollout
 }
 
 func (cb *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
@@ -321,7 +350,7 @@ func (cb *configBuilder) build() (*Config, error) {
 	}
 	return &Config{
 		Targets:         consolidateAll(cb.targets),
-		revisionTargets: cb.revisionTargets,
+		RevisionTargets: cb.revisionTargets,
 		Configurations:  cb.configurations,
 		Revisions:       cb.revisions,
 		MissingTargets:  cb.missingTargets,

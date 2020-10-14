@@ -23,10 +23,10 @@ package traffic
 
 import "knative.dev/networking/pkg/apis/networking"
 
-// rolloutAnnotationKey is the annotation key for storing
+// RolloutAnnotationKey is the annotation key for storing
 // the rollout state in the Annotations of the Kingress or Route.Status.
 //nolint -- for future use.
-const rolloutAnnotationKey = networking.GroupName + "/rollout"
+const RolloutAnnotationKey = networking.GroupName + "/rollout"
 
 // Rollout encapsulates the current rollout state of the system.
 // Since the route might reference more than one configuration.
@@ -61,6 +61,8 @@ type ConfigurationRollout struct {
 type RevisionRollout struct {
 	// Name of the revision.
 	RevisionName string `json:"revisionName"`
-	// How much traffic is routed to the revision.
+	// How much traffic is routed to the revision. This is a share
+	// of total Route traffic, not the relative share of configuration
+	// target percentage.
 	Percent int `json:"percent"`
 }
