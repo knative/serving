@@ -133,6 +133,11 @@ go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
 go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha \
 	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
 
+# Run autoscale tests which require chaosduck disabled
+disable_chaosduck
+go_test_e2e -timeout=10m -failfast -parallel=1 ./test/e2e/autoscale || failed=1
+enable_chaosduck
+
 (( failed )) && fail_test
 
 success
