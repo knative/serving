@@ -622,11 +622,11 @@ func TestServiceCreateWithMultipleContainers(t *testing.T) {
 	}
 
 	// Validate State after Creation
-	if err = validateControlPlane(t, clients, names, "1" /*1 is the expected generation value*/, images); err != nil {
+	if err := validateControlPlane(t, clients, names, "1" /*1 is the expected generation value*/, images); err != nil {
 		t.Error(err)
 	}
 
-	if err = validateDataPlane(t, clients, names, test.MultiContainerResponse); err != nil {
+	if err := validateDataPlane(t, clients, names, test.MultiContainerResponse); err != nil {
 		t.Error(err)
 	}
 }
