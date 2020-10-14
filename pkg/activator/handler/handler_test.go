@@ -223,7 +223,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 
 			cm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "config-tracing",
+					Name: tracingconfig.ConfigName,
 				},
 				Data: map[string]string{
 					"zipkin-endpoint": "localhost:1234",
