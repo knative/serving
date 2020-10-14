@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	rest "k8s.io/client-go/rest"
 	ktesting "k8s.io/client-go/testing"
 
 	"knative.dev/pkg/apis"
@@ -62,10 +61,8 @@ func TestExtraServiceValidation(t *testing.T) {
 		s             *v1.Service
 		want          string
 		modifyContext func(context.Context)
-		podInterface  func(client rest.Interface, namespace string) podInterface
 	}{{
-		name:         "valid run latest",
-		podInterface: newTestPods,
+		name: "valid run latest",
 		s: &v1.Service{
 			ObjectMeta: om,
 			Spec: v1.ServiceSpec{
@@ -80,8 +77,7 @@ func TestExtraServiceValidation(t *testing.T) {
 		},
 		modifyContext: nil,
 	}, {
-		name:         "dryrun fail",
-		podInterface: newFailTestPods,
+		name: "dryrun fail",
 		s: &v1.Service{
 			ObjectMeta: om,
 			Spec: v1.ServiceSpec{
@@ -94,11 +90,10 @@ func TestExtraServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want:          "dry run failed with fail-reason: spec.template",
+		want:          "dry run failed with kubeclient error: spec.template",
 		modifyContext: failKubeCalls,
 	}, {
-		name:         "no template found",
-		podInterface: newTestPods,
+		name: "no template found",
 		s: &v1.Service{
 			ObjectMeta: om,
 			Spec: v1.ServiceSpec{
@@ -116,7 +111,6 @@ func TestExtraServiceValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			newCreateWithOptions = test.podInterface
 			ctx, _ := fakekubeclient.With(context.Background())
 			if test.modifyContext != nil {
 				test.modifyContext(ctx)
@@ -167,27 +161,23 @@ func TestConfigurationValidation(t *testing.T) {
 		c             *v1.Configuration
 		want          string
 		modifyContext func(context.Context)
-		podInterface  func(client rest.Interface, namespace string) podInterface
 	}{{
-		name:         "valid run latest",
-		podInterface: newTestPods,
+		name: "valid run latest",
 		c: &v1.Configuration{
 			ObjectMeta: om,
 			Spec:       goodConfigSpec,
 		},
 		modifyContext: nil,
 	}, {
-		name:         "dryrun fail",
-		podInterface: newFailTestPods,
+		name: "dryrun fail",
 		c: &v1.Configuration{
 			ObjectMeta: om,
 			Spec:       goodConfigSpec,
 		},
-		want:          "dry run failed with fail-reason: spec.template",
+		want:          "dry run failed with kubeclient error: spec.template",
 		modifyContext: failKubeCalls,
 	}, {
-		name:         "skip service owned",
-		podInterface: newFailTestPods,
+		name: "skip service owned",
 		c: &v1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "valid",
@@ -206,7 +196,6 @@ func TestConfigurationValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			newCreateWithOptions = test.podInterface
 			ctx, _ := fakekubeclient.With(context.Background())
 			if test.modifyContext != nil {
 				test.modifyContext(ctx)
