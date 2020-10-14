@@ -54,6 +54,13 @@ func TestRequestLogs(t *testing.T) {
 		t.Fatal("Fail to get ConfigMap config-observability:", err)
 	}
 
+	requestLogEnabled := strings.EqualFold(cm.Data[metrics.EnableReqLogKey], "true")
+	probeLogEnabled := strings.EqualFold(cm.Data["logging.enable-probe-request-log"], "true")
+
+	if !requestLogEnabled && !probeLogEnabled {
+		t.Skip("Skipping verifying request logs because both request and probe logging is disabled")
+	}
+
 	if got, want := cm.Data[metrics.ReqLogTemplateKey], template; got != want {
 		t.Skipf("Skipping verifing request logs because the template doesn't match:\n%s", cmp.Diff(want, got))
 	}
@@ -94,17 +101,21 @@ func TestRequestLogs(t *testing.T) {
 		t.Fatal("Fail to fetch the pod:", err)
 	}
 
-	// TODO: add logging.enable-request-log check once it doesn't depends on the template.
-	// A request was sent to / in WaitForEndpointState.
-	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
-		return log.HTTPRequest.RequestURL == "/" &&
-			log.HTTPRequest.UserAgent != network.QueueProxyUserAgent
-	}); err != nil {
-		t.Fatal("Got error waiting for normal request logs:", err)
+	// Only check request logs if the feature is enabled in config-observability.
+	if requestLogEnabled {
+		// A request was sent to / in WaitForEndpointState.
+		if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
+			return log.HTTPRequest.RequestURL == "/" &&
+				log.HTTPRequest.UserAgent != network.QueueProxyUserAgent
+		}); err != nil {
+			t.Fatal("Got error waiting for normal request logs:", err)
+		}
+	} else {
+		t.Log("Skipping verifing request logs because they are not enabled")
 	}
 
 	// Only check probe request logs if the feature is enabled in config-observability.
-	if strings.EqualFold(cm.Data["logging.enable-probe-request-log"], "true") {
+	if probeLogEnabled {
 		// Health check requests are sent to / with a specific userAgent value periodically.
 		if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
 			return log.HTTPRequest.RequestURL == "/" &&
