@@ -21,6 +21,7 @@ package ha
 import (
 	"context"
 	"testing"
+	"time"
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,16 +30,30 @@ import (
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	pkgHa "knative.dev/pkg/test/ha"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
 
-const autoscalerDeploymentName = "autoscaler"
+const (
+	autoscalerDeploymentName = "autoscaler"
+
+	target            = 1
+	targetUtilization = 0.7
+)
 
 func TestAutoscalerHA(t *testing.T) {
-	clients := e2e.Setup(t)
+	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization,
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(), // Make sure we scale to zero quickly.
+			autoscaling.TargetBurstCapacityKey: "-1",
+		}))
+	names := ctx.Names()
+	resources := ctx.Resources()
+	clients := ctx.Clients()
 
 	t.Log("Expected replicas = ", test.ServingFlags.Replicas)
 	if err := pkgTest.WaitForDeploymentScale(context.Background(), clients.KubeClient, autoscalerDeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
@@ -51,9 +66,12 @@ func TestAutoscalerHA(t *testing.T) {
 	}
 	t.Log("Got initial leader set:", leaders)
 
-	names, resources := createPizzaPlanetService(t)
-
 	test.EnsureTearDown(t, clients, &names)
+
+	t.Logf("Waiting for %s to scale to zero", names.Revision)
+	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
+		t.Fatal("Failed to scale to zero:", err)
+	}
 
 	for _, leader := range leaders.List() {
 		if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(context.Background(), leader,
@@ -71,8 +89,8 @@ func TestAutoscalerHA(t *testing.T) {
 		t.Fatal("Failed to find new leader:", err)
 	}
 
-	url := resources.Service.Status.URL.URL()
-	assertServiceEventuallyWorks(t, clients, names, url, test.PizzaPlanetText1)
+	t.Log("Verifying the old revision can still be scaled from 0 to some number after leader change")
+	e2e.AssertAutoscaleUpToNumPods(ctx, 0, 3, time.After(60*time.Second), true /* quick */)
 
 	t.Log("Updating the Service after selecting new leader controller in order to generate a new revision")
 	names.Image = test.PizzaPlanet2
@@ -87,5 +105,5 @@ func TestAutoscalerHA(t *testing.T) {
 		t.Fatal("New image not reflected in Service:", err)
 	}
 
-	assertServiceEventuallyWorks(t, clients, names, url, test.PizzaPlanetText2)
+	assertServiceEventuallyWorks(t, clients, names, resources.Service.Status.URL.URL(), test.PizzaPlanetText2)
 }

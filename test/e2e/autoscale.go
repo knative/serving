@@ -66,6 +66,21 @@ type TestContext struct {
 	metric            string
 }
 
+// Clients returns the clients of the TestContext.
+func (ctx *TestContext) Clients() *test.Clients {
+	return ctx.clients
+}
+
+// Resources returns the resources of the TestContext.
+func (ctx *TestContext) Resources() *v1test.ResourceObjects {
+	return ctx.resources
+}
+
+// Names returns the resource names of the TestContext.
+func (ctx *TestContext) Names() test.ResourceNames {
+	return ctx.names
+}
+
 func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
 	if resolvable {
 		return vegeta.Target{
