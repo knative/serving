@@ -957,7 +957,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/networking v0.0.0-20201013020930-800e8e255ada
+# knative.dev/networking v0.0.0-20201014172631-b3b2c758d7e6
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
