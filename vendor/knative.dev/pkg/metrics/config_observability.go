@@ -42,6 +42,9 @@ const (
 
 	// EnableReqLogKey is the CM key to enable request log.
 	EnableReqLogKey = "logging.enable-request-log"
+
+	// EnableProbeReqLogKey is the CM key to enable request logs for probe requests.
+	EnableProbeReqLogKey = "logging.enable-probe-request-log"
 )
 
 // ObservabilityConfig contains the configuration defined in the observability ConfigMap.
@@ -94,7 +97,7 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 		cm.AsString("logging.revision-url-template", &oc.LoggingURLTemplate),
 		cm.AsString(ReqLogTemplateKey, &oc.RequestLogTemplate),
 		cm.AsBool(EnableReqLogKey, &oc.EnableRequestLog),
-		cm.AsBool("logging.enable-probe-request-log", &oc.EnableProbeRequestLog),
+		cm.AsBool(EnableProbeReqLogKey, &oc.EnableProbeRequestLog),
 		cm.AsString("metrics.request-metrics-backend-destination", &oc.RequestMetricsBackend),
 		cm.AsBool("profiling.enable", &oc.EnableProfiling),
 		cm.AsString("metrics.opencensus-address", &oc.MetricsCollectorAddress),

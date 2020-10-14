@@ -49,13 +49,14 @@ func TestRequestLogs(t *testing.T) {
 	t.Parallel()
 	clients := Setup(t)
 
-	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get(context.Background(), "config-observability", metav1.GetOptions{})
+	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get(context.Background(),
+		metrics.ConfigMapName(), metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Fail to get ConfigMap config-observability:", err)
 	}
 
 	requestLogEnabled := strings.EqualFold(cm.Data[metrics.EnableReqLogKey], "true")
-	probeLogEnabled := strings.EqualFold(cm.Data["logging.enable-probe-request-log"], "true")
+	probeLogEnabled := strings.EqualFold(cm.Data[metrics.EnableProbeReqLogKey], "true")
 
 	if !requestLogEnabled && !probeLogEnabled {
 		t.Skip("Skipping verifying request logs because both request and probe logging is disabled")
@@ -80,7 +81,7 @@ func TestRequestLogs(t *testing.T) {
 			autoscaling.MaxScaleAnnotationKey: "1",
 		})}...)
 	if err != nil {
-		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+		t.Fatalf("Failed to create initial Service: %q: %v", names.Service, err)
 	}
 
 	_, err = pkgtest.WaitForEndpointState(
