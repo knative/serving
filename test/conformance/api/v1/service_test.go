@@ -587,7 +587,7 @@ func TestAnnotationPropagation(t *testing.T) {
 // The test performs a series of Validate steps to ensure that the service transitions as expected during each step.
 func TestServiceCreateWithMultipleContainers(t *testing.T) {
 	if !test.ServingFlags.EnableAlphaFeatures {
-		return
+		t.Skip()
 	}
 	t.Parallel()
 	clients := test.Setup(t)
@@ -628,10 +628,6 @@ func TestServiceCreateWithMultipleContainers(t *testing.T) {
 	}
 
 	if err = validateDataPlane(t, clients, names, test.MultiContainerResponse); err != nil {
-		t.Error(err)
-	}
-
-	if err = validateLabelsPropagation(t, *objects, names); err != nil {
 		t.Error(err)
 	}
 }
