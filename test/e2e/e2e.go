@@ -82,9 +82,9 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 	return clients
 }
 
-// autoscalerCM returns the current autoscaler config map deployed to the
+// AutoscalerCM returns the current autoscaler config map deployed to the
 // test cluster.
-func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
+func AutoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
 	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get(
 		context.Background(), asconfig.ConfigName, metav1.GetOptions{})
 	if err != nil {
@@ -99,7 +99,7 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 	t.Helper()
 	t.Logf("Waiting for %q to scale to zero", deploymentName)
 
-	cfg, err := autoscalerCM(clients)
+	cfg, err := AutoscalerCM(clients)
 	if err != nil {
 		return fmt.Errorf("failed to get autoscaler configmap: %w", err)
 	}

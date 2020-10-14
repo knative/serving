@@ -1,7 +1,7 @@
 // +build e2e
 
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package autoscale
 
 import (
 	"context"
@@ -34,6 +34,7 @@ import (
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
+	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
 
@@ -42,7 +43,7 @@ func TestMinScale(t *testing.T) {
 
 	const minScale = 4
 
-	clients := Setup(t)
+	clients := e2e.Setup(t)
 
 	names := test.ResourceNames{
 		// Config and Route have different names to avoid false positives

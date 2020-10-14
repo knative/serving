@@ -66,6 +66,16 @@ type TestContext struct {
 	metric            string
 }
 
+// Clients returns the clients of the TestContext.
+func (ctx *TestContext) Clients() *test.Clients {
+	return ctx.clients
+}
+
+// Resources returns the resources of the TestContext.
+func (ctx *TestContext) Resources() *v1test.ResourceObjects {
+	return ctx.resources
+}
+
 func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
 	if resolvable {
 		return vegeta.Target{
@@ -228,7 +238,8 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 	}
 }
 
-func assertScaleDown(ctx *TestContext) {
+// AssertScaleDown asserts the given Revision in TestContext scales to zero.
+func AssertScaleDown(ctx *TestContext) {
 	deploymentName := resourcenames.Deployment(ctx.resources.Revision)
 	if err := WaitForScaleToZero(ctx.t, deploymentName, ctx.clients); err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)

@@ -20,7 +20,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -29,66 +28,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/system"
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
+	v1test "knative.dev/serving/test/v1"
 )
-
-func TestAutoscaleUpDownUp(t *testing.T) {
-	t.Parallel()
-
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
-
-	AssertAutoscaleUpToNumPods(ctx, 1, 2, time.After(60*time.Second), true /* quick */)
-	assertScaleDown(ctx)
-	AssertAutoscaleUpToNumPods(ctx, 0, 2, time.After(60*time.Second), true /* quick */)
-}
-
-func TestAutoscaleUpCountPods(t *testing.T) {
-	t.Parallel()
-	runAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.Concurrency)
-}
-
-func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
-	t.Parallel()
-	runAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.RPS)
-}
-
-// runAutoscaleUpCountPods is a test kernel to test the chosen autoscaler using the given
-// metric tracks the given target.
-func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
-	target := containerConcurrency
-	if metric == autoscaling.RPS {
-		target = 10
-	}
-
-	ctx := SetupSvc(t, class, metric, target, targetUtilization)
-
-	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
-	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
-
-	// Increase workload for 2 replicas for 60s
-	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
-	// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
-	AssertAutoscaleUpToNumPods(ctx, 1, 2, time.After(60*time.Second), true /* quick */)
-	// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	AssertAutoscaleUpToNumPods(ctx, 2, 3, time.After(60*time.Second), true /* quick */)
-	// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	AssertAutoscaleUpToNumPods(ctx, 3, 4, time.After(60*time.Second), true /* quick */)
-}
-
-func TestAutoscaleSustaining(t *testing.T) {
-	// When traffic increases, a knative app should scale up and sustain the scale
-	// as long as the traffic sustains, despite whether it is switching modes between
-	// normal and panic.
-	t.Parallel()
-
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
-	AssertAutoscaleUpToNumPods(ctx, 1, 10, time.After(2*time.Minute), false /* quick */)
-}
 
 func TestTargetBurstCapacity(t *testing.T) {
 	// This test sets up a service with CC=10 TU=70% and TBC=7.
@@ -104,7 +51,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
 		}))
 
-	cfg, err := autoscalerCM(ctx.clients)
+	cfg, err := AutoscalerCM(ctx.clients)
 	if err != nil {
 		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
@@ -166,10 +113,6 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
 
-	_, err := autoscalerCM(ctx.clients)
-	if err != nil {
-		t.Fatal("Error retrieving autoscaler configmap:", err)
-	}
 	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
 		system.Namespace()).Get(context.Background(), networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
@@ -183,7 +126,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	}
 }
 
-func TestFastScaleToZero(t *testing.T) {
+func TestScaleFromZero(t *testing.T) {
 	t.Parallel()
 
 	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
@@ -191,41 +134,19 @@ func TestFastScaleToZero(t *testing.T) {
 			autoscaling.TargetBurstCapacityKey: "-1",
 			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(),
 		}))
+	AssertScaleDown(ctx)
 
-	cfg, err := autoscalerCM(ctx.clients)
-	if err != nil {
-		t.Fatal("Error retrieving autoscaler configmap:", err)
+	url := ctx.resources.Route.Status.URL.URL()
+	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
+		ctx.clients.KubeClient,
+		t.Logf,
+		url,
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
+		"HelloWorldServesText",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, ctx.clients, test.ServingFlags.HTTPS),
+	); err != nil {
+		t.Fatalf("The endpoint %s for Route %s didn't return 200: %v", url, ctx.names.Route, err)
 	}
-
-	epsL, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).List(context.Background(), metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s,%s=%s",
-			serving.RevisionLabelKey, ctx.resources.Revision.Name,
-			networking.ServiceTypeKey, networking.ServiceTypePrivate,
-		),
-	})
-	if err != nil || len(epsL.Items) == 0 {
-		t.Fatal("No endpoints or error:", err)
-	}
-
-	epsN := epsL.Items[0].Name
-	t.Logf("Waiting for emptying of %q ", epsN)
-
-	// The first thing that happens when pods are starting to terminate
-	// is that they stop being ready and endpoints controller removes them
-	// from the ready set.
-	// While pod termination itself can last quite some time (our pod termination
-	// test allows for up to a minute). The 15s delay is based upon maximum
-	// of 20 runs (11s) + 4s of buffer for reliability.
-	st := time.Now()
-	if err := wait.PollImmediate(1*time.Second, cfg.ScaleToZeroGracePeriod+15*time.Second, func() (bool, error) {
-		eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(context.Background(), epsN, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return resources.ReadyAddressCount(eps) == 0, nil
-	}); err != nil {
-		t.Fatalf("Did not observe %q to actually be emptied", epsN)
-	}
-
-	t.Log("Total time to scale down:", time.Since(st))
 }
