@@ -615,10 +615,9 @@ func TestServiceCreateWithMultipleContainers(t *testing.T) {
 	}}
 
 	// Setup initial Service
-	objects, err := v1test.CreateServiceReadyForMultiContainer(t, clients, &names, func(svc *v1.Service) {
+	if _, err := v1test.CreateServiceReadyForMultiContainer(t, clients, &names, func(svc *v1.Service) {
 		svc.Spec.Template.Spec.Containers = containers
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
