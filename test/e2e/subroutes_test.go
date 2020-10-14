@@ -128,7 +128,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 
 	// Update subroute1 to private.
 	serviceName := serviceNameForRoute(subrouteTag1, resources.Route.Name)
-	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
+	svc, err := clients.KubeClient.CoreV1().Services(test.ServingNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get k8s service to modify:", err)
 	}
@@ -141,7 +141,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(context.Background(), serviceName, types.JSONPatchType, svcpatchBytes, metav1.PatchOptions{}); err != nil {
+	if _, err = clients.KubeClient.CoreV1().Services(test.ServingNamespace).Patch(context.Background(), serviceName, types.JSONPatchType, svcpatchBytes, metav1.PatchOptions{}); err != nil {
 		t.Fatal("Failed to patch service:", err)
 	}
 
@@ -250,7 +250,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 
 	//Update subroute1 to private
 	serviceName := serviceNameForRoute(subrouteTag1, resources.Route.Name)
-	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
+	svc, err := clients.KubeClient.CoreV1().Services(test.ServingNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get k8s service to modify:", err.Error())
 	}
@@ -263,7 +263,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(context.Background(), serviceName, types.JSONPatchType, svcpatchBytes, metav1.PatchOptions{}); err != nil {
+	if _, err = clients.KubeClient.CoreV1().Services(test.ServingNamespace).Patch(context.Background(), serviceName, types.JSONPatchType, svcpatchBytes, metav1.PatchOptions{}); err != nil {
 		t.Fatal("Failed to patch service:", err.Error())
 	}
 
@@ -329,7 +329,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 
 	//Update and check subroute 1 to private.
 	serviceName1 := serviceNameForRoute(subrouteTag1, resources.Route.Name)
-	svc1, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(context.Background(), serviceName1, metav1.GetOptions{})
+	svc1, err := clients.KubeClient.CoreV1().Services(test.ServingNamespace).Get(context.Background(), serviceName1, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get k8s service to modify:", err)
 	}
@@ -342,7 +342,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(context.Background(), serviceName1, types.JSONPatchType, svc1patchBytes, metav1.PatchOptions{}); err != nil {
+	if _, err = clients.KubeClient.CoreV1().Services(test.ServingNamespace).Patch(context.Background(), serviceName1, types.JSONPatchType, svc1patchBytes, metav1.PatchOptions{}); err != nil {
 		t.Fatal("Failed to patch service:", err)
 	}
 

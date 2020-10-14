@@ -64,7 +64,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	if err := pkgTest.WaitForDeploymentScale(context.Background(), clients.KubeClient, activatorDeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", activatorDeploymentName, test.ServingFlags.Replicas, err)
 	}
-	activators, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(context.Background(), metav1.ListOptions{
+	activators, err := clients.KubeClient.CoreV1().Pods(system.Namespace()).List(context.Background(), metav1.ListOptions{
 		LabelSelector: activatorLabel,
 	})
 	if err != nil {
@@ -102,7 +102,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 
 	for i, activator := range activators.Items {
 		t.Logf("Deleting activator%d (%s)", i, activator.Name)
-		if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(context.Background(), activator.Name, podDeleteOptions); err != nil {
+		if err := clients.KubeClient.CoreV1().Pods(system.Namespace()).Delete(context.Background(), activator.Name, podDeleteOptions); err != nil {
 			t.Fatalf("Failed to delete pod %s: %v", activator.Name, err)
 		}
 
