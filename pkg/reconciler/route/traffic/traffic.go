@@ -186,11 +186,18 @@ func (cfg *Config) BuildRollout() *Rollout {
 				RevisionName: rt.RevisionName,
 				// After defaulting and validation this must not be non nil.
 				// We will keep `0` values, even though we won't be rolling them out,
-				Percent: int(*rt.Percent),
+				Percent: nonNil(rt.Percent),
 			}},
 		})
 	}
 	return rollout
+}
+
+func nonNil(p *int64) int {
+	if p != nil {
+		return int(*p)
+	}
+	return 0
 }
 
 func (cb *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
