@@ -16,6 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Tests in this package require chaosduck disabled for autoscaler.
 package autoscale
 
 import (
@@ -41,10 +42,6 @@ const (
 	// but not high enough to generate scheduling problems.
 	containerConcurrency = 6
 	targetUtilization    = 0.7
-	successRateSLO       = 0.999
-	autoscaleSleep       = 500
-
-	autoscaleTestImageName = "autoscale"
 )
 
 func TestAutoscaleUpDownUp(t *testing.T) {
