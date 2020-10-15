@@ -16,7 +16,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Tests in this package require chaosduck disabled for autoscaler.
+// Tests in this package require chaosduck to be disabled for autoscaler.
+// These tests require that the desired replicas won't be dropped during
+// the test process. As Autoscaler is stateful, the new lead needs time
+// to collect scaling metrics, which could potentially result in scaling
+// down.
 package autoscale
 
 import (

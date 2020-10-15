@@ -16,6 +16,12 @@ limitations under the License.
 
 package e2e
 
+// Tests in this file can work with Chaosduck enabled for autoscaler.
+// These tests accept that the desired replicas could be dropped during
+// the test process. As Autoscaler is stateful, the new lead needs time
+// to collect scaling metrics, which could potentially result in scaling
+// down.
+
 import (
 	"context"
 	"errors"
