@@ -92,8 +92,7 @@ func TestAutoscalerHA(t *testing.T) {
 	t.Log("Verifying the old revision can still be scaled from 0 after leader change")
 	// Use WaitForEndpointState for scaling from 0. This is because WaitForEndpointState uses a much larger request
 	// timeout value than the one used by AssertAutoscaleUpToNumPods. AssertAutoscaleUpToNumPods uses the default
-	// vegeta request timeout value, which could result in non 200 responses when waiting for the pods scaling from
-	// zero.
+	// vegeta request timeout value, which could result in non-200 responses when scaling from 0.
 	url := resources.Route.Status.URL.URL()
 	if _, err := pkgTest.WaitForEndpointState(
 		context.Background(),
