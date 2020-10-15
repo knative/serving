@@ -11,7 +11,6 @@ require (
 	github.com/google/go-containerregistry v0.1.3
 	github.com/google/gofuzz v1.1.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
-	github.com/google/uuid v1.1.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0

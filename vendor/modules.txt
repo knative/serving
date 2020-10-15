@@ -193,7 +193,6 @@ github.com/google/mako/internal/quickstore_microservice/proto/quickstore_go_prot
 github.com/google/mako/proto/quickstore/quickstore_go_proto
 github.com/google/mako/spec/proto/mako_go_proto
 # github.com/google/uuid v1.1.1
-## explicit
 github.com/google/uuid
 # github.com/googleapis/gax-go/v2 v2.0.5
 github.com/googleapis/gax-go/v2

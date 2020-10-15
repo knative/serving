@@ -34,7 +34,6 @@ import (
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
@@ -1358,7 +1357,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				cf()
 				waitInformers()
 			}()
-			route := Route(testNamespace, uuid.New().String(), WithRouteGeneration(1982),
+			route := Route(testNamespace, "test", WithRouteGeneration(1982),
 				WithRouteLabel(map[string]string{"app": "prod"}))
 			routeClient := fakeservingclient.Get(ctx).ServingV1().Routes(route.Namespace)
 
