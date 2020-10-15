@@ -16,7 +16,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/prometheus/client_golang v1.6.0
 	github.com/prometheus/client_model v0.2.0
-	github.com/tsenart/vegeta v12.7.1-0.20190725001342-b5f4fca92137+incompatible
+	github.com/tsenart/vegeta/v12 v12.8.4
 	go.opencensus.io v0.22.4
 	go.uber.org/atomic v1.6.0
 	go.uber.org/automaxprocs v1.3.0
@@ -32,9 +32,9 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20201013020830-6396f6b3272b
-	knative.dev/networking v0.0.0-20201014172631-b3b2c758d7e6
-	knative.dev/pkg v0.0.0-20201014184531-9e655c6b02f6
+	knative.dev/caching v0.0.0-20201014225131-ce0115afa09f
+	knative.dev/networking v0.0.0-20201014225831-986c92f06d64
+	knative.dev/pkg v0.0.0-20201015142557-51839ea5e196
 	knative.dev/test-infra v0.0.0-20201014021030-ae3984a33f82
 )
 
@@ -44,8 +44,6 @@ replace (
 	github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.9.6-0.20201007172425-bf140ad4ab62
 
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
-
-	github.com/tsenart/vegeta => github.com/tsenart/vegeta v1.2.1-0.20190917092155-ab06ddb56e2f
 
 	k8s.io/api => k8s.io/api v0.18.8
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.8

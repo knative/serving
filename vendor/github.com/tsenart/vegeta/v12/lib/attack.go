@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -28,6 +29,7 @@ type Attacker struct {
 	seqmu      sync.Mutex
 	seq        uint64
 	began      time.Time
+	chunked    bool
 }
 
 const (
@@ -40,6 +42,9 @@ const (
 	// DefaultConnections is the default amount of max open idle connections per
 	// target host.
 	DefaultConnections = 10000
+	// DefaultMaxConnections is the default amount of connections per target
+	// host.
+	DefaultMaxConnections = 0
 	// DefaultWorkers is the default initial number of workers used to carry an attack.
 	DefaultWorkers = 10
 	// DefaultMaxWorkers is the default maximum number of workers used to carry an attack.
@@ -81,6 +86,7 @@ func NewAttacker(opts ...func(*Attacker)) *Attacker {
 			Dial:                a.dialer.Dial,
 			TLSClientConfig:     DefaultTLSConfig,
 			MaxIdleConnsPerHost: DefaultConnections,
+			MaxConnsPerHost:     DefaultMaxConnections,
 		},
 	}
 
@@ -111,6 +117,21 @@ func Connections(n int) func(*Attacker) {
 		tr := a.client.Transport.(*http.Transport)
 		tr.MaxIdleConnsPerHost = n
 	}
+}
+
+// MaxConnections returns a functional option which sets the number of maximum
+// connections per target host.
+func MaxConnections(n int) func(*Attacker) {
+	return func(a *Attacker) {
+		tr := a.client.Transport.(*http.Transport)
+		tr.MaxConnsPerHost = n
+	}
+}
+
+// ChunkedBody returns a functional option which makes the attacker send the
+// body of each request with the chunked transfer encoding.
+func ChunkedBody(b bool) func(*Attacker) {
+	return func(a *Attacker) { a.chunked = b }
 }
 
 // Redirects returns a functional option which sets the maximum
@@ -354,6 +375,16 @@ func (a *Attacker) hit(tr Targeter, name string) *Result {
 		return &res
 	}
 
+	if name != "" {
+		req.Header.Set("X-Vegeta-Attack", name)
+	}
+
+	req.Header.Set("X-Vegeta-Seq", strconv.FormatUint(res.Seq, 10))
+
+	if a.chunked {
+		req.TransferEncoding = append(req.TransferEncoding, "chunked")
+	}
+
 	r, err := a.client.Do(req)
 	if err != nil {
 		return &res
@@ -380,6 +411,8 @@ func (a *Attacker) hit(tr Targeter, name string) *Result {
 	if res.Code = uint16(r.StatusCode); res.Code < 200 || res.Code >= 400 {
 		res.Error = r.Status
 	}
+
+	res.Headers = r.Header
 
 	return &res
 }

@@ -22,7 +22,7 @@ import (
 	"math"
 	"time"
 
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "github.com/tsenart/vegeta/v12/lib"
 )
 
 // steadyUpPacer is a Pacer that describes attack request rates that increases in the beginning then becomes steady.
@@ -105,6 +105,12 @@ func (sup *steadyUpPacer) Pace(elapsedTime time.Duration, elapsedHits uint64) (t
 	}
 
 	return nextHitIn, false
+}
+
+// Rate returns a Pacer's instantaneous hit rate (per seconds) at the given elapsed
+// duration of an attack.
+func (sup *steadyUpPacer) Rate(elapsedTime time.Duration) float64 {
+	return sup.hitsPerNs(elapsedTime) * 1e9
 }
 
 // hits returns the number of expected hits for this pacer during the given time.

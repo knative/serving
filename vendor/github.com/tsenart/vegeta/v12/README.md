@@ -1,4 +1,4 @@
-# Vegeta [![Build Status](https://secure.travis-ci.org/tsenart/vegeta.svg?branch=master)](http://travis-ci.org/tsenart/vegeta) [![Fuzzit Status](https://app.fuzzit.dev/badge?org_id=vegeta)](https://app.fuzzit.dev/orgs/vegeta/dashboard) [![Go Report Card](https://goreportcard.com/badge/github.com/tsenart/vegeta)](https://goreportcard.com/report/github.com/tsenart/vegeta) [![GoDoc](https://godoc.org/github.com/tsenart/vegeta?status.svg)](https://godoc.org/github.com/tsenart/vegeta) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/tsenart/vegeta?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Donate](https://img.shields.io/badge/donate-bitcoin-yellow.svg)](#donate)
+# Vegeta [![Build Status](https://github.com/tsenart/vegeta/workflows/CI/badge.svg)](https://github.com/tsenart/vegeta/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/tsenart/vegeta)](https://goreportcard.com/report/github.com/tsenart/vegeta) [![GoDoc](https://godoc.org/github.com/tsenart/vegeta?status.svg)](https://godoc.org/github.com/tsenart/vegeta) [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/tsenart/vegeta?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Donate](https://img.shields.io/badge/donate-bitcoin-yellow.svg)](#donate)
 
 Vegeta is a versatile HTTP load testing tool built out of a need to drill
 HTTP services with a constant request rate.
@@ -62,6 +62,8 @@ attack command:
     	Requests body file
   -cert string
     	TLS client PEM encoded certificate file
+  -chunked
+    	Send body with chunked transfer encoding
   -connections int
     	Max open idle connections per target host (default 10000)
   -duration duration
@@ -168,6 +170,10 @@ request unless overridden per attack target, see `-targets`.
 Specifies the PEM encoded TLS client certificate file to be used with HTTPS requests.
 If `-key` isn't specified, it will be set to the value of this flag.
 
+#### `-chunked`
+
+Specifies whether to send request bodies with the chunked transfer encoding.
+
 #### `-connections`
 
 Specifies the maximum number of idle open connections per target host.
@@ -244,13 +250,15 @@ X-Account-ID: 99
 @/path/to/newthing.json
 ```
 
-###### Add comments to the targets
+###### Add comments
 
 Lines starting with `#` are ignored.
 
 ```
 # get a dragon ball
 GET http://goku:9090/path/to/dragon?item=ball
+# specify a test accout
+X-Account-ID: 99
 ```
 
 #### `-h2c`
@@ -398,7 +406,7 @@ Examples:
 ```console
 Requests      [total, rate, throughput] 1200, 120.00, 65.87
 Duration      [total, attack, wait]     10.094965987s, 9.949883921s, 145.082066ms
-Latencies     [mean, 50, 95, 99, max]   113.172398ms, 108.272568ms, 140.18235ms, 247.771566ms, 264.815246ms
+Latencies     [min, mean, 50, 95, 99, max]  90.438129ms, 113.172398ms, 108.272568ms, 140.18235ms, 247.771566ms, 264.815246ms
 Bytes In      [total, mean]             3714690, 3095.57
 Bytes Out     [total, mean]             0, 0.00
 Success       [ratio]                   55.42%
@@ -426,8 +434,9 @@ The `Duration` row shows:
 
 Latency is the amount of time taken for a response to a request to be read (including the `-max-body` bytes from the response body).
 
+- `min` is the minimum latency of all requests in an attack.
 - `mean` is the [arithmetic mean / average](https://en.wikipedia.org/wiki/Arithmetic_mean) of the latencies of all requests in an attack.
-- `50`, `95`, `99` are the 50th, 95th an 99th [percentiles](https://en.wikipedia.org/wiki/Percentile), respectively, of the latencies of all requests in an attack. To understand more about why these are useful, I recommend [this article](https://bravenewgeek.com/everything-you-know-about-latency-is-wrong/) from @tylertreat.
+- `50`, `90`, `95`, `99` are the 50th, 90th, 95th and 99th [percentiles](https://en.wikipedia.org/wiki/Percentile), respectively, of the latencies of all requests in an attack. To understand more about why these are useful, I recommend [this article](https://bravenewgeek.com/everything-you-know-about-latency-is-wrong/) from @tylertreat.
 - `max` is the maximum latency of all requests in an attack.
 
 The `Bytes In` and `Bytes Out` rows shows:
@@ -451,11 +460,20 @@ All duration like fields are in nanoseconds.
     "total": 237119463,
     "mean": 2371194,
     "50th": 2854306,
+    "90th": 3228223,
     "95th": 3478629,
     "99th": 3530000,
-    "max": 3660505
+    "max": 3660505,
+    "min": 1949582
   },
-  "buckets": {"0":9952,"1000000":40,"2000000":6,"3000000":0,"4000000":0,"5000000":2},
+  "buckets": {
+    "0": 9952,
+    "1000000": 40,
+    "2000000": 6,
+    "3000000": 0,
+    "4000000": 0,
+    "5000000": 2
+  },
   "bytes_in": {
     "total": 606700,
     "mean": 6067
@@ -718,7 +736,7 @@ vegeta report *.bin
 
 ## Usage: Real-time Analysis
 
-If you are a happy user of iTerm, you can integrate vegeta with [jplot](https://github.com/rs/jplot) using [jaggr](https://github.com/rs/jaggr) to plot a vegeta report in real-time in the comfort of you terminal:
+If you are a happy user of iTerm, you can integrate vegeta with [jplot](https://github.com/rs/jplot) using [jaggr](https://github.com/rs/jaggr) to plot a vegeta report in real-time in the comfort of your terminal:
 
 ```
 echo 'GET http://localhost:8080' | \
@@ -751,7 +769,7 @@ import (
   "fmt"
   "time"
 
-  vegeta "github.com/tsenart/vegeta/lib"
+  vegeta "github.com/tsenart/vegeta/v12/lib"
 )
 
 func main() {
