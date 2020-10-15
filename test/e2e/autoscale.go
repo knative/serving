@@ -76,9 +76,19 @@ func (ctx *TestContext) Resources() *v1test.ResourceObjects {
 	return ctx.resources
 }
 
+// SetResources sets the resources of the TestContext to the given values.
+func (ctx *TestContext) SetResources(resources *v1test.ResourceObjects) {
+	ctx.resources = resources
+}
+
 // Names returns the resource names of the TestContext.
 func (ctx *TestContext) Names() test.ResourceNames {
 	return ctx.names
+}
+
+// SetNames set the resource names of the TestContext to the given values.
+func (ctx *TestContext) SetNames(names test.ResourceNames) {
+	ctx.names = names
 }
 
 func getVegetaTarget(kubeClientset kubernetes.Interface, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {

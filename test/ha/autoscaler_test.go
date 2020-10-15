@@ -55,6 +55,8 @@ func TestAutoscalerHA(t *testing.T) {
 	resources := ctx.Resources()
 	clients := ctx.Clients()
 
+	test.EnsureTearDown(t, clients, &names)
+
 	t.Log("Expected replicas = ", test.ServingFlags.Replicas)
 	if err := pkgTest.WaitForDeploymentScale(context.Background(), clients.KubeClient, autoscalerDeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", autoscalerDeploymentName, test.ServingFlags.Replicas, err)
@@ -65,8 +67,6 @@ func TestAutoscalerHA(t *testing.T) {
 		t.Fatal("Failed to get leader:", err)
 	}
 	t.Log("Got initial leader set:", leaders)
-
-	test.EnsureTearDown(t, clients, &names)
 
 	t.Logf("Waiting for %s to scale to zero", names.Revision)
 	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
@@ -104,6 +104,10 @@ func TestAutoscalerHA(t *testing.T) {
 	if err != nil {
 		t.Fatal("New image not reflected in Service:", err)
 	}
+	resources.Revision.Name = names.Revision
 
-	assertServiceEventuallyWorks(t, clients, names, resources.Service.Status.URL.URL(), test.PizzaPlanetText2)
+	t.Log("Verifying the new revision can be scaled up")
+	ctx.SetNames(names)
+	ctx.SetResources(resources)
+	e2e.AssertAutoscaleUpToNumPods(ctx, 1, 3, time.After(60*time.Second), true /* quick */)
 }
