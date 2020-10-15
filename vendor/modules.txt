@@ -234,9 +234,6 @@ github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
 # github.com/markbates/inflect v1.0.4
 github.com/markbates/inflect
-# github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
-## explicit
-github.com/mattbaird/jsonpatch
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd

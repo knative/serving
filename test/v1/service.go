@@ -21,8 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/mattbaird/jsonpatch"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -182,12 +180,12 @@ func PatchService(t pkgTest.T, clients *test.Clients, service *v1.Service, fopt 
 
 // UpdateServiceRouteSpec updates a service to use the route name in names.
 func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (svc *v1.Service, err error) {
-	patches := []jsonpatch.JsonPatchOperation{{
-		Operation: "replace",
-		Path:      "/spec/traffic",
-		Value:     rs.Traffic,
-	}}
-	patchBytes, err := json.Marshal(patches)
+	patch := map[string]interface{}{
+		"op":    "replace",
+		"path":  "/spec/traffic",
+		"value": rs.Traffic,
+	}
+	patchBytes, err := json.Marshal(patch)
 	if err != nil {
 		return nil, err
 	}

@@ -15,7 +15,6 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/prometheus/client_golang v1.6.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/tsenart/vegeta v12.7.1-0.20190725001342-b5f4fca92137+incompatible
