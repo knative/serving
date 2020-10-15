@@ -89,8 +89,27 @@ func TestAutoscalerHA(t *testing.T) {
 		t.Fatal("Failed to find new leader:", err)
 	}
 
-	t.Log("Verifying the old revision can still be scaled from 0 to some number after leader change")
-	e2e.AssertAutoscaleUpToNumPods(ctx, 0, 3, time.After(60*time.Second), true /* quick */)
+	t.Log("Verifying the old revision can still be scaled from 0 after leader change")
+	// Use WaitForEndpointState for scaling from 0. This is because WaitForEndpointState uses a much larger request
+	// timeout value than the one used by AssertAutoscaleUpToNumPods. AssertAutoscaleUpToNumPods uses the default
+	// vegeta request timeout value, which could result in non 200 responses when waiting for the pods scaling from
+	// zero.
+	url := resources.Route.Status.URL.URL()
+	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		url,
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
+		"AutoscaleServesText",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+	); err != nil {
+		t.Fatalf("The endpoint %s for Route %s didn't return 200: %v", url, names.Route, err)
+	}
+
+	t.Log("Verifying the old revision can still be scaled up to some number after leader change")
+	e2e.AssertAutoscaleUpToNumPods(ctx, 1, 3, time.After(60*time.Second), true /* quick */)
 
 	t.Log("Updating the Service after selecting new leader controller in order to generate a new revision")
 	names.Image = test.PizzaPlanet2
