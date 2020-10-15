@@ -39,11 +39,8 @@ require (
 )
 
 replace (
-	github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v38.2.0+incompatible
-	github.com/Azure/go-autorest => github.com/Azure/go-autorest v14.2.1-0.20201007172425-bf140ad4ab62+incompatible
-	github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.9.6-0.20201007172425-bf140ad4ab62
-
-	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
+	// Overridden to drop the dependency on github.com/dgrijalva/jwt-go, which has a vulnerability.
+	github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.9.5
 
 	k8s.io/api => k8s.io/api v0.18.8
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.8
