@@ -325,13 +325,21 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	return nil
 }
 
+// valIfNil returns `val` if `ptr==nil`, or `*ptr` otherwise.
+func valIfNil(val int64, ptr *int64) int64 {
+	if ptr == nil {
+		return val
+	}
+	return *ptr
+}
+
 // This find the exact revision+tag pair and if so, just adds the percentages.
 // This expects single digit lists, so just does an O(N) search.
 func mergeIfNecessary(rts RevisionTargets, rt RevisionTarget) RevisionTargets {
 	for i := range rts {
 		if rts[i].Tag == rt.Tag && rts[i].RevisionName == rt.RevisionName &&
 			*rt.LatestRevision == *rts[i].LatestRevision {
-			rts[i].Percent = ptr.Int64(*rts[i].Percent + *rt.Percent)
+			rts[i].Percent = ptr.Int64(valIfNil(0, rts[i].Percent) + valIfNil(0, rt.Percent))
 			return rts
 		}
 	}

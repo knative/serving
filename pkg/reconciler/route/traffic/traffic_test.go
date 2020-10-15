@@ -389,13 +389,39 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfig(t *testing.T) {
 			niceNewRev.Name: niceNewRev,
 		},
 	}
-	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
-		ConfigurationName: niceConfig.Name,
-		Percent:           ptr.Int64(90),
-	}, v1.TrafficTarget{
-		ConfigurationName: niceConfig.Name,
-		Percent:           ptr.Int64(10),
-	}))); err != nil {
+
+	// Test 42%/42%/16% split.
+	tc, err := BuildTrafficConfiguration(
+		configLister, revLister, testRouteWithTrafficTargets(
+			WithSpecTraffic([]v1.TrafficTarget{{
+				ConfigurationName: niceConfig.Name,
+				Percent:           ptr.Int64(42),
+			}, {
+				ConfigurationName: niceConfig.Name,
+				Percent:           ptr.Int64(16),
+			}, {
+				ConfigurationName: niceConfig.Name,
+				Percent:           ptr.Int64(42),
+			}}...)))
+	if err != nil {
+		t.Error("Unexpected error", err)
+	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
+		fmt.Println(spew.Sdump(got))
+		t.Error("Unexpected traffic diff (-want +got):", cmp.Diff(want, got, cmpOpts...))
+	}
+
+	// Test 100%/nil case.
+	tc, err = BuildTrafficConfiguration(
+		configLister, revLister,
+		testRouteWithTrafficTargets(WithSpecTraffic([]v1.TrafficTarget{{
+			ConfigurationName: niceConfig.Name,
+			Percent:           ptr.Int64(100),
+		}, {
+			ConfigurationName: niceConfig.Name,
+		}, {
+			ConfigurationName: niceConfig.Name, // let's throw in 2 nils! ;-)
+		}}...)))
+	if err != nil {
 		t.Error("Unexpected error", err)
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
 		fmt.Println(spew.Sdump(got))
