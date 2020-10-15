@@ -28,10 +28,10 @@ jobs:
         - ./test/conformance/api/v1alpha1
         - ./test/e2e
 
-        # Map between K8s and KinD versions.
-        # This is attempting to make it a bit clearer what's being tested.
-        # See: https://github.com/kubernetes-sigs/kind/releases/tag/v0.9.0
         include:
+          # Map between K8s and KinD versions.
+          # This is attempting to make it a bit clearer what's being tested.
+          # See: https://github.com/kubernetes-sigs/kind/releases/tag/v0.9.0
         - k8s-version: v1.17.11
           kind-version: v0.9.0
           kind-image-sha: sha256:5240a7a2c34bf241afb54ac05669f8a46661912eab05705d660971eeb12f6555
@@ -44,6 +44,9 @@ jobs:
           kind-version: v0.9.0
           kind-image-sha: sha256:98cf5288864662e37115e362b23e4369c8c4a408f99cbc06e58ac30ddc721600
           kingress: contour
+
+          # The tests in api/v1alpha1 require the --enable-alpha flag to be set,
+          # and alpha components to be deployed.
         - test-suite: ./test/conformance/api/v1alpha1
           test-flags: "--enable-alpha"
 
