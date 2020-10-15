@@ -1,6 +1,4 @@
-// +build modhack
-
-package date
+// +build !go1.13
 
 // Copyright 2017 Microsoft Corporation
 //
@@ -16,9 +14,23 @@ package date
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-// This file, and the github.com/Azure/go-autorest import, won't actually become part of
-// the resultant binary.
+package adal
 
-// Necessary for safely adding multi-module repo.
-// See: https://github.com/golang/go/wiki/Modules#is-it-possible-to-add-a-module-to-a-multi-module-repository
-import _ "github.com/Azure/go-autorest"
+import (
+	"context"
+	"net/http"
+	"time"
+)
+
+func getMSIEndpoint(ctx context.Context, sender Sender) (*http.Response, error) {
+	// this cannot fail, the return sig is due to legacy reasons
+	msiEndpoint, _ := GetMSIVMEndpoint()
+	tempCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	defer cancel()
+	req, _ := http.NewRequest(http.MethodGet, msiEndpoint, nil)
+	req = req.WithContext(tempCtx)
+	q := req.URL.Query()
+	q.Add("api-version", msiAPIVersion)
+	req.URL.RawQuery = q.Encode()
+	return sender.Do(req)
+}

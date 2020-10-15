@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/davecgh/go-spew v1.1.1
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/form3tech-oss/jwt-go v3.2.2+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/google/go-cmp v0.5.2
@@ -42,7 +42,8 @@ require (
 
 replace (
 	github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v38.2.0+incompatible
-	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.4.0+incompatible
+	github.com/Azure/go-autorest => github.com/Azure/go-autorest v14.2.1-0.20201007172425-bf140ad4ab62+incompatible
+	github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.9.6-0.20201007172425-bf140ad4ab62
 
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
 
