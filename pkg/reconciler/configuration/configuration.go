@@ -240,8 +240,9 @@ func CheckNameAvailability(ctx context.Context, config *v1.Configuration, lister
 	if !equality.Semantic.DeepEqual(config.Spec.GetTemplate().Spec, rev.Spec) {
 		diff, err := kmp.SafeDiff(config.Spec.GetTemplate().Spec, rev.Spec)
 		if err != nil {
-			logger.Debugf("Revision's spec not equal to Configuration's spec template, diff: ", diff)
+			logger.Errorf("Fail to Diff Revision %s spec and its Configration's spec template %v", rev.GetName(), err)
 		}
+		logger.Debugf("Revision %s spec not equal to Configuration's spec template, diff: %s", rev.GetName(), diff)
 		return nil, errConflict
 	}
 	return rev, nil
