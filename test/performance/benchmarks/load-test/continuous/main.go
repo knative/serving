@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/google/mako/go/quickstore"
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "github.com/tsenart/vegeta/v12/lib"
 	"k8s.io/apimachinery/pkg/labels"
 
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"

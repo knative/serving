@@ -89,6 +89,11 @@ func (m *Metrics) Add(r *Result) {
 // derived summary metrics which don't need to be run on every Add call.
 func (m *Metrics) Close() {
 	m.init()
+
+	if m.Requests == 0 {
+		return
+	}
+
 	m.Rate = float64(m.Requests)
 	m.Throughput = float64(m.success)
 	m.Duration = m.Latest.Sub(m.Earliest)
@@ -104,6 +109,7 @@ func (m *Metrics) Close() {
 	m.Success = float64(m.success) / float64(m.Requests)
 	m.Latencies.Mean = time.Duration(float64(m.Latencies.Total) / float64(m.Requests))
 	m.Latencies.P50 = m.Latencies.Quantile(0.50)
+	m.Latencies.P90 = m.Latencies.Quantile(0.90)
 	m.Latencies.P95 = m.Latencies.Quantile(0.95)
 	m.Latencies.P99 = m.Latencies.Quantile(0.99)
 }
@@ -130,12 +136,16 @@ type LatencyMetrics struct {
 	Mean time.Duration `json:"mean"`
 	// P50 is the 50th percentile request latency.
 	P50 time.Duration `json:"50th"`
+	// P90 is the 90th percentile request latency.
+	P90 time.Duration `json:"90th"`
 	// P95 is the 95th percentile request latency.
 	P95 time.Duration `json:"95th"`
 	// P99 is the 99th percentile request latency.
 	P99 time.Duration `json:"99th"`
 	// Max is the maximum observed request latency.
 	Max time.Duration `json:"max"`
+	// Min is the minimum observed request latency.
+	Min time.Duration `json:"min"`
 
 	estimator estimator
 }
@@ -145,6 +155,9 @@ func (l *LatencyMetrics) Add(latency time.Duration) {
 	l.init()
 	if l.Total += latency; latency > l.Max {
 		l.Max = latency
+	}
+	if latency < l.Min || l.Min == 0 {
+		l.Min = latency
 	}
 	l.estimator.Add(float64(latency))
 }

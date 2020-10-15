@@ -22,7 +22,7 @@ import (
 	"log"
 	"time"
 
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "github.com/tsenart/vegeta/v12/lib"
 
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
