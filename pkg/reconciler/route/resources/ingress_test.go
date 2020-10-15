@@ -51,12 +51,16 @@ const (
 	testRouteName       = "test-route"
 	testAnnotationValue = "test-annotation-value"
 	testIngressClass    = "test-ingress"
+
+	emptyRollout = "{}"
 )
 
 func TestMakeIngressCorrectMetadata(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
-	ingressClass := "ng-ingress"
-	passdownIngressClass := "ok-ingress"
+	const (
+		ingressClass         = "ng-ingress"
+		passdownIngressClass = "ok-ingress"
+	)
 	r := Route(ns, "test-route", WithRouteLabel(map[string]string{
 		serving.RouteLabelKey:          "try-to-override",
 		serving.RouteNamespaceLabelKey: "try-to-override",
@@ -77,6 +81,7 @@ func TestMakeIngressCorrectMetadata(t *testing.T) {
 			// Make sure to get passdownIngressClass instead of ingressClass
 			networking.IngressClassAnnotationKey: passdownIngressClass,
 			"test-annotation":                    "bar",
+			traffic.RolloutAnnotationKey:         emptyRollout,
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
@@ -949,6 +954,7 @@ func TestMakeIngressWithTLS(t *testing.T) {
 			Namespace: ns,
 			Annotations: map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
+				traffic.RolloutAnnotationKey:         emptyRollout,
 			},
 			Labels: map[string]string{
 				serving.RouteLabelKey:          "test-route",
