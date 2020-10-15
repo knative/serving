@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "12baeac1"
+    knative.dev/example-checksum: "1d830d9e"
 data:
   _example: |
     ################################
