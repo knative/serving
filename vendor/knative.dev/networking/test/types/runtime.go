@@ -159,7 +159,7 @@ type HostInfo struct {
 type Stdin struct {
 	// EOF is true if the first byte read from stdin results in EOF.
 	EOF *bool `json:"eof,omitempty"`
-	// Error is the String representation of an error probing sdtin.
+	// Error is the String representation of an error probing stdin.
 	Error string `json:"error,omitempty"`
 }
 

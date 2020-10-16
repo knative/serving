@@ -235,7 +235,7 @@ type Config struct {
 type HTTPProtocol string
 
 const (
-	// HTTPEnabled represents HTTP proocol is enabled in Knative ingress.
+	// HTTPEnabled represents HTTP protocol is enabled in Knative ingress.
 	HTTPEnabled HTTPProtocol = "enabled"
 
 	// HTTPDisabled represents HTTP protocol is disabled in Knative ingress.
