@@ -46,14 +46,14 @@ func main() {
 
 func setupDNSRecord() error {
 	dnsRecord := &config.DNSRecord{
-		Domain: env.FullHostName,
-		IP:     env.IngressIP,
+		Domain: env.AutoTLSTestFullHostName,
+		IP:     env.AutoTLSTestIngressIP,
 	}
 	if err := createDNSRecord(dnsRecord); err != nil {
 		return err
 	}
 	if err := waitForDNSRecordVisible(dnsRecord); err != nil {
-		config.DeleteDNSRecord(dnsRecord, env.CloudDNSServiceAccountKeyFile, env.CloudDNSProject, env.DNSZone)
+		config.DeleteDNSRecord(dnsRecord, env.AutoTLSTestCloudDNSServiceAccountKeyFile, env.AutoTLSTestCloudDNSProject, env.AutoTLSTestDNSZone)
 		return err
 	}
 	return nil
@@ -61,13 +61,13 @@ func setupDNSRecord() error {
 
 func createDNSRecord(dnsRecord *config.DNSRecord) error {
 	record := config.MakeRecordSet(dnsRecord)
-	svc, err := config.GetCloudDNSSvc(env.CloudDNSServiceAccountKeyFile)
+	svc, err := config.GetCloudDNSSvc(env.AutoTLSTestCloudDNSServiceAccountKeyFile)
 	if err != nil {
 		return err
 	}
 	// Look for existing records.
 	if list, err := svc.ResourceRecordSets.List(
-		env.CloudDNSProject, env.DNSZone).Name(record.Name).Type("A").Do(); err != nil {
+		env.AutoTLSTestCloudDNSProject, env.AutoTLSTestDNSZone).Name(record.Name).Type("A").Do(); err != nil {
 		return err
 	} else if len(list.Rrsets) > 0 {
 		return fmt.Errorf("record for domain %s already exists", record.Name)
@@ -76,11 +76,11 @@ func createDNSRecord(dnsRecord *config.DNSRecord) error {
 	addition := &dns.Change{
 		Additions: []*dns.ResourceRecordSet{record},
 	}
-	return config.ChangeDNSRecord(addition, svc, env.CloudDNSProject, env.DNSZone)
+	return config.ChangeDNSRecord(addition, svc, env.AutoTLSTestCloudDNSProject, env.AutoTLSTestDNSZone)
 }
 
 func waitForDNSRecordVisible(record *config.DNSRecord) error {
-	nameservers, err := net.LookupNS(env.DomainName)
+	nameservers, err := net.LookupNS(env.AutoTLSTestDomainName)
 	if err != nil {
 		return err
 	}

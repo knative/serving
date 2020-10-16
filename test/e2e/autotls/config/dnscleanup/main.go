@@ -31,10 +31,10 @@ func main() {
 		log.Fatalf("Failed to process environment variable: %v.", err)
 	}
 	record := &config.DNSRecord{
-		IP:     env.IngressIP,
-		Domain: env.FullHostName,
+		IP:     env.AutoTLSTestIngressIP,
+		Domain: env.AutoTLSTestFullHostName,
 	}
-	if err := config.DeleteDNSRecord(record, env.CloudDNSServiceAccountKeyFile, env.CloudDNSProject, env.DNSZone); err != nil {
+	if err := config.DeleteDNSRecord(record, env.AutoTLSTestCloudDNSServiceAccountKeyFile, env.AutoTLSTestCloudDNSProject, env.AutoTLSTestDNSZone); err != nil {
 		log.Fatal("Failed to setup DNS record: ", err)
 	}
 }
