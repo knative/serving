@@ -727,7 +727,7 @@ function get_latest_knative_yaml_source() {
 function shellcheck_new_files() {
   declare -a array_of_files
   local failed=0
-  readarray -t -d '\n' array_of_files < <(list_changed_files)
+  readarray -t array_of_files < <(list_changed_files)
   for filename in "${array_of_files[@]}"; do
     if echo "${filename}" | grep -q "^vendor/"; then
       continue
