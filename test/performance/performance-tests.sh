@@ -39,7 +39,7 @@ function update_knative() {
 
   echo ">> Update istio"
   # Some istio pods occasionally get overloaded and die, delete all deployments
-  # and services from istio before reintalling it, to get them freshly recreated
+  # and services from istio before reinstalling it, to get them freshly recreated
   kubectl delete deployments --all -n istio-system
   kubectl delete services --all -n istio-system
 

@@ -80,7 +80,7 @@ func TestProbeHandler(t *testing.T) {
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 			}
 
-			h := ProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, incHandler)
+			h := ProbeHandler(healthState, tc.prober, true /* isAggressive*/, true /*tracingEnabled*/, incHandler)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {

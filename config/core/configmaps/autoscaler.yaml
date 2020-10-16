@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "12baeac1"
+    knative.dev/example-checksum: "1d830d9e"
 data:
   _example: |
     ################################
@@ -153,11 +153,11 @@ data:
     # Scale to zero pod retention period defines the minimum amount
     # of time the last pod will remain after Autoscaler has decided to
     # scale to zero.
-    # This flag is for the situations where the pod starup is very expensive
+    # This flag is for the situations where the pod startup is very expensive
     # and the traffic is bursty (requiring smaller windows for fast action),
     # but patchy.
     # The larger of this flag and `scale-to-zero-grace-period` will effectively
-    # detemine how the last pod will hang around.
+    # determine how the last pod will hang around.
     scale-to-zero-pod-retention-period: "0s"
 
     # pod-autoscaler-class specifies the default pod autoscaler class

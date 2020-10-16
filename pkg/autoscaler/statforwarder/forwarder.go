@@ -90,7 +90,7 @@ type Forwarder struct {
 	// Used to capture asynchronous processes for re-enqueuing to be waited
 	// on when shutting down.
 	retryWg sync.WaitGroup
-	// Used to capture asynchronous processe for stats to be waited
+	// Used to capture asynchronous processes for stats to be waited
 	// on when shutting down.
 	processingWg sync.WaitGroup
 

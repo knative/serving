@@ -1265,7 +1265,7 @@ func TestReconcile(t *testing.T) {
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "ingress-mutation"),
 			),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("windemere")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("windermere")),
 			mutateIngress(simpleReadyIngress(
 				Route("default", "ingress-mutation", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -1309,7 +1309,7 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      ptr.Int64(100),
 							},
-							ServiceName: "windemere",
+							ServiceName: "windermere",
 							Active:      true,
 						}},
 					},
@@ -2905,7 +2905,7 @@ func cfg(namespace, name string, co ...ConfigOption) *v1.Configuration {
 }
 
 func simplePlaceholderK8sService(ctx context.Context, r *v1.Route, targetName string, so ...K8sServiceOption) *corev1.Service {
-	// omit the error here, as we are sure the loadbalancer info is porvided.
+	// omit the error here, as we are sure the loadbalancer info is provided.
 	// return the service instance only, so that the result can be used in TableRow.
 	svc, _ := resources.MakeK8sPlaceholderService(ctx, r, targetName)
 
@@ -2922,7 +2922,7 @@ func simpleK8sService(r *v1.Route, so ...K8sServiceOption) *corev1.Service {
 	}
 	ctx := cs.ToContext(context.Background())
 
-	// omit the error here, as we are sure the loadbalancer info is porvided.
+	// omit the error here, as we are sure the loadbalancer info is provided.
 	// return the service instance only, so that the result can be used in TableRow.
 	svc, _ := resources.MakeK8sService(ctx, r, "", &netv1alpha1.Ingress{Status: readyIngressStatus()}, false, "")
 

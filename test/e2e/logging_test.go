@@ -63,7 +63,7 @@ func TestRequestLogs(t *testing.T) {
 	}
 
 	if got, want := cm.Data[metrics.ReqLogTemplateKey], template; got != want {
-		t.Skipf("Skipping verifing request logs because the template doesn't match:\n%s", cmp.Diff(want, got))
+		t.Skipf("Skipping verifying request logs because the template doesn't match:\n%s", cmp.Diff(want, got))
 	}
 
 	names := test.ResourceNames{
@@ -125,7 +125,7 @@ func TestRequestLogs(t *testing.T) {
 			t.Fatal("Got error waiting for health check log:", err)
 		}
 	} else {
-		t.Log("Skipping verifing probe request logs because they are not enabled")
+		t.Log("Skipping verifying probe request logs because they are not enabled")
 	}
 }
 

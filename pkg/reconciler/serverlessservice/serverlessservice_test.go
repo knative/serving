@@ -897,7 +897,7 @@ func TestSubsetEndpoints(t *testing.T) {
 	})
 	t.Run("actual subset", func(t *testing.T) {
 		// We need to verify two things
-		// 1. that exacly N items were returned
+		// 1. that exactly N items were returned
 		// 2. they are distinct
 		// 3. No empty subset is returned.
 		tests := []struct {
