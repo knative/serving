@@ -299,9 +299,6 @@ func TestReconcile(t *testing.T) {
 		Name: "key not found",
 		Key:  "foo/not-found",
 	}, {
-		Name: "key not found",
-		Key:  "foo/not-found",
-	}, {
 		Name: "steady state",
 		Key:  key,
 		Objects: []runtime.Object{
