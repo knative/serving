@@ -22,7 +22,6 @@ import (
 	"context"
 	"net/url"
 	"testing"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -81,7 +80,7 @@ func TestDomainMapping(t *testing.T) {
 	})
 
 	// Wait for DomainMapping to go Ready.
-	waitErr := wait.PollImmediate(test.PollInterval, 1*time.Minute, func() (bool, error) {
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		state, err := clients.ServingAlphaClient.DomainMappings.Get(context.Background(), dm.Name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
