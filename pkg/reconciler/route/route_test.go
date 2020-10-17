@@ -34,7 +34,6 @@ import (
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
@@ -50,6 +49,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
@@ -217,7 +217,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			Hosts: []string{
 				"test-route.test",
 				"test-route.test.svc",
-				"test-route.test.svc.cluster.local",
+				pkgnet.GetServiceHostname("test-route", "test"),
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -348,7 +348,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 			Hosts: []string{
 				"test-route.test",
 				"test-route.test.svc",
-				"test-route.test.svc.cluster.local",
+				pkgnet.GetServiceHostname("test-route", "test"),
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -467,7 +467,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			Hosts: []string{
 				"test-route.test",
 				"test-route.test.svc",
-				"test-route.test.svc.cluster.local",
+				pkgnet.GetServiceHostname("test-route", "test"),
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -600,7 +600,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Hosts: []string{
 				"test-route.test",
 				"test-route.test.svc",
-				"test-route.test.svc.cluster.local",
+				pkgnet.GetServiceHostname("test-route", "test"),
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -668,7 +668,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Hosts: []string{
 				"test-revision-1-test-route.test",
 				"test-revision-1-test-route.test.svc",
-				"test-revision-1-test-route.test.svc.cluster.local",
+				pkgnet.GetServiceHostname("test-revision-1-test-route", "test"),
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -714,7 +714,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Hosts: []string{
 				"test-revision-2-test-route.test",
 				"test-revision-2-test-route.test.svc",
-				"test-revision-2-test-route.test.svc.cluster.local",
+				pkgnet.GetServiceHostname("test-revision-2-test-route", "test"),
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -812,7 +812,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Hosts: []string{
 				"test-route.test",
 				"test-route.test.svc",
-				"test-route.test.svc.cluster.local",
+				pkgnet.GetServiceHostname("test-route", "test"),
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -880,7 +880,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Hosts: []string{
 				"bar-test-route.test",
 				"bar-test-route.test.svc",
-				"bar-test-route.test.svc.cluster.local",
+				pkgnet.GetServiceHostname("bar-test-route", "test"),
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -926,7 +926,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Hosts: []string{
 				"foo-test-route.test",
 				"foo-test-route.test.svc",
-				"foo-test-route.test.svc.cluster.local",
+				pkgnet.GetServiceHostname("foo-test-route", "test"),
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -1032,7 +1032,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 			Hosts: []string{
 				"test-route.test",
 				"test-route.test.svc",
-				"test-route.test.svc.cluster.local",
+				pkgnet.GetServiceHostname("test-route", "test"),
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -1190,7 +1190,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 			Hosts: []string{
 				"bar-test-route.test",
 				"bar-test-route.test.svc",
-				"bar-test-route.test.svc.cluster.local",
+				pkgnet.GetServiceHostname("bar-test-route", "test"),
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -1242,7 +1242,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 			Hosts: []string{
 				"foo-test-route.test",
 				"foo-test-route.test.svc",
-				"foo-test-route.test.svc.cluster.local",
+				pkgnet.GetServiceHostname("foo-test-route", "test"),
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -1357,7 +1357,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				cf()
 				waitInformers()
 			}()
-			route := Route(testNamespace, uuid.New().String(), WithRouteGeneration(1982),
+			route := Route(testNamespace, "test", WithRouteGeneration(1982),
 				WithRouteLabel(map[string]string{"app": "prod"}))
 			routeClient := fakeservingclient.Get(ctx).ServingV1().Routes(route.Namespace)
 

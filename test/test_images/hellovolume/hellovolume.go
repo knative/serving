@@ -44,7 +44,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Hello volume received a request: %s", string(content))
+	log.Print("Hello volume received a request: ", string(content))
 	fmt.Fprintln(w, string(content))
 }
 

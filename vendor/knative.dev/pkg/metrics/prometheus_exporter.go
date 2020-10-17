@@ -82,7 +82,7 @@ func startNewPromSrv(e *prom.Exporter, port int) *http.Server {
 		curPromSrv.Close()
 	}
 	curPromSrv = &http.Server{
-		Addr:    fmt.Sprintf(":%v", port),
+		Addr:    fmt.Sprint(":", port),
 		Handler: sm,
 	}
 	return curPromSrv

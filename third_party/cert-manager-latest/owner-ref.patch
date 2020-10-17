@@ -1,0 +1,10 @@
+--- cert-manager.yaml	2020-09-02 09:55:48.000000000 +0000
++++ cert-manager-1.yaml	2020-10-08 17:28:56.034047000 +0000
+@@ -26149,6 +26149,7 @@
+         - --v=2
+         - --cluster-resource-namespace=$(POD_NAMESPACE)
+         - --leader-election-namespace=kube-system
++        - --enable-certificate-owner-ref
+         env:
+         - name: POD_NAMESPACE
+           valueFrom:

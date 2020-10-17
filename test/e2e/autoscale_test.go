@@ -40,11 +40,11 @@ import (
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
 
-	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
+	AssertAutoscaleUpToNumPods(ctx, 1, 2, time.After(60*time.Second), true /* quick */)
 	assertScaleDown(ctx)
-	assertAutoscaleUpToNumPods(ctx, 0, 2, 60*time.Second, true)
+	AssertAutoscaleUpToNumPods(ctx, 0, 2, time.After(60*time.Second), true /* quick */)
 }
 
 func TestAutoscaleUpCountPods(t *testing.T) {
@@ -57,14 +57,37 @@ func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
 	runAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.RPS)
 }
 
+// runAutoscaleUpCountPods is a test kernel to test the chosen autoscaler using the given
+// metric tracks the given target.
+func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
+	target := containerConcurrency
+	if metric == autoscaling.RPS {
+		target = 10
+	}
+
+	ctx := SetupSvc(t, class, metric, target, targetUtilization)
+
+	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
+	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
+
+	// Increase workload for 2 replicas for 60s
+	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
+	// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
+	AssertAutoscaleUpToNumPods(ctx, 1, 2, time.After(60*time.Second), true /* quick */)
+	// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
+	AssertAutoscaleUpToNumPods(ctx, 2, 3, time.After(60*time.Second), true /* quick */)
+	// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
+	AssertAutoscaleUpToNumPods(ctx, 3, 4, time.After(60*time.Second), true /* quick */)
+}
+
 func TestAutoscaleSustaining(t *testing.T) {
 	// When traffic increases, a knative app should scale up and sustain the scale
 	// as long as the traffic sustains, despite whether it is switching modes between
 	// normal and panic.
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
-	assertAutoscaleUpToNumPods(ctx, 1, 10, 2*time.Minute, false)
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
+	AssertAutoscaleUpToNumPods(ctx, 1, 10, time.After(2*time.Minute), false /* quick */)
 }
 
 func TestTargetBurstCapacity(t *testing.T) {
@@ -75,7 +98,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// Activator from the request path.
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey:                "7",
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
@@ -92,11 +115,8 @@ func TestTargetBurstCapacity(t *testing.T) {
 	defer grp.Wait()
 	defer close(stopCh)
 
-	// We'll terminate the test via stopCh.
-	const duration = time.Hour
-
 	grp.Go(func() error {
-		return generateTrafficAtFixedConcurrency(ctx, 7, duration, stopCh)
+		return generateTrafficAtFixedConcurrency(ctx, 7, stopCh)
 	})
 
 	// Wait for the activator endpoints to equalize.
@@ -106,7 +126,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 
 	// Start second load generator.
 	grp.Go(func() error {
-		return generateTrafficAtFixedConcurrency(ctx, 5, duration, stopCh)
+		return generateTrafficAtFixedConcurrency(ctx, 5, stopCh)
 	})
 
 	// Wait for two stable pods.
@@ -116,7 +136,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		// We want exactly 2. Not 1, not panicing 3, just 2.
+		// We want exactly 2. Not 1, not panicking 3, just 2.
 		return obsScale == 2, nil
 	}); err != nil {
 		t.Fatalf("Desired scale of 2 never achieved; last known value %v; err: %v", obsScale, err)
@@ -126,7 +146,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// We poll, since network programming takes times, but the timeout is set for
 	// uniformness with one above.
 	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
-		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+		svcEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(
 			context.Background(), ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -141,7 +161,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
@@ -150,7 +170,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
-	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
+	aeps, err := ctx.clients.KubeClient.CoreV1().Endpoints(
 		system.Namespace()).Get(context.Background(), networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Error getting activator endpoints:", err)
@@ -166,7 +186,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 func TestFastScaleToZero(t *testing.T) {
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(),
@@ -177,7 +197,7 @@ func TestFastScaleToZero(t *testing.T) {
 		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
 
-	epsL, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).List(context.Background(), metav1.ListOptions{
+	epsL, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s,%s=%s",
 			serving.RevisionLabelKey, ctx.resources.Revision.Name,
 			networking.ServiceTypeKey, networking.ServiceTypePrivate,
@@ -198,7 +218,7 @@ func TestFastScaleToZero(t *testing.T) {
 	// of 20 runs (11s) + 4s of buffer for reliability.
 	st := time.Now()
 	if err := wait.PollImmediate(1*time.Second, cfg.ScaleToZeroGracePeriod+15*time.Second, func() (bool, error) {
-		eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(context.Background(), epsN, metav1.GetOptions{})
+		eps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(context.Background(), epsN, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

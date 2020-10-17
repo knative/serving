@@ -18,7 +18,7 @@ package metrics
 
 import (
 	"github.com/google/mako/go/quickstore"
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "github.com/tsenart/vegeta/v12/lib"
 
 	"knative.dev/pkg/test/mako"
 )

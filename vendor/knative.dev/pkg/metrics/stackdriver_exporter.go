@@ -69,7 +69,7 @@ var (
 	newStackdriverExporterFunc func(sd.Options) (view.Exporter, error)
 
 	// kubeclient is the in-cluster Kubernetes kubeclient, which is lazy-initialized on first use.
-	kubeclient *kubernetes.Clientset
+	kubeclient kubernetes.Interface
 	// initClientOnce is the lazy initializer for kubeclient.
 	initClientOnce sync.Once
 	// kubeclientInitErr capture an error during initClientOnce
@@ -89,7 +89,7 @@ var (
 	// which should be promoted to Stackdriver Resource labels via opencensus resources.
 	metricToResourceLabels = map[string]*resourceTemplate{}
 
-	// A variable for testing to reduce the size (number of metrics) buffered before
+	// TestOverrideBundleCount is a variable for testing to reduce the size (number of metrics) buffered before
 	// Stackdriver will send a bundled metric report. Only applies if non-zero.
 	TestOverrideBundleCount = 0
 )

@@ -513,6 +513,65 @@ function add_trap {
   done
 }
 
+# Update go deps.
+# Parameters (parsed as flags):
+#   "--upgrade", bool, do upgrade.
+#   "--release <version>" used with upgrade. The release version to upgrade
+#                         Knative components. ex: --release v0.18. Defaults to
+#                         "master".
+# Additional dependencies can be included in the upgrade by providing them in a
+# global env var: FLOATING_DEPS
+function go_update_deps() {
+  cd "${REPO_ROOT_DIR}" || return 1
+
+  export GO111MODULE=on
+  export GOFLAGS=""
+
+  echo "=== Update Deps for Golang"
+
+  local UPGRADE=0
+  local VERSION="master"
+  while [[ $# -ne 0 ]]; do
+    parameter=$1
+    case ${parameter} in
+      --upgrade) UPGRADE=1 ;;
+      --release) shift; VERSION="$1" ;;
+      *) abort "unknown option ${parameter}" ;;
+    esac
+    shift
+  done
+
+  if (( UPGRADE )); then
+    echo "--- Upgrading to ${VERSION}"
+    FLOATING_DEPS+=( $(run_go_tool knative.dev/test-infra/buoy buoy float ${REPO_ROOT_DIR}/go.mod --release ${VERSION} --domain knative.dev) )
+    if (( ${#FLOATING_DEPS[@]} )); then
+      echo "Floating deps to ${FLOATING_DEPS[@]}"
+      go get -d ${FLOATING_DEPS[@]}
+    else
+      echo "Nothing to upgrade."
+    fi
+  fi
+
+  echo "--- Go mod tidy and vendor"
+
+  # Prune modules.
+  go mod tidy
+  go mod vendor
+
+  echo "--- Removing unwanted vendor files"
+
+  # Remove unwanted vendor files
+  find vendor/ \( -name "OWNERS" -o -name "OWNERS_ALIASES" -o -name "BUILD" -o -name "BUILD.bazel" -o -name "*_test.go" \) -print0 | xargs -0 rm -f
+
+  export GOFLAGS=-mod=vendor
+
+  echo "--- Updating licenses"
+  update_licenses third_party/VENDOR-LICENSE "./..."
+
+  echo "--- Removing broken symlinks"
+  remove_broken_symlinks ./vendor
+}
+
 # Run kntest tool, error out and ask users to install it if it's not currently installed.
 # Parameters: $1..$n - parameters passed to the tool.
 function run_kntest() {
@@ -549,45 +608,6 @@ function check_licenses() {
   # Check that we don't have any forbidden licenses.
   run_go_tool github.com/google/go-licenses go-licenses check "${REPO_ROOT_DIR}/..." || \
     { echo "--- FAIL: go-licenses failed the license check"; return 1; }
-}
-
-# Run the given linter on the given files, checking it exists first.
-# Parameters: $1 - tool
-#             $2 - tool purpose (for error message if tool not installed)
-#             $3 - tool parameters (quote if multiple parameters used)
-#             $4..$n - files to run linter on
-function run_lint_tool() {
-  local checker=$1
-  local params=$3
-  if ! hash ${checker} 2>/dev/null; then
-    warning "${checker} not installed, not $2"
-    return 127
-  fi
-  shift 3
-  local failed=0
-  for file in $@; do
-    ${checker} ${params} ${file} || failed=1
-  done
-  return ${failed}
-}
-
-# Check links in the given markdown files.
-# Parameters: $1...$n - files to inspect
-function check_links_in_markdown() {
-  # https://github.com/raviqqe/liche
-  local config="${REPO_ROOT_DIR}/test/markdown-link-check-config.rc"
-  [[ ! -e ${config} ]] && config="${_TEST_INFRA_SCRIPTS_DIR}/markdown-link-check-config.rc"
-  local options="$(grep '^-' ${config} | tr \"\n\" ' ')"
-  run_lint_tool liche "checking links in markdown files" "-d ${REPO_ROOT_DIR} ${options}" $@
-}
-
-# Check format of the given markdown files.
-# Parameters: $1..$n - files to inspect
-function lint_markdown() {
-  # https://github.com/markdownlint/markdownlint
-  local config="${REPO_ROOT_DIR}/test/markdown-lint-config.rc"
-  [[ ! -e ${config} ]] && config="${_TEST_INFRA_SCRIPTS_DIR}/markdown-lint-config.rc"
-  run_lint_tool mdl "linting markdown files" "-c ${config}" $@
 }
 
 # Return whether the given parameter is an integer.
@@ -707,7 +727,7 @@ function get_latest_knative_yaml_source() {
 function shellcheck_new_files() {
   declare -a array_of_files
   local failed=0
-  readarray -t -d '\n' array_of_files < <(list_changed_files)
+  readarray -t array_of_files < <(list_changed_files)
   for filename in "${array_of_files[@]}"; do
     if echo "${filename}" | grep -q "^vendor/"; then
       continue

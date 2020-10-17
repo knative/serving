@@ -35,6 +35,7 @@ import (
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/leaderelection"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -46,8 +47,10 @@ import (
 	"knative.dev/pkg/version"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/autoscaler/bucket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/autoscaler/scaling"
+	"knative.dev/serving/pkg/autoscaler/statforwarder"
 	"knative.dev/serving/pkg/autoscaler/statserver"
 	smetrics "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
@@ -67,9 +70,9 @@ func main() {
 	ctx := signals.NewContext()
 
 	// Report stats on Go memory usage every 30 seconds.
-	sharedmain.MemStatsOrDie(ctx)
+	metrics.MemStatsOrDie(ctx)
 
-	cfg := sharedmain.ParseAndGetConfigOrDie()
+	cfg := injection.ParseAndGetRESTConfigOrDie()
 
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
 	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
@@ -133,10 +136,6 @@ func main() {
 		metric.NewController(ctx, cmw, collector),
 	}
 
-	// Set up a statserver.
-	// TODO(yanweiguo): Populate the isBktOwner from statfowarder.Forwarder.
-	statsServer := statserver.New(statsServerAddr, statsCh, logger, nil /* isBktOwner*/)
-
 	// Start watching the configs.
 	if err := cmw.Start(ctx.Done()); err != nil {
 		logger.Fatalw("Failed to start watching configs", zap.Error(err))
@@ -147,12 +146,26 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
+	cc, selfIP := componentConfigAndIP(ctx, logger)
+	ctx = leaderelection.WithStandardLeaderElectorBuilder(ctx, kubeClient, cc)
+
+	// accept is the func to call when this pod owns the Revision for this StatMessage.
+	accept := func(sm asmetrics.StatMessage) {
+		collector.Record(sm.Key, time.Now(), sm.Stat)
+		multiScaler.Poke(sm.Key, sm.Stat)
+	}
+	f := statforwarder.New(ctx, logger, kubeClient, selfIP, bucket.AutoscalerBucketSet(cc.Buckets), accept)
+
+	// Set up a statserver.
+	statsServer := statserver.New(statsServerAddr, statsCh, logger, f.IsBucketOwner)
+
+	defer f.Cancel()
+
 	go controller.StartAll(ctx, controllers...)
 
 	go func() {
 		for sm := range statsCh {
-			collector.Record(sm.Key, time.Now(), sm.Stat)
-			multiScaler.Poke(sm.Key, sm.Stat)
+			f.Process(sm)
 		}
 	}()
 
@@ -215,4 +228,30 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister) asmetrics.StatsS
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
 	metrics.FlushExporter()
+}
+
+func componentConfigAndIP(ctx context.Context, logger *zap.SugaredLogger) (leaderelection.ComponentConfig, string) {
+	id, err := bucket.Identity()
+	if err != nil {
+		logger.Fatalw("Failed to generate Lease holder identify", zap.Error(err))
+	}
+
+	_, ip, err := bucket.ExtractPodNameAndIP(id)
+	if err != nil {
+		logger.Fatalw("Failed to extract IP from identify", zap.Error(err))
+	}
+
+	// Set up leader election config
+	leaderElectionConfig, err := sharedmain.GetLeaderElectionConfig(ctx)
+	if err != nil {
+		logger.Fatal("Error loading leader election configuration: ", err)
+	}
+
+	cc := leaderElectionConfig.GetComponentConfig(component)
+	cc.LeaseName = func(i uint32) string {
+		return bucket.AutoscalerBucketName(i, cc.Buckets)
+	}
+	cc.Identity = id
+
+	return cc, ip
 }

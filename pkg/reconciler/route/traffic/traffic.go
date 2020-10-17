@@ -60,8 +60,9 @@ type Config struct {
 	Visibility map[string]netv1alpha1.IngressVisibility
 
 	// A list traffic targets, flattened to the Revision level.  This
-	// is used to populate the Route.Status.TrafficTarget field.
-	revisionTargets RevisionTargets
+	// is used to populate the Route.Status.TrafficTarget field as well
+	// as compute the rollout state.
+	RevisionTargets RevisionTargets
 
 	// The referred `Configuration`s and `Revision`s.
 	Configurations map[string]*v1.Configuration
@@ -89,8 +90,8 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
 func (cfg *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route) ([]v1.TrafficTarget, error) {
-	results := make([]v1.TrafficTarget, len(cfg.revisionTargets))
-	for i, tt := range cfg.revisionTargets {
+	results := make([]v1.TrafficTarget, len(cfg.RevisionTargets))
+	for i, tt := range cfg.RevisionTargets {
 		var pp *int64
 		if tt.Percent != nil {
 			pp = ptr.Int64(*tt.Percent)
@@ -162,6 +163,39 @@ func newBuilder(
 		configurations: make(map[string]*v1.Configuration),
 		revisions:      make(map[string]*v1.Revision),
 	}
+}
+
+// BuildRollout builds the current rollout state.
+// It is expected to be invoked after applySpecTraffic.
+// TODO(vagababov): actually deal with rollouts, vs just report desired state.
+func (cfg *Config) BuildRollout() *Rollout {
+	rollout := &Rollout{}
+
+	for _, rt := range cfg.RevisionTargets {
+		if rt.LatestRevision == nil || !*rt.LatestRevision {
+			continue
+		}
+
+		// We know here that mergeIfNecessary will pack the same config targets together.
+		// So no need to check for duplicates.
+		rollout.Configurations = append(rollout.Configurations, ConfigurationRollout{
+			ConfigurationName: rt.ConfigurationName,
+			Tag:               rt.Tag,
+			// TODO(vagababov): here will go all the fancy math.
+			Revisions: []RevisionRollout{{
+				RevisionName: rt.RevisionName,
+				Percent:      zeroOrVal(rt.Percent),
+			}},
+		})
+	}
+	return rollout
+}
+
+func zeroOrVal(p *int64) int {
+	if p != nil {
+		return int(*p)
+	}
+	return 0
 }
 
 func (cb *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
@@ -291,11 +325,33 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	return nil
 }
 
+// valIfNil returns `val` if `ptr==nil`, or `*ptr` otherwise.
+func valIfNil(val int64, ptr *int64) int64 {
+	if ptr == nil {
+		return val
+	}
+	return *ptr
+}
+
+// This find the exact revision+tag pair and if so, just adds the percentages.
+// This expects single digit lists, so just does an O(N) search.
+func mergeIfNecessary(rts RevisionTargets, rt RevisionTarget) RevisionTargets {
+	for i := range rts {
+		if rts[i].Tag == rt.Tag && rts[i].RevisionName == rt.RevisionName &&
+			*rt.LatestRevision == *rts[i].LatestRevision {
+			rts[i].Percent = ptr.Int64(valIfNil(0, rts[i].Percent) + valIfNil(0, rt.Percent))
+			return rts
+		}
+	}
+	return append(rts, rt)
+}
+
 func (cb *configBuilder) addFlattenedTarget(target RevisionTarget) {
 	name := target.TrafficTarget.Tag
-	cb.revisionTargets = append(cb.revisionTargets, target)
+	cb.revisionTargets = mergeIfNecessary(cb.revisionTargets, target)
 	cb.targets[DefaultTarget] = append(cb.targets[DefaultTarget], target)
 	if name != "" {
+		// This should always have just a single entry at most.
 		cb.targets[name] = append(cb.targets[name], target)
 	}
 }
@@ -307,7 +363,7 @@ func (cb *configBuilder) build() (*Config, error) {
 	}
 	return &Config{
 		Targets:         consolidateAll(cb.targets),
-		revisionTargets: cb.revisionTargets,
+		RevisionTargets: cb.revisionTargets,
 		Configurations:  cb.configurations,
 		Revisions:       cb.revisions,
 		MissingTargets:  cb.missingTargets,

@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "github.com/tsenart/vegeta/v12/lib"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -55,7 +55,8 @@ const (
 	autoscaleTestImageName = "autoscale"
 )
 
-type testContext struct {
+// TestContext includes context for autoscaler testing.
+type TestContext struct {
 	t                 *testing.T
 	clients           *test.Clients
 	names             test.ResourceNames
@@ -65,7 +66,32 @@ type testContext struct {
 	metric            string
 }
 
-func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
+// Clients returns the clients of the TestContext.
+func (ctx *TestContext) Clients() *test.Clients {
+	return ctx.clients
+}
+
+// Resources returns the resources of the TestContext.
+func (ctx *TestContext) Resources() *v1test.ResourceObjects {
+	return ctx.resources
+}
+
+// SetResources sets the resources of the TestContext to the given values.
+func (ctx *TestContext) SetResources(resources *v1test.ResourceObjects) {
+	ctx.resources = resources
+}
+
+// Names returns the resource names of the TestContext.
+func (ctx *TestContext) Names() test.ResourceNames {
+	return ctx.names
+}
+
+// SetNames set the resource names of the TestContext to the given values.
+func (ctx *TestContext) SetNames(names test.ResourceNames) {
+	ctx.names = names
+}
+
+func getVegetaTarget(kubeClientset kubernetes.Interface, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
 	if resolvable {
 		return vegeta.Target{
 			Method: http.MethodGet,
@@ -73,7 +99,6 @@ func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverri
 		}, nil
 	}
 
-	var err error
 	// If the domain that the Route controller is configured to assign to Route.Status.Domain
 	// (the domainSuffix) is not resolvable, we need to retrieve the endpoint and spoof
 	// the Host in our requests.
@@ -92,19 +117,19 @@ func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverri
 }
 
 func generateTraffic(
-	ctx *testContext,
+	ctx *TestContext,
 	attacker *vegeta.Attacker,
 	pacer vegeta.Pacer,
-	duration time.Duration,
 	stopChan chan struct{}) error {
 
 	target, err := getVegetaTarget(
-		ctx.clients.KubeClient.Kube, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
+		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return fmt.Errorf("error creating vegeta target: %w", err)
 	}
 
-	results := attacker.Attack(vegeta.NewStaticTargeter(target), pacer, duration, "load-test")
+	// The 0 duration means that the attack will only be controlled by the `Stop` function.
+	results := attacker.Attack(vegeta.NewStaticTargeter(target), pacer, 0, "load-test")
 	defer attacker.Stop()
 
 	var (
@@ -133,7 +158,7 @@ func generateTraffic(
 			totalRequests++
 			if res.Code != http.StatusOK {
 				ctx.t.Logf("Status = %d, want: 200", res.Code)
-				ctx.t.Logf("URL: %s Duration: %v Body:\n%s", res.URL, res.Latency, string(res.Body))
+				ctx.t.Logf("URL: %s Duration: %v Error: %s Body:\n%s", res.URL, res.Latency, res.Error, string(res.Body))
 				continue
 			}
 			successfulRequests++
@@ -141,47 +166,35 @@ func generateTraffic(
 	}
 }
 
-func generateTrafficAtFixedConcurrency(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
+func generateTrafficAtFixedConcurrency(ctx *TestContext, concurrency int, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{} // Sends requests as quickly as possible, capped by MaxWorkers below.
-	attacker := vegeta.NewAttacker(vegeta.Timeout(duration), vegeta.Workers(uint64(concurrency)), vegeta.MaxWorkers(uint64(concurrency)))
+	attacker := vegeta.NewAttacker(
+		vegeta.Timeout(0), // No timeout is enforced at all.
+		vegeta.Workers(uint64(concurrency)),
+		vegeta.MaxWorkers(uint64(concurrency)))
 
-	ctx.t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	return generateTraffic(ctx, attacker, pacer, duration, stopChan)
+	ctx.t.Logf("Maintaining %d concurrent requests.", concurrency)
+	return generateTraffic(ctx, attacker, pacer, stopChan)
 }
 
-func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration, stopChan chan struct{}) error {
+func generateTrafficAtFixedRPS(ctx *TestContext, rps int, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{Freq: rps, Per: time.Second}
-	attacker := vegeta.NewAttacker(vegeta.Timeout(duration))
+	attacker := vegeta.NewAttacker(vegeta.Timeout(0)) // No timeout is enforced at all.
 
-	ctx.t.Logf("Maintaining %v RPS requests for %v.", rps, duration)
-	return generateTraffic(ctx, attacker, pacer, duration, stopChan)
-}
-
-func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
-	ctx := context.Background()
-	_, err := pkgTest.WaitForEndpointState(
-		ctx,
-		clients.KubeClient,
-		t.Logf,
-		names.URL,
-		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
-		"CheckingEndpointAfterUpdating",
-		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS),
-	)
-	return err
+	ctx.t.Logf("Maintaining %v RPS.", rps)
+	return generateTraffic(ctx, attacker, pacer, stopChan)
 }
 
 func toPercentageString(f float64) string {
 	return strconv.FormatFloat(f*100, 'f', -1, 64)
 }
 
-// setup creates a new service, with given service options.
-// It returns a testContext that has resources, K8s clients and other needed
+// SetupSvc creates a new service, with given service options.
+// It returns a TestContext that has resources, K8s clients and other needed
 // data points.
 // It sets up EnsureTearDown to ensure that resources are cleaned up when the
 // test terminates.
-func setup(t *testing.T, class, metric string, target int, targetUtilization float64, fopts ...rtesting.ServiceOption) *testContext {
+func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization float64, fopts ...rtesting.ServiceOption) *TestContext {
 	t.Helper()
 	clients := Setup(t)
 
@@ -216,11 +229,20 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	if err := validateEndpoint(t, clients, names); err != nil {
+	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		names.URL,
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
+		"CheckingEndpointAfterCreate",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+	); err != nil {
 		t.Fatalf("Error probing %s: %v", names.URL.Hostname(), err)
 	}
 
-	return &testContext{
+	return &TestContext{
 		t:                 t,
 		clients:           clients,
 		names:             names,
@@ -231,7 +253,7 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 	}
 }
 
-func assertScaleDown(ctx *testContext) {
+func assertScaleDown(ctx *TestContext) {
 	deploymentName := resourcenames.Deployment(ctx.resources.Revision)
 	if err := WaitForScaleToZero(ctx.t, deploymentName, ctx.clients); err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
@@ -265,7 +287,7 @@ func assertScaleDown(ctx *testContext) {
 	ctx.t.Log("Scaled down.")
 }
 
-func numberOfReadyPods(ctx *testContext) (float64, error) {
+func numberOfReadyPods(ctx *TestContext) (float64, error) {
 	// SKS name matches that of revision.
 	n := ctx.resources.Revision.Name
 	sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(context.Background(), n, metav1.GetOptions{})
@@ -278,7 +300,7 @@ func numberOfReadyPods(ctx *testContext) (float64, error) {
 		// Not an error, but no pods either.
 		return 0, nil
 	}
-	eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+	eps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(
 		context.Background(), sks.Status.PrivateServiceName, metav1.GetOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get endpoints %s: %w", sks.Status.PrivateServiceName, err)
@@ -286,9 +308,8 @@ func numberOfReadyPods(ctx *testContext) (float64, error) {
 	return float64(resources.ReadyAddressCount(eps)), nil
 }
 
-func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, duration time.Duration, quick bool) error {
+func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done <-chan time.Time, quick bool) error {
 	// Short-circuit traffic generation once we exit from the check logic.
-	done := time.After(duration)
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
@@ -336,16 +357,18 @@ func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, durat
 	}
 }
 
-func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, duration time.Duration, quick bool) {
+// AssertAutoscaleUpToNumPods asserts the number of pods gets scaled to targetPods.
+// It supports two test modes: quick, and not quick.
+// 1) Quick mode: succeeds when the number of pods meets targetPods.
+// 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
+//    sustains there until the `done` channel sends a signal.
+// The given `duration` is how long the traffic will be generated. You must make sure that the signal
+// from the given `done` channel will be sent within the `duration`.
+func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
 	ctx.t.Helper()
-	// There are two test modes: quick, and not quick.
-	// 1) Quick mode: succeeds when the number of pods meets targetPods.
-	// 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
-	//    sustains there for the `duration`.
 
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
-
 	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
 	maxPods := math.Ceil(targetPods/ctx.targetUtilization) + 1
 
@@ -354,41 +377,18 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 	grp.Go(func() error {
 		switch ctx.metric {
 		case autoscaling.RPS:
-			return generateTrafficAtFixedRPS(ctx, int(targetPods*float64(ctx.targetValue)), duration, stopChan)
+			return generateTrafficAtFixedRPS(ctx, int(targetPods*float64(ctx.targetValue)), stopChan)
 		default:
-			return generateTrafficAtFixedConcurrency(ctx, int(targetPods*float64(ctx.targetValue)), duration, stopChan)
+			return generateTrafficAtFixedConcurrency(ctx, int(targetPods*float64(ctx.targetValue)), stopChan)
 		}
 	})
 
 	grp.Go(func() error {
 		defer close(stopChan)
-		return checkPodScale(ctx, targetPods, minPods, maxPods, duration, quick)
+		return checkPodScale(ctx, targetPods, minPods, maxPods, done, quick)
 	})
 
 	if err := grp.Wait(); err != nil {
 		ctx.t.Errorf("Error: %v", err)
 	}
-}
-
-// runAutoscaleUpCountPods is a test kernel to test the chosen autoscaler using the given
-// metric tracks the given target.
-func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
-	target := containerConcurrency
-	if metric == autoscaling.RPS {
-		target = 10
-	}
-
-	ctx := setup(t, class, metric, target, targetUtilization)
-
-	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
-	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
-
-	// Increase workload for 2 replicas for 60s
-	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
-	// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
-	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
-	// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	assertAutoscaleUpToNumPods(ctx, 2, 3, 60*time.Second, true)
-	// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	assertAutoscaleUpToNumPods(ctx, 3, 4, 60*time.Second, true)
 }

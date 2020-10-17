@@ -29,4 +29,6 @@ if (( ! IS_PROW )); then
   echo " and/or currently staged."
 fi
 
-shellcheck_new_files
+if [[ "$1" == "--run" ]]; then
+  shellcheck_new_files
+fi

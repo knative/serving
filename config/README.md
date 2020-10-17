@@ -9,8 +9,6 @@ The files in this directory are organized as follows:
   provision wildcard certificates per-namespace,
 - `cert-manager/`: the configuration needed to plug in the `cert-manager`
   certificate implementation,
-- `monitoring/`: an installable bundle of tooling for assorted observability
-  functions,
 - `*.yaml`: symlinks that form a particular "rendered view" of the
   knative/serving configuration.
 

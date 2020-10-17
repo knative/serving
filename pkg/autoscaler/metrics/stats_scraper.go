@@ -65,7 +65,7 @@ var (
 	// stat from an unscraped pod
 	ErrDidNotReceiveStat = errors.New("did not receive stat from an unscraped pod")
 
-	// Sentinel error to retrun from pod scraping routine, when we could not
+	// Sentinel error to return from pod scraping routine, when we could not
 	// scrape even a single pod.
 	errNoPodsScraped = errors.New("no pods scraped")
 	errPodsExhausted = errors.New("pods exhausted")

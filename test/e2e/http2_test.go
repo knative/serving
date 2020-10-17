@@ -20,6 +20,7 @@ package e2e
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
@@ -28,9 +29,9 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-// TestHelloHttp2WithPortNameH2C validates that an http/2-only service can be
+// TestHelloHTTP2WithPortNameH2C validates that an http/2-only service can be
 // reached if the portName is "h2c".
-func TestHelloHttp2WithPortNameH2C(t *testing.T) {
+func TestHelloHTTP2WithPortNameH2C(t *testing.T) {
 	t.Parallel()
 
 	clients := Setup(t)
@@ -58,7 +59,7 @@ func TestHelloHttp2WithPortNameH2C(t *testing.T) {
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloHTTP2Text))),
-		"HelloHttp2ServesTextOnH2C",
+		"HelloHTTP2ServesTextOnH2C",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
@@ -66,11 +67,11 @@ func TestHelloHttp2WithPortNameH2C(t *testing.T) {
 	}
 }
 
-// TestHelloHttp2WithEmptyPortName validates that an http/2-only service
+// TestHelloHTTP2WithEmptyPortName validates that an http/2-only service
 // is unreachable if the port name is not specified.
 // TODO(knative/serving#4283): Once the feature is implemented, this test
 // should succeed.
-func TestHelloHttp2WithEmptyPortName(t *testing.T) {
+func TestHelloHTTP2WithEmptyPortName(t *testing.T) {
 	t.Parallel()
 
 	clients := Setup(t)
@@ -97,11 +98,13 @@ func TestHelloHttp2WithEmptyPortName(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		pkgTest.IsOneOfStatusCodes(426),
-		"HelloHttp2ServesTextWithEmptyPort",
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsOneOfStatusCodes(http.StatusUpgradeRequired))),
+		"HelloHTTP2ServesTextWithEmptyPort",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
-		t.Fatalf("The endpoint %s for Route %s didn't serve the expected status code 426: %v", url, names.Route, err)
+		t.Fatalf("The endpoint %s for Route %s didn't serve the expected status code %v: %v", url, names.Route, http.StatusUpgradeRequired, err)
 	}
+
+	t.Skip("HTP2 with empty port name is not implemented yet. See: https://github.com/knative/serving/issues/4283")
 }

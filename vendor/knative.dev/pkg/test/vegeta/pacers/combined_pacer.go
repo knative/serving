@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "github.com/tsenart/vegeta/v12/lib"
 )
 
 // combinedPacer is a Pacer that combines multiple Pacers and runs them sequentially when being used for attack.
@@ -101,6 +101,12 @@ func (cp *combinedPacer) Pace(elapsedTime time.Duration, elapsedHits uint64) (ti
 	curElapsedTime := time.Duration(uint64(elapsedTime) - cp.prevElapsedTime)
 	curElapsedHits := elapsedHits - cp.prevElapsedHits
 	return curPacer.Pace(curElapsedTime, curElapsedHits)
+}
+
+func (cp *combinedPacer) Rate(elapsedTime time.Duration) float64 {
+	curPacer := cp.pacers[cp.curPacerIndex]
+	curElapsedTime := time.Duration(uint64(elapsedTime) - cp.prevElapsedTime)
+	return curPacer.Rate(curElapsedTime)
 }
 
 // pacerIndex returns the index of pacer that pacerTimeOffset falls into

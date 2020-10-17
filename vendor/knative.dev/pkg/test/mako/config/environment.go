@@ -51,7 +51,7 @@ func GetRepository() string {
 func MustGetTags() []string {
 	cfg, err := loadConfig()
 	if err != nil {
-		log.Fatalf("unable to load config from the configmap: %v", err)
+		log.Fatal("unable to load config from the configmap: ", err)
 	}
 	return cfg.AdditionalTags
 }

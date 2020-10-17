@@ -21,12 +21,12 @@ import (
 	"log"
 
 	"github.com/kelseyhightower/envconfig"
+	"knative.dev/pkg/injection"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/pkg/injection/sharedmain"
 	test "knative.dev/serving/test"
 )
 
@@ -41,7 +41,7 @@ func main() {
 		log.Fatal("Failed to process environment variable: ", err)
 	}
 
-	cfg, err := sharedmain.GetConfig("", "")
+	cfg, err := injection.GetRESTConfig("", "")
 	if err != nil {
 		log.Fatal("Failed to build config: ", err)
 	}
@@ -59,7 +59,7 @@ func main() {
 }
 
 func disableNamespaceCertWithExclusions(clients *test.Clients, keepCerts sets.String) error {
-	namespaces, err := clients.KubeClient.Kube.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	namespaces, err := clients.KubeClient.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func disableNamespaceCertWithExclusions(clients *test.Clients, keepCerts sets.St
 			}
 			ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
 		}
-		if _, err := clients.KubeClient.Kube.CoreV1().Namespaces().Update(context.Background(), &ns, metav1.UpdateOptions{}); err != nil {
+		if _, err := clients.KubeClient.CoreV1().Namespaces().Update(context.Background(), &ns, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}

@@ -38,7 +38,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
-	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -131,7 +130,7 @@ func newTestController(t *testing.T, configs []*corev1.ConfigMap, opts ...reconc
 		Data: map[string]string{
 			"enable":          "true",
 			"debug":           "true",
-			"zipkin-endpoint": "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans",
+			"zipkin-endpoint": "http://zipkin.istio-system.svc:9411/api/v2/spans",
 		},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
@@ -281,7 +280,6 @@ func testRevision(podSpec corev1.PodSpec) *v1.Revision {
 			Annotations: map[string]string{
 				"testAnnotation": "test",
 			},
-			UID:        types.UID(uuid.New().String()),
 			Generation: rand.Int63(),
 		},
 		Spec: v1.RevisionSpec{

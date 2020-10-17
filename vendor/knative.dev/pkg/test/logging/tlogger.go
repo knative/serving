@@ -137,7 +137,7 @@ func validateKeysAndValues(keysAndValues ...interface{}) bool {
 		_, isField := keysAndValues[i].(zapcore.Field)
 		_, isString := keysAndValues[i].(string)
 		if isField {
-			i += 1
+			i++
 		} else if isString {
 			if i == length-1 {
 				return false
@@ -160,8 +160,7 @@ func (o *TLogger) interfacesToFields(things ...interface{}) []interface{} {
 	return fields
 }
 
-// nolint:stylecheck // Returning the error first is okay and expected here.
-func (o *TLogger) errorWithRuntimeCheck(stringThenKeysAndValues ...interface{}) (error, string, []interface{}) {
+func (o *TLogger) errorWithRuntimeCheck(stringThenKeysAndValues ...interface{}) (error, string, []interface{}) { //nolint Returning the error first is okay and expected here.
 	if len(stringThenKeysAndValues) == 0 {
 		return nil, "", nil
 	}

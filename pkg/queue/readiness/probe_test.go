@@ -619,7 +619,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	listener.Close()
 	time.Sleep(500 * time.Millisecond)
 
-	listener2, err := net.Listen("tcp", fmt.Sprintf(":%d", addr.Port))
+	listener2, err := net.Listen("tcp", fmt.Sprint(":", addr.Port))
 	if err != nil {
 		t.Fatal("Error setting up tcp listener:", err)
 	}

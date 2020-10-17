@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
@@ -80,7 +81,7 @@ func WithServiceObservedGenFailure(s *v1.Service) {
 		"NewObservedGenFailure", "unsuccessfully observed a new generation")
 }
 
-// WithConfigSpec confgures the Service to use the given config spec
+// WithConfigSpec configures the Service to use the given config spec
 func WithConfigSpec(config *v1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1.Service) {
 		svc.Spec.ConfigurationSpec = *config
@@ -375,7 +376,7 @@ func WithSvcStatusAddress(s *v1.Service) {
 	s.Status.Address = &duckv1.Addressable{
 		URL: &apis.URL{
 			Scheme: "http",
-			Host:   fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
+			Host:   network.GetServiceHostname(s.Name, s.Namespace),
 		},
 	}
 }

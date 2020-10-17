@@ -24,24 +24,20 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
-	"knative.dev/serving/pkg/apis/config"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/deployment"
 )
 
 type cfgKey struct{}
 
-// +k8s:deepcopy-gen=false
 // Config contains the configmaps requires for revision reconciliation.
 type Config struct {
-	Defaults      *config.Defaults
+	*apiconfig.Config
 	Deployment    *deployment.Config
 	Logging       *logging.Config
 	Network       *network.Config
 	Observability *metrics.ObservabilityConfig
 	Tracing       *pkgtracing.Config
-	Autoscaler    *autoscalerconfig.Config
 }
 
 // FromContext loads the configuration from the context.
@@ -57,7 +53,7 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 // +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
-	apiStore *config.Store
+	apiStore *apiconfig.Store
 }
 
 // NewStore creates a new store of Configs and optionally calls functions when ConfigMaps are updated for Revisions
@@ -67,17 +63,15 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"revision",
 			logger,
 			configmap.Constructors{
-				asconfig.ConfigName:       asconfig.NewConfigFromConfigMap,
-				config.DefaultsConfigName: config.NewDefaultsConfigFromConfigMap,
-				deployment.ConfigName:     deployment.NewConfigFromConfigMap,
-				logging.ConfigMapName():   logging.NewConfigFromConfigMap,
-				metrics.ConfigMapName():   metrics.NewObservabilityConfigFromConfigMap,
-				network.ConfigName:        network.NewConfigFromConfigMap,
-				pkgtracing.ConfigName:     pkgtracing.NewTracingConfigFromConfigMap,
+				deployment.ConfigName:   deployment.NewConfigFromConfigMap,
+				logging.ConfigMapName(): logging.NewConfigFromConfigMap,
+				metrics.ConfigMapName(): metrics.NewObservabilityConfigFromConfigMap,
+				network.ConfigName:      network.NewConfigFromConfigMap,
+				pkgtracing.ConfigName:   pkgtracing.NewTracingConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
-		apiStore: config.NewStore(logger),
+		apiStore: apiconfig.NewStore(logger),
 	}
 	return store
 }
@@ -94,11 +88,10 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 
 // Load returns the config from the store.
 func (s *Store) Load() *Config {
-	cfg := &Config{}
-
-	if def, ok := s.UntypedLoad(config.DefaultsConfigName).(*config.Defaults); ok {
-		cfg.Defaults = def.DeepCopy()
+	cfg := &Config{
+		Config: s.apiStore.Load(),
 	}
+
 	if dep, ok := s.UntypedLoad(deployment.ConfigName).(*deployment.Config); ok {
 		cfg.Deployment = dep.DeepCopy()
 	}
@@ -113,9 +106,6 @@ func (s *Store) Load() *Config {
 	}
 	if tr, ok := s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config); ok {
 		cfg.Tracing = tr.DeepCopy()
-	}
-	if as, ok := s.UntypedLoad(asconfig.ConfigName).(*autoscalerconfig.Config); ok {
-		cfg.Autoscaler = as.DeepCopy()
 	}
 
 	return cfg

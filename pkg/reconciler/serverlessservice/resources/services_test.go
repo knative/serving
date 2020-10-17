@@ -388,7 +388,7 @@ func TestMakePrivateService(t *testing.T) {
 	}, {
 		name: "HTTP2 and long",
 		sks: sks(func(s *v1alpha1.ServerlessService) {
-			s.Name = "dream-tonight-cherub-rock-mayonaise-hummer-disarm-rocket-soma-quiet"
+			s.Name = "dream-tonight-cherub-rock-mayonnaise-hummer-disarm-rocket-soma-quiet"
 			s.Spec.ProtocolType = pkgnet.ProtocolH2C
 			s.Annotations["cherub"] = "rock"
 			s.Labels["ava"] = "adore"
@@ -399,12 +399,12 @@ func TestMakePrivateService(t *testing.T) {
 		},
 		want: svc(networking.ServiceTypePrivate, func(s *corev1.Service) {
 			// Set base name, that the private helper will tweak.
-			s.Name = "dream-tonight-cherub-rock-mayonaise-hummer-disarm-rocket-soma-quiet"
+			s.Name = "dream-tonight-cherub-rock-mayonnaise-hummer-disarm-rocket-soma-quiet"
 			s.OwnerReferences[0].UID = "1988"
-			s.OwnerReferences[0].Name = "dream-tonight-cherub-rock-mayonaise-hummer-disarm-rocket-soma-quiet"
+			s.OwnerReferences[0].Name = "dream-tonight-cherub-rock-mayonnaise-hummer-disarm-rocket-soma-quiet"
 			s.Spec.Selector = map[string]string{"app": "today"}
 			s.Labels["ava"] = "adore"
-			s.Labels[networking.SKSLabelKey] = "dream-tonight-cherub-rock-mayonaise-hummer-disarm-rocket-soma-quiet"
+			s.Labels[networking.SKSLabelKey] = "dream-tonight-cherub-rock-mayonnaise-hummer-disarm-rocket-soma-quiet"
 			s.Annotations = map[string]string{"cherub": "rock"}
 		}, privateSvcMod, func(s *corev1.Service) {
 			// And now patch port to be http2.

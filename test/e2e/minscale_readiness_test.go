@@ -199,9 +199,10 @@ func privateServiceName(t *testing.T, clients *test.Clients, revisionName string
 // waitForDesiredScale returns the last observed number of pods and/or error if the cond
 // callback is never satisfied.
 func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) (latestReady int, err error) {
-	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
+	endpoints := clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace)
 
-	return latestReady, wait.PollImmediate(250*time.Millisecond, time.Minute, func() (bool, error) {
+	// See https://github.com/knative/serving/issues/7727#issuecomment-706772507 for context.
+	return latestReady, wait.PollImmediate(250*time.Millisecond, 3*time.Minute, func() (bool, error) {
 		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
@@ -212,7 +213,7 @@ func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(in
 }
 
 func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string, cond func(int) bool) (latestReady int, observed bool) {
-	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
+	endpoints := clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace)
 
 	err := wait.PollImmediate(250*time.Millisecond, 10*time.Second, func() (bool, error) {
 		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})

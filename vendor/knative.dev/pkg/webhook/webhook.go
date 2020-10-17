@@ -181,7 +181,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 
 	server := &http.Server{
 		Handler: drainer,
-		Addr:    fmt.Sprintf(":%d", wh.Options.Port),
+		Addr:    fmt.Sprint(":", wh.Options.Port),
 		TLSConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12,
 			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {

@@ -22,7 +22,7 @@ import (
 	"log"
 	"time"
 
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "github.com/tsenart/vegeta/v12/lib"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -105,7 +105,7 @@ func main() {
 	selector := labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: *target,
 	})
-	log.Printf("Selector: %v", selector)
+	log.Print("Selector: ", selector)
 	deploymentStatus := metrics.FetchDeploymentsStatus(ctx, namespace, selector, time.Second)
 	// Start the attack!
 	results := attacker.Attack(targeter, rate, *duration, "rollout-test")

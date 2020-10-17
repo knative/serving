@@ -98,7 +98,7 @@ func privateSKSService(revID types.NamespacedName, clusterIP string, ports []cor
 	}
 }
 
-func waitForRevisionBackedMananger(t *testing.T, rbm *revisionBackendsManager) {
+func waitForRevisionBackedManager(t *testing.T, rbm *revisionBackendsManager) {
 	timeout := time.After(updateTimeout)
 	for {
 		select {
@@ -715,7 +715,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			defer func() {
 				cancel()
 				waitInformers()
-				waitForRevisionBackedMananger(t, rbm)
+				waitForRevisionBackedManager(t, rbm)
 			}()
 
 			for _, ep := range tc.endpointsArr {
@@ -1173,7 +1173,7 @@ func TestRevisionDeleted(t *testing.T) {
 	defer func() {
 		cancel()
 		waitInformers()
-		waitForRevisionBackedMananger(t, rbm)
+		waitForRevisionBackedManager(t, rbm)
 	}()
 
 	// Make some movements.
@@ -1229,7 +1229,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 	defer func() {
 		cancel()
 		waitInformers()
-		waitForRevisionBackedMananger(t, rbm)
+		waitForRevisionBackedManager(t, rbm)
 	}()
 
 	// Make some movements to generate a checkDests call.
@@ -1293,7 +1293,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 	defer func() {
 		cancel()
 		waitInformers()
-		waitForRevisionBackedMananger(t, rbm)
+		waitForRevisionBackedManager(t, rbm)
 	}()
 
 	ei.Informer().GetIndexer().Add(eps)

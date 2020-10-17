@@ -35,6 +35,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
@@ -43,7 +44,6 @@ import (
 	"knative.dev/serving/pkg/queue"
 
 	_ "knative.dev/pkg/metrics/testing"
-	_ "knative.dev/pkg/system/testing"
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
@@ -53,14 +53,9 @@ var (
 	sidecarContainerName2        = "sidecar-container-2"
 	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
 	defaultServingContainer      = &corev1.Container{
-		Name:  servingContainerName,
-		Image: "busybox",
-		Ports: buildContainerPorts(v1.DefaultUserPort),
-		VolumeMounts: []corev1.VolumeMount{{
-			Name:        varLogVolume.Name,
-			MountPath:   "/var/log",
-			SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_" + servingContainerName,
-		}},
+		Name:                     servingContainerName,
+		Image:                    "busybox",
+		Ports:                    buildContainerPorts(v1.DefaultUserPort),
 		Lifecycle:                userLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
@@ -75,12 +70,6 @@ var (
 			Name: "K_CONFIGURATION",
 		}, {
 			Name: "K_SERVICE",
-		}, {
-			Name:      "K_INTERNAL_POD_NAME",
-			ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
-		}, {
-			Name:      "K_INTERNAL_POD_NAMESPACE",
-			ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}},
 		}},
 	}
 
@@ -183,8 +172,8 @@ var (
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
-		Volumes:                       []corev1.Volume{varLogVolume},
 		TerminationGracePeriodSeconds: refInt64(45),
+		EnableServiceLinks:            ptr.Bool(false),
 	}
 
 	defaultDeployment = &appsv1.Deployment{
@@ -231,13 +220,8 @@ var (
 
 func defaultSidecarContainer(containerName string) *corev1.Container {
 	return &corev1.Container{
-		Name:  containerName,
-		Image: "ubuntu",
-		VolumeMounts: []corev1.VolumeMount{{
-			Name:        varLogVolume.Name,
-			MountPath:   "/var/log",
-			SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_" + containerName,
-		}},
+		Name:                     containerName,
+		Image:                    "ubuntu",
 		Lifecycle:                userLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
@@ -249,12 +233,6 @@ func defaultSidecarContainer(containerName string) *corev1.Container {
 			Name: "K_CONFIGURATION",
 		}, {
 			Name: "K_SERVICE",
-		}, {
-			Name:      "K_INTERNAL_POD_NAME",
-			ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
-		}, {
-			Name:      "K_INTERNAL_POD_NAMESPACE",
-			ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}},
 		}},
 	}
 }
@@ -477,6 +455,7 @@ func TestMakePodSpec(t *testing.T) {
 		name string
 		rev  *v1.Revision
 		oc   metrics.ObservabilityConfig
+		dc   *apicfg.Defaults
 		want *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -560,6 +539,60 @@ func TestMakePodSpec(t *testing.T) {
 					},
 				},
 			})),
+	}, {
+		name: "explicit true service links",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			}, func(p *corev1.PodSpec) {
+				p.EnableServiceLinks = ptr.Bool(true)
+			}),
+		dc: func() *apicfg.Defaults {
+			d, _ := apicfg.NewDefaultsConfigFromMap(map[string]string{
+				"enable-service-links": "true",
+			})
+			return d
+		}(),
+	}, {
+		name: "explicit default service links",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			}, func(p *corev1.PodSpec) {
+				p.EnableServiceLinks = nil
+			}),
+		dc: func() *apicfg.Defaults {
+			d, _ := apicfg.NewDefaultsConfigFromMap(map[string]string{
+				"enable-service-links": "default",
+			})
+			return d
+		}(),
 	}, {
 		name: "concurrency=1 no owner",
 		rev: revision("bar", "foo",
@@ -939,7 +972,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 			}),
 	}, {
-		name: "propertes allowed by the webhook are passed through",
+		name: "properties allowed by the webhook are passed through",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
@@ -968,13 +1001,79 @@ func TestMakePodSpec(t *testing.T) {
 				p.EnableServiceLinks = ptr.Bool(false)
 			},
 		),
+	}, {
+		name: "var-log collection enabled",
+		oc: metrics.ObservabilityConfig{
+			EnableVarLogCollection: true,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+			}, {
+				Name:  sidecarContainerName,
+				Image: "ubuntu",
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}, {
+				ImageDigest: "ubuntu@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+					container.VolumeMounts = []corev1.VolumeMount{{
+						Name:        varLogVolume.Name,
+						MountPath:   "/var/log",
+						SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_" + servingContainerName,
+					}}
+					container.Env = append(container.Env,
+						corev1.EnvVar{
+							Name:      "K_INTERNAL_POD_NAME",
+							ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
+						},
+						corev1.EnvVar{
+							Name:      "K_INTERNAL_POD_NAMESPACE",
+							ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}},
+						})
+				}),
+				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
+					c.Image = "ubuntu@sha256:deadbeef"
+					c.VolumeMounts = []corev1.VolumeMount{{
+						Name:        varLogVolume.Name,
+						MountPath:   "/var/log",
+						SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_" + sidecarContainerName,
+					}}
+					c.Env = append(c.Env,
+						corev1.EnvVar{
+							Name:      "K_INTERNAL_POD_NAME",
+							ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
+						},
+						corev1.EnvVar{
+							Name:      "K_INTERNAL_POD_NAMESPACE",
+							ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}},
+						})
+				}),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+				),
+			},
+			withAppendedVolumes(varLogVolume),
+		),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := revCfg
+			cfg := (&revCfg).DeepCopy()
 			cfg.Observability = &test.oc
-			got, err := makePodSpec(test.rev, &cfg)
+			if test.dc != nil {
+				cfg.Defaults = test.dc
+			}
+			got, err := makePodSpec(test.rev, cfg)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
@@ -1126,10 +1225,10 @@ func TestMakeDeployment(t *testing.T) {
 				test.acMutator(ac)
 			}
 			// Tested above so that we can rely on it here for brevity.
-			cfg := revCfg
+			cfg := (&revCfg).DeepCopy()
 			cfg.Autoscaler = ac
 			cfg.Deployment = &test.dc
-			podSpec, err := makePodSpec(test.rev, &cfg)
+			podSpec, err := makePodSpec(test.rev, cfg)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
@@ -1137,7 +1236,7 @@ func TestMakeDeployment(t *testing.T) {
 				test.want.Spec.Template.Spec = *podSpec
 			}
 			// Copy to override
-			got, err := MakeDeployment(test.rev, &cfg)
+			got, err := MakeDeployment(test.rev, cfg)
 			if err != nil {
 				t.Fatal("Got unexpected error:", err)
 			}

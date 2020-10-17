@@ -23,7 +23,6 @@ import (
 	"unicode"
 
 	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/test"
 )
 
 const (
@@ -42,13 +41,17 @@ func init() {
 	rand.Seed(seed)
 }
 
+type named interface {
+	Name() string
+}
+
 // ObjectPrefixForTest returns the name prefix for this test's random names.
-func ObjectPrefixForTest(t test.T) string {
+func ObjectPrefixForTest(t named) string {
 	return MakeK8sNamePrefix(strings.TrimPrefix(t.Name(), testNamePrefix))
 }
 
 // ObjectNameForTest generates a random object name based on the test name.
-func ObjectNameForTest(t test.T) string {
+func ObjectNameForTest(t named) string {
 	return kmeta.ChildName(ObjectPrefixForTest(t), string(sep)+RandomString())
 }
 
@@ -71,8 +74,8 @@ func RandomString() string {
 }
 
 // For the same prefix more specific should come first.
-// Note: we expect GRPC.
-var knownNames = []string{"HTTPS", "HTTP2", "HTTP", "GRPC", "TLS", "WS", "H2C"}
+// Note: we expect GRPC vs gRPC.
+var knownNames = []string{"GRPC", "H2C", "HTTPS", "HTTP2", "HTTP", "REST", "TLS", "WS"}
 
 // MakeK8sNamePrefix converts each chunk of non-alphanumeric character into a single dash
 // and also convert camelcase tokens into dash-delimited lowercase tokens.

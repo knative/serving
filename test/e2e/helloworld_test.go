@@ -157,7 +157,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 
 // Container returns container for given Pod and Container in the namespace
 func getContainer(client *pkgTest.KubeClient, podName, containerName, namespace string) (corev1.Container, error) {
-	pods := client.Kube.CoreV1().Pods(namespace)
+	pods := client.CoreV1().Pods(namespace)
 	podList, err := pods.List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return corev1.Container{}, err

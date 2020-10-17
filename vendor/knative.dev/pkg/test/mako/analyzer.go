@@ -17,9 +17,9 @@ limitations under the License.
 package mako
 
 import (
-	"github.com/golang/protobuf/proto"
 	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // NewCrossRunConfig returns a config that can be used in ThresholdAnalyzer.

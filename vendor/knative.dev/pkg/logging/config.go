@@ -240,8 +240,7 @@ func ConfigMapName() string {
 
 // JsonToLoggingConfig converts a json string of a Config.
 // Returns a non-nil Config always.
-// nolint:stylecheck // No rename due to backwards incompatibility.
-func JsonToLoggingConfig(jsonCfg string) (*Config, error) {
+func JsonToLoggingConfig(jsonCfg string) (*Config, error) { //nolint No rename due to backwards incompatibility.
 	if jsonCfg == "" {
 		return nil, errEmptyJSONLogginString
 	}
@@ -260,8 +259,7 @@ func JsonToLoggingConfig(jsonCfg string) (*Config, error) {
 }
 
 // LoggingConfigToJson converts a Config to a json string.
-// nolint:stylecheck // No rename due to backwards incompatibility.
-func LoggingConfigToJson(cfg *Config) (string, error) {
+func LoggingConfigToJson(cfg *Config) (string, error) { //nolint No rename due to backwards incompatibility.
 	if cfg == nil || cfg.LoggingConfig == "" {
 		return "", nil
 	}

@@ -77,7 +77,7 @@ func (e *structuredError) EnableValuePrinting() {
 
 // Create a StructuredError. Gives a little better logging when given to a TLogger.
 // This may prove to not be useful if users use the logger's WithValues() better.
-func Error(msg string, keysAndValues ...interface{}) *structuredError {
+func Error(msg string, keysAndValues ...interface{}) error {
 	return &structuredError{msg, keysAndValues, true}
 }
 
