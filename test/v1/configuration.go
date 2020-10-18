@@ -134,7 +134,7 @@ func Configuration(names test.ResourceNames, fopt ...rtesting.ConfigOption) *v1.
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Config,
 		},
-		Spec: *ConfigurationSpec(pkgTest.ImagePath(names.Image)),
+		Spec: *ConfigurationSpec(pkgTest.ImagePath(names.Images[0])),
 	}
 
 	for _, opt := range fopt {

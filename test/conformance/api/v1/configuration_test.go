@@ -36,7 +36,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 
 	names := test.ResourceNames{
 		Config: test.ObjectNameForTest(t),
-		Image:  test.PizzaPlanet1,
+		Images: []string{test.PizzaPlanet1},
 	}
 
 	test.EnsureTearDown(t, clients, &names)

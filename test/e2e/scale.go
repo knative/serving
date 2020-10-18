@@ -94,7 +94,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
-				Image:   "helloworld",
+				Images:  []string{"helloworld"},
 			}
 
 			t.Cleanup(func() {

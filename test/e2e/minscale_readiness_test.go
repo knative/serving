@@ -49,7 +49,7 @@ func TestMinScale(t *testing.T) {
 		// Config and Route have different names to avoid false positives
 		Config: test.ObjectNameForTest(t),
 		Route:  test.ObjectNameForTest(t),
-		Image:  "helloworld",
+		Images: []string{"helloworld"},
 	}
 
 	test.EnsureTearDown(t, clients, &names)

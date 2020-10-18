@@ -36,23 +36,27 @@ func TestMultiContainer(t *testing.T) {
 
 	clients := e2e.Setup(t)
 
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Images: []string{
+			test.ServingContainer,
+			test.SidecarContainer,
+		},
+	}
+
 	containers := []corev1.Container{{
-		Image: pkgTest.ImagePath(test.ServingContainer),
+		Image: pkgTest.ImagePath(names.Images[0]),
 		Ports: []corev1.ContainerPort{{
 			ContainerPort: 8881,
 		}},
 	}, {
-		Image: pkgTest.ImagePath(test.SidecarContainer),
+		Image: pkgTest.ImagePath(names.Images[1]),
 	}}
-
-	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-	}
 
 	test.EnsureTearDown(t, clients, &names)
 	t.Log("Creating a new Service")
 
-	resources, err := v1test.CreateServiceReadyForMultiContainer(t, clients, &names, func(svc *v1.Service) {
+	resources, err := v1test.CreateServiceReady(t, clients, &names, func(svc *v1.Service) {
 		svc.Spec.Template.Spec.Containers = containers
 	})
 	if err != nil {

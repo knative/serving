@@ -53,7 +53,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 	t.Log("Creating a Service for the helloworld test app.")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Images:  []string{"helloworld"},
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -97,7 +97,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	t.Log("Creating a Service for the helloworld test app.")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Images:  []string{"helloworld"},
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -210,7 +210,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	t.Log("Creating a Service for the helloworld test app.")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Images:  []string{"helloworld"},
 	}
 
 	test.EnsureTearDown(t, clients, &names)

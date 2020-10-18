@@ -67,7 +67,7 @@ func TestProbeRuntime(t *testing.T) {
 			t.Parallel()
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
-				Image:   test.Runtime,
+				Images:  []string{test.Runtime},
 			}
 
 			test.EnsureTearDown(t, clients, &names)

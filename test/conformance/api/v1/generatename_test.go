@@ -118,7 +118,7 @@ func TestServiceGenerateName(t *testing.T) {
 
 	generateName := generateNamePrefix(t)
 	names := test.ResourceNames{
-		Image: test.HelloWorld,
+		Images: []string{test.HelloWorld},
 	}
 
 	// Cleanup on test failure.
@@ -154,7 +154,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 
 	generateName := generateNamePrefix(t)
 	names := test.ResourceNames{
-		Image: test.HelloWorld,
+		Images: []string{test.HelloWorld},
 	}
 
 	test.EnsureTearDown(t, clients, &names)

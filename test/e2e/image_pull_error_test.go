@@ -35,12 +35,12 @@ func TestImagePullError(t *testing.T) {
 	names := test.ResourceNames{
 		Config: test.ObjectNameForTest(t),
 		// TODO: Replace this when sha256 is broken.
-		Image: "ubuntu@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+		Images: []string{"ubuntu@sha256:0000000000000000000000000000000000000000000000000000000000000000"},
 	}
 
 	test.EnsureTearDown(t, clients, &names)
 
-	t.Logf("Creating a new Configuration  %s:%s", names.Config, names.Image)
+	t.Logf("Creating a new Configuration  %s:%s", names.Config, names.Images[0])
 	_, err := createLatestConfig(t, clients, names)
 	if err != nil {
 		t.Fatalf("Failed to create Config %s: %v", names.Config, err)
@@ -88,6 +88,6 @@ func TestImagePullError(t *testing.T) {
 
 func createLatestConfig(t *testing.T, clients *test.Clients, names test.ResourceNames) (*v1.Configuration, error) {
 	return v1test.CreateConfiguration(t, clients, names, func(c *v1.Configuration) {
-		c.Spec = *v1test.ConfigurationSpec(names.Image)
+		c.Spec = *v1test.ConfigurationSpec(names.Images[0])
 	})
 }

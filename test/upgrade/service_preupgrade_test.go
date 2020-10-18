@@ -35,7 +35,7 @@ func TestServicePreUpgrade(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: serviceName,
-		Image:   test.PizzaPlanet1,
+		Images:  []string{test.PizzaPlanet1},
 	}
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
@@ -56,7 +56,7 @@ func TestServicePreUpgradeAndScaleToZero(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: scaleToZeroServiceName,
-		Image:   test.PizzaPlanet1,
+		Images:  []string{test.PizzaPlanet1},
 	}
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
@@ -82,7 +82,7 @@ func TestBYORevisionPreUpgrade(t *testing.T) {
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
 		Service: byoServiceName,
-		Image:   test.PizzaPlanet1,
+		Images:  []string{test.PizzaPlanet1},
 	}
 
 	if _, err := v1test.CreateServiceReady(t, clients, &names,
@@ -96,7 +96,7 @@ func TestInitialScalePreUpgrade(t *testing.T) {
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
 		Service: initialScaleServiceName,
-		Image:   test.PizzaPlanet1,
+		Images:  []string{test.PizzaPlanet1},
 	}
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names)

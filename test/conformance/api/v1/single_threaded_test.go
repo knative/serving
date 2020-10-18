@@ -41,7 +41,7 @@ func TestSingleConcurrency(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.SingleThreadedImage,
+		Images:  []string{test.SingleThreadedImage},
 	}
 	test.EnsureTearDown(t, clients, &names)
 

@@ -128,7 +128,7 @@ func TestWebSocket(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   wsServerTestImageName,
+		Images:  []string{wsServerTestImageName},
 	}
 
 	// Clean up in both abnormal and normal exits.
@@ -152,7 +152,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   wsServerTestImageName,
+		Images:  []string{wsServerTestImageName},
 	}
 
 	// Clean up in both abnormal and normal exits.
@@ -187,7 +187,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	names := test.ResourceNames{
 		// Set Service and Image for names to create the initial service
 		Service: test.ObjectNameForTest(t),
-		Image:   wsServerTestImageName,
+		Images:  []string{wsServerTestImageName},
 	}
 
 	test.EnsureTearDown(t, clients, &names)

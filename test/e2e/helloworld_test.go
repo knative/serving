@@ -41,7 +41,7 @@ func TestHelloWorld(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Images:  []string{"helloworld"},
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -83,7 +83,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Images:  []string{"helloworld"},
 	}
 
 	test.EnsureTearDown(t, clients, &names)

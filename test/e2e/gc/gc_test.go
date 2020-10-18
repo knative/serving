@@ -44,7 +44,7 @@ func TestRevisionGC(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Images:  []string{"helloworld"},
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -62,8 +62,7 @@ func TestRevisionGC(t *testing.T) {
 	}
 
 	t.Log("Updating the Service to use a different image.")
-	names.Image = test.PizzaPlanet2
-	image2 := pkgTest.ImagePath(names.Image)
+	image2 := pkgTest.ImagePath([]string{test.PizzaPlanet2})
 	if _, err := v1test.PatchService(t, clients, resources.Service, rtesting.WithServiceImage(image2)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
 	}

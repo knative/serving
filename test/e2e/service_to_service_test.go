@@ -112,7 +112,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	t.Log("Creating a Service for the httpproxy test app.")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "httpproxy",
+		Images:  []string{"httpproxy"},
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -177,7 +177,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	t.Log("Creating a Service for the helloworld test app.")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Images:  []string{"helloworld"},
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -223,7 +223,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 
 	testNames := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Images:  []string{"helloworld"},
 	}
 
 	withInternalVisibility := rtesting.WithServiceLabel(
@@ -282,7 +282,7 @@ func TestCallToPublicService(t *testing.T) {
 	t.Log("Creating a Service for the helloworld test app.")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Images:  []string{"helloworld"},
 	}
 
 	test.EnsureTearDown(t, clients, &names)

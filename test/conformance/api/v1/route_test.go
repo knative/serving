@@ -106,7 +106,7 @@ func TestRouteCreation(t *testing.T) {
 		Config:        svcName,
 		Route:         svcName,
 		TrafficTarget: svcName,
-		Image:         test.PizzaPlanet1,
+		Images:        []string{test.PizzaPlanet1},
 	}
 
 	test.EnsureTearDown(t, clients, &names)

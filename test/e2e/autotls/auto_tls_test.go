@@ -65,7 +65,7 @@ func TestTLSDisabledWithAnnotation(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "runtime",
+		Images:  []string{"runtime"},
 	}
 	test.EnsureTearDown(t, clients, &names)
 
@@ -91,7 +91,7 @@ func testAutoTLS(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "runtime",
+		Images:  []string{"runtime"},
 	}
 	if len(env.TLSServiceName) != 0 {
 		names.Service = env.TLSServiceName

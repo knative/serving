@@ -32,7 +32,7 @@ type ResourceNames struct {
 	Service       string
 	TrafficTarget string
 	URL           *url.URL
-	Image         string
+	Images        []string
 }
 
 // AppendRandomString will generate a random string that begins with prefix. This is useful

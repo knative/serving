@@ -45,7 +45,7 @@ func TestConfigMapVolume(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.HelloVolume,
+		Images:  []string{test.HelloVolume},
 	}
 
 	text := test.AppendRandomString("hello-volumes-")
@@ -112,7 +112,7 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "hellovolume",
+		Images:  []string{"hellovolume"},
 	}
 
 	text := test.AppendRandomString("hello-volumes-")
@@ -181,7 +181,7 @@ func TestSecretVolume(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.HelloVolume,
+		Images:  []string{test.HelloVolume},
 	}
 
 	text := test.ObjectNameForTest(t)
@@ -244,7 +244,7 @@ func TestProjectedSecretVolume(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "hellovolume",
+		Images:  []string{"hellovolume"},
 	}
 
 	text := test.ObjectNameForTest(t)
@@ -311,7 +311,7 @@ func TestProjectedComplex(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "hellovolume",
+		Images:  []string{"hellovolume"},
 	}
 
 	text1 := test.ObjectNameForTest(t)
@@ -414,7 +414,7 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "hellovolume",
+		Images:  []string{"hellovolume"},
 	}
 
 	const tokenPath = "token"

@@ -52,7 +52,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.Autoscale,
+		Images:  []string{test.Autoscale},
 	}
 
 	test.EnsureTearDown(t, clients, &names)
