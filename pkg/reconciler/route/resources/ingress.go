@@ -132,7 +132,7 @@ func makeIngressSpec(
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
-			rule := makeIngressRule(ctx, domains, r.Namespace, visibility, tc.Targets[name])
+			rule := makeIngressRule(domains, r.Namespace, visibility, tc.Targets[name])
 			if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string)
@@ -148,7 +148,7 @@ func makeIngressSpec(
 					// If a request has one of the `names`(tag name) except the default path,
 					// the request will be routed via one of the ingress paths, corresponding to the tag name.
 					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(ctx, r.Namespace, tc, names), rule.HTTP.Paths...)
+						makeTagBasedRoutingIngressPaths(r.Namespace, tc, names), rule.HTTP.Paths...)
 				} else {
 					// If a request is routed by a tag-attached hostname instead of the tag header,
 					// the request may not have the tag header "Knative-Serving-Tag",
@@ -229,8 +229,7 @@ func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, dom
 	return paths
 }
 
-func makeIngressRule(ctx context.Context,
-	domains []string, ns string,
+func makeIngressRule(domains []string, ns string,
 	visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
 		Hosts:      domains,
@@ -243,8 +242,7 @@ func makeIngressRule(ctx context.Context,
 	}
 }
 
-func makeTagBasedRoutingIngressPaths(
-	ctx context.Context, ns string, tc *traffic.Config, names []string) []netv1alpha1.HTTPIngressPath {
+func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
