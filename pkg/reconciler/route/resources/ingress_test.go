@@ -154,7 +154,6 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
@@ -176,7 +175,6 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -200,7 +198,6 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
@@ -222,7 +219,6 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -373,7 +369,6 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}, {
 				AppendHeaders: map[string]string{
 					network.DefaultRouteHeaderName: "true",
@@ -390,7 +385,6 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
@@ -417,7 +411,6 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}, {
 				AppendHeaders: map[string]string{
 					network.DefaultRouteHeaderName: "true",
@@ -434,7 +427,6 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -461,7 +453,6 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
@@ -486,7 +477,6 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -537,51 +527,6 @@ func TestMakeIngressRuleVanilla(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
-			}},
-		},
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-	}
-
-	if !cmp.Equal(expected, rule) {
-		t.Error("Unexpected rule (-want, +got):", cmp.Diff(expected, rule))
-	}
-}
-
-func TestExtraLongTimeout(t *testing.T) {
-	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1.TrafficTarget{
-			ConfigurationName: "config",
-			RevisionName:      "revision",
-			Percent:           ptr.Int64(100),
-		},
-		ServiceName: "chocolate",
-		Active:      true,
-	}}
-	domains := []string{"a.com", "b.org"}
-	ctx := testContext()
-	apicfg.FromContext(ctx).Defaults.MaxRevisionTimeoutSeconds = int64(longTimeout.Seconds() * 2)
-	rule := makeIngressRule(ctx, domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
-	expected := netv1alpha1.IngressRule{
-		Hosts: []string{
-			"a.com",
-			"b.org",
-		},
-		HTTP: &netv1alpha1.HTTPIngressRuleValue{
-			Paths: []netv1alpha1.HTTPIngressPath{{
-				Splits: []netv1alpha1.IngressBackendSplit{{
-					IngressBackend: netv1alpha1.IngressBackend{
-						ServiceNamespace: ns,
-						ServiceName:      "chocolate",
-						ServicePort:      intstr.FromInt(80),
-					},
-					Percent: 100,
-					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  "revision",
-						"Knative-Serving-Namespace": ns,
-					},
-				}},
-				Timeout: &metav1.Duration{Duration: 2 * longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -628,7 +573,6 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -675,7 +619,6 @@ func TestMakeIngressRuleNilPercentTarget(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -734,7 +677,6 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 						"Knative-Serving-Revision":  "new-revision",
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -777,7 +719,6 @@ func TestMakeIngressRuleInactiveTarget(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -838,7 +779,6 @@ func TestMakeIngressRuleTwoInactiveTargets(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -883,7 +823,6 @@ func TestMakeIngressRuleZeroPercentTargetInactive(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -929,7 +868,6 @@ func TestMakeIngressRuleNilPercentTargetInactive(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -1060,7 +998,6 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 						"Knative-Serving-Namespace": "test-ns",
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}}},
 	}, {
 		Hosts: []string{
@@ -1091,7 +1028,6 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 						"Knative-Serving-Namespace": "test-ns",
 					},
 				}},
-				Timeout: &metav1.Duration{Duration: longTimeout},
 			}}},
 	}}
 
