@@ -237,7 +237,7 @@ func makeIngressRule(ctx context.Context,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{
-				*makeBaseIngressPath(ctx, ns, targets),
+				*makeBaseIngressPath(ns, targets),
 			},
 		},
 	}
@@ -249,7 +249,7 @@ func makeTagBasedRoutingIngressPaths(
 
 	for _, name := range names {
 		if name != traffic.DefaultTarget {
-			path := makeBaseIngressPath(ctx, ns, tc.Targets[name])
+			path := makeBaseIngressPath(ns, tc.Targets[name])
 			path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
 			paths = append(paths, *path)
 		}
@@ -258,8 +258,7 @@ func makeTagBasedRoutingIngressPaths(
 	return paths
 }
 
-func makeBaseIngressPath(
-	ctx context.Context, ns string, targets traffic.RevisionTargets) *netv1alpha1.HTTPIngressPath {
+func makeBaseIngressPath(ns string, targets traffic.RevisionTargets) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
