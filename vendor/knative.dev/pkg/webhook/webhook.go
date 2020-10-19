@@ -63,7 +63,7 @@ type Options struct {
 }
 
 // Operation is the verb being operated on
-// it is aliasde in Validation from the k8s admission package
+// it is aliased in Validation from the k8s admission package
 type Operation = admissionv1.Operation
 
 // Operation types

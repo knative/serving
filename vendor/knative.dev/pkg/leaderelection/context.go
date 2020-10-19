@@ -198,7 +198,7 @@ type statefulSetBuilder struct {
 
 func (b *statefulSetBuilder) buildElector(ctx context.Context, la reconciler.LeaderAware, enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
 	logger := logging.FromContext(ctx)
-	logger.Infof("%s will run in StatefulSet ordinal assignement mode with bucket name %s",
+	logger.Infof("%s will run in StatefulSet ordinal assignment mode with bucket name %s",
 		b.lec.Component, b.bkt.Name())
 
 	return &unopposedElector{
