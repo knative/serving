@@ -130,7 +130,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "simple route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
-			Route("default", "becomes-ready", WithConfigTarget("ing-unk"), WithRouteUID("12-34"),
+			Route("default", "becomes-ready", WithConfigTarget("ing-unknown"), WithRouteUID("12-34"),
 				WithRouteGeneration(1955)),
 			cfg("default", "ing-unknown",
 				WithConfigGeneration(1), WithLatestCreated("ing-unknown-00001"),
@@ -158,12 +158,12 @@ func TestReconcile(t *testing.T) {
 			),
 			simplePlaceholderK8sService(
 				getContext(),
-				Route("default", "becomes-ready", WithConfigTarget("ing-unk"), WithRouteUID("12-34")),
+				Route("default", "becomes-ready", WithConfigTarget("ing-unknown"), WithRouteUID("12-34")),
 				"",
 			),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Route("default", "becomes-ready", WithConfigTarget("ing-unk"),
+			Object: Route("default", "becomes-ready", WithConfigTarget("ing-unknown"),
 				WithRouteUID("12-34"), WithRouteGeneration(1955), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
