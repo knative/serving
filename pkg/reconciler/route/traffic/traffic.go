@@ -210,13 +210,6 @@ func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
 	}
 }
 
-func zeroOrVal(p *int64) int {
-	if p != nil {
-		return int(*p)
-	}
-	return 0
-}
-
 func (cb *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
 	for i := range traffic {
 		if err := cb.addTrafficTarget(&traffic[i]); err != nil {
