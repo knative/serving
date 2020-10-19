@@ -42,11 +42,6 @@ func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Route")
 }
 
-// IsReady returns if the route is ready to serve the requested configuration.
-func (rs *RouteStatus) IsReady() bool {
-	return routeCondSet.Manage(rs).IsHappy()
-}
-
 // IsReady returns true if the Status condition RouteConditionReady
 // is true and the latest spec has been observed.
 func (r *Route) IsReady() bool {
