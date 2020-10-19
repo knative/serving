@@ -93,7 +93,8 @@ func TestAutoscalerHA(t *testing.T) {
 	e2e.AssertAutoscaleUpToNumPods(ctx, 0, 3, time.After(60*time.Second), true /* quick */)
 
 	t.Log("Updating the Service after selecting new leader controller in order to generate a new revision")
-	newImage := pkgTest.ImagePath(test.PizzaPlanet2)
+	names.Images = []string{test.PizzaPlanet2}
+	newImage := pkgTest.ImagePath(names.Images[0])
 	if _, err := v1test.PatchService(t, clients, resources.Service, rtesting.WithServiceImage(newImage)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, newImage, err)
 	}

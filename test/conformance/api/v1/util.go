@@ -22,6 +22,8 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strings"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
@@ -127,18 +129,15 @@ func validateControlPlane(t *testing.T, clients *test.Clients, names test.Resour
 		if ready, err := v1test.IsRevisionReady(r); !ready {
 			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %w", names.Revision, err)
 		}
-
-		if len(names.Images) == 1 {
-			if validDigest, err := shared.ValidateImageDigest(t, names.Images[0], r.Status.ContainerStatuses[0].ImageDigest); !validDigest {
-				return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.ContainerStatuses[0].ImageDigest, names.Images[0], err)
-			}
-		} else {
+		for _, v := range r.Status.ContainerStatuses {
+			// For multi container scenario images and digest coming from respective entities will not be in same sequence,
+			// So this change ensures correctness of image w.r.t digest.
+			// It works for both single and multi container scenario
+			f := regexp.MustCompile(`\@+`).Split(v.ImageDigest, -1)
 			for _, image := range names.Images {
-				for _, v := range r.Status.ContainerStatuses {
-					if v.Name == image {
-						if validDigest, err := shared.ValidateImageDigest(t, image, v.ImageDigest); !validDigest {
-							return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", v.ImageDigest, image, err)
-						}
+				if image == strings.Split(f[0], "/")[2] {
+					if validDigest, err := shared.ValidateImageDigest(t, image, v.ImageDigest); !validDigest {
+						return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", v.ImageDigest, image, err)
 					}
 				}
 			}

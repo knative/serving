@@ -62,7 +62,8 @@ func TestRevisionGC(t *testing.T) {
 	}
 
 	t.Log("Updating the Service to use a different image.")
-	image2 := pkgTest.ImagePath(test.PizzaPlanet2)
+	names.Images = []string{test.PizzaPlanet2}
+	image2 := pkgTest.ImagePath(names.Images[0])
 	if _, err := v1test.PatchService(t, clients, resources.Service, rtesting.WithServiceImage(image2)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
 	}
