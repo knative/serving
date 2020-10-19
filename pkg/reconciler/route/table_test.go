@@ -132,21 +132,23 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Route("default", "becomes-ready", WithConfigTarget("ing-unk"), WithRouteUID("12-34"),
 				WithRouteGeneration(1955)),
-			cfg("default", "ing-unk",
-				WithConfigGeneration(1), WithLatestCreated("ing-unk-00001"), WithLatestReady("ing-unk-00001")),
-			rev("default", "ing-unk", 1, MarkRevisionReady, WithRevName("ing-unk-00001"), WithServiceName("mcd")),
+			cfg("default", "ing-unknown",
+				WithConfigGeneration(1), WithLatestCreated("ing-unknown-00001"),
+				WithLatestReady("ing-unknown-00001")),
+			rev("default", "ing-unknown", 1, MarkRevisionReady, WithRevName("ing-unknown-00001"), WithServiceName("mcd")),
 		},
 		WantCreates: []runtime.Object{
 			simpleIngress(
-				Route("default", "becomes-ready", WithConfigTarget("ing-unk"), WithURL, WithRouteUID("12-34")),
+				Route("default", "becomes-ready", WithConfigTarget("ing-unknown"),
+					WithURL, WithRouteUID("12-34")),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								ConfigurationName: "ing-unk",
+								ConfigurationName: "ing-unknown",
 								LatestRevision:    ptr.Bool(true),
 								Percent:           ptr.Int64(100),
-								RevisionName:      "ing-unk-00001",
+								RevisionName:      "ing-unknown-00001",
 							},
 							ServiceName: "mcd",
 							Active:      true,
@@ -167,7 +169,7 @@ func TestReconcile(t *testing.T) {
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
-						RevisionName:   "ing-unk-00001",
+						RevisionName:   "ing-unknown-00001",
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					})),
