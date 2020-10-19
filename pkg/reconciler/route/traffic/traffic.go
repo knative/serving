@@ -168,10 +168,10 @@ func newBuilder(
 // BuildRollout builds the current rollout state.
 // It is expected to be invoked after applySpecTraffic.
 // TODO(vagababov): actually deal with rollouts, vs just report desired state.
-func (cfg *Config) BuildRollout() *Rollout {
+func (cfg *Config) BuildRollout2() *Rollout {
 	rollout := &Rollout{}
 
-	for _, rt := range cfg.RevisionTargets {
+	for tag, rt := range cfg.Targets {
 		if rt.LatestRevision == nil || !*rt.LatestRevision {
 			continue
 		}
@@ -179,6 +179,32 @@ func (cfg *Config) BuildRollout() *Rollout {
 		// We know here that mergeIfNecessary will pack the same config targets together.
 		// So no need to check for duplicates.
 		rollout.Configurations = append(rollout.Configurations, ConfigurationRollout{
+			ConfigurationName: rt.ConfigurationName,
+			Tag:               rt.Tag,
+			// TODO(vagababov): here will go all the fancy math.
+			Revisions: []RevisionRollout{{
+				RevisionName: rt.RevisionName,
+				Percent:      zeroOrVal(rt.Percent),
+			}},
+		})
+	}
+	return rollout
+}
+
+// buildRolloutForTag builds the current rollout state.
+// It is expected to be invoked after applySpecTraffic.
+// TODO(vagababov): actually deal with rollouts, vs just report desired state.
+func (cfg *Config) buildRolloutForTag(r *Rollout, rts RevisionTargets) {
+	rollout := &Rollout{}
+
+	for _, rt := range rts {
+		if rt.LatestRevision == nil || !*rt.LatestRevision {
+			continue
+		}
+
+		// We know here that mergeIfNecessary will pack the same config targets together.
+		// So no need to check for duplicates.
+		r.Configurations = append(rollout.Configurations, ConfigurationRollout{
 			ConfigurationName: rt.ConfigurationName,
 			Tag:               rt.Tag,
 			// TODO(vagababov): here will go all the fancy math.
