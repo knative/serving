@@ -56,7 +56,7 @@ func (r *Response) String() string {
 // https://medium.com/stupid-gopher-tricks/ensuring-go-interface-satisfaction-at-compile-time-1ed158e8fa17
 var dialContext = (&net.Dialer{}).DialContext
 
-// ResponseChecker is used to determine when SpoofinClient.Poll is done polling.
+// ResponseChecker is used to determine when SpoofingClient.Poll is done polling.
 // This allows you to predicate wait.PollImmediate on the request's http.Response.
 //
 // See the apimachinery wait package:

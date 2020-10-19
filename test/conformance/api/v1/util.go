@@ -186,7 +186,7 @@ func validateLabelsPropagation(t pkgTest.T, objects v1test.ResourceObjects, name
 	revision := objects.Revision
 
 	if revision.Labels["serving.knative.dev/configuration"] != names.Config {
-		return fmt.Errorf("expect Confguration name in Revision label %q but got %q ", names.Config, revision.Labels["serving.knative.dev/configuration"])
+		return fmt.Errorf("expect Configuration name in Revision label %q but got %q ", names.Config, revision.Labels["serving.knative.dev/configuration"])
 	}
 	if revision.Labels["serving.knative.dev/service"] != names.Service {
 		return fmt.Errorf("expect Service name in Revision label %q but got %q ", names.Service, revision.Labels["serving.knative.dev/service"])

@@ -11,7 +11,7 @@ concurrent requests, it instead returns a 500 status.
 
 ## Trying out
 
-To run the image as a Service outisde of the test suite:
+To run the image as a Service outside of the test suite:
 
 `ko apply -f service.yaml`
 

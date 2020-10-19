@@ -87,7 +87,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	defer func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
-			t.Fatal("Error waiting for contoller to terminate:", err)
+			t.Fatal("Error waiting for controller to terminate:", err)
 		}
 		waitInformers()
 	}()

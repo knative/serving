@@ -315,7 +315,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 
-	// And immeditately kill the pod.
+	// And immediately kill the pod.
 	podToDelete := pods.Items[0].Name
 	t.Logf("Deleting pod %q", podToDelete)
 	clients.KubeClient.CoreV1().Pods(test.ServingNamespace).Delete(context.Background(), podToDelete, metav1.DeleteOptions{})

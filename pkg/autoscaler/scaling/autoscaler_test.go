@@ -352,7 +352,7 @@ func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
 // QPS is increasing exponentially. Each scaling event bring concurrency
 // back to the target level (1.0) but then traffic continues to increase.
 // At 1296 QPS traffic stabilizes.
-func TestAutoscalerPanicModeExponentialTrackAndStablize(t *testing.T) {
+func TestAutoscalerPanicModeExponentialTrackAndStabilize(t *testing.T) {
 	metrics := &metricClient{StableConcurrency: 6, PanicConcurrency: 6}
 	a, pc := newTestAutoscaler(t, 1, 101, metrics)
 	na := expectedNA(a, 1)
@@ -477,7 +477,7 @@ func TestAutoscalerScale(t *testing.T) {
 		wantScale: 90,
 		wantEBC:   expectedEBC(10, 1982, 1, 100),
 	}, {
-		label:     "AutoscalerStableModeDecreseNonReachable",
+		label:     "AutoscalerStableModeDecreaseNonReachable",
 		as:        newTestAutoscalerNoPC(t, 10 /* target */, 1982 /* TBC */, &metricClient{StableConcurrency: 1, PanicConcurrency: 1}),
 		baseScale: 100,
 		prepFunc: func(a *autoscaler) {

@@ -972,7 +972,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 			}),
 	}, {
-		name: "propertes allowed by the webhook are passed through",
+		name: "properties allowed by the webhook are passed through",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:  servingContainerName,

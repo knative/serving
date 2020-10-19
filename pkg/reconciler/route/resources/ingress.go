@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
-	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/zap"
@@ -133,7 +132,7 @@ func makeIngressSpec(
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
-			rule := makeIngressRule(ctx, domains, r.Namespace, visibility, tc.Targets[name])
+			rule := makeIngressRule(domains, r.Namespace, visibility, tc.Targets[name])
 			if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string)
@@ -149,7 +148,7 @@ func makeIngressSpec(
 					// If a request has one of the `names`(tag name) except the default path,
 					// the request will be routed via one of the ingress paths, corresponding to the tag name.
 					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(ctx, r.Namespace, tc, names), rule.HTTP.Paths...)
+						makeTagBasedRoutingIngressPaths(r.Namespace, tc, names), rule.HTTP.Paths...)
 				} else {
 					// If a request is routed by a tag-attached hostname instead of the tag header,
 					// the request may not have the tag header "Knative-Serving-Tag",
@@ -230,27 +229,25 @@ func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, dom
 	return paths
 }
 
-func makeIngressRule(ctx context.Context,
-	domains []string, ns string,
+func makeIngressRule(domains []string, ns string,
 	visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{
-				*makeBaseIngressPath(ctx, ns, targets),
+				*makeBaseIngressPath(ns, targets),
 			},
 		},
 	}
 }
 
-func makeTagBasedRoutingIngressPaths(
-	ctx context.Context, ns string, tc *traffic.Config, names []string) []netv1alpha1.HTTPIngressPath {
+func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
 		if name != traffic.DefaultTarget {
-			path := makeBaseIngressPath(ctx, ns, tc.Targets[name])
+			path := makeBaseIngressPath(ns, tc.Targets[name])
 			path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
 			paths = append(paths, *path)
 		}
@@ -259,8 +256,7 @@ func makeTagBasedRoutingIngressPaths(
 	return paths
 }
 
-func makeBaseIngressPath(
-	ctx context.Context, ns string, targets traffic.RevisionTargets) *netv1alpha1.HTTPIngressPath {
+func makeBaseIngressPath(ns string, targets traffic.RevisionTargets) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
@@ -286,36 +282,5 @@ func makeBaseIngressPath(
 
 	return &netv1alpha1.HTTPIngressPath{
 		Splits: splits,
-		Timeout: &metav1.Duration{
-			Duration: ingressTimeout(ctx),
-		},
 	}
-}
-
-// We want to set the ingress timeout to a really long timeout to
-// helps with issues like
-// https://github.com/knative/serving/issues/7350#issuecomment-669278261.
-const longTimeout = 48 * time.Hour
-
-// Before https://github.com/knative/networking/pull/64 we used a
-// default value in the KIngress timeout settings. However, that
-// does not work well with gRPC streaming timeout, so we stop the
-// defaulting going forward.
-//
-// However, that is a breaking change for KIngress
-// implementations. It broke Contour, and breaks Gloo.
-//
-// In order to give the Ingress implementers to have time to
-// implement this `no timeout` behavior we will specify a high
-// timeout value in Route controller in the mean time.
-func ingressTimeout(ctx context.Context) time.Duration {
-	// However, if the MaxRevisionTimeout is longer than `longTimeout`,
-	// we should still honor that.
-	if cfg := apicfg.FromContext(ctx); cfg != nil && cfg.Defaults != nil {
-		maxRevisionTimeout := time.Duration(cfg.Defaults.MaxRevisionTimeoutSeconds) * time.Second
-		if maxRevisionTimeout > longTimeout {
-			return maxRevisionTimeout
-		}
-	}
-	return longTimeout
 }

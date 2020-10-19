@@ -1062,7 +1062,7 @@ func TestPickIndices(t *testing.T) {
 				t.Errorf("EndIndex = %d, want: %d", got, want)
 			}
 			if got, want := rem, test.wantR; got != want {
-				t.Errorf("Remanants = %d, want: %d", got, want)
+				t.Errorf("Remnants = %d, want: %d", got, want)
 			}
 		})
 	}

@@ -115,7 +115,7 @@ func CheckRouteState(client *test.ServingClients, name string, inState func(r *v
 // IsRouteReady will check the status conditions of the route and return true if the route is
 // ready.
 func IsRouteReady(r *v1.Route) (bool, error) {
-	return r.Generation == r.Status.ObservedGeneration && r.Status.IsReady(), nil
+	return r.IsReady(), nil
 }
 
 // IsRouteFailed will check the status conditions of the route and return true if the route is

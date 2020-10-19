@@ -81,6 +81,8 @@ spec:
 
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
 
         ports:
         - name: metrics

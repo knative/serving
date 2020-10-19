@@ -136,7 +136,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		// We want exactly 2. Not 1, not panicing 3, just 2.
+		// We want exactly 2. Not 1, not panicking 3, just 2.
 		return obsScale == 2, nil
 	}); err != nil {
 		t.Fatalf("Desired scale of 2 never achieved; last known value %v; err: %v", obsScale, err)

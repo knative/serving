@@ -363,7 +363,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 	logger := {{.loggingFromContext|raw}}(ctx)
 
 	// Initialize the reconciler state. This will convert the namespace/name
-	// string into a distinct namespace and name, determin if this instance of
+	// string into a distinct namespace and name, determine if this instance of
 	// the reconciler is the leader, and any additional interfaces implemented
 	// by the reconciler. Returns an error is the resource key is invalid.
 	s, err := newState(key, r)

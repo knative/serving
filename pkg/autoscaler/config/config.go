@@ -154,7 +154,7 @@ func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 	}
 
 	// We can't permit stable window be less than our aggregation window for correctness.
-	// Or too big, so that our desisions are too imprecise.
+	// Or too big, so that our decisions are too imprecise.
 	if lc.StableWindow < autoscaling.WindowMin || lc.StableWindow > autoscaling.WindowMax {
 		return nil, fmt.Errorf("stable-window = %v, must be in [%v; %v] range", lc.StableWindow,
 			autoscaling.WindowMin, autoscaling.WindowMax)
