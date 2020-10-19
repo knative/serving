@@ -1,6 +1,12 @@
+---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200517180335-820a4a27ea84
+  labels:
+    app.kubernetes.io/name: ambassador
+    product: aes
   name: authservices.getambassador.io
 spec:
   group: getambassador.io
@@ -8,10 +14,86 @@ spec:
     categories:
     - ambassador-crds
     kind: AuthService
+    listKind: AuthServiceList
     plural: authservices
     singular: authservice
   scope: Namespaced
-  version: v2
+  validation:
+    openAPIV3Schema:
+      description: AuthService is the Schema for the authservices API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: AuthServiceSpec defines the desired state of AuthService
+          properties:
+            add_auth_headers:
+              additionalProperties:
+                oneOf:
+                - type: string
+                - type: boolean
+              type: object
+            add_linkerd_headers:
+              type: boolean
+            allow_request_body:
+              type: boolean
+            allowed_authorization_headers:
+              items:
+                type: string
+              type: array
+            allowed_request_headers:
+              items:
+                type: string
+              type: array
+            ambassador_id:
+              description: "AmbassadorID declares which Ambassador instances should pay attention to this resource.  May either be a string or a list of strings.  If no value is provided, the default is: \n    ambassador_id:    - \"default\""
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            auth_service:
+              type: string
+            failure_mode_allow:
+              type: boolean
+            include_body:
+              properties:
+                allow_partial:
+                  type: boolean
+                max_bytes:
+                  type: integer
+              required:
+              - allow_partial
+              - max_bytes
+              type: object
+            path_prefix:
+              type: string
+            proto:
+              enum:
+              - http
+              - grpc
+              type: string
+            status_on_error:
+              description: Why isn't this just an int??
+              properties:
+                code:
+                  type: integer
+              type: object
+            timeout_ms:
+              type: integer
+            tls:
+              oneOf:
+              - type: string
+              - type: boolean
+          type: object
+      type: object
+  version: null
   versions:
   - name: v2
     served: true
@@ -23,6 +105,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200517180335-820a4a27ea84
+  labels:
+    app.kubernetes.io/name: ambassador
+    product: aes
   name: consulresolvers.getambassador.io
 spec:
   group: getambassador.io
@@ -30,10 +117,39 @@ spec:
     categories:
     - ambassador-crds
     kind: ConsulResolver
+    listKind: ConsulResolverList
     plural: consulresolvers
     singular: consulresolver
   scope: Namespaced
-  version: v2
+  validation:
+    openAPIV3Schema:
+      description: ConsulResolver is the Schema for the ConsulResolver API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: ConsulResolver tells Ambassador to use Consul to resolve services. In addition to the AmbassadorID, it needs information about which Consul server and DC to use.
+          properties:
+            address:
+              type: string
+            ambassador_id:
+              description: "AmbassadorID declares which Ambassador instances should pay attention to this resource.  May either be a string or a list of strings.  If no value is provided, the default is: \n    ambassador_id:    - \"default\""
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            datacenter:
+              type: string
+          type: object
+      type: object
+  version: null
   versions:
   - name: v2
     served: true
@@ -45,6 +161,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200517180335-820a4a27ea84
+  labels:
+    app.kubernetes.io/name: ambassador
+    product: aes
   name: hosts.getambassador.io
 spec:
   additionalPrinterColumns:
@@ -68,12 +189,213 @@ spec:
     categories:
     - ambassador-crds
     kind: Host
+    listKind: HostList
     plural: hosts
     singular: host
   scope: Namespaced
   subresources:
     status: {}
-  version: v2
+  validation:
+    openAPIV3Schema:
+      description: Host is the Schema for the hosts API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: HostSpec defines the desired state of Host
+          properties:
+            acmeProvider:
+              description: Specifies whether/who to talk ACME with to automatically manage the $tlsSecret.
+              properties:
+                authority:
+                  description: Specifies who to talk ACME with to get certs. Defaults to Let's Encrypt; if "none" (case-insensitive), do not try to do ACME for this Host.
+                  type: string
+                email:
+                  type: string
+                privateKeySecret:
+                  description: "Specifies the Kubernetes Secret to use to store the private key of the ACME account (essentially, where to store the auto-generated password for the auto-created ACME account).  You should not normally need to set this--the default value is based on a combination of the ACME authority being registered wit and the email address associated with the account. \n Note that this is a native-Kubernetes-style core.v1.LocalObjectReference, not an Ambassador-style `{name}.{namespace}` string.  Because we're opinionated, it does not support referencing a Secret in another namespace (because most native Kubernetes resources don't support that), but if we ever abandon that opinion and decide to support non-local references it, it would be by adding a `namespace:` field by changing it from a core.v1.LocalObjectReference to a core.v1.SecretReference, not by adopting the `{name}.{namespace}` notation."
+                  properties:
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                      type: string
+                  type: object
+                registration:
+                  description: This is normally set automatically
+                  type: string
+              type: object
+            ambassador_id:
+              description: Common to all Ambassador objects (and optional).
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            ambassadorId:
+              description: A compatibility alias for "ambassador_id"; because Host used to be specified with protobuf, and jsonpb allowed either "ambassador_id" or "ambassadorId", and even though we didn't tell people about "ambassadorId" it's what the web policy console generated because of jsonpb.  So Hosts with 'ambassadorId' exist in the wild.
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            hostname:
+              description: Hostname by which the Ambassador can be reached.
+              type: string
+            previewUrl:
+              description: Configuration for the Preview URL feature of Service Preview. Defaults to preview URLs not enabled.
+              properties:
+                enabled:
+                  description: Is the Preview URL feature enabled?
+                  type: boolean
+                type:
+                  description: What type of Preview URL is allowed?
+                  enum:
+                  - Path
+                  type: string
+              type: object
+            requestPolicy:
+              description: Request policy definition.
+              properties:
+                insecure:
+                  properties:
+                    action:
+                      enum:
+                      - Redirect
+                      - Reject
+                      - Route
+                      type: string
+                    additionalPort:
+                      type: integer
+                  type: object
+              type: object
+            selector:
+              description: Selector by which we can find further configuration. Defaults to hostname=$hostname
+              properties:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                  items:
+                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                    properties:
+                      key:
+                        description: key is the label key that the selector applies to.
+                        type: string
+                      operator:
+                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                        type: string
+                      values:
+                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                  type: object
+              type: object
+            tls:
+              description: TLS configuration.  It is not valid to specify both `tlsContext` and `tls`.
+              properties:
+                alpn_protocols:
+                  type: string
+                ca_secret:
+                  type: string
+                cacert_chain_file:
+                  type: string
+                cert_chain_file:
+                  type: string
+                cert_required:
+                  type: boolean
+                cipher_suites:
+                  items:
+                    type: string
+                  type: array
+                ecdh_curves:
+                  items:
+                    type: string
+                  type: array
+                max_tls_version:
+                  type: string
+                min_tls_version:
+                  type: string
+                private_key_file:
+                  type: string
+                redirect_cleartext_from:
+                  type: integer
+                sni:
+                  type: string
+              type: object
+            tlsContext:
+              description: "Name of the TLSContext the Host resource is linked with. It is not valid to specify both `tlsContext` and `tls`. \n Note that this is a native-Kubernetes-style core.v1.LocalObjectReference, not an Ambassador-style `{name}.{namespace}` string.  Because we're opinionated, it does not support referencing a Secret in another namespace (because most native Kubernetes resources don't support that), but if we ever abandon that opinion and decide to support non-local references it, it would be by adding a `namespace:` field by changing it from a core.v1.LocalObjectReference to a core.v1.SecretReference, not by adopting the `{name}.{namespace}` notation."
+              properties:
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                  type: string
+              type: object
+            tlsSecret:
+              description: "Name of the Kubernetes secret into which to save generated certificates.  If ACME is enabled (see $acmeProvider), then the default is $hostname; otherwise the default is \"\".  If the value is \"\", then we do not do TLS for this Host. \n Note that this is a native-Kubernetes-style core.v1.LocalObjectReference, not an Ambassador-style `{name}.{namespace}` string.  Because we're opinionated, it does not support referencing a Secret in another namespace (because most native Kubernetes resources don't support that), but if we ever abandon that opinion and decide to support non-local references it, it would be by adding a `namespace:` field by changing it from a core.v1.LocalObjectReference to a core.v1.SecretReference, not by adopting the `{name}.{namespace}` notation."
+              properties:
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                  type: string
+              type: object
+          type: object
+        status:
+          description: HostStatus defines the observed state of Host
+          properties:
+            errorBackoff:
+              type: string
+            errorReason:
+              description: errorReason, errorTimestamp, and errorBackoff are valid when state==Error.
+              type: string
+            errorTimestamp:
+              format: date-time
+              type: string
+            phaseCompleted:
+              description: phaseCompleted and phasePending are valid when state==Pending or state==Error.
+              enum:
+              - NA
+              - DefaultsFilled
+              - ACMEUserPrivateKeyCreated
+              - ACMEUserRegistered
+              - ACMECertificateChallenge
+              type: string
+            phasePending:
+              description: phaseCompleted and phasePending are valid when state==Pending or state==Error.
+              enum:
+              - NA
+              - DefaultsFilled
+              - ACMEUserPrivateKeyCreated
+              - ACMEUserRegistered
+              - ACMECertificateChallenge
+              type: string
+            state:
+              enum:
+              - Initial
+              - Pending
+              - Ready
+              - Error
+              type: string
+            tlsCertificateSource:
+              enum:
+              - Unknown
+              - None
+              - Other
+              - ACME
+              type: string
+          type: object
+      type: object
+  version: null
   versions:
   - name: v2
     served: true
@@ -82,6 +404,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200517180335-820a4a27ea84
+  labels:
+    app.kubernetes.io/name: ambassador
+    product: aes
   name: kubernetesendpointresolvers.getambassador.io
 spec:
   group: getambassador.io
@@ -89,10 +416,35 @@ spec:
     categories:
     - ambassador-crds
     kind: KubernetesEndpointResolver
+    listKind: KubernetesEndpointResolverList
     plural: kubernetesendpointresolvers
     singular: kubernetesendpointresolver
   scope: Namespaced
-  version: v2
+  validation:
+    openAPIV3Schema:
+      description: KubernetesEndpointResolver is the Schema for the kubernetesendpointresolver API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: KubernetesEndpointResolver tells Ambassador to use Kubernetes Endpoints resources to resolve services. It actually has no spec other than the AmbassadorID.
+          properties:
+            ambassador_id:
+              description: "AmbassadorID declares which Ambassador instances should pay attention to this resource.  May either be a string or a list of strings.  If no value is provided, the default is: \n    ambassador_id:    - \"default\""
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+          type: object
+      type: object
+  version: null
   versions:
   - name: v2
     served: true
@@ -104,6 +456,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200517180335-820a4a27ea84
+  labels:
+    app.kubernetes.io/name: ambassador
+    product: aes
   name: kubernetesserviceresolvers.getambassador.io
 spec:
   group: getambassador.io
@@ -111,10 +468,35 @@ spec:
     categories:
     - ambassador-crds
     kind: KubernetesServiceResolver
+    listKind: KubernetesServiceResolverList
     plural: kubernetesserviceresolvers
     singular: kubernetesserviceresolver
   scope: Namespaced
-  version: v2
+  validation:
+    openAPIV3Schema:
+      description: KubernetesServiceResolver is the Schema for the kubernetesserviceresolver API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: KubernetesServiceResolver tells Ambassador to use Kubernetes Service resources to resolve services. It actually has no spec other than the AmbassadorID.
+          properties:
+            ambassador_id:
+              description: "AmbassadorID declares which Ambassador instances should pay attention to this resource.  May either be a string or a list of strings.  If no value is provided, the default is: \n    ambassador_id:    - \"default\""
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+          type: object
+      type: object
+  version: null
   versions:
   - name: v2
     served: true
@@ -126,6 +508,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200517180335-820a4a27ea84
+  labels:
+    app.kubernetes.io/name: ambassador
+    product: aes
   name: logservices.getambassador.io
 spec:
   group: getambassador.io
@@ -133,10 +520,64 @@ spec:
     categories:
     - ambassador-crds
     kind: LogService
+    listKind: LogServiceList
     plural: logservices
     singular: logservice
   scope: Namespaced
-  version: v2
+  validation:
+    openAPIV3Schema:
+      description: LogService is the Schema for the logservices API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: LogServiceSpec defines the desired state of LogService
+          properties:
+            ambassador_id:
+              description: "AmbassadorID declares which Ambassador instances should pay attention to this resource.  May either be a string or a list of strings.  If no value is provided, the default is: \n    ambassador_id:    - \"default\""
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            driver:
+              enum:
+              - tcp
+              - http
+              type: string
+            driver_config:
+              properties:
+                additional_log_headers:
+                  items:
+                    properties:
+                      during_request:
+                        type: boolean
+                      during_response:
+                        type: boolean
+                      during_trailer:
+                        type: boolean
+                      header_name:
+                        type: string
+                    type: object
+                  type: array
+              type: object
+            flush_interval_byte_size:
+              type: integer
+            flush_interval_time:
+              type: integer
+            grpc:
+              type: boolean
+            service:
+              type: string
+          type: object
+      type: object
+  version: null
   versions:
   - name: v2
     served: true
@@ -148,6 +589,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200517180335-820a4a27ea84
+  labels:
+    app.kubernetes.io/name: ambassador
+    product: aes
   name: mappings.getambassador.io
 spec:
   additionalPrinterColumns:
@@ -168,12 +614,292 @@ spec:
     categories:
     - ambassador-crds
     kind: Mapping
+    listKind: MappingList
     plural: mappings
     singular: mapping
   scope: Namespaced
   subresources:
     status: {}
-  version: v2
+  validation:
+    openAPIV3Schema:
+      description: Mapping is the Schema for the mappings API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: MappingSpec defines the desired state of Mapping
+          properties:
+            add_linkerd_headers:
+              type: boolean
+            add_request_headers:
+              additionalProperties:
+                oneOf:
+                - type: string
+                - type: boolean
+                - type: object
+              type: object
+            add_response_headers:
+              additionalProperties:
+                oneOf:
+                - type: string
+                - type: boolean
+                - type: object
+              type: object
+            allow_upgrade:
+              description: "A case-insensitive list of the non-HTTP protocols to allow \"upgrading\" to from HTTP via the \"Connection: upgrade\" mechanism[1].  After the upgrade, Ambassador does not interpret the traffic, and behaves similarly to how it does for TCPMappings. \n [1]: https://tools.ietf.org/html/rfc7230#section-6.7 \n For example, if your upstream service supports WebSockets, you would write \n    allow_upgrade:    - websocket \n Or if your upstream service supports upgrading from HTTP to SPDY (as the Kubernetes apiserver does for `kubectl exec` functionality), you would write \n    allow_upgrade:    - spdy/3.1"
+              items:
+                type: string
+              type: array
+            ambassador_id:
+              description: "AmbassadorID declares which Ambassador instances should pay attention to this resource.  May either be a string or a list of strings.  If no value is provided, the default is: \n    ambassador_id:    - \"default\""
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            auto_host_rewrite:
+              type: boolean
+            bypass_auth:
+              type: boolean
+            case_sensitive:
+              type: boolean
+            circuit_breakers:
+              items:
+                properties:
+                  max_connections:
+                    type: integer
+                  max_pending_requests:
+                    type: integer
+                  max_requests:
+                    type: integer
+                  max_retries:
+                    type: integer
+                  priority:
+                    enum:
+                    - default
+                    - high
+                    type: string
+                type: object
+              type: array
+            cluster_idle_timeout_ms:
+              type: integer
+            cluster_tag:
+              type: string
+            connect_timeout_ms:
+              type: integer
+            cors:
+              properties:
+                credentials:
+                  type: boolean
+                exposed_headers:
+                  items:
+                    type: string
+                  oneOf:
+                  - type: string
+                  - type: array
+                headers:
+                  items:
+                    type: string
+                  oneOf:
+                  - type: string
+                  - type: array
+                max_age:
+                  type: string
+                methods:
+                  items:
+                    type: string
+                  oneOf:
+                  - type: string
+                  - type: array
+                origins:
+                  items:
+                    type: string
+                  oneOf:
+                  - type: string
+                  - type: array
+              type: object
+            enable_ipv4:
+              type: boolean
+            enable_ipv6:
+              type: boolean
+            envoy_override:
+              type: object
+            grpc:
+              type: boolean
+            headers:
+              additionalProperties:
+                oneOf:
+                - type: string
+                - type: boolean
+              type: object
+            host:
+              type: string
+            host_redirect:
+              type: boolean
+            host_regex:
+              type: boolean
+            host_rewrite:
+              type: string
+            idle_timeout_ms:
+              type: integer
+            keepalive:
+              properties:
+                idle_time:
+                  type: integer
+                interval:
+                  type: integer
+                probes:
+                  type: integer
+              type: object
+            labels:
+              additionalProperties:
+                items:
+                  additionalProperties: {}
+                  description: 'Python: MappingLabels = Dict[str, Union[str,''MappingLabels'']]'
+                  type: object
+                type: array
+              type: object
+            load_balancer:
+              properties:
+                cookie:
+                  properties:
+                    name:
+                      type: string
+                    path:
+                      type: string
+                    ttl:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                header:
+                  type: string
+                policy:
+                  enum:
+                  - round_robin
+                  - ring_hash
+                  - maglev
+                  - least_request
+                  type: string
+                source_ip:
+                  type: boolean
+              required:
+              - policy
+              type: object
+            method:
+              type: string
+            method_regex:
+              type: boolean
+            modules:
+              items:
+                type: object
+              type: array
+            outlier_detection:
+              type: string
+            path_redirect:
+              type: string
+            precedence:
+              type: integer
+            prefix:
+              type: string
+            prefix_exact:
+              type: boolean
+            prefix_regex:
+              type: boolean
+            priority:
+              type: string
+            query_parameters:
+              additionalProperties:
+                oneOf:
+                - type: string
+                - type: boolean
+              type: object
+            regex_headers:
+              additionalProperties:
+                oneOf:
+                - type: string
+                - type: boolean
+              type: object
+            regex_query_parameters:
+              additionalProperties:
+                oneOf:
+                - type: string
+                - type: boolean
+              type: object
+            regex_rewrite:
+              additionalProperties:
+                oneOf:
+                - type: string
+                - type: boolean
+              type: object
+            remove_request_headers:
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            remove_response_headers:
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            resolver:
+              type: string
+            retry_policy:
+              properties:
+                num_retries:
+                  type: integer
+                per_try_timeout:
+                  type: string
+                retry_on:
+                  enum:
+                  - 5xx
+                  - gateway-error
+                  - connect-failure
+                  - retriable-4xx
+                  - refused-stream
+                  - retriable-status-codes
+                  type: string
+              type: object
+            rewrite:
+              type: string
+            service:
+              type: string
+            shadow:
+              type: boolean
+            timeout_ms:
+              type: integer
+            tls:
+              oneOf:
+              - type: string
+              - type: boolean
+            use_websocket:
+              description: 'use_websocket is deprecated, and is equivlaent to setting `allow_upgrade: ["websocket"]`'
+              type: boolean
+            weight:
+              type: integer
+          type: object
+        status:
+          description: MappingStatus defines the observed state of Mapping
+          properties:
+            reason:
+              type: string
+            state:
+              enum:
+              - ""
+              - Inactive
+              - Running
+              type: string
+          type: object
+      type: object
+  version: null
   versions:
   - name: v2
     served: true
@@ -185,6 +911,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200517180335-820a4a27ea84
+  labels:
+    app.kubernetes.io/name: ambassador
+    product: aes
   name: modules.getambassador.io
 spec:
   group: getambassador.io
@@ -192,10 +923,36 @@ spec:
     categories:
     - ambassador-crds
     kind: Module
+    listKind: ModuleList
     plural: modules
     singular: module
   scope: Namespaced
-  version: v2
+  validation:
+    openAPIV3Schema:
+      description: "A Module defines system-wide configuration.  The type of module is controlled by the .metadata.name; valid names are \"ambassador\" or \"tls\". \n https://www.getambassador.io/docs/latest/topics/running/ambassador/#the-ambassador-module https://www.getambassador.io/docs/latest/topics/running/tls/#tls-module-deprecated"
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            ambassador_id:
+              description: "AmbassadorID declares which Ambassador instances should pay attention to this resource.  May either be a string or a list of strings.  If no value is provided, the default is: \n    ambassador_id:    - \"default\""
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            config:
+              type: object
+          type: object
+      type: object
+  version: null
   versions:
   - name: v2
     served: true
@@ -207,6 +964,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200517180335-820a4a27ea84
+  labels:
+    app.kubernetes.io/name: ambassador
+    product: aes
   name: ratelimitservices.getambassador.io
 spec:
   group: getambassador.io
@@ -214,10 +976,45 @@ spec:
     categories:
     - ambassador-crds
     kind: RateLimitService
+    listKind: RateLimitServiceList
     plural: ratelimitservices
     singular: ratelimitservice
   scope: Namespaced
-  version: v2
+  validation:
+    openAPIV3Schema:
+      description: RateLimitService is the Schema for the ratelimitservices API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: RateLimitServiceSpec defines the desired state of RateLimitService
+          properties:
+            ambassador_id:
+              description: Common to all Ambassador objects.
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            domain:
+              type: string
+            service:
+              type: string
+            timeout_ms:
+              type: integer
+            tls:
+              oneOf:
+              - type: string
+              - type: boolean
+          type: object
+      type: object
+  version: null
   versions:
   - name: v2
     served: true
@@ -229,6 +1026,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200517180335-820a4a27ea84
+  labels:
+    app.kubernetes.io/name: ambassador
+    product: aes
   name: tcpmappings.getambassador.io
 spec:
   group: getambassador.io
@@ -236,10 +1038,78 @@ spec:
     categories:
     - ambassador-crds
     kind: TCPMapping
+    listKind: TCPMappingList
     plural: tcpmappings
     singular: tcpmapping
   scope: Namespaced
-  version: v2
+  validation:
+    openAPIV3Schema:
+      description: TCPMapping is the Schema for the tcpmappings API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: TCPMappingSpec defines the desired state of TCPMapping
+          properties:
+            address:
+              type: string
+            ambassador_id:
+              description: "AmbassadorID declares which Ambassador instances should pay attention to this resource.  May either be a string or a list of strings.  If no value is provided, the default is: \n    ambassador_id:    - \"default\""
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            circuit_breakers:
+              items:
+                properties:
+                  max_connections:
+                    type: integer
+                  max_pending_requests:
+                    type: integer
+                  max_requests:
+                    type: integer
+                  max_retries:
+                    type: integer
+                  priority:
+                    enum:
+                    - default
+                    - high
+                    type: string
+                type: object
+              type: array
+            cluster_tag:
+              type: string
+            enable_ipv4:
+              type: boolean
+            enable_ipv6:
+              type: boolean
+            host:
+              type: string
+            idle_timeout_ms:
+              description: 'FIXME(lukeshu): Surely this should be an ''int''?'
+              type: string
+            port:
+              type: integer
+            resolver:
+              type: string
+            service:
+              type: string
+            tls:
+              oneOf:
+              - type: string
+              - type: boolean
+            weight:
+              type: integer
+          type: object
+      type: object
+  version: null
   versions:
   - name: v2
     served: true
@@ -251,6 +1121,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200517180335-820a4a27ea84
+  labels:
+    app.kubernetes.io/name: ambassador
+    product: aes
   name: tlscontexts.getambassador.io
 spec:
   group: getambassador.io
@@ -258,10 +1133,81 @@ spec:
     categories:
     - ambassador-crds
     kind: TLSContext
+    listKind: TLSContextList
     plural: tlscontexts
     singular: tlscontext
   scope: Namespaced
-  version: v2
+  validation:
+    openAPIV3Schema:
+      description: TLSContext is the Schema for the tlscontexts API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: TLSContextSpec defines the desired state of TLSContext
+          properties:
+            alpn_protocols:
+              type: string
+            ambassador_id:
+              description: "AmbassadorID declares which Ambassador instances should pay attention to this resource.  May either be a string or a list of strings.  If no value is provided, the default is: \n    ambassador_id:    - \"default\""
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            ca_secret:
+              type: string
+            cacert_chain_file:
+              type: string
+            cert_chain_file:
+              type: string
+            cert_required:
+              type: boolean
+            cipher_suites:
+              items:
+                type: string
+              type: array
+            ecdh_curves:
+              items:
+                type: string
+              type: array
+            hosts:
+              items:
+                type: string
+              type: array
+            max_tls_version:
+              enum:
+              - v1.0
+              - v1.1
+              - v1.2
+              - v1.3
+              type: string
+            min_tls_version:
+              enum:
+              - v1.0
+              - v1.1
+              - v1.2
+              - v1.3
+              type: string
+            private_key_file:
+              type: string
+            redirect_cleartext_from:
+              type: integer
+            secret:
+              type: string
+            secret_namespacing:
+              type: boolean
+            sni:
+              type: string
+          type: object
+      type: object
+  version: null
   versions:
   - name: v2
     served: true
@@ -273,6 +1219,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200517180335-820a4a27ea84
+  labels:
+    app.kubernetes.io/name: ambassador
+    product: aes
   name: tracingservices.getambassador.io
 spec:
   group: getambassador.io
@@ -280,10 +1231,77 @@ spec:
     categories:
     - ambassador-crds
     kind: TracingService
+    listKind: TracingServiceList
     plural: tracingservices
     singular: tracingservice
   scope: Namespaced
-  version: v2
+  validation:
+    openAPIV3Schema:
+      description: TracingService is the Schema for the tracingservices API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: TracingServiceSpec defines the desired state of TracingService
+          properties:
+            ambassador_id:
+              description: "AmbassadorID declares which Ambassador instances should pay attention to this resource.  May either be a string or a list of strings.  If no value is provided, the default is: \n    ambassador_id:    - \"default\""
+              items:
+                type: string
+              oneOf:
+              - type: string
+              - type: array
+            config:
+              properties:
+                access_token_file:
+                  type: string
+                collector_cluster:
+                  type: string
+                collector_endpoint:
+                  type: string
+                collector_endpoint_version:
+                  enum:
+                  - HTTP_JSON_V1
+                  - HTTP_JSON
+                  - HTTP_PROTO
+                  type: string
+                service_name:
+                  type: string
+                shared_span_context:
+                  type: boolean
+                trace_id_128bit:
+                  type: boolean
+              type: object
+            driver:
+              enum:
+              - lightstep
+              - zipkin
+              - datadog
+              type: string
+            sampling:
+              properties:
+                client:
+                  type: integer
+                overall:
+                  type: integer
+                random:
+                  type: integer
+              type: object
+            service:
+              type: string
+            tag_headers:
+              items:
+                type: string
+              type: array
+          type: object
+      type: object
+  version: null
   versions:
   - name: v2
     served: true
