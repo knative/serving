@@ -278,7 +278,7 @@ func (gih *IssueHandler) addComment(issueNumber int, commentBody string) error {
 // editComment will edit the comment to the new body.
 func (gih *IssueHandler) editComment(issueNumber int, commentID int64, commentBody string) error {
 	return helpers.Run(
-		fmt.Sprintf("editting comment to %q for issue %d in %q", commentBody, issueNumber, gih.config.repo),
+		fmt.Sprintf("editing comment to %q for issue %d in %q", commentBody, issueNumber, gih.config.repo),
 		func() error {
 			return gih.client.EditComment(gih.config.org, gih.config.repo, commentID, commentBody)
 		},

@@ -22,7 +22,7 @@ This package exposes following methods:
 	CheckPortAvailability(port int) error
 		Checks if the given port is available
 	GetPods(kubeClientset kubernetes.Interface, app string) (*v1.PodList, error)
-		Gets the list of pods that satisfy the lable selector app=<app>
+		Gets the list of pods that satisfy the label selector app=<app>
 	Cleanup(pid int) error
 		Kill the current port forwarding process running in the background
 	PortForward(logf logging.FormatLogger, podList *v1.PodList, localPort, remotePort int) (int, error)

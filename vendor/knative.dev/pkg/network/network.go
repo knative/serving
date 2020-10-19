@@ -26,7 +26,7 @@ const (
 	// DefaultConnTimeout specifies a short default connection timeout
 	// to avoid hitting the issue fixed in
 	// https://github.com/kubernetes/kubernetes/pull/72534 but only
-	// avalailable after Kubernetes 1.14.
+	// available after Kubernetes 1.14.
 	//
 	// Our connections are usually between pods in the same cluster
 	// like activator <-> queue-proxy, or even between containers
