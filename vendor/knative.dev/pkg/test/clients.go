@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strings"
 
+	"knative.dev/pkg/test/flags"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -42,8 +44,8 @@ type KubeClient struct {
 // NewSpoofingClient returns a spoofing client to make requests
 func NewSpoofingClient(ctx context.Context, client *KubeClient, logf logging.FormatLogger,
 	domain string, resolvable bool, opts ...spoof.TransportOption) (*spoof.SpoofingClient, error) {
-	return spoof.New(ctx, client, logf, domain, resolvable, Flags.IngressEndpoint,
-		Flags.SpoofRequestInterval, Flags.SpoofRequestTimeout, opts...)
+	return spoof.New(ctx, client, logf, domain, resolvable, flags.Flags().IngressEndpoint,
+		flags.Flags().SpoofRequestInterval, flags.Flags().SpoofRequestTimeout, opts...)
 }
 
 // NewKubeClient instantiates and returns several clientsets required for making request to the

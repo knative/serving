@@ -34,7 +34,7 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-func checkForExpectedResponses(ctx context.Context, t pkgTest.TLegacy, clients *test.Clients, url *url.URL, expectedResponses ...string) error {
+func checkForExpectedResponses(ctx context.Context, t testing.TB, clients *test.Clients, url *url.URL, expectedResponses ...string) error {
 	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return err
@@ -47,7 +47,7 @@ func checkForExpectedResponses(ctx context.Context, t pkgTest.TLegacy, clients *
 	return err
 }
 
-func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.URL,
+func validateDomains(t testing.TB, clients *test.Clients, baseDomain *url.URL,
 	baseExpected, trafficTargets, targetsExpected []string) error {
 	subdomains := make([]*url.URL, len(trafficTargets))
 	for i, target := range trafficTargets {
@@ -100,7 +100,7 @@ func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.U
 // Validates service health and vended content match for a runLatest Service.
 // The checks in this method should be able to be performed at any point in a
 // runLatest Service's lifecycle so long as the service is in a "Ready" state.
-func validateDataPlane(t pkgTest.TLegacy, clients *test.Clients, names test.ResourceNames, expectedText string) error {
+func validateDataPlane(t testing.TB, clients *test.Clients, names test.ResourceNames, expectedText string) error {
 	t.Log("Checking that the endpoint vends the expected text:", expectedText)
 	_, err := pkgTest.WaitForEndpointState(
 		context.Background(),
@@ -176,7 +176,7 @@ func validateControlPlane(t *testing.T, clients *test.Clients, names test.Resour
 
 // Validates labels on Revision, Configuration, and Route objects when created by a Service
 // see spec here: https://github.com/knative/serving/blob/master/docs/spec/spec.md#revision
-func validateLabelsPropagation(t pkgTest.T, objects v1test.ResourceObjects, names test.ResourceNames) error {
+func validateLabelsPropagation(t testing.TB, objects v1test.ResourceObjects, names test.ResourceNames) error {
 	t.Log("Validate Labels on Revision Object")
 	revision := objects.Revision
 
