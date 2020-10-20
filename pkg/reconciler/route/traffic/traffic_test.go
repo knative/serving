@@ -503,14 +503,14 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 			ConfigurationName: niceConfig.Name,
 			Revisions: []RevisionRollout{{
 				RevisionName: niceNewRev.Name,
-				Percent:      90,
+				Percent:      100,
 			}},
 		}, {
 			ConfigurationName: niceConfig.Name,
 			Tag:               "robert",
 			Revisions: []RevisionRollout{{
 				RevisionName: niceNewRev.Name,
-				Percent:      10,
+				Percent:      100,
 			}},
 		}},
 	}

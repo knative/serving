@@ -18,6 +18,7 @@ package traffic
 
 import (
 	"context"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -171,31 +172,42 @@ func newBuilder(
 func (cfg *Config) BuildRollout() *Rollout {
 	rollout := &Rollout{}
 
-	for _, rt := range cfg.RevisionTargets {
+	for tag, targets := range cfg.Targets {
+		buildRolloutForTag(rollout, tag, targets)
+	}
+	sortRollout(rollout)
+	return rollout
+}
+
+// sortRollout sorts the rollout based on tag so it's consisted
+// from run to run, since input to the process is map iterator.
+func sortRollout(r *Rollout) {
+	sort.Slice(r.Configurations, func(i, j int) bool {
+		return r.Configurations[i].Tag < r.Configurations[j].Tag
+	})
+}
+
+// buildRolloutForTag builds the current rollout state.
+// It is expected to be invoked after applySpecTraffic.
+// TODO(vagababov): actually deal with rollouts, vs just report desired state.
+func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
+	// Only main target will have more than 1 element here.
+	for _, rt := range rts {
+		// Skip if it's revision target.
 		if rt.LatestRevision == nil || !*rt.LatestRevision {
 			continue
 		}
 
-		// We know here that mergeIfNecessary will pack the same config targets together.
-		// So no need to check for duplicates.
-		rollout.Configurations = append(rollout.Configurations, ConfigurationRollout{
+		// The targets with the same revision are already joined together.
+		r.Configurations = append(r.Configurations, ConfigurationRollout{
 			ConfigurationName: rt.ConfigurationName,
-			Tag:               rt.Tag,
-			// TODO(vagababov): here will go all the fancy math.
+			Tag:               tag,
 			Revisions: []RevisionRollout{{
 				RevisionName: rt.RevisionName,
-				Percent:      zeroOrVal(rt.Percent),
+				Percent:      int(valIfNil(0, rt.Percent)),
 			}},
 		})
 	}
-	return rollout
-}
-
-func zeroOrVal(p *int64) int {
-	if p != nil {
-		return int(*p)
-	}
-	return 0
 }
 
 func (cb *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
