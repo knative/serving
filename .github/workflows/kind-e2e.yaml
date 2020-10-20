@@ -54,7 +54,7 @@ jobs:
           # TODO(#9874): Un-exclude this when Kourier implements the
           # RewriteHost feature DomainMappings relies on.
         - test-suite: ./test/conformance/api/v1alpha1
-          kingress: kourier
+          k8s-version: v1.18.8
 
     env:
       GOPATH: ${{ github.workspace }}
