@@ -128,6 +128,12 @@ func TestMetricIsReady(t *testing.T) {
 			if e, a := tc.isReady, m.IsReady(); e != a {
 				t.Errorf("Ready = %v, want: %v", a, e)
 			}
+
+			m.Generation = 1
+			m.Status.ObservedGeneration = 2
+			if m.IsReady() {
+				t.Error("Expected IsReady() to be false when Generation != ObservedGeneration")
+			}
 		})
 	}
 }
