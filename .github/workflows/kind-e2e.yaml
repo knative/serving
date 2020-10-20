@@ -50,6 +50,12 @@ jobs:
         - test-suite: ./test/conformance/api/v1alpha1
           test-flags: "--enable-alpha"
 
+        exclude:
+          # TODO(#9874): Un-exclude this when Kourier implements the
+          # RewriteHost feature DomainMappings relies on.
+        - test-suite: ./test/conformance/api/v1alpha1
+          kingress: kourier
+
     env:
       GOPATH: ${{ github.workspace }}
       GO111MODULE: off
