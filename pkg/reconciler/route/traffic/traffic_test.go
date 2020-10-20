@@ -151,7 +151,7 @@ func TestBuildTrafficConfigurationVanilla(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
@@ -213,7 +213,7 @@ func TestBuildTrafficConfigurationNoNameRevision(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
@@ -252,7 +252,7 @@ func TestBuildTrafficConfigurationVanillaScaledToZero(t *testing.T) {
 				Protocol: net.ProtocolHTTP1,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: inactiveConfig.Name,
 				RevisionName:      inactiveRev.Name,
@@ -317,7 +317,7 @@ func TestBuildTrafficConfigurationTwoConfigs(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: niceConfig.Name,
 				RevisionName:      niceNewRev.Name,
@@ -372,7 +372,7 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfig(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: niceConfig.Name,
 				RevisionName:      niceNewRev.Name,
@@ -454,7 +454,7 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 				Protocol: net.ProtocolH2C,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: niceConfig.Name,
 				RevisionName:      niceNewRev.Name,
@@ -543,7 +543,7 @@ func TestBuildTrafficConfigurationCanary(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
@@ -642,7 +642,7 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1.TrafficTarget{
 				Tag:               "one",
 				ConfigurationName: goodConfig.Name,
@@ -724,7 +724,7 @@ func TestBuildTrafficConfigurationTwoFixedRevisions(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
@@ -788,7 +788,7 @@ func TestBuildTrafficConfigurationTwoFixedRevisionsFromTwoConfigurations(t *test
 				Protocol: net.ProtocolH2C,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
@@ -884,7 +884,7 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 				Protocol: net.ProtocolH2C,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
