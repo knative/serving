@@ -25,5 +25,5 @@ import (
 )
 
 func main() {
-	sharedmain.Main("controller", domainmapping.NewController)
+	sharedmain.Main("domainmapping", domainmapping.NewController)
 }

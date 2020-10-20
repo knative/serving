@@ -196,6 +196,10 @@ function install_knative_serving_standard() {
     echo "CRD YAML: ${SERVING_CRD_YAML}"
     kubectl apply -f "${SERVING_CRD_YAML}" || return 1
     UNINSTALL_LIST+=( "${SERVING_CRD_YAML}" )
+
+    echo "DOMAIN MAPPING CRD YAML: ${SERVING_DOMAINMAPPING_CRD_YAML}"
+    kubectl apply -f "${SERVING_DOMAINMAPPING_CRD_YAML}" || return 1
+    UNINSTALL_LIST+=( "${SERVING_DOMAINMAPPING_CRD_YAML}" )
   else
     # Download the latest release of Knative Serving.
     local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
@@ -267,14 +271,17 @@ function install_knative_serving_standard() {
     sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_CORE_YAML} > ${CORE_YAML_NAME}
     local HPA_YAML_NAME=${TMP_DIR}/${SERVING_HPA_YAML##*/}
     sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_HPA_YAML} > ${HPA_YAML_NAME}
+    local DOMAINMAPPING_YAML_NAME=${TMP_DIR}/${SERVING_DOMAINMAPPING_YAML##*/}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_DOMAINMAPPING_YAML} > ${DOMAINMAPPING_YAML_NAME}
     local POST_INSTALL_JOBS_YAML_NAME=${TMP_DIR}/${SERVING_POST_INSTALL_JOBS_YAML##*/}
     sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_POST_INSTALL_JOBS_YAML} > ${POST_INSTALL_JOBS_YAML_NAME}
 
-    echo "Knative YAML: ${CORE_YAML_NAME} and ${HPA_YAML_NAME}"
+    echo "Knative YAML: ${CORE_YAML_NAME} and ${HPA_YAML_NAME} and ${DOMAINMAPPING_YAML_NAME}"
     kubectl apply \
 	    -f "${CORE_YAML_NAME}" \
+	    -f "${DOMAINMAPPING_YAML_NAME}" \
 	    -f "${HPA_YAML_NAME}" || return 1
-    UNINSTALL_LIST+=( "${CORE_YAML_NAME}" "${HPA_YAML_NAME}" )
+    UNINSTALL_LIST+=( "${CORE_YAML_NAME}" "${HPA_YAML_NAME}" "${DOMAINMAPPING_YAML_NAME}" )
     kubectl create -f ${POST_INSTALL_JOBS_YAML_NAME}
   else
     echo "Knative YAML: ${SERVING_RELEASE_YAML}"

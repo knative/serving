@@ -53,6 +53,7 @@ data:
   loglevel.webhook: "debug"
   loglevel.activator: "debug"
   loglevel.hpaautoscaler: "debug"
+  loglevel.domainmapping: "debug"
   loglevel.certcontroller: "debug"
   loglevel.istiocontroller: "debug"
   loglevel.nscontroller: "debug"
