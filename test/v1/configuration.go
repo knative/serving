@@ -19,6 +19,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,7 +36,7 @@ import (
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by names.Image.
-func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (cfg *v1.Configuration, err error) {
+func CreateConfiguration(t testing.TB, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (cfg *v1.Configuration, err error) {
 	config := Configuration(names, fopt...)
 	test.AddTestAnnotation(t, config.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Config: config})
@@ -47,7 +48,7 @@ func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.Resource
 
 // PatchConfig patches the existing configuration passed in with the applied mutations.
 // Returns the latest configuration object
-func PatchConfig(t pkgTest.T, clients *test.Clients, config *v1.Configuration, fopt ...rtesting.ConfigOption) (cfg *v1.Configuration, err error) {
+func PatchConfig(t testing.TB, clients *test.Clients, config *v1.Configuration, fopt ...rtesting.ConfigOption) (cfg *v1.Configuration, err error) {
 	newConfig := config.DeepCopy()
 	for _, opt := range fopt {
 		opt(newConfig)

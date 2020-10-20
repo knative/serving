@@ -25,10 +25,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/kmeta"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/signals"
-	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
 )
@@ -93,11 +91,4 @@ func PemDataFromSecret(ctx context.Context, logf logging.FormatLogger, clients *
 		return []byte{}
 	}
 	return secret.Data[corev1.TLSCertKey]
-}
-
-// AddTestAnnotation adds the knative-e2e-test label to the resource.
-func AddTestAnnotation(t pkgTest.T, m metav1.ObjectMeta) {
-	kmeta.UnionMaps(m.Annotations, map[string]string{
-		testAnnotation: t.Name(),
-	})
 }

@@ -20,6 +20,7 @@ limitations under the License.
 
 package test
 
+// Deprecated: Do not use this. Define your own interface.
 type T interface {
 	Name() string
 	Helper()
@@ -29,6 +30,7 @@ type T interface {
 	Error(args ...interface{})
 }
 
+// Deprecated: Do not use this. Define your own interface.
 type TLegacy interface {
 	T
 	Logf(fmt string, args ...interface{}) // It gets passed to things in logstream

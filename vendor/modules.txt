@@ -935,7 +935,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20201019023658-b76849c9546c
+# knative.dev/caching v0.0.0-20201020014758-fe0a9fab7330
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -956,7 +956,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/networking v0.0.0-20201019071058-ecd132c7658c
+# knative.dev/networking v0.0.0-20201020102659-b36aadbe71df
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -989,7 +989,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20201019114258-95e9532f0457
+# knative.dev/pkg v0.0.0-20201020143758-19995cd8e10b
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1065,6 +1065,7 @@ knative.dev/pkg/signals
 knative.dev/pkg/system
 knative.dev/pkg/system/testing
 knative.dev/pkg/test
+knative.dev/pkg/test/flags
 knative.dev/pkg/test/ghutil
 knative.dev/pkg/test/gke
 knative.dev/pkg/test/ha
@@ -1100,7 +1101,7 @@ knative.dev/pkg/webhook/resourcesemantics
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20201015231956-d236fb0ea9ff
+# knative.dev/test-infra v0.0.0-20201020062259-cd8625126729
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/structured-merge-diff/v3 v3.0.1-0.20200706213357-43c19bbb7fba
