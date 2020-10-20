@@ -34,7 +34,6 @@ import (
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
@@ -235,7 +234,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 		}, {
@@ -257,7 +255,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 		}},
@@ -376,7 +373,6 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
@@ -409,7 +405,6 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -495,7 +490,6 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
@@ -528,7 +522,6 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -628,7 +621,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
@@ -661,7 +653,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -685,7 +676,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
@@ -707,7 +697,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -731,7 +720,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
@@ -753,7 +741,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -840,7 +827,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
@@ -873,7 +859,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -897,7 +882,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
@@ -919,7 +903,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -943,7 +926,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
@@ -965,7 +947,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -1056,7 +1037,6 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 							},
 						},
 					},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}, {
 					Headers: map[string]v1alpha1.HeaderMatch{
 						network.TagHeaderName: {
@@ -1077,7 +1057,6 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 							},
 						},
 					},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}, {
 					AppendHeaders: map[string]string{
 						network.DefaultRouteHeaderName: "true",
@@ -1105,7 +1084,6 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
@@ -1134,7 +1112,6 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 							},
 						},
 					},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}, {
 					Headers: map[string]v1alpha1.HeaderMatch{
 						network.TagHeaderName: {
@@ -1155,7 +1132,6 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 							},
 						},
 					},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}, {
 					AppendHeaders: map[string]string{
 						network.DefaultRouteHeaderName: "true",
@@ -1183,7 +1159,6 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -1210,7 +1185,6 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 					AppendHeaders: map[string]string{
 						network.TagHeaderName: "bar",
 					},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
@@ -1235,7 +1209,6 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 					AppendHeaders: map[string]string{
 						network.TagHeaderName: "bar",
 					},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -1259,7 +1232,6 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 					AppendHeaders: map[string]string{
 						network.TagHeaderName: "foo",
 					},
@@ -1284,7 +1256,6 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 							"Knative-Serving-Namespace": testNamespace,
 						},
 					}},
-					Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 					AppendHeaders: map[string]string{
 						network.TagHeaderName: "foo",
 					},
@@ -1358,7 +1329,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				cf()
 				waitInformers()
 			}()
-			route := Route(testNamespace, uuid.New().String(), WithRouteGeneration(1982),
+			route := Route(testNamespace, "test", WithRouteGeneration(1982),
 				WithRouteLabel(map[string]string{"app": "prod"}))
 			routeClient := fakeservingclient.Get(ctx).ServingV1().Routes(route.Namespace)
 

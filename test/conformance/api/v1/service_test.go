@@ -31,6 +31,7 @@ import (
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 
+	corev1 "k8s.io/api/core/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 )
 
@@ -579,5 +580,53 @@ func TestAnnotationPropagation(t *testing.T) {
 	}
 	if _, ok := objects.Route.Annotations["juicy"]; ok {
 		t.Error("Route still has `juicy` annotation")
+	}
+}
+
+// TestServiceCreateWithMultipleContainers tests both Creation paths for a service.
+// The test performs a series of Validate steps to ensure that the service transitions as expected during each step.
+func TestServiceCreateWithMultipleContainers(t *testing.T) {
+	if !test.ServingFlags.EnableAlphaFeatures {
+		t.Skip()
+	}
+	t.Parallel()
+	clients := test.Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+	}
+
+	// Clean up on test failure or interrupt
+	test.EnsureTearDown(t, clients, &names)
+	// images are used to validate digest in validateControlPlane function
+	images := map[string]string{
+		"serving-container": test.ServingContainer,
+		"sidecar-container": test.SidecarContainer,
+	}
+	containers := []corev1.Container{{
+		Name:  "serving-container",
+		Image: pkgTest.ImagePath(test.ServingContainer),
+		Ports: []corev1.ContainerPort{{
+			ContainerPort: 8881,
+		}},
+	}, {
+		Name:  "sidecar-container",
+		Image: pkgTest.ImagePath(test.SidecarContainer),
+	}}
+
+	// Setup initial Service
+	if _, err := v1test.CreateServiceReadyForMultiContainer(t, clients, &names, func(svc *v1.Service) {
+		svc.Spec.Template.Spec.Containers = containers
+	}); err != nil {
+		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+	}
+
+	// Validate State after Creation
+	if err := validateControlPlane(t, clients, names, "1" /*1 is the expected generation value*/, images); err != nil {
+		t.Error(err)
+	}
+
+	if err := validateDataPlane(t, clients, names, test.MultiContainerResponse); err != nil {
+		t.Error(err)
 	}
 }

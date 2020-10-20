@@ -270,7 +270,7 @@ func (c *Impl) EnqueueSlowKey(key types.NamespacedName) {
 			safeKey(key), c.workQueue.Len(), c.workQueue.SlowLane().Len())
 }
 
-// EnqueueSlow extracts namesspeced name from the object and enqueues it on the slow
+// EnqueueSlow extracts namespaced name from the object and enqueues it on the slow
 // work queue.
 func (c *Impl) EnqueueSlow(obj interface{}) {
 	object, err := kmeta.DeletionHandlingAccessor(obj)

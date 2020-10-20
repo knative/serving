@@ -202,7 +202,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	eg.Go(profilingServer.ListenAndServe)
 
 	// Many of the webhooks rely on configuration, e.g. configurable defaults, feature flags.
-	// So make sure that we have synchonized our configuration state before launching the
+	// So make sure that we have synchronized our configuration state before launching the
 	// webhooks, so that things are properly initialized.
 	logger.Info("Starting configuration manager...")
 	if err := cmw.Start(ctx.Done()); err != nil {
@@ -253,7 +253,7 @@ func flush(logger *zap.SugaredLogger) {
 
 // ParseAndGetConfigOrDie parses the rest config flags and creates a client or
 // dies by calling log.Fatalf.
-// Deprecated: use injeciton.ParseAndGetRESTConfigOrDie
+// Deprecated: use injection.ParseAndGetRESTConfigOrDie
 func ParseAndGetConfigOrDie() *rest.Config {
 	return injection.ParseAndGetRESTConfigOrDie()
 }

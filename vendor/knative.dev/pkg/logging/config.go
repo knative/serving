@@ -69,10 +69,10 @@ func NewLogger(configJSON string, levelOverride string, opts ...zap.Option) (*za
 }
 
 func enrichLoggerWithCommitID(logger *zap.Logger) *zap.SugaredLogger {
-	commmitID, err := changeset.Get()
+	commitID, err := changeset.Get()
 	if err == nil {
 		// Enrich logs with GitHub commit ID.
-		return logger.With(zap.String(logkey.GitHubCommitID, commmitID)).Sugar()
+		return logger.With(zap.String(logkey.GitHubCommitID, commitID)).Sugar()
 	}
 
 	logger.Info("Fetch GitHub commit ID from kodata failed", zap.Error(err))

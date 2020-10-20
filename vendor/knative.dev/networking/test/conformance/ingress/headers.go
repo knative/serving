@@ -102,7 +102,7 @@ func TestProbeHeaders(t *testing.T) {
 
 }
 
-// TestTagHeaders verifies that an Ingress properly dispaches to backends based on the tag header
+// TestTagHeaders verifies that an Ingress properly dispatches to backends based on the tag header
 //
 // See proposal doc for reference:
 // https://docs.google.com/document/d/12t_3NE4EqvW_l0hfVlQcAGKkwkAM56tTn2wN_JtHbSQ/edit?usp=sharing

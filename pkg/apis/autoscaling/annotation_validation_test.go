@@ -152,30 +152,30 @@ func TestValidateAnnotations(t *testing.T) {
 		isInCreate:  true,
 		annotations: map[string]string{MaxScaleAnnotationKey: "9"},
 	}, {
-		name:        "panic window percentange bad",
+		name:        "panic window percentage bad",
 		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "-1"},
 		expectErr:   "expected 1 <= -1 <= 100: " + PanicWindowPercentageAnnotationKey,
 	}, {
-		name:        "panic window percentange bad2",
+		name:        "panic window percentage bad2",
 		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "202"},
 		expectErr:   "expected 1 <= 202 <= 100: " + PanicWindowPercentageAnnotationKey,
 	}, {
-		name:        "panic window percentange bad3",
+		name:        "panic window percentage bad3",
 		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "fifty"},
 		expectErr:   "invalid value: fifty: " + PanicWindowPercentageAnnotationKey,
 	}, {
-		name:        "panic window percentange good",
+		name:        "panic window percentage good",
 		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "210"},
 	}, {
-		name:        "panic threshold percentange bad2",
+		name:        "panic threshold percentage bad2",
 		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "109"},
 		expectErr:   "expected 110 <= 109 <= 1000: " + PanicThresholdPercentageAnnotationKey,
 	}, {
-		name:        "panic threshold percentange bad2.5",
+		name:        "panic threshold percentage bad2.5",
 		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "10009"},
 		expectErr:   "expected 110 <= 10009 <= 1000: " + PanicThresholdPercentageAnnotationKey,
 	}, {
-		name:        "panic threshold percentange bad3",
+		name:        "panic threshold percentage bad3",
 		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "fifty"},
 		expectErr:   "invalid value: fifty: " + PanicThresholdPercentageAnnotationKey,
 	}, {

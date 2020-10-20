@@ -109,7 +109,7 @@ type revisionWatcher struct {
 	logger        *zap.SugaredLogger
 
 	// podsAddressable will be set to false if we cannot
-	// probe a pod directly, but its cluster IP has beeen successfully probed.
+	// probe a pod directly, but its cluster IP has been successfully probed.
 	podsAddressable bool
 }
 

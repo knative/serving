@@ -18,6 +18,7 @@ package traffic
 
 import (
 	"context"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -60,8 +61,9 @@ type Config struct {
 	Visibility map[string]netv1alpha1.IngressVisibility
 
 	// A list traffic targets, flattened to the Revision level.  This
-	// is used to populate the Route.Status.TrafficTarget field.
-	revisionTargets RevisionTargets
+	// is used to populate the Route.Status.TrafficTarget field as well
+	// as compute the rollout state.
+	RevisionTargets RevisionTargets
 
 	// The referred `Configuration`s and `Revision`s.
 	Configurations map[string]*v1.Configuration
@@ -89,8 +91,8 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
 func (cfg *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route) ([]v1.TrafficTarget, error) {
-	results := make([]v1.TrafficTarget, len(cfg.revisionTargets))
-	for i, tt := range cfg.revisionTargets {
+	results := make([]v1.TrafficTarget, len(cfg.RevisionTargets))
+	for i, tt := range cfg.RevisionTargets {
 		var pp *int64
 		if tt.Percent != nil {
 			pp = ptr.Int64(*tt.Percent)
@@ -161,6 +163,50 @@ func newBuilder(
 
 		configurations: make(map[string]*v1.Configuration),
 		revisions:      make(map[string]*v1.Revision),
+	}
+}
+
+// BuildRollout builds the current rollout state.
+// It is expected to be invoked after applySpecTraffic.
+// TODO(vagababov): actually deal with rollouts, vs just report desired state.
+func (cfg *Config) BuildRollout() *Rollout {
+	rollout := &Rollout{}
+
+	for tag, targets := range cfg.Targets {
+		buildRolloutForTag(rollout, tag, targets)
+	}
+	sortRollout(rollout)
+	return rollout
+}
+
+// sortRollout sorts the rollout based on tag so it's consisted
+// from run to run, since input to the process is map iterator.
+func sortRollout(r *Rollout) {
+	sort.Slice(r.Configurations, func(i, j int) bool {
+		return r.Configurations[i].Tag < r.Configurations[j].Tag
+	})
+}
+
+// buildRolloutForTag builds the current rollout state.
+// It is expected to be invoked after applySpecTraffic.
+// TODO(vagababov): actually deal with rollouts, vs just report desired state.
+func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
+	// Only main target will have more than 1 element here.
+	for _, rt := range rts {
+		// Skip if it's revision target.
+		if rt.LatestRevision == nil || !*rt.LatestRevision {
+			continue
+		}
+
+		// The targets with the same revision are already joined together.
+		r.Configurations = append(r.Configurations, ConfigurationRollout{
+			ConfigurationName: rt.ConfigurationName,
+			Tag:               tag,
+			Revisions: []RevisionRollout{{
+				RevisionName: rt.RevisionName,
+				Percent:      int(valIfNil(0, rt.Percent)),
+			}},
+		})
 	}
 }
 
@@ -291,13 +337,21 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	return nil
 }
 
+// valIfNil returns `val` if `ptr==nil`, or `*ptr` otherwise.
+func valIfNil(val int64, ptr *int64) int64 {
+	if ptr == nil {
+		return val
+	}
+	return *ptr
+}
+
 // This find the exact revision+tag pair and if so, just adds the percentages.
 // This expects single digit lists, so just does an O(N) search.
 func mergeIfNecessary(rts RevisionTargets, rt RevisionTarget) RevisionTargets {
 	for i := range rts {
 		if rts[i].Tag == rt.Tag && rts[i].RevisionName == rt.RevisionName &&
 			*rt.LatestRevision == *rts[i].LatestRevision {
-			rts[i].Percent = ptr.Int64(*rts[i].Percent + *rt.Percent)
+			rts[i].Percent = ptr.Int64(valIfNil(0, rts[i].Percent) + valIfNil(0, rt.Percent))
 			return rts
 		}
 	}
@@ -321,7 +375,7 @@ func (cb *configBuilder) build() (*Config, error) {
 	}
 	return &Config{
 		Targets:         consolidateAll(cb.targets),
-		revisionTargets: cb.revisionTargets,
+		RevisionTargets: cb.revisionTargets,
 		Configurations:  cb.configurations,
 		Revisions:       cb.revisions,
 		MissingTargets:  cb.missingTargets,

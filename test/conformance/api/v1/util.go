@@ -121,27 +121,38 @@ func validateDataPlane(t pkgTest.TLegacy, clients *test.Clients, names test.Reso
 // Validates the state of Configuration, Revision, and Route objects for a runLatest Service.
 // The checks in this method should be able to be performed at any point in a
 // runLatest Service's lifecycle so long as the service is in a "Ready" state.
-func validateControlPlane(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedGeneration string) error {
+func validateControlPlane(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedGeneration string, imagesForMultipleContainers ...map[string]string) error {
 	t.Log("Checking to ensure Revision is in desired state with", "generation", expectedGeneration)
-	err := v1test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1.Revision) (bool, error) {
+	if err := v1test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1.Revision) (bool, error) {
 		if ready, err := v1test.IsRevisionReady(r); !ready {
 			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %w", names.Revision, err)
 		}
-		if validDigest, err := shared.ValidateImageDigest(t, names.Image, r.Status.DeprecatedImageDigest); !validDigest {
-			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.DeprecatedImageDigest, names.Image, err)
+		// for multi containers there will be more than one container and names.Image is a string,
+		// so in order to validate imageDigest for each images validateControlPlane accepting optional field called imagesForMultipleContainers
+		if names.Image == "" {
+			for _, value := range imagesForMultipleContainers {
+				for _, v := range r.Status.ContainerStatuses {
+					if image, ok := value[v.Name]; ok {
+						if validDigest, err := shared.ValidateImageDigest(t, image, v.ImageDigest); !validDigest {
+							return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", v.ImageDigest, image, err)
+						}
+					}
+				}
+			}
+		} else if validDigest, err := shared.ValidateImageDigest(t, names.Image, r.Status.ContainerStatuses[0].ImageDigest); !validDigest {
+			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.ContainerStatuses[0].ImageDigest, names.Image, err)
 		}
 		return true, nil
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
-	err = v1test.CheckRevisionState(clients.ServingClient, names.Revision, v1test.IsRevisionAtExpectedGeneration(expectedGeneration))
-	if err != nil {
+
+	if err := v1test.CheckRevisionState(clients.ServingClient, names.Revision, v1test.IsRevisionAtExpectedGeneration(expectedGeneration)); err != nil {
 		return fmt.Errorf("revision %s did not have an expected annotation with generation %s: %w", names.Revision, expectedGeneration, err)
 	}
 
 	t.Log("Checking to ensure Configuration is in desired state.")
-	err = v1test.CheckConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
+	if err := v1test.CheckConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
 			return false, fmt.Errorf("Configuration(%s).LatestCreatedRevisionName = %q, want %q",
 				names.Config, c.Status.LatestCreatedRevisionName, names.Revision)
@@ -151,14 +162,12 @@ func validateControlPlane(t *testing.T, clients *test.Clients, names test.Resour
 				names.Config, c.Status.LatestReadyRevisionName, names.Revision)
 		}
 		return true, nil
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 
 	t.Log("Checking to ensure Route is in desired state with", "generation", expectedGeneration)
-	err = v1test.CheckRouteState(clients.ServingClient, names.Route, v1test.AllRouteTrafficAtRevision(names))
-	if err != nil {
+	if err := v1test.CheckRouteState(clients.ServingClient, names.Route, v1test.AllRouteTrafficAtRevision(names)); err != nil {
 		return fmt.Errorf("the Route %s was not updated to route traffic to the Revision %s: %w", names.Route, names.Revision, err)
 	}
 
@@ -172,7 +181,7 @@ func validateLabelsPropagation(t pkgTest.T, objects v1test.ResourceObjects, name
 	revision := objects.Revision
 
 	if revision.Labels["serving.knative.dev/configuration"] != names.Config {
-		return fmt.Errorf("expect Confguration name in Revision label %q but got %q ", names.Config, revision.Labels["serving.knative.dev/configuration"])
+		return fmt.Errorf("expect Configuration name in Revision label %q but got %q ", names.Config, revision.Labels["serving.knative.dev/configuration"])
 	}
 	if revision.Labels["serving.knative.dev/service"] != names.Service {
 		return fmt.Errorf("expect Service name in Revision label %q but got %q ", names.Service, revision.Labels["serving.knative.dev/service"])

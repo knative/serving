@@ -157,7 +157,7 @@ func (ac *reconciler) decodeRequestAndPrepareContext(
 func validate(ctx context.Context, resource resourcesemantics.GenericCRD, req *admissionv1.AdmissionRequest) error {
 	logger := logging.FromContext(ctx)
 
-	// Only run validation for supported create and update validaiton.
+	// Only run validation for supported create and update validation.
 	switch req.Operation {
 	case admissionv1.Create, admissionv1.Update:
 		// Supported verbs

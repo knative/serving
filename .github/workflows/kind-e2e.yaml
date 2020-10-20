@@ -25,12 +25,13 @@ jobs:
         test-suite:
         - ./test/conformance/runtime
         - ./test/conformance/api/v1
+        - ./test/conformance/api/v1alpha1
         - ./test/e2e
 
-        # Map between K8s and KinD versions.
-        # This is attempting to make it a bit clearer what's being tested.
-        # See: https://github.com/kubernetes-sigs/kind/releases/tag/v0.9.0
         include:
+          # Map between K8s and KinD versions.
+          # This is attempting to make it a bit clearer what's being tested.
+          # See: https://github.com/kubernetes-sigs/kind/releases/tag/v0.9.0
         - k8s-version: v1.17.11
           kind-version: v0.9.0
           kind-image-sha: sha256:5240a7a2c34bf241afb54ac05669f8a46661912eab05705d660971eeb12f6555
@@ -43,17 +44,21 @@ jobs:
           kind-version: v0.9.0
           kind-image-sha: sha256:98cf5288864662e37115e362b23e4369c8c4a408f99cbc06e58ac30ddc721600
           kingress: contour
-        # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
-        # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
-        # thus allowing us to test without bypassing tag-to-digest resolution.
-        - registry-name: registry.local
-          registry-port: 5000
-          registry-url: registry.local:5000
+
+          # The tests in api/v1alpha1 require the --enable-alpha flag to be set,
+          # and alpha components to be deployed.
+        - test-suite: ./test/conformance/api/v1alpha1
+          test-flags: "--enable-alpha"
 
     env:
       GOPATH: ${{ github.workspace }}
       GO111MODULE: off
-      KO_DOCKER_REPO: ${{ matrix.registry-url }}/knative
+      # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
+      # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
+      # thus allowing us to test without bypassing tag-to-digest resolution.
+      REGISTRY_NAME: registry.local
+      REGISTRY_PORT: 5000
+      KO_DOCKER_REPO: registry.local:5000/knative
 
     steps:
     - name: Set up Go 1.14.x
@@ -97,8 +102,8 @@ jobs:
         # Configure registry for KinD.
         containerdConfigPatches:
         - |-
-          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."${{ matrix.registry-url }}"]
-            endpoint = ["http://${{ matrix.registry-url }}"]
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."$REGISTRY_NAME:$REGISTRY_PORT"]
+            endpoint = ["http://$REGISTRY_NAME:$REGISTRY_PORT"]
 
         # This is needed in order to support projected volumes with service account tokens.
         # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
@@ -145,18 +150,20 @@ jobs:
     - name: Setup local registry
       run: |
         # Run a registry.
-        docker run --detach --restart=always \
-          --name ${{ matrix.registry-name }} \
-          -p ${{ matrix.registry-port }}:${{ matrix.registry-port }} \
-          registry:2
+        docker run -d --restart=always \
+          -p $REGISTRY_PORT:$REGISTRY_PORT --name $REGISTRY_NAME registry:2
 
         # Connect the registry to the KinD network.
-        docker network connect "kind" ${{ matrix.registry-name }}
+        docker network connect "kind" $REGISTRY_NAME
 
-        # Set up DNS for `ko`.
-        sudo echo "127.0.0.1 ${{ matrix.registry-name }}" | sudo tee -a /etc/hosts
+        # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
+        # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
+        sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
 
     - name: Install Knative Serving
+      env:
+        GO111MODULE: on
+        GOFLAGS: -mod=vendor
       run: |
         set -o pipefail
 
@@ -164,8 +171,6 @@ jobs:
         kubectl apply -f config/core/300-imagecache.yaml
 
         # Build and Publish our containers to the docker daemon (including test assets)
-        export GO111MODULE=on
-        export GOFLAGS=-mod=vendor
         ko apply --platform=all -Pf test/config/
         ko apply --platform=all -PRf config/core
 
@@ -177,6 +182,14 @@ jobs:
 
         # Be KinD to these tests.
         kubectl scale -nknative-serving deployment/chaosduck --replicas=0
+
+    - name: Install Alpha Components
+      if: contains(matrix.test-flags, '--enable-alpha')
+      env:
+        GO111MODULE: on
+        GOFLAGS: -mod=vendor
+      run: |
+        ko apply --platform=all -PRf config/domain-mapping
 
     - name: Wait for Webhook to be up
       run: |
@@ -253,4 +266,5 @@ jobs:
 
         # Run the tests tagged as e2e on the KinD cluster.
         go test -race -count=1 -timeout=20m -tags=e2e ${{ matrix.test-suite }} \
-           --ingressendpoint="${IPS[0]}"
+           --ingressendpoint="${IPS[0]}" \
+           ${{ matrix.test-flags }}

@@ -22,7 +22,7 @@ import (
 
 	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "github.com/tsenart/vegeta/v12/lib"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/mako"
 )

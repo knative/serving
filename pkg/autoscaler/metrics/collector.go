@@ -354,9 +354,9 @@ func (c *collection) lastError() error {
 func (c *collection) record(now time.Time, stat Stat) {
 	// Proxied requests have been counted at the activator. Subtract
 	// them to avoid double counting.
-	concurr := stat.AverageConcurrentRequests - stat.AverageProxiedConcurrentRequests
-	c.concurrencyBuckets.Record(now, concurr)
-	c.concurrencyPanicBuckets.Record(now, concurr)
+	concur := stat.AverageConcurrentRequests - stat.AverageProxiedConcurrentRequests
+	c.concurrencyBuckets.Record(now, concur)
+	c.concurrencyPanicBuckets.Record(now, concur)
 	rps := stat.RequestCount - stat.ProxiedRequestCount
 	c.rpsBuckets.Record(now, rps)
 	c.rpsPanicBuckets.Record(now, rps)

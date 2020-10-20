@@ -104,7 +104,7 @@ func TestNewConfig(t *testing.T) {
 			return c
 		}(),
 	}, {
-		name: "concurrencty target percentage as percent",
+		name: "concurrency target percentage as percent",
 		input: map[string]string{
 			"container-concurrency-target-percentage": "55",
 		},
