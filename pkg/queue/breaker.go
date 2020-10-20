@@ -26,8 +26,6 @@ import (
 )
 
 var (
-	// ErrUpdateCapacity indicates that the capacity could not be updated as wished.
-	ErrUpdateCapacity = errors.New("failed to add all capacity to the breaker")
 	// ErrRelease indicates that release was called more often than acquire.
 	ErrRelease = errors.New("semaphore release error: returned tokens must be <= acquired tokens")
 	// ErrRequestQueueFull indicates the breaker queue depth was exceeded.
@@ -167,8 +165,8 @@ func (b *Breaker) InFlight() int {
 }
 
 // UpdateConcurrency updates the maximum number of in-flight requests.
-func (b *Breaker) UpdateConcurrency(size int) error {
-	return b.sem.updateCapacity(size)
+func (b *Breaker) UpdateConcurrency(size int) {
+	b.sem.updateCapacity(size)
 }
 
 // Capacity returns the number of allowed in-flight requests on this breaker.
@@ -268,11 +266,7 @@ func (s *semaphore) release() error {
 }
 
 // updateCapacity updates the capacity of the semaphore to the desired size.
-func (s *semaphore) updateCapacity(size int) error {
-	if size < 0 || size > cap(s.queue) {
-		return ErrUpdateCapacity
-	}
-
+func (s *semaphore) updateCapacity(size int) {
 	s64 := uint64(size)
 	for {
 		old := s.state.Load()
@@ -280,7 +274,7 @@ func (s *semaphore) updateCapacity(size int) error {
 
 		if capacity == s64 {
 			// Nothing to do, exit early.
-			return nil
+			return
 		}
 
 		if s.state.CAS(old, pack(s64, in)) {
@@ -293,7 +287,7 @@ func (s *semaphore) updateCapacity(size int) error {
 					}
 				}
 			}
-			return nil
+			return
 		}
 	}
 }
