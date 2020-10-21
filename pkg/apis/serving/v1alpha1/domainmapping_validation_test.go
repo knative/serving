@@ -56,7 +56,7 @@ func TestDomainMappingValidation(t *testing.T) {
 		name: "ref in wrong namespace",
 		want: &apis.FieldError{
 			Paths:   []string{"spec.ref.namespace"},
-			Message: "Ref namespace must be empty or equal to the domain mapping namespace \"good-namespace\"",
+			Message: `Ref namespace must be empty or equal to the domain mapping namespace "good-namespace"`,
 		},
 		dm: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
