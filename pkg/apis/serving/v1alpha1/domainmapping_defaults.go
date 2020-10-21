@@ -5,8 +5,8 @@ import (
 )
 
 // SetDefaults implements apis.Defaultable.
-func (r *DomainMapping) SetDefaults(ctx context.Context) {
-	if r.Spec.Ref.Namespace == "" {
-		r.Spec.Ref.Namespace = r.Namespace
+func (dm *DomainMapping) SetDefaults(ctx context.Context) {
+	if dm.Spec.Ref.Namespace == "" {
+		dm.Spec.Ref.Namespace = dm.Namespace
 	}
 }

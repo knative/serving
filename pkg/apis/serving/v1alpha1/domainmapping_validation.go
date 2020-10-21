@@ -12,16 +12,16 @@ import (
 // Validate makes sure that DomainMapping is properly configured.
 func (dm *DomainMapping) Validate(ctx context.Context) *apis.FieldError {
 	return validateMetadata(ctx, dm.ObjectMeta).ViaField("metadata").
-		Also(validateSpec(ctx, dm.Spec, dm.ObjectMeta).ViaField("spec"))
+		Also(validateSpec(dm.Spec, dm.ObjectMeta).ViaField("spec"))
 }
 
 // validateSpec validates the Spec of a DomainMapping.
-func validateSpec(ctx context.Context, spec DomainMappingSpec, md metav1.ObjectMeta) (errs *apis.FieldError) {
-	return errs.Also(validateRef(ctx, spec.Ref, md).ViaField("ref"))
+func validateSpec(spec DomainMappingSpec, md metav1.ObjectMeta) (errs *apis.FieldError) {
+	return errs.Also(validateRef(spec.Ref, md).ViaField("ref"))
 }
 
 // validateRef validates the Ref field of a DomainMapping.
-func validateRef(ctx context.Context, ref duckv1.KReference, md metav1.ObjectMeta) (errs *apis.FieldError) {
+func validateRef(ref duckv1.KReference, md metav1.ObjectMeta) (errs *apis.FieldError) {
 	if ref.Name == "" {
 		errs = errs.Also(apis.ErrMissingField("name"))
 	}
