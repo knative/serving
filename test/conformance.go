@@ -17,6 +17,8 @@ limitations under the License.
 package test
 
 import (
+	"testing"
+
 	// For our e2e testing, we want this linked first so that our
 	// systen namespace environment variable is defaulted prior to
 	// logstream initialization.
@@ -67,7 +69,7 @@ const (
 )
 
 // Setup creates client to run Knative Service requests
-func Setup(t pkgTest.TLegacy) *Clients {
+func Setup(t testing.TB) *Clients {
 	t.Helper()
 
 	cancel := logstream.Start(t)

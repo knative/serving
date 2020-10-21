@@ -22,7 +22,7 @@ github.com/Azure/go-autorest
 # github.com/Azure/go-autorest/autorest v0.10.2
 github.com/Azure/go-autorest/autorest
 github.com/Azure/go-autorest/autorest/azure
-# github.com/Azure/go-autorest/autorest/adal v0.8.3 => github.com/Azure/go-autorest/autorest/adal v0.9.5
+# github.com/Azure/go-autorest/autorest/adal v0.9.5
 github.com/Azure/go-autorest/autorest/adal
 # github.com/Azure/go-autorest/autorest/date v0.3.0
 github.com/Azure/go-autorest/autorest/date
@@ -158,7 +158,7 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/google/go-containerregistry v0.1.3
+# github.com/google/go-containerregistry v0.1.4-0.20201020135303-da2eb53b5bd1
 ## explicit
 github.com/google/go-containerregistry/pkg/authn
 github.com/google/go-containerregistry/pkg/authn/k8schain
@@ -291,7 +291,7 @@ github.com/tsenart/vegeta/v12/internal/resolver
 github.com/tsenart/vegeta/v12/lib
 github.com/tsenart/vegeta/v12/lib/lttb
 github.com/tsenart/vegeta/v12/lib/plot
-# github.com/vdemeester/k8s-pkg-credentialprovider v1.17.4
+# github.com/vdemeester/k8s-pkg-credentialprovider v1.18.1-0.20201019120933-f1d16962a4db
 github.com/vdemeester/k8s-pkg-credentialprovider
 github.com/vdemeester/k8s-pkg-credentialprovider/aws
 github.com/vdemeester/k8s-pkg-credentialprovider/azure
@@ -928,14 +928,14 @@ k8s.io/kube-openapi/pkg/generators
 k8s.io/kube-openapi/pkg/generators/rules
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/util/sets
-# k8s.io/legacy-cloud-providers v0.17.4
+# k8s.io/legacy-cloud-providers v0.18.8
 k8s.io/legacy-cloud-providers/azure/auth
 # k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
 k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20201019023658-b76849c9546c
+# knative.dev/caching v0.0.0-20201020014758-fe0a9fab7330
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -956,7 +956,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/networking v0.0.0-20201019071058-ecd132c7658c
+# knative.dev/networking v0.0.0-20201020102659-b36aadbe71df
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -989,7 +989,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20201019114258-95e9532f0457
+# knative.dev/pkg v0.0.0-20201020143758-19995cd8e10b
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1065,6 +1065,7 @@ knative.dev/pkg/signals
 knative.dev/pkg/system
 knative.dev/pkg/system/testing
 knative.dev/pkg/test
+knative.dev/pkg/test/flags
 knative.dev/pkg/test/ghutil
 knative.dev/pkg/test/gke
 knative.dev/pkg/test/ha
@@ -1100,14 +1101,13 @@ knative.dev/pkg/webhook/resourcesemantics
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20201015231956-d236fb0ea9ff
+# knative.dev/test-infra v0.0.0-20201020062259-cd8625126729
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/structured-merge-diff/v3 v3.0.1-0.20200706213357-43c19bbb7fba
 sigs.k8s.io/structured-merge-diff/v3/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.9.5
 # k8s.io/api => k8s.io/api v0.18.8
 # k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.8
 # k8s.io/apimachinery => k8s.io/apimachinery v0.18.8

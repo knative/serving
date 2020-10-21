@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,14 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package logstream
-
-type null struct{}
-
-var _ streamer = (*null)(nil)
-
-// Start implements streamer
-func (*null) Start(t ti) Canceler {
-	t.Log("logstream was requested, but SYSTEM_NAMESPACE was unset.")
-	return func() {}
-}
+// Package resources is a placeholder that allows us to pull in config files
+// via go mod vendor.
+package resources

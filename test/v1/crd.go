@@ -17,8 +17,9 @@ limitations under the License.
 package v1
 
 import (
+	"testing"
+
 	"github.com/davecgh/go-spew/spew"
-	pkgTest "knative.dev/pkg/test"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -31,6 +32,6 @@ type ResourceObjects struct {
 }
 
 // LogResourceObject logs the resource object with the resource name and value
-func LogResourceObject(t pkgTest.T, value ResourceObjects) {
+func LogResourceObject(t testing.TB, value ResourceObjects) {
 	t.Log("", "resource", spew.Sprint(value))
 }

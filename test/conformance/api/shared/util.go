@@ -47,7 +47,7 @@ var DigestResolutionExceptions = sets.NewString("kind.local", "ko.local", "dev.l
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
 // Will wait up to 6 times the scaleToZeroGracePeriod (30 seconds) before failing.
-func WaitForScaleToZero(t pkgTest.TLegacy, deploymentName string, clients *test.Clients) error {
+func WaitForScaleToZero(t testing.TB, deploymentName string, clients *test.Clients) error {
 	t.Helper()
 	t.Logf("Waiting for %q to scale to zero", deploymentName)
 
@@ -126,7 +126,7 @@ func substrInList(key string, targets []string) string {
 }
 
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
-func checkResponses(t pkgTest.TLegacy, num, min int, domain string, expectedResponses, actualResponses []string) error {
+func checkResponses(t testing.TB, num, min int, domain string, expectedResponses, actualResponses []string) error {
 	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int, len(expectedResponses))
 	// badCounts maps the unexpected response body to the number of matching requests we saw.
@@ -181,7 +181,7 @@ func checkResponses(t pkgTest.TLegacy, num, min int, domain string, expectedResp
 
 // CheckDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
-func CheckDistribution(ctx context.Context, t pkgTest.TLegacy, clients *test.Clients, url *url.URL, num, min int, expectedResponses []string) error {
+func CheckDistribution(ctx context.Context, t testing.TB, clients *test.Clients, url *url.URL, num, min int, expectedResponses []string) error {
 	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return err
