@@ -97,13 +97,9 @@ func (s *namespaceSource) watchPods() error {
 				case watch.Deleted:
 					watchedPods.Delete(p.Name)
 				case watch.Added, watch.Modified:
-					if watchedPods.Has(p.Name) {
-						continue
-					}
-					if isPodReady(p) {
+					if !watchedPods.Has(p.Name) && isPodReady(p) {
 						watchedPods.Insert(p.Name)
 						s.startForPod(p)
-						continue
 					}
 				}
 
@@ -146,8 +142,7 @@ func (s *namespaceSource) startForPod(pod *corev1.Pod) {
 			}
 			defer stream.Close()
 			// Read this container's stream.
-			scanner := bufio.NewScanner(stream)
-			for scanner.Scan() {
+			for scanner := bufio.NewScanner(stream); scanner.Scan(); {
 				handleLine(scanner.Bytes(), pn)
 			}
 			// Pods get killed with chaos duck, so logs might end

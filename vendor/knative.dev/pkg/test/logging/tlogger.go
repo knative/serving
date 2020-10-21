@@ -160,7 +160,7 @@ func (o *TLogger) interfacesToFields(things ...interface{}) []interface{} {
 	return fields
 }
 
-func (o *TLogger) errorWithRuntimeCheck(stringThenKeysAndValues ...interface{}) (error, string, []interface{}) { //nolint Returning the error first is okay and expected here.
+func (o *TLogger) errorWithRuntimeCheck(stringThenKeysAndValues ...interface{}) (error, string, []interface{}) { //nolint // Returning the error first is okay and expected here.
 	if len(stringThenKeysAndValues) == 0 {
 		return nil, "", nil
 	}

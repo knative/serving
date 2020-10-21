@@ -286,8 +286,8 @@ func (in *HTTPIngressPath) DeepCopyInto(out *HTTPIngressPath) {
 			(*out)[key] = val
 		}
 	}
-	if in.Timeout != nil {
-		in, out := &in.Timeout, &out.Timeout
+	if in.DeprecatedTimeout != nil {
+		in, out := &in.DeprecatedTimeout, &out.DeprecatedTimeout
 		*out = new(v1.Duration)
 		**out = **in
 	}
