@@ -103,7 +103,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:a012bfe4e80bb694d8050c34fe4075ea6d5f389f6fb96b78b0e8d53db474db42
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:e5774d920d3001594d79afd2f0e5cb7f14b035f6d495bc2b43e94172e1b48b7b
           imagePullPolicy: Always
           name: kourier-control
           env:
@@ -115,6 +115,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: METRICS_DOMAIN
+              value: "knative.dev/samples"
             - name: KOURIER_GATEWAY_NAMESPACE
               value: "kourier-system"
           ports:
