@@ -50,10 +50,12 @@ var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakeservingclientset.AddToScheme,
 }
 
+// Listers provides access to Listers for various objects.
 type Listers struct {
 	sorter testing.ObjectSorter
 }
 
+// NewListers returns a new Listers.
 func NewListers(objs []runtime.Object) Listers {
 	scheme := NewScheme()
 
@@ -66,6 +68,7 @@ func NewListers(objs []runtime.Object) Listers {
 	return ls
 }
 
+// NewScheme returns a new runtime.Scheme.
 func NewScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 
@@ -75,6 +78,7 @@ func NewScheme() *runtime.Scheme {
 	return scheme
 }
 
+// NewScheme returns a new runtime.Scheme.
 func (*Listers) NewScheme() *runtime.Scheme {
 	return NewScheme()
 }
@@ -84,30 +88,37 @@ func (l *Listers) IndexerFor(obj runtime.Object) cache.Indexer {
 	return l.sorter.IndexerForObjectType(obj)
 }
 
+// GetKubeObjects returns the runtime.Objects from the fakekubeclientset.
 func (l *Listers) GetKubeObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakekubeclientset.AddToScheme)
 }
 
+// GetCachingObjects returns the runtime.Objects from the fakecachingclientset.
 func (l *Listers) GetCachingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakecachingclientset.AddToScheme)
 }
 
+// GetServingObjects returns the runtime.Objects from the fakeservingclientset.
 func (l *Listers) GetServingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakeservingclientset.AddToScheme)
 }
 
+// GetNetworkingObjects returns the runtime.Objects from the fakenetworkingclientset.
 func (l *Listers) GetNetworkingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakenetworkingclientset.AddToScheme)
 }
 
+// GetServiceLister returns a lister for Service objects.
 func (l *Listers) GetServiceLister() servinglisters.ServiceLister {
 	return servinglisters.NewServiceLister(l.IndexerFor(&v1.Service{}))
 }
 
+// GetRouteLister returns a lister for Route objects.
 func (l *Listers) GetRouteLister() servinglisters.RouteLister {
 	return servinglisters.NewRouteLister(l.IndexerFor(&v1.Route{}))
 }
 
+// GetDomainMappingLister returns a lister for DomainMapping objects.
 func (l *Listers) GetDomainMappingLister() servingv1alpha1listers.DomainMappingLister {
 	return servingv1alpha1listers.NewDomainMappingLister(l.IndexerFor(&v1alpha1.DomainMapping{}))
 }
@@ -117,14 +128,17 @@ func (l *Listers) GetServerlessServiceLister() networkinglisters.ServerlessServi
 	return networkinglisters.NewServerlessServiceLister(l.IndexerFor(&networking.ServerlessService{}))
 }
 
+// GetConfigurationLister gets the Configuration lister.
 func (l *Listers) GetConfigurationLister() servinglisters.ConfigurationLister {
 	return servinglisters.NewConfigurationLister(l.IndexerFor(&v1.Configuration{}))
 }
 
+// GetRevisionLister gets the Revision lister.
 func (l *Listers) GetRevisionLister() servinglisters.RevisionLister {
 	return servinglisters.NewRevisionLister(l.IndexerFor(&v1.Revision{}))
 }
 
+// GetPodAutoscalerLister gets the PodAutoscaler lister.
 func (l *Listers) GetPodAutoscalerLister() palisters.PodAutoscalerLister {
 	return palisters.NewPodAutoscalerLister(l.IndexerFor(&av1alpha1.PodAutoscaler{}))
 }
@@ -154,18 +168,22 @@ func (l *Listers) GetKnCertificateLister() networkinglisters.CertificateLister {
 	return networkinglisters.NewCertificateLister(l.IndexerFor(&networking.Certificate{}))
 }
 
+// GetImageLister returns a lister for Image objects.
 func (l *Listers) GetImageLister() cachinglisters.ImageLister {
 	return cachinglisters.NewImageLister(l.IndexerFor(&cachingv1alpha1.Image{}))
 }
 
+// GetDeploymentLister returns a lister for Deployment objects.
 func (l *Listers) GetDeploymentLister() appsv1listers.DeploymentLister {
 	return appsv1listers.NewDeploymentLister(l.IndexerFor(&appsv1.Deployment{}))
 }
 
+// GetK8sServiceLister returns a lister for K8sService objects.
 func (l *Listers) GetK8sServiceLister() corev1listers.ServiceLister {
 	return corev1listers.NewServiceLister(l.IndexerFor(&corev1.Service{}))
 }
 
+// GetEndpointsLister returns a lister for Endpoints objects.
 func (l *Listers) GetEndpointsLister() corev1listers.EndpointsLister {
 	return corev1listers.NewEndpointsLister(l.IndexerFor(&corev1.Endpoints{}))
 }

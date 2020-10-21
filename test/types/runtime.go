@@ -173,6 +173,7 @@ type UserInfo struct {
 	Cwd  *Cwd `json:"cwd"`
 }
 
+// Cwd represents the Current Working Directory for a user.
 type Cwd struct {
 	Directory string `json:"directory"`
 	Error     string `json:"error"`

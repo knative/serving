@@ -72,6 +72,7 @@ type Reconciler struct {
 // Check that our Reconciler implements pareconciler.Interface
 var _ pareconciler.Interface = (*Reconciler)(nil)
 
+// ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutoscaler) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 

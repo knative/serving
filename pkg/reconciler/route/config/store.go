@@ -28,6 +28,7 @@ import (
 
 type cfgKey struct{}
 
+// Config is the configuration for the route reconciler.
 // +k8s:deepcopy-gen=false
 type Config struct {
 	Domain   *Domain
@@ -36,6 +37,7 @@ type Config struct {
 	Features *cfgmap.Features
 }
 
+// FromContext obtains a Config injected into the passed context.
 func FromContext(ctx context.Context) *Config {
 	return ctx.Value(cfgKey{}).(*Config)
 }
@@ -55,6 +57,7 @@ func FromContextOrDefaults(ctx context.Context) *Config {
 	return cfg
 }
 
+// ToContext stores the configuration Config in the passed context.
 func ToContext(ctx context.Context, c *Config) context.Context {
 	return context.WithValue(ctx, cfgKey{}, c)
 }
@@ -96,10 +99,12 @@ func NewStore(ctx context.Context, onAfterStore ...func(name string, value inter
 	return store
 }
 
+// ToContext stores the configuration Store in the passed context.
 func (s *Store) ToContext(ctx context.Context) context.Context {
 	return ToContext(ctx, s.Load())
 }
 
+// Load creates a Config for this store.
 func (s *Store) Load() *Config {
 	config := &Config{
 		Domain:   s.UntypedLoad(DomainConfigName).(*Domain).DeepCopy(),
