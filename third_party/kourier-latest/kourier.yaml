@@ -93,7 +93,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: 3scale-kourier-control
