@@ -215,7 +215,7 @@ issue, for example).
 
 ### Deploy Knative Ingress
 
-Knative supports Istio, Contour, and Kourier as the Ingress solution.
+Knative supports a variety of Ingress solutions.
 
 For simplicity, you can just run the following command to install Kourier.
 ```
@@ -227,9 +227,9 @@ kubectl patch configmap/config-network \
   -p '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
 ```
 
-Alternatively, you can follow the development instructions of either [Istio](https://github.com/knative-sandbox/net-istio/blob/master/DEVELOPMENT.md)
-or [Contour](https://github.com/knative-sandbox/net-contour/blob/master/DEVELOPMENT.md) to develop Knative
-against them respectively.
+If you want to choose other Ingress solutions, you can follow the step 3 in the [Knative installation
+doc](https://knative.dev/docs/install/any-kubernetes-cluster/#installing-the-serving-component) to
+pick up the Ingress solution and install it.
 
 ## Iterating
 
