@@ -26,8 +26,8 @@ import (
 )
 
 // Validate makes sure that DomainMapping is properly configured.
-func (dm *DomainMapping) Validate(ctx context.Context) *apis.FieldError {
-	return validateMetadata(ctx, dm.ObjectMeta).ViaField("metadata").
+func (dm *DomainMapping) Validate(_ context.Context) *apis.FieldError {
+	return validateMetadata(dm.ObjectMeta).ViaField("metadata").
 		Also(validateSpec(dm.Spec, dm.ObjectMeta).ViaField("spec"))
 }
 
@@ -53,7 +53,7 @@ func validateRef(ref duckv1.KReference, md metav1.ObjectMeta) (errs *apis.FieldE
 }
 
 // validateMetadata validates the metadata section of a DomainMapping.
-func validateMetadata(ctx context.Context, md metav1.ObjectMeta) (errs *apis.FieldError) {
+func validateMetadata(md metav1.ObjectMeta) (errs *apis.FieldError) {
 	if md.Name == "" {
 		errs = errs.Also(apis.ErrMissingField("name"))
 	}
