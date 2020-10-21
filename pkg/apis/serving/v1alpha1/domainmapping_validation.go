@@ -27,24 +27,24 @@ import (
 
 // Validate makes sure that DomainMapping is properly configured.
 func (dm *DomainMapping) Validate(_ context.Context) *apis.FieldError {
-	return validateMetadata(dm.ObjectMeta).ViaField("metadata").
-		Also(validateSpec(dm.Spec, dm.ObjectMeta).ViaField("spec"))
+	return validateMetadata(&dm.ObjectMeta).ViaField("metadata").
+		Also(dm.validateSpec().ViaField("spec"))
 }
 
 // validateSpec validates the Spec of a DomainMapping.
-func validateSpec(spec DomainMappingSpec, md metav1.ObjectMeta) (errs *apis.FieldError) {
-	return errs.Also(validateRef(spec.Ref, md).ViaField("ref"))
+func (dm *DomainMapping) validateSpec() (errs *apis.FieldError) {
+	return errs.Also(validateRef(&dm.Spec.Ref, dm.Namespace).ViaField("ref"))
 }
 
 // validateRef validates the Ref field of a DomainMapping.
-func validateRef(ref duckv1.KReference, md metav1.ObjectMeta) (errs *apis.FieldError) {
+func validateRef(ref *duckv1.KReference, ns string) (errs *apis.FieldError) {
 	if ref.Name == "" {
 		errs = errs.Also(apis.ErrMissingField("name"))
 	}
 
-	if ref.Namespace != "" && ref.Namespace != md.Namespace {
+	if ref.Namespace != "" && ref.Namespace != ns {
 		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprintf("Ref namespace must be empty or equal to the domain mapping namespace %q", md.Namespace),
+			Message: fmt.Sprintf("Ref namespace must be empty or equal to the domain mapping namespace %q", ns),
 			Paths:   []string{"namespace"},
 		})
 	}
@@ -53,10 +53,10 @@ func validateRef(ref duckv1.KReference, md metav1.ObjectMeta) (errs *apis.FieldE
 }
 
 // validateMetadata validates the metadata section of a DomainMapping.
-func validateMetadata(md metav1.ObjectMeta) (errs *apis.FieldError) {
+func validateMetadata(md *metav1.ObjectMeta) (errs *apis.FieldError) {
 	if md.Name == "" {
-		errs = errs.Also(apis.ErrMissingField("name"))
+		return errs.Also(apis.ErrMissingField("name"))
 	}
 
-	return errs
+	return nil
 }
