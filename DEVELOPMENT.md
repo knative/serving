@@ -176,6 +176,8 @@ while [[ $(kubectl get crd images.caching.internal.knative.dev -o jsonpath='{.st
   echo "Waiting on Knative CRDs"; sleep 1
 done
 
+ko apply -Rf config/core/
+
 # Optional steps
 
 # Run post-install job to set up nice XIP.IO domain name.  This only works
@@ -218,6 +220,7 @@ issue, for example).
 Knative supports a variety of Ingress solutions.
 
 For simplicity, you can just run the following command to install Kourier.
+
 ```
 kubectl apply -f https://github.com/knative/net-kourier/releases/download/v0.18.0/kourier.yaml
 
@@ -227,9 +230,9 @@ kubectl patch configmap/config-network \
   -p '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
 ```
 
-If you want to choose other Ingress solutions, you can follow the step 3 in the [Knative installation
+If you want to choose another Ingress solution, you can follow step 3 in the [Knative installation
 doc](https://knative.dev/docs/install/any-kubernetes-cluster/#installing-the-serving-component) to
-pick up the Ingress solution and install it.
+pick up an alternative Ingress solution and install it.
 
 ## Iterating
 
