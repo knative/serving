@@ -454,7 +454,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		},
 		cfgOpts: []configOption{withPodSpecFieldRefEnabled()},
 		want: &apis.FieldError{
-			Message: "volume with name \"the-name\" not mounted",
+			Message: `volume with name "the-name" not mounted`,
 			Paths:   []string{"volumes[0].name"}},
 	}, {
 		name: "Volume mounts ok when having multiple containers",
@@ -526,7 +526,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 			},
 		},
 		want: &apis.FieldError{
-			Message: "volume with name \"the-name2\" not mounted",
+			Message: `volume with name "the-name2" not mounted`,
 			Paths:   []string{"volumes[1].name"},
 		}},
 	}
