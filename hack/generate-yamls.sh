@@ -94,7 +94,7 @@ ko resolve ${KO_YAML_FLAGS} -f config/core/300-resources/ -f config/core/300-ima
 ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
 
 # Create domain mapping related yaml
-ko resolve ${KO_YAML_FLAGS} -f config/domain-mapping/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_DOMAINMAPPING_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/domain-mapping/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_DOMAINMAPPING_YAML}"
 ko resolve ${KO_YAML_FLAGS} -f config/domain-mapping/300-resources/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_DOMAINMAPPING_CRD_YAML}"
 
 # Create nscert related yaml

@@ -346,7 +346,7 @@ func prometheusPort() (int, error) {
 
 // JsonToMetricsOptions converts a json string of a
 // ExporterOptions. Returns a non-nil ExporterOptions always.
-func JsonToMetricsOptions(jsonOpts string) (*ExporterOptions, error) { // nolint No rename due to backwards incompatibility.
+func JsonToMetricsOptions(jsonOpts string) (*ExporterOptions, error) { //nolint // No rename due to backwards incompatibility.
 	var opts ExporterOptions
 	if jsonOpts == "" {
 		return nil, errors.New("json options string is empty")
@@ -360,7 +360,7 @@ func JsonToMetricsOptions(jsonOpts string) (*ExporterOptions, error) { // nolint
 }
 
 // MetricsOptionsToJson converts a ExporterOptions to a json string.
-func MetricsOptionsToJson(opts *ExporterOptions) (string, error) { // nolint No rename due to backwards incompatibility.
+func MetricsOptionsToJson(opts *ExporterOptions) (string, error) { //nolint // No rename due to backwards incompatibility.
 	if opts == nil {
 		return "", nil
 	}

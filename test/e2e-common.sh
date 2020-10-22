@@ -389,6 +389,12 @@ function test_setup() {
   # Clean up kail so it doesn't interfere with job shutting down
   add_trap "kill $kail_pid || true" EXIT
 
+  # Capture lease changes
+  kubectl get lease -A -w -o yaml > ${ARTIFACTS}/leases-$(basename ${E2E_SCRIPT}).log &
+  local leases_pid=$!
+  # Clean up the lease logging so it doesn't interfere with job shutting down
+  add_trap "kill $leases_pid || true" EXIT
+
   echo ">> Waiting for Serving components to be running..."
   wait_until_pods_running ${SYSTEM_NAMESPACE} || return 1
 
