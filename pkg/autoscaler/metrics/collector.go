@@ -24,6 +24,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/clock"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
@@ -111,7 +112,11 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 // CreateOrUpdate either creates a collection for the given metric or update it, should
 // it already exist.
 func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
-	scraper, err := c.statsScraperFactory(metric, c.logger)
+	logger := c.logger.With(zap.Object(logkey.Key, logging.NamespacedName(types.NamespacedName{
+		Namespace: metric.Namespace,
+		Name:      metric.Name,
+	})))
+	scraper, err := c.statsScraperFactory(metric, logger)
 	if err != nil {
 		return err
 	}
@@ -127,7 +132,7 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 		return collection.lastError()
 	}
 
-	c.collections[key] = newCollection(metric, scraper, c.clock, c.Inform, c.logger)
+	c.collections[key] = newCollection(metric, scraper, c.clock, c.Inform, logger)
 	return nil
 }
 
