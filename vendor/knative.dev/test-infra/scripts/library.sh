@@ -399,21 +399,6 @@ function start_knative_serving() {
   wait_until_pods_running knative-serving || return 1
 }
 
-# Install Knative Monitoring in the current cluster.
-# Parameters: $1 - Knative Monitoring manifest.
-function start_knative_monitoring() {
-  header "Starting Knative Monitoring"
-  subheader "Installing Knative Monitoring"
-  # namespace istio-system needs to be created first, due to the comment
-  # mentioned in
-  # https://github.com/knative/serving/blob/4202efc0dc12052edc0630515b101cbf8068a609/config/monitoring/tracing/zipkin/100-zipkin.yaml#L21
-  kubectl create namespace istio-system 2>/dev/null
-  echo "Installing Monitoring from $1"
-  kubectl apply -f "$1" || return 1
-  wait_until_pods_running knative-monitoring || return 1
-  wait_until_pods_running istio-system || return 1
-}
-
 # Install the stable release Knative/serving in the current cluster.
 # Parameters: $1 - Knative Serving version number, e.g. 0.6.0.
 function start_release_knative_serving() {
@@ -769,5 +754,4 @@ readonly KNATIVE_SERVING_RELEASE_CRDS="$(get_latest_knative_yaml_source "serving
 readonly KNATIVE_SERVING_RELEASE_CORE="$(get_latest_knative_yaml_source "serving" "serving-core")"
 readonly KNATIVE_NET_ISTIO_RELEASE="$(get_latest_knative_yaml_source "net-istio" "net-istio")"
 readonly KNATIVE_EVENTING_RELEASE="$(get_latest_knative_yaml_source "eventing" "eventing")"
-readonly KNATIVE_MONITORING_RELEASE="$(get_latest_knative_yaml_source "serving" "monitoring")"
 readonly KNATIVE_EVENTING_SUGAR_CONTROLLER_RELEASE="$(get_latest_knative_yaml_source "eventing" "eventing-sugar-controller")"
