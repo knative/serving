@@ -73,6 +73,7 @@ const (
 	ConfigurationConditionReady = apis.ConditionReady
 )
 
+// IsConfigurationCondition returns true if the given ConditionType is a ConfigurationCondition.
 func IsConfigurationCondition(t apis.ConditionType) bool {
 	return t == ConfigurationConditionReady
 }

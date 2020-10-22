@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+// EnvConfig is the config parsed from environment variables by envconfig.
 type EnvConfig struct {
 	FullHostName                  string `envconfig:"full_host_name" required:"true"`
 	DomainName                    string `envconfig:"domain_name" required:"true"`
@@ -36,11 +37,13 @@ type EnvConfig struct {
 	IngressIP                     string `envconfig:"ingress_ip" required:"true"`
 }
 
+// DNSRecord represents an IP and Domain.
 type DNSRecord struct {
 	IP     string
 	Domain string
 }
 
+// MakeRecordSet creates a dns.ResourceRecordSet for a DNSRecord.
 func MakeRecordSet(record *DNSRecord) *dns.ResourceRecordSet {
 	dnsName := record.Domain + "."
 	return &dns.ResourceRecordSet{

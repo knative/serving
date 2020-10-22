@@ -175,6 +175,9 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 	return nil
 }
 
+// CreateAndVerifyInitialScaleConfiguration creates a Configuration with the
+// `initialScale` annotation set and validates the `wantPods` number of pods
+// are created.
 func CreateAndVerifyInitialScaleConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int) {
 	t.Log("Creating a new Configuration.", "configuration", names.Config)
 	_, err := v1test.CreateConfiguration(t, clients, names, func(configuration *v1.Configuration) {

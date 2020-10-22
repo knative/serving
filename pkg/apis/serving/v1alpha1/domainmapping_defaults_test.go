@@ -21,8 +21,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	authv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 func TestDomainMappingDefaulting(t *testing.T) {
@@ -81,5 +84,104 @@ func TestDomainMappingDefaulting(t *testing.T) {
 		if !cmp.Equal(test.out, test.in) {
 			t.Errorf("SetDefaults (-want, +got):\n%s", cmp.Diff(test.out, test.in))
 		}
+	}
+}
+
+func TestDomainMappingUserInfo(t *testing.T) {
+	const (
+		u1 = "oveja@knative.dev"
+		u2 = "cabra@knative.dev"
+		u3 = "vaca@knative.dev"
+	)
+	withUserAnns := func(u1, u2 string, s *DomainMapping) *DomainMapping {
+		a := s.GetAnnotations()
+		if a == nil {
+			a = map[string]string{}
+			s.SetAnnotations(a)
+		}
+		a[serving.CreatorAnnotation] = u1
+		a[serving.UpdaterAnnotation] = u2
+		return s
+	}
+	tests := []struct {
+		name     string
+		user     string
+		this     *DomainMapping
+		prev     *DomainMapping
+		wantAnns map[string]string
+	}{{
+		name: "create-new",
+		user: u1,
+		this: &DomainMapping{},
+		prev: nil,
+		wantAnns: map[string]string{
+			serving.CreatorAnnotation: u1,
+			serving.UpdaterAnnotation: u1,
+		},
+	}, {
+		name: "update-no-diff-new-object",
+		user: u2,
+		this: withUserAnns(u1, u1, &DomainMapping{}),
+		prev: withUserAnns(u1, u1, &DomainMapping{}),
+		wantAnns: map[string]string{
+			serving.CreatorAnnotation: u1,
+			serving.UpdaterAnnotation: u1,
+		},
+	}, {
+		name: "update-diff-old-object",
+		user: u2,
+		this: &DomainMapping{
+			Spec: DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Name: "new",
+				},
+			},
+		},
+		prev: &DomainMapping{
+			Spec: DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Name: "old",
+				},
+			},
+		},
+		wantAnns: map[string]string{
+			serving.UpdaterAnnotation: u2,
+		},
+	}, {
+		name: "update-diff-new-object",
+		user: u3,
+		this: withUserAnns(u1, u2, &DomainMapping{
+			Spec: DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Name: "new",
+				},
+			},
+		}),
+		prev: withUserAnns(u1, u2, &DomainMapping{
+			Spec: DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Name: "old",
+				},
+			},
+		}),
+		wantAnns: map[string]string{
+			serving.CreatorAnnotation: u1,
+			serving.UpdaterAnnotation: u3,
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := apis.WithUserInfo(context.Background(), &authv1.UserInfo{
+				Username: test.user,
+			})
+			if test.prev != nil {
+				ctx = apis.WithinUpdate(ctx, test.prev)
+				test.prev.SetDefaults(ctx)
+			}
+			test.this.SetDefaults(ctx)
+			if got, want := test.this.GetAnnotations(), test.wantAnns; !cmp.Equal(got, want) {
+				t.Errorf("Annotations = %v, want: %v, diff (-got, +want): %s", got, want, cmp.Diff(got, want))
+			}
+		})
 	}
 }

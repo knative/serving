@@ -36,7 +36,7 @@ type Rollout struct {
 	Configurations []ConfigurationRollout `json:"configurations,omitempty"`
 }
 
-// ConfigRollout describes the rollout state for a given config+tag pair.
+// ConfigurationRollout describes the rollout state for a given config+tag pair.
 type ConfigurationRollout struct {
 	// Name + tag pair uniquely identifies the rollout target.
 	// `tag` will be empty, if this is the `DefaultTarget`.

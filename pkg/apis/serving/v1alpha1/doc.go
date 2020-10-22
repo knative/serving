@@ -14,10 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +k8s:deepcopy-gen=package
+// +groupName=serving.knative.dev
+
+// Package v1alpha1 contains the v1alpha1 versions of the serving apis.
 // Api versions allow the api contract for a resource to be changed while keeping
 // backward compatibility by support multiple concurrent versions
 // of the same resource
-
-// +k8s:deepcopy-gen=package
-// +groupName=serving.knative.dev
 package v1alpha1

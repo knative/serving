@@ -48,11 +48,16 @@ const (
 	// UserQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy for end user.
 	UserQueueMetricsPortName = "http-usermetric"
+)
 
+const (
+	// AnnotationParseErrorTypeMissing is the value of the Type field for
+	// AnnotationParseErrors which indicate an annotation was missing.
 	AnnotationParseErrorTypeMissing = "Missing"
+
+	// AnnotationParseErrorTypeInvalid is the value of the Type field for
+	// AnnotationParseErrors which indicate an annotation was invalid.
 	AnnotationParseErrorTypeInvalid = "Invalid"
-	LabelParserErrorTypeMissing     = "Missing"
-	LabelParserErrorTypeInvalid     = "Invalid"
 )
 
 const (
@@ -77,6 +82,8 @@ type (
 	RoutingState string
 
 	// +k8s:deepcopy-gen=false
+
+	// AnnotationParseError is the error type representing failures to parse annotations.
 	AnnotationParseError struct {
 		Type  string
 		Value string
@@ -84,6 +91,9 @@ type (
 	}
 
 	// +k8s:deepcopy-gen=false
+
+	// LastPinnedParseError is the error returned when the lastPinned annotation
+	// could not be parsed.
 	LastPinnedParseError AnnotationParseError
 )
 

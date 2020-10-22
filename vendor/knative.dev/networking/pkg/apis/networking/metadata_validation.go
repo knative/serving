@@ -14,23 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package networking
 
 import (
-	"context"
+	"strings"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/apis"
-	"knative.dev/serving/pkg/apis/serving"
 )
 
-// SetDefaults implements apis.Defaultable.
-func (dm *DomainMapping) SetDefaults(ctx context.Context) {
-	ctx = apis.WithinParent(ctx, dm.ObjectMeta)
-	dm.Spec.Ref.SetDefaults(apis.WithinSpec(ctx))
+var (
+	allowedAnnotations = sets.NewString(
+		DisableAutoTLSAnnotationKey,
+		CertificateClassAnnotationKey,
+	)
+)
 
-	if apis.IsInUpdate(ctx) {
-		serving.SetUserInfo(ctx, apis.GetBaseline(ctx).(*DomainMapping).Spec, dm.Spec, dm)
-	} else {
-		serving.SetUserInfo(ctx, nil, dm.Spec, dm)
+// ValidateAnnotations validates that `annotations` in `metadata` stanza of the
+// resources is correct.
+func ValidateAnnotations(annotations map[string]string) (errs *apis.FieldError) {
+	for key := range annotations {
+		if !allowedAnnotations.Has(key) && strings.HasPrefix(key, "networking.knative.dev") {
+			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
+		}
 	}
+	return errs
 }

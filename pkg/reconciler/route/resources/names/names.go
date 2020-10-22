@@ -21,10 +21,12 @@ import (
 	"knative.dev/pkg/network"
 )
 
+// K8sService returns the name of the K8sService for a given route.
 func K8sService(route kmeta.Accessor) string {
 	return route.GetName()
 }
 
+// K8sServiceFullname returns the full name of the K8sService for a given route.
 func K8sServiceFullname(route kmeta.Accessor) string {
 	return network.GetServiceHostname(K8sService(route), route.GetNamespace())
 }

@@ -104,6 +104,7 @@ func (c *Reconciler) getServices(route *v1.Route) ([]*corev1.Service, error) {
 	return serviceCopy, nil
 }
 
+// ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 	logger.Debugf("Reconciling route: %#v", r.Spec)
