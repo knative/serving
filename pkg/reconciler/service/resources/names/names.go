@@ -18,10 +18,12 @@ package names
 
 import "knative.dev/pkg/kmeta"
 
+// Configuration returns a configuration name based on a given service name.
 func Configuration(service kmeta.Accessor) string {
 	return service.GetName()
 }
 
+// Route returns a route name based on a given service name.
 func Route(service kmeta.Accessor) string {
 	return service.GetName()
 }

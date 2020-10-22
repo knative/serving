@@ -20,4 +20,6 @@ import (
 	kle "knative.dev/pkg/leaderelection"
 )
 
+// ValidateConfig re-exports the NewConfigFromConfigMap function from pkg/leaderelection
+// in order for config_test.go to validate the config map.
 var ValidateConfig = kle.NewConfigFromConfigMap

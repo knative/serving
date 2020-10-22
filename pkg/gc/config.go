@@ -30,12 +30,17 @@ import (
 )
 
 const (
+	// ConfigName is the name of the config map for garbage collection.
 	ConfigName = "config-gc"
-	Disabled   = -1
+
+	// Disabled is the value (-1) used by various config map values to indicate
+	// the setting is disabled.
+	Disabled = -1
 
 	disabled = "disabled"
 )
 
+// Config defines the tunable parameters for Garbage Collection.
 type Config struct {
 	// Delay duration after a revision create before considering it for GC
 	StaleRevisionCreateDelay time.Duration
@@ -79,6 +84,7 @@ func defaultConfig() *Config {
 	}
 }
 
+// NewConfigFromConfigMapFunc creates a Config from the supplied ConfigMap func.
 func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.ConfigMap) (*Config, error) {
 	logger := logging.FromContext(ctx)
 	minRevisionTimeout := controller.GetResyncPeriod(ctx)

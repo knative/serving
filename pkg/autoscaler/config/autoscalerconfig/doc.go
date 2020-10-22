@@ -16,4 +16,5 @@ limitations under the License.
 
 // +k8s:deepcopy-gen=package
 
+// Package autoscalerconfig contains the config struct for the autoscaler.
 package autoscalerconfig

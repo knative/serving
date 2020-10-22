@@ -55,6 +55,7 @@ type Reconciler struct {
 // Check that our Reconciler implements configreconciler.Interface
 var _ configreconciler.Interface = (*Reconciler)(nil)
 
+// ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
