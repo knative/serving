@@ -20,10 +20,17 @@ import (
 	"context"
 
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 // SetDefaults implements apis.Defaultable.
 func (dm *DomainMapping) SetDefaults(ctx context.Context) {
 	ctx = apis.WithinParent(ctx, dm.ObjectMeta)
 	dm.Spec.Ref.SetDefaults(apis.WithinSpec(ctx))
+
+	if apis.IsInUpdate(ctx) {
+		serving.SetUserInfo(ctx, apis.GetBaseline(ctx).(*DomainMapping).Spec, dm.Spec, dm)
+	} else {
+		serving.SetUserInfo(ctx, nil, dm.Spec, dm)
+	}
 }

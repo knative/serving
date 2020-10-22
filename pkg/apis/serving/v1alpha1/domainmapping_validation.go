@@ -21,15 +21,23 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 // Validate makes sure that DomainMapping is properly configured.
 func (dm *DomainMapping) Validate(ctx context.Context) *apis.FieldError {
 	errs := validateMetadata(dm.ObjectMeta).ViaField("metadata")
 
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*DomainMapping)
+		errs = errs.Also(
+			apis.ValidateCreatorAndModifier(original.Spec, dm.Spec,
+				original.GetAnnotations(), dm.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"),
+		)
+	}
+
 	ctx = apis.WithinParent(ctx, dm.ObjectMeta)
 	errs = errs.Also(dm.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
-
 	return errs
 }
 

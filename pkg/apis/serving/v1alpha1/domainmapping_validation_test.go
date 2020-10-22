@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 func TestDomainMappingValidation(t *testing.T) {
@@ -89,6 +90,132 @@ func TestDomainMappingValidation(t *testing.T) {
 			got := test.dm.Validate(ctx)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got):\n%s", cmp.Diff(test.want.Error(), got.Error()))
+			}
+		})
+	}
+}
+
+func TestDomainMappingAnnotationUpdate(t *testing.T) {
+	const (
+		u1 = "oveja@knative.dev"
+		u2 = "cabra@knative.dev"
+		u3 = "vaca@knative.dev"
+	)
+	spec := func(name string) DomainMappingSpec {
+		return DomainMappingSpec{
+			Ref: duckv1.KReference{
+				Name:       name,
+				Kind:       "Service",
+				APIVersion: "serving.knative.dev/v1",
+			},
+		}
+	}
+	tests := []struct {
+		name string
+		prev *DomainMapping
+		this *DomainMapping
+		want *apis.FieldError
+	}{{
+		name: "update creator annotation",
+		this: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u2,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: spec("old"),
+		},
+		prev: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: spec("old"),
+		},
+		want: (&apis.FieldError{Message: "annotation value is immutable",
+			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+	}, {
+		name: "update creator annotation with spec changes",
+		this: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u2,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: spec("new"),
+		},
+		prev: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: spec("old"),
+		},
+		want: (&apis.FieldError{Message: "annotation value is immutable",
+			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+	}, {
+		name: "update lastModifier annotation without spec changes",
+		this: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u2,
+				},
+			},
+			Spec: spec("old"),
+		},
+		prev: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: spec("old"),
+		},
+		want: apis.ErrInvalidValue(u2, serving.UpdaterAnnotation).ViaField("metadata.annotations"),
+	}, {
+		name: "update lastModifier annotation with spec changes",
+		this: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u3,
+				},
+			},
+			Spec: spec("new"),
+		},
+		prev: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: spec("old"),
+		},
+		want: nil,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.prev)
+			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
+				t.Error("Validate (-want, +got) =", diff)
 			}
 		})
 	}
