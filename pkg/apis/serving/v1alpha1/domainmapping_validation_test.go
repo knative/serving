@@ -34,7 +34,7 @@ func TestDomainMappingValidation(t *testing.T) {
 		want *apis.FieldError
 	}{{
 		name: "uses GenerateName rather than Name",
-		want: apis.ErrDisallowedFields("metadata.GenerateName"),
+		want: apis.ErrDisallowedFields("metadata.generateName"),
 		dm: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "cant-use-this",
