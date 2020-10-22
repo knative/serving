@@ -38,8 +38,8 @@ func (dm *DomainMapping) Validate(ctx context.Context) *apis.FieldError {
 
 // validateMetadata validates the metadata section of a DomainMapping.
 func (dm *DomainMapping) validateMetadata(ctx context.Context) (errs *apis.FieldError) {
-	if dm.Name == "" {
-		errs = errs.Also(apis.ErrMissingField("name"))
+	if dm.GenerateName != "" {
+		errs = errs.Also(apis.ErrDisallowedFields("GenerateName"))
 	}
 
 	if apis.IsInUpdate(ctx) {
