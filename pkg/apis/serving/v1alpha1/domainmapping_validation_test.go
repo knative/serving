@@ -82,6 +82,38 @@ func TestDomainMappingValidation(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "ref wrong Kind",
+		want: apis.ErrGeneric(`must be "Service"`, "spec.ref.kind"),
+		dm: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "wrong-kind",
+				Namespace: "ns",
+			},
+			Spec: DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Name:       "some-name",
+					APIVersion: "serving.knative.dev/v1",
+					Kind:       "BadService",
+				},
+			},
+		},
+	}, {
+		name: "ref wrong ApiVersion",
+		want: apis.ErrGeneric(`must be "serving.knative.dev/v1"`, "spec.ref.apiVersion"),
+		dm: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "wrong-version",
+				Namespace: "ns",
+			},
+			Spec: DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Name:       "some-name",
+					APIVersion: "bad.version/v1",
+					Kind:       "Service",
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {
