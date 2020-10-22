@@ -137,13 +137,13 @@ func TestMakeIngressWithRollout(t *testing.T) {
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
-	ia, err := MakeIngress(testContext(), r, cfg, nil, ingressClass)
+	ing, err := MakeIngress(testContext(), r, cfg, nil, ingressClass)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
 
-	if !cmp.Equal(expected, ia.ObjectMeta) {
-		t.Error("Unexpected metadata (-want, +got):", cmp.Diff(expected, ia.ObjectMeta))
+	if !cmp.Equal(expected, ing.ObjectMeta) {
+		t.Error("Unexpected metadata (-want, +got):", cmp.Diff(expected, ing.ObjectMeta))
 	}
 }
 
@@ -153,11 +153,11 @@ func TestIngressNoKubectlAnnotation(t *testing.T) {
 		networking.IngressClassAnnotationKey: testIngressClass,
 		corev1.LastAppliedConfigAnnotation:   testAnnotationValue,
 	}), WithRouteUID("1234-5678"), WithURL)
-	ia, err := MakeIngress(testContext(), r, &traffic.Config{Targets: targets}, nil, testIngressClass)
+	ing, err := MakeIngress(testContext(), r, &traffic.Config{Targets: targets}, nil, testIngressClass)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
-	if v, ok := ia.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
+	if v, ok := ing.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
 		t.Errorf("Annotation %s = %q, want empty", corev1.LastAppliedConfigAnnotation, v)
 	}
 }
