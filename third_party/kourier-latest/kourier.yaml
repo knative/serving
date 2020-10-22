@@ -34,6 +34,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
 spec:
+  replicas: 2
   selector:
     matchLabels:
       app: 3scale-kourier-gateway
@@ -42,7 +43,6 @@ spec:
       labels:
         app: 3scale-kourier-gateway
     spec:
-      replicas: 2
       containers:
         - args:
             - --base-id 1
