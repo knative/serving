@@ -95,6 +95,58 @@ func TestMakeIngressCorrectMetadata(t *testing.T) {
 	}
 }
 
+func TestMakeIngressWithRollout(t *testing.T) {
+	cfg := &traffic.Config{
+		Targets: map[string]traffic.RevisionTargets{
+			traffic.DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "valhalla",
+					LatestRevision:    ptr.Bool(true),
+					Percent:           ptr.Int64(100),
+					RevisionName:      "valhalla-01982",
+				},
+				ServiceName: "mia",
+			}},
+		},
+	}
+	const (
+		ingressClass         = "ng-ingress"
+		passdownIngressClass = "ok-ingress"
+	)
+	r := Route(ns, "test-route", WithRouteLabel(map[string]string{
+		serving.RouteLabelKey:          "try-to-override",
+		serving.RouteNamespaceLabelKey: "try-to-override",
+		"test-label":                   "foo",
+	}), WithRouteAnnotation(map[string]string{
+		networking.IngressClassAnnotationKey: passdownIngressClass,
+		"test-annotation":                    "bar",
+	}), WithRouteUID("1234-5678"), WithURL)
+	expected := metav1.ObjectMeta{
+		Name:      "test-route",
+		Namespace: ns,
+		Labels: map[string]string{
+			serving.RouteLabelKey:          "test-route",
+			serving.RouteNamespaceLabelKey: ns,
+			"test-label":                   "foo",
+		},
+		Annotations: map[string]string{
+			// Make sure to get passdownIngressClass instead of ingressClass
+			networking.IngressClassAnnotationKey: passdownIngressClass,
+			"test-annotation":                    "bar",
+			traffic.RolloutAnnotationKey:         serializeRollout(context.Background(), cfg.BuildRollout()),
+		},
+		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
+	}
+	ia, err := MakeIngress(testContext(), r, cfg, nil, ingressClass)
+	if err != nil {
+		t.Error("Unexpected error", err)
+	}
+
+	if !cmp.Equal(expected, ia.ObjectMeta) {
+		t.Error("Unexpected metadata (-want, +got):", cmp.Diff(expected, ia.ObjectMeta))
+	}
+}
+
 func TestIngressNoKubectlAnnotation(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	r := Route(ns, testRouteName, WithRouteAnnotation(map[string]string{
