@@ -18,11 +18,12 @@ package v1alpha1
 
 import (
 	"context"
+
+	"knative.dev/pkg/apis"
 )
 
 // SetDefaults implements apis.Defaultable.
 func (dm *DomainMapping) SetDefaults(ctx context.Context) {
-	if dm.Spec.Ref.Namespace == "" {
-		dm.Spec.Ref.Namespace = dm.Namespace
-	}
+	ctx = apis.WithinParent(ctx, dm.ObjectMeta)
+	dm.Spec.Ref.SetDefaults(apis.WithinSpec(ctx))
 }

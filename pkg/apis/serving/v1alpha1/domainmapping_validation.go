@@ -18,42 +18,28 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // Validate makes sure that DomainMapping is properly configured.
-func (dm *DomainMapping) Validate(_ context.Context) *apis.FieldError {
-	return validateMetadata(&dm.ObjectMeta).ViaField("metadata").
-		Also(dm.validateSpec().ViaField("spec"))
-}
+func (dm *DomainMapping) Validate(ctx context.Context) *apis.FieldError {
+	errs := validateMetadata(dm.ObjectMeta).ViaField("metadata")
 
-// validateSpec validates the Spec of a DomainMapping.
-func (dm *DomainMapping) validateSpec() (errs *apis.FieldError) {
-	return errs.Also(validateRef(&dm.Spec.Ref, dm.Namespace).ViaField("ref"))
-}
-
-// validateRef validates the Ref field of a DomainMapping.
-func validateRef(ref *duckv1.KReference, ns string) (errs *apis.FieldError) {
-	if ref.Name == "" {
-		errs = errs.Also(apis.ErrMissingField("name"))
-	}
-
-	if ref.Namespace != "" && ref.Namespace != ns {
-		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprintf("Ref namespace must be empty or equal to the domain mapping namespace %q", ns),
-			Paths:   []string{"namespace"},
-		})
-	}
+	ctx = apis.WithinParent(ctx, dm.ObjectMeta)
+	errs = errs.Also(dm.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 
 	return errs
 }
 
+// Validate makes sure the DomainMappingSpec is properly configured.
+func (spec *DomainMappingSpec) Validate(ctx context.Context) *apis.FieldError {
+	return spec.Ref.Validate(ctx).ViaField("ref")
+}
+
 // validateMetadata validates the metadata section of a DomainMapping.
-func validateMetadata(md *metav1.ObjectMeta) (errs *apis.FieldError) {
+func validateMetadata(md metav1.ObjectMeta) (errs *apis.FieldError) {
 	if md.Name == "" {
 		return errs.Also(apis.ErrMissingField("name"))
 	}

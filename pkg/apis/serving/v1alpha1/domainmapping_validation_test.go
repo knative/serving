@@ -40,7 +40,9 @@ func TestDomainMappingValidation(t *testing.T) {
 			},
 			Spec: DomainMappingSpec{
 				Ref: duckv1.KReference{
-					Name: "some-name",
+					Name:       "some-name",
+					APIVersion: "serving.knative.dev/v1",
+					Kind:       "Service",
 				},
 			},
 		},
@@ -51,12 +53,19 @@ func TestDomainMappingValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "missing-ref",
 			},
+			Spec: DomainMappingSpec{
+				Ref: duckv1.KReference{
+					APIVersion: "serving.knative.dev/v1",
+					Kind:       "Service",
+				},
+			},
 		},
 	}, {
 		name: "ref in wrong namespace",
 		want: &apis.FieldError{
 			Paths:   []string{"spec.ref.namespace"},
-			Message: `Ref namespace must be empty or equal to the domain mapping namespace "good-namespace"`,
+			Details: `parent namespace: "good-namespace" does not match ref: "bad-namespace"`,
+			Message: `mismatched namespaces`,
 		},
 		dm: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
@@ -65,8 +74,10 @@ func TestDomainMappingValidation(t *testing.T) {
 			},
 			Spec: DomainMappingSpec{
 				Ref: duckv1.KReference{
-					Name:      "some-name",
-					Namespace: "bad-namespace",
+					Name:       "some-name",
+					Namespace:  "bad-namespace",
+					APIVersion: "serving.knative.dev/v1",
+					Kind:       "Service",
 				},
 			},
 		},
