@@ -41,6 +41,7 @@ type reconciler struct {
 // Check that our reconciler implements configreconciler.Interface
 var _ configreconciler.Interface = (*reconciler)(nil)
 
+// ReconcileKind implements Interface.ReconcileKind.
 func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
 	switch configns.FromContext(ctx).Features.ResponsiveRevisionGC {
 

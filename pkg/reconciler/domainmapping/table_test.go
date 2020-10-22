@@ -307,6 +307,8 @@ func withRef(namespace, name string) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Spec.Ref.Namespace = namespace
 		dm.Spec.Ref.Name = name
+		dm.Spec.Ref.APIVersion = "serving.knative.dev/v1"
+		dm.Spec.Ref.Kind = "Service"
 	}
 }
 

@@ -31,10 +31,17 @@ import (
 // deferred so that the logstream can be stopped when the test is complete.
 type Canceler = logstreamv2.Canceler
 
+type ti interface {
+	Name() string
+	Error(args ...interface{})
+	Log(args ...interface{})
+	Logf(fmt string, args ...interface{})
+}
+
 // Start begins streaming the logs from system components with a `key:` matching
 // `test.ObjectNameForTest(t)` to `t.Log`.  It returns a Canceler, which must
 // be called before the test completes.
-func Start(t test.TLegacy) Canceler {
+func Start(t ti) Canceler {
 	// Do this lazily to make import ordering less important.
 	once.Do(func() {
 		if ns := os.Getenv(system.NamespaceEnvKey); ns != "" {
@@ -56,7 +63,7 @@ func Start(t test.TLegacy) Canceler {
 }
 
 type streamer interface {
-	Start(t test.TLegacy) Canceler
+	Start(t ti) Canceler
 }
 
 var (
@@ -68,7 +75,7 @@ type shim struct {
 	logstreamv2.Source
 }
 
-func (s *shim) Start(t test.TLegacy) Canceler {
+func (s *shim) Start(t ti) Canceler {
 	name := helpers.ObjectPrefixForTest(t)
 	canceler, err := s.StartStream(name, t.Logf)
 

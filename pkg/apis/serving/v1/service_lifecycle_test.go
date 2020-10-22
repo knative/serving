@@ -166,6 +166,12 @@ func TestServiceIsReady(t *testing.T) {
 		if e, a := tc.isReady, s.IsReady(); e != a {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
+
+		s.Generation = 1
+		s.Status.ObservedGeneration = 2
+		if s.IsReady() {
+			t.Error("Expected IsReady() to be false when Generation != ObservedGeneration")
+		}
 	}
 }
 

@@ -207,7 +207,7 @@ type Impl struct {
 
 // ControllerOptions encapsulates options for creating a new controller,
 // including throttling and stats behavior.
-type ControllerOptions struct { //nolint for backcompat.
+type ControllerOptions struct { //nolint // for backcompat.
 	WorkQueueName string
 	Logger        *zap.SugaredLogger
 	Reporter      StatsReporter

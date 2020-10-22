@@ -102,11 +102,11 @@ func (p *podTracker) Capacity() int {
 	return p.b.Capacity()
 }
 
-func (p *podTracker) UpdateConcurrency(c int) error {
+func (p *podTracker) UpdateConcurrency(c int) {
 	if p.b == nil {
-		return nil
+		return
 	}
-	return p.b.UpdateConcurrency(c)
+	p.b.UpdateConcurrency(c)
 }
 
 func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
@@ -119,7 +119,7 @@ func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
 type breaker interface {
 	Capacity() int
 	Maybe(ctx context.Context, thunk func()) error
-	UpdateConcurrency(int) error
+	UpdateConcurrency(int)
 	Reserve(ctx context.Context) (func(), bool)
 }
 
@@ -729,7 +729,7 @@ func zeroOrOne(x int) int32 {
 }
 
 // UpdateConcurrency sets the concurrency of the breaker
-func (ib *infiniteBreaker) UpdateConcurrency(cc int) error {
+func (ib *infiniteBreaker) UpdateConcurrency(cc int) {
 	rcc := zeroOrOne(cc)
 	// We lock here to make sure two scale up events don't
 	// stomp on each other's feet.
@@ -746,7 +746,6 @@ func (ib *infiniteBreaker) UpdateConcurrency(cc int) error {
 			close(ib.broadcast)
 		}
 	}
-	return nil
 }
 
 // Maybe executes thunk when capacity is available

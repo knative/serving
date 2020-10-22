@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -87,18 +88,18 @@ func (s *namespaceSource) watchPods() error {
 			case <-s.ctx.Done():
 				return
 			case ev := <-wi.ResultChan():
+				// We have reports of this being randomly nil.
+				if ev.Object == nil || reflect.ValueOf(ev.Object).IsNil() {
+					continue
+				}
 				p := ev.Object.(*corev1.Pod)
 				switch ev.Type {
 				case watch.Deleted:
 					watchedPods.Delete(p.Name)
 				case watch.Added, watch.Modified:
-					if watchedPods.Has(p.Name) {
-						continue
-					}
-					if podIsReady(p) {
+					if !watchedPods.Has(p.Name) && isPodReady(p) {
 						watchedPods.Insert(p.Name)
 						s.startForPod(p)
-						continue
 					}
 				}
 
@@ -118,7 +119,7 @@ func (s *namespaceSource) startForPod(pod *corev1.Pod) {
 		psn, pn, cn := pod.Namespace, pod.Name, container.Name
 
 		handleLine := s.handleLine
-		if cn == "chaosduck" {
+		if cn == ChaosDuck {
 			// Specialcase logs from chaosduck to be able to easily see when pods
 			// have been killed throughout all tests.
 			handleLine = s.handleGenericLine
@@ -141,8 +142,7 @@ func (s *namespaceSource) startForPod(pod *corev1.Pod) {
 			}
 			defer stream.Close()
 			// Read this container's stream.
-			scanner := bufio.NewScanner(stream)
-			for scanner.Scan() {
+			for scanner := bufio.NewScanner(stream); scanner.Scan(); {
 				handleLine(scanner.Bytes(), pn)
 			}
 			// Pods get killed with chaos duck, so logs might end
@@ -151,7 +151,7 @@ func (s *namespaceSource) startForPod(pod *corev1.Pod) {
 	}
 }
 
-func podIsReady(p *corev1.Pod) bool {
+func isPodReady(p *corev1.Pod) bool {
 	if p.Status.Phase == corev1.PodRunning && p.DeletionTimestamp == nil {
 		for _, cond := range p.Status.Conditions {
 			if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
@@ -162,8 +162,12 @@ func podIsReady(p *corev1.Pod) bool {
 	return false
 }
 
-// timeFormat defines a simple timestamp with millisecond granularity
-const timeFormat = "15:04:05.000"
+const (
+	// timeFormat defines a simple timestamp with millisecond granularity
+	timeFormat = "15:04:05.000"
+	// ChaosDuck is the well known name for the chaosduck.
+	ChaosDuck = "chaosduck"
+)
 
 func (s *namespaceSource) handleLine(l []byte, pod string) {
 	// This holds the standard structure of our logs.

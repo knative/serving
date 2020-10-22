@@ -193,6 +193,12 @@ func TestRevisionIsReady(t *testing.T) {
 			if got, want := r.IsReady(), tc.isReady; got != want {
 				t.Errorf("isReady =  %v want: %v", got, want)
 			}
+
+			r.Generation = 1
+			r.Status.ObservedGeneration = 2
+			if r.IsReady() {
+				t.Error("Expected IsReady() to be false when Generation != ObservedGeneration")
+			}
 		})
 	}
 }

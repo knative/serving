@@ -94,6 +94,8 @@ go_test_e2e -timeout=30m \
  ./test/conformance/api/... ./test/conformance/runtime/... \
  ./test/e2e \
   ${parallelism} \
+  --enable-alpha \
+  --enable-beta \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 if (( HTTPS )); then

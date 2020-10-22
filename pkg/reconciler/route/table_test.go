@@ -130,29 +130,25 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "simple route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
-			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34"),
+			Route("default", "becomes-ready", WithConfigTarget("ing-unknown"), WithRouteUID("12-34"),
 				WithRouteGeneration(1955)),
-			cfg("default", "config",
-				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
+			cfg("default", "ing-unknown",
+				WithConfigGeneration(1), WithLatestCreated("ing-unknown-00001"),
+				WithLatestReady("ing-unknown-00001")),
+			rev("default", "ing-unknown", 1, MarkRevisionReady, WithRevName("ing-unknown-00001"), WithServiceName("mcd")),
 		},
 		WantCreates: []runtime.Object{
 			simpleIngress(
-				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
+				Route("default", "becomes-ready", WithConfigTarget("ing-unknown"),
+					WithURL, WithRouteUID("12-34")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "ing-unknown",
+								LatestRevision:    ptr.Bool(true),
+								Percent:           ptr.Int64(100),
+								RevisionName:      "ing-unknown-00001",
 							},
 							ServiceName: "mcd",
 							Active:      true,
@@ -162,18 +158,18 @@ func TestReconcile(t *testing.T) {
 			),
 			simplePlaceholderK8sService(
 				getContext(),
-				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+				Route("default", "becomes-ready", WithConfigTarget("ing-unknown"), WithRouteUID("12-34")),
 				"",
 			),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
+			Object: Route("default", "becomes-ready", WithConfigTarget("ing-unknown"),
 				WithRouteUID("12-34"), WithRouteGeneration(1955), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
-						RevisionName:   "config-00001",
+						RevisionName:   "ing-unknown-00001",
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					})),
@@ -194,19 +190,13 @@ func TestReconcile(t *testing.T) {
 				Route("default", "ingress-failed", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "mcd",
 							Active:      true,
@@ -251,19 +241,13 @@ func TestReconcile(t *testing.T) {
 			ingressWithClass(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "bk",
 							Active:      true,
@@ -313,19 +297,13 @@ func TestReconcile(t *testing.T) {
 					WithLocalDomain, WithRouteUID("65-23"),
 					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								RevisionName:      "config-00001",
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "tb",
 							Active:      true,
@@ -372,19 +350,13 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
 							},
 							Active: true,
 						}},
@@ -478,19 +450,13 @@ func TestReconcile(t *testing.T) {
 				Route("default", "ingress-create-failure", WithConfigTarget("config"),
 					WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "astrid",
 							Active:      true,
@@ -545,19 +511,13 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "steady-state", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -629,19 +589,13 @@ func TestReconcile(t *testing.T) {
 				Route("default", "different-domain", WithConfigTarget("config"),
 					WithAnotherDomain),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							Active:      true,
 							ServiceName: "my-service",
@@ -656,19 +610,13 @@ func TestReconcile(t *testing.T) {
 				Route("default", "different-domain", WithConfigTarget("config"),
 					WithAnotherDomain, WithRouteGeneration(1), WithRouteLabel(map[string]string{"app": "prod"})),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								RevisionName:      "config-00001",
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								Percent:           ptr.Int64(100),
 							},
 							Active:      true,
 							ServiceName: "my-service",
@@ -703,19 +651,13 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "new-latest-created", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								LatestRevision:    ptr.Bool(true),
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "daisy",
 							Active:      true,
@@ -748,19 +690,13 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "new-latest-ready", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "magnolia",
 							Active:      true,
@@ -775,17 +711,11 @@ func TestReconcile(t *testing.T) {
 			Object: simpleReadyIngress(
 				Route("default", "new-latest-ready", WithConfigTarget("config"), WithURL, WithRouteGeneration(1)),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00002", // This should trigger rollout recomputation.
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
 								// This is the new config we're making become ready.
 								RevisionName: "config-00002",
 								Percent:      ptr.Int64(100),
@@ -820,19 +750,13 @@ func TestReconcile(t *testing.T) {
 			simpleIngress(
 				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "tb",
 							Active:      true,
@@ -850,19 +774,13 @@ func TestReconcile(t *testing.T) {
 					WithRouteUID("65-23"),
 					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "tb",
 							Active:      true,
@@ -900,19 +818,13 @@ func TestReconcile(t *testing.T) {
 				Route("default", "becomes-public", WithConfigTarget("config"), WithRouteUID("65-23"),
 					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "tb",
 							Active:      true,
@@ -931,19 +843,13 @@ func TestReconcile(t *testing.T) {
 				Route("default", "becomes-public", WithConfigTarget("config"),
 					WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "tb",
 							Active:      true,
@@ -991,19 +897,13 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "update-ci-failure", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "fremont",
 							Active:      true,
@@ -1017,17 +917,11 @@ func TestReconcile(t *testing.T) {
 			Object: simpleReadyIngress(
 				Route("default", "update-ci-failure", WithConfigTarget("config"), WithURL, WithRouteGeneration(1)),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00002",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
 								// This is the new config we're making become ready.
 								RevisionName: "config-00002",
 								Percent:      ptr.Int64(100),
@@ -1073,19 +967,13 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "svc-mutation", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								RevisionName:      "config-00001",
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								Percent:           ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -1124,19 +1012,13 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "svc-mutation", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -1176,19 +1058,13 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "cluster-ip", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -1223,19 +1099,13 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "external-name", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -1269,14 +1139,6 @@ func TestReconcile(t *testing.T) {
 			mutateIngress(simpleReadyIngress(
 				Route("default", "ingress-mutation", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "le-vent-nous-portera",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
@@ -1295,19 +1157,13 @@ func TestReconcile(t *testing.T) {
 			Object: simpleReadyIngress(
 				Route("default", "ingress-mutation", WithConfigTarget("config"), WithURL, WithRouteGeneration(1)),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "windermere",
 							Active:      true,
@@ -1317,90 +1173,6 @@ func TestReconcile(t *testing.T) {
 			),
 		}},
 		Key: "default/ingress-mutation",
-	}, {
-		Name: "switch to a different config",
-		Objects: []runtime.Object{
-			// The status reflects "oldconfig", but the spec "newconfig".
-			Route("default", "change-configs", WithConfigTarget("newconfig"), WithRouteFinalizer,
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
-				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
-					v1.TrafficTarget{
-						RevisionName: "oldconfig-00001",
-						Percent:      ptr.Int64(100),
-					})),
-			// Both configs exist, but only "oldconfig" is labelled.
-			cfg("default", "oldconfig",
-				WithConfigGeneration(1), WithLatestCreated("oldconfig-00001"), WithLatestReady("oldconfig-00001"),
-				// The Route controller attaches our label to this Configuration.
-				WithConfigLabel("serving.knative.dev/route", "change-configs"),
-			),
-			cfg("default", "newconfig",
-				WithConfigGeneration(1), WithLatestCreated("newconfig-00001"), WithLatestReady("newconfig-00001")),
-			rev("default", "oldconfig", 1, MarkRevisionReady, WithRevName("oldconfig-00001"), WithServiceName("greenwood")),
-			rev("default", "newconfig", 1, MarkRevisionReady, WithRevName("newconfig-00001"), WithServiceName("broadview")),
-			simpleReadyIngress(
-				Route("default", "change-configs", WithConfigTarget("oldconfig"), WithURL),
-				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "oldconfig-00001",
-								Percent:      ptr.Int64(100),
-							},
-							ServiceName: "greenwood",
-							Active:      true,
-						}},
-					},
-				},
-			),
-			simpleK8sService(Route("default", "change-configs", WithConfigTarget("oldconfig"))),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			// Updated to point to "newconfig" things.
-			Object: simpleReadyIngress(
-				Route("default", "change-configs", WithConfigTarget("newconfig"), WithURL, WithRouteGeneration(1)),
-				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "newconfig",
-							RevisionName:      "newconfig-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "newconfig-00001",
-								Percent:      ptr.Int64(100),
-							},
-							ServiceName: "broadview",
-							Active:      true,
-						}},
-					},
-				},
-			),
-		}},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			// Status updated to "newconfig"
-			Object: Route("default", "change-configs", WithConfigTarget("newconfig"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
-				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
-					v1.TrafficTarget{
-						RevisionName:   "newconfig-00001",
-						Percent:        ptr.Int64(100),
-						LatestRevision: ptr.Bool(true),
-					})),
-		}},
-		Key: "default/change-configs",
 	}, {
 		Name: "configuration missing",
 		Objects: []runtime.Object{
@@ -1515,33 +1287,22 @@ func TestReconcile(t *testing.T) {
 						Percent:           ptr.Int64(50),
 					}), WithRouteUID("34-78")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "blue",
-							RevisionName:      "blue-00001",
-							Percent:           ptr.Int64(50),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}, {
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "green",
-							RevisionName:      "green-00001",
-							Percent:           ptr.Int64(50),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "blue-00001",
-								Percent:      ptr.Int64(50),
+								ConfigurationName: "blue",
+								RevisionName:      "blue-00001",
+								Percent:           ptr.Int64(50),
+								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "blue-ridge",
 							Active:      true,
 						}, {
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "green-00001",
-								Percent:      ptr.Int64(50),
+								ConfigurationName: "green",
+								RevisionName:      "green-00001",
+								Percent:           ptr.Int64(50),
+								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "green-lake",
 							Active:      true,
@@ -1624,28 +1385,23 @@ func TestReconcile(t *testing.T) {
 							Percent:      ptr.Int64(50),
 						}), WithRouteUID("1-2")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "gray",
-							Tag:               "gray",
-							RevisionName:      "gray-00001",
-							Percent:           ptr.Int64(50), // Only 50% will be rolled out, 50% is pinned to a revision.
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "gray-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "gray",
+								RevisionName:      "gray-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "shades",
 							Active:      true,
 						}},
 						"gray": {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "gray-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "gray",
+								RevisionName:      "gray-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "shades",
 							Active:      true,
@@ -1779,20 +1535,14 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "switch-configs", WithConfigTarget("blue"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "blue",
-							RevisionName:      "blue-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
 								// Use the Revision name from the config.
-								RevisionName: "blue-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "blue",
+								RevisionName:      "blue-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "alki-beach",
 							Active:      true,
@@ -1806,21 +1556,13 @@ func TestReconcile(t *testing.T) {
 			Object: simpleReadyIngress(
 				Route("default", "switch-configs", WithConfigTarget("green"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "green",
-							RevisionName:      "green-02020",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-						ServiceName: "rainier-beach",
-						Active:      true,
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "green-02020",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "green",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "green-02020",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "rainier-beach",
 							Active:      true,
@@ -1917,19 +1659,13 @@ func TestReconcile(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "my-route", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -2037,19 +1773,13 @@ func TestReconcileResponsiveGC(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "stale-lastpinned", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								RevisionName:      "config-00001",
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								Percent:           ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -2086,17 +1816,11 @@ func TestReconcileResponsiveGC(t *testing.T) {
 			simpleReadyIngress(
 				Route("default", "stale-lastpinned", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
 								Percent:      ptr.Int64(100),
@@ -2147,20 +1871,13 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithHTTPSDomain,
 					WithRouteUID("12-34")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
 							Active:      true,
@@ -2211,20 +1928,13 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
 							Active:      true,
@@ -2272,20 +1982,13 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
 							Active:      true,
@@ -2356,20 +2059,13 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
 							Active:      true,
@@ -2455,20 +2151,13 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
 							Active:      true,
@@ -2594,20 +2283,13 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34"), WithRouteGeneration(1)),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
 							Active:      true,
@@ -2659,20 +2341,13 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			simpleIngress(
 				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "tb",
 							Active:      true,
@@ -2690,20 +2365,13 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 					WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
 					WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal})),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "tb",
 							Active:      true,
@@ -2804,20 +2472,13 @@ func TestReconcileEnableAutoTLSHTTPDisabled(t *testing.T) {
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
 				&traffic.Config{
-					RevisionTargets: traffic.RevisionTargets{{
-						TrafficTarget: v1.TrafficTarget{
-							ConfigurationName: "config",
-							RevisionName:      "config-00001",
-							Percent:           ptr.Int64(100),
-							LatestRevision:    ptr.Bool(true),
-						},
-					}},
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
 							TrafficTarget: v1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
 							Active:      true,

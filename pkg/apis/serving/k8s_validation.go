@@ -81,6 +81,7 @@ var (
 	)
 )
 
+// ValidateVolumes validates the Volumes of a PodSpec.
 func ValidateVolumes(vs []corev1.Volume, mountedVolumes sets.String) (sets.String, *apis.FieldError) {
 	volumes := make(sets.String, len(vs))
 	var errs *apis.FieldError
@@ -628,6 +629,7 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 	return errs
 }
 
+// ValidateNamespacedObjectReference validates an ObjectReference which may not contain a namespace.
 func ValidateNamespacedObjectReference(p *corev1.ObjectReference) *apis.FieldError {
 	if p == nil {
 		return nil
@@ -699,7 +701,7 @@ func ValidatePodSecurityContext(ctx context.Context, sc *corev1.PodSecurityConte
 // being validated.
 type userContainer struct{}
 
-// WithUserContainer notes on the context that further validation or defaulting
+// WithinUserContainer notes on the context that further validation or defaulting
 // is within the context of a user container in the revision.
 func WithinUserContainer(ctx context.Context) context.Context {
 	return context.WithValue(ctx, userContainer{}, struct{}{})
@@ -715,7 +717,7 @@ func WithinSidecarContainer(ctx context.Context) context.Context {
 	return context.WithValue(ctx, sidecarContainer{}, struct{}{})
 }
 
-// Check if we are in the context of a sidecar container in the revision.
+// IsInSidecarContainer checks if we are in the context of a sidecar container in the revision.
 func IsInSidecarContainer(ctx context.Context) bool {
 	return ctx.Value(sidecarContainer{}) != nil
 }

@@ -8,7 +8,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/google/go-cmp v0.5.2
-	github.com/google/go-containerregistry v0.1.3
+	github.com/google/go-containerregistry v0.1.4-0.20201020135303-da2eb53b5bd1
 	github.com/google/gofuzz v1.1.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/gorilla/websocket v1.4.2
@@ -31,16 +31,13 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20201019023658-b76849c9546c
-	knative.dev/networking v0.0.0-20201019071058-ecd132c7658c
-	knative.dev/pkg v0.0.0-20201019114258-95e9532f0457
-	knative.dev/test-infra v0.0.0-20201015231956-d236fb0ea9ff
+	knative.dev/caching v0.0.0-20201021234132-7646d730f2ef
+	knative.dev/networking v0.0.0-20201022063037-c891b62455d4
+	knative.dev/pkg v0.0.0-20201022015237-8139298650a4
+	knative.dev/test-infra v0.0.0-20201022003632-7d3ea6019158
 )
 
 replace (
-	// Overridden to drop the dependency on github.com/dgrijalva/jwt-go, which has a vulnerability.
-	github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.9.5
-
 	k8s.io/api => k8s.io/api v0.18.8
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.8
 	k8s.io/apimachinery => k8s.io/apimachinery v0.18.8

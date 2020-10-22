@@ -62,6 +62,7 @@ func certClass(ctx context.Context, r *corev1.Namespace) string {
 	return config.FromContext(ctx).Network.DefaultCertificateClass
 }
 
+// ReconcileKind implements Interface.ReconcileKind.
 func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pkgreconciler.Event {
 	cfg := config.FromContext(ctx)
 

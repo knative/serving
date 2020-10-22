@@ -56,7 +56,7 @@ type TimedFloat64Buckets struct {
 	windowTotal float64
 }
 
-// Implements stringer interface.
+// String implements the Stringer interface.
 func (t *TimedFloat64Buckets) String() string {
 	return spew.Sdump(t.buckets)
 }

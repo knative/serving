@@ -52,6 +52,8 @@ readonly SERVING_CORE_YAML=${YAML_OUTPUT_DIR}/serving-core.yaml
 readonly SERVING_DEFAULT_DOMAIN_YAML=${YAML_OUTPUT_DIR}/serving-default-domain.yaml
 readonly SERVING_STORAGE_VERSION_MIGRATE_YAML=${YAML_OUTPUT_DIR}/serving-storage-version-migration.yaml
 readonly SERVING_HPA_YAML=${YAML_OUTPUT_DIR}/serving-hpa.yaml
+readonly SERVING_DOMAINMAPPING_YAML=${YAML_OUTPUT_DIR}/serving-domainmapping.yaml
+readonly SERVING_DOMAINMAPPING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-domainmapping-crds.yaml
 readonly SERVING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-crds.yaml
 readonly SERVING_NSCERT_YAML=${YAML_OUTPUT_DIR}/serving-nscert.yaml
 readonly SERVING_POST_INSTALL_JOBS_YAML=${YAML_OUTPUT_DIR}/serving-post-install-jobs.yaml
@@ -91,6 +93,10 @@ ko resolve ${KO_YAML_FLAGS} -f config/core/300-resources/ -f config/core/300-ima
 # Create hpa-class autoscaling related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
 
+# Create domain mapping related yaml
+ko resolve ${KO_YAML_FLAGS} -R -f config/domain-mapping/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_DOMAINMAPPING_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/domain-mapping/300-resources/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_DOMAINMAPPING_CRD_YAML}"
+
 # Create nscert related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
 
@@ -117,6 +123,8 @@ ${SERVING_DEFAULT_DOMAIN_YAML}
 ${SERVING_STORAGE_VERSION_MIGRATE_YAML}
 ${SERVING_POST_INSTALL_JOBS_YAML}
 ${SERVING_HPA_YAML}
+${SERVING_DOMAINMAPPING_YAML}
+${SERVING_DOMAINMAPPING_CRD_YAML}
 ${SERVING_CRD_YAML}
 ${SERVING_NSCERT_YAML}
 EOF

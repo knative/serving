@@ -18,6 +18,7 @@ package traffic
 
 import (
 	"context"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -60,9 +61,8 @@ type Config struct {
 	Visibility map[string]netv1alpha1.IngressVisibility
 
 	// A list traffic targets, flattened to the Revision level.  This
-	// is used to populate the Route.Status.TrafficTarget field as well
-	// as compute the rollout state.
-	RevisionTargets RevisionTargets
+	// is used to populate the Route.Status.TrafficTarget field.
+	revisionTargets RevisionTargets
 
 	// The referred `Configuration`s and `Revision`s.
 	Configurations map[string]*v1.Configuration
@@ -90,8 +90,8 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
 func (cfg *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route) ([]v1.TrafficTarget, error) {
-	results := make([]v1.TrafficTarget, len(cfg.RevisionTargets))
-	for i, tt := range cfg.RevisionTargets {
+	results := make([]v1.TrafficTarget, len(cfg.revisionTargets))
+	for i, tt := range cfg.revisionTargets {
 		var pp *int64
 		if tt.Percent != nil {
 			pp = ptr.Int64(*tt.Percent)
@@ -171,31 +171,46 @@ func newBuilder(
 func (cfg *Config) BuildRollout() *Rollout {
 	rollout := &Rollout{}
 
-	for _, rt := range cfg.RevisionTargets {
+	for tag, targets := range cfg.Targets {
+		buildRolloutForTag(rollout, tag, targets)
+	}
+	sortRollout(rollout)
+	return rollout
+}
+
+// sortRollout sorts the rollout based on tag so it's consistent
+// from run to run, since input to the process is map iterator.
+func sortRollout(r *Rollout) {
+	sort.Slice(r.Configurations, func(i, j int) bool {
+		// Sort by tag and within tag sort by config name.
+		if r.Configurations[i].Tag == r.Configurations[j].Tag {
+			return r.Configurations[i].ConfigurationName < r.Configurations[j].ConfigurationName
+		}
+		return r.Configurations[i].Tag < r.Configurations[j].Tag
+	})
+}
+
+// buildRolloutForTag builds the current rollout state.
+// It is expected to be invoked after applySpecTraffic.
+// TODO(vagababov): actually deal with rollouts, vs just report desired state.
+func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
+	// Only main target will have more than 1 element here.
+	for _, rt := range rts {
+		// Skip if it's revision target.
 		if rt.LatestRevision == nil || !*rt.LatestRevision {
 			continue
 		}
 
-		// We know here that mergeIfNecessary will pack the same config targets together.
-		// So no need to check for duplicates.
-		rollout.Configurations = append(rollout.Configurations, ConfigurationRollout{
+		// The targets with the same revision are already joined together.
+		r.Configurations = append(r.Configurations, ConfigurationRollout{
 			ConfigurationName: rt.ConfigurationName,
-			Tag:               rt.Tag,
-			// TODO(vagababov): here will go all the fancy math.
+			Tag:               tag,
 			Revisions: []RevisionRollout{{
 				RevisionName: rt.RevisionName,
-				Percent:      zeroOrVal(rt.Percent),
+				Percent:      int(valIfNil(0, rt.Percent)),
 			}},
 		})
 	}
-	return rollout
-}
-
-func zeroOrVal(p *int64) int {
-	if p != nil {
-		return int(*p)
-	}
-	return 0
 }
 
 func (cb *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
@@ -363,7 +378,7 @@ func (cb *configBuilder) build() (*Config, error) {
 	}
 	return &Config{
 		Targets:         consolidateAll(cb.targets),
-		RevisionTargets: cb.revisionTargets,
+		revisionTargets: cb.revisionTargets,
 		Configurations:  cb.configurations,
 		Revisions:       cb.revisions,
 		MissingTargets:  cb.missingTargets,

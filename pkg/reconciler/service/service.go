@@ -56,6 +56,7 @@ type Reconciler struct {
 // Check that our Reconciler implements ksvcreconciler.Interface
 var _ ksvcreconciler.Interface = (*Reconciler)(nil)
 
+// ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 
