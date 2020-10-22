@@ -25,8 +25,9 @@ import (
 )
 
 // Validate inspects and validates ClusterServerlessService object.
-func (ss *ServerlessService) Validate(ctx context.Context) *apis.FieldError {
-	return ss.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
+func (ss *ServerlessService) Validate(ctx context.Context) (errs *apis.FieldError) {
+	return errs.Also(networking.ValidateAnnotations(ss.ObjectMeta.GetAnnotations()).ViaField("annotations")).
+		Also(ss.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 }
 
 // Validate inspects and validates ServerlessServiceSpec object.
