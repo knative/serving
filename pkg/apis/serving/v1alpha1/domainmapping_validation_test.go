@@ -81,6 +81,7 @@ func TestDomainMappingValidation(t *testing.T) {
 			Spec: DomainMappingSpec{
 				Ref: duckv1.KReference{
 					Name:       "some-name",
+					Namespace:  "ns",
 					APIVersion: "serving.knative.dev/v1",
 					Kind:       "BadService",
 				},
@@ -97,6 +98,7 @@ func TestDomainMappingValidation(t *testing.T) {
 			Spec: DomainMappingSpec{
 				Ref: duckv1.KReference{
 					Name:       "some-name",
+					Namespace:  "ns",
 					APIVersion: "bad.version/v1",
 					Kind:       "Service",
 				},
