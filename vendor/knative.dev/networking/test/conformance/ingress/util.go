@@ -1039,7 +1039,7 @@ func IsDialError(err error) bool {
 // error or PollTimeout. desc will be used to name the metric that is emitted to
 // track how long it took for name to get into the state checked by inState.
 func WaitForIngressState(ctx context.Context, client *test.NetworkingClients, name string, inState func(r *v1alpha1.Ingress) (bool, error), desc string) error {
-	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForIngressState/%s/%s", name, desc))
+	span := logging.GetEmitableSpan(ctx, fmt.Sprintf("WaitForIngressState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1alpha1.Ingress
