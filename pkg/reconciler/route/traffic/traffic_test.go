@@ -443,6 +443,166 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfig(t *testing.T) {
 	}
 }
 
+func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
+	// This tests the rollout building and sorting mostly.
+	expected := &Config{
+		Targets: map[string]RevisionTargets{
+			DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: niceConfig.Name,
+					RevisionName:      niceNewRev.Name,
+					Percent:           ptr.Int64(30),
+					LatestRevision:    ptr.Bool(true),
+				},
+				Active:   true,
+				Protocol: net.ProtocolH2C,
+			}, {
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: goodConfig.Name,
+					RevisionName:      goodNewRev.Name,
+					Percent:           ptr.Int64(35),
+					LatestRevision:    ptr.Bool(true),
+					Tag:               "robert",
+				},
+				Active:   true,
+				Protocol: net.ProtocolH2C,
+			}, {
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: inactiveConfig.Name,
+					RevisionName:      inactiveRev.Name,
+					Percent:           ptr.Int64(35),
+					LatestRevision:    ptr.Bool(true),
+					Tag:               "jackson",
+				},
+				Active:   false,
+				Protocol: net.ProtocolHTTP1,
+			}},
+			"robert": {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: goodConfig.Name,
+					RevisionName:      goodNewRev.Name,
+					Percent:           ptr.Int64(100),
+					Tag:               "robert",
+					LatestRevision:    ptr.Bool(true),
+				},
+				Active:   true,
+				Protocol: net.ProtocolH2C,
+			}},
+			"jackson": {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: inactiveConfig.Name,
+					RevisionName:      inactiveRev.Name,
+					Percent:           ptr.Int64(100),
+					Tag:               "jackson",
+					LatestRevision:    ptr.Bool(true),
+				},
+				Active:   false,
+				Protocol: net.ProtocolHTTP1,
+			}},
+		},
+		revisionTargets: []RevisionTarget{{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: niceConfig.Name,
+				RevisionName:      niceNewRev.Name,
+				Percent:           ptr.Int64(30),
+				LatestRevision:    ptr.Bool(true),
+			},
+			Active:   true,
+			Protocol: net.ProtocolH2C,
+		}, {
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: goodConfig.Name,
+				RevisionName:      goodNewRev.Name,
+				Percent:           ptr.Int64(35),
+				LatestRevision:    ptr.Bool(true),
+				Tag:               "robert",
+			},
+			Active:   true,
+			Protocol: net.ProtocolH2C,
+		}, {
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: inactiveConfig.Name,
+				RevisionName:      inactiveRev.Name,
+				Percent:           ptr.Int64(35),
+				LatestRevision:    ptr.Bool(true),
+				Tag:               "jackson",
+			},
+			Active:   false,
+			Protocol: net.ProtocolHTTP1,
+		}},
+		Configurations: map[string]*v1.Configuration{
+			niceConfig.Name:     niceConfig,
+			goodConfig.Name:     goodConfig,
+			inactiveConfig.Name: inactiveConfig,
+		},
+		Revisions: map[string]*v1.Revision{
+			niceNewRev.Name:  niceNewRev,
+			goodNewRev.Name:  goodNewRev,
+			inactiveRev.Name: inactiveRev,
+		},
+	}
+	tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(WithSpecTraffic([]v1.TrafficTarget{{
+		ConfigurationName: niceConfig.Name,
+		Percent:           ptr.Int64(30),
+	}, {
+		ConfigurationName: goodConfig.Name,
+		Percent:           ptr.Int64(35),
+		Tag:               "robert",
+	}, {
+		ConfigurationName: inactiveConfig.Name,
+		Percent:           ptr.Int64(35),
+		Tag:               "jackson",
+	}}...)))
+	if err != nil {
+		t.Fatal("Unexpected error", err)
+	}
+	if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
+		fmt.Println(spew.Sdump(got))
+		t.Fatalf("Unexpected traffic diff (-want +got):\n%s", cmp.Diff(want, got, cmpOpts...))
+	}
+
+	gotR := tc.BuildRollout()
+	wantR := &Rollout{
+		// Default tag configs are sorted as well.
+		Configurations: []ConfigurationRollout{{
+			ConfigurationName: goodConfig.Name,
+			Revisions: []RevisionRollout{{
+				RevisionName: goodNewRev.Name,
+				Percent:      35,
+			}},
+		}, {
+			ConfigurationName: inactiveConfig.Name,
+			Revisions: []RevisionRollout{{
+				RevisionName: inactiveRev.Name,
+				Percent:      35,
+			}},
+		}, {
+			ConfigurationName: niceConfig.Name,
+			Revisions: []RevisionRollout{{
+				RevisionName: niceNewRev.Name,
+				Percent:      30,
+			}},
+		}, {
+			// Note sorting flipped these two.
+			ConfigurationName: inactiveConfig.Name,
+			Tag:               "jackson",
+			Revisions: []RevisionRollout{{
+				RevisionName: inactiveRev.Name,
+				Percent:      100,
+			}},
+		}, {
+			ConfigurationName: goodConfig.Name,
+			Tag:               "robert",
+			Revisions: []RevisionRollout{{
+				RevisionName: goodNewRev.Name,
+				Percent:      100,
+			}},
+		}},
+	}
+	if !cmp.Equal(gotR, wantR) {
+		t.Errorf("Rollout mismatch, diff(-want,+got):\n%s", cmp.Diff(wantR, gotR))
+	}
+}
 func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T) {
 	expected := &Config{
 		Targets: map[string]RevisionTargets{
