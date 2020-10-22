@@ -66,8 +66,10 @@ func TestDomainMapping(t *testing.T) {
 		},
 		Spec: v1alpha1.DomainMappingSpec{
 			Ref: duckv1.KReference{
-				Namespace: svc.Service.Namespace,
-				Name:      svc.Service.Name,
+				Namespace:  svc.Service.Namespace,
+				Name:       svc.Service.Name,
+				APIVersion: "serving.knative.dev/v1",
+				Kind:       "Service",
 			},
 		},
 	}, metav1.CreateOptions{})

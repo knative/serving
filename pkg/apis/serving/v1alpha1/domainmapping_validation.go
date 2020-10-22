@@ -20,43 +20,58 @@ import (
 	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/api/validation"
 	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // Validate makes sure that DomainMapping is properly configured.
-func (dm *DomainMapping) Validate(_ context.Context) *apis.FieldError {
-	return validateMetadata(&dm.ObjectMeta).ViaField("metadata").
-		Also(dm.validateSpec().ViaField("spec"))
-}
+func (dm *DomainMapping) Validate(ctx context.Context) *apis.FieldError {
+	errs := dm.validateMetadata(ctx).ViaField("metadata")
 
-// validateSpec validates the Spec of a DomainMapping.
-func (dm *DomainMapping) validateSpec() (errs *apis.FieldError) {
-	return errs.Also(validateRef(&dm.Spec.Ref, dm.Namespace).ViaField("ref"))
-}
-
-// validateRef validates the Ref field of a DomainMapping.
-func validateRef(ref *duckv1.KReference, ns string) (errs *apis.FieldError) {
-	if ref.Name == "" {
-		errs = errs.Also(apis.ErrMissingField("name"))
-	}
-
-	if ref.Namespace != "" && ref.Namespace != ns {
-		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprintf("Ref namespace must be empty or equal to the domain mapping namespace %q", ns),
-			Paths:   []string{"namespace"},
-		})
-	}
+	ctx = apis.WithinParent(ctx, dm.ObjectMeta)
+	errs = errs.Also(dm.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 
 	return errs
 }
 
 // validateMetadata validates the metadata section of a DomainMapping.
-func validateMetadata(md *metav1.ObjectMeta) (errs *apis.FieldError) {
-	if md.Name == "" {
-		return errs.Also(apis.ErrMissingField("name"))
+func (dm *DomainMapping) validateMetadata(ctx context.Context) (errs *apis.FieldError) {
+	if dm.GenerateName != "" {
+		errs = errs.Also(apis.ErrDisallowedFields("generateName"))
 	}
 
-	return nil
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*DomainMapping)
+		errs = errs.Also(
+			apis.ValidateCreatorAndModifier(original.Spec, dm.Spec,
+				original.GetAnnotations(), dm.GetAnnotations(), serving.GroupName).ViaField("annotations"),
+		)
+	}
+
+	return errs
+}
+
+// Validate makes sure the DomainMappingSpec is properly configured.
+func (spec *DomainMappingSpec) Validate(ctx context.Context) *apis.FieldError {
+	errs := spec.Ref.Validate(ctx).ViaField("ref")
+
+	// For now, ref must be a serving.knative.dev/v1 Service.
+	if spec.Ref.Kind != "Service" {
+		errs = errs.Also(apis.ErrGeneric(`must be "Service"`, "ref.kind"))
+	}
+	if spec.Ref.APIVersion != v1.SchemeGroupVersion.Identifier() {
+		errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("must be %q", v1.SchemeGroupVersion.Identifier()), "ref.apiVersion"))
+	}
+
+	// Since we currently construct the rewritten host from the name/namespace, make sure they're valid.
+	if msgs := validation.NameIsDNS1035Label(spec.Ref.Name, false); len(msgs) > 0 {
+		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprint("not a DNS 1035 label prefix: ", msgs), "ref.name"))
+	}
+	if msgs := validation.ValidateNamespaceName(spec.Ref.Namespace, false); len(msgs) > 0 {
+		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprint("not a valid namespace: ", msgs), "ref.namespace"))
+	}
+
+	return errs
 }
