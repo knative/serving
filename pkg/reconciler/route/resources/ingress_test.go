@@ -56,11 +56,11 @@ const (
 )
 
 func TestMakeIngressCorrectMetadata(t *testing.T) {
-	targets := map[string]traffic.RevisionTargets{}
 	const (
 		ingressClass         = "ng-ingress"
 		passdownIngressClass = "ok-ingress"
 	)
+	targets := map[string]traffic.RevisionTargets{}
 	r := Route(ns, "test-route", WithRouteLabel(map[string]string{
 		serving.RouteLabelKey:          "try-to-override",
 		serving.RouteNamespaceLabelKey: "try-to-override",
@@ -96,6 +96,10 @@ func TestMakeIngressCorrectMetadata(t *testing.T) {
 }
 
 func TestMakeIngressWithRollout(t *testing.T) {
+	const (
+		ingressClass         = "ng-ingress"
+		passdownIngressClass = "ok-ingress"
+	)
 	cfg := &traffic.Config{
 		Targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
@@ -109,10 +113,6 @@ func TestMakeIngressWithRollout(t *testing.T) {
 			}},
 		},
 	}
-	const (
-		ingressClass         = "ng-ingress"
-		passdownIngressClass = "ok-ingress"
-	)
 	r := Route(ns, "test-route", WithRouteLabel(map[string]string{
 		serving.RouteLabelKey:          "try-to-override",
 		serving.RouteNamespaceLabelKey: "try-to-override",
