@@ -182,6 +182,10 @@ func (cfg *Config) BuildRollout() *Rollout {
 // from run to run, since input to the process is map iterator.
 func sortRollout(r *Rollout) {
 	sort.Slice(r.Configurations, func(i, j int) bool {
+		// Sort by tag and within tag sort by config name.
+		if r.Configurations[i].Tag == r.Configurations[j].Tag {
+			return r.Configurations[i].ConfigurationName < r.Configurations[j].ConfigurationName
+		}
 		return r.Configurations[i].Tag < r.Configurations[j].Tag
 	})
 }
