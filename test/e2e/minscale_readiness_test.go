@@ -1,4 +1,4 @@
-// +build e2e
+// +build no-chaosduck
 
 /*
 Copyright 2019 The Knative Authors
