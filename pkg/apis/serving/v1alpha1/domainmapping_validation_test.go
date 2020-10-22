@@ -38,26 +38,14 @@ func TestDomainMappingValidation(t *testing.T) {
 		dm: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "cant-use-this",
+				Namespace:    "ns",
 			},
 			Spec: DomainMappingSpec{
 				Ref: duckv1.KReference{
 					Name:       "some-name",
 					APIVersion: "serving.knative.dev/v1",
 					Kind:       "Service",
-				},
-			},
-		},
-	}, {
-		name: "missing ref name",
-		want: apis.ErrMissingField("spec.ref.name"),
-		dm: &DomainMapping{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "missing-ref",
-			},
-			Spec: DomainMappingSpec{
-				Ref: duckv1.KReference{
-					APIVersion: "serving.knative.dev/v1",
-					Kind:       "Service",
+					Namespace:  "ns",
 				},
 			},
 		},
@@ -114,6 +102,42 @@ func TestDomainMappingValidation(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "ref name not valid DNS subdomain",
+		want: apis.ErrInvalidValue(
+			"not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"spec.ref.name"),
+		dm: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "wrong-version",
+				Namespace: "ns",
+			},
+			Spec: DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Name:       "this is not valid",
+					Namespace:  "ns",
+					APIVersion: "serving.knative.dev/v1",
+					Kind:       "Service",
+				},
+			},
+		},
+	}, {
+		name: "ref namespace not valid",
+		want: apis.ErrInvalidValue("not a valid namespace: [a DNS-1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')]", "spec.ref.namespace"),
+		dm: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "wrong-version",
+				Namespace: "dots.not.allowed",
+			},
+			Spec: DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Name:       "name",
+					APIVersion: "serving.knative.dev/v1",
+					Namespace:  "dots.not.allowed",
+					Kind:       "Service",
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {
@@ -137,6 +161,7 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		return DomainMappingSpec{
 			Ref: duckv1.KReference{
 				Name:       name,
+				Namespace:  "ns",
 				Kind:       "Service",
 				APIVersion: "serving.knative.dev/v1",
 			},
@@ -151,7 +176,8 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		name: "update creator annotation",
 		this: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
+				Name:      "valid",
+				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u2,
 					serving.UpdaterAnnotation: u1,
@@ -161,7 +187,8 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		},
 		prev: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
+				Name:      "valid",
+				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u1,
 					serving.UpdaterAnnotation: u1,
@@ -175,7 +202,8 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		name: "update creator annotation with spec changes",
 		this: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
+				Name:      "valid",
+				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u2,
 					serving.UpdaterAnnotation: u1,
@@ -185,7 +213,8 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		},
 		prev: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
+				Name:      "valid",
+				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u1,
 					serving.UpdaterAnnotation: u1,
@@ -199,7 +228,8 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		name: "update lastModifier annotation without spec changes",
 		this: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
+				Name:      "valid",
+				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u1,
 					serving.UpdaterAnnotation: u2,
@@ -209,7 +239,8 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		},
 		prev: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
+				Name:      "valid",
+				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u1,
 					serving.UpdaterAnnotation: u1,
@@ -222,7 +253,8 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		name: "update lastModifier annotation with spec changes",
 		this: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
+				Name:      "valid",
+				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u1,
 					serving.UpdaterAnnotation: u3,
@@ -232,7 +264,8 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		},
 		prev: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
+				Name:      "valid",
+				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u1,
 					serving.UpdaterAnnotation: u1,

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -59,6 +60,18 @@ func (spec *DomainMappingSpec) validateRef(ctx context.Context, ref duckv1.KRefe
 	}
 	if ref.APIVersion != v1.SchemeGroupVersion.Identifier() {
 		errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("must be %q", v1.SchemeGroupVersion.Identifier()), "apiVersion"))
+	}
+
+	// Since we currently construct the rewritten host from the name/namespace, make sure they're valid.
+	ns := ref.Namespace
+	if ns == "" {
+		ns = apis.ParentMeta(ctx).Namespace
+	}
+	if msgs := validation.NameIsDNS1035Label(ref.Name, false); len(msgs) > 0 {
+		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprint("not a DNS 1035 label prefix: ", msgs), "name"))
+	}
+	if msgs := validation.ValidateNamespaceName(ns, false); len(msgs) > 0 {
+		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprint("not a valid namespace: ", msgs), "namespace"))
 	}
 
 	return errs
