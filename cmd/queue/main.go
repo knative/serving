@@ -133,10 +133,10 @@ func main() {
 	defer flush(logger)
 
 	logger = logger.Named("queueproxy").With(
-		zap.Object(logkey.Key, pkglogging.NamespacedName(types.NamespacedName{
+		zap.String(logkey.Key, types.NamespacedName{
 			Namespace: env.ServingNamespace,
 			Name:      env.ServingRevision,
-		})),
+		}.String()),
 		zap.String(logkey.Pod, env.ServingPod))
 
 	// Report stats on Go memory usage every 30 seconds.
