@@ -106,7 +106,7 @@ func newControllerWithOptions(
 
 	transport := http.DefaultTransport
 	if rt, err := newResolverTransport(k8sCertPath, digestResolutionWorkers, digestResolutionWorkers); err != nil {
-		logging.FromContext(ctx).Errorw("Failed to create resolver transport: ", zap.Error(err))
+		logging.FromContext(ctx).Errorw("Failed to create resolver transport", zap.Error(err))
 	} else {
 		transport = rt
 	}
