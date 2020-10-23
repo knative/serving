@@ -200,15 +200,16 @@ func createMetricsConfig(ctx context.Context, ops ExporterOptions) (*metricsConf
 	if backendFromConfig, ok := m[BackendDestinationKey]; ok {
 		backend = backendFromConfig
 	}
-	lb := metricsBackend(strings.ToLower(backend))
-	switch lb {
+
+	switch lb := metricsBackend(strings.ToLower(backend)); lb {
 	case stackdriver, prometheus, openCensus:
 		mc.backendDestination = lb
 	default:
 		return nil, fmt.Errorf("unsupported metrics backend value %q", backend)
 	}
 
-	if mc.backendDestination == openCensus {
+	switch mc.backendDestination {
+	case openCensus:
 		mc.collectorAddress = ops.ConfigMap[collectorAddressKey]
 		if isSecure := ops.ConfigMap[collectorSecureKey]; isSecure != "" {
 			var err error
@@ -223,9 +224,7 @@ func createMetricsConfig(ctx context.Context, ops ExporterOptions) (*metricsConf
 				}
 			}
 		}
-	}
-
-	if mc.backendDestination == prometheus {
+	case prometheus:
 		pp := ops.PrometheusPort
 		if pp == 0 {
 			var err error
@@ -241,12 +240,10 @@ func createMetricsConfig(ctx context.Context, ops ExporterOptions) (*metricsConf
 		}
 
 		mc.prometheusPort = pp
-	}
-
-	// If stackdriverClientConfig is not provided for stackdriver backend destination, OpenCensus will try to
-	// use the application default credentials. If that is not available, Opencensus would fail to create the
-	// metrics exporter.
-	if mc.backendDestination == stackdriver {
+	case stackdriver:
+		// If stackdriverClientConfig is not provided for stackdriver backend destination, OpenCensus will try to
+		// use the application default credentials. If that is not available, Opencensus would fail to create the
+		// metrics exporter.
 		scc := NewStackdriverClientConfigFromMap(m)
 		mc.stackdriverClientConfig = *scc
 		mc.isStackdriverBackend = true
@@ -285,7 +282,7 @@ func createMetricsConfig(ctx context.Context, ops ExporterOptions) (*metricsConf
 	// For Prometheus, we will use a lower value since the exporter doesn't
 	// push anything but just responds to pull requests, and shorter durations
 	// do not really hurt the performance and we rely on the scraping configuration.
-	if repStr, ok := m[reportingPeriodKey]; ok && repStr != "" {
+	if repStr := m[reportingPeriodKey]; repStr != "" {
 		repInt, err := strconv.Atoi(repStr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid %s value %q", reportingPeriodKey, repStr)
@@ -346,7 +343,12 @@ func prometheusPort() (int, error) {
 
 // JsonToMetricsOptions converts a json string of a
 // ExporterOptions. Returns a non-nil ExporterOptions always.
-func JsonToMetricsOptions(jsonOpts string) (*ExporterOptions, error) { //nolint // No rename due to backwards incompatibility.
+// TODO(vagababov): remove after updating deps.
+func JsonToMetricsOptions(jsonOpts string) (*ExporterOptions, error) { //nolint // No rename due to backwards incompatibility. {
+	return JSONToMetricsOptions(jsonOpts)
+}
+
+func JSONToMetricsOptions(jsonOpts string) (*ExporterOptions, error) {
 	var opts ExporterOptions
 	if jsonOpts == "" {
 		return nil, errors.New("json options string is empty")
@@ -360,15 +362,16 @@ func JsonToMetricsOptions(jsonOpts string) (*ExporterOptions, error) { //nolint 
 }
 
 // MetricsOptionsToJson converts a ExporterOptions to a json string.
+// TODO(vagababov): remove after updating deps.
 func MetricsOptionsToJson(opts *ExporterOptions) (string, error) { //nolint // No rename due to backwards incompatibility.
+	return MetricsOptionsToJSON(opts)
+}
+
+func MetricsOptionsToJSON(opts *ExporterOptions) (string, error) {
 	if opts == nil {
 		return "", nil
 	}
 
 	jsonOpts, err := json.Marshal(opts)
-	if err != nil {
-		return "", err
-	}
-
-	return string(jsonOpts), nil
+	return string(jsonOpts), err
 }
