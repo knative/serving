@@ -23,6 +23,7 @@ import (
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
 
+	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
@@ -81,7 +82,7 @@ func (p *bucketProcessor) setConn(conn *websocket.ManagedConnection) {
 }
 
 func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
-	l := p.logger.With(zap.String("revision", sm.Key.String()))
+	l := p.logger.With(zap.String(logkey.Key, sm.Key.String()))
 	if p.accept != nil {
 		l.Debug("Accept stat as owner of bucket ", p.bkt)
 		p.accept(sm)

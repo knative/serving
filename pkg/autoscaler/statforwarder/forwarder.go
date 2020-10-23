@@ -37,6 +37,7 @@ import (
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
+	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/autoscaler/bucket"
@@ -369,7 +370,7 @@ func (f *Forwarder) process() {
 			return
 		case s := <-f.statCh:
 			rev := s.sm.Key.String()
-			l := f.logger.With(zap.String("revision", rev))
+			l := f.logger.With(zap.String(logkey.Key, rev))
 			bkt := f.bs.Owner(rev)
 
 			p := f.getProcessor(bkt)
