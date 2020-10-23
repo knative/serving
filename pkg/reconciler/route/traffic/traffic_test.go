@@ -147,7 +147,6 @@ func TestBuildTrafficConfigurationVanilla(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 		},
@@ -158,7 +157,6 @@ func TestBuildTrafficConfigurationVanilla(t *testing.T) {
 				Percent:           ptr.Int64(100),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
@@ -209,7 +207,6 @@ func TestBuildTrafficConfigurationNoNameRevision(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 		},
@@ -220,7 +217,6 @@ func TestBuildTrafficConfigurationNoNameRevision(t *testing.T) {
 				Percent:           ptr.Int64(100),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{goodConfig.Name: goodConfig},
@@ -248,7 +244,6 @@ func TestBuildTrafficConfigurationVanillaScaledToZero(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   false,
 				Protocol: net.ProtocolHTTP1,
 			}},
 		},
@@ -259,7 +254,6 @@ func TestBuildTrafficConfigurationVanillaScaledToZero(t *testing.T) {
 				Percent:           ptr.Int64(100),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Active:   false,
 			Protocol: net.ProtocolHTTP1,
 		}},
 		Configurations: map[string]*v1.Configuration{
@@ -304,7 +298,6 @@ func TestBuildTrafficConfigurationTwoConfigs(t *testing.T) {
 					Percent:           ptr.Int64(90),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
@@ -313,7 +306,6 @@ func TestBuildTrafficConfigurationTwoConfigs(t *testing.T) {
 					Percent:           ptr.Int64(10),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 		},
@@ -324,7 +316,6 @@ func TestBuildTrafficConfigurationTwoConfigs(t *testing.T) {
 				Percent:           ptr.Int64(90),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
@@ -333,7 +324,6 @@ func TestBuildTrafficConfigurationTwoConfigs(t *testing.T) {
 				Percent:           ptr.Int64(10),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
@@ -368,7 +358,6 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfig(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 		},
@@ -379,7 +368,6 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfig(t *testing.T) {
 				Percent:           ptr.Int64(100),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
@@ -454,7 +442,6 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 					Percent:           ptr.Int64(30),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
@@ -464,7 +451,6 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 					LatestRevision:    ptr.Bool(true),
 					Tag:               "robert",
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
@@ -474,7 +460,6 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 					LatestRevision:    ptr.Bool(true),
 					Tag:               "jackson",
 				},
-				Active:   false,
 				Protocol: net.ProtocolHTTP1,
 			}},
 			"robert": {{
@@ -485,7 +470,6 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 					Tag:               "robert",
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 			"jackson": {{
@@ -496,7 +480,6 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 					Tag:               "jackson",
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   false,
 				Protocol: net.ProtocolHTTP1,
 			}},
 		},
@@ -507,7 +490,6 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 				Percent:           ptr.Int64(30),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
@@ -517,7 +499,6 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 				LatestRevision:    ptr.Bool(true),
 				Tag:               "robert",
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
@@ -527,7 +508,6 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 				LatestRevision:    ptr.Bool(true),
 				Tag:               "jackson",
 			},
-			Active:   false,
 			Protocol: net.ProtocolHTTP1,
 		}},
 		Configurations: map[string]*v1.Configuration{
@@ -613,7 +593,6 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 			"robert": {{
@@ -624,7 +603,6 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 					Tag:               "robert",
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 		},
@@ -635,7 +613,6 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 				Percent:           ptr.Int64(90),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
@@ -645,7 +622,6 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 				LatestRevision:    ptr.Bool(true),
 				Tag:               "robert",
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
@@ -704,7 +680,6 @@ func TestBuildTrafficConfigurationCanary(t *testing.T) {
 					Percent:           ptr.Int64(90),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Active:   true,
 				Protocol: net.ProtocolHTTP1,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
@@ -713,7 +688,6 @@ func TestBuildTrafficConfigurationCanary(t *testing.T) {
 					Percent:           ptr.Int64(10),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 		},
@@ -724,7 +698,6 @@ func TestBuildTrafficConfigurationCanary(t *testing.T) {
 				Percent:           ptr.Int64(90),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Active:   true,
 			Protocol: net.ProtocolHTTP1,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
@@ -733,7 +706,6 @@ func TestBuildTrafficConfigurationCanary(t *testing.T) {
 				Percent:           ptr.Int64(10),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
@@ -769,7 +741,6 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 					Percent:           ptr.Int64(49),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Active:   true,
 				Protocol: net.ProtocolHTTP1,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
@@ -779,7 +750,6 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 					Percent:           ptr.Int64(51),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 			"one": {{
@@ -790,7 +760,6 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Active:   true,
 				Protocol: net.ProtocolHTTP1,
 			}},
 			"two": {{
@@ -801,7 +770,6 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 			"also-two": {{
@@ -812,7 +780,6 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 		},
@@ -824,7 +791,6 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 				Percent:           ptr.Int64(49),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Active:   true,
 			Protocol: net.ProtocolHTTP1,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
@@ -834,7 +800,6 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 				Percent:           ptr.Int64(50),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
@@ -844,7 +809,6 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 				Percent:           ptr.Int64(1),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
@@ -885,7 +849,6 @@ func TestBuildTrafficConfigurationTwoFixedRevisions(t *testing.T) {
 					Percent:           ptr.Int64(90),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Active:   true,
 				Protocol: net.ProtocolHTTP1,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
@@ -894,7 +857,6 @@ func TestBuildTrafficConfigurationTwoFixedRevisions(t *testing.T) {
 					Percent:           ptr.Int64(10),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 		},
@@ -905,7 +867,6 @@ func TestBuildTrafficConfigurationTwoFixedRevisions(t *testing.T) {
 				Percent:           ptr.Int64(90),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Active:   true,
 			Protocol: net.ProtocolHTTP1,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
@@ -914,7 +875,6 @@ func TestBuildTrafficConfigurationTwoFixedRevisions(t *testing.T) {
 				Percent:           ptr.Int64(10),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
@@ -957,7 +917,6 @@ func TestBuildTrafficConfigurationTwoFixedRevisionsFromTwoConfigurations(t *test
 					Percent:           ptr.Int64(40),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
@@ -966,7 +925,6 @@ func TestBuildTrafficConfigurationTwoFixedRevisionsFromTwoConfigurations(t *test
 					Percent:           ptr.Int64(60),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 		},
@@ -977,7 +935,6 @@ func TestBuildTrafficConfigurationTwoFixedRevisionsFromTwoConfigurations(t *test
 				Percent:           ptr.Int64(40),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
@@ -986,7 +943,6 @@ func TestBuildTrafficConfigurationTwoFixedRevisionsFromTwoConfigurations(t *test
 				Percent:           ptr.Int64(60),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
@@ -1022,7 +978,6 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Active:   true,
 				Protocol: net.ProtocolHTTP1,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
@@ -1032,7 +987,6 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 					LatestRevision:    ptr.Bool(false),
 					Percent:           ptr.Int64(0),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
@@ -1042,7 +996,6 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 					Percent:           ptr.Int64(0),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 			"beta": {{
@@ -1053,7 +1006,6 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 			"alpha": {{
@@ -1064,7 +1016,6 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Active:   true,
 				Protocol: net.ProtocolH2C,
 			}},
 		},
@@ -1075,7 +1026,6 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 				Percent:           ptr.Int64(100),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Active:   true,
 			Protocol: net.ProtocolHTTP1,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
@@ -1085,7 +1035,6 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 				LatestRevision:    ptr.Bool(false),
 				Percent:           ptr.Int64(0),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
@@ -1095,7 +1044,6 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 				LatestRevision:    ptr.Bool(true),
 				Percent:           ptr.Int64(0),
 			},
-			Active:   true,
 			Protocol: net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
