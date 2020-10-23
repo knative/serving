@@ -44,7 +44,7 @@ type ConfigurationRollout struct {
 	Tag               string `json:"tag,omitempty"`
 
 	// Percent denotes the total percentage for this configuration.
-	// The individual percentages of the Reivisions below will sum to this
+	// The individual percentages of the Revisions below will sum to this
 	// number.
 	Percent int `json:"percent"`
 
