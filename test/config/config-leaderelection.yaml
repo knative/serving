@@ -21,5 +21,6 @@ metadata:
     serving.knative.dev/release: devel
 
 data:
-  leaseDuration: "200ms"
+  leaseDuration: "1s"
+  renewDeadline: "800ms"
   retryPeriod: "200ms"
