@@ -167,6 +167,8 @@ func newBuilder(
 
 // BuildRollout builds the current rollout state.
 // It is expected to be invoked after applySpecTraffic.
+// Returned Rollout will be sorted by tag and within tag by configuration
+// (only default tag can have more than configuration object attached).
 // TODO(vagababov): actually deal with rollouts, vs just report desired state.
 func (cfg *Config) BuildRollout() *Rollout {
 	rollout := &Rollout{}
@@ -205,9 +207,12 @@ func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
 		r.Configurations = append(r.Configurations, ConfigurationRollout{
 			ConfigurationName: rt.ConfigurationName,
 			Tag:               tag,
+			Percent:           int(valIfNil(0, rt.Percent)),
 			Revisions: []RevisionRollout{{
 				RevisionName: rt.RevisionName,
-				Percent:      int(valIfNil(0, rt.Percent)),
+				// Note: this will match config value in steady state, but
+				// during rollout it will be overridden by the rollout logic.
+				Percent: int(valIfNil(0, rt.Percent)),
 			}},
 		})
 	}
