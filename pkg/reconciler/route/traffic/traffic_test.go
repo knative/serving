@@ -179,6 +179,7 @@ func TestBuildTrafficConfigurationVanilla(t *testing.T) {
 	wantR := &Rollout{
 		Configurations: []ConfigurationRollout{{
 			ConfigurationName: goodConfig.Name,
+			Percent:           100,
 			Revisions: []RevisionRollout{{
 				RevisionName: goodNewRev.Name,
 				Percent:      100,
@@ -282,6 +283,7 @@ func TestBuildTrafficConfigurationVanillaScaledToZero(t *testing.T) {
 	wantR := &Rollout{
 		Configurations: []ConfigurationRollout{{
 			ConfigurationName: inactiveConfig.Name,
+			Percent:           100,
 			Revisions: []RevisionRollout{{
 				RevisionName: inactiveRev.Name,
 				Percent:      100,
@@ -432,6 +434,7 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfig(t *testing.T) {
 	wantR := &Rollout{
 		Configurations: []ConfigurationRollout{{
 			ConfigurationName: niceConfig.Name,
+			Percent:           100,
 			Revisions: []RevisionRollout{{
 				RevisionName: niceNewRev.Name,
 				Percent:      100,
@@ -566,18 +569,21 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 		// Default tag configs are sorted as well.
 		Configurations: []ConfigurationRollout{{
 			ConfigurationName: goodConfig.Name,
+			Percent:           35,
 			Revisions: []RevisionRollout{{
 				RevisionName: goodNewRev.Name,
 				Percent:      35,
 			}},
 		}, {
 			ConfigurationName: inactiveConfig.Name,
+			Percent:           35,
 			Revisions: []RevisionRollout{{
 				RevisionName: inactiveRev.Name,
 				Percent:      35,
 			}},
 		}, {
 			ConfigurationName: niceConfig.Name,
+			Percent:           30,
 			Revisions: []RevisionRollout{{
 				RevisionName: niceNewRev.Name,
 				Percent:      30,
@@ -586,6 +592,7 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 			// Note sorting flipped these two.
 			ConfigurationName: inactiveConfig.Name,
 			Tag:               "jackson",
+			Percent:           100,
 			Revisions: []RevisionRollout{{
 				RevisionName: inactiveRev.Name,
 				Percent:      100,
@@ -593,6 +600,7 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 		}, {
 			ConfigurationName: goodConfig.Name,
 			Tag:               "robert",
+			Percent:           100,
 			Revisions: []RevisionRollout{{
 				RevisionName: goodNewRev.Name,
 				Percent:      100,
@@ -675,6 +683,7 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 	wantR := &Rollout{
 		Configurations: []ConfigurationRollout{{
 			ConfigurationName: niceConfig.Name,
+			Percent:           100,
 			Revisions: []RevisionRollout{{
 				RevisionName: niceNewRev.Name,
 				Percent:      100,
@@ -682,6 +691,7 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 		}, {
 			ConfigurationName: niceConfig.Name,
 			Tag:               "robert",
+			Percent:           100,
 			Revisions: []RevisionRollout{{
 				RevisionName: niceNewRev.Name,
 				Percent:      100,
