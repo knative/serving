@@ -84,6 +84,7 @@ spec:
         # Disable chaos on webhooks until https://github.com/knative/pkg/issues/1509 is
         # sorted out.
         - "-disable=webhook"
+        - "-disable=autoscaler"
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
