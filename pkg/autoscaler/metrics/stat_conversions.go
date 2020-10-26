@@ -27,7 +27,7 @@ func (sm StatMessage) ToWireStatMessage() *WireStatMessage {
 	}
 }
 
-// ToStatMessage converts the WireStatMessage to a Statmessage.
+// ToStatMessage converts the WireStatMessage to a StatMessage.
 // Nil-checks must have been done before calling this.
 func (wsm WireStatMessage) ToStatMessage() StatMessage {
 	return StatMessage{

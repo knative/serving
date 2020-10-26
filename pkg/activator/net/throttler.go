@@ -102,11 +102,11 @@ func (p *podTracker) Capacity() int {
 	return p.b.Capacity()
 }
 
-func (p *podTracker) UpdateConcurrency(c int) error {
+func (p *podTracker) UpdateConcurrency(c int) {
 	if p.b == nil {
-		return nil
+		return
 	}
-	return p.b.UpdateConcurrency(c)
+	p.b.UpdateConcurrency(c)
 }
 
 func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
@@ -119,7 +119,7 @@ func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
 type breaker interface {
 	Capacity() int
 	Maybe(ctx context.Context, thunk func()) error
-	UpdateConcurrency(int) error
+	UpdateConcurrency(int)
 	Reserve(ctx context.Context) (func(), bool)
 }
 
@@ -171,7 +171,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 	containerConcurrency int, proto string,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger) *revisionThrottler {
-	logger = logger.With(zap.Object(logkey.Key, logging.NamespacedName(revID)))
+	logger = logger.With(zap.String(logkey.Key, revID.String()))
 	var (
 		revBreaker breaker
 		lbp        lbPolicy
@@ -488,8 +488,8 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 		FilterFunc: reconciler.LabelFilterFunc(networking.ServiceTypeKey,
 			string(networking.ServiceTypePublic), false),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    t.publicEndspointsUpdated,
-			UpdateFunc: controller.PassNew(t.publicEndspointsUpdated),
+			AddFunc:    t.publicEndpointsUpdated,
+			UpdateFunc: controller.PassNew(t.publicEndpointsUpdated),
 		},
 	})
 	return t
@@ -563,11 +563,11 @@ func (t *Throttler) revisionUpdated(obj interface{}) {
 	rev := obj.(*v1.Revision)
 	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
 
-	t.logger.Debug("Revision update", zap.Object(logkey.Key, logging.NamespacedName(revID)))
+	t.logger.Debug("Revision update", zap.String(logkey.Key, revID.String()))
 
 	if _, err := t.getOrCreateRevisionThrottler(revID); err != nil {
 		t.logger.Errorw("Failed to get revision throttler for revision",
-			zap.Error(err), zap.Object(logkey.Key, logging.NamespacedName(revID)))
+			zap.Error(err), zap.String(logkey.Key, revID.String()))
 	}
 }
 
@@ -577,7 +577,7 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 	rev := obj.(*v1.Revision)
 	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
 
-	t.logger.Debugw("Revision delete", zap.Object(logkey.Key, logging.NamespacedName(revID)))
+	t.logger.Debugw("Revision delete", zap.String(logkey.Key, revID.String()))
 
 	t.revisionThrottlersMutex.Lock()
 	defer t.revisionThrottlersMutex.Unlock()
@@ -586,12 +586,11 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 
 func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
+		logger := t.logger.With(zap.String(logkey.Key, update.Rev.String()))
 		if k8serrors.IsNotFound(err) {
-			t.logger.Debugw("Revision not found. It was probably removed",
-				zap.Object(logkey.Key, logging.NamespacedName(update.Rev)))
+			logger.Debug("Revision not found. It was probably removed")
 		} else {
-			t.logger.Errorw("Failed to get revision throttler", zap.Error(err),
-				zap.Object(logkey.Key, logging.NamespacedName(update.Rev)))
+			logger.Errorw("Failed to get revision throttler", zap.Error(err))
 		}
 	} else {
 		rt.handleUpdate(update)
@@ -609,7 +608,7 @@ func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
 	}
 	rev := types.NamespacedName{Name: revN, Namespace: eps.Namespace}
 	if rt, err := t.getOrCreateRevisionThrottler(rev); err != nil {
-		logger := t.logger.With(zap.Object(logkey.Key, logging.NamespacedName(rev)))
+		logger := t.logger.With(zap.String(logkey.Key, rev.String()))
 		if k8serrors.IsNotFound(err) {
 			logger.Debug("Revision not found. It was probably removed")
 		} else {
@@ -666,7 +665,7 @@ func inferIndex(eps []string, ipAddress string) int {
 	return idx
 }
 
-func (t *Throttler) publicEndspointsUpdated(newObj interface{}) {
+func (t *Throttler) publicEndpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 	t.logger.Info("Updated public Endpoints: ", endpoints.Name)
 	t.epsUpdateCh <- endpoints
@@ -729,7 +728,7 @@ func zeroOrOne(x int) int32 {
 }
 
 // UpdateConcurrency sets the concurrency of the breaker
-func (ib *infiniteBreaker) UpdateConcurrency(cc int) error {
+func (ib *infiniteBreaker) UpdateConcurrency(cc int) {
 	rcc := zeroOrOne(cc)
 	// We lock here to make sure two scale up events don't
 	// stomp on each other's feet.
@@ -746,7 +745,6 @@ func (ib *infiniteBreaker) UpdateConcurrency(cc int) error {
 			close(ib.broadcast)
 		}
 	}
-	return nil
 }
 
 // Maybe executes thunk when capacity is available

@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "github.com/tsenart/vegeta/v12/lib"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -66,7 +66,32 @@ type TestContext struct {
 	metric            string
 }
 
-func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
+// Clients returns the clients of the TestContext.
+func (ctx *TestContext) Clients() *test.Clients {
+	return ctx.clients
+}
+
+// Resources returns the resources of the TestContext.
+func (ctx *TestContext) Resources() *v1test.ResourceObjects {
+	return ctx.resources
+}
+
+// SetResources sets the resources of the TestContext to the given values.
+func (ctx *TestContext) SetResources(resources *v1test.ResourceObjects) {
+	ctx.resources = resources
+}
+
+// Names returns the resource names of the TestContext.
+func (ctx *TestContext) Names() test.ResourceNames {
+	return ctx.names
+}
+
+// SetNames set the resource names of the TestContext to the given values.
+func (ctx *TestContext) SetNames(names test.ResourceNames) {
+	ctx.names = names
+}
+
+func getVegetaTarget(kubeClientset kubernetes.Interface, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
 	if resolvable {
 		return vegeta.Target{
 			Method: http.MethodGet,
@@ -98,7 +123,7 @@ func generateTraffic(
 	stopChan chan struct{}) error {
 
 	target, err := getVegetaTarget(
-		ctx.clients.KubeClient.Kube, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
+		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return fmt.Errorf("error creating vegeta target: %w", err)
 	}
@@ -133,7 +158,7 @@ func generateTraffic(
 			totalRequests++
 			if res.Code != http.StatusOK {
 				ctx.t.Logf("Status = %d, want: 200", res.Code)
-				ctx.t.Logf("URL: %s Duration: %v Body:\n%s", res.URL, res.Latency, string(res.Body))
+				ctx.t.Logf("URL: %s Duration: %v Error: %s Body:\n%s", res.URL, res.Latency, res.Error, string(res.Body))
 				continue
 			}
 			successfulRequests++
@@ -275,7 +300,7 @@ func numberOfReadyPods(ctx *TestContext) (float64, error) {
 		// Not an error, but no pods either.
 		return 0, nil
 	}
-	eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+	eps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(
 		context.Background(), sks.Status.PrivateServiceName, metav1.GetOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get endpoints %s: %w", sks.Status.PrivateServiceName, err)

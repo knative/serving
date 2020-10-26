@@ -30,7 +30,7 @@ import (
 	testv1 "knative.dev/serving/test/v1"
 )
 
-// TestMustNotContainerContraints tests that attempting to set unsupported fields or invalid values as
+// TestMustNotContainerConstraints tests that attempting to set unsupported fields or invalid values as
 // defined by "MUST NOT" statements from the runtime contract results in a user facing error.
 func TestMustNotContainerConstraints(t *testing.T) {
 	t.Parallel()
@@ -115,7 +115,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 	}
 }
 
-// TestShouldNotContainerContraints tests that attempting to set unsupported fields or invalid values as
+// TestShouldNotContainerConstraints tests that attempting to set unsupported fields or invalid values as
 // defined by "SHOULD NOT" statements from the runtime contract results in a user facing error.
 func TestShouldNotContainerConstraints(t *testing.T) {
 	t.Parallel()

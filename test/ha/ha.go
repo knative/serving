@@ -33,7 +33,9 @@ import (
 )
 
 const (
-	NumControllerReconcilers = 7 // Keep in sync with ./cmd/controller/main.go
+	// NumControllerReconcilers is the number of controllers run by ./cmd/controller/main.go.
+	// It is exported so the tests from cmd/controller/main.go can ensure we keep it in sync.
+	NumControllerReconcilers = 7
 )
 
 func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (test.ResourceNames, *v1test.ResourceObjects) {
@@ -72,7 +74,7 @@ func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names tes
 }
 
 func waitForEndpointsState(client *pkgTest.KubeClient, svcName, svcNamespace string, inState func(*corev1.Endpoints) (bool, error)) error {
-	endpointsService := client.Kube.CoreV1().Endpoints(svcNamespace)
+	endpointsService := client.CoreV1().Endpoints(svcNamespace)
 
 	return wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		endpoint, err := endpointsService.Get(context.Background(), svcName, metav1.GetOptions{})

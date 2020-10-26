@@ -55,4 +55,11 @@ func (tt *TrafficTarget) SetDefaults(ctx context.Context) {
 	if tt.LatestRevision == nil {
 		tt.LatestRevision = ptr.Bool(tt.RevisionName == "")
 	}
+	// Despite the fact that we have the field percent
+	// as required, historically we were lenient about checking this.
+	// But by setting explicit `0` we can eliminate lots of checking
+	// downstream in validation and controllers.
+	if tt.Percent == nil {
+		tt.Percent = ptr.Int64(0)
+	}
 }

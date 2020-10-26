@@ -50,6 +50,7 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 	return context.WithValue(ctx, cfgKey{}, c)
 }
 
+// Store is a typed wrapper around configmap.UntypedStore to handle our configmaps.
 // +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
@@ -76,6 +77,9 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 	return store
 }
 
+// WatchConfigs uses the provided configmap.Watcher
+// to setup watches for the config names provided in the
+// Constructors map
 func (s *Store) WatchConfigs(cmw configmap.Watcher) {
 	s.UntypedStore.WatchConfigs(cmw)
 	s.apiStore.WatchConfigs(cmw)

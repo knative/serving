@@ -59,7 +59,7 @@ const (
 	appName     = "default-domain"
 )
 
-func clientsFromFlags() (*kubernetes.Clientset, *versioned.Clientset, error) {
+func clientsFromFlags() (kubernetes.Interface, *versioned.Clientset, error) {
 	cfg, err := clientcmd.BuildConfigFromFlags(*serverURL, *kubeconfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error building kubeconfig: %w", err)
@@ -75,11 +75,11 @@ func clientsFromFlags() (*kubernetes.Clientset, *versioned.Clientset, error) {
 	return kubeClient, client, nil
 }
 
-func lookupConfigMap(ctx context.Context, kubeClient *kubernetes.Clientset, name string) (*corev1.ConfigMap, error) {
+func lookupConfigMap(ctx context.Context, kubeClient kubernetes.Interface, name string) (*corev1.ConfigMap, error) {
 	return kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, name, metav1.GetOptions{})
 }
 
-func findGatewayAddress(ctx context.Context, kubeclient *kubernetes.Clientset, client *versioned.Clientset) (*corev1.LoadBalancerIngress, error) {
+func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, client *versioned.Clientset) (*corev1.LoadBalancerIngress, error) {
 	netCM, err := lookupConfigMap(ctx, kubeclient, network.ConfigName)
 	if err != nil {
 		return nil, err

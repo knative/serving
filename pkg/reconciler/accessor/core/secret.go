@@ -42,7 +42,7 @@ type SecretAccessor interface {
 func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.Secret, accessor SecretAccessor) (*corev1.Secret, error) {
 	recorder := controller.GetEventRecorder(ctx)
 	if recorder == nil {
-		return nil, fmt.Errorf("recoder for reconciling Secret %s/%s is not created", desired.Namespace, desired.Name)
+		return nil, fmt.Errorf("recorder for reconciling Secret %s/%s is not created", desired.Namespace, desired.Name)
 	}
 	secret, err := accessor.GetSecretLister().Secrets(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {

@@ -71,7 +71,7 @@ func NewClientsFromConfig(cfg *rest.Config, namespace string) (*Clients, error) 
 	if err != nil {
 		return nil, err
 	}
-	clients.KubeClient = &test.KubeClient{Kube: kubeClient}
+	clients.KubeClient = &test.KubeClient{Interface: kubeClient}
 
 	clients.Dynamic, err = dynamic.NewForConfig(cfg)
 	if err != nil {

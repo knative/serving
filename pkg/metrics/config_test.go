@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/metrics"
@@ -48,7 +49,9 @@ func TestOurObservability(t *testing.T) {
 		t.Fatal("NewObservabilityConfigFromConfigMap(example) = nil")
 	}
 
-	if !cmp.Equal(realCfg, exCfg) {
+	// Compare with the example and allow the log url template to differ
+	co := cmpopts.IgnoreFields(metrics.ObservabilityConfig{}, "LoggingURLTemplate")
+	if !cmp.Equal(realCfg, exCfg, co) {
 		t.Errorf("actual != example: diff(-actual,+exCfg):\n%s", cmp.Diff(realCfg, exCfg))
 	}
 }
@@ -75,7 +78,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
-				"logging.enable-probe-request-log":            "true",
+				metrics.EnableProbeReqLogKey:                  "true",
 				metrics.EnableReqLogKey:                       "true",
 				"logging.enable-var-log-collection":           "true",
 				metrics.ReqLogTemplateKey:                     `{"requestMethod": "{{.Request.Method}}"}`,
@@ -99,7 +102,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
-				"logging.enable-probe-request-log":            "true",
+				metrics.EnableProbeReqLogKey:                  "true",
 				metrics.EnableReqLogKey:                       "false",
 				"logging.enable-var-log-collection":           "true",
 				"logging.revision-url-template":               "https://logging.io",

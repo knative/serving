@@ -85,7 +85,7 @@ func main() {
 	defer cancel()
 
 	// Report stats on Go memory usage every 30 seconds.
-	sharedmain.MemStatsOrDie(ctx)
+	metrics.MemStatsOrDie(ctx)
 
 	cfg := injection.ParseAndGetRESTConfigOrDie()
 

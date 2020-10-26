@@ -20,8 +20,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/test"
 )
+
+type ti interface {
+	Helper()
+	Error(args ...interface{})
+}
 
 // CheckCondition checks if condition `c` on `cc` has value `cs`.
 func CheckCondition(a apis.ConditionAccessor, c apis.ConditionType, cs corev1.ConditionStatus) error {
@@ -36,7 +40,7 @@ func CheckCondition(a apis.ConditionAccessor, c apis.ConditionType, cs corev1.Co
 }
 
 // CheckConditionOngoing checks if the condition is in state `Unknown`.
-func CheckConditionOngoing(a apis.ConditionAccessor, c apis.ConditionType, t test.T) {
+func CheckConditionOngoing(a apis.ConditionAccessor, c apis.ConditionType, t ti) {
 	t.Helper()
 	if err := CheckCondition(a, c, corev1.ConditionUnknown); err != nil {
 		t.Error(err)
@@ -44,7 +48,7 @@ func CheckConditionOngoing(a apis.ConditionAccessor, c apis.ConditionType, t tes
 }
 
 // CheckConditionFailed checks if the condition is in state `False`.
-func CheckConditionFailed(a apis.ConditionAccessor, c apis.ConditionType, t test.T) {
+func CheckConditionFailed(a apis.ConditionAccessor, c apis.ConditionType, t ti) {
 	t.Helper()
 	if err := CheckCondition(a, c, corev1.ConditionFalse); err != nil {
 		t.Error(err)
@@ -52,7 +56,7 @@ func CheckConditionFailed(a apis.ConditionAccessor, c apis.ConditionType, t test
 }
 
 // CheckConditionSucceeded checks if the condition is in state `True`.
-func CheckConditionSucceeded(a apis.ConditionAccessor, c apis.ConditionType, t test.T) {
+func CheckConditionSucceeded(a apis.ConditionAccessor, c apis.ConditionType, t ti) {
 	t.Helper()
 	if err := CheckCondition(a, c, corev1.ConditionTrue); err != nil {
 		t.Error(err)

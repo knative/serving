@@ -18,6 +18,7 @@ package traffic
 
 import (
 	"context"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -35,11 +36,10 @@ import (
 // DefaultTarget is the unnamed default target for the traffic.
 const DefaultTarget = ""
 
-// A RevisionTarget adds the Active/Inactive state and the transport protocol of a
+// A RevisionTarget adds the transport protocol and the service name of a
 // Revision to a flattened TrafficTarget.
 type RevisionTarget struct {
 	v1.TrafficTarget
-	Active      bool
 	Protocol    net.ProtocolType
 	ServiceName string // Revision service name.
 }
@@ -164,6 +164,59 @@ func newBuilder(
 	}
 }
 
+// BuildRollout builds the current rollout state.
+// It is expected to be invoked after applySpecTraffic.
+// Returned Rollout will be sorted by tag and within tag by configuration
+// (only default tag can have more than configuration object attached).
+// TODO(vagababov): actually deal with rollouts, vs just report desired state.
+func (cfg *Config) BuildRollout() *Rollout {
+	rollout := &Rollout{}
+
+	for tag, targets := range cfg.Targets {
+		buildRolloutForTag(rollout, tag, targets)
+	}
+	sortRollout(rollout)
+	return rollout
+}
+
+// sortRollout sorts the rollout based on tag so it's consistent
+// from run to run, since input to the process is map iterator.
+func sortRollout(r *Rollout) {
+	sort.Slice(r.Configurations, func(i, j int) bool {
+		// Sort by tag and within tag sort by config name.
+		if r.Configurations[i].Tag == r.Configurations[j].Tag {
+			return r.Configurations[i].ConfigurationName < r.Configurations[j].ConfigurationName
+		}
+		return r.Configurations[i].Tag < r.Configurations[j].Tag
+	})
+}
+
+// buildRolloutForTag builds the current rollout state.
+// It is expected to be invoked after applySpecTraffic.
+// TODO(vagababov): actually deal with rollouts, vs just report desired state.
+func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
+	// Only main target will have more than 1 element here.
+	for _, rt := range rts {
+		// Skip if it's revision target.
+		if rt.LatestRevision == nil || !*rt.LatestRevision {
+			continue
+		}
+
+		// The targets with the same revision are already joined together.
+		r.Configurations = append(r.Configurations, ConfigurationRollout{
+			ConfigurationName: rt.ConfigurationName,
+			Tag:               tag,
+			Percent:           int(zeroIfNil(rt.Percent)),
+			Revisions: []RevisionRollout{{
+				RevisionName: rt.RevisionName,
+				// Note: this will match config value in steady state, but
+				// during rollout it will be overridden by the rollout logic.
+				Percent: int(zeroIfNil(rt.Percent)),
+			}},
+		})
+	}
+}
+
 func (cb *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
 	for i := range traffic {
 		if err := cb.addTrafficTarget(&traffic[i]); err != nil {
@@ -257,7 +310,6 @@ func (cb *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
 	ntt := tt.DeepCopy()
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
-		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
 	}
@@ -277,7 +329,6 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	ntt := tt.DeepCopy()
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
-		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
 	}
@@ -291,13 +342,21 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	return nil
 }
 
+// zeroIfNil returns `0` if `ptr==nil`, or `*ptr` otherwise.
+func zeroIfNil(ptr *int64) int64 {
+	if ptr == nil {
+		return 0
+	}
+	return *ptr
+}
+
 // This find the exact revision+tag pair and if so, just adds the percentages.
 // This expects single digit lists, so just does an O(N) search.
 func mergeIfNecessary(rts RevisionTargets, rt RevisionTarget) RevisionTargets {
 	for i := range rts {
 		if rts[i].Tag == rt.Tag && rts[i].RevisionName == rt.RevisionName &&
 			*rt.LatestRevision == *rts[i].LatestRevision {
-			rts[i].Percent = ptr.Int64(*rts[i].Percent + *rt.Percent)
+			rts[i].Percent = ptr.Int64(zeroIfNil(rts[i].Percent) + zeroIfNil(rt.Percent))
 			return rts
 		}
 	}

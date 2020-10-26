@@ -70,6 +70,9 @@ func (cs *ConfigurationSpec) GetTemplate() *RevisionTemplateSpec {
 	return &cs.Template
 }
 
+// SetLatestCreatedRevisionName sets the LatestCreatedRevisionName on the
+// revision and sets the ConfigurationConditionReady state to unknown if this
+// does not match the LatestReadyRevisionName.
 func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 	cs.LatestCreatedRevisionName = name
 	if cs.LatestReadyRevisionName != name {
@@ -78,6 +81,9 @@ func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 	}
 }
 
+// SetLatestReadyRevisionName sets the LatestReadyRevisionName on the revision.
+// If this matches the LatestCreatedRevisionName, the
+// ConfigurationConditionReady condition is set to true.
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	cs.LatestReadyRevisionName = name
 	if cs.LatestReadyRevisionName == cs.LatestCreatedRevisionName {
@@ -85,6 +91,8 @@ func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	}
 }
 
+// MarkLatestCreatedFailed marks the ConfigurationConditionReady condition to
+// indicate that the Revision failed.
 func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
 	configCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,
@@ -92,6 +100,8 @@ func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
 		"Revision %q failed with message: %s.", name, message)
 }
 
+// MarkRevisionCreationFailed marks the ConfigurationConditionReady condition
+// to indicate the Revision creation failed.
 func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
 	configCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,
@@ -99,6 +109,8 @@ func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
 		"Revision creation failed with message: %s.", message)
 }
 
+// MarkLatestReadyDeleted marks the ConfigurationConditionReady condition to
+// indicate that the Revision was deleted.
 func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
 	configCondSet.Manage(cs).MarkFalse(
 		ConfigurationConditionReady,

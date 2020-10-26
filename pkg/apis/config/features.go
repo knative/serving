@@ -23,6 +23,7 @@ import (
 	cm "knative.dev/pkg/configmap"
 )
 
+// Flag is a string value which can be either Enabled, Disabled, or Allowed.
 type Flag string
 
 const (
@@ -48,7 +49,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecRuntimeClassName: Disabled,
 		PodSpecSecurityContext:  Disabled,
 		PodSpecTolerations:      Disabled,
-		ResponsiveRevisionGC:    Allowed,
+		ResponsiveRevisionGC:    Enabled,
 		TagHeaderBasedRouting:   Disabled,
 	}
 }

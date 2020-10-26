@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
       - name: vegeta
-        image: ko://knative.dev/serving/vendor/github.com/tsenart/vegeta
+        image: ko://knative.dev/serving/vendor/github.com/tsenart/vegeta/v12
         command: ["/bin/bash", "-c"]
         args:
         - "/ko-app/vegeta -cpus=1 attack -duration=4m -rate=1000/1s -targets=/var/vegeta/payload | /ko-app/vegeta report -type=json"

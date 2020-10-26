@@ -111,7 +111,11 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 // CreateOrUpdate either creates a collection for the given metric or update it, should
 // it already exist.
 func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
-	scraper, err := c.statsScraperFactory(metric, c.logger)
+	logger := c.logger.With(zap.String(logkey.Key, types.NamespacedName{
+		Namespace: metric.Namespace,
+		Name:      metric.Name,
+	}.String()))
+	scraper, err := c.statsScraperFactory(metric, logger)
 	if err != nil {
 		return err
 	}
@@ -127,7 +131,7 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 		return collection.lastError()
 	}
 
-	c.collections[key] = newCollection(metric, scraper, c.clock, c.Inform, c.logger)
+	c.collections[key] = newCollection(metric, scraper, c.clock, c.Inform, logger)
 	return nil
 }
 
@@ -354,9 +358,9 @@ func (c *collection) lastError() error {
 func (c *collection) record(now time.Time, stat Stat) {
 	// Proxied requests have been counted at the activator. Subtract
 	// them to avoid double counting.
-	concurr := stat.AverageConcurrentRequests - stat.AverageProxiedConcurrentRequests
-	c.concurrencyBuckets.Record(now, concurr)
-	c.concurrencyPanicBuckets.Record(now, concurr)
+	concur := stat.AverageConcurrentRequests - stat.AverageProxiedConcurrentRequests
+	c.concurrencyBuckets.Record(now, concur)
+	c.concurrencyPanicBuckets.Record(now, concur)
 	rps := stat.RequestCount - stat.ProxiedRequestCount
 	c.rpsBuckets.Record(now, rps)
 	c.rpsPanicBuckets.Record(now, rps)

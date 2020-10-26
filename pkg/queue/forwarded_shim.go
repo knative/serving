@@ -56,7 +56,7 @@ func ForwardedShimHandler(h http.Handler) http.Handler {
 
 func generateForwarded(xff, xfp, xfh string) string {
 	fwd := &strings.Builder{}
-	// The size is dominated by the side of the indiviual headers.
+	// The size is dominated by the side of the individual headers.
 	// + 5 + 1 for host= and delimiter
 	// + 6 + 1 for proto= and delimiter
 	// + (5 + 4) * x for each for= clause and delimiter (assuming ipv6)

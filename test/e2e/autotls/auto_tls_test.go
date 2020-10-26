@@ -184,7 +184,7 @@ func routeTrafficHTTPS(route *servingv1.Route) (bool, error) {
 			return false, nil
 		}
 	}
-	return route.Status.IsReady(), nil
+	return route.IsReady(), nil
 }
 
 func routeURLHTTP(route *servingv1.Route) (bool, error) {

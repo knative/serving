@@ -41,24 +41,24 @@ func WithProtocolType(pt networking.ProtocolType) PodAutoscalerOption {
 	}
 }
 
-// WithReachability sets the reachability of the PodAutoscaler to the given value
+// WithReachability sets the reachability of the PodAutoscaler to the given value.
 func WithReachability(r asv1a1.ReachabilityType) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Spec.Reachability = r
 	}
 }
 
-// WithReachabilityUnknown sets the reachability of the PodAutoscaler to unknown
+// WithReachabilityUnknown sets the reachability of the PodAutoscaler to unknown.
 func WithReachabilityUnknown(pa *asv1a1.PodAutoscaler) {
 	WithReachability(asv1a1.ReachabilityUnknown)(pa)
 }
 
-// WithReachabilityReachable sets the reachability of the PodAutoscaler to reachable
+// WithReachabilityReachable sets the reachability of the PodAutoscaler to reachable.
 func WithReachabilityReachable(pa *asv1a1.PodAutoscaler) {
 	WithReachability(asv1a1.ReachabilityReachable)(pa)
 }
 
-// WithReachabilityUnreachable sets the reachability of the PodAutoscaler to unreachable
+// WithReachabilityUnreachable sets the reachability of the PodAutoscaler to unreachable.
 func WithReachabilityUnreachable(pa *asv1a1.PodAutoscaler) {
 	WithReachability(asv1a1.ReachabilityUnreachable)(pa)
 }
@@ -68,7 +68,7 @@ func WithPAOwnersRemoved(pa *asv1a1.PodAutoscaler) {
 	pa.OwnerReferences = nil
 }
 
-// MarkResourceNotOwnedByPA marks PA when it's now owning a resources it is supposed to own.
+// MarkResourceNotOwnedByPA marks PA as not owning a resource it is supposed to own.
 func MarkResourceNotOwnedByPA(rType, name string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Status.MarkResourceNotOwned(rType, name)
@@ -85,12 +85,12 @@ func WithTraffic(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
-// WithPASKSReady marks PA status that all its deps are ready.
+// WithPASKSReady marks PA status that SKS is ready.
 func WithPASKSReady(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkSKSReady()
 }
 
-// WithPADepsReady marks PA status that at least one of its deps is not ready.
+// WithPASKSNotReady marks PA status that SKS is not ready.
 func WithPASKSNotReady(m string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Status.MarkSKSNotReady(m)
@@ -186,7 +186,7 @@ func WithWindowAnnotation(window string) PodAutoscalerOption {
 
 // WithPanicThresholdPercentageAnnotation returns a PodAutoscalerOption
 // which sets the PodAutoscaler
-// autoscaling.knative.dev/targetPanicPercentage annotation to the
+// autoscaling.knative.dev/panicThresholdPercentage annotation to the
 // provided value.
 func WithPanicThresholdPercentageAnnotation(percentage string) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.PanicThresholdPercentageAnnotationKey, percentage)
@@ -194,7 +194,7 @@ func WithPanicThresholdPercentageAnnotation(percentage string) PodAutoscalerOpti
 
 // WithPanicWindowPercentageAnnotation retturn a PodAutoscalerOption
 // which set the PodAutoscaler
-// autoscaling.knative.dev/windowPanicPercentage annotation to the
+// autoscaling.knative.dev/panicWindowPercentage annotation to the
 // provided value.
 func WithPanicWindowPercentageAnnotation(percentage string) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.PanicWindowPercentageAnnotationKey, percentage)
@@ -303,7 +303,7 @@ func WithFailingContainer(name string, exitCode int, message string) PodOption {
 	}
 }
 
-// WithUnschedulableContainer sets the .Status.Conditionss on the pod to
+// WithUnschedulableContainer sets the .Status.Conditions on the pod to
 // include `PodScheduled` status to `False` with the given message and reason.
 func WithUnschedulableContainer(reason, message string) PodOption {
 	return func(pod *corev1.Pod) {
@@ -358,7 +358,7 @@ func WithPubService(sks *netv1alpha1.ServerlessService) {
 	sks.Status.ServiceName = sks.Name
 }
 
-// WithDeployRef annotates SKS with a deployment objectRef
+// WithDeployRef annotates SKS with a deployment objectRef.
 func WithDeployRef(name string) SKSOption {
 	return func(sks *netv1alpha1.ServerlessService) {
 		sks.Spec.ObjectRef = corev1.ObjectReference{

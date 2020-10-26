@@ -317,7 +317,7 @@ func ErrDisallowedUpdateDeprecatedFields(fieldPaths ...string) *FieldError {
 	}
 }
 
-// ErrInvalidArrayValue constructs a FieldError for a repetetive `field`
+// ErrInvalidArrayValue constructs a FieldError for a repetitive `field`
 // at `index` that has received an invalid value.
 func ErrInvalidArrayValue(value interface{}, field string, index int) *FieldError {
 	return ErrInvalidValue(value, CurrentField).ViaFieldIndex(field, index)

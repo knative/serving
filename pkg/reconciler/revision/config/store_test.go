@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 
 	network "knative.dev/networking/pkg"
@@ -88,7 +89,10 @@ func TestStoreLoadWithContext(t *testing.T) {
 		if err != nil {
 			t.Fatal("Error parsing example observability config:", err)
 		}
-		if !cmp.Equal(got, want) {
+
+		// Compare with the example and allow the log url template to differ
+		co := cmpopts.IgnoreFields(metrics.ObservabilityConfig{}, "LoggingURLTemplate")
+		if !cmp.Equal(got, want, co) {
 			t.Error("Example Observability Config does not match the default, diff(-want,+got):\n", cmp.Diff(want, got))
 		}
 	})

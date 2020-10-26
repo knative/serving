@@ -88,7 +88,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 	if hasExampleBody && hasExampleChecksumAnnotation {
 		wantChecksum := configmap.Checksum(exampleBody)
 		if gotChecksum != wantChecksum {
-			t.Errorf("example checksum annotation = %s, want %s", gotChecksum, wantChecksum)
+			t.Errorf("example checksum annotation = %s, want %s (you may need to re-run ./hack/update-codegen.sh)", gotChecksum, wantChecksum)
 		}
 	}
 

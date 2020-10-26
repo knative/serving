@@ -23,6 +23,7 @@ import (
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
 
+	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
@@ -38,8 +39,8 @@ type bucketProcessor struct {
 	logger *zap.SugaredLogger
 	// The name of the bucket
 	bkt string
-	// holder is the HolderIdentity for a bucket from the Lease.
-	holder   string
+	// ip is the Pod IP extracted from the HolderIdentity.
+	ip       string
 	svcDNS   string
 	connLock sync.RWMutex
 	// conn is the WebSocket connection to the holder pod.
@@ -49,7 +50,7 @@ type bucketProcessor struct {
 	accept statProcessor
 }
 
-func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS string) *bucketProcessor {
+func newForwardProcessor(logger *zap.SugaredLogger, bkt, ip, podDNS, svcDNS string) *bucketProcessor {
 	// First try to connect via Pod IP address synchronously. If the connection can
 	// not be established within `establishTimeout`, we assume the pods can not be
 	// accessed by IP address. Then try to connect via Pod IP address synchronously.
@@ -62,7 +63,7 @@ func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS 
 	return &bucketProcessor{
 		logger: logger,
 		bkt:    bkt,
-		holder: holder,
+		ip:     ip,
 		conn:   c,
 		svcDNS: svcDNS,
 	}
@@ -81,14 +82,14 @@ func (p *bucketProcessor) setConn(conn *websocket.ManagedConnection) {
 }
 
 func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
-	l := p.logger.With(zap.String("revision", sm.Key.String()))
+	l := p.logger.With(zap.String(logkey.Key, sm.Key.String()))
 	if p.accept != nil {
 		l.Debug("Accept stat as owner of bucket ", p.bkt)
 		p.accept(sm)
 		return nil
 	}
 
-	l.Debugf("Forward stat of bucket %s to the holder %s", p.bkt, p.holder)
+	l.Debugf("Forward stat of bucket %s to the holder %s", p.bkt, p.ip)
 	wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
 	b, err := wsms.Marshal()
 	if err != nil {

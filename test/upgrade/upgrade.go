@@ -49,7 +49,7 @@ const (
 )
 
 // Shamelessly cribbed from conformance/service_test.
-func assertServiceResourcesUpdated(t pkgTest.TLegacy, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string) {
+func assertServiceResourcesUpdated(t testing.TB, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string) {
 	t.Helper()
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	if _, err := pkgTest.WaitForEndpointState(

@@ -53,14 +53,9 @@ var (
 	sidecarContainerName2        = "sidecar-container-2"
 	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
 	defaultServingContainer      = &corev1.Container{
-		Name:  servingContainerName,
-		Image: "busybox",
-		Ports: buildContainerPorts(v1.DefaultUserPort),
-		VolumeMounts: []corev1.VolumeMount{{
-			Name:        varLogVolume.Name,
-			MountPath:   "/var/log",
-			SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_" + servingContainerName,
-		}},
+		Name:                     servingContainerName,
+		Image:                    "busybox",
+		Ports:                    buildContainerPorts(v1.DefaultUserPort),
 		Lifecycle:                userLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
@@ -75,12 +70,6 @@ var (
 			Name: "K_CONFIGURATION",
 		}, {
 			Name: "K_SERVICE",
-		}, {
-			Name:      "K_INTERNAL_POD_NAME",
-			ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
-		}, {
-			Name:      "K_INTERNAL_POD_NAMESPACE",
-			ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}},
 		}},
 	}
 
@@ -183,7 +172,6 @@ var (
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
-		Volumes:                       []corev1.Volume{varLogVolume},
 		TerminationGracePeriodSeconds: refInt64(45),
 		EnableServiceLinks:            ptr.Bool(false),
 	}
@@ -232,13 +220,8 @@ var (
 
 func defaultSidecarContainer(containerName string) *corev1.Container {
 	return &corev1.Container{
-		Name:  containerName,
-		Image: "ubuntu",
-		VolumeMounts: []corev1.VolumeMount{{
-			Name:        varLogVolume.Name,
-			MountPath:   "/var/log",
-			SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_" + containerName,
-		}},
+		Name:                     containerName,
+		Image:                    "ubuntu",
 		Lifecycle:                userLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
@@ -250,12 +233,6 @@ func defaultSidecarContainer(containerName string) *corev1.Container {
 			Name: "K_CONFIGURATION",
 		}, {
 			Name: "K_SERVICE",
-		}, {
-			Name:      "K_INTERNAL_POD_NAME",
-			ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
-		}, {
-			Name:      "K_INTERNAL_POD_NAMESPACE",
-			ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}},
 		}},
 	}
 }
@@ -995,7 +972,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 			}),
 	}, {
-		name: "propertes allowed by the webhook are passed through",
+		name: "properties allowed by the webhook are passed through",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
@@ -1023,6 +1000,69 @@ func TestMakePodSpec(t *testing.T) {
 			func(p *corev1.PodSpec) {
 				p.EnableServiceLinks = ptr.Bool(false)
 			},
+		),
+	}, {
+		name: "var-log collection enabled",
+		oc: metrics.ObservabilityConfig{
+			EnableVarLogCollection: true,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+			}, {
+				Name:  sidecarContainerName,
+				Image: "ubuntu",
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}, {
+				ImageDigest: "ubuntu@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+					container.VolumeMounts = []corev1.VolumeMount{{
+						Name:        varLogVolume.Name,
+						MountPath:   "/var/log",
+						SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_" + servingContainerName,
+					}}
+					container.Env = append(container.Env,
+						corev1.EnvVar{
+							Name:      "K_INTERNAL_POD_NAME",
+							ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
+						},
+						corev1.EnvVar{
+							Name:      "K_INTERNAL_POD_NAMESPACE",
+							ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}},
+						})
+				}),
+				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
+					c.Image = "ubuntu@sha256:deadbeef"
+					c.VolumeMounts = []corev1.VolumeMount{{
+						Name:        varLogVolume.Name,
+						MountPath:   "/var/log",
+						SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_" + sidecarContainerName,
+					}}
+					c.Env = append(c.Env,
+						corev1.EnvVar{
+							Name:      "K_INTERNAL_POD_NAME",
+							ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
+						},
+						corev1.EnvVar{
+							Name:      "K_INTERNAL_POD_NAMESPACE",
+							ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}},
+						})
+				}),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+				),
+			},
+			withAppendedVolumes(varLogVolume),
 		),
 	}}
 

@@ -94,10 +94,11 @@ var MustFiles = map[string]FileInfo{
 		IsDir: ptr.Bool(true),
 		Perm:  "rwxrwxrwx",
 	},
-	"/var/log": {
-		IsDir: ptr.Bool(true),
-		Perm:  "rwxrwxrwx",
-	},
+	// TODO(dprotaso) Re-enable this as a potential MAY requirement
+	// "/var/log": {
+	// 	IsDir: ptr.Bool(true),
+	// 	Perm:  "rwxrwxrwx",
+	// },
 }
 
 // ShouldFiles specifies the file paths and expected permissions that SHOULD be set as specified in the runtime contract.
@@ -159,7 +160,7 @@ type HostInfo struct {
 type Stdin struct {
 	// EOF is true if the first byte read from stdin results in EOF.
 	EOF *bool `json:"eof,omitempty"`
-	// Error is the String representation of an error probing sdtin.
+	// Error is the String representation of an error probing stdin.
 	Error string `json:"error,omitempty"`
 }
 
@@ -172,6 +173,7 @@ type UserInfo struct {
 	Cwd  *Cwd `json:"cwd"`
 }
 
+// Cwd represents the Current Working Directory for a user.
 type Cwd struct {
 	Directory string `json:"directory"`
 	Error     string `json:"error"`

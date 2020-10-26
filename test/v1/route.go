@@ -19,12 +19,12 @@ package v1
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/reconciler"
-	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -56,7 +56,7 @@ func Route(names test.ResourceNames, fopt ...rtesting.RouteOption) *v1.Route {
 }
 
 // CreateRoute creates a route in the given namespace using the route name in names
-func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.RouteOption) (rt *v1.Route, err error) {
+func CreateRoute(t testing.TB, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.RouteOption) (rt *v1.Route, err error) {
 	route := Route(names, fopt...)
 	test.AddTestAnnotation(t, route.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Route: route})
@@ -115,7 +115,7 @@ func CheckRouteState(client *test.ServingClients, name string, inState func(r *v
 // IsRouteReady will check the status conditions of the route and return true if the route is
 // ready.
 func IsRouteReady(r *v1.Route) (bool, error) {
-	return r.Generation == r.Status.ObservedGeneration && r.Status.IsReady(), nil
+	return r.IsReady(), nil
 }
 
 // IsRouteFailed will check the status conditions of the route and return true if the route is

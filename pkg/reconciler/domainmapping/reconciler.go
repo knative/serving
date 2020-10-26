@@ -25,7 +25,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
@@ -36,6 +36,7 @@ import (
 	"knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
+	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
 )
 
@@ -53,21 +54,40 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	logger := logging.FromContext(ctx)
 	logger.Debugf("Reconciling DomainMapping %s/%s", dm.Namespace, dm.Name)
 
-	// Mapped URL is the metadata.name of the DomainMapping.
-	url := &apis.URL{
-		Scheme: "http",
-		Host:   dm.Name,
+	// Defensively assume the ingress is not configured until we manage to
+	// successfully reconcile it below. This avoids error cases where we fail
+	// before we've reconciled the ingress and get a new ObservedGeneration but
+	// still have Ingress Ready: True.
+	if dm.GetObjectMeta().GetGeneration() != dm.Status.ObservedGeneration {
+		dm.Status.MarkIngressNotConfigured()
 	}
 
+	// Mapped URL is the metadata.name of the DomainMapping.
+	url := &apis.URL{Scheme: "http", Host: dm.Name}
 	dm.Status.URL = url
 	dm.Status.Address = &duckv1.Addressable{URL: url}
 
-	// TODO(jz) allow overriding via annotation, configmap.
-	ingressClass := network.IstioIngressClassName
+	// IngressClass can be set via annotations or in the config map.
+	ingressClass := dm.Annotations[networking.IngressClassAnnotationKey]
+	if ingressClass == "" {
+		ingressClass = config.FromContext(ctx).Network.DefaultIngressClass
+	}
 
+	// Reconcile the Ingress resource corresponding to the requested Mapping.
 	logger.Debugf("Mapping %s to %s/%s", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name)
 	desired := resources.MakeIngress(dm, ingressClass)
-	_, err := r.reconcileIngress(ctx, dm, desired)
+	ingress, err := r.reconcileIngress(ctx, dm, desired)
+	if err != nil {
+		return err
+	}
+
+	// Check that the Ingress status reflects the latest ingress applied and propagate status if so.
+	if ingress.GetObjectMeta().GetGeneration() != ingress.Status.ObservedGeneration {
+		dm.Status.MarkIngressNotConfigured()
+	} else {
+		dm.Status.PropagateIngressStatus(ingress.Status)
+	}
+
 	return err
 }
 

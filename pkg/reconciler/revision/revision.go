@@ -121,6 +121,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 	return false, nil
 }
 
+// ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
 	readyBeforeReconcile := rev.IsReady()
 	c.updateRevisionLoggingURL(ctx, rev)
@@ -158,6 +159,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revision) {
 	config := config.FromContext(ctx)
 	if config.Observability.LoggingURLTemplate == "" {
+		rev.Status.LogURL = ""
 		return
 	}
 

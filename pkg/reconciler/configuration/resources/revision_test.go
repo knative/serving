@@ -66,8 +66,8 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:    "no",
-				GenerateName: "build-",
+				Namespace: "no",
+				Name:      "build-00010",
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -121,9 +121,9 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:    "with",
-				GenerateName: "labels-",
-				Annotations:  map[string]string{},
+				Namespace:   "with",
+				Name:        "labels-00100",
+				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -175,8 +175,8 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:    "with",
-				GenerateName: "annotations-",
+				Namespace: "with",
+				Name:      "annotations-00100",
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -230,8 +230,8 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:    "anno",
-				GenerateName: "config-",
+				Namespace: "anno",
+				Name:      "config-00010",
 				Annotations: map[string]string{
 					"serving.knative.dev/creator":             "someone",
 					serving.RoutesAnnotationKey:               "route",
@@ -291,8 +291,8 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:    "anno",
-				GenerateName: "config-",
+				Namespace: "anno",
+				Name:      "config-00010",
 				Annotations: map[string]string{
 					"serving.knative.dev/creator": "someone",
 					"foo":                         "bar",

@@ -530,17 +530,17 @@ func createService(ctx context.Context, t *testing.T, clients *test.Clients, svc
 	svcName := ktypes.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}
 
 	t.Cleanup(func() {
-		clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{})
+		clients.KubeClient.CoreV1().Services(svc.Namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{})
 	})
 	if err := reconciler.RetryTestErrors(func(attempts int) error {
-		_, err := clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Create(ctx, svc, metav1.CreateOptions{})
+		_, err := clients.KubeClient.CoreV1().Services(svc.Namespace).Create(ctx, svc, metav1.CreateOptions{})
 		return err
 	}); err != nil {
 		t.Fatalf("Error creating Service %q: %v", svcName, err)
 	}
 
 	return func() {
-		err := clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{})
+		err := clients.KubeClient.CoreV1().Services(svc.Namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{})
 		if err != nil {
 			t.Errorf("Error cleaning up Service %q: %v", svcName, err)
 		}
@@ -578,20 +578,20 @@ func createPodAndService(ctx context.Context, t *testing.T, clients *test.Client
 	svcName := ktypes.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}
 
 	t.Cleanup(func() {
-		clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
+		clients.KubeClient.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
 	})
 	if err := reconciler.RetryTestErrors(func(attempts int) error {
-		_, err := clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
+		_, err := clients.KubeClient.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 		return err
 	}); err != nil {
 		t.Fatalf("Error creating Pod %q: %v", podName, err)
 	}
 
 	t.Cleanup(func() {
-		clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{})
+		clients.KubeClient.CoreV1().Services(svc.Namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{})
 	})
 	if err := reconciler.RetryTestErrors(func(attempts int) error {
-		_, err := clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Create(ctx, svc, metav1.CreateOptions{})
+		_, err := clients.KubeClient.CoreV1().Services(svc.Namespace).Create(ctx, svc, metav1.CreateOptions{})
 		return err
 	}); err != nil {
 		t.Fatalf("Error creating Service %q: %v", svcName, err)
@@ -601,7 +601,7 @@ func createPodAndService(ctx context.Context, t *testing.T, clients *test.Client
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var ep *corev1.Endpoints
 		err := reconciler.RetryTestErrors(func(attempts int) (err error) {
-			ep, err = clients.KubeClient.Kube.CoreV1().Endpoints(svc.Namespace).Get(ctx, svc.Name, metav1.GetOptions{})
+			ep, err = clients.KubeClient.CoreV1().Endpoints(svc.Namespace).Get(ctx, svc.Name, metav1.GetOptions{})
 			return err
 		})
 		if apierrs.IsNotFound(err) {
@@ -622,11 +622,11 @@ func createPodAndService(ctx context.Context, t *testing.T, clients *test.Client
 	}
 
 	return func() {
-		err := clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{})
+		err := clients.KubeClient.CoreV1().Services(svc.Namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{})
 		if err != nil {
 			t.Errorf("Error cleaning up Service %q: %v", svcName, err)
 		}
-		err = clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
+		err = clients.KubeClient.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
 		if err != nil {
 			t.Errorf("Error cleaning up Pod %q", pod.Name)
 		}
@@ -655,7 +655,7 @@ func createIngress(ctx context.Context, t *testing.T, clients *test.Clients, spe
 			Name:      name,
 			Namespace: test.ServingNamespace,
 			Annotations: map[string]string{
-				networking.IngressClassAnnotationKey: test.ServingFlags.IngressClass,
+				networking.IngressClassAnnotationKey: test.NetworkingFlags.IngressClass,
 			},
 		},
 		Spec: spec,
@@ -854,13 +854,13 @@ func CreateTLSSecretWithCertPool(ctx context.Context, t *testing.T, clients *tes
 		},
 	}
 	t.Cleanup(func() {
-		clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Delete(ctx, secret.Name, metav1.DeleteOptions{})
+		clients.KubeClient.CoreV1().Secrets(secret.Namespace).Delete(ctx, secret.Name, metav1.DeleteOptions{})
 	})
-	if _, err := clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{}); err != nil {
+	if _, err := clients.KubeClient.CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Error creating Secret:", err)
 	}
 	return name, func() {
-		err := clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Delete(ctx, secret.Name, metav1.DeleteOptions{})
+		err := clients.KubeClient.CoreV1().Secrets(secret.Namespace).Delete(ctx, secret.Name, metav1.DeleteOptions{})
 		if err != nil {
 			t.Errorf("Error cleaning up Secret %s: %v", secret.Name, err)
 		}
@@ -897,7 +897,7 @@ func CreateDialContext(ctx context.Context, t *testing.T, ing *v1alpha1.Ingress,
 
 	var svc *corev1.Service
 	err := reconciler.RetryTestErrors(func(attempts int) (err error) {
-		svc, err = clients.KubeClient.Kube.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+		svc, err = clients.KubeClient.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
 		return err
 	})
 	if err != nil {
@@ -1039,7 +1039,7 @@ func IsDialError(err error) bool {
 // error or PollTimeout. desc will be used to name the metric that is emitted to
 // track how long it took for name to get into the state checked by inState.
 func WaitForIngressState(ctx context.Context, client *test.NetworkingClients, name string, inState func(r *v1alpha1.Ingress) (bool, error), desc string) error {
-	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForIngressState/%s/%s", name, desc))
+	span := logging.GetEmitableSpan(ctx, fmt.Sprintf("WaitForIngressState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1alpha1.Ingress

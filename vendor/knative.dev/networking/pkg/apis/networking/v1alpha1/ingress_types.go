@@ -185,7 +185,7 @@ type IngressRule struct {
 type HTTPIngressRuleValue struct {
 	// A collection of paths that map requests to backends.
 	//
-	// If they are multiple matching paths, the first match takes precendent.
+	// If they are multiple matching paths, the first match takes precedence.
 	Paths []HTTPIngressPath `json:"paths"`
 
 	// TODO: Consider adding fields for ingress-type specific global
@@ -232,11 +232,12 @@ type HTTPIngressPath struct {
 	// +optional
 	AppendHeaders map[string]string `json:"appendHeaders,omitempty"`
 
-	// Timeout for HTTP requests.
+	// DeprecatedTimeout is DEPRECATED.
+	// Timeout is not used anymore. See https://github.com/knative/networking/issues/91
 	//
 	// NOTE: This differs from K8s Ingress which doesn't allow setting timeouts.
 	// +optional
-	Timeout *metav1.Duration `json:"timeout,omitempty"`
+	DeprecatedTimeout *metav1.Duration `json:"timeout,omitempty"`
 
 	// DeprecatedRetries is DEPRECATED.
 	// Retry in Kingress is not used anymore. See https://github.com/knative/serving/issues/6549

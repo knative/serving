@@ -122,7 +122,7 @@ func WithExporter(name string, logger *zap.SugaredLogger) ConfigOption {
 // the host name must be able to be resolved.
 // e.g)
 //   "name" is a service name like activator-service.
-//   "host" is a endpoint IP like activator-service's endpint IP.
+//   "host" is a endpoint IP like activator-service's endpoint IP.
 func WithExporterFull(name, host string, logger *zap.SugaredLogger) ConfigOption {
 	return func(cfg *config.Config) error {
 		var (

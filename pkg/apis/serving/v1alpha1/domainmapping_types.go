@@ -48,6 +48,10 @@ type DomainMapping struct {
 
 // Verify that DomainMapping adheres to the appropriate interfaces.
 var (
+	// Check that DomainMapping may be validated and defaulted.
+	_ apis.Validatable = (*DomainMapping)(nil)
+	_ apis.Defaultable = (*DomainMapping)(nil)
+
 	// Check that the type conforms to the duck Knative Resource shape.
 	_ duckv1.KRShaped = (*DomainMapping)(nil)
 )

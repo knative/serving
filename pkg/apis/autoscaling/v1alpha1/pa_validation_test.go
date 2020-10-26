@@ -59,7 +59,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingField("protocolType"),
 	}, {
-		name: "protcol type invalid",
+		name: "protocol type invalid",
 		rs: &PodAutoscalerSpec{
 			ContainerConcurrency: 0,
 			ScaleTargetRef: corev1.ObjectReference{

@@ -26,8 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	listers "k8s.io/client-go/listers/core/v1"
-	network "knative.dev/networking/pkg"
+	networking "knative.dev/networking/pkg"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -44,9 +45,9 @@ func getContext(domainSuffix string) context.Context {
 				domainSuffix: {},
 			},
 		},
-		Network: &network.Config{
-			TagTemplate:    network.DefaultTagTemplate,
-			DomainTemplate: network.DefaultDomainTemplate,
+		Network: &networking.Config{
+			TagTemplate:    networking.DefaultTagTemplate,
+			DomainTemplate: networking.DefaultDomainTemplate,
 		},
 	})
 }
@@ -77,7 +78,7 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 				Labels: map[string]string{
-					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		},
@@ -95,16 +96,16 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "irrelevance",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "bar",
-					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "bar",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}},
@@ -125,8 +126,8 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "blue-foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
@@ -205,7 +206,7 @@ func TestVisibility(t *testing.T) {
 			"green":               netv1alpha1.IngressVisibilityExternalIP,
 		},
 	}, {
-		name: "two tags initial default with .svc.cluster.local domain suffix",
+		name: "two tags initial default with cluster domain suffix",
 		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
@@ -218,7 +219,7 @@ func TestVisibility(t *testing.T) {
 				}},
 			},
 		},
-		domainSuffix: "svc.cluster.local",
+		domainSuffix: "svc." + network.GetClusterDomainName(),
 		expected: map[string]netv1alpha1.IngressVisibility{
 			traffic.DefaultTarget: netv1alpha1.IngressVisibilityClusterLocal,
 			"blue":                netv1alpha1.IngressVisibilityClusterLocal,
@@ -271,7 +272,7 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 				Labels: map[string]string{
-					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 			Spec: v1.RouteSpec{
@@ -327,8 +328,8 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "blue-foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}},
@@ -355,16 +356,16 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "blue-foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "green-foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}},
@@ -391,24 +392,24 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "blue-foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "green-foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}},

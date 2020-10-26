@@ -163,8 +163,15 @@ func TestRouteIsReady(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.isReady, tc.status.IsReady(); e != a {
+			r := Route{Status: tc.status}
+			if e, a := tc.isReady, r.IsReady(); e != a {
 				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+
+			r.Generation = 1
+			r.Status.ObservedGeneration = 2
+			if r.IsReady() {
+				t.Error("Expected IsReady() to be false when Generation != ObservedGeneration")
 			}
 		})
 	}

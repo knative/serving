@@ -207,7 +207,7 @@ type Impl struct {
 
 // ControllerOptions encapsulates options for creating a new controller,
 // including throttling and stats behavior.
-type ControllerOptions struct { //nolint for backcompat.
+type ControllerOptions struct { //nolint // for backcompat.
 	WorkQueueName string
 	Logger        *zap.SugaredLogger
 	Reporter      StatsReporter
@@ -270,7 +270,7 @@ func (c *Impl) EnqueueSlowKey(key types.NamespacedName) {
 			safeKey(key), c.workQueue.Len(), c.workQueue.SlowLane().Len())
 }
 
-// EnqueueSlow extracts namesspeced name from the object and enqueues it on the slow
+// EnqueueSlow extracts namespaced name from the object and enqueues it on the slow
 // work queue.
 func (c *Impl) EnqueueSlow(obj interface{}) {
 	object, err := kmeta.DeletionHandlingAccessor(obj)

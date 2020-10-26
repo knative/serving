@@ -43,7 +43,7 @@ func TestVisibility(t *testing.T) {
 	shortName := privateServiceName + "." + test.ServingNamespace
 
 	var privateHostNames = map[string]string{
-		"fqdn":     shortName + ".svc." + test.ServingFlags.ClusterSuffix,
+		"fqdn":     shortName + ".svc." + test.NetworkingFlags.ClusterSuffix,
 		"short":    shortName + ".svc",
 		"shortest": shortName,
 	}
@@ -150,7 +150,7 @@ func TestVisibilitySplit(t *testing.T) {
 	name := test.ObjectNameForTest(t)
 
 	// Create a simple Ingress over the 10 Services.
-	privateHostName := fmt.Sprintf("%s.%s.svc.%s", name, test.ServingNamespace, test.ServingFlags.ClusterSuffix)
+	privateHostName := fmt.Sprintf("%s.%s.svc.%s", name, test.ServingNamespace, test.NetworkingFlags.ClusterSuffix)
 	localIngress, client, _ := CreateIngressReady(ctx, t, clients, v1alpha1.IngressSpec{
 		Rules: []v1alpha1.IngressRule{{
 			Hosts:      []string{privateHostName},
@@ -254,7 +254,7 @@ func TestVisibilityPath(t *testing.T) {
 	const headerName = "Which-Backend"
 
 	name := test.ObjectNameForTest(t)
-	privateHostName := fmt.Sprintf("%s.%s.svc.%s", name, test.ServingNamespace, test.ServingFlags.ClusterSuffix)
+	privateHostName := fmt.Sprintf("%s.%s.svc.%s", name, test.ServingNamespace, test.NetworkingFlags.ClusterSuffix)
 	localIngress, client, _ := CreateIngressReady(ctx, t, clients, v1alpha1.IngressSpec{
 		Rules: []v1alpha1.IngressRule{{
 			Hosts:      []string{privateHostName},

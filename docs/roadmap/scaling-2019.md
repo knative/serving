@@ -19,7 +19,7 @@ on the CI systems and to avoid unwanted regressions.
 
 As a serverless framework, Knative should only run code when it needs to.
 Including scaling to zero when the Revision is not being used. However the
-Revison must also come back quickly, otherwise the illusion of "serverless" is
+Revision must also come back quickly, otherwise the illusion of "serverless" is
 broken--it must seem as if it was always there. Generally less than one second
 is a good start.
 
@@ -153,7 +153,7 @@ but doesn't yet. For example, enforcing single-threaded request or reporting
 concurrency metrics in the way we want. Ultimately we should push these features
 upstream and get rid of the queue-proxy sidecar.
 
-However we're not doing that yet because the requirements haven't stablized
+However we're not doing that yet because the requirements haven't stabilized
 enough yet. And it's still useful to have a component to innovate within.
 
 ### Vertical Pod Autoscaling Beta

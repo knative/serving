@@ -24,7 +24,7 @@ const (
 	// ServingNamespace is the default namespace for serving e2e tests
 	ServingNamespace = "serving-tests"
 
-	// AlternativeServingNamespace is a different namepace to run cross-
+	// AlternativeServingNamespace is a different namespace to run cross-
 	// namespace tests in.
 	AlternativeServingNamespace = "serving-tests-alt"
 
@@ -47,7 +47,4 @@ const (
 
 	// ContainerMemoryLimit is used in any test which needs a default memory resource limit
 	ContainerMemoryLimit = "350Mi"
-
-	// testAnnotation is an annotation attached to resources originating from tests.
-	testAnnotation = "knative-e2e-test"
 )

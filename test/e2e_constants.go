@@ -24,7 +24,7 @@ const (
 	// ServingNamespace is the default namespace for serving e2e tests
 	ServingNamespace = "serving-tests"
 
-	// AlternativeServingNamespace is a different namepace to run cross-
+	// AlternativeServingNamespace is a different namespace to run cross-
 	// namespace tests in.
 	AlternativeServingNamespace = "serving-tests-alt"
 

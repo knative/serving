@@ -37,7 +37,7 @@ type Config struct {
 	// Repository holds the name of the repository that runs the benchmarks.
 	Repository string
 
-	// Environment holds the name of the environement,
+	// Environment holds the name of the environment,
 	// where the test runs, e.g. `dev`.
 	Environment string
 
