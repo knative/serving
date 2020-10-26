@@ -230,9 +230,9 @@ kubectl patch configmap/config-network \
   -p '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
 ```
 
-If you want to choose another Ingress solution, you can follow step 3 in the [Knative installation
-doc](https://knative.dev/docs/install/any-kubernetes-cluster/#installing-the-serving-component) to
-pick up an alternative Ingress solution and install it.
+If you want to choose another Ingress solution, you can follow step 3 in the
+[Knative installation doc](https://knative.dev/docs/install/any-kubernetes-cluster/#installing-the-serving-component)
+to pick up an alternative Ingress solution and install it.
 
 ## Iterating
 
