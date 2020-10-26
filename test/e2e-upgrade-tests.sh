@@ -82,8 +82,8 @@ disable_chaosduck
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=10m
 # Probe tests starts before postupgrade tests and ends after postdowngrade tests.
-# The timeout should be at least 10m + 10m.
-PROBE_TIMEOUT=20m
+# The timeout should be at least 10m + 10m + installation time
+PROBE_TIMEOUT=30m
 
 header "Running preupgrade tests"
 
