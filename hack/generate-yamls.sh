@@ -67,7 +67,12 @@ readonly CONSOLIDATED_ARTIFACTS
 # Flags for all ko commands
 KO_YAML_FLAGS="-P"
 [[ "${KO_DOCKER_REPO}" != gcr.io/* ]] && KO_YAML_FLAGS=""
-readonly KO_YAML_FLAGS="${KO_YAML_FLAGS} ${KO_FLAGS} --platform=all"
+
+if [[ "${KO_FLAGS}" != *"--platform"* ]]; then
+  KO_YAML_FLAGS="${KO_YAML_FLAGS} --platform=all"
+fi
+
+readonly KO_YAML_FLAGS="${KO_YAML_FLAGS} ${KO_FLAGS}"
 
 if [[ -n "${TAG}" ]]; then
   LABEL_YAML_CMD=(sed -e "s|serving.knative.dev/release: devel|serving.knative.dev/release: \"${TAG}\"|")
