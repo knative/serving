@@ -27,6 +27,8 @@ KOURIER_VERSION=""
 AMBASSADOR_VERSION=""
 CONTOUR_VERSION=""
 CERTIFICATE_CLASS=""
+# Only build linux/amd64 bit images
+KO_FLAGS="--platform=linux/amd64"
 
 HTTPS=0
 MESH=0

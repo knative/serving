@@ -48,9 +48,6 @@ LATEST_NET_ISTIO_RELEASE_VERSION=$(
   curl -L --silent "https://api.github.com/repos/knative/net-istio/releases" | grep '"tag_name"' \
     | cut -f2 -d: | sed "s/[^v0-9.]//g" | sort | tail -n1)
 
-# Only build amd64 bit images
-KO_FLAGS="--platform=linux/amd64"
-
 function install_latest_release() {
   header "Installing Knative latest public release"
 
