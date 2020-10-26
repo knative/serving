@@ -341,14 +341,15 @@ func prometheusPort() (int, error) {
 	return int(pp), nil
 }
 
-// JsonToMetricsOptions converts a json string of a
-// ExporterOptions. Returns a non-nil ExporterOptions always.
+// JsonToMetricsOptions converts a JSON string to an ExporterOptions object.
 // TODO(vagababov): remove after updating deps.
+// Deprecated: Use JSONToOptions instead.
 func JsonToMetricsOptions(jsonOpts string) (*ExporterOptions, error) { //nolint // No rename due to backwards incompatibility. {
-	return JSONToMetricsOptions(jsonOpts)
+	return JSONToOptions(jsonOpts)
 }
 
-func JSONToMetricsOptions(jsonOpts string) (*ExporterOptions, error) {
+// JSONToOptions converts a json string to ExporterOptions.
+func JSONToOptions(jsonOpts string) (*ExporterOptions, error) {
 	var opts ExporterOptions
 	if jsonOpts == "" {
 		return nil, errors.New("json options string is empty")
@@ -361,13 +362,15 @@ func JSONToMetricsOptions(jsonOpts string) (*ExporterOptions, error) {
 	return &opts, nil
 }
 
-// MetricsOptionsToJson converts a ExporterOptions to a json string.
+// MetricsOptionsToJson converts an ExporterOptions object to a JSON string.
 // TODO(vagababov): remove after updating deps.
+// Deprecated: Use OptionsToJSON instead.
 func MetricsOptionsToJson(opts *ExporterOptions) (string, error) { //nolint // No rename due to backwards incompatibility.
-	return MetricsOptionsToJSON(opts)
+	return OptionsToJSON(opts)
 }
 
-func MetricsOptionsToJSON(opts *ExporterOptions) (string, error) {
+// OptionsToJSON converts an ExporterOptions object to a JSON string.
+func OptionsToJSON(opts *ExporterOptions) (string, error) {
 	if opts == nil {
 		return "", nil
 	}
