@@ -390,6 +390,10 @@ golang.org/x/text/width
 golang.org/x/time/rate
 # golang.org/x/tools v0.0.0-20200916195026-c9a70fc28ce3
 golang.org/x/tools/go/ast/astutil
+golang.org/x/tools/go/gcexportdata
+golang.org/x/tools/go/internal/gcimporter
+golang.org/x/tools/go/internal/packagesdriver
+golang.org/x/tools/go/packages
 golang.org/x/tools/imports
 golang.org/x/tools/internal/event
 golang.org/x/tools/internal/event/core
@@ -399,6 +403,8 @@ golang.org/x/tools/internal/fastwalk
 golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/gopathwalk
 golang.org/x/tools/internal/imports
+golang.org/x/tools/internal/packagesinternal
+golang.org/x/tools/internal/typesinternal
 # golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
@@ -956,7 +962,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/networking v0.0.0-20201027015433-dc85b99d4646
+# knative.dev/networking v0.0.0-20201027142134-8af985560ccc
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -989,7 +995,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20201027121533-273ba59a1132
+# knative.dev/pkg v0.0.0-20201027164233-38578c3cf454
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1033,6 +1039,7 @@ knative.dev/pkg/configmap
 knative.dev/pkg/configmap/hash-gen
 knative.dev/pkg/configmap/testing
 knative.dev/pkg/controller
+knative.dev/pkg/depcheck
 knative.dev/pkg/hack
 knative.dev/pkg/hash
 knative.dev/pkg/injection
