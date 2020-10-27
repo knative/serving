@@ -39,6 +39,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
             properties:
               template:
+                type: object
                 x-kubernetes-preserve-unknown-fields: true
                 description: |
                   A template for the current desired application state.
@@ -47,12 +48,16 @@ spec:
                   RevisionTemplateSpec is used to create a corresponding Configuration.
               traffic:
                 x-kubernetes-preserve-unknown-fields: true
+                type: array
                 description: |
                   Traffic specifies how to distribute traffic over a
                   collection of Revisions belonging to the Service. If traffic is
                   empty or not provided, defaults to 100% traffic to the latest
                   `Ready` Revision. The contents of the Service's TrafficTarget is
                   used to create a corresponding Route.
+                items:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
           status:
             type: object
             x-kubernetes-preserve-unknown-fields: true
