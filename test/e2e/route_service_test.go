@@ -79,6 +79,8 @@ func TestRoutesNotReady(t *testing.T) {
 }
 
 func TestRouteVisibilityChanges(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name            string
 		withTrafficSpec rtesting.ServiceOption

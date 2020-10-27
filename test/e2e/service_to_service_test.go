@@ -209,6 +209,8 @@ func TestServiceToServiceCall(t *testing.T) {
 			Path:   resources.Route.Status.URL.Path,
 		}
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			cancel := logstream.Start(t)
 			defer cancel()
 			testProxyToHelloworld(t, clients, helloworldURL, true /*inject*/, false /*accessible externally*/)
@@ -260,6 +262,8 @@ func TestSvcToSvcViaActivator(t *testing.T) {
 
 	for _, tc := range testInjection {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			cancel := logstream.Start(t)
 			defer cancel()
 			testSvcToSvcCallViaActivator(t, clients, tc.injectA, tc.injectB)
@@ -306,6 +310,8 @@ func TestCallToPublicService(t *testing.T) {
 
 	for _, tc := range gatewayTestCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			cancel := logstream.Start(t)
 			defer cancel()
 			testProxyToHelloworld(t, clients, tc.url, false /*inject*/, tc.accessibleExternally)
