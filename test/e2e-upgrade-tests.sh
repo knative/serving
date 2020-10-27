@@ -38,6 +38,7 @@ latest_version() {
   # Get the latest patch release for the major minor
   git tag -l "${major_minor}*" | sort -r --version-sort | head -n1
 }
+
 # Latest serving release. If user does not supply this as a flag, the latest
 # tagged release on the current branch will be used.
 LATEST_SERVING_RELEASE_VERSION=$(latest_version)
@@ -82,7 +83,7 @@ disable_chaosduck
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=10m
 # Probe tests starts before postupgrade tests and ends after postdowngrade tests.
-# The timeout should be at least 10m + 10m.
+# The timeout should be at least 10m + 10m + installation time
 PROBE_TIMEOUT=20m
 
 header "Running preupgrade tests"

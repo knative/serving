@@ -27,6 +27,8 @@ KOURIER_VERSION=""
 AMBASSADOR_VERSION=""
 CONTOUR_VERSION=""
 CERTIFICATE_CLASS=""
+# Only build linux/amd64 bit images
+KO_FLAGS="--platform=linux/amd64"
 
 HTTPS=0
 MESH=0
@@ -220,7 +222,7 @@ function install_knative_serving_standard() {
     sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_POST_INSTALL_JOBS_YAML}
 
     echo "Knative YAML: ${SERVING_RELEASE_YAML}"
-    ko apply --platform=all -f "${SERVING_RELEASE_YAML}" --selector=knative.dev/crd-install=true || return 1
+    ko apply -f "${SERVING_RELEASE_YAML}" --selector=knative.dev/crd-install=true || return 1
   fi
 
   echo ">> Installing Ingress"
@@ -286,7 +288,7 @@ function install_knative_serving_standard() {
   else
     echo "Knative YAML: ${SERVING_RELEASE_YAML}"
     # We use ko because it has better filtering support for CRDs.
-    ko apply --platform=all -f "${SERVING_RELEASE_YAML}" || return 1
+    ko apply -f "${SERVING_RELEASE_YAML}" || return 1
     ko create -f "${SERVING_POST_INSTALL_JOBS_YAML}" || return 1
     UNINSTALL_LIST+=( "${SERVING_RELEASE_YAML}" )
   fi
@@ -400,12 +402,12 @@ function test_setup() {
 
   local TEST_CONFIG_DIR=${TEST_DIR}/config
   echo ">> Creating test resources (${TEST_CONFIG_DIR}/)"
-  ko apply --platform=all ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/ || return 1
+  ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/ || return 1
   if (( MESH )); then
     kubectl label namespace serving-tests istio-injection=enabled
     kubectl label namespace serving-tests-alt istio-injection=enabled
     kubectl label namespace serving-tests-security istio-injection=enabled
-    ko apply --platform=all ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/security/ --selector=test.knative.dev/dependency=istio-sidecar || return 1
+    ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/security/ --selector=test.knative.dev/dependency=istio-sidecar || return 1
   fi
 
   echo ">> Uploading test images..."
