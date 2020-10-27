@@ -18,10 +18,11 @@ package traffic
 
 import (
 	"context"
+	"errors"
 	"sort"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 
 	net "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -232,7 +233,7 @@ func (cb *configBuilder) getConfiguration(name string) (*v1.Configuration, error
 	if !ok {
 		var err error
 		config, err = cb.configLister.Get(name)
-		if errors.IsNotFound(err) {
+		if apierrs.IsNotFound(err) {
 			return nil, errMissingConfiguration(name)
 		} else if err != nil {
 			return nil, err
@@ -247,7 +248,7 @@ func (cb *configBuilder) getRevision(name string) (*v1.Revision, error) {
 	if !ok {
 		var err error
 		rev, err = cb.revLister.Get(name)
-		if errors.IsNotFound(err) {
+		if apierrs.IsNotFound(err) {
 			return nil, errMissingRevision(name)
 		} else if err != nil {
 			return nil, err
@@ -272,23 +273,28 @@ func (cb *configBuilder) addTrafficTarget(tt *v1.TrafficTarget) error {
 	} else if tt.ConfigurationName != "" {
 		err = cb.addConfigurationTarget(tt)
 	}
-	if err, ok := err.(*missingTargetError); err != nil && ok {
-		apiVersion, kind := v1.SchemeGroupVersion.
-			WithKind(err.kind).
-			ToAPIVersionAndKind()
+	if err != nil {
+		var errMissingTarget *missingTargetError
+		if errors.As(err, &errMissingTarget) {
+			apiVersion, kind := v1.SchemeGroupVersion.
+				WithKind(errMissingTarget.kind).
+				ToAPIVersionAndKind()
 
-		cb.missingTargets = append(cb.missingTargets, corev1.ObjectReference{
-			APIVersion: apiVersion,
-			Kind:       kind,
-			Name:       err.name,
-			Namespace:  cb.route.Namespace,
-		})
-	}
-	if err, ok := err.(TargetError); err != nil && ok {
-		// Defer target errors, as we still want to compile a list of
-		// all referred targets, including missing ones.
-		cb.deferTargetError(err)
-		return nil
+			cb.missingTargets = append(cb.missingTargets, corev1.ObjectReference{
+				APIVersion: apiVersion,
+				Kind:       kind,
+				Name:       errMissingTarget.name,
+				Namespace:  cb.route.Namespace,
+			})
+		}
+
+		var errTarget TargetError
+		if errors.As(err, &errTarget) {
+			// Defer target errors, as we still want to compile a list of
+			// all referred targets, including missing ones.
+			cb.deferTargetError(errTarget)
+			return nil
+		}
 	}
 	return err
 }

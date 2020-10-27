@@ -65,7 +65,7 @@ const (
 func clientsFromConfig() (*test.Clients, error) {
 	cfg, err := injection.GetRESTConfig("", "")
 	if err != nil {
-		return nil, fmt.Errorf("error building kubeconfig: %v", err)
+		return nil, fmt.Errorf("error building kubeconfig: %w", err)
 	}
 	return test.NewClientsFromConfig(cfg, testNamespace)
 }
@@ -112,7 +112,7 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 		g.Go(func() error {
 			var err error
 			if objs[ndx], err = v1test.CreateServiceReady(&testing.T{}, clients, testNames[ndx], sos...); err != nil {
-				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
+				return fmt.Errorf("%02d: failed to create Ready service: %w", ndx, err)
 			}
 			return nil
 		})

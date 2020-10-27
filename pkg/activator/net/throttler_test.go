@@ -243,7 +243,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 
 	// Make sure errors are propagated correctly.
 	innerError := errors.New("inner")
-	if err := throttler.Try(ctx, func(string) error { return innerError }); err != innerError {
+	if err := throttler.Try(ctx, func(string) error { return innerError }); !errors.Is(err, innerError) {
 		t.Fatalf("Try() = %v, want %v", err, innerError)
 	}
 
@@ -299,7 +299,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	})
 
 	// The first result will be a timeout because of the locking logic.
-	if result := <-resultChan; result.err != context.DeadlineExceeded {
+	if result := <-resultChan; !errors.Is(result.err, context.DeadlineExceeded) {
 		t.Fatalf("err = %v, want %v", err, context.DeadlineExceeded)
 	}
 
@@ -811,7 +811,7 @@ func TestMultipleActivators(t *testing.T) {
 	})
 
 	// The first result will be a timeout because of the locking logic.
-	if result := <-resultChan; result.err != context.DeadlineExceeded {
+	if result := <-resultChan; !errors.Is(result.err, context.DeadlineExceeded) {
 		t.Fatalf("err = %v, want %v", err, context.DeadlineExceeded)
 	}
 
