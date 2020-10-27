@@ -80,6 +80,8 @@ else
   LABEL_YAML_CMD=(cat)
 fi
 
+export GOFLAGS="-ldflags=-s -ldflags=-w"
+
 : ${KO_DOCKER_REPO:="ko.local"}
 export KO_DOCKER_REPO
 
