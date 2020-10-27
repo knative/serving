@@ -32,6 +32,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -62,10 +63,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 		dm.Status.MarkIngressNotConfigured()
 	}
 
-	// TODO(jz) ClusterDomainClaim isn't fully implemented yet, so just mark it
-	// Claimed for now so we have the correct condition flow.
-	dm.Status.MarkDomainClaimed()
-
 	// Mapped URL is the metadata.name of the DomainMapping.
 	url := &apis.URL{Scheme: "http", Host: dm.Name}
 	dm.Status.URL = url
@@ -75,6 +72,12 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	ingressClass := dm.Annotations[networking.IngressClassAnnotationKey]
 	if ingressClass == "" {
 		ingressClass = config.FromContext(ctx).Network.DefaultIngressClass
+	}
+
+	// To prevent Ingress hostname collision, require that we can create, or
+	// already own, a cluster-wide domain claim.
+	if err := r.reconcileDomainClaim(ctx, dm); err != nil {
+		return err
 	}
 
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
@@ -124,4 +127,28 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMa
 	}
 
 	return ingress, err
+}
+
+func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
+	dc, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Get(ctx, dm.Name, metav1.GetOptions{})
+	if apierrs.IsNotFound(err) {
+		if dc, err = r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, &netv1alpha1.ClusterDomainClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            dm.Name,
+				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(dm)},
+			},
+		}, metav1.CreateOptions{}); err != nil {
+			return fmt.Errorf("failed to create ClusterDomainClaim: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to get ClusterDomainClaim: %w", err)
+	}
+
+	if !metav1.IsControlledBy(dc, dm) {
+		dm.Status.MarkDomainClaimNotOwned()
+		return fmt.Errorf("domain mapping: %q does not own matching cluster domain claim", dm.Name)
+	}
+
+	dm.Status.MarkDomainClaimed()
+	return nil
 }
