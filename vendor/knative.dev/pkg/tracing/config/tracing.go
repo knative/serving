@@ -137,7 +137,12 @@ func NewTracingConfigFromConfigMap(config *corev1.ConfigMap) (*Config, error) {
 // JsonToTracingConfig converts a json string of a Config.
 // Returns a non-nil Config always and an eventual error.
 func JsonToTracingConfig(jsonCfg string) (*Config, error) { //nolint // for backcompat.
+	return JSONToTracingConfig(jsonCfg)
+}
 
+// JSONToTracingConfig converts a json string of a Config.
+// Returns a non-nil Config always and an eventual error.
+func JSONToTracingConfig(jsonCfg string) (*Config, error) {
 	if jsonCfg == "" {
 		return NoopConfig(), errors.New("empty json tracing config")
 	}
@@ -156,6 +161,10 @@ func JsonToTracingConfig(jsonCfg string) (*Config, error) { //nolint // for back
 
 // TracingConfigToJson converts a Config to a json string.
 func TracingConfigToJson(cfg *Config) (string, error) { //nolint // for backcompat.
+	return TracingConfigToJSON(cfg)
+}
+
+func TracingConfigToJSON(cfg *Config) (string, error) { //nolint // for backcompat.
 	if cfg == nil {
 		return "", nil
 	}

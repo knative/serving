@@ -557,7 +557,11 @@ function go_update_deps() {
   echo "--- Removing unwanted vendor files"
 
   # Remove unwanted vendor files
-  find vendor/ \( -name "OWNERS" -o -name "OWNERS_ALIASES" -o -name "BUILD" -o -name "BUILD.bazel" -o -name "*_test.go" \) -print0 | xargs -0 rm -f
+  find vendor/ \( -name "OWNERS" \
+    -o -name "OWNERS_ALIASES" \
+    -o -name "BUILD" \
+    -o -name "BUILD.bazel" \
+    -o -name "*_test.go" \) -exec rm -f {} +
 
   export GOFLAGS=-mod=vendor
 
