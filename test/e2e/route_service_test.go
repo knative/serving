@@ -19,11 +19,9 @@ limitations under the License.
 package e2e
 
 import (
-	"strings"
 	"testing"
 
 	netpkg "knative.dev/networking/pkg"
-	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
@@ -123,11 +121,11 @@ func TestRouteVisibilityChanges(t *testing.T) {
 	}
 
 	hasPublicRoute := func(r *v1.Route) (b bool, e error) {
-		return !strings.HasSuffix(r.Status.URL.Host, network.GetClusterDomainName()), nil
+		return !isRouteClusterLocal(r.Status), nil
 	}
 
 	hasPrivateRoute := func(r *v1.Route) (b bool, e error) {
-		return strings.HasSuffix(r.Status.URL.Host, network.GetClusterDomainName()), nil
+		return isRouteClusterLocal(r.Status), nil
 	}
 
 	for _, testCase := range testCases {
