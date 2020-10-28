@@ -75,7 +75,7 @@ type RevisionRollout struct {
 }
 
 // Roll processes previous Rollout object and compares to the current
-// rollout state. If there is different, Merge will start or stop the rollout
+// rollout state. If there is different, Roll will start or stop the rollout
 // and update `RevisionRollout` objects accoringly.
 // Roll returns true if any changes have been made.
 func (cur *Rollout) Roll(prev *Rollout) bool {
