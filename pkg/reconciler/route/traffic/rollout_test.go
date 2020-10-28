@@ -323,7 +323,7 @@ func TestRoll(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.cur.Roll(tc.prev), tc.wantRoll; got != want {
+			if got, want := tc.cur.Step(tc.prev), tc.wantRoll; got != want {
 				t.Errorf("Roll = %v, want: %v", got, want)
 			}
 			if got, want := tc.cur, tc.want; !cmp.Equal(got, want) {

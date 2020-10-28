@@ -74,12 +74,12 @@ type RevisionRollout struct {
 	Percent int `json:"percent"`
 }
 
-// Roll processes previous Rollout object and compares to the current
-// rollout state. If there is different, Roll will start or stop the rollout
+// Step processes previous Rollout object and compares to the current
+// rollout state. If there is different, Step will start or stop the rollout
 // and updates `RevisionRollout` objects of `cur` accoringly.
 // At the end of the call `cur` contains the desired traffic shape.
-// Roll returns `true` if any changes have been made.
-func (cur *Rollout) Roll(prev *Rollout) bool {
+// Step returns `true` if any changes have been made.
+func (cur *Rollout) Step(prev *Rollout) bool {
 	if prev == nil {
 		return false
 	}
@@ -111,7 +111,7 @@ func (cur *Rollout) Roll(prev *Rollout) bool {
 				// Config might have 0% traffic assigned, if it is a tag only route (i.e.
 				// receives no traffic via default tag).
 				if ccfgs[i].Percent != 0 {
-					ret = ret || step(ccfgs[i], pcfgs[j])
+					ret = ret || stepConfig(ccfgs[i], pcfgs[j])
 				}
 				i++
 				j++
@@ -129,9 +129,9 @@ func (cur *Rollout) Roll(prev *Rollout) bool {
 	return ret
 }
 
-// step takes previous and goal configuration shapes and updates the goal
+// stepConfig takes previous and goal configuration shapes and updates the goal
 // after computing the percetage allocations.
-func step(goal, prev *ConfigurationRollout) bool {
+func stepConfig(goal, prev *ConfigurationRollout) bool {
 	pc := len(prev.Revisions)
 	// goal will always have just 1 element – the current desired revision.
 	if goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
