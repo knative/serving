@@ -76,8 +76,9 @@ type RevisionRollout struct {
 
 // Roll processes previous Rollout object and compares to the current
 // rollout state. If there is different, Roll will start or stop the rollout
-// and update `RevisionRollout` objects accoringly.
-// Roll returns true if any changes have been made.
+// and updates `RevisionRollout` objects of `cur` accoringly.
+// At the end of the call `cur` contains the desired traffic shape.
+// Roll returns `true` if any changes have been made.
 func (cur *Rollout) Roll(prev *Rollout) bool {
 	if prev == nil {
 		return false
@@ -110,7 +111,7 @@ func (cur *Rollout) Roll(prev *Rollout) bool {
 				// Config might have 0% traffic assigned, if it is a tag only route (i.e.
 				// receives no traffic via default tag).
 				if cfgs[i].Percent != 0 {
-					ret = ret || rollConfig(cfgs[i], pcfgs[j])
+					ret = ret || step(cfgs[i], pcfgs[j])
 				}
 				i++
 				j++
@@ -128,10 +129,12 @@ func (cur *Rollout) Roll(prev *Rollout) bool {
 	return ret
 }
 
-func rollConfig(cur, prev *ConfigurationRollout) bool {
+// step takes previous and goal configuration shapes and updates the goal
+// after computing the percetage allocations.
+func step(goal, prev *ConfigurationRollout) bool {
 	pc := len(prev.Revisions)
-	// curr will always have just 1 element – the current desired revision.
-	if cur.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
+	// goal will always have just 1 element – the current desired revision.
+	if goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
 		// TODO(vagababov): here would go the logic to compute new percentages for the rollout,
 		// i.e step function, so return value will change, depending on that.
 		// TODO(vagababov): percentage might change, so this should trigger recompute of existing
@@ -141,7 +144,7 @@ func rollConfig(cur, prev *ConfigurationRollout) bool {
 
 	// Append the new revision, to the list of previous ones, this should start the
 	// rollout.
-	rev := cur.Revisions[0]
+	rev := goal.Revisions[0]
 	rev.Percent = 1
 	out := make([]RevisionRollout, 0, len(prev.Revisions)+1)
 	// Go backwards and find first revision with traffic assignment > 0.
@@ -163,7 +166,7 @@ func rollConfig(cur, prev *ConfigurationRollout) bool {
 		}
 		out = append(out, r)
 	}
-	// And replace current with the modified previous version.
-	cur.Revisions = append(out, rev)
+	// And replace goal's rollout with the modified previous version.
+	goal.Revisions = append(out, rev)
 	return true
 }
