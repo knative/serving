@@ -95,7 +95,7 @@ func (cur *Rollout) Roll(prev *Rollout) bool {
 		prevConfigs[cfg.Tag] = append(prevConfigs[cfg.Tag], &prev.Configurations[i])
 	}
 	ret := false
-	for t, cfgs := range currConfigs {
+	for t, ccfgs := range currConfigs {
 		pcfgs, ok := prevConfigs[t]
 		// A new tag was added, so we have no previous state to roll from,
 		// thus just move over, we'll rollout to 100% from the get go (and it is
@@ -105,17 +105,17 @@ func (cur *Rollout) Roll(prev *Rollout) bool {
 		}
 		// This is basically an intersect algorithm,
 		// It relies on the fact that inputs are sorted.
-		for i, j := 0, 0; i < len(cfgs) && j < len(pcfgs); {
+		for i, j := 0, 0; i < len(ccfgs) && j < len(pcfgs); {
 			switch {
-			case cfgs[i].ConfigurationName == pcfgs[j].ConfigurationName:
+			case ccfgs[i].ConfigurationName == pcfgs[j].ConfigurationName:
 				// Config might have 0% traffic assigned, if it is a tag only route (i.e.
 				// receives no traffic via default tag).
-				if cfgs[i].Percent != 0 {
-					ret = ret || step(cfgs[i], pcfgs[j])
+				if ccfgs[i].Percent != 0 {
+					ret = ret || step(ccfgs[i], pcfgs[j])
 				}
 				i++
 				j++
-			case cfgs[i].ConfigurationName < pcfgs[j].ConfigurationName:
+			case ccfgs[i].ConfigurationName < pcfgs[j].ConfigurationName:
 				// A new config, has been added. No action for rollout though.
 				i++
 			default: // cur > prev.
