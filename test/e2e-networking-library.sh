@@ -21,16 +21,15 @@ function install_istio() {
 
   if [[ -z "${NET_ISTIO_COMMIT}" ]]; then
     # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
-    readonly NET_ISTIO_COMMIT="3a58230a95bb3854a293b050acc5067609d4668e"
+    readonly NET_ISTIO_COMMIT="6bbca066373b21689b5d90381c27920533809e82"
   fi
 
   # And checkout the setup script based on that commit.
   local NET_ISTIO_DIR=$(mktemp -d)
   (
-    # DO NOT SUBMIT. THIS IS POC net-istio.
     cd $NET_ISTIO_DIR \
       && git init \
-      && git remote add origin https://github.com/nak3/net-istio.git \
+      && git remote add origin https://github.com/knative-sandbox/net-istio.git \
       && git fetch --depth 1 origin $NET_ISTIO_COMMIT \
       && git checkout FETCH_HEAD
   )
@@ -48,7 +47,7 @@ function install_istio() {
   ISTIO_PROFILE+=".yaml"
 
   if [[ -n "$CLUSTER_DOMAIN" ]]; then
-    sed -ie "s/cluster\.local/${CLUSTER_DOMAIN}/g" ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/${ISTIO_PROFILE}
+    sed -ie "s/cluster\.local/${CLUSTER_DOMAIN}/g" ${ISTIO_PROFILE}
   fi
 
   echo ">> Installing Istio"
