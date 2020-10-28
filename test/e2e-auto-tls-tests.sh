@@ -30,7 +30,7 @@ function setup_auto_tls_env_variables() {
 
   export AUTO_TLS_TEST_DOMAIN_NAME="kn-e2e.dev"
 
-  export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.${DOMAIN_NAME}"
+  export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.${AUTO_TLS_TEST_DOMAIN_NAME}"
 
   export TLS_TEST_NAMESPACE="tls"
 
