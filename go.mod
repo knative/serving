@@ -14,17 +14,17 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/prometheus/client_golang v1.6.0
+	github.com/prometheus/client_golang v1.8.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/tsenart/vegeta/v12 v12.8.4
-	go.opencensus.io v0.22.4
-	go.uber.org/atomic v1.6.0
+	go.opencensus.io v0.22.5
+	go.uber.org/atomic v1.7.0
 	go.uber.org/automaxprocs v1.3.0
-	go.uber.org/zap v1.15.0
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	google.golang.org/api v0.31.0
-	google.golang.org/grpc v1.31.1
+	go.uber.org/zap v1.16.0
+	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+	google.golang.org/api v0.34.0
+	google.golang.org/grpc v1.33.1
 	k8s.io/api v0.18.8
 	k8s.io/apiextensions-apiserver v0.18.8 // indirect
 	k8s.io/apimachinery v0.18.8
