@@ -107,7 +107,8 @@ func (cur *Rollout) Roll(prev *Rollout) bool {
 		for i, j := 0, 0; i < len(cfgs) && j < len(pcfgs); {
 			switch {
 			case cfgs[i].ConfigurationName == pcfgs[j].ConfigurationName:
-				// Config might have 0 traffic assigned, if it is a tagged route.
+				// Config might have 0% traffic assigned, if it is a tag only route (i.e.
+				// receives no traffic via default tag).
 				if cfgs[i].Percent != 0 {
 					ret = ret || rollConfig(cfgs[i], pcfgs[j])
 				}
