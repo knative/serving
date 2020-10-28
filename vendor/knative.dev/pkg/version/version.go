@@ -21,7 +21,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	"k8s.io/client-go/discovery"
 )
 

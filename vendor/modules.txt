@@ -83,8 +83,8 @@ github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
 # github.com/beorn7/perks v1.0.1
 github.com/beorn7/perks/quantile
-# github.com/blang/semver v3.5.1+incompatible
-github.com/blang/semver
+# github.com/blang/semver/v4 v4.0.0
+github.com/blang/semver/v4
 # github.com/c2h5oh/datasize v0.0.0-20200112174442-28bbd4740fee
 github.com/c2h5oh/datasize
 # github.com/census-instrumentation/opencensus-proto v0.3.0
@@ -548,6 +548,8 @@ google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/wrapperspb
 # gopkg.in/alecthomas/kingpin.v2 v2.2.6
 gopkg.in/alecthomas/kingpin.v2
+# gopkg.in/evanphx/json-patch.v4 v4.9.0
+gopkg.in/evanphx/json-patch.v4
 # gopkg.in/inf.v0 v0.9.1
 gopkg.in/inf.v0
 # gopkg.in/yaml.v2 v2.3.0
@@ -998,7 +1000,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20201028001634-f602e6753c7e
+# knative.dev/pkg v0.0.0-20201028121234-58d43f05028e
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate

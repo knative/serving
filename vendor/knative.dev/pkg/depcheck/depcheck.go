@@ -101,8 +101,7 @@ func buildGraph(importpaths ...string) (graph, error) {
 
 // CheckNoDependency checks that the given import paths (ip) does not
 // depend (transitively) on certain banned imports.
-func CheckNoDependency(t *testing.T, ip string, banned []string) error {
-	t.Helper()
+func CheckNoDependency(ip string, banned []string) error {
 	g, err := buildGraph(ip)
 	if err != nil {
 		return fmt.Errorf("buildGraph(queue) = %v", err)
@@ -122,7 +121,7 @@ func AssertNoDependency(t *testing.T, banned map[string][]string) {
 	t.Helper()
 	for ip, banned := range banned {
 		t.Run(ip, func(t *testing.T) {
-			if err := CheckNoDependency(t, ip, banned); err != nil {
+			if err := CheckNoDependency(ip, banned); err != nil {
 				t.Error("CheckNoDependency() =", err)
 			}
 		})
@@ -134,16 +133,14 @@ func AssertNoDependency(t *testing.T, banned map[string][]string) {
 // Note: while perhaps counterintuitive we allow the value to be a superset
 // of the actual imports to that folks can use a constant that holds blessed
 // import paths.
-func CheckOnlyDependencies(t *testing.T, ip string, allowed map[string]struct{}) error {
-	t.Helper()
-
+func CheckOnlyDependencies(ip string, allowed map[string]struct{}) error {
 	g, err := buildGraph(ip)
 	if err != nil {
 		return fmt.Errorf("buildGraph(queue) = %v", err)
 	}
 	for _, name := range g.order() {
 		if _, ok := allowed[name]; !ok {
-			return fmt.Errorf("Dependency %s of %s is not explicitly allowed\n%s", name, ip,
+			return fmt.Errorf("dependency %s of %s is not explicitly allowed\n%s", name, ip,
 				strings.Join(g.path(name), "\n"))
 		}
 	}
@@ -164,7 +161,7 @@ func AssertOnlyDependencies(t *testing.T, allowed map[string][]string) {
 			allowed[x] = struct{}{}
 		}
 		t.Run(ip, func(t *testing.T) {
-			if err := CheckOnlyDependencies(t, ip, allowed); err != nil {
+			if err := CheckOnlyDependencies(ip, allowed); err != nil {
 				t.Error("CheckOnlyDependencies() =", err)
 			}
 		})
