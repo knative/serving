@@ -119,7 +119,7 @@ func (cur *Rollout) Roll(prev *Rollout) bool {
 				j++
 			}
 		}
-		// Non interlaping configs don't matter since we either roll 100% or remove them.
+		// Non overlapping configs don't matter since we either roll 100% or remove them.
 	}
 	return ret
 }
