@@ -51,9 +51,7 @@ const (
 	retryTimeout       = 3 * time.Second
 	retryInterval      = 100 * time.Millisecond
 
-	// Retry at most 15 seconds to process a stat. NOTE: Retrying could
-	// cause high delay and inaccurate scaling decision because we use
-	// the timestamp on receiving.
+	// Retry at most 15 seconds to process a stat.
 	maxProcessingRetry      = 30
 	retryProcessingInterval = 500 * time.Millisecond
 )

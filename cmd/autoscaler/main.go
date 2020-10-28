@@ -151,7 +151,7 @@ func main() {
 
 	// accept is the func to call when this pod owns the Revision for this StatMessage.
 	accept := func(sm asmetrics.StatMessage) {
-		collector.Record(sm.Key, time.Now(), sm.Stat)
+		collector.Record(sm.Key, time.Unix(sm.Stat.Timestamp, 0), sm.Stat)
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
 	f := statforwarder.New(ctx, logger, kubeClient, selfIP, bucket.AutoscalerBucketSet(cc.Buckets), accept)
@@ -165,6 +165,10 @@ func main() {
 
 	go func() {
 		for sm := range statsCh {
+			// Set the timestamp when first receiving the stat.
+			if sm.Stat.Timestamp == 0 {
+				sm.Stat.Timestamp = time.Now().Unix()
+			}
 			f.Process(sm)
 		}
 	}()
