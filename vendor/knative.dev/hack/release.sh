@@ -100,6 +100,8 @@ ARTIFACTS_TO_PUBLISH=""
 FROM_NIGHTLY_RELEASE=""
 FROM_NIGHTLY_RELEASE_GCS=""
 export KO_DOCKER_REPO="gcr.io/knative-nightly"
+# Build stripped binary to reduce size
+export GOFLAGS="-ldflags=-s -ldflags=-w"
 export GITHUB_TOKEN=""
 
 # Convenience function to run the hub tool.

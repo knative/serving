@@ -1,7 +1,7 @@
-# Helper scripts
+# knative.dev/hack
 
-This directory contains helper scripts used by Prow test jobs, as well as local
-development scripts.
+`hack` is a collection of scripts used to bootstrap CI processes and other vital
+entrypoint functionallity.
 
 ## Using the `presubmit-tests.sh` helper script
 
@@ -19,13 +19,13 @@ This is a helper script to run the presubmit tests. To use it:
 
    The markdown link checker tool doesn't check `localhost` links by default.
    Its configuration file, `markdown-link-check-config.json`, lives in the
-   `test-infra/scripts` directory. To override it, create a file with the same
-   name, containing the custom config in the `/test` directory.
+   `hack` directory. To override it, create a file with the same name,
+   containing the custom config in the `/test` directory.
 
    The markdown lint tool ignores long lines by default. Its configuration file,
-   `markdown-lint-config.rc`, lives in the `test-infra/scripts` directory. To
-   override it, create a file with the same name, containing the custom config
-   in the `/test` directory.
+   `markdown-lint-config.rc`, lives in the `hack` repo. To override it, create a
+   file with the same name, containing the custom config in the `/test`
+   directory.
 
 1. [optional] Customize the default build test runner, if you're using it. Set
    the following environment variables if the default values don't fit your
@@ -85,7 +85,7 @@ skipped.
 ### Sample presubmit test script
 
 ```bash
-source vendor/knative.dev/test-infra/scripts/presubmit-tests.sh
+source vendor/knative.dev/hack/presubmit-tests.sh
 
 function post_build_tests() {
   echo "Cleaning up after build tests"
@@ -176,7 +176,7 @@ test cluster is created in a specific region, `us-west2`.
 
 ```bash
 
-source vendor/knative.dev/test-infra/scripts/e2e-tests.sh
+source vendor/knative.dev/hack/e2e-tests.sh
 
 function knative_setup() {
   start_latest_knative_serving
@@ -247,7 +247,7 @@ benchmarking jobs for each repo. To use it:
 This script will update `Knative serving` and the given benchmark.
 
 ```bash
-source vendor/knative.dev/test-infra/scripts/performance-tests.sh
+source vendor/knative.dev/hack/performance-tests.sh
 
 function update_knative() {
   echo ">> Updating serving"
@@ -322,7 +322,7 @@ This is a helper script for Knative release scripts. To use it:
 ### Sample release script
 
 ```bash
-source vendor/knative.dev/test-infra/scripts/release.sh
+source vendor/knative.dev/hack/release.sh
 
 function build_release() {
   # config/ contains the manifests
@@ -332,3 +332,14 @@ function build_release() {
 
 main "$@"
 ```
+
+# Origins of `hack`
+
+When Kubernetes was first getting started, someone was trying to introduce some
+quick shell scripts and land them into the `./scripts` folder. But there was one
+that opposed this: Ville Aikas. The compromise was to put those quick scripts in
+a folder called `hack` to remind users and developers that there is likely a
+better way to perform the task you are attempting that is not using a shell
+script, like a tested python script.
+
+> "I was like fine, put them in hack not scripts, cause they are hacks." - Ville Aikas
