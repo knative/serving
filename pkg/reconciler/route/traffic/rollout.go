@@ -97,7 +97,9 @@ func (cur *Rollout) Roll(prev *Rollout) bool {
 	ret := false
 	for t, cfgs := range ccfg {
 		pcfgs, ok := pcfg[t]
-		// A new tag, rollout to 100% so ignore.
+		// A new tag was added, so we have no previous state to roll from,
+		// thus just move over, we'll rollout to 100% from the get go (and it is
+		// always 100%, since default tag is _always_ there).
 		if !ok {
 			continue
 		}
