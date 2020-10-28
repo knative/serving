@@ -75,7 +75,7 @@ var (
 
 	queueSecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: ptr.Bool(false),
-		ReadOnlyRootFilesystem:   ptr.Bool(true),
+		ReadOnlyRootFilesystem:   ptr.Bool(false), // Needed to be able to generate the unix socket.
 		RunAsNonRoot:             ptr.Bool(true),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"all"},
