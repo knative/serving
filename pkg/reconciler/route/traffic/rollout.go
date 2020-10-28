@@ -85,18 +85,16 @@ func (cur *Rollout) Roll(prev *Rollout) bool {
 	// The algorithm below is simplest, but probably not the most performant.
 	// Optimize in the later passes.
 	// Map by tag.
-	ccfg, pcfg := map[string][]*ConfigurationRollout{}, map[string][]*ConfigurationRollout{}
-	for i := range cur.Configurations {
-		cfg := &cur.Configurations[i]
-		ccfg[cfg.Tag] = append(ccfg[cfg.Tag], cfg)
+	currConfigs, prevConfigs := map[string][]*ConfigurationRollout{}, map[string][]*ConfigurationRollout{}
+	for i, cfg := range cur.Configurations {
+		currConfigs[cfg.Tag] = append(currConfigs[cfg.Tag], &cur.Configurations[i])
 	}
-	for i := range prev.Configurations {
-		cfg := &prev.Configurations[i]
-		pcfg[cfg.Tag] = append(pcfg[cfg.Tag], cfg)
+	for i, cfg := range prev.Configurations {
+		prevConfigs[cfg.Tag] = append(prevConfigs[cfg.Tag], &prev.Configurations[i])
 	}
 	ret := false
-	for t, cfgs := range ccfg {
-		pcfgs, ok := pcfg[t]
+	for t, cfgs := range currConfigs {
+		pcfgs, ok := prevConfigs[t]
 		// A new tag was added, so we have no previous state to roll from,
 		// thus just move over, we'll rollout to 100% from the get go (and it is
 		// always 100%, since default tag is _always_ there).
