@@ -54,7 +54,7 @@ type Stat struct {
 	ProxiedRequestCount float64 `protobuf:"fixed64,5,opt,name=proxied_request_count,json=proxiedRequestCount,proto3" json:"proxied_request_count,omitempty"`
 	// Process uptime in seconds.
 	ProcessUptime float64 `protobuf:"fixed64,6,opt,name=process_uptime,json=processUptime,proto3" json:"process_uptime,omitempty"`
-	// Time/date that the stat was generated in milliseconds since
+	// Time/date that the stat was generated in seconds since
 	// 1970-01-01 00:00:00.000 UTC.
 	Timestamp int64 `protobuf:"varint,7,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 }
