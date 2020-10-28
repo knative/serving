@@ -373,7 +373,7 @@ func (f *Forwarder) process() {
 
 			p := f.getProcessor(bkt)
 			if p == nil {
-				l.Warn("Can't find the owner for Revision.")
+				l.Warn("Can't find the owner for Revision bucket: ", bkt)
 				f.maybeRetry(l, s)
 				continue
 			}
