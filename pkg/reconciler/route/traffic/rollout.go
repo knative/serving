@@ -35,6 +35,7 @@ const RolloutAnnotationKey = networking.GroupName + "/rollout"
 // There may be several rollouts going on at the same time for the
 // same configuration if there is a tag configured traffic target.
 type Rollout struct {
+	// Configurations are sorted by tag first and within same tag, by configuration name.
 	Configurations []ConfigurationRollout `json:"configurations,omitempty"`
 }
 
@@ -101,6 +102,8 @@ func (cur *Rollout) Roll(prev *Rollout) bool {
 		if !ok {
 			continue
 		}
+		// This is basically an intersect algorithm,
+		// It relies on the fact that inputs are sorted.
 		for i, j := 0, 0; i < len(cfgs) && j < len(pcfgs); {
 			switch {
 			case cfgs[i].ConfigurationName == pcfgs[j].ConfigurationName:
