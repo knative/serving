@@ -309,7 +309,7 @@ func streamTest(tc *TestContext, host, domain string) {
 	stream.CloseSend()
 
 	_, err = stream.Recv()
-	if errors.Is(err, io.EOF) {
+	if !errors.Is(err, io.EOF) {
 		tc.t.Errorf("Expected EOF, got %v", err)
 	}
 }
