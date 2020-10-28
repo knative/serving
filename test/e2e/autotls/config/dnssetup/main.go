@@ -36,7 +36,7 @@ import (
 var env config.EnvConfig
 
 func main() {
-	if err := envconfig.Process("", &env); err != nil {
+	if err := envconfig.Process("auto_tls_test", &env); err != nil {
 		log.Fatalf("Failed to process environment variable: %v.", err)
 	}
 	if err := setupDNSRecord(); err != nil {
@@ -46,14 +46,14 @@ func main() {
 
 func setupDNSRecord() error {
 	dnsRecord := &config.DNSRecord{
-		Domain: env.AutoTLSTestFullHostName,
-		IP:     env.AutoTLSTestIngressIP,
+		Domain: env.FullHostName,
+		IP:     env.IngressIP,
 	}
 	if err := createDNSRecord(dnsRecord); err != nil {
 		return err
 	}
 	if err := waitForDNSRecordVisible(dnsRecord); err != nil {
-		config.DeleteDNSRecord(dnsRecord, env.AutoTLSTestCloudDNSServiceAccountKeyFile, env.AutoTLSTestCloudDNSProject, env.AutoTLSTestDNSZone)
+		config.DeleteDNSRecord(dnsRecord, env.CloudDNSServiceAccountKeyFile, env.CloudDNSProject, env.DNSZone)
 		return err
 	}
 	return nil
@@ -61,13 +61,13 @@ func setupDNSRecord() error {
 
 func createDNSRecord(dnsRecord *config.DNSRecord) error {
 	record := config.MakeRecordSet(dnsRecord)
-	svc, err := config.GetCloudDNSSvc(env.AutoTLSTestCloudDNSServiceAccountKeyFile)
+	svc, err := config.GetCloudDNSSvc(env.CloudDNSServiceAccountKeyFile)
 	if err != nil {
 		return err
 	}
 	// Look for existing records.
 	if list, err := svc.ResourceRecordSets.List(
-		env.AutoTLSTestCloudDNSProject, env.AutoTLSTestDNSZone).Name(record.Name).Type("A").Do(); err != nil {
+		env.CloudDNSProject, env.DNSZone).Name(record.Name).Type("A").Do(); err != nil {
 		return err
 	} else if len(list.Rrsets) > 0 {
 		return fmt.Errorf("record for domain %s already exists", record.Name)
@@ -76,11 +76,11 @@ func createDNSRecord(dnsRecord *config.DNSRecord) error {
 	addition := &dns.Change{
 		Additions: []*dns.ResourceRecordSet{record},
 	}
-	return config.ChangeDNSRecord(addition, svc, env.AutoTLSTestCloudDNSProject, env.AutoTLSTestDNSZone)
+	return config.ChangeDNSRecord(addition, svc, env.CloudDNSProject, env.DNSZone)
 }
 
 func waitForDNSRecordVisible(record *config.DNSRecord) error {
-	nameservers, err := net.LookupNS(env.AutoTLSTestDomainName)
+	nameservers, err := net.LookupNS(env.DomainName)
 	if err != nil {
 		return err
 	}

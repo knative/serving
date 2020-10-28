@@ -28,12 +28,12 @@ import (
 )
 
 type EnvConfig struct {
-	AutoTLSTestFullHostName                  string `envconfig:"auto_tls_test_full_host_name" required:"true"`
-	AutoTLSTestDomainName                    string `envconfig:"auto_tls_test_domain_name" required:"true"`
-	AutoTLSTestDNSZone                       string `envconfig:"auto_tls_test_dns_zone" required:"true"`
-	AutoTLSTestCloudDNSServiceAccountKeyFile string `envconfig:"auto_tls_test_cloud_dns_service_account_key_file" required:"true"`
-	AutoTLSTestCloudDNSProject               string `envconfig:"auto_tls_test_cloud_dns_project" required:"true"`
-	AutoTLSTestIngressIP                     string `envconfig:"auto_tls_test_ingress_ip" required:"true"`
+	FullHostName                  string `envconfig:"full_host_name" required:"true"`
+	DomainName                    string `envconfig:"domain_name" required:"true"`
+	DNSZone                       string `envconfig:"dns_zone" required:"true"`
+	CloudDNSServiceAccountKeyFile string `envconfig:"cloud_dns_service_account_key_file" required:"true"`
+	CloudDNSProject               string `envconfig:"cloud_dns_project" required:"true"`
+	IngressIP                     string `envconfig:"ingress_ip" required:"true"`
 }
 
 type DNSRecord struct {

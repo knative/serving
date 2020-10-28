@@ -27,14 +27,14 @@ import (
 var env config.EnvConfig
 
 func main() {
-	if err := envconfig.Process("", &env); err != nil {
+	if err := envconfig.Process("auto_tls_test", &env); err != nil {
 		log.Fatalf("Failed to process environment variable: %v.", err)
 	}
 	record := &config.DNSRecord{
-		IP:     env.AutoTLSTestIngressIP,
-		Domain: env.AutoTLSTestFullHostName,
+		IP:     env.IngressIP,
+		Domain: env.FullHostName,
 	}
-	if err := config.DeleteDNSRecord(record, env.AutoTLSTestCloudDNSServiceAccountKeyFile, env.AutoTLSTestCloudDNSProject, env.AutoTLSTestDNSZone); err != nil {
+	if err := config.DeleteDNSRecord(record, env.CloudDNSServiceAccountKeyFile, env.CloudDNSProject, env.DNSZone); err != nil {
 		log.Fatal("Failed to setup DNS record: ", err)
 	}
 }
