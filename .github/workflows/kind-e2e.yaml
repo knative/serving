@@ -36,14 +36,18 @@ jobs:
           kind-version: v0.9.0
           kind-image-sha: sha256:5240a7a2c34bf241afb54ac05669f8a46661912eab05705d660971eeb12f6555
           kingress: istio
+          # TODO(https://github.com/knative/serving/issues/9750): net-istio breaks on non-default suffixes.
+          cluster-suffix: cluster.local
         - k8s-version: v1.18.8
           kind-version: v0.9.0
           kind-image-sha: sha256:f4bcc97a0ad6e7abaf3f643d890add7efe6ee4ab90baeb374b4f41a4c95567eb
           kingress: kourier
+          cluster-suffix: c${{ github.run_id }}.local
         - k8s-version: v1.19.1
           kind-version: v0.9.0
           kind-image-sha: sha256:98cf5288864662e37115e362b23e4369c8c4a408f99cbc06e58ac30ddc721600
           kingress: contour
+          cluster-suffix: c${{ github.run_id }}.local
 
           # The tests in api/v1alpha1 require the --enable-alpha flag to be set,
           # and alpha components to be deployed.
@@ -123,6 +127,8 @@ jobs:
               extraArgs:
                 "service-account-issuer": "kubernetes.default.svc"
                 "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+            networking:
+              dnsDomain: "${{ matrix.cluster-suffix }}"
 
         nodes:
         - role: control-plane

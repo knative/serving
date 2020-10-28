@@ -30,7 +30,6 @@ import (
 
 	netpkg "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -361,14 +360,14 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 func isTrafficClusterLocal(tt []v1.TrafficTarget, tag string) (bool, error) {
 	for _, traffic := range tt {
 		if traffic.Tag == tag {
-			return strings.HasSuffix(traffic.URL.Host, network.GetClusterDomainName()), nil
+			return strings.HasSuffix(traffic.URL.Host, ".local"), nil
 		}
 	}
 	return false, fmt.Errorf("Unable to find traffic target with tag %s", tag)
 }
 
 func isRouteClusterLocal(rs v1.RouteStatus) bool {
-	return strings.HasSuffix(rs.URL.Host, network.GetClusterDomainName())
+	return strings.HasSuffix(rs.URL.Host, ".local")
 }
 
 func serviceNameForRoute(subrouteTag, routeName string) string {
