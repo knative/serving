@@ -39,6 +39,15 @@ func (g graph) contains(name string) bool {
 	return ok
 }
 
+func (g graph) order() []string {
+	order := make(sort.StringSlice, 0, len(g))
+	for k := range g {
+		order = append(order, k)
+	}
+	order.Sort()
+	return order
+}
+
 // path constructs an examplary path that looks something like:
 //    knative.dev/pkg/apis/duck
 //    knative.dev/pkg/apis  # Also: [knative.dev/pkg/kmeta knative.dev/pkg/tracker]
@@ -90,21 +99,73 @@ func buildGraph(importpaths ...string) (graph, error) {
 	return g, nil
 }
 
+// CheckNoDependency checks that the given import paths (ip) does not
+// depend (transitively) on certain banned imports.
+func CheckNoDependency(t *testing.T, ip string, banned []string) error {
+	t.Helper()
+	g, err := buildGraph(ip)
+	if err != nil {
+		return fmt.Errorf("buildGraph(queue) = %v", err)
+	}
+	for _, dip := range banned {
+		if g.contains(dip) {
+			return fmt.Errorf("%s depends on banned dependency %s\n%s", ip, dip,
+				strings.Join(g.path(dip), "\n"))
+		}
+	}
+	return nil
+}
+
 // AssertNoDependency checks that the given import paths (the keys) do not
 // depend (transitively) on certain banned imports (the values)
 func AssertNoDependency(t *testing.T, banned map[string][]string) {
 	t.Helper()
 	for ip, banned := range banned {
 		t.Run(ip, func(t *testing.T) {
-			g, err := buildGraph(ip)
-			if err != nil {
-				t.Fatal("buildGraph(queue) =", err)
+			if err := CheckNoDependency(t, ip, banned); err != nil {
+				t.Error("CheckNoDependency() =", err)
 			}
-			for _, dip := range banned {
-				if g.contains(dip) {
-					t.Errorf("%s depends on banned dependency %s\n%s", ip, dip,
-						strings.Join(g.path(dip), "\n"))
-				}
+		})
+	}
+}
+
+// CheckOnlyDependencies checks that the given import path only
+// depends (transitively) on certain allowed imports.
+// Note: while perhaps counterintuitive we allow the value to be a superset
+// of the actual imports to that folks can use a constant that holds blessed
+// import paths.
+func CheckOnlyDependencies(t *testing.T, ip string, allowed map[string]struct{}) error {
+	t.Helper()
+
+	g, err := buildGraph(ip)
+	if err != nil {
+		return fmt.Errorf("buildGraph(queue) = %v", err)
+	}
+	for _, name := range g.order() {
+		if _, ok := allowed[name]; !ok {
+			return fmt.Errorf("Dependency %s of %s is not explicitly allowed\n%s", name, ip,
+				strings.Join(g.path(name), "\n"))
+		}
+	}
+	return nil
+}
+
+// AssertOnlyDependencies checks that the given import paths (the keys) only
+// depend (transitively) on certain allowed imports (the values).
+// Note: while perhaps counterintuitive we allow the value to be a superset
+// of the actual imports to that folks can use a constant that holds blessed
+// import paths.
+func AssertOnlyDependencies(t *testing.T, allowed map[string][]string) {
+	t.Helper()
+	for ip, allow := range allowed {
+		// Always include our own package in the set of allowed dependencies.
+		allowed := make(map[string]struct{}, len(allow)+1)
+		for _, x := range append(allow, ip) {
+			allowed[x] = struct{}{}
+		}
+		t.Run(ip, func(t *testing.T) {
+			if err := CheckOnlyDependencies(t, ip, allowed); err != nil {
+				t.Error("CheckOnlyDependencies() =", err)
 			}
 		})
 	}
