@@ -46,6 +46,10 @@ function install_istio() {
   ISTIO_PROFILE+="-mesh"
   ISTIO_PROFILE+=".yaml"
 
+  if [[ -n "$CLUSTER_DOMAIN" ]]; then
+    sed -ie "s/cluster\.local/${CLUSTER_DOMAIN}/g" ${ISTIO_PROFILE}
+  fi
+
   echo ">> Installing Istio"
   echo "Istio version: ${ISTIO_VERSION}"
   echo "Istio profile: ${ISTIO_PROFILE}"
