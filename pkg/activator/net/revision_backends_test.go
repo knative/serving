@@ -98,7 +98,7 @@ func privateSKSService(revID types.NamespacedName, clusterIP string, ports []cor
 	}
 }
 
-func waitForRevisionBackedManager(t *testing.T, rbm *revisionBackendsManager) {
+func waitForRevisionBackendManager(t *testing.T, rbm *revisionBackendsManager) {
 	timeout := time.After(updateTimeout)
 	for {
 		select {
@@ -390,7 +390,7 @@ func TestRevisionWatcher(t *testing.T) {
 			// This gets closed up by revisionWatcher
 			destsCh := make(chan dests)
 
-			// Default for protocol is http1
+			// Default for protocol is HTTP1
 			if tc.protocol == "" {
 				tc.protocol = pkgnet.ProtocolHTTP1
 			}
@@ -461,7 +461,7 @@ func TestRevisionWatcher(t *testing.T) {
 			}
 
 			if got, want := updates, tc.expectUpdates; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
-				t.Errorf("revisionDests updates = %v, want: %v, diff (-want, +got):\n %s", got, want, cmp.Diff(want, got))
+				t.Errorf("revisionDests updates = %v, want: %v, diff(-want, +got):\n%s", got, want, cmp.Diff(want, got))
 			}
 		})
 	}
@@ -715,7 +715,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			defer func() {
 				cancel()
 				waitInformers()
-				waitForRevisionBackedManager(t, rbm)
+				waitForRevisionBackendManager(t, rbm)
 			}()
 
 			for _, ep := range tc.endpointsArr {
@@ -1173,7 +1173,7 @@ func TestRevisionDeleted(t *testing.T) {
 	defer func() {
 		cancel()
 		waitInformers()
-		waitForRevisionBackedManager(t, rbm)
+		waitForRevisionBackendManager(t, rbm)
 	}()
 
 	// Make some movements.
@@ -1229,7 +1229,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 	defer func() {
 		cancel()
 		waitInformers()
-		waitForRevisionBackedManager(t, rbm)
+		waitForRevisionBackendManager(t, rbm)
 	}()
 
 	// Make some movements to generate a checkDests call.
@@ -1293,7 +1293,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 	defer func() {
 		cancel()
 		waitInformers()
-		waitForRevisionBackedManager(t, rbm)
+		waitForRevisionBackendManager(t, rbm)
 	}()
 
 	ei.Informer().GetIndexer().Add(eps)
