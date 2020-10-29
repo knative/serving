@@ -212,7 +212,7 @@ func UpdateLevelFromConfigMap(logger *zap.SugaredLogger, atomicLevel zap.AtomicL
 			// reset to global level
 			loggingCfg, err := zapConfigFromJSON(config.LoggingConfig)
 			switch {
-			case err == errEmptyLoggerConfig:
+			case errors.Is(err, errEmptyLoggerConfig):
 				level = zap.NewAtomicLevel().Level()
 			case err != nil:
 				logger.With(zap.Error(err)).Errorf("Failed to parse logger configuration. "+

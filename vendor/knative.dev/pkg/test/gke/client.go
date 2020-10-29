@@ -45,7 +45,7 @@ type sdkClient struct {
 func NewSDKClient(opts ...option.ClientOption) (SDKOperations, error) {
 	containerService, err := container.NewService(context.Background(), opts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create container service: '%v'", err)
+		return nil, fmt.Errorf("failed to create container service: %w", err)
 	}
 	return &sdkClient{containerService}, nil
 }
@@ -110,7 +110,7 @@ func (gsc *sdkClient) ListClustersInProject(project string) ([]*container.Cluste
 	projectFullPath := fmt.Sprintf("projects/%s/locations/-", project)
 	resp, err := gsc.Projects.Locations.Clusters.List(projectFullPath).Do()
 	if err != nil {
-		return clusters, fmt.Errorf("failed to list clusters under project %s: %v", project, err)
+		return clusters, fmt.Errorf("failed to list clusters under project %s: %w", project, err)
 	}
 	return resp.Clusters, nil
 }

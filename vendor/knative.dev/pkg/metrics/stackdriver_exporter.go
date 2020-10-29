@@ -363,7 +363,7 @@ func getStackdriverSecret(ctx context.Context, secretFetcher SecretFetcher) (*co
 	}
 
 	if secErr != nil {
-		return nil, fmt.Errorf("error getting Secret [%v] in namespace [%v]: %v", secretName, secretNamespace, secErr)
+		return nil, fmt.Errorf("error getting Secret [%v] in namespace [%v]: %w", secretName, secretNamespace, secErr)
 	}
 
 	return sec, nil

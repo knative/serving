@@ -75,7 +75,8 @@ var _ error = (*ReconcilerEvent)(nil)
 // Is returns if the target error is a ReconcilerEvent type checking that
 // EventType and Reason match.
 func (e *ReconcilerEvent) Is(target error) bool {
-	if t, ok := target.(*ReconcilerEvent); ok {
+	var t *ReconcilerEvent
+	if errors.As(target, &t) {
 		if t != nil && t.EventType == e.EventType && t.Reason == e.Reason {
 			return true
 		}

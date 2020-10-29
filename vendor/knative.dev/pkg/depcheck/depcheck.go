@@ -104,7 +104,7 @@ func buildGraph(importpaths ...string) (graph, error) {
 func CheckNoDependency(ip string, banned []string) error {
 	g, err := buildGraph(ip)
 	if err != nil {
-		return fmt.Errorf("buildGraph(queue) = %v", err)
+		return fmt.Errorf("buildGraph(queue) = %w", err)
 	}
 	for _, dip := range banned {
 		if g.contains(dip) {
@@ -136,7 +136,7 @@ func AssertNoDependency(t *testing.T, banned map[string][]string) {
 func CheckOnlyDependencies(ip string, allowed map[string]struct{}) error {
 	g, err := buildGraph(ip)
 	if err != nil {
-		return fmt.Errorf("buildGraph(queue) = %v", err)
+		return fmt.Errorf("buildGraph(queue) = %w", err)
 	}
 	for _, name := range g.order() {
 		if _, ok := allowed[name]; !ok {
