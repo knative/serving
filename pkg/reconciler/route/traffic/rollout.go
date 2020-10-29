@@ -158,12 +158,6 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 		return &ret
 	}
 
-	// Append the new revision, to the list of previous ones.
-	// This is how we start the rollout.
-	rev := goal.Revisions[0]
-	rev.Percent = 1
-	// Allocate optimistically.
-	out := make([]RevisionRollout, 0, len(prev.Revisions)+1)
 	// Go backwards and find first revision with traffic assignment > 0.
 	// Reduce it by one, so we can give that 1% to the new revision.
 	// By design we drain newest revision first.
@@ -173,6 +167,9 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 			break
 		}
 	}
+
+	// Allocate optimistically.
+	out := make([]RevisionRollout, 0, len(prev.Revisions)+1)
 
 	// Copy the non 0% objects over.
 	for _, r := range prev.Revisions {
@@ -184,8 +181,12 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 		}
 		out = append(out, r)
 	}
-	// And replace goal's rollout with the modified previous version.
-	ret.Revisions = append(out, rev)
+
+	// Append the new revision, to the list of previous ones.
+	// This is how we start the rollout.
+	goalRev := goal.Revisions[0]
+	goalRev.Percent = 1
+	ret.Revisions = append(out, goalRev)
 	return &ret
 }
 
