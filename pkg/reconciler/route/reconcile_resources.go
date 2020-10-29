@@ -18,6 +18,7 @@ package route
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -202,7 +203,8 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 				lastPin, err := newRev.GetLastPinned()
 				if err != nil {
 					// Missing is an expected error case for a not yet pinned revision.
-					if err.(v1.LastPinnedParseError).Type != v1.AnnotationParseErrorTypeMissing {
+					var errLastPinned v1.LastPinnedParseError
+					if errors.As(err, &errLastPinned) && errLastPinned.Type != v1.AnnotationParseErrorTypeMissing {
 						return err
 					}
 				} else {

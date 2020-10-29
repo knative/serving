@@ -435,7 +435,7 @@ func TestVisibility(t *testing.T) {
 			if got, want := visibility, tt.expected; !cmp.Equal(got, want) {
 				t.Errorf("Unexpected visibility diff (-want +got):\n%s", cmp.Diff(want, got))
 			}
-			if tt.expectedErr != err {
+			if !errors.Is(err, tt.expectedErr) {
 				t.Errorf("Err = %v, want: %v", err, tt.expectedErr)
 			}
 		})

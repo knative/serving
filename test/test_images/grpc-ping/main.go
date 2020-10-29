@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -58,7 +59,7 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 	log.Printf("Starting stream")
 	for {
 		req, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			log.Printf("Ending stream")
 			return nil
 		}

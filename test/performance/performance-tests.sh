@@ -21,7 +21,7 @@
 # Setup env vars to override the default settings
 export BENCHMARK_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance/benchmarks"
 
-source vendor/knative.dev/test-infra/scripts/performance-tests.sh
+source vendor/knative.dev/hack/performance-tests.sh
 source $(dirname $0)/../e2e-networking-library.sh
 
 # Env vars required for installing Istio.

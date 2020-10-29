@@ -18,6 +18,7 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -277,7 +278,7 @@ func TestSemaphoreRelease(t *testing.T) {
 	if err := sem.release(); err != nil {
 		t.Errorf("release = %v; want: %v", err, nil)
 	}
-	if err := sem.release(); err != ErrRelease {
+	if err := sem.release(); !errors.Is(err, ErrRelease) {
 		t.Errorf("release = %v; want: %v", err, ErrRelease)
 	}
 }

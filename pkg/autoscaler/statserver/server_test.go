@@ -19,16 +19,17 @@ package statserver
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
-	"runtime"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/websocket"
+	"go.uber.org/goleak"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	network "knative.dev/networking/pkg"
@@ -134,8 +135,7 @@ func TestServerShutdown(t *testing.T) {
 	}
 
 	// Check the statistic was not received
-	_, ok := <-statsCh
-	if ok {
+	if _, ok := <-statsCh; ok {
 		t.Fatal("Received statistic after shutdown")
 	}
 
@@ -143,12 +143,12 @@ func TestServerShutdown(t *testing.T) {
 	if _, _, err := statSink.NextReader(); err == nil {
 		t.Fatal("Connection not closed")
 	} else {
-		err, ok := err.(*websocket.CloseError)
-		if !ok {
+		var errClose *websocket.CloseError
+		if !errors.As(err, &errClose) {
 			t.Fatal("CloseError not received")
 		}
-		if err.Code != 1012 {
-			t.Fatalf("CloseError with unexpected close code %d received", err.Code)
+		if errClose.Code != 1012 {
+			t.Fatalf("CloseError with unexpected close code %d received", errClose.Code)
 		}
 	}
 
@@ -167,7 +167,8 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 
 	go server.listenAndServe()
 
-	originalGoroutines := runtime.NumGoroutine()
+	// Check the number of goroutines eventually reduces to the number there were before the connection was created
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	listenAddr := server.listenAddr()
 	statSink := dialOK(t, listenAddr)
@@ -175,18 +176,6 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	assertReceivedProto(t, both, statSink, statsCh)
 
 	closeSink(t, statSink)
-
-	// Check the number of goroutines eventually reduces to the number there were before the connection was created
-	for i := 1000; i >= 0; i-- {
-		currentGoRoutines := runtime.NumGoroutine()
-		if currentGoRoutines <= originalGoroutines {
-			break
-		}
-		time.Sleep(5 * time.Millisecond)
-		if i == 0 {
-			t.Fatalf("Current number of goroutines %d is not equal to the original number %d", currentGoRoutines, originalGoroutines)
-		}
-	}
 }
 
 func TestServerNotBucketHost(t *testing.T) {
@@ -229,9 +218,8 @@ func TestServerNotOwnerForBucketHost(t *testing.T) {
 
 	go server.listenAndServe()
 
-	_, err := dial(server.listenAddr())
-	if err == nil {
-		t.Error("Want error from Dial but got none")
+	if _, err := dial(server.listenAddr()); err == nil {
+		t.Error("Want an error from Dial but got none")
 	}
 }
 

@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -67,7 +68,7 @@ func TestTimeoutWriterErrorsWriteAfterTimeout(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	handler := &timeoutWriter{w: recorder}
 	handler.timeoutAndWriteError("error")
-	if _, err := handler.Write([]byte("hello")); err != http.ErrHandlerTimeout {
+	if _, err := handler.Write([]byte("hello")); !errors.Is(err, http.ErrHandlerTimeout) {
 		t.Errorf("ErrHandlerTimeout got %v, want: %s", err, http.ErrHandlerTimeout)
 	}
 }
@@ -148,7 +149,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 
 			defer func() {
 				if test.wantPanic {
-					if recovered := recover(); recovered != http.ErrAbortHandler {
+					if recovered := recover(); recovered != http.ErrAbortHandler { //nolint // False positive for errors.Is check
 						t.Errorf("Recover = %v, want: %v", recovered, http.ErrAbortHandler)
 					}
 				}
@@ -167,7 +168,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 			}
 
 			if test.wantWriteError {
-				if err := <-writeErrors; err != http.ErrHandlerTimeout {
+				if err := <-writeErrors; !errors.Is(err, http.ErrHandlerTimeout) {
 					t.Error("Expected a timeout error, got", err)
 				}
 			}

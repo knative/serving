@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -94,10 +95,9 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		logger.Errorw("Throttler try error", zap.Error(err))
 
-		switch err {
-		case context.DeadlineExceeded, queue.ErrRequestQueueFull:
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, queue.ErrRequestQueueFull) {
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		default:
+		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 	}

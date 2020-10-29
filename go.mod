@@ -14,27 +14,28 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/prometheus/client_golang v1.6.0
+	github.com/prometheus/client_golang v1.8.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/tsenart/vegeta/v12 v12.8.4
-	go.opencensus.io v0.22.4
-	go.uber.org/atomic v1.6.0
+	go.opencensus.io v0.22.5
+	go.uber.org/atomic v1.7.0
 	go.uber.org/automaxprocs v1.3.0
-	go.uber.org/zap v1.15.0
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	google.golang.org/api v0.31.0
-	google.golang.org/grpc v1.31.1
+	go.uber.org/goleak v1.1.10
+	go.uber.org/zap v1.16.0
+	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+	google.golang.org/api v0.34.0
+	google.golang.org/grpc v1.33.1
 	k8s.io/api v0.18.8
 	k8s.io/apiextensions-apiserver v0.18.8 // indirect
 	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20201027015333-11e52bba5431
-	knative.dev/networking v0.0.0-20201027142134-8af985560ccc
-	knative.dev/pkg v0.0.0-20201027164233-38578c3cf454
-	knative.dev/test-infra v0.0.0-20201026182042-46291de4ab66
+	knative.dev/caching v0.0.0-20201029014134-01b051e4fb9a
+	knative.dev/hack v0.0.0-20201028205534-fe80f1c8af68
+	knative.dev/networking v0.0.0-20201028132534-429a6210295c
+	knative.dev/pkg v0.0.0-20201028171634-6a24d54694a8
 )
 
 replace (

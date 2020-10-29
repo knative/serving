@@ -27,7 +27,7 @@ import (
 var env config.EnvConfig
 
 func main() {
-	if err := envconfig.Process("", &env); err != nil {
+	if err := envconfig.Process("auto_tls_test", &env); err != nil {
 		log.Fatalf("Failed to process environment variable: %v.", err)
 	}
 	record := &config.DNSRecord{

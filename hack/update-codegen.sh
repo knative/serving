@@ -26,7 +26,7 @@ if [ -z "${GOPATH:-}" ]; then
   export GOPATH=$(go env GOPATH)
 fi
 
-source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
+source $(dirname $0)/../vendor/knative.dev/hack/library.sh
 
 boilerplate="${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt"
 
