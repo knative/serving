@@ -98,7 +98,7 @@ func newTraceExporterWithClient(o Options, c *tracingclient.Client) *traceExport
 
 // ExportSpan exports a SpanData to Stackdriver Trace.
 func (e *traceExporter) ExportSpan(s *trace.SpanData) {
-	protoSpan := protoFromSpanData(s, e.projectID, e.o.Resource)
+	protoSpan := protoFromSpanData(s, e.projectID, e.o.Resource, e.o.UserAgent)
 	protoSize := proto.Size(protoSpan)
 	err := e.bundler.Add(protoSpan, protoSize)
 	switch err {
@@ -137,7 +137,7 @@ func (e *traceExporter) pushTraceSpans(ctx context.Context, node *commonpb.Node,
 	}
 
 	for _, span := range spans {
-		protoSpans = append(protoSpans, protoFromSpanData(span, e.projectID, res))
+		protoSpans = append(protoSpans, protoFromSpanData(span, e.projectID, res, e.o.UserAgent))
 	}
 
 	req := tracepb.BatchWriteSpansRequest{

@@ -18,7 +18,7 @@ metadata:
   # These are the permissions needed by the Istio Ingress implementation.
   name: knative-serving-istio
   labels:
-    serving.knative.dev/release: "v20201022-7bda3d56"
+    serving.knative.dev/release: "v20201026-0bcca766"
     serving.knative.dev/controller: "true"
     networking.knative.dev/ingress-provider: istio
 rules:
@@ -48,7 +48,7 @@ metadata:
   name: knative-ingress-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201022-7bda3d56"
+    serving.knative.dev/release: "v20201026-0bcca766"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -85,7 +85,7 @@ metadata:
   name: cluster-local-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201022-7bda3d56"
+    serving.knative.dev/release: "v20201026-0bcca766"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -104,7 +104,7 @@ metadata:
   name: knative-local-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201022-7bda3d56"
+    serving.knative.dev/release: "v20201026-0bcca766"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -123,7 +123,7 @@ metadata:
   name: knative-local-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201022-7bda3d56"
+    serving.knative.dev/release: "v20201026-0bcca766"
     networking.knative.dev/ingress-provider: istio
 spec:
   type: ClusterIP
@@ -181,7 +181,7 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: webhook.istio.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20201022-7bda3d56"
+    serving.knative.dev/release: "v20201026-0bcca766"
     networking.knative.dev/ingress-provider: istio
 webhooks:
   - admissionReviewVersions:
@@ -217,7 +217,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.istio.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20201022-7bda3d56"
+    serving.knative.dev/release: "v20201026-0bcca766"
     networking.knative.dev/ingress-provider: istio
 webhooks:
   - admissionReviewVersions:
@@ -255,7 +255,7 @@ metadata:
   name: istio-webhook-certs
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201022-7bda3d56"
+    serving.knative.dev/release: "v20201026-0bcca766"
     networking.knative.dev/ingress-provider: istio
 
 ---
@@ -279,7 +279,7 @@ metadata:
   name: config-istio
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201022-7bda3d56"
+    serving.knative.dev/release: "v20201026-0bcca766"
     networking.knative.dev/ingress-provider: istio
 data:
   _example: |
@@ -349,7 +349,7 @@ metadata:
   name: networking-istio
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201022-7bda3d56"
+    serving.knative.dev/release: "v20201026-0bcca766"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -365,14 +365,14 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: networking-istio
-        serving.knative.dev/release: "v20201022-7bda3d56"
+        serving.knative.dev/release: "v20201026-0bcca766"
     spec:
       serviceAccountName: controller
       containers:
         - name: networking-istio
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:b4750acde7a10a1a91f91884dfd5083b4bdac8bda4da8d1f1ddb3ff235793544
+          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:386ecc00d87b893778856aa5f5a5ca0b389fa9e37ea9222496f2da1a41880a95
           resources:
             requests:
               cpu: 30m
@@ -424,7 +424,7 @@ metadata:
   name: istio-webhook
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201022-7bda3d56"
+    serving.knative.dev/release: "v20201026-0bcca766"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -438,14 +438,14 @@ spec:
       labels:
         app: istio-webhook
         role: istio-webhook
-        serving.knative.dev/release: "v20201022-7bda3d56"
+        serving.knative.dev/release: "v20201026-0bcca766"
     spec:
       serviceAccountName: controller
       containers:
         - name: webhook
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/webhook@sha256:8bc42e9af355c20d6fa0db45f7eb0e34e169d0528288cac8f8e70e7e9955a4ae
+          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/webhook@sha256:21db77728117be38d31bd13e0a8a7b5709782be2656456395858e1f89631f1b1
           resources:
             requests:
               cpu: 20m
@@ -499,7 +499,7 @@ metadata:
   namespace: knative-serving
   labels:
     role: istio-webhook
-    serving.knative.dev/release: "v20201022-7bda3d56"
+    serving.knative.dev/release: "v20201026-0bcca766"
     networking.knative.dev/ingress-provider: istio
 spec:
   ports:

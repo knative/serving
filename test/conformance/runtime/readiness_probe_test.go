@@ -30,7 +30,7 @@ import (
 )
 
 func TestProbeRuntime(t *testing.T) {
-
+	t.Parallel()
 	clients := test.Setup(t)
 
 	var testCases = []struct {

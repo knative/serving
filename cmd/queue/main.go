@@ -25,7 +25,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -63,7 +62,9 @@ const (
 
 var (
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
-	unixSocketPath        = filepath.Join(os.TempDir(), "queue.sock")
+
+	// This creates an abstract socket instead of an actual file.
+	unixSocketPath = "@/knative.dev/serving/queue.sock"
 )
 
 type config struct {
@@ -133,10 +134,10 @@ func main() {
 	defer flush(logger)
 
 	logger = logger.Named("queueproxy").With(
-		zap.Object(logkey.Key, pkglogging.NamespacedName(types.NamespacedName{
+		zap.String(logkey.Key, types.NamespacedName{
 			Namespace: env.ServingNamespace,
 			Name:      env.ServingRevision,
-		})),
+		}.String()),
 		zap.String(logkey.Pod, env.ServingPod))
 
 	// Report stats on Go memory usage every 30 seconds.

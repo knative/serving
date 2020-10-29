@@ -129,7 +129,7 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 		destsCh:         destsCh,
 		serviceLister:   serviceLister,
 		podsAddressable: true, // By default we presume we can talk to pods directly.
-		logger:          logger.With(zap.Object(logkey.Key, logging.NamespacedName(rev))),
+		logger:          logger.With(zap.String(logkey.Key, rev.String())),
 	}
 }
 
@@ -480,7 +480,7 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 	}
 	endpoints := newObj.(*corev1.Endpoints)
 	revID := types.NamespacedName{Namespace: endpoints.Namespace, Name: endpoints.Labels[serving.RevisionLabelKey]}
-	logger := rbm.logger.With(zap.Object(logkey.Key, logging.NamespacedName(revID)))
+	logger := rbm.logger.With(zap.String(logkey.Key, revID.String()))
 
 	logger.Debugf("Endpoints updated: %#v", newObj)
 
@@ -517,7 +517,7 @@ func (rbm *revisionBackendsManager) endpointsDeleted(obj interface{}) {
 	ep := obj.(*corev1.Endpoints)
 	revID := types.NamespacedName{Namespace: ep.Namespace, Name: ep.Labels[serving.RevisionLabelKey]}
 
-	rbm.logger.Debugw("Deleting endpoint", zap.Object(logkey.Key, logging.NamespacedName(revID)))
+	rbm.logger.Debugw("Deleting endpoint", zap.String(logkey.Key, revID.String()))
 	rbm.revisionWatchersMux.Lock()
 	defer rbm.revisionWatchersMux.Unlock()
 	rbm.deleteRevisionWatcher(revID)

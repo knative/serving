@@ -171,7 +171,6 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 				Percent:           ptr.Int64(100),
 			},
 			ServiceName: "gilberto",
-			Active:      true,
 		}},
 		"v1": {{
 			TrafficTarget: v1.TrafficTarget{
@@ -180,7 +179,6 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 				Percent:           ptr.Int64(100),
 			},
 			ServiceName: "jobim",
-			Active:      true,
 		}},
 	}
 
@@ -304,7 +302,6 @@ func TestMakeIngressSpecCorrectRuleVisibility(t *testing.T) {
 					Percent:           ptr.Int64(100),
 				},
 				ServiceName: "gilberto",
-				Active:      true,
 			}},
 		},
 		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
@@ -322,7 +319,6 @@ func TestMakeIngressSpecCorrectRuleVisibility(t *testing.T) {
 					Percent:           ptr.Int64(100),
 				},
 				ServiceName: "gilberto",
-				Active:      true,
 			}},
 		},
 		serviceVisibility: map[string]netv1alpha1.IngressVisibility{
@@ -342,7 +338,6 @@ func TestMakeIngressSpecCorrectRuleVisibility(t *testing.T) {
 					Percent:           ptr.Int64(100),
 				},
 				ServiceName: "gilberto",
-				Active:      true,
 			}},
 		},
 		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
@@ -381,7 +376,6 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 				Percent:           ptr.Int64(100),
 			},
 			ServiceName: "gilberto",
-			Active:      true,
 		}},
 		"v1": {{
 			TrafficTarget: v1.TrafficTarget{
@@ -390,7 +384,6 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 				Percent:           ptr.Int64(100),
 			},
 			ServiceName: "jobim",
-			Active:      true,
 		}},
 	}
 
@@ -556,7 +549,6 @@ func TestMakeIngressRuleVanilla(t *testing.T) {
 			Percent:           ptr.Int64(100),
 		},
 		ServiceName: "chocolate",
-		Active:      true,
 	}}
 	domains := []string{"a.com", "b.org"}
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
@@ -598,14 +590,12 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 			Percent:           ptr.Int64(100),
 		},
 		ServiceName: "active-target",
-		Active:      true,
 	}, {
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           ptr.Int64(0),
 		},
-		Active: true,
 	}}
 	domains := []string{"test.org"}
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
@@ -644,14 +634,11 @@ func TestMakeIngressRuleNilPercentTarget(t *testing.T) {
 			Percent:           ptr.Int64(100),
 		},
 		ServiceName: "active-target",
-		Active:      true,
 	}, {
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
-			Percent:           nil,
 		},
-		Active: true,
 	}}
 	domains := []string{"test.org"}
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
@@ -690,7 +677,6 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 			Percent:           ptr.Int64(80),
 		},
 		ServiceName: "nigh",
-		Active:      true,
 	}, {
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
@@ -698,7 +684,6 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 			Percent:           ptr.Int64(20),
 		},
 		ServiceName: "death",
-		Active:      true,
 	}}
 	domains := []string{"test.org"}
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
@@ -748,7 +733,6 @@ func TestMakeIngressRuleInactiveTarget(t *testing.T) {
 			Percent:           ptr.Int64(100),
 		},
 		ServiceName: "strange-quark",
-		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
@@ -789,7 +773,6 @@ func TestMakeIngressRuleTwoInactiveTargets(t *testing.T) {
 			Percent:           ptr.Int64(80),
 		},
 		ServiceName: "up-quark",
-		Active:      false,
 	}, {
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
@@ -797,7 +780,6 @@ func TestMakeIngressRuleTwoInactiveTargets(t *testing.T) {
 			Percent:           ptr.Int64(20),
 		},
 		ServiceName: "down-quark",
-		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
@@ -848,14 +830,12 @@ func TestMakeIngressRuleZeroPercentTargetInactive(t *testing.T) {
 			Percent:           ptr.Int64(100),
 		},
 		ServiceName: "apathy-sets-in",
-		Active:      true,
 	}, {
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           ptr.Int64(0),
 		},
-		Active: false,
 	}}
 	domains := []string{"test.org"}
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
@@ -893,14 +873,12 @@ func TestMakeIngressRuleNilPercentTargetInactive(t *testing.T) {
 			Percent:           ptr.Int64(100),
 		},
 		ServiceName: "apathy-sets-in",
-		Active:      true,
 	}, {
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           nil,
 		},
-		Active: false,
 	}}
 	domains := []string{"test.org"}
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
@@ -999,7 +977,6 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 				Percent:           ptr.Int64(100),
 			},
 			ServiceName: "gilberto",
-			Active:      true,
 		}},
 	}
 
@@ -1103,7 +1080,6 @@ func TestMakeIngressFailToGenerateDomain(t *testing.T) {
 				Percent:           ptr.Int64(100),
 			},
 			ServiceName: "gilberto",
-			Active:      true,
 		}},
 	}
 
@@ -1135,7 +1111,6 @@ func TestMakeIngressFailToGenerateTagHost(t *testing.T) {
 				Percent:           ptr.Int64(100),
 			},
 			ServiceName: "gilberto",
-			Active:      true,
 		}},
 		"v1": {{
 			TrafficTarget: v1.TrafficTarget{
@@ -1144,7 +1119,6 @@ func TestMakeIngressFailToGenerateTagHost(t *testing.T) {
 				Percent:           ptr.Int64(100),
 			},
 			ServiceName: "jobim",
-			Active:      true,
 		}},
 	}
 

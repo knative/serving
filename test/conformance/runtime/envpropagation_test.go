@@ -34,6 +34,8 @@ func TestSecretsViaEnv(t *testing.T) {
 	clients := test.Setup(t)
 
 	t.Run("env", func(t *testing.T) {
+		t.Parallel()
+
 		err := fetchEnvironmentAndVerify(t, clients, WithEnv(corev1.EnvVar{
 			Name: test.EnvKey,
 			ValueFrom: &corev1.EnvVarSource{
@@ -51,6 +53,8 @@ func TestSecretsViaEnv(t *testing.T) {
 	})
 
 	t.Run("envFrom", func(t *testing.T) {
+		t.Parallel()
+
 		err := fetchEnvironmentAndVerify(t, clients, WithEnvFrom(corev1.EnvFromSource{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
@@ -70,6 +74,8 @@ func TestConfigsViaEnv(t *testing.T) {
 	clients := test.Setup(t)
 
 	t.Run("env", func(t *testing.T) {
+		t.Parallel()
+
 		err := fetchEnvironmentAndVerify(t, clients, WithEnv(corev1.EnvVar{
 			Name: test.EnvKey,
 			ValueFrom: &corev1.EnvVarSource{
@@ -87,6 +93,8 @@ func TestConfigsViaEnv(t *testing.T) {
 	})
 
 	t.Run("envFrom", func(t *testing.T) {
+		t.Parallel()
+
 		err := fetchEnvironmentAndVerify(t, clients, WithEnvFrom(corev1.EnvFromSource{
 			ConfigMapRef: &corev1.ConfigMapEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{

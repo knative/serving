@@ -87,7 +87,7 @@ func (ac *reconciler) Reconcile(ctx context.Context, key string) error {
 	// Look up the webhook secret, and fetch the CA cert bundle.
 	secret, err := ac.secretlister.Secrets(system.Namespace()).Get(ac.secretName)
 	if err != nil {
-		logger.Error("Error fetching secret: ", err)
+		logger.Errorw("Error fetching secret", zap.Error(err))
 		return err
 	}
 	caCert, ok := secret.Data[certresources.CACert]
@@ -149,7 +149,7 @@ func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gvk.Group},
 				APIVersions: []string{gvk.Version},
-				Resources:   []string{plural + "/*"},
+				Resources:   []string{plural, plural + "/status"},
 			},
 		})
 	}

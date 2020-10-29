@@ -43,6 +43,11 @@ type ConfigurationRollout struct {
 	ConfigurationName string `json:"configurationName"`
 	Tag               string `json:"tag,omitempty"`
 
+	// Percent denotes the total percentage for this configuration.
+	// The individual percentages of the Revisions below will sum to this
+	// number.
+	Percent int `json:"percent"`
+
 	// The revisions in the rollout. In steady state this should
 	// contain 0 (no revision is ready) or 1 (rollout done).
 	// During the actual rollout it will contain N revisions

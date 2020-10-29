@@ -36,11 +36,10 @@ import (
 // DefaultTarget is the unnamed default target for the traffic.
 const DefaultTarget = ""
 
-// A RevisionTarget adds the Active/Inactive state and the transport protocol of a
+// A RevisionTarget adds the transport protocol and the service name of a
 // Revision to a flattened TrafficTarget.
 type RevisionTarget struct {
 	v1.TrafficTarget
-	Active      bool
 	Protocol    net.ProtocolType
 	ServiceName string // Revision service name.
 }
@@ -167,6 +166,8 @@ func newBuilder(
 
 // BuildRollout builds the current rollout state.
 // It is expected to be invoked after applySpecTraffic.
+// Returned Rollout will be sorted by tag and within tag by configuration
+// (only default tag can have more than configuration object attached).
 // TODO(vagababov): actually deal with rollouts, vs just report desired state.
 func (cfg *Config) BuildRollout() *Rollout {
 	rollout := &Rollout{}
@@ -182,6 +183,10 @@ func (cfg *Config) BuildRollout() *Rollout {
 // from run to run, since input to the process is map iterator.
 func sortRollout(r *Rollout) {
 	sort.Slice(r.Configurations, func(i, j int) bool {
+		// Sort by tag and within tag sort by config name.
+		if r.Configurations[i].Tag == r.Configurations[j].Tag {
+			return r.Configurations[i].ConfigurationName < r.Configurations[j].ConfigurationName
+		}
 		return r.Configurations[i].Tag < r.Configurations[j].Tag
 	})
 }
@@ -201,9 +206,12 @@ func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
 		r.Configurations = append(r.Configurations, ConfigurationRollout{
 			ConfigurationName: rt.ConfigurationName,
 			Tag:               tag,
+			Percent:           int(zeroIfNil(rt.Percent)),
 			Revisions: []RevisionRollout{{
 				RevisionName: rt.RevisionName,
-				Percent:      int(valIfNil(0, rt.Percent)),
+				// Note: this will match config value in steady state, but
+				// during rollout it will be overridden by the rollout logic.
+				Percent: int(zeroIfNil(rt.Percent)),
 			}},
 		})
 	}
@@ -302,7 +310,6 @@ func (cb *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
 	ntt := tt.DeepCopy()
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
-		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
 	}
@@ -322,7 +329,6 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	ntt := tt.DeepCopy()
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
-		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
 	}
@@ -336,10 +342,10 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	return nil
 }
 
-// valIfNil returns `val` if `ptr==nil`, or `*ptr` otherwise.
-func valIfNil(val int64, ptr *int64) int64 {
+// zeroIfNil returns `0` if `ptr==nil`, or `*ptr` otherwise.
+func zeroIfNil(ptr *int64) int64 {
 	if ptr == nil {
-		return val
+		return 0
 	}
 	return *ptr
 }
@@ -350,7 +356,7 @@ func mergeIfNecessary(rts RevisionTargets, rt RevisionTarget) RevisionTargets {
 	for i := range rts {
 		if rts[i].Tag == rt.Tag && rts[i].RevisionName == rt.RevisionName &&
 			*rt.LatestRevision == *rts[i].LatestRevision {
-			rts[i].Percent = ptr.Int64(valIfNil(0, rts[i].Percent) + valIfNil(0, rt.Percent))
+			rts[i].Percent = ptr.Int64(zeroIfNil(rts[i].Percent) + zeroIfNil(rt.Percent))
 			return rts
 		}
 	}

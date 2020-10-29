@@ -22,15 +22,15 @@ function knative_setup() {
 
 function setup_auto_tls_env_variables() {
   # DNS zone for the testing domain.
-  export DNS_ZONE="knative-e2e"
+  export AUTO_TLS_TEST_DNS_ZONE="knative-e2e"
   # Google Cloud project that hosts the DNS server for the testing domain `kn-e2e.dev`
-  export CLOUD_DNS_PROJECT="knative-e2e-dns"
+  export AUTO_TLS_TEST_CLOUD_DNS_PROJECT="knative-e2e-dns"
   # The service account credential file used to access the DNS server.
-  export CLOUD_DNS_SERVICE_ACCOUNT_KEY_FILE="${GOOGLE_APPLICATION_CREDENTIALS}"
+  export AUTO_TLS_TEST_CLOUD_DNS_SERVICE_ACCOUNT_KEY_FILE="${GOOGLE_APPLICATION_CREDENTIALS}"
 
-  export DOMAIN_NAME="kn-e2e.dev"
+  export AUTO_TLS_TEST_DOMAIN_NAME="kn-e2e.dev"
 
-  export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.${DOMAIN_NAME}"
+  export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.${AUTO_TLS_TEST_DOMAIN_NAME}"
 
   export TLS_TEST_NAMESPACE="tls"
 
@@ -43,7 +43,7 @@ function setup_auto_tls_env_variables() {
     INGRESS_SERVICE="istio-ingressgateway"
   fi
   local IP=$(kubectl get svc -n ${INGRESS_NAMESPACE} ${INGRESS_SERVICE} -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
-  export INGRESS_IP=${IP}
+  export AUTO_TLS_TEST_INGRESS_IP=${IP}
 }
 
 function setup_custom_domain() {
@@ -86,7 +86,7 @@ function setup_http01_auto_tls() {
   # Rely on the built-in naming (for logstream)
   unset TLS_SERVICE_NAME
   # The full host name of the Knative Service. This is used to configure the DNS record.
-  export FULL_HOST_NAME="*.${TLS_TEST_NAMESPACE}.${CUSTOM_DOMAIN_SUFFIX}"
+  export AUTO_TLS_TEST_FULL_HOST_NAME="*.${TLS_TEST_NAMESPACE}.${CUSTOM_DOMAIN_SUFFIX}"
 
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 

@@ -123,7 +123,6 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 				RevisionName: "revision",
 				Percent:      ptr.Int64(100),
 			},
-			Active: true,
 		}}}}
 
 	ctx = config.ToContext(ctx, &config.Config{
@@ -175,7 +174,6 @@ func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
 				RevisionName: "invalid-revision",
 				Percent:      ptr.Int64(100),
 			},
-			Active: true,
 		}}}}
 	ctx = config.ToContext(ctx, &config.Config{
 		GC: &gc.Config{
@@ -219,7 +217,6 @@ func newTestIngress(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.C
 				RevisionName: "revision",
 				Percent:      ptr.Int64(100),
 			},
-			Active: true,
 		}}}}
 
 	for _, opt := range trafficOpts {
@@ -233,7 +230,7 @@ func newTestIngress(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.C
 	}}
 	ingress, err := resources.MakeIngress(getContext(), r, tc, tls, "foo-ingress")
 	if err != nil {
-		t.Error("Unexpected error", err)
+		t.Error("Unexpected error:", err)
 	}
 	return ingress
 }
@@ -252,7 +249,7 @@ func TestReconcileCertificatesInsert(t *testing.T) {
 	}
 	created := getCertificateFromClient(ctx, t, certificate)
 	if diff := cmp.Diff(certificate, created); diff != "" {
-		t.Error("Unexpected diff (-want +got):", diff)
+		t.Errorf("Unexpected diff (-want +got):\n%s", diff)
 	}
 }
 

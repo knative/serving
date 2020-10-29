@@ -112,7 +112,7 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gvk.Group},
 				APIVersions: []string{gvk.Version},
-				Resources:   []string{plural + "/*"},
+				Resources:   []string{plural, plural + "/status"},
 			},
 		})
 	}
