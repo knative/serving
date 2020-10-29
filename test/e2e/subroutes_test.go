@@ -83,6 +83,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 		helloworldURL := resources.Route.Status.Address.URL.URL()
 		helloworldURL.Host = strings.TrimSuffix(domain, tc.suffix)
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			testProxyToHelloworld(t, clients, helloworldURL, true, false)
 		})
 	}

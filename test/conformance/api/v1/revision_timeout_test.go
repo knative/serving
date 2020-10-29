@@ -101,6 +101,8 @@ func TestRevisionTimeout(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
 				Image:   test.Timeout,

@@ -23,6 +23,7 @@ linters:
     - gosec
     - prealloc
     - stylecheck
+    - tparallel
     - unconvert
     - unparam
   disable:
