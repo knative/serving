@@ -35,6 +35,7 @@ import (
 	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var (
@@ -134,8 +135,7 @@ func TestServerShutdown(t *testing.T) {
 	}
 
 	// Check the statistic was not received
-	_, ok := <-statsCh
-	if ok {
+	if _, ok := <-statsCh; ok {
 		t.Fatal("Received statistic after shutdown")
 	}
 
@@ -177,15 +177,12 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	closeSink(t, statSink)
 
 	// Check the number of goroutines eventually reduces to the number there were before the connection was created
-	for i := 1000; i >= 0; i-- {
-		currentGoRoutines := runtime.NumGoroutine()
-		if currentGoRoutines <= originalGoroutines {
-			break
-		}
-		time.Sleep(5 * time.Millisecond)
-		if i == 0 {
-			t.Fatalf("Current number of goroutines %d is not equal to the original number %d", currentGoRoutines, originalGoroutines)
-		}
+	currentGoRoutines := 0
+	if err := wait.PollImmediate(5*time.Millisecond, 5*time.Second, func() (bool, error) {
+		currentGoRoutines = runtime.NumGoroutine()
+		return currentGoRoutines <= originalGoroutines+1, nil // poll creates one.
+	}); err != nil {
+		t.Fatalf("Current number of goroutines %d is not equal to the original number %d", currentGoRoutines, originalGoroutines)
 	}
 }
 
@@ -229,9 +226,8 @@ func TestServerNotOwnerForBucketHost(t *testing.T) {
 
 	go server.listenAndServe()
 
-	_, err := dial(server.listenAddr())
-	if err == nil {
-		t.Error("Want error from Dial but got none")
+	if _, err := dial(server.listenAddr()); err == nil {
+		t.Error("Want an error from Dial but got none")
 	}
 }
 
