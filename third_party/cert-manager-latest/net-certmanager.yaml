@@ -18,7 +18,7 @@ metadata:
   # These are the permissions needed by the `cert-manager` `Certificate` implementation.
   name: knative-serving-certmanager
   labels:
-    serving.knative.dev/release: "v20201028-6d22680"
+    serving.knative.dev/release: "v20201029-48615be"
     serving.knative.dev/controller: "true"
     networking.knative.dev/certificate-provider: cert-manager
 rules:
@@ -49,7 +49,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.net-certmanager.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20201028-6d22680"
+    serving.knative.dev/release: "v20201029-48615be"
 webhooks:
   - admissionReviewVersions:
       - v1beta1
@@ -86,7 +86,7 @@ metadata:
   name: net-certmanager-webhook-certs
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201028-6d22680"
+    serving.knative.dev/release: "v20201029-48615be"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -109,7 +109,7 @@ metadata:
   name: config-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201028-6d22680"
+    serving.knative.dev/release: "v20201029-48615be"
     networking.knative.dev/certificate-provider: cert-manager
 data:
   _example: |
@@ -156,7 +156,7 @@ metadata:
   name: networking-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201028-6d22680"
+    serving.knative.dev/release: "v20201029-48615be"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   selector:
@@ -168,14 +168,14 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: networking-certmanager
-        serving.knative.dev/release: "v20201028-6d22680"
+        serving.knative.dev/release: "v20201029-48615be"
     spec:
       serviceAccountName: controller
       containers:
         - name: networking-certmanager
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:a156cd7ffd73b7c03f0878b865999f105ce760e32e8d0a7b7cbf511cc8ef3388
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:a8b7c934df2bd19495e34cb40feea830193ae7d6655e2b59250a33eb501f5feb
           resources:
             requests:
               cpu: 30m
@@ -197,6 +197,11 @@ spec:
               value: knative.dev/serving
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
           ports:
             - name: metrics
               containerPort: 9090
@@ -208,7 +213,7 @@ kind: Service
 metadata:
   labels:
     app: networking-certmanager
-    serving.knative.dev/release: "v20201028-6d22680"
+    serving.knative.dev/release: "v20201029-48615be"
     networking.knative.dev/certificate-provider: cert-manager
   name: networking-certmanager
   namespace: knative-serving
@@ -245,7 +250,7 @@ metadata:
   name: net-certmanager-webhook
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201028-6d22680"
+    serving.knative.dev/release: "v20201029-48615be"
 spec:
   selector:
     matchLabels:
@@ -258,14 +263,14 @@ spec:
       labels:
         app: net-certmanager-webhook
         role: net-certmanager-webhook
-        serving.knative.dev/release: "v20201028-6d22680"
+        serving.knative.dev/release: "v20201029-48615be"
     spec:
       serviceAccountName: controller
       containers:
         - name: webhook
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:b45aacfed54aa5701ef4d4f736582a9a295b491d96ca5ab7452dbde4037ead26
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:b9c8ae97b4e74d400fc6842d24ac40b112504498e509a37aaf055a531486845a
           resources:
             requests:
               cpu: 20m
@@ -289,6 +294,11 @@ spec:
               value: net-certmanager-webhook
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
           ports:
             - name: metrics
               containerPort: 9090
@@ -319,7 +329,7 @@ metadata:
   namespace: knative-serving
   labels:
     role: net-certmanager-webhook
-    serving.knative.dev/release: "v20201028-6d22680"
+    serving.knative.dev/release: "v20201029-48615be"
 spec:
   ports:
     # Define metrics and profiling for them to be accessible within service meshes.
