@@ -22,12 +22,9 @@ import (
 	"flag"
 	"os"
 	"testing"
-
-	pkgTest "knative.dev/pkg/test"
 )
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	pkgTest.SetupLoggingFlags()
 	os.Exit(m.Run())
 }
