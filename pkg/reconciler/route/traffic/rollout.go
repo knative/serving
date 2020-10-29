@@ -139,6 +139,8 @@ func (cur *Rollout) Step(prev *Rollout) *Rollout {
 		}
 	}
 	ro := &Rollout{Configurations: ret}
+	// We need to sort the rollout, since we have map iterations in between,
+	// which are random.
 	sortRollout(ro)
 	return ro
 }
