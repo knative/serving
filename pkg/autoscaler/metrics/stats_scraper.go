@@ -207,7 +207,7 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 	if s.podsAddressable {
 		stat, err := s.scrapePods(window)
 		// Some pods were scraped, but not enough.
-		if err != errNoPodsScraped {
+		if !errors.Is(err, errNoPodsScraped) {
 			return stat, err
 		}
 		// Else fall back to service scrape.
@@ -385,7 +385,7 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 	// Return the inner error, if any.
 	if err := grp.Wait(); err != nil {
 		// Ignore the error if we have received enough statistics.
-		if err != ErrDidNotReceiveStat || len(oldStatCh)+len(youngStatCh) < sampleSize {
+		if !errors.Is(err, ErrDidNotReceiveStat) || len(oldStatCh)+len(youngStatCh) < sampleSize {
 			return emptyStat, fmt.Errorf("unsuccessful scrape, sampleSize=%d: %w", sampleSize, err)
 		}
 	}

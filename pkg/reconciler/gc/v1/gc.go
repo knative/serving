@@ -18,6 +18,7 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"time"
 
@@ -88,7 +89,8 @@ func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configura
 
 	lastPin, err := rev.GetLastPinned()
 	if err != nil {
-		if err.(v1.LastPinnedParseError).Type != v1.AnnotationParseErrorTypeMissing {
+		var errLastPinned v1.LastPinnedParseError
+		if errors.As(err, &errLastPinned) && errLastPinned.Type != v1.AnnotationParseErrorTypeMissing {
 			logger.Errorw("Failed to determine revision last pinned", zap.Error(err))
 		} else {
 			// Revision was never pinned and its RevisionConditionReady is not true after staleRevisionCreateDelay.

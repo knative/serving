@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"strings"
@@ -100,7 +101,7 @@ func (s *Server) listen() (net.Listener, error) {
 
 func (s *Server) serve(l net.Listener) error {
 	close(s.servingCh)
-	if err := s.wsSrv.Serve(l); err != http.ErrServerClosed {
+	if err := s.wsSrv.Serve(l); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil
@@ -221,7 +222,7 @@ func (s *Server) Shutdown(timeout time.Duration) {
 	defer cancel()
 	err := s.wsSrv.Shutdown(ctx)
 	if err != nil {
-		if err == context.DeadlineExceeded {
+		if errors.Is(err, context.DeadlineExceeded) {
 			s.logger.Warn("Shutdown timed out")
 		} else {
 			s.logger.Errorw("Shutdown failed.", zap.Error(err))

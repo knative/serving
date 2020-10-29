@@ -18,6 +18,7 @@ package metric
 
 import (
 	"context"
+	"errors"
 
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
@@ -37,10 +38,10 @@ var _ metricreconciler.Interface = (*reconciler)(nil)
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *reconciler) ReconcileKind(ctx context.Context, metric *v1alpha1.Metric) pkgreconciler.Event {
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
-		switch err {
-		case metrics.ErrFailedGetEndpoints:
+		switch {
+		case errors.Is(err, metrics.ErrFailedGetEndpoints):
 			metric.Status.MarkMetricNotReady("NoEndpoints", err.Error())
-		case metrics.ErrDidNotReceiveStat:
+		case errors.Is(err, metrics.ErrDidNotReceiveStat):
 			metric.Status.MarkMetricFailed("DidNotReceiveStat", err.Error())
 		default:
 			metric.Status.MarkMetricFailed("CollectionFailed",

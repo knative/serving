@@ -18,6 +18,7 @@ package route
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"strconv"
 	"strings"
@@ -325,7 +326,8 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 		}
 	}
 
-	badTarget, isTargetError := trafficErr.(traffic.TargetError)
+	var badTarget traffic.TargetError
+	isTargetError := errors.As(trafficErr, &badTarget)
 	if trafficErr != nil && !isTargetError {
 		// An error that's not due to missing traffic target should
 		// make us fail fast.

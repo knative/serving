@@ -340,7 +340,7 @@ func (c *collection) updateLastError(err error) bool {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	if c.lastErr == err {
+	if errors.Is(err, c.lastErr) {
 		return false
 	}
 	c.lastErr = err

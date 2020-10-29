@@ -18,6 +18,7 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -63,10 +64,9 @@ func ProxyHandler(breaker *Breaker, stats *network.RequestStats, tracingEnabled 
 				next.ServeHTTP(w, r)
 			}); err != nil {
 				waitSpan.End()
-				switch err {
-				case context.DeadlineExceeded, ErrRequestQueueFull:
+				if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrRequestQueueFull) {
 					http.Error(w, err.Error(), http.StatusServiceUnavailable)
-				default:
+				} else {
 					// This line is most likely untestable :-).
 					w.WriteHeader(http.StatusInternalServerError)
 				}

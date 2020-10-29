@@ -18,6 +18,7 @@ package autoscaling
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -36,7 +37,7 @@ func getIntGE0(m map[string]string, k string) (int32, *apis.FieldError) {
 	// Parsing as uint gives a bad format error, rather than invalid range, unfortunately.
 	i, err := strconv.ParseInt(v, 10, 32)
 	if err != nil {
-		if nerr, ok := err.(*strconv.NumError); ok && nerr.Err == strconv.ErrRange {
+		if errors.Is(err, strconv.ErrRange) {
 			return 0, apis.ErrOutOfBoundsValue(v, 0, math.MaxInt32, k)
 		}
 		return 0, apis.ErrInvalidValue(v, k)
