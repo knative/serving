@@ -582,6 +582,7 @@ func IsPermanentError(err error) bool {
 // Is implements the Is() interface of error. It returns whether the target
 // error can be treated as equivalent to a permanentError.
 func (permanentError) Is(target error) bool {
+	//nolint: errorlint // This check is actually fine.
 	_, ok := target.(permanentError)
 	return ok
 }

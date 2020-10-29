@@ -20,6 +20,7 @@ package ghutil
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -119,10 +120,11 @@ func (gc *GithubClient) retry(message string, maxRetries int, call func() (*gith
 		if resp, err = call(); nil == err {
 			return resp, nil
 		}
-		switch err := err.(type) {
-		case *github.RateLimitError:
-			gc.waitForRateReset(&err.Rate)
-		default:
+
+		var errRateLimit *github.RateLimitError
+		if errors.As(err, &errRateLimit) {
+			gc.waitForRateReset(&errRateLimit.Rate)
+		} else {
 			return resp, err
 		}
 		log.Printf("error %s: %v. Will retry.\n", message, err)
