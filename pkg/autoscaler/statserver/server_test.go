@@ -23,19 +23,18 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"runtime"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/websocket"
+	"go.uber.org/goleak"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var (
@@ -167,7 +166,8 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 
 	go server.listenAndServe()
 
-	originalGoroutines := runtime.NumGoroutine()
+	// Check the number of goroutines eventually reduces to the number there were before the connection was created
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	listenAddr := server.listenAddr()
 	statSink := dialOK(t, listenAddr)
@@ -175,15 +175,6 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	assertReceivedProto(t, both, statSink, statsCh)
 
 	closeSink(t, statSink)
-
-	// Check the number of goroutines eventually reduces to the number there were before the connection was created
-	currentGoRoutines := 0
-	if err := wait.PollImmediate(5*time.Millisecond, 5*time.Second, func() (bool, error) {
-		currentGoRoutines = runtime.NumGoroutine()
-		return currentGoRoutines <= originalGoroutines+1, nil // poll creates one.
-	}); err != nil {
-		t.Fatalf("Current number of goroutines %d is not equal to the original number %d", currentGoRoutines, originalGoroutines)
-	}
 }
 
 func TestServerNotBucketHost(t *testing.T) {
