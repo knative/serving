@@ -25,7 +25,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -63,7 +62,9 @@ const (
 
 var (
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
-	unixSocketPath        = filepath.Join(os.TempDir(), "queue.sock")
+
+	// This creates an abstract socket instead of an actual file.
+	unixSocketPath = "@/knative.dev/serving/queue.sock"
 )
 
 type config struct {
