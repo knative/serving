@@ -31,7 +31,6 @@ func TestRoll(t *testing.T) {
 	tests := []struct {
 		name            string
 		prev, cur, want *Rollout
-		wantRoll        bool
 	}{{
 		name: "no prev",
 		cur:  &Rollout{},
@@ -104,7 +103,6 @@ func TestRoll(t *testing.T) {
 				}},
 			}},
 		},
-		wantRoll: true,
 	}, {
 		name: "roll with two existing, no deletes",
 		cur: &Rollout{
@@ -146,7 +144,6 @@ func TestRoll(t *testing.T) {
 				}},
 			}},
 		},
-		wantRoll: true,
 	}, {
 		name: "roll with delete (two fast successive rolls)",
 		cur: &Rollout{
@@ -185,7 +182,6 @@ func TestRoll(t *testing.T) {
 				}},
 			}},
 		},
-		wantRoll: true,
 	}, {
 		name: "new tag, no roll", // just attached a tag to an existing route.
 		cur: &Rollout{
@@ -323,10 +319,7 @@ func TestRoll(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.cur.Step(tc.prev), tc.wantRoll; got != want {
-				t.Errorf("Roll = %v, want: %v", got, want)
-			}
-			if got, want := tc.cur, tc.want; !cmp.Equal(got, want) {
+			if got, want := tc.cur.Step(tc.prev), tc.want; !cmp.Equal(got, want) {
 				t.Errorf("Wrong rolled rollout, diff(-want,+got):\n%s", cmp.Diff(want, got))
 			}
 		})

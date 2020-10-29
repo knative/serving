@@ -18,7 +18,6 @@ package traffic
 
 import (
 	"context"
-	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -177,18 +176,6 @@ func (cfg *Config) BuildRollout() *Rollout {
 	}
 	sortRollout(rollout)
 	return rollout
-}
-
-// sortRollout sorts the rollout based on tag so it's consistent
-// from run to run, since input to the process is map iterator.
-func sortRollout(r *Rollout) {
-	sort.Slice(r.Configurations, func(i, j int) bool {
-		// Sort by tag and within tag sort by config name.
-		if r.Configurations[i].Tag == r.Configurations[j].Tag {
-			return r.Configurations[i].ConfigurationName < r.Configurations[j].ConfigurationName
-		}
-		return r.Configurations[i].Tag < r.Configurations[j].Tag
-	})
 }
 
 // buildRolloutForTag builds the current rollout state.

@@ -22,6 +22,8 @@ limitations under the License.
 package traffic
 
 import (
+	"sort"
+
 	"knative.dev/networking/pkg/apis/networking"
 )
 
@@ -74,19 +76,20 @@ type RevisionRollout struct {
 	Percent int `json:"percent"`
 }
 
-// Step processes previous Rollout object and compares to the current
-// rollout state. If there is different, Step will start or stop the rollout
-// and updates `RevisionRollout` objects of `cur` accoringly.
-// At the end of the call `cur` contains the desired traffic shape.
-// Step returns `true` if any changes have been made.
-func (cur *Rollout) Step(prev *Rollout) bool {
-	if prev == nil {
-		return false
+// Step merges this rollout object with the  previous state and
+// returns a new Rollout object representing the merged state.
+// At the end of the call the returned object will contain the
+// desired traffic shape.
+// Step will return cur if no previous state was available.
+func (cur *Rollout) Step(prev *Rollout) *Rollout {
+	if prev == nil || len(prev.Configurations) == 0 {
+		return cur
 	}
 
 	// The algorithm below is simplest, but probably not the most performant.
-	// Optimize in the later passes.
-	// Map by tag.
+	// TODO: optimize in the later passes.
+
+	// Map the configs by tag.
 	currConfigs, prevConfigs := map[string][]*ConfigurationRollout{}, map[string][]*ConfigurationRollout{}
 	for i, cfg := range cur.Configurations {
 		currConfigs[cfg.Tag] = append(currConfigs[cfg.Tag], &cur.Configurations[i])
@@ -94,63 +97,77 @@ func (cur *Rollout) Step(prev *Rollout) bool {
 	for i, cfg := range prev.Configurations {
 		prevConfigs[cfg.Tag] = append(prevConfigs[cfg.Tag], &prev.Configurations[i])
 	}
-	ret := false
+
+	var ret []ConfigurationRollout
 	for t, ccfgs := range currConfigs {
 		pcfgs, ok := prevConfigs[t]
 		// A new tag was added, so we have no previous state to roll from,
-		// thus just move over, we'll rollout to 100% from the get go (and it is
+		// thus just add it to the return, we'll rollout to 100% from the get go (and it is
 		// always 100%, since default tag is _always_ there).
+		// So just append to the return list.
 		if !ok {
+			ret = append(ret, *ccfgs[0])
 			continue
 		}
 		// This is basically an intersect algorithm,
 		// It relies on the fact that inputs are sorted.
-		for i, j := 0, 0; i < len(ccfgs) && j < len(pcfgs); {
+		i := 0
+		for j := 0; i < len(ccfgs) && j < len(pcfgs); {
 			switch {
 			case ccfgs[i].ConfigurationName == pcfgs[j].ConfigurationName:
 				// Config might have 0% traffic assigned, if it is a tag only route (i.e.
 				// receives no traffic via default tag).
 				if ccfgs[i].Percent != 0 {
-					ret = ret || stepConfig(ccfgs[i], pcfgs[j])
+					ret = append(ret, *stepConfig(ccfgs[i], pcfgs[j]))
 				}
 				i++
 				j++
 			case ccfgs[i].ConfigurationName < pcfgs[j].ConfigurationName:
 				// A new config, has been added. No action for rollout though.
+				ret = append(ret, *ccfgs[i])
 				i++
 			default: // cur > prev.
-				// A config has been removed. Again, no action for rollout, since
-				// this will no longer be rolling out even it were.
+				// A config has been removed during this update.
+				// Again, no action for rollout, since this will no longer
+				// be rolling it out (or sending traffic to it overall).
 				j++
 			}
 		}
-		// Non overlapping configs don't matter since we either roll 100% or remove them.
+		// Keep the remaining new objects
+		for ; i < len(ccfgs); i++ {
+			ret = append(ret, *ccfgs[i])
+		}
 	}
-	return ret
+	ro := &Rollout{Configurations: ret}
+	sortRollout(ro)
+	return ro
 }
 
-// stepConfig takes previous and goal configuration shapes and updates the goal
-// after computing the percetage allocations.
-func stepConfig(goal, prev *ConfigurationRollout) bool {
+// stepConfig takes previous and goal configuration shapes and returns a new
+// config rollout, after computing the percetage allocations.
+func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 	pc := len(prev.Revisions)
+	ret := *goal
 	// goal will always have just 1 element – the current desired revision.
 	if goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
 		// TODO(vagababov): here would go the logic to compute new percentages for the rollout,
 		// i.e step function, so return value will change, depending on that.
 		// TODO(vagababov): percentage might change, so this should trigger recompute of existing
 		// revision rollouts.
-		return false
+		return &ret
 	}
 
-	// Append the new revision, to the list of previous ones, this should start the
-	// rollout.
+	// Append the new revision, to the list of previous ones.
+	// This is how we start the rollout.
 	rev := goal.Revisions[0]
 	rev.Percent = 1
+	// Allocate optimistically.
 	out := make([]RevisionRollout, 0, len(prev.Revisions)+1)
 	// Go backwards and find first revision with traffic assignment > 0.
 	// Reduce it by one, so we can give that 1% to the new revision.
+	// By design we drain newest revision first.
 	for i := len(prev.Revisions) - 1; i >= 0; i-- {
-		if pp := prev.Revisions[i].Percent; pp > 0 {
+		if prev.Revisions[i].Percent > 0 {
 			prev.Revisions[i].Percent--
 			break
 		}
@@ -167,6 +184,18 @@ func stepConfig(goal, prev *ConfigurationRollout) bool {
 		out = append(out, r)
 	}
 	// And replace goal's rollout with the modified previous version.
-	goal.Revisions = append(out, rev)
-	return true
+	ret.Revisions = append(out, rev)
+	return &ret
+}
+
+// sortRollout sorts the rollout based on tag so it's consistent
+// from run to run, since input to the process is map iterator.
+func sortRollout(r *Rollout) {
+	sort.Slice(r.Configurations, func(i, j int) bool {
+		// Sort by tag and within tag sort by config name.
+		if r.Configurations[i].Tag == r.Configurations[j].Tag {
+			return r.Configurations[i].ConfigurationName < r.Configurations[j].ConfigurationName
+		}
+		return r.Configurations[i].Tag < r.Configurations[j].Tag
+	})
 }
