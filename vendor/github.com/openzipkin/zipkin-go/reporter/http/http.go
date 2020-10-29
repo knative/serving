@@ -19,6 +19,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -31,16 +32,21 @@ import (
 
 // defaults
 const (
-	defaultTimeout       = time.Second * 5 // timeout for http request in seconds
-	defaultBatchInterval = time.Second * 1 // BatchInterval in seconds
+	defaultTimeout       = 5 * time.Second // timeout for http request in seconds
+	defaultBatchInterval = 1 * time.Second // BatchInterval in seconds
 	defaultBatchSize     = 100
 	defaultMaxBacklog    = 1000
 )
 
+// HTTPDoer will do a request to the Zipkin HTTP Collector
+type HTTPDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // httpReporter will send spans to a Zipkin HTTP Collector using Zipkin V2 API.
 type httpReporter struct {
 	url           string
-	client        *http.Client
+	client        HTTPDoer
 	logger        *log.Logger
 	batchInterval time.Duration
 	batchSize     int
@@ -52,6 +58,7 @@ type httpReporter struct {
 	quit          chan struct{}
 	shutdown      chan error
 	reqCallback   RequestCallbackFn
+	reqTimeout    time.Duration
 	serializer    reporter.SpanSerializer
 }
 
@@ -145,12 +152,21 @@ func (r *httpReporter) sendBatch() error {
 		r.logger.Printf("failed when creating the request: %s\n", err.Error())
 		return err
 	}
+
+	// By default we send b3:0 header to mitigate trace reporting amplification in
+	// service mesh environments where the sidecar proxies might trace the call
+	// we do here towards the Zipkin collector.
+	req.Header.Set("b3", "0")
+
 	req.Header.Set("Content-Type", r.serializer.ContentType())
 	if r.reqCallback != nil {
 		r.reqCallback(req)
 	}
 
-	resp, err := r.client.Do(req)
+	ctx, cancel := context.WithTimeout(req.Context(), r.reqTimeout)
+	defer cancel()
+
+	resp, err := r.client.Do(req.WithContext(ctx))
 	if err != nil {
 		r.logger.Printf("failed to send the request: %s\n", err.Error())
 		return err
@@ -176,9 +192,9 @@ type RequestCallbackFn func(*http.Request)
 // ReporterOption sets a parameter for the HTTP Reporter
 type ReporterOption func(r *httpReporter)
 
-// Timeout sets maximum timeout for http request.
+// Timeout sets maximum timeout for the http request through its context.
 func Timeout(duration time.Duration) ReporterOption {
-	return func(r *httpReporter) { r.client.Timeout = duration }
+	return func(r *httpReporter) { r.reqTimeout = duration }
 }
 
 // BatchSize sets the maximum batch size, after which a collect will be
@@ -199,8 +215,9 @@ func BatchInterval(d time.Duration) ReporterOption {
 	return func(r *httpReporter) { r.batchInterval = d }
 }
 
-// Client sets a custom http client to use.
-func Client(client *http.Client) ReporterOption {
+// Client sets a custom http client to use under the interface HTTPDoer
+// which includes a `Do` method with same signature as the *http.Client
+func Client(client HTTPDoer) ReporterOption {
 	return func(r *httpReporter) { r.client = client }
 }
 
@@ -233,7 +250,7 @@ func NewReporter(url string, opts ...ReporterOption) reporter.Reporter {
 	r := httpReporter{
 		url:           url,
 		logger:        log.New(os.Stderr, "", log.LstdFlags),
-		client:        &http.Client{Timeout: defaultTimeout},
+		client:        &http.Client{},
 		batchInterval: defaultBatchInterval,
 		batchSize:     defaultBatchSize,
 		maxBacklog:    defaultMaxBacklog,
@@ -244,6 +261,7 @@ func NewReporter(url string, opts ...ReporterOption) reporter.Reporter {
 		shutdown:      make(chan error, 1),
 		batchMtx:      &sync.Mutex{},
 		serializer:    reporter.JSONSerializer{},
+		reqTimeout:    defaultTimeout,
 	}
 
 	for _, opt := range opts {
