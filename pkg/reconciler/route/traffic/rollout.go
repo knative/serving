@@ -148,14 +148,19 @@ func (cur *Rollout) Step(prev *Rollout) *Rollout {
 // config rollout, after computing the percetage allocations.
 func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 	pc := len(prev.Revisions)
-	ret := *goal
+	ret := &ConfigurationRollout{
+		ConfigurationName: goal.ConfigurationName,
+		Tag:               goal.Tag,
+		Percent:           goal.Percent,
+	}
 	// goal will always have just one revision in the list – the current desired revision.
 	if goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
 		// TODO(vagababov): here would go the logic to compute new percentages for the rollout,
 		// i.e step function, so return value will change, depending on that.
 		// TODO(vagababov): percentage might change, so this should trigger recompute of existing
 		// revision rollouts.
-		return &ret
+		ret.Revisions = goal.Revisions
+		return ret
 	}
 
 	// Go backwards and find first revision with traffic assignment > 0.
@@ -187,7 +192,7 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 	goalRev := goal.Revisions[0]
 	goalRev.Percent = 1
 	ret.Revisions = append(out, goalRev)
-	return &ret
+	return ret
 }
 
 // sortRollout sorts the rollout based on tag so it's consistent
