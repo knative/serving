@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -195,7 +196,7 @@ func main() {
 			}
 
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
-			if err := s.Serve(l); err != nil && err != http.ErrServerClosed {
+			if err := s.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
 			}
 		}(name, server)

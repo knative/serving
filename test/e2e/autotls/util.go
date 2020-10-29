@@ -18,12 +18,12 @@ package autotls
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -116,9 +116,9 @@ func statusCodeExpectation(statusCodes sets.Int) responseExpectation {
 }
 
 func isDialError(err error) bool {
-	if err, ok := err.(*url.Error); ok {
-		err, ok := err.Err.(*net.OpError)
-		return ok && err.Op == "dial"
+	var errNetOp *net.OpError
+	if !errors.As(err, &errNetOp) {
+		return false
 	}
-	return false
+	return errNetOp.Op == "dial"
 }

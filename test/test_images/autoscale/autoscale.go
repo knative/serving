@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -140,7 +141,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// If it is a numeric error and it's parsing error, then
 		// try to parse it as a duration
-		if nerr, ok := err.(*strconv.NumError); ok && nerr.Err == strconv.ErrSyntax {
+		if errors.Is(err, strconv.ErrSyntax) {
 			ms, hasMs, err = parseDurationParam(r, "sleep")
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)

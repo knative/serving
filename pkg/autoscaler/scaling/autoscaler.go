@@ -18,6 +18,7 @@ package scaling
 
 import (
 	"context"
+	"errors"
 	"math"
 	"sync"
 	"time"
@@ -172,7 +173,7 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	logger = logger.With(zap.String("metric", metricName))
 
 	if err != nil {
-		if err == metrics.ErrNoData {
+		if errors.Is(err, metrics.ErrNoData) {
 			logger.Debug("No data to scale on yet")
 		} else {
 			logger.Errorw("Failed to obtain metrics", zap.Error(err))

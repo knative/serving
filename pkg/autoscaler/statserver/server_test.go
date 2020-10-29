@@ -19,6 +19,7 @@ package statserver
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -142,12 +143,12 @@ func TestServerShutdown(t *testing.T) {
 	if _, _, err := statSink.NextReader(); err == nil {
 		t.Fatal("Connection not closed")
 	} else {
-		err, ok := err.(*websocket.CloseError)
-		if !ok {
+		var errClose *websocket.CloseError
+		if !errors.As(err, &errClose) {
 			t.Fatal("CloseError not received")
 		}
-		if err.Code != 1012 {
-			t.Fatalf("CloseError with unexpected close code %d received", err.Code)
+		if errClose.Code != 1012 {
+			t.Fatalf("CloseError with unexpected close code %d received", errClose.Code)
 		}
 	}
 
