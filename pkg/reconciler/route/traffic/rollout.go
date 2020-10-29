@@ -76,7 +76,7 @@ type RevisionRollout struct {
 	Percent int `json:"percent"`
 }
 
-// Step merges this rollout object with the  previous state and
+// Step merges this rollout object with the previous state and
 // returns a new Rollout object representing the merged state.
 // At the end of the call the returned object will contain the
 // desired traffic shape.
@@ -150,7 +150,7 @@ func (cur *Rollout) Step(prev *Rollout) *Rollout {
 func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 	pc := len(prev.Revisions)
 	ret := *goal
-	// goal will always have just 1 element – the current desired revision.
+	// goal will always have just one revision in the list – the current desired revision.
 	if goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
 		// TODO(vagababov): here would go the logic to compute new percentages for the rollout,
 		// i.e step function, so return value will change, depending on that.
