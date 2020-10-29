@@ -135,8 +135,7 @@ func TestServerShutdown(t *testing.T) {
 	}
 
 	// Check the statistic was not received
-	_, ok := <-statsCh
-	if ok {
+	if _, ok := <-statsCh; ok {
 		t.Fatal("Received statistic after shutdown")
 	}
 
@@ -227,9 +226,8 @@ func TestServerNotOwnerForBucketHost(t *testing.T) {
 
 	go server.listenAndServe()
 
-	_, err := dial(server.listenAddr())
-	if err == nil {
-		t.Error("Want error from Dial but got none")
+	if _, err := dial(server.listenAddr()); err == nil {
+		t.Error("Want an error from Dial but got none")
 	}
 }
 
