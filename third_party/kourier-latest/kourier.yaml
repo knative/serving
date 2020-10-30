@@ -50,7 +50,6 @@ spec:
           command:
             - /usr/local/bin/envoy
           image: docker.io/maistra/proxyv2-ubi8:1.1.5
-          imagePullPolicy: Always
           name: kourier-gateway
           ports:
             - name: http2-external
@@ -62,6 +61,13 @@ spec:
             - name: https-external
               containerPort: 8443
               protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+            capabilities:
+              drop:
+                - all
           volumeMounts:
             - name: config-volume
               mountPath: /tmp/config
@@ -103,8 +109,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:70767678d4b851cbb99947de7649f1290de094238b88ae3e26829a5baa31d3a7
-          imagePullPolicy: Always
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:9cd0eb6c92ab8da5812641fc16efc0bc82892c779b733723877dd3fee6449eff
           name: kourier-control
           env:
             - name: CERTS_SECRET_NAMESPACE
@@ -123,6 +128,13 @@ spec:
             - name: http2-xds
               containerPort: 18000
               protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
       restartPolicy: Always
       serviceAccountName: 3scale-kourier
 ---
