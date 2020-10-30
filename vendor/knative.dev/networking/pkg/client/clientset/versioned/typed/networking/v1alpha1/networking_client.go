@@ -27,6 +27,7 @@ import (
 type NetworkingV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	CertificatesGetter
+	ClusterDomainClaimsGetter
 	DomainsGetter
 	IngressesGetter
 	RealmsGetter
@@ -40,6 +41,10 @@ type NetworkingV1alpha1Client struct {
 
 func (c *NetworkingV1alpha1Client) Certificates(namespace string) CertificateInterface {
 	return newCertificates(c, namespace)
+}
+
+func (c *NetworkingV1alpha1Client) ClusterDomainClaims() ClusterDomainClaimInterface {
+	return newClusterDomainClaims(c)
 }
 
 func (c *NetworkingV1alpha1Client) Domains() DomainInterface {
