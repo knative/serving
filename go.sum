@@ -1938,8 +1938,8 @@ knative.dev/eventing-contrib v0.6.1-0.20190723221543-5ce18048c08b/go.mod h1:SnXZ
 knative.dev/eventing-contrib v0.11.2/go.mod h1:SnXZgSGgMSMLNFTwTnpaOH7hXDzTFtw0J8OmHflNx3g=
 knative.dev/hack v0.0.0-20201028205534-fe80f1c8af68 h1:ygwpOK8B0PXurq88GHhym2uxKiiMJ+bRFwFeZHqGJNc=
 knative.dev/hack v0.0.0-20201028205534-fe80f1c8af68/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
-knative.dev/networking v0.0.0-20201029132834-0fb5d8bc0634 h1:PWOKjvIetCNvHR302XhGEBb/B2vt4dF1LuAwhKH5ViE=
-knative.dev/networking v0.0.0-20201029132834-0fb5d8bc0634/go.mod h1:MogwjngWMF4suyf8htoTj53UpY3CXNKn1pTpyeBtu2I=
+knative.dev/networking v0.0.0-20201030211435-d8c81d5f3b1b h1:V9VEf1UBZ1reYvN2UpKmL5ZkoC91oGzZZhpi+fBZ4Kw=
+knative.dev/networking v0.0.0-20201030211435-d8c81d5f3b1b/go.mod h1:MogwjngWMF4suyf8htoTj53UpY3CXNKn1pTpyeBtu2I=
 knative.dev/pkg v0.0.0-20191101194912-56c2594e4f11/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
 knative.dev/pkg v0.0.0-20191111150521-6d806b998379/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
 knative.dev/pkg v0.0.0-20200207155214-fef852970f43/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=

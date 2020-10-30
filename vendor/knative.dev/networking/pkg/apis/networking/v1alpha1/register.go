@@ -54,6 +54,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ServerlessServiceList{},
 		&Certificate{},
 		&CertificateList{},
+		&ClusterDomainClaim{},
+		&ClusterDomainClaimList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

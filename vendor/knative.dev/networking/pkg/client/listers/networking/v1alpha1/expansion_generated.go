@@ -26,6 +26,10 @@ type CertificateListerExpansion interface{}
 // CertificateNamespaceLister.
 type CertificateNamespaceListerExpansion interface{}
 
+// ClusterDomainClaimListerExpansion allows custom methods to be added to
+// ClusterDomainClaimLister.
+type ClusterDomainClaimListerExpansion interface{}
+
 // DomainListerExpansion allows custom methods to be added to
 // DomainLister.
 type DomainListerExpansion interface{}

@@ -32,6 +32,10 @@ func (c *FakeNetworkingV1alpha1) Certificates(namespace string) v1alpha1.Certifi
 	return &FakeCertificates{c, namespace}
 }
 
+func (c *FakeNetworkingV1alpha1) ClusterDomainClaims() v1alpha1.ClusterDomainClaimInterface {
+	return &FakeClusterDomainClaims{c}
+}
+
 func (c *FakeNetworkingV1alpha1) Domains() v1alpha1.DomainInterface {
 	return &FakeDomains{c}
 }
