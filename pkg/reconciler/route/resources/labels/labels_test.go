@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -28,29 +28,29 @@ import (
 func TestIsObjectLocalVisibility(t *testing.T) {
 	tests := []struct {
 		name string
-		meta *v1.ObjectMeta
+		meta *metav1.ObjectMeta
 		want bool
 	}{{
 		name: "nil",
-		meta: &v1.ObjectMeta{},
+		meta: &metav1.ObjectMeta{},
 	}, {
 		name: "empty labels",
-		meta: &v1.ObjectMeta{
+		meta: &metav1.ObjectMeta{
 			Labels: map[string]string{},
 		},
 	}, {
 		name: "no matching labels",
-		meta: &v1.ObjectMeta{
+		meta: &metav1.ObjectMeta{
 			Labels: map[string]string{"frankie-goes": "to-hollywood"},
 		},
 	}, {
 		name: "false",
-		meta: &v1.ObjectMeta{
+		meta: &metav1.ObjectMeta{
 			Labels: map[string]string{network.VisibilityLabelKey: ""},
 		},
 	}, {
 		name: "true",
-		meta: &v1.ObjectMeta{
+		meta: &metav1.ObjectMeta{
 			Labels: map[string]string{network.VisibilityLabelKey: "set"},
 		},
 		want: true,
@@ -68,30 +68,30 @@ func TestIsObjectLocalVisibility(t *testing.T) {
 func TestDeleteLabel(t *testing.T) {
 	tests := []struct {
 		name string
-		meta *v1.ObjectMeta
+		meta *metav1.ObjectMeta
 		key  string
-		want v1.ObjectMeta
+		want metav1.ObjectMeta
 	}{{
 		name: "No labels in object meta",
-		meta: &v1.ObjectMeta{},
+		meta: &metav1.ObjectMeta{},
 		key:  "key",
-		want: v1.ObjectMeta{},
+		want: metav1.ObjectMeta{},
 	}, {
 		name: "No matching key",
-		meta: &v1.ObjectMeta{
+		meta: &metav1.ObjectMeta{
 			Labels: map[string]string{"some label": "some value"},
 		},
 		key: "unknown",
-		want: v1.ObjectMeta{
+		want: metav1.ObjectMeta{
 			Labels: map[string]string{"some label": "some value"},
 		},
 	}, {
 		name: "Has matching key",
-		meta: &v1.ObjectMeta{
+		meta: &metav1.ObjectMeta{
 			Labels: map[string]string{"some label": "some value"},
 		},
 		key: "some label",
-		want: v1.ObjectMeta{
+		want: metav1.ObjectMeta{
 			Labels: map[string]string{},
 		},
 	}}
@@ -110,36 +110,36 @@ func TestDeleteLabel(t *testing.T) {
 func TestSetLabel(t *testing.T) {
 	tests := []struct {
 		name  string
-		meta  *v1.ObjectMeta
+		meta  *metav1.ObjectMeta
 		key   string
 		value string
-		want  v1.ObjectMeta
+		want  metav1.ObjectMeta
 	}{{
 		name:  "No labels in object meta",
-		meta:  &v1.ObjectMeta{},
+		meta:  &metav1.ObjectMeta{},
 		key:   "key",
 		value: "value",
-		want: v1.ObjectMeta{
+		want: metav1.ObjectMeta{
 			Labels: map[string]string{"key": "value"},
 		},
 	}, {
 		name: "Empty labels",
-		meta: &v1.ObjectMeta{
+		meta: &metav1.ObjectMeta{
 			Labels: map[string]string{},
 		},
 		key:   "key",
 		value: "value",
-		want: v1.ObjectMeta{
+		want: metav1.ObjectMeta{
 			Labels: map[string]string{"key": "value"},
 		},
 	}, {
 		name: "Conflicting labels",
-		meta: &v1.ObjectMeta{
+		meta: &metav1.ObjectMeta{
 			Labels: map[string]string{"key": "old value"},
 		},
 		key:   "key",
 		value: "new value",
-		want: v1.ObjectMeta{
+		want: metav1.ObjectMeta{
 			Labels: map[string]string{"key": "new value"},
 		},
 	}}
@@ -158,18 +158,18 @@ func TestSetLabel(t *testing.T) {
 func TestSetVisibility(t *testing.T) {
 	tests := []struct {
 		name           string
-		meta           *v1.ObjectMeta
+		meta           *metav1.ObjectMeta
 		isClusterLocal bool
-		want           v1.ObjectMeta
+		want           metav1.ObjectMeta
 	}{{
 		name:           "Set cluster local true",
-		meta:           &v1.ObjectMeta{},
+		meta:           &metav1.ObjectMeta{},
 		isClusterLocal: true,
-		want:           v1.ObjectMeta{Labels: map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}},
+		want:           metav1.ObjectMeta{Labels: map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}},
 	}, {
 		name: "Set cluster local false",
-		meta: &v1.ObjectMeta{Labels: map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}},
-		want: v1.ObjectMeta{Labels: map[string]string{}},
+		meta: &metav1.ObjectMeta{Labels: map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}},
+		want: metav1.ObjectMeta{Labels: map[string]string{}},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
