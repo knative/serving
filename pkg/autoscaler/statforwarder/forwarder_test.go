@@ -24,7 +24,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	coordinationv1 "k8s.io/api/coordination/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -115,14 +115,14 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatal("Timeout to get the Service:", lastErr)
 	}
 
-	wantSubsets := []v1.EndpointSubset{{
-		Addresses: []v1.EndpointAddress{{
+	wantSubsets := []corev1.EndpointSubset{{
+		Addresses: []corev1.EndpointAddress{{
 			IP: testIP1,
 		}},
-		Ports: []v1.EndpointPort{{
+		Ports: []corev1.EndpointPort{{
 			Name:     autoscalerPortName,
 			Port:     autoscalerPort,
-			Protocol: v1.ProtocolTCP,
+			Protocol: corev1.ProtocolTCP,
 		}}},
 	}
 
@@ -284,7 +284,7 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 		},
 	)
 
-	e := &v1.Endpoints{
+	e := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      bucket1,
 			Namespace: testNs,

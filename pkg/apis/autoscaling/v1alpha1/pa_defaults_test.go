@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -54,19 +54,19 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		in:   &PodAutoscaler{},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
-			s.OnConfigChanged(&v1.ConfigMap{
+			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{},
 			})
-			s.OnConfigChanged(&v1.ConfigMap{
+			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.FeaturesConfigName,
 				},
 				Data: map[string]string{},
 			})
-			s.OnConfigChanged(&v1.ConfigMap{
+			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: autoscalerconfig.ConfigName,
 				},
