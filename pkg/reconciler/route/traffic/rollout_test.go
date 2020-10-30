@@ -270,7 +270,7 @@ func TestRoll(t *testing.T) {
 			}},
 		},
 	}, {
-		name: "new config, no roll",
+		name: "new config, no roll, newer smaller",
 		cur: &Rollout{
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "keith",
@@ -294,6 +294,52 @@ func TestRoll(t *testing.T) {
 				Percent:           100,
 				Revisions: []RevisionRollout{{
 					RevisionName: "it's-only-rock-n-roll",
+					Percent:      100,
+				}},
+			}},
+		},
+		want: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           50,
+				Revisions: []RevisionRollout{{
+					RevisionName: "black-on-blue",
+					Percent:      50,
+				}},
+			}, {
+				ConfigurationName: "mick",
+				Percent:           50,
+				Revisions: []RevisionRollout{{
+					RevisionName: "it's-only-rock-n-roll",
+					Percent:      50,
+				}},
+			}},
+		},
+	}, {
+		name: "new config, no roll, newer larger",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           50,
+				Revisions: []RevisionRollout{{
+					RevisionName: "black-on-blue",
+					Percent:      50,
+				}},
+			}, {
+				ConfigurationName: "mick",
+				Percent:           50,
+				Revisions: []RevisionRollout{{
+					RevisionName: "it's-only-rock-n-roll",
+					Percent:      50,
+				}},
+			}},
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           100,
+				Revisions: []RevisionRollout{{
+					RevisionName: "black-on-blue",
 					Percent:      100,
 				}},
 			}},

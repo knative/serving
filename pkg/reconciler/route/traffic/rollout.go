@@ -111,12 +111,13 @@ func (cur *Rollout) Step(prev *Rollout) *Rollout {
 		}
 		// This is basically an intersect algorithm,
 		// It relies on the fact that inputs are sorted.
-		for i, j := 0, 0; i < len(ccfgs) && j < len(pcfgs); {
+		for i, j := 0, 0; i < len(ccfgs); {
 			switch {
 			case j >= len(pcfgs):
 				// Those are the new configs that were added during this reconciliation.
 				// So we just copy them to the result.
 				ret = append(ret, *ccfgs[i])
+				i++
 			case ccfgs[i].ConfigurationName == pcfgs[j].ConfigurationName:
 				// Config might have 0% traffic assigned, if it is a tag only route (i.e.
 				// receives no traffic via default tag).
