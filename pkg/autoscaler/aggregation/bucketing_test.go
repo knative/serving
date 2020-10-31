@@ -217,20 +217,20 @@ func TestTimedFloat64BucketsWindowAverage(t *testing.T) {
 		t.Errorf("WindowAverage = %v, want: %v", got, want)
 	}
 
-	// Check with an early time.
+	// Check with an earlier time.
 	buckets.Record(now.Add(-3*time.Second), 4)
 	if got, want := buckets.WindowAverage(now), (4.+1984)/4; got != want {
 		t.Errorf("WindowAverage = %v, want: %v", got, want)
 	}
 
-	// One more second pass
+	// One more second pass.
 	now = now.Add(time.Second)
 	buckets.Record(now, 5)
 	if got, want := buckets.WindowAverage(now), (4.+1984+5)/5; got != want {
 		t.Errorf("WindowAverage = %v, want: %v", got, want)
 	}
 
-	// Insert an early time again.
+	// Insert an earlier time again.
 	buckets.Record(now.Add(-3*time.Second), 10)
 	if got, want := buckets.WindowAverage(now), (4.+10+1984+5)/5; got != want {
 		t.Errorf("WindowAverage = %v, want: %v", got, want)
