@@ -46,9 +46,793 @@ spec:
                   Changes to `template` will cause a new Revision to be created as
                   defined in the lifecycle section. The contents of the Service's
                   RevisionTemplateSpec is used to create a corresponding Configuration.
+                properties:
+                  spec:
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                    description: |
+                      Specification of the desired behavior of the pod.
+                    properties:
+                      containers:
+                        type: array
+                        minItems: 1
+                        x-kubernetes-preserve-unknown-fields: true
+                        description: |
+                          Specifies the parameters used to execute each
+                          container instance corresponding to this Revision.
+                        items:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                          properties:
+                            args:
+                              type: array
+                              description: |
+                                Arguments to the entrypoint. The docker image's
+                                CMD is used if this is not provided.
+                              items:
+                                type: string
+                            command:
+                              type: array
+                              description: |
+                                Entrypoint array. Not executed within a shell.
+                                The docker image's ENTRYPOINT is used if this is not provided.
+                              items:
+                                type: string
+                            env:
+                              type: array
+                              description: |
+                                As specified in Kubernetes core/v1.Container.
+                              items:
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                                    description: |
+                                      As specified in Kubernetes core/v1.EnvVar
+                                  value:
+                                    type: string
+                                    description: |
+                                      As specified in Kubernetes core/v1.EnvVar. Must have one of value or valueFrom.
+                                  valueFrom:
+                                    type: object
+                                    description: |
+                                      As specified in Kubernetes core/v1.EnvVar. Must have one of value or valueFrom.
+                                    properties:
+                                      configMapKeyRef:
+                                        type: object
+                                        description: |
+                                          As specified in Kubernetes core/v1.EnvVarSource.
+                                          Must have one of configMapKeyRef or secretKeyRef.
+                                        properties:
+                                          key:
+                                            type: string
+                                            description: |
+                                              As specified in Kubernetes core/v1.ConfigMapKeySelector.
+                                          name:
+                                            type: string
+                                            description: |
+                                              As specified in Kubernetes core/v1.ConfigMapKeySelector.
+                                          optional:
+                                            type: boolean
+                                            description: |
+                                              As specified in Kubernetes core/v1.ConfigMapKeySelector.
+                                      secretKeyRef:
+                                        type: object
+                                        description: |
+                                          As specified in Kubernetes core/v1.EnvVarSource.
+                                          Must have one of configMapKeyRef or secretKeyRef.
+                                        properties:
+                                          key:
+                                            type: string
+                                            description: |
+                                              As specified in Kubernetes core/v1.SecretKeySelector.
+                                          name:
+                                            type: string
+                                            description: |
+                                              As specified in Kubernetes core/v1.SecretKeySelector.
+                                          optional:
+                                            type: boolean
+                                            description: |
+                                              As specified in Kubernetes core/v1.SecretKeySelector.
+                            envFrom:
+                              type: array
+                              description: |
+                                As specified in Kubernetes core/v1.Container.
+                              items:
+                                type: object
+                                properties:
+                                  configMapRef:
+                                    type: object
+                                    description: |
+                                      As specified in Kubernetes core/v1.EnvFromSource.
+                                    properties:
+                                      name:
+                                        type: string
+                                        description: |
+                                          As specified in Kubernetes core/v1.ConfigMapEnvSource.
+                                      optional:
+                                        type: boolean
+                                        description: |
+                                          As specified in Kubernetes core/v1.ConfigMapEnvSource.
+                                  prefix:
+                                    type: string
+                                    description: |
+                                      As specified in Kubernetes core/v1.EnvFromSource.
+                                  secretRef:
+                                    type: object
+                                    description: |
+                                      As specified in Kubernetes core/v1.EnvFromSource.
+                                    properties:
+                                      name:
+                                        type: string
+                                        description: |
+                                          As specified in Kubernetes core/v1.SecretEnvSource.
+                                      optional:
+                                        type: boolean
+                                        description: |
+                                          As specified in Kubernetes core/v1.SecretEnvSource.
+                            image:
+                              type: string
+                              description: |
+                                Docker image name.
+                                More info: https://kubernetes.io/docs/concepts/containers/images
+                                This field is optional to allow higher level config management to
+                                default or override container images in workload controllers like
+                                Deployments and StatefulSets.
+                            imagePullPolicy:
+                              type: string
+                              description: |
+                                As specified in Kubernetes core/v1.Container.
+                                However, Knative resolves the image to a digest. The pull
+                                policy will be applied against the digest of the resolved
+                                image and not the image tag.
+                            livenessProbe:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                              description: |
+                                As specified in Kubernetes core/v1.Container.
+                              properties:
+                                exec:
+                                  type: object
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                  properties:
+                                    command:
+                                      type: array
+                                      description: |
+                                        As specified in Kubernetes core/v1.ExecAction.
+                                      items:
+                                        type: string
+                                failureThreshold:
+                                  type: string
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                httpGet:
+                                  type: object
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                  properties:
+                                    host:
+                                      type: string
+                                      description: |
+                                        As specified in Kubernetes core/v1.HTTPGetAction.
+                                    httpHeaders:
+                                      type: object
+                                      description: |
+                                        As specified in Kubernetes core/v1.HTTPGetAction.
+                                      properties:
+                                        name:
+                                          type: string
+                                          description: |
+                                            As specified in Kubernetes core/v1.HTTPHeader.
+                                        value:
+                                          type: string
+                                          description: |
+                                            As specified in Kubernetes core/v1.HTTPHeader.
+                                    path:
+                                      type: string
+                                      description: |
+                                        As specified in Kubernetes core/v1.HTTPGetAction.
+                                    scheme:
+                                      type: string
+                                      description: |
+                                        As specified in Kubernetes core/v1.HTTPGetAction.
+                                initialDelaySeconds:
+                                  type: integer
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                successThreshold:
+                                  format: int32
+                                  type: integer
+                                  minimum: 1
+                                  default: 1
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                tcpSocket:
+                                  type: object
+                                  x-kubernetes-preserve-unknown-fields: true
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                  properties:
+                                    host:
+                                      type: string
+                                      description: |
+                                        As specified in Kubernetes core/v1.TCPSocketAction.
+                                timeoutSeconds:
+                                  type: integer
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                  default: 300
+                                  minimum: 0
+                                  maximum: 600
+                            name:
+                              type: string
+                              description: |
+                                Name of the container specified as a DNS_LABEL.
+                                Each container in a pod must have a unique name (DNS_LABEL).
+                            ports:
+                              type: array
+                              minItems: 0
+                              maxItems: 1
+                              description: |
+                                List of ports to expose from the container.
+                                Exposing a port here gives the system additional information
+                                about the network connections a container uses, but is
+                                primarily informational. Not specifying a port here DOES NOT
+                                prevent that port from being exposed. Any port which is
+                                listening on the default \?0.0.0.0\? address inside a
+                                container will be accessible from the network.
+                                Only a single port may be specified. The port
+                                must be named as described in the runtime contract.
+                              items:
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                                    description: |
+                                      Must be one of `http1` or `h2c` (if supported). Defaults to `http1`.
+                                  containerPort:
+                                    type: integer
+                                    description: |
+                                      The selected port for which Knative will direct traffic to the user container.
+                                  hostIP:
+                                    type: string
+                                    description: |
+                                      What host IP to bind the external port to.
+                                  hostPort:
+                                    type: integer
+                                    description: |
+                                      Number of port to expose on the host. If specified, this must be a valid port
+                                      number, 0 < x < 65536. If HostNetwork is specified, this must match ContainerPort.
+                                      Most containers do not need this.
+                                  protocol:
+                                    type: string
+                                    description: |
+                                      Protocol for port. Must be UDP, TCP, or SCTP. Defaults to TCP.
+                                    enum:
+                                    - TCP
+                                    - UDP
+                                    - SCTP
+                            readinessProbe:
+                              type: object
+                              description: |
+                                As specified in Kubernetes core/v1.Container.
+                              properties:
+                                exec:
+                                  type: object
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                  properties:
+                                    command:
+                                      type: array
+                                      description: |
+                                        As specified in Kubernetes core/v1.ExecAction.
+                                      items:
+                                        type: string
+                                failureThreshold:
+                                  type: string
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                httpGet:
+                                  type: object
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                  properties:
+                                    host:
+                                      type: string
+                                      description: |
+                                        As specified in Kubernetes core/v1.HTTPGetAction.
+                                    httpHeaders:
+                                      type: object
+                                      description: |
+                                        As specified in Kubernetes core/v1.HTTPGetAction.
+                                      properties:
+                                        name:
+                                          type: string
+                                          description: |
+                                            As specified in Kubernetes core/v1.HTTPHeader.
+                                        value:
+                                          type: string
+                                          description: |
+                                            As specified in Kubernetes core/v1.HTTPHeader.
+                                    path:
+                                      type: string
+                                      description: |
+                                        As specified in Kubernetes core/v1.HTTPGetAction.
+                                    scheme:
+                                      type: string
+                                      description: |
+                                        As specified in Kubernetes core/v1.HTTPGetAction.
+                                initialDelaySeconds:
+                                  type: integer
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                successThreshold:
+                                  type: integer
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                tcpSocket:
+                                  type: object
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                  properties:
+                                    host:
+                                      type: string
+                                      description: |
+                                        As specified in Kubernetes core/v1.TCPSocketAction.
+                                timeoutSeconds:
+                                  type: integer
+                                  description: |
+                                    As specified in Kubernetes core/v1.Probe.
+                                  default: 0
+                                  minimum: 0
+                                  maximum: 600
+                            resources:
+                              type: object
+                              description: |
+                                As specified in Kubernetes core/v1.Container.
+                              properties:
+                                limits:
+                                  type: object
+                                  description: |
+                                    Must support at least cpu and memory. See Kubernetes.
+                                  x-kubernetes-preserve-unknown-fields: true
+                                requests:
+                                  type: object
+                                  description: |
+                                    Must support at least cpu and memory. See Kubernetes.
+                                  x-kubernetes-preserve-unknown-fields: true
+                            securityContext:
+                              type: object
+                              description: |
+                                In `securityContext`, only `runAsUser` MAY be set.
+                              properties:
+                                runAsUser:
+                                  type: integer
+                                  description: |
+                                    As specified in Kubernetes core/v1.SecurityContext
+                            terminationMessagePath:
+                              type: string
+                              description: |
+                                As specified in Kubernetes core/v1.Container.
+                            terminationMessagePolicy:
+                              type: string
+                              description: |
+                                As specified in Kubernetes core/v1.Container.
+                            volumeMounts:
+                              type: array
+                              description: |
+                                `volumeMounts` MUST correspond to a volume
+                                and specify an absolute mount path which does not shadow
+                                the runtime contract directories.
+                              items:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                                properties:
+                                  mountPath:
+                                    type: string
+                                    description: |
+                                      As specified in Kubernetes core/v1.VolumeMount.
+                                  name:
+                                    type: string
+                                    description: |
+                                      As specified in Kubernetes core/v1.VolumeMount.
+                                  subPath:
+                                    type: string
+                                    description: |
+                                      As specified in Kubernetes core/v1.VolumeMount.
+                                  readOnly:
+                                    type: boolean
+                                    description: |
+                                      Must be true. Defaults to true.
+                                    default: true
+                            workingDir:
+                              type: string
+                              description: |
+                                Container's working directory.
+                                If not specified, the container runtime's default will
+                                be used, which might be configured in the container image.
+                      volumes:
+                        type: array
+                        description: |
+                          A list of Volumes to make available to `containers[0]`.
+                          More info: https://kubernetes.io/docs/concepts/storage/volumes
+                        items:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                          properties:
+                            name:
+                              type: string
+                              description: |
+                                Volume's name.
+                                Must be a DNS_LABEL and unique within the pod.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            volumeSource:
+                              type: object
+                              description: |
+                                Volume represents a named volume in a pod that may be accessed by any container in the pod.
+                              x-kubernetes-preserve-unknown-fields: true
+                              properties:
+                                configMap:
+                                  type: object
+                                  description: |
+                                    As specified in Kubernetes core/v1.Volume.
+                                  properties:
+                                    defaultMode:
+                                      type: integer
+                                      description: |
+                                        As specified in Kubernetes core/v1.ConfigMapVolumeSource.
+                                    items:
+                                      type: array
+                                      description: |
+                                        As specified in Kubernetes core/v1.ConfigMapVolumeSource.
+                                      items:
+                                        type: object
+                                        properties:
+                                          key:
+                                            type: string
+                                            description: |
+                                              As specified in Kubernetes core/v1.KeyToPath.
+                                          mode:
+                                            type: integer
+                                            description: |
+                                              As specified in Kubernetes core/v1.KeyToPath.
+                                          path:
+                                            type: string
+                                            description: |
+                                              As specified in Kubernetes core/v1.KeyToPath.
+                                    name:
+                                      type: string
+                                      description: |
+                                        As specified in Kubernetes core/v1.ConfigMapVolumeSource.
+                                    optional:
+                                      type: boolean
+                                      description: |
+                                        As specified in Kubernetes core/v1.ConfigMapVolumeSource.
+                                secret:
+                                  type: object
+                                  description: |
+                                    As specified in Kubernetes core/v1.Volume.
+                                  properties:
+                                    defaultMode:
+                                      type: integer
+                                      description: |
+                                        As specified in Kubernetes core/v1.SecretVolumeSource.
+                                    items:
+                                      type: array
+                                      description: |
+                                        As specified in Kubernetes core/v1.SecretVolumeSource.
+                                      items:
+                                        type: object
+                                        properties:
+                                          key:
+                                            type: string
+                                            description: |
+                                              As specified in Kubernetes core/v1.KeyToPath.
+                                          mode:
+                                            type: integer
+                                            description: |
+                                              As specified in Kubernetes core/v1.KeyToPath.
+                                          path:
+                                            type: string
+                                            description: |
+                                              As specified in Kubernetes core/v1.KeyToPath.
+                                    name:
+                                      type: string
+                                      description: |
+                                        As specified in Kubernetes core/v1.SecretVolumeSource.
+                                    optional:
+                                      type: boolean
+                                      description: |
+                                        As specified in Kubernetes core/v1.SecretVolumeSource.
+                                projected:
+                                  type: object
+                                  description: |
+                                    As specified in Kubernetes core/v1.ProjectedVolumeSource.
+                                    Mode bits to use on created files by default.
+                                    Must be a value between 0 and 0777.
+                                    Directories within the path are not affected by this setting.
+                                    This might be in conflict with other options that affect the file
+                                    mode, like fsGroup, and the result can be other mode bits set.
+                                    +optional
+                                  properties:
+                                    defaultMode:
+                                      type: integer
+                                      description: |
+                                        As specified in Kubernetes core/v1.ProjectedVolumeSource.
+                                    sources:
+                                      type: array
+                                      description: |
+                                        As specified in Kubernetes core/v1.ProjectedVolumeSource.
+                                      items:
+                                        type: object
+                                        properties:
+                                          configMap:
+                                            type: object
+                                            description: |
+                                              As specified in Kubernetes core/v1.VolumeProjection.
+                                            properties:
+                                              items:
+                                                type: array
+                                                description: |
+                                                  As specified in Kubernetes core/v1.ConfigMapProjection.
+                                                items:
+                                                  type: object
+                                                  properties:
+                                                    key:
+                                                      type: string
+                                                      description: |
+                                                        As specified in Kubernetes core/v1.KeyToPath.
+                                                    mode:
+                                                      type: integer
+                                                      description: |
+                                                        As specified in Kubernetes core/v1.KeyToPath.
+                                                    path:
+                                                      type: string
+                                                      description: |
+                                                        As specified in Kubernetes core/v1.KeyToPath.
+                                              secret:
+                                                type: string
+                                                description: |
+                                                  As specified in Kubernetes core/v1.ConfigMapProjection.
+                                              optional:
+                                                type: boolean
+                                                description: |
+                                                  As specified in Kubernetes core/v1.ConfigMapProjection.
+                                          secret:
+                                            type: object
+                                            description: |
+                                              As specified in Kubernetes core/v1.VolumeProjection.
+                                            properties:
+                                              items:
+                                                type: array
+                                                description: |
+                                                  As specified in Kubernetes core/v1.SecretProjection.
+                                                items:
+                                                  type: object
+                                                  properties:
+                                                    key:
+                                                      type: string
+                                                      description: |
+                                                        As specified in Kubernetes core/v1.KeyToPath.
+                                                    mode:
+                                                      type: integer
+                                                      description: |
+                                                        As specified in Kubernetes core/v1.KeyToPath.
+                                                    path:
+                                                      type: string
+                                                      description: |
+                                                        As specified in Kubernetes core/v1.KeyToPath.
+                                              name:
+                                                type: string
+                                                description: |
+                                                  As specified in Kubernetes core/v1.SecretProjection.
+                                              optional:
+                                                type: boolean
+                                                description: |
+                                                  As specified in Kubernetes core/v1.SecretProjection.
+                            configMap:
+                              type: object
+                              description: |
+                                As specified in Kubernetes core/v1.Volume.
+                              properties:
+                                defaultMode:
+                                  type: integer
+                                  description: |
+                                    As specified in Kubernetes core/v1.ConfigMapVolumeSource.
+                                items:
+                                  type: array
+                                  description: |
+                                    As specified in Kubernetes core/v1.ConfigMapVolumeSource.
+                                  items:
+                                    type: object
+                                    properties:
+                                      key:
+                                        type: string
+                                        description: |
+                                          As specified in Kubernetes core/v1.KeyToPath.
+                                      mode:
+                                        type: integer
+                                        description: |
+                                          As specified in Kubernetes core/v1.KeyToPath.
+                                      path:
+                                        type: string
+                                        description: |
+                                          As specified in Kubernetes core/v1.KeyToPath.
+                                name:
+                                  type: string
+                                  description: |
+                                    As specified in Kubernetes core/v1.ConfigMapVolumeSource.
+                                optional:
+                                  type: boolean
+                                  description: |
+                                    As specified in Kubernetes core/v1.ConfigMapVolumeSource.
+                            secret:
+                              type: object
+                              description: |
+                                As specified in Kubernetes core/v1.Volume.
+                              properties:
+                                defaultMode:
+                                  type: integer
+                                  format: int32
+                                  description: |
+                                    As specified in Kubernetes core/v1.SecretVolumeSource.
+                                items:
+                                  type: array
+                                  description: |
+                                    As specified in Kubernetes core/v1.SecretVolumeSource.
+                                  items:
+                                    type: object
+                                    properties:
+                                      key:
+                                        type: string
+                                        description: |
+                                          As specified in Kubernetes core/v1.KeyToPath.
+                                      mode:
+                                        type: integer
+                                        description: |
+                                          As specified in Kubernetes core/v1.KeyToPath.
+                                      path:
+                                        type: string
+                                        description: |
+                                          As specified in Kubernetes core/v1.KeyToPath.
+                                secretName:
+                                  type: string
+                                  description: |
+                                    As specified in Kubernetes core/v1.SecretVolumeSource.
+                                optional:
+                                  type: boolean
+                                  description: |
+                                    As specified in Kubernetes core/v1.SecretVolumeSource.
+                            projected:
+                              type: object
+                              description: |
+                                As specified in Kubernetes core/v1.ProjectedVolumeSource.
+                                Mode bits to use on created files by default.
+                                Must be a value between 0 and 0777.
+                                Directories within the path are not affected by this setting.
+                                This might be in conflict with other options that affect the file
+                                mode, like fsGroup, and the result can be other mode bits set.
+                                +optional
+                              properties:
+                                defaultMode:
+                                  type: integer
+                                  description: |
+                                    As specified in Kubernetes core/v1.ProjectedVolumeSource.
+                                sources:
+                                  type: array
+                                  description: |
+                                    As specified in Kubernetes core/v1.ProjectedVolumeSource.
+                                  items:
+                                    type: object
+                                    properties:
+                                      configMap:
+                                        type: object
+                                        description: |
+                                          As specified in Kubernetes core/v1.VolumeProjection.
+                                        properties:
+                                          items:
+                                            type: array
+                                            description: |
+                                              As specified in Kubernetes core/v1.ConfigMapProjection.
+                                            items:
+                                              type: object
+                                              properties:
+                                                key:
+                                                  type: string
+                                                  description: |
+                                                    As specified in Kubernetes core/v1.KeyToPath.
+                                                mode:
+                                                  type: integer
+                                                  description: |
+                                                    As specified in Kubernetes core/v1.KeyToPath.
+                                                path:
+                                                  type: string
+                                                  description: |
+                                                    As specified in Kubernetes core/v1.KeyToPath.
+                                          secret:
+                                            type: string
+                                            description: |
+                                              As specified in Kubernetes core/v1.ConfigMapProjection.
+                                          optional:
+                                            type: boolean
+                                            description: |
+                                              As specified in Kubernetes core/v1.ConfigMapProjection.
+                                      secret:
+                                        type: object
+                                        description: |
+                                          As specified in Kubernetes core/v1.VolumeProjection.
+                                        properties:
+                                          items:
+                                            type: array
+                                            description: |
+                                              As specified in Kubernetes core/v1.SecretProjection.
+                                            items:
+                                              type: object
+                                              properties:
+                                                key:
+                                                  type: string
+                                                  description: |
+                                                    As specified in Kubernetes core/v1.KeyToPath.
+                                                mode:
+                                                  type: integer
+                                                  description: |
+                                                    As specified in Kubernetes core/v1.KeyToPath.
+                                                path:
+                                                  type: string
+                                                  description: |
+                                                    As specified in Kubernetes core/v1.KeyToPath.
+                                          name:
+                                            type: string
+                                            description: |
+                                              As specified in Kubernetes core/v1.SecretProjection.
+                                          optional:
+                                            type: boolean
+                                            description: |
+                                              As specified in Kubernetes core/v1.SecretProjection.
+                      timeoutSeconds:
+                        type: integer
+                        format: int64
+                        description: |
+                          The maximum duration in seconds that the request
+                          routing layer will wait for a request delivered to a container
+                          to progress (send network traffic).
+                          If unspecified, a system default will be provided.
+                        default: 300
+                        minimum: 0
+                        maximum: 600
+                      containerConcurrency:
+                        format: int64
+                        type: integer
+                        description: |
+                          The maximum number of concurrent requests being
+                          handled by a single instance of containers[0].
+                          Defaults to `0` which means concurrency to the application
+                          is not limited, and the system decides the target concurrency
+                          for the autoscaler.
+                        default: 0
+                        maximum: 1000
+                      serviceAccountName:
+                        type: string
+                        description: |
+                          The name of a Service Account which `containers[0]`
+                          should be run as. The Service Account should be used to provide
+                          access and authorization to the container.
+                      imagePullSecrets:
+                        type: array
+                        description: |
+                          The list of secrets for pulling images from private
+                          repositories.
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              description: |
+                                As specified in Kubernetes core/v1.LocalObjectReference.
               traffic:
-                x-kubernetes-preserve-unknown-fields: true
                 type: array
+                x-kubernetes-preserve-unknown-fields: true
                 description: |
                   Traffic specifies how to distribute traffic over a
                   collection of Revisions belonging to the Service. If traffic is
