@@ -113,17 +113,55 @@ func TestTimedFloat64BucketsManyReps(t *testing.T) {
 		}
 	}
 	// So the buckets are:
-	// [0, 1, 2, 3, 4] = 10
-	// [1, 2, 3, 4, 5] = 15
-	// ...						 = ...
-	// [4, 5, 6, 7, 8]  = 30
-	//                  = 100
+	// t0: [0, 1, 2, 3, 4] = 10
+	// t1: [1, 2, 3, 4, 5] = 15
+	// t2: [2, 3, 4, 5, 6] = 20
+	// t3: [3, 4, 5, 6, 7] = 25
+	// t4: [4, 5, 6, 7, 8] = 30
+	//                     = 100
 	const want = 100.
 	sum1, sum2 := 0., 0.
 	buckets.forEachBucket(trunc1, func(_ time.Time, b float64) {
 		sum1 += b
 	})
 	buckets.forEachBucket(trunc1, func(_ time.Time, b float64) {
+		sum2 += b
+	})
+	if got, want := sum1, want; got != want {
+		t.Errorf("Sum1 = %f, want: %f", got, want)
+	}
+
+	if got, want := sum2, want; got != want {
+		t.Errorf("Sum2 = %f, want: %f", got, want)
+	}
+}
+
+func TestTimedFloat64BucketsManyRepsWithNonMonotonicalOrder(t *testing.T) {
+	start := time.Now().Truncate(granularity)
+	end := start
+	buckets := NewTimedFloat64Buckets(time.Minute, granularity)
+
+	d := []int{0, 3, 2, 1, 4}
+	for p := 0; p < 5; p++ {
+		end = start.Add(time.Duration(d[p]) * granularity)
+		for t := 0; t < 5; t++ {
+			buckets.Record(end, float64(p+t))
+		}
+	}
+
+	// So the buckets are:
+	// t0: [0, 1, 2, 3, 4] = 10
+	// t1: [3, 4, 5, 6, 7] = 25
+	// t2: [2, 3, 4, 5, 6] = 20
+	// t3: [1, 2, 3, 4, 5] = 15
+	// t4: [4, 5, 6, 7, 8] = 30
+	//                     = 100
+	const want = 100.
+	sum1, sum2 := 0., 0.
+	buckets.forEachBucket(end, func(_ time.Time, b float64) {
+		sum1 += b
+	})
+	buckets.forEachBucket(end, func(_ time.Time, b float64) {
 		sum2 += b
 	})
 	if got, want := sum1, want; got != want {
@@ -176,6 +214,31 @@ func TestTimedFloat64BucketsWindowAverage(t *testing.T) {
 	now = now.Add(time.Minute)
 	buckets.Record(now, 1984)
 	if got, want := buckets.WindowAverage(now), 1984.; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// Check with an early time.
+	buckets.Record(now.Add(-3*time.Second), 4)
+	if got, want := buckets.WindowAverage(now), (4.+1984)/4; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// One more second pass
+	now = now.Add(time.Second)
+	buckets.Record(now, 5)
+	if got, want := buckets.WindowAverage(now), (4.+1984+5)/5; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// Insert an early time again.
+	buckets.Record(now.Add(-3*time.Second), 10)
+	if got, want := buckets.WindowAverage(now), (4.+10+1984+5)/5; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// Verify that we ignore the value which is too early.
+	buckets.Record(now.Add(-6*time.Second), 10)
+	if got, want := buckets.WindowAverage(now), (4.+10+1984+5)/5; got != want {
 		t.Errorf("WindowAverage = %v, want: %v", got, want)
 	}
 }
