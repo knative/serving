@@ -50,6 +50,10 @@ const (
 	// to indicate the namespace of the origin secret that the TLS secret is copied from.
 	OriginSecretNamespaceLabelKey = GroupName + "/originSecretNamespace"
 
+	// RolloutAnnotationKey is the annotation key for storing
+	// the rollout state in the Annotations of the Kingress or Route.Status.
+	RolloutAnnotationKey = GroupName + "/rollout"
+
 	// CertificateClassAnnotationKey is the annotation for the
 	// explicit class of Certificate that a particular resource has
 	// opted into. For example,
