@@ -141,22 +141,12 @@ Kubernetes cluster in your designated environment, if necessary.
 
 ### Deploy cert-manager
 
-1. Deploy `cert-manager` CRDs
-
-   ```shell
-   kubectl apply -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml
-   while [[ $(kubectl get crd certificates.cert-manager.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
-     echo "Waiting on Cert-Manager CRDs"; sleep 1
-   done
-   ```
-
 1. Deploy `cert-manager`
 
-   If you want to use the feature of automatically provisioning TLS for Knative
-   services, you need to install the full cert-manager.
-
    ```shell
-   kubectl apply -f ./third_party/cert-manager-0.12.0/cert-manager.yaml
+   kubectl apply -f ./third_party/cert-manager-latest/cert-manager.yaml
+   kubectl wait --for=condition=Established --all crd
+   kubectl wait --for=condition=Available -n cert-manager --all deployments
    ```
 
 ### Deploy Knative Serving
@@ -172,9 +162,7 @@ Run:
 
 ```shell
 ko apply --selector knative.dev/crd-install=true -Rf config/core/
-while [[ $(kubectl get crd images.caching.internal.knative.dev -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
-  echo "Waiting on Knative CRDs"; sleep 1
-done
+kubectl wait --for=condition=Established --all crd
 
 ko apply -Rf config/core/
 
