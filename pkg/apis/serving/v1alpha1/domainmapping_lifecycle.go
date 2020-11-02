@@ -64,7 +64,7 @@ func (dms *DomainMappingStatus) MarkIngressNotConfigured() {
 }
 
 // MarkDomainClaimed updates the DomainMappingConditionDomainClaimed condition
-// to indicate that the domain was succesfully claimed.
+// to indicate that the domain was successfully claimed.
 func (dms *DomainMappingStatus) MarkDomainClaimed() {
 	domainMappingCondSet.Manage(dms).MarkTrue(DomainMappingConditionDomainClaimed)
 }
