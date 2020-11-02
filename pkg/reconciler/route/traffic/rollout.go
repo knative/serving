@@ -21,15 +21,7 @@ limitations under the License.
 
 package traffic
 
-import (
-	"sort"
-
-	"knative.dev/networking/pkg/apis/networking"
-)
-
-// RolloutAnnotationKey is the annotation key for storing
-// the rollout state in the Annotations of the Kingress or Route.Status.
-const RolloutAnnotationKey = networking.GroupName + "/rollout"
+import "sort"
 
 // Rollout encapsulates the current rollout state of the system.
 // Since the route might reference more than one configuration.
