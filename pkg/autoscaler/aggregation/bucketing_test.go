@@ -248,7 +248,7 @@ func TestTimedFloat64BucketsWindowAverage(t *testing.T) {
 		t.Errorf("WindowAverage = %v, want: %v", got, want)
 	}
 
-	// Verify we clear up the data when not receving data for exact `window` peroid.
+	// Verify we clear up the data when not receiving data for exact `window` peroid.
 	buckets.Record(now.Add(5*time.Second), 10)
 	if got, want := buckets.WindowAverage(now.Add(5*time.Second)), 10.; got != want {
 		t.Errorf("WindowAverage = %v, want: %v", got, want)
