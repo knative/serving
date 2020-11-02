@@ -243,6 +243,21 @@ func TestTimedFloat64BucketsWindowAverage(t *testing.T) {
 	}
 }
 
+func TestDescendingRecord(t *testing.T) {
+	now := time.Now()
+	buckets := NewTimedFloat64Buckets(5*time.Second, 1*time.Second)
+
+	for i := 8 * time.Second; i >= 0*time.Second; i -= time.Second {
+		buckets.Record(now.Add(i), 5)
+	}
+
+	if got, want := buckets.WindowAverage(now.Add(5*time.Second)), 5.; got != want {
+		// we wrote a 5 every second, and we never wrote in the same second twice,
+		// so the average _should_ be 5.
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+}
+
 func TestTimedFloat64BucketsHoles(t *testing.T) {
 	now := time.Now()
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)

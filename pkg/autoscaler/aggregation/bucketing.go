@@ -161,8 +161,8 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 	writeIdx := t.timeToIndex(now)
 
 	if t.lastWrite != bucketTime {
-		if bucketTime.Add(t.window).Before(t.lastWrite) {
-			// Ingore this value because it happened a window size ago
+		if tt := bucketTime.Add(t.window); tt.Before(t.lastWrite) || tt.Equal(t.lastWrite) {
+			// Ignore this value because it happened a window size ago.
 			return
 		}
 
@@ -181,8 +181,6 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 					t.buckets[i] = 0
 				}
 				t.windowTotal = 0
-				// Update the last write time.
-				t.lastWrite = bucketTime
 			} else {
 				// In theory we might lose buckets between stats gathering.
 				// Thus we need to clean not only the current index, but also
@@ -193,9 +191,9 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 					t.windowTotal -= t.buckets[idx]
 					t.buckets[idx] = 0
 				}
-				// Update the last write time.
-				t.lastWrite = bucketTime
 			}
+			// Update the last write time.
+			t.lastWrite = bucketTime
 		}
 		// The else case is t.lastWrite - t.window <= bucketTime < t.lastWrite, we can simply add
 		// the value to the bucket.
