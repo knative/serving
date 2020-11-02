@@ -98,6 +98,10 @@ const (
 	// DomainMappingConditionIngressReady reflects the readiness of the
 	// underlying Ingress resource.
 	DomainMappingConditionIngressReady apis.ConditionType = "IngressReady"
+
+	// DomainMappingConditionDomainClaimed reflects that the ClusterDomainClaim
+	// for this DomainMapping exists, and is owned by this DomainMapping.
+	DomainMappingConditionDomainClaimed apis.ConditionType = "DomainClaimed"
 )
 
 // GetStatus retrieves the status of the DomainMapping. Implements the KRShaped interface.

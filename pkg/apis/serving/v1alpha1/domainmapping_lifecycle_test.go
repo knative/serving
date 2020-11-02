@@ -67,6 +67,36 @@ func TestDomainMappingGetGroupVersionKind(t *testing.T) {
 	}
 }
 
+func TestDomainClaimConditions(t *testing.T) {
+	dms := &DomainMappingStatus{}
+
+	dms.InitializeConditions()
+	apistest.CheckConditionOngoing(dms, DomainMappingConditionDomainClaimed, t)
+	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
+
+	dms.MarkDomainClaimFailed("rejected")
+	apistest.CheckConditionFailed(dms, DomainMappingConditionDomainClaimed, t)
+	apistest.CheckConditionFailed(dms, DomainMappingConditionReady, t)
+
+	dms.MarkDomainClaimed()
+	apistest.CheckConditionSucceeded(dms, DomainMappingConditionDomainClaimed, t)
+	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
+
+	dms.PropagateIngressStatus(netv1alpha1.IngressStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   netv1alpha1.IngressConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	})
+	apistest.CheckConditionSucceeded(dms, DomainMappingConditionReady, t)
+
+	dms.MarkDomainClaimNotOwned()
+	apistest.CheckConditionFailed(dms, DomainMappingConditionDomainClaimed, t)
+	apistest.CheckConditionFailed(dms, DomainMappingConditionReady, t)
+}
+
 func TestPropagateIngressStatus(t *testing.T) {
 	dms := &DomainMappingStatus{}
 
@@ -96,6 +126,9 @@ func TestPropagateIngressStatus(t *testing.T) {
 	})
 
 	apistest.CheckConditionSucceeded(dms, DomainMappingConditionIngressReady, t)
+	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
+
+	dms.MarkDomainClaimed()
 	apistest.CheckConditionSucceeded(dms, DomainMappingConditionReady, t)
 
 	dms.PropagateIngressStatus(netv1alpha1.IngressStatus{
