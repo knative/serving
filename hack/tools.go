@@ -48,5 +48,4 @@ import (
 
 	// For load testing
 	_ "github.com/tsenart/vegeta/v12"
-	_ "knative.dev/pkg/testutils/clustermanager/perf-tests"
 )
