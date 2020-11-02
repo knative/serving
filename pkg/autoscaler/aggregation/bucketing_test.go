@@ -241,6 +241,18 @@ func TestTimedFloat64BucketsWindowAverage(t *testing.T) {
 	if got, want := buckets.WindowAverage(now), (4.+10+1984+5)/5; got != want {
 		t.Errorf("WindowAverage = %v, want: %v", got, want)
 	}
+
+	// Verify that we ignore the value with bound timestamp.
+	buckets.Record(now.Add(-5*time.Second), 10)
+	if got, want := buckets.WindowAverage(now), (4.+10+1984+5)/5; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// Verify we clear up the data when not receving data for exact `window` peroid.
+	buckets.Record(now.Add(5*time.Second), 10)
+	if got, want := buckets.WindowAverage(now.Add(5*time.Second)), 10.; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
 }
 
 func TestDescendingRecord(t *testing.T) {

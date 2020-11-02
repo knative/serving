@@ -173,7 +173,7 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 		}
 
 		if bucketTime.After(t.lastWrite) {
-			if bucketTime.Sub(t.lastWrite) > t.window {
+			if bucketTime.Sub(t.lastWrite) >= t.window {
 				// This means we had no writes for the duration of `window`. So reset the firstWrite time.
 				t.firstWrite = bucketTime
 				// Reset all the buckets.
@@ -195,7 +195,7 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 			// Update the last write time.
 			t.lastWrite = bucketTime
 		}
-		// The else case is t.lastWrite - t.window <= bucketTime < t.lastWrite, we can simply add
+		// The else case is t.lastWrite - t.window < bucketTime < t.lastWrite, we can simply add
 		// the value to the bucket.
 	}
 	t.buckets[writeIdx%len(t.buckets)] += value
