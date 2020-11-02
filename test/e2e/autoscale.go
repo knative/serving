@@ -389,6 +389,6 @@ func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, d
 	})
 
 	if err := grp.Wait(); err != nil {
-		ctx.t.Errorf("Error: %v", err)
+		ctx.t.Fatalf("Error: %v", err)
 	}
 }
