@@ -144,7 +144,7 @@ func main() {
 	// Report stats on Go memory usage every 30 seconds.
 	metrics.MemStatsOrDie(ctx)
 
-	fmt.Printf("### THIS IS A TEST: %d", 42)
+	fmt.Printf("### THIS IS A TEST: %d", 432)
 
 	// Setup reporters and processes to handle stat reporting.
 	promStatReporter, err := queue.NewPrometheusStatsReporter(
