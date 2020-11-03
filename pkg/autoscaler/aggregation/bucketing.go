@@ -161,42 +161,42 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 	writeIdx := t.timeToIndex(now)
 
 	if t.lastWrite != bucketTime {
-		if tt := bucketTime.Add(t.window); tt.Before(t.lastWrite) || tt.Equal(t.lastWrite) {
+		if bucketTime.Add(t.window).After(t.lastWrite) {
+			// If it is the first write or it happened before the first write which we
+			// have in record, update the firstWrite.
+			if t.firstWrite.IsZero() || t.firstWrite.After(bucketTime) {
+				t.firstWrite = bucketTime
+			}
+
+			if bucketTime.After(t.lastWrite) {
+				if bucketTime.Sub(t.lastWrite) >= t.window {
+					// This means we had no writes for the duration of `window`. So reset the firstWrite time.
+					t.firstWrite = bucketTime
+					// Reset all the buckets.
+					for i := range t.buckets {
+						t.buckets[i] = 0
+					}
+					t.windowTotal = 0
+				} else {
+					// In theory we might lose buckets between stats gathering.
+					// Thus we need to clean not only the current index, but also
+					// all the ones from the last write. This is slower than the loop above
+					// due to possible wrap-around, so they are not merged together.
+					for i := t.timeToIndex(t.lastWrite) + 1; i <= writeIdx; i++ {
+						idx := i % len(t.buckets)
+						t.windowTotal -= t.buckets[idx]
+						t.buckets[idx] = 0
+					}
+				}
+				// Update the last write time.
+				t.lastWrite = bucketTime
+			}
+			// The else case is t.lastWrite - t.window < bucketTime < t.lastWrite, we can simply add
+			// the value to the bucket.
+		} else {
 			// Ignore this value because it happened a window size ago.
 			return
 		}
-
-		// If it is the first write or it happened before the first write which we
-		// have in record, update the firstWrite.
-		if t.firstWrite.IsZero() || t.firstWrite.After(bucketTime) {
-			t.firstWrite = bucketTime
-		}
-
-		if bucketTime.After(t.lastWrite) {
-			if bucketTime.Sub(t.lastWrite) >= t.window {
-				// This means we had no writes for the duration of `window`. So reset the firstWrite time.
-				t.firstWrite = bucketTime
-				// Reset all the buckets.
-				for i := range t.buckets {
-					t.buckets[i] = 0
-				}
-				t.windowTotal = 0
-			} else {
-				// In theory we might lose buckets between stats gathering.
-				// Thus we need to clean not only the current index, but also
-				// all the ones from the last write. This is slower than the loop above
-				// due to possible wrap-around, so they are not merged together.
-				for i := t.timeToIndex(t.lastWrite) + 1; i <= writeIdx; i++ {
-					idx := i % len(t.buckets)
-					t.windowTotal -= t.buckets[idx]
-					t.buckets[idx] = 0
-				}
-			}
-			// Update the last write time.
-			t.lastWrite = bucketTime
-		}
-		// The else case is t.lastWrite - t.window < bucketTime < t.lastWrite, we can simply add
-		// the value to the bucket.
 	}
 	t.buckets[writeIdx%len(t.buckets)] += value
 	t.windowTotal += value
