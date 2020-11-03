@@ -38,6 +38,10 @@ message Stat {
 
   // Process uptime in seconds.
   double process_uptime = 6;
+
+  // Time/date that the stat was generated in seconds since
+  // 1970-01-01 00:00:00.000 UTC.
+  int64 timestamp = 7;
 }
 
 // WireStatMessage is a copy of the StatMessage Golang type, exploding the fields of
