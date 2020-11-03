@@ -20,9 +20,9 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "a255a6cc"
+    knative.dev/example-checksum: "4d4d74d3"
 data:
-  _example: |
+  _example: |-
     ################################
     #                              #
     #    EXAMPLE CONFIGURATION     #
@@ -49,3 +49,7 @@ data:
     # retryPeriod is how long the leader election client waits between tries of
     # actions; 2 seconds is the value used by core kubernetes controllers.
     retryPeriod: "2s"
+
+    # buckets is the number of buckets used to partition key space of each
+    # Reconciler.
+    buckets: "1"

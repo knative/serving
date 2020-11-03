@@ -31,7 +31,7 @@ import (
 
 func okConfig() *kle.Config {
 	return &kle.Config{
-		Buckets:       1,
+		Buckets:       5,
 		LeaseDuration: 15 * time.Second,
 		RenewDeadline: 10 * time.Second,
 		RetryPeriod:   2 * time.Second,
@@ -40,6 +40,7 @@ func okConfig() *kle.Config {
 
 func okData() map[string]string {
 	return map[string]string{
+		"buckets": "5",
 		// values in this data come from the defaults suggested in the
 		// code:
 		// https://github.com/kubernetes/client-go/blob/kubernetes-1.16.0/tools/leaderelection/leaderelection.go
