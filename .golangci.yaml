@@ -19,10 +19,12 @@ run:
 linters:
   enable:
     - asciicheck
+    - errorlint
     - golint
     - gosec
     - prealloc
     - stylecheck
+    - tparallel
     - unconvert
     - unparam
   disable:

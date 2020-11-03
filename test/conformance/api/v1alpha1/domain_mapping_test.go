@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/conformance/api/shared"
@@ -59,21 +60,24 @@ func TestDomainMapping(t *testing.T) {
 	host := svc.Service.Name + ".mapping.com"
 
 	// Point DomainMapping at our service.
-	dm, err := clients.ServingAlphaClient.DomainMappings.Create(ctx, &v1alpha1.DomainMapping{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      host,
-			Namespace: svc.Service.Namespace,
-		},
-		Spec: v1alpha1.DomainMappingSpec{
-			Ref: duckv1.KReference{
-				Namespace:  svc.Service.Namespace,
-				Name:       svc.Service.Name,
-				APIVersion: "serving.knative.dev/v1",
-				Kind:       "Service",
+	var dm *v1alpha1.DomainMapping
+	if err := reconciler.RetryTestErrors(func(int) error {
+		dm, err = clients.ServingAlphaClient.DomainMappings.Create(ctx, &v1alpha1.DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      host,
+				Namespace: svc.Service.Namespace,
 			},
-		},
-	}, metav1.CreateOptions{})
-	if err != nil {
+			Spec: v1alpha1.DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Namespace:  svc.Service.Namespace,
+					Name:       svc.Service.Name,
+					APIVersion: "serving.knative.dev/v1",
+					Kind:       "Service",
+				},
+			},
+		}, metav1.CreateOptions{})
+		return err
+	}); err != nil {
 		t.Fatalf("Create(DomainMapping) = %v, expected no error", err)
 	}
 

@@ -151,7 +151,6 @@ func TestReconcile(t *testing.T) {
 								RevisionName:      "ing-unknown-00001",
 							},
 							ServiceName: "mcd",
-							Active:      true,
 						}},
 					},
 				},
@@ -199,7 +198,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "mcd",
-							Active:      true,
 						}},
 					},
 				}, WithLoadbalancerFailed("TestFailure", "failure"),
@@ -250,7 +248,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "bk",
-							Active:      true,
 						}},
 					},
 				},
@@ -306,7 +303,6 @@ func TestReconcile(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "tb",
-							Active:      true,
 						}},
 					},
 					Visibility: map[string]netv1alpha1.IngressVisibility{
@@ -358,7 +354,6 @@ func TestReconcile(t *testing.T) {
 								Percent:           ptr.Int64(100),
 								LatestRevision:    ptr.Bool(true),
 							},
-							Active: true,
 						}},
 					},
 				},
@@ -459,7 +454,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "astrid",
-							Active:      true,
 						}},
 					},
 				},
@@ -519,7 +513,6 @@ func TestReconcile(t *testing.T) {
 								RevisionName:      "config-00001",
 								Percent:           ptr.Int64(100),
 							},
-							Active: true,
 						}},
 					},
 				},
@@ -597,7 +590,6 @@ func TestReconcile(t *testing.T) {
 								RevisionName:      "config-00001",
 								Percent:           ptr.Int64(100),
 							},
-							Active:      true,
 							ServiceName: "my-service",
 						}},
 					},
@@ -618,7 +610,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 								Percent:           ptr.Int64(100),
 							},
-							Active:      true,
 							ServiceName: "my-service",
 						}},
 					},
@@ -660,7 +651,6 @@ func TestReconcile(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "daisy",
-							Active:      true,
 						}},
 					},
 				},
@@ -699,7 +689,6 @@ func TestReconcile(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "magnolia",
-							Active:      true,
 						}},
 					},
 				},
@@ -721,7 +710,6 @@ func TestReconcile(t *testing.T) {
 								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "belltown",
-							Active:      true,
 						}},
 					},
 				},
@@ -759,7 +747,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "tb",
-							Active:      true,
 						}},
 					},
 				},
@@ -783,7 +770,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "tb",
-							Active:      true,
 						}},
 					},
 					Visibility: map[string]netv1alpha1.IngressVisibility{
@@ -827,7 +813,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "tb",
-							Active:      true,
 						}},
 					},
 					Visibility: map[string]netv1alpha1.IngressVisibility{
@@ -852,7 +837,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "tb",
-							Active:      true,
 						}},
 					},
 				},
@@ -906,7 +890,6 @@ func TestReconcile(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "fremont",
-							Active:      true,
 						}},
 					},
 				},
@@ -927,7 +910,6 @@ func TestReconcile(t *testing.T) {
 								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "wallingford",
-							Active:      true,
 						}},
 					},
 				},
@@ -975,7 +957,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 								Percent:           ptr.Int64(100),
 							},
-							Active: true,
 						}},
 					},
 				},
@@ -1020,7 +1001,6 @@ func TestReconcile(t *testing.T) {
 								RevisionName:      "config-00001",
 								Percent:           ptr.Int64(100),
 							},
-							Active: true,
 						}},
 					},
 				},
@@ -1066,7 +1046,6 @@ func TestReconcile(t *testing.T) {
 								RevisionName:      "config-00001",
 								Percent:           ptr.Int64(100),
 							},
-							Active: true,
 						}},
 					},
 				},
@@ -1107,7 +1086,6 @@ func TestReconcile(t *testing.T) {
 								RevisionName:      "config-00001",
 								Percent:           ptr.Int64(100),
 							},
-							Active: true,
 						}},
 					},
 				},
@@ -1146,7 +1124,6 @@ func TestReconcile(t *testing.T) {
 								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "magnusson-park",
-							Active:      true,
 						}},
 					},
 				},
@@ -1166,7 +1143,6 @@ func TestReconcile(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "windermere",
-							Active:      true,
 						}},
 					},
 				},
@@ -1239,7 +1215,6 @@ func TestReconcile(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      ptr.Int64(100),
 							},
-							Active: true,
 						}},
 					},
 				},
@@ -1296,7 +1271,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "blue-ridge",
-							Active:      true,
 						}, {
 							TrafficTarget: v1.TrafficTarget{
 								ConfigurationName: "green",
@@ -1305,7 +1279,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "green-lake",
-							Active:      true,
 						}},
 					},
 				},
@@ -1394,7 +1367,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "shades",
-							Active:      true,
 						}},
 						"gray": {{
 							TrafficTarget: v1.TrafficTarget{
@@ -1404,7 +1376,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "shades",
-							Active:      true,
 						}},
 						"also-gray": {{
 							TrafficTarget: v1.TrafficTarget{
@@ -1412,7 +1383,6 @@ func TestReconcile(t *testing.T) {
 								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "shades",
-							Active:      true,
 						}},
 					},
 				},
@@ -1545,7 +1515,6 @@ func TestReconcile(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 							},
 							ServiceName: "alki-beach",
-							Active:      true,
 						}},
 					},
 				},
@@ -1565,7 +1534,6 @@ func TestReconcile(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "rainier-beach",
-							Active:      true,
 						}},
 					},
 				},
@@ -1667,7 +1635,6 @@ func TestReconcile(t *testing.T) {
 								RevisionName:      "config-00001",
 								Percent:           ptr.Int64(100),
 							},
-							Active: true,
 						}},
 					},
 				},
@@ -1743,7 +1710,7 @@ func TestReconcile(t *testing.T) {
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(false)}})
+			controller.Options{ConfigStore: &testConfigStore{config: reconcilerTestConfig(false)}})
 	}))
 }
 
@@ -1781,7 +1748,6 @@ func TestReconcileResponsiveGC(t *testing.T) {
 								LatestRevision:    ptr.Bool(true),
 								Percent:           ptr.Int64(100),
 							},
-							Active: true,
 						}},
 					},
 				},
@@ -1825,7 +1791,6 @@ func TestReconcileResponsiveGC(t *testing.T) {
 								RevisionName: "config-00001",
 								Percent:      ptr.Int64(100),
 							},
-							Active: true,
 						}},
 					},
 				},
@@ -1851,7 +1816,7 @@ func TestReconcileResponsiveGC(t *testing.T) {
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(false)}})
+			controller.Options{ConfigStore: &testConfigStore{config: reconcilerTestConfig(false)}})
 	}))
 }
 
@@ -1880,7 +1845,6 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
-							Active:      true,
 						}},
 					},
 				},
@@ -1937,7 +1901,6 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
-							Active:      true,
 						}},
 					},
 				},
@@ -1991,7 +1954,6 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
-							Active:      true,
 						}},
 					},
 				},
@@ -2068,7 +2030,6 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
-							Active:      true,
 						}},
 					},
 				},
@@ -2160,7 +2121,6 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
-							Active:      true,
 						}},
 					},
 				},
@@ -2292,13 +2252,9 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
-							Active:      true,
 						}},
 					},
-				},
-				nil,
-				nil,
-			),
+				}, nil, nil),
 			simpleK8sService(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
 				WithExternalName("becomes-ready.default.example.com"),
@@ -2350,7 +2306,6 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "tb",
-							Active:      true,
 						}},
 					},
 				},
@@ -2374,7 +2329,6 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "tb",
-							Active:      true,
 						}},
 					},
 					Visibility: map[string]netv1alpha1.IngressVisibility{
@@ -2415,7 +2369,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(true)}})
+			controller.Options{ConfigStore: &testConfigStore{config: reconcilerTestConfig(true)}})
 	}))
 }
 
@@ -2481,13 +2435,9 @@ func TestReconcileEnableAutoTLSHTTPDisabled(t *testing.T) {
 								Percent:           ptr.Int64(100),
 							},
 							ServiceName: "mcd",
-							Active:      true,
 						}},
 					},
-				},
-				nil,
-				nil,
-			),
+				}, nil, nil),
 			simpleK8sService(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
 				WithExternalName("becomes-ready.default.example.com"),
@@ -2519,7 +2469,7 @@ func TestReconcileEnableAutoTLSHTTPDisabled(t *testing.T) {
 		Key: "default/becomes-ready",
 	}}
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		cfg := ReconcilerTestConfig(true)
+		cfg := reconcilerTestConfig(true)
 		cfg.Network.HTTPProtocol = network.HTTPDisabled
 		r := &Reconciler{
 			kubeclient:          kubeclient.Get(ctx),
@@ -2579,7 +2529,7 @@ func simplePlaceholderK8sService(ctx context.Context, r *v1.Route, targetName st
 
 func simpleK8sService(r *v1.Route, so ...K8sServiceOption) *corev1.Service {
 	cs := &testConfigStore{
-		config: ReconcilerTestConfig(false),
+		config: reconcilerTestConfig(false),
 	}
 	ctx := cs.ToContext(context.Background())
 
@@ -2709,7 +2659,7 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 
 var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
-func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
+func reconcilerTestConfig(enableAutoTLS bool) *config.Config {
 	return &config.Config{
 		Domain: &config.Domain{
 			Domains: map[string]*config.LabelSelector{

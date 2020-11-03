@@ -18,10 +18,10 @@ package traffic
 
 import (
 	"context"
-	"sort"
+	"errors"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 
 	net "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -36,11 +36,10 @@ import (
 // DefaultTarget is the unnamed default target for the traffic.
 const DefaultTarget = ""
 
-// A RevisionTarget adds the Active/Inactive state and the transport protocol of a
+// A RevisionTarget adds the transport protocol and the service name of a
 // Revision to a flattened TrafficTarget.
 type RevisionTarget struct {
 	v1.TrafficTarget
-	Active      bool
 	Protocol    net.ProtocolType
 	ServiceName string // Revision service name.
 }
@@ -167,6 +166,8 @@ func newBuilder(
 
 // BuildRollout builds the current rollout state.
 // It is expected to be invoked after applySpecTraffic.
+// Returned Rollout will be sorted by tag and within tag by configuration
+// (only default tag can have more than configuration object attached).
 // TODO(vagababov): actually deal with rollouts, vs just report desired state.
 func (cfg *Config) BuildRollout() *Rollout {
 	rollout := &Rollout{}
@@ -176,18 +177,6 @@ func (cfg *Config) BuildRollout() *Rollout {
 	}
 	sortRollout(rollout)
 	return rollout
-}
-
-// sortRollout sorts the rollout based on tag so it's consistent
-// from run to run, since input to the process is map iterator.
-func sortRollout(r *Rollout) {
-	sort.Slice(r.Configurations, func(i, j int) bool {
-		// Sort by tag and within tag sort by config name.
-		if r.Configurations[i].Tag == r.Configurations[j].Tag {
-			return r.Configurations[i].ConfigurationName < r.Configurations[j].ConfigurationName
-		}
-		return r.Configurations[i].Tag < r.Configurations[j].Tag
-	})
 }
 
 // buildRolloutForTag builds the current rollout state.
@@ -205,9 +194,12 @@ func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
 		r.Configurations = append(r.Configurations, ConfigurationRollout{
 			ConfigurationName: rt.ConfigurationName,
 			Tag:               tag,
+			Percent:           int(zeroIfNil(rt.Percent)),
 			Revisions: []RevisionRollout{{
 				RevisionName: rt.RevisionName,
-				Percent:      int(valIfNil(0, rt.Percent)),
+				// Note: this will match config value in steady state, but
+				// during rollout it will be overridden by the rollout logic.
+				Percent: int(zeroIfNil(rt.Percent)),
 			}},
 		})
 	}
@@ -228,7 +220,7 @@ func (cb *configBuilder) getConfiguration(name string) (*v1.Configuration, error
 	if !ok {
 		var err error
 		config, err = cb.configLister.Get(name)
-		if errors.IsNotFound(err) {
+		if apierrs.IsNotFound(err) {
 			return nil, errMissingConfiguration(name)
 		} else if err != nil {
 			return nil, err
@@ -243,7 +235,7 @@ func (cb *configBuilder) getRevision(name string) (*v1.Revision, error) {
 	if !ok {
 		var err error
 		rev, err = cb.revLister.Get(name)
-		if errors.IsNotFound(err) {
+		if apierrs.IsNotFound(err) {
 			return nil, errMissingRevision(name)
 		} else if err != nil {
 			return nil, err
@@ -268,23 +260,28 @@ func (cb *configBuilder) addTrafficTarget(tt *v1.TrafficTarget) error {
 	} else if tt.ConfigurationName != "" {
 		err = cb.addConfigurationTarget(tt)
 	}
-	if err, ok := err.(*missingTargetError); err != nil && ok {
-		apiVersion, kind := v1.SchemeGroupVersion.
-			WithKind(err.kind).
-			ToAPIVersionAndKind()
+	if err != nil {
+		var errMissingTarget *missingTargetError
+		if errors.As(err, &errMissingTarget) {
+			apiVersion, kind := v1.SchemeGroupVersion.
+				WithKind(errMissingTarget.kind).
+				ToAPIVersionAndKind()
 
-		cb.missingTargets = append(cb.missingTargets, corev1.ObjectReference{
-			APIVersion: apiVersion,
-			Kind:       kind,
-			Name:       err.name,
-			Namespace:  cb.route.Namespace,
-		})
-	}
-	if err, ok := err.(TargetError); err != nil && ok {
-		// Defer target errors, as we still want to compile a list of
-		// all referred targets, including missing ones.
-		cb.deferTargetError(err)
-		return nil
+			cb.missingTargets = append(cb.missingTargets, corev1.ObjectReference{
+				APIVersion: apiVersion,
+				Kind:       kind,
+				Name:       errMissingTarget.name,
+				Namespace:  cb.route.Namespace,
+			})
+		}
+
+		var errTarget TargetError
+		if errors.As(err, &errTarget) {
+			// Defer target errors, as we still want to compile a list of
+			// all referred targets, including missing ones.
+			cb.deferTargetError(errTarget)
+			return nil
+		}
 	}
 	return err
 }
@@ -306,7 +303,6 @@ func (cb *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
 	ntt := tt.DeepCopy()
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
-		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
 	}
@@ -326,7 +322,6 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	ntt := tt.DeepCopy()
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
-		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
 	}
@@ -340,10 +335,10 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	return nil
 }
 
-// valIfNil returns `val` if `ptr==nil`, or `*ptr` otherwise.
-func valIfNil(val int64, ptr *int64) int64 {
+// zeroIfNil returns `0` if `ptr==nil`, or `*ptr` otherwise.
+func zeroIfNil(ptr *int64) int64 {
 	if ptr == nil {
-		return val
+		return 0
 	}
 	return *ptr
 }
@@ -354,7 +349,7 @@ func mergeIfNecessary(rts RevisionTargets, rt RevisionTarget) RevisionTargets {
 	for i := range rts {
 		if rts[i].Tag == rt.Tag && rts[i].RevisionName == rt.RevisionName &&
 			*rt.LatestRevision == *rts[i].LatestRevision {
-			rts[i].Percent = ptr.Int64(valIfNil(0, rts[i].Percent) + valIfNil(0, rt.Percent))
+			rts[i].Percent = ptr.Int64(zeroIfNil(rts[i].Percent) + zeroIfNil(rt.Percent))
 			return rts
 		}
 	}

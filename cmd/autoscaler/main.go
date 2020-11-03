@@ -19,6 +19,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -151,7 +152,7 @@ func main() {
 
 	// accept is the func to call when this pod owns the Revision for this StatMessage.
 	accept := func(sm asmetrics.StatMessage) {
-		collector.Record(sm.Key, time.Now(), sm.Stat)
+		collector.Record(sm.Key, time.Unix(sm.Stat.Timestamp, 0), sm.Stat)
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
 	f := statforwarder.New(ctx, logger, kubeClient, selfIP, bucket.AutoscalerBucketSet(cc.Buckets), accept)
@@ -165,6 +166,10 @@ func main() {
 
 	go func() {
 		for sm := range statsCh {
+			// Set the timestamp when first receiving the stat.
+			if sm.Stat.Timestamp == 0 {
+				sm.Stat.Timestamp = time.Now().Unix()
+			}
 			f.Process(sm)
 		}
 	}()
@@ -182,7 +187,7 @@ func main() {
 	statsServer.Shutdown(5 * time.Second)
 	profilingServer.Shutdown(context.Background())
 	// Don't forward ErrServerClosed as that indicates we're already shutting down.
-	if err := eg.Wait(); err != nil && err != http.ErrServerClosed {
+	if err := eg.Wait(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Errorw("Error while running server", zap.Error(err))
 	}
 }

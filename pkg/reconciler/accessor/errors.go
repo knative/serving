@@ -16,7 +16,10 @@ limitations under the License.
 
 package accessor
 
-import "strings"
+import (
+	"errors"
+	"strings"
+)
 
 // Error defines a type of error coming from Accessor.
 type Error struct {
@@ -43,8 +46,8 @@ func (a Error) Error() string {
 
 // IsNotOwned returns true if the error is caused by NotOwnResource.
 func IsNotOwned(err error) bool {
-	accessorError, ok := err.(Error)
-	if !ok {
+	var accessorError Error
+	if !errors.As(err, &accessorError) {
 		return false
 	}
 	return accessorError.errorReason == NotOwnResource

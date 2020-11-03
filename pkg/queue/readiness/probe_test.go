@@ -450,7 +450,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 		t.Error("Expected success.")
 	}
 
-	if count.Load() < threshold+requestFailure {
+	if count := count.Load(); count < threshold+requestFailure {
 		t.Errorf("Wanted %d requests before reporting success, got=%d", threshold+requestFailure, count)
 	}
 }

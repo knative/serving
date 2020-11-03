@@ -241,7 +241,7 @@ func jsonTrace(traceID string) ([]model.SpanModel, error) {
 
 func parseNamespaceFromHostname(hostname string) (string, error) {
 	parts := strings.Split(hostname, ".")
-	if len(parts) < 3 || parts[2] != "svc" {
+	if len(parts) < 3 || !(parts[2] == "svc" || strings.HasPrefix(parts[2], "svc:")) {
 		return "", fmt.Errorf("could not extract namespace/name from %s", hostname)
 	}
 	return parts[1], nil

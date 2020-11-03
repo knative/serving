@@ -85,7 +85,6 @@ func TestActivationHandler(t *testing.T) {
 		name:      "active endpoint",
 		wantBody:  wantBody,
 		wantCode:  http.StatusOK,
-		wantErr:   nil,
 		throttler: fakeThrottler{},
 	}, {
 		name:      "request error",
@@ -97,13 +96,11 @@ func TestActivationHandler(t *testing.T) {
 		name:      "throttler timeout",
 		wantBody:  context.DeadlineExceeded.Error() + "\n",
 		wantCode:  http.StatusServiceUnavailable,
-		wantErr:   nil,
 		throttler: fakeThrottler{err: context.DeadlineExceeded},
 	}, {
 		name:      "overflow",
 		wantBody:  "pending request queue full\n",
 		wantCode:  http.StatusServiceUnavailable,
-		wantErr:   nil,
 		throttler: fakeThrottler{err: queue.ErrRequestQueueFull},
 	}}
 	for _, test := range tests {
@@ -151,7 +148,7 @@ func TestActivationHandler(t *testing.T) {
 				t.Fatal("Error reading body:", err)
 			}
 			if string(gotBody) != test.wantBody {
-				t.Errorf("Unexpected response body. Response body %q, want %q", gotBody, test.wantBody)
+				t.Errorf("Response body = %q, want: %q", gotBody, test.wantBody)
 			}
 		})
 	}
@@ -183,10 +180,10 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	select {
 	case httpReq := <-interceptCh:
 		if got := httpReq.Header.Get(network.ProxyHeaderName); got != activator.Name {
-			t.Errorf("Header %q = %q, want:  %q", network.ProxyHeaderName, got, activator.Name)
+			t.Errorf("Header %q = %q, want: %q", network.ProxyHeaderName, got, activator.Name)
 		}
 	case <-time.After(1 * time.Second):
-		t.Fatal("Timed out waiting for a request to be intercepted")
+		t.Error("Timed out waiting for a request to be intercepted")
 	}
 }
 
@@ -201,16 +198,15 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		traceBackend: tracingconfig.Zipkin,
 	}, {
 		name:         "trace disabled",
-		wantSpans:    0,
 		traceBackend: tracingconfig.None,
 	}}
 
+	spanNames := []string{"throttler_try", "/", "activator_proxy"}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup transport
 			fakeRT := activatortest.FakeRoundTripper{
 				RequestResponse: &activatortest.FakeResponse{
-					Err:  nil,
 					Code: http.StatusOK,
 					Body: wantBody,
 				},
@@ -256,13 +252,12 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 
 			gotSpans := reporter.Flush()
 			if len(gotSpans) != tc.wantSpans {
-				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
+				t.Errorf("NumSpans = %d, want: %d", len(gotSpans), tc.wantSpans)
 			}
 
-			spanNames := []string{"throttler_try", "/", "activator_proxy"}
 			for i, spanName := range spanNames[0:tc.wantSpans] {
 				if gotSpans[i].Name != spanName {
-					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
+					t.Errorf("Span[%d] = %q, expected %q", i, gotSpans[i].Name, spanName)
 				}
 			}
 		})
@@ -303,7 +298,7 @@ func setupConfigStore(t *testing.T, logger *zap.SugaredLogger) *activatorconfig.
 
 func BenchmarkHandler(b *testing.B) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(&testing.T{})
-	defer cancel()
+	b.Cleanup(cancel)
 	configStore := setupConfigStore(&testing.T{}, logging.FromContext(ctx))
 
 	// bodyLength is in kilobytes.
@@ -374,15 +369,13 @@ type responseRecorder struct {
 	size atomic.Int32
 }
 
-func (rr *responseRecorder) Flush() {}
-
 func (rr *responseRecorder) Header() http.Header {
 	return http.Header{}
 }
 
 func (rr *responseRecorder) Write(p []byte) (int, error) {
 	rr.size.Add(int32(len(p)))
-	return ioutil.Discard.Write(p)
+	return len(p), nil
 }
 
 func (rr *responseRecorder) WriteHeader(code int) {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 
+	"go.uber.org/zap"
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
 	imageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -105,7 +106,7 @@ func newControllerWithOptions(
 
 	transport := http.DefaultTransport
 	if rt, err := newResolverTransport(k8sCertPath, digestResolutionWorkers, digestResolutionWorkers); err != nil {
-		logging.FromContext(ctx).Error("Failed to create resolver transport: ", err)
+		logging.FromContext(ctx).Errorw("Failed to create resolver transport", zap.Error(err))
 	} else {
 		transport = rt
 	}

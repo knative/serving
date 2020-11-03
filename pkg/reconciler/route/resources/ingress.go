@@ -78,7 +78,7 @@ func MakeIngress(
 			}),
 			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
-				traffic.RolloutAnnotationKey:         serializeRollout(ctx, tc.BuildRollout()),
+				networking.RolloutAnnotationKey:      serializeRollout(ctx, tc.BuildRollout()),
 			}, r.GetAnnotations()), func(key string) bool {
 				return key == corev1.LastAppliedConfigAnnotation
 			}),

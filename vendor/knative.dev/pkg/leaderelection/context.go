@@ -124,7 +124,7 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 		// Use a local var which won't change across the for loop since it is
 		// used in a callback asynchronously.
 		bkt := bkt
-		rl, err := resourcelock.New(KnativeResourceLock,
+		rl, err := resourcelock.New(knativeResourceLock,
 			system.Namespace(), // use namespace we are running in
 			bkt.Name(),
 			b.kc.CoreV1(),

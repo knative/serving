@@ -68,6 +68,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "first-reconcile.com"),
 				withAddress("http", "first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withDomainClaimed,
 				withIngressNotConfigured,
 			),
 		}},
@@ -93,6 +94,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "ingressclass.first-reconcile.com"),
 				withAddress("http", "ingressclass.first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withDomainClaimed,
 				withIngressNotConfigured,
 				withAnnotations(map[string]string{
 					networking.IngressClassAnnotationKey: "overridden-ingress-class",
@@ -119,6 +121,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "ingress-exists.org"),
 				withAddress("http", "ingress-exists.org"),
 				withInitDomainMappingConditions,
+				withDomainClaimed,
 				withIngressNotConfigured,
 			),
 		}},
@@ -133,7 +136,6 @@ func TestReconcile(t *testing.T) {
 				withRef("default", "failed"),
 				withURL("http", "ingress-failed.me"),
 				withAddress("http", "ingress-failed.me"),
-				withInitDomainMappingConditions,
 			),
 			ingress(domainMapping("default", "ingress-failed.me", withRef("default", "failed")), "the-ingress-class",
 				WithLoadbalancerFailed("fell over", "hurt myself"),
@@ -144,6 +146,8 @@ func TestReconcile(t *testing.T) {
 				withRef("default", "failed"),
 				withURL("http", "ingress-failed.me"),
 				withAddress("http", "ingress-failed.me"),
+				withInitDomainMappingConditions,
+				withDomainClaimed,
 				withPropagatedStatus(ingress(domainMapping("default", "ingress-failed.me"), "", WithLoadbalancerFailed("fell over", "hurt myself")).Status),
 			),
 		}},
@@ -155,7 +159,6 @@ func TestReconcile(t *testing.T) {
 				withRef("default", "unknown"),
 				withURL("http", "ingress-unknown.me"),
 				withAddress("http", "ingress-unknown.me"),
-				withInitDomainMappingConditions,
 			),
 			ingress(domainMapping("default", "ingress-unknown.me", withRef("default", "unknown")), "the-ingress-class",
 				withIngressNotReady,
@@ -166,6 +169,8 @@ func TestReconcile(t *testing.T) {
 				withRef("default", "unknown"),
 				withURL("http", "ingress-unknown.me"),
 				withAddress("http", "ingress-unknown.me"),
+				withInitDomainMappingConditions,
+				withDomainClaimed,
 				withPropagatedStatus(ingress(domainMapping("default", "ingress-unknown.me"), "", withIngressNotReady).Status),
 			),
 		}},
@@ -177,7 +182,6 @@ func TestReconcile(t *testing.T) {
 				withRef("default", "ready"),
 				withURL("http", "ingress-ready.me"),
 				withAddress("http", "ingress-ready.me"),
-				withInitDomainMappingConditions,
 			),
 			ingress(domainMapping("default", "ingress-ready.me", withRef("default", "ready")), "the-ingress-class",
 				withIngressReady,
@@ -188,6 +192,8 @@ func TestReconcile(t *testing.T) {
 				withRef("default", "ready"),
 				withURL("http", "ingress-ready.me"),
 				withAddress("http", "ingress-ready.me"),
+				withInitDomainMappingConditions,
+				withDomainClaimed,
 				withPropagatedStatus(ingress(domainMapping("default", "ingress-ready.me"), "", withIngressReady).Status),
 			),
 		}},
@@ -202,7 +208,6 @@ func TestReconcile(t *testing.T) {
 				withRef("default", "cantcreate"),
 				withURL("http", "cantcreate.this"),
 				withAddress("http", "cantcreate.this"),
-				withInitDomainMappingConditions,
 				withGeneration(1),
 			),
 		},
@@ -217,6 +222,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "cantcreate.this"),
 				withAddress("http", "cantcreate.this"),
 				withInitDomainMappingConditions,
+				withDomainClaimed,
 				withIngressNotConfigured,
 				withGeneration(1),
 				withObservedGeneration,
@@ -237,7 +243,6 @@ func TestReconcile(t *testing.T) {
 				withRef("default", "cantupdate"),
 				withURL("http", "cantupdate.this"),
 				withAddress("http", "cantupdate.this"),
-				withInitDomainMappingConditions,
 				withGeneration(1),
 			),
 			ingress(domainMapping("default", "cantupdate.this", withRef("default", "previous-value")), "the-ingress-class"),
@@ -253,6 +258,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "cantupdate.this"),
 				withAddress("http", "cantupdate.this"),
 				withInitDomainMappingConditions,
+				withDomainClaimed,
 				withIngressNotConfigured,
 				withGeneration(1),
 				withObservedGeneration,
@@ -339,6 +345,10 @@ func withPropagatedStatus(status netv1alpha1.IngressStatus) domainMappingOption 
 
 func withInitDomainMappingConditions(dm *v1alpha1.DomainMapping) {
 	dm.Status.InitializeConditions()
+}
+
+func withDomainClaimed(dm *v1alpha1.DomainMapping) {
+	dm.Status.MarkDomainClaimed()
 }
 
 func withGeneration(generation int64) domainMappingOption {

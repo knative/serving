@@ -20,6 +20,8 @@ package v1alpha1
 
 type CertificateExpansion interface{}
 
+type ClusterDomainClaimExpansion interface{}
+
 type DomainExpansion interface{}
 
 type IngressExpansion interface{}

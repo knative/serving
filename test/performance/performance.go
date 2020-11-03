@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -69,7 +69,7 @@ func WaitForScaleToZero(ctx context.Context, namespace string, selector labels.S
 		}
 		for _, pod := range pods {
 			// Pending or Running w/o deletion timestamp (i.e. terminating).
-			if pod.Status.Phase == v1.PodPending || pod.Status.Phase == v1.PodRunning && pod.ObjectMeta.DeletionTimestamp == nil {
+			if pod.Status.Phase == corev1.PodPending || pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.DeletionTimestamp == nil {
 				return false, nil
 			}
 		}

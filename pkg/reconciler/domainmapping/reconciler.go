@@ -62,6 +62,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 		dm.Status.MarkIngressNotConfigured()
 	}
 
+	// TODO(jz) ClusterDomainClaim isn't fully implemented yet, so just mark it
+	// Claimed for now so we have the correct condition flow.
+	dm.Status.MarkDomainClaimed()
+
 	// Mapped URL is the metadata.name of the DomainMapping.
 	url := &apis.URL{Scheme: "http", Host: dm.Name}
 	dm.Status.URL = url

@@ -24,7 +24,7 @@ import (
 
 	"go.uber.org/zap"
 	coordinationv1 "k8s.io/api/coordination/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +37,7 @@ import (
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
+	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/autoscaler/bucket"
@@ -50,9 +51,7 @@ const (
 	retryTimeout       = 3 * time.Second
 	retryInterval      = 100 * time.Millisecond
 
-	// Retry at most 15 seconds to process a stat. NOTE: Retrying could
-	// cause high delay and inaccurate scaling decision because we use
-	// the timestamp on receiving.
+	// Retry at most 15 seconds to process a stat.
 	maxProcessingRetry      = 30
 	retryProcessingInterval = 500 * time.Millisecond
 )
@@ -227,13 +226,13 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 func (f *Forwarder) createService(ctx context.Context, ns, n string) error {
 	var lastErr error
 	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
-		_, lastErr = f.kc.CoreV1().Services(ns).Create(ctx, &v1.Service{
+		_, lastErr = f.kc.CoreV1().Services(ns).Create(ctx, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
 				Namespace: ns,
 			},
-			Spec: v1.ServiceSpec{
-				Ports: []v1.ServicePort{{
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{{
 					Name:       autoscalerPortName,
 					Port:       autoscalerPort,
 					TargetPort: intstr.FromInt(autoscalerPort),
@@ -258,14 +257,14 @@ func (f *Forwarder) createService(ctx context.Context, ns, n string) error {
 // name, and the Forwarder.selfIP. If the Endpoints object already
 // exists, it will update the Endpoints with the Forwarder.selfIP.
 func (f *Forwarder) createOrUpdateEndpoints(ctx context.Context, ns, n string) error {
-	wantSubsets := []v1.EndpointSubset{{
-		Addresses: []v1.EndpointAddress{{
+	wantSubsets := []corev1.EndpointSubset{{
+		Addresses: []corev1.EndpointAddress{{
 			IP: f.selfIP,
 		}},
-		Ports: []v1.EndpointPort{{
+		Ports: []corev1.EndpointPort{{
 			Name:     autoscalerPortName,
 			Port:     autoscalerPort,
-			Protocol: v1.ProtocolTCP,
+			Protocol: corev1.ProtocolTCP,
 		}}},
 	}
 
@@ -306,7 +305,7 @@ func (f *Forwarder) createOrUpdateEndpoints(ctx context.Context, ns, n string) e
 	}
 
 	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
-		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(ctx, &v1.Endpoints{
+		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(ctx, &corev1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
 				Namespace: ns,
@@ -369,12 +368,12 @@ func (f *Forwarder) process() {
 			return
 		case s := <-f.statCh:
 			rev := s.sm.Key.String()
-			l := f.logger.With(zap.String("revision", rev))
+			l := f.logger.With(zap.String(logkey.Key, rev))
 			bkt := f.bs.Owner(rev)
 
 			p := f.getProcessor(bkt)
 			if p == nil {
-				l.Warn("Can't find the owner for Revision.")
+				l.Warn("Can't find the owner for Revision bucket: ", bkt)
 				f.maybeRetry(l, s)
 				continue
 			}

@@ -21,7 +21,7 @@
 # Setup env vars to override the default settings
 export BENCHMARK_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance/benchmarks"
 
-source vendor/knative.dev/test-infra/scripts/performance-tests.sh
+source vendor/knative.dev/hack/performance-tests.sh
 source $(dirname $0)/../e2e-networking-library.sh
 
 # Env vars required for installing Istio.
@@ -30,9 +30,9 @@ export MESH=0
 export KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 export SYSTEM_NAMESPACE="knative-serving"
 export ISTIO_VERSION="stable"
-# Pin net-istio to a commit when the stable Istio version was 1.5.7
+# Pin net-istio to a commit when the stable Istio version was 1.4.6
 # TODO(chizhg): unpin the version after https://github.com/knative/serving/issues/9673 is root caused and fixed
-export NET_ISTIO_COMMIT="63af963d05c1dddcfcb3ada717c832092cf3e7c7"
+export NET_ISTIO_COMMIT="f64ed34d3776a444372483dddc15a330c6c1ac53"
 export UNINSTALL_LIST=()
 export TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
 

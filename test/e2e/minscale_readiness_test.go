@@ -20,6 +20,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"testing"
@@ -227,9 +228,9 @@ func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string,
 
 		return false, nil
 	})
-	if err != wait.ErrWaitTimeout {
+	if !errors.Is(err, wait.ErrWaitTimeout) {
 		t.Log("PollError =", err)
 	}
 
-	return latestReady, err == wait.ErrWaitTimeout
+	return latestReady, errors.Is(err, wait.ErrWaitTimeout)
 }

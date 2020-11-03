@@ -27,12 +27,8 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
-	fakecertinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeciinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -44,15 +40,6 @@ import (
 
 	. "knative.dev/serving/pkg/testing/v1"
 )
-
-func getCertificateFromClient(ctx context.Context, t *testing.T, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
-	t.Helper()
-	created, err := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Certificates(desired.Namespace).Get(ctx, desired.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Certificates(%s).Get(%s) = %v", desired.Namespace, desired.Name, err)
-	}
-	return created
-}
 
 func TestReconcileIngressInsert(t *testing.T) {
 	var reconciler *Reconciler
@@ -123,7 +110,6 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 				RevisionName: "revision",
 				Percent:      ptr.Int64(100),
 			},
-			Active: true,
 		}}}}
 
 	ctx = config.ToContext(ctx, &config.Config{
@@ -175,7 +161,6 @@ func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
 				RevisionName: "invalid-revision",
 				Percent:      ptr.Int64(100),
 			},
-			Active: true,
 		}}}}
 	ctx = config.ToContext(ctx, &config.Config{
 		GC: &gc.Config{
@@ -219,7 +204,6 @@ func newTestIngress(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.C
 				RevisionName: "revision",
 				Percent:      ptr.Int64(100),
 			},
-			Active: true,
 		}}}}
 
 	for _, opt := range trafficOpts {
@@ -233,57 +217,9 @@ func newTestIngress(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.C
 	}}
 	ingress, err := resources.MakeIngress(getContext(), r, tc, tls, "foo-ingress")
 	if err != nil {
-		t.Error("Unexpected error", err)
+		t.Error("Unexpected error:", err)
 	}
 	return ingress
-}
-
-func TestReconcileCertificatesInsert(t *testing.T) {
-	var reconciler *Reconciler
-	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
-		reconciler = r
-	})
-	defer cancel()
-
-	r := Route("test-ns", "test-route")
-	certificate := newCerts([]string{"*.default.example.com"}, r)
-	if err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
-		t.Error("Unexpected error:", err)
-	}
-	created := getCertificateFromClient(ctx, t, certificate)
-	if diff := cmp.Diff(certificate, created); diff != "" {
-		t.Error("Unexpected diff (-want +got):", diff)
-	}
-}
-
-func TestReconcileCertificateUpdate(t *testing.T) {
-	var reconciler *Reconciler
-	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
-		reconciler = r
-	})
-	defer cancel()
-
-	r := Route("test-ns", "test-route")
-	certificate := newCerts([]string{"old.example.com"}, r)
-	if err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
-		t.Error("Unexpected error:", err)
-	}
-
-	storedCert := getCertificateFromClient(ctx, t, certificate)
-	fakecertinformer.Get(ctx).Informer().GetIndexer().Add(storedCert)
-
-	newCertificate := newCerts([]string{"new.example.com"}, r)
-	if err := reconciler.reconcileCertificate(ctx, r, newCertificate); err != nil {
-		t.Error("Unexpected error:", err)
-	}
-
-	updated := getCertificateFromClient(ctx, t, newCertificate)
-	if diff := cmp.Diff(newCertificate, updated); diff != "" {
-		t.Error("Unexpected diff (-want +got):", diff)
-	}
-	if diff := cmp.Diff(certificate, updated); diff == "" {
-		t.Error("Expected difference, but found none")
-	}
 }
 
 func TestReconcileIngressClassAnnotation(t *testing.T) {
@@ -291,7 +227,7 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
 		reconciler = r
 	})
-	defer cancel()
+	t.Cleanup(cancel)
 
 	const expClass = "foo.ingress.networking.knative.dev"
 
@@ -319,21 +255,7 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 	}
 }
 
-func newCerts(dnsNames []string, r *v1.Route) *netv1alpha1.Certificate {
-	return &netv1alpha1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            "test-cert",
-			Namespace:       system.Namespace(),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
-		},
-		Spec: netv1alpha1.CertificateSpec{
-			DNSNames:   dnsNames,
-			SecretName: "test-secret",
-		},
-	}
-}
-
 func getContext() context.Context {
-	cfg := ReconcilerTestConfig(false)
+	cfg := reconcilerTestConfig(false)
 	return config.ToContext(context.Background(), cfg)
 }

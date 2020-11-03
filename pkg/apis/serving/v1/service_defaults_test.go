@@ -253,6 +253,7 @@ func TestServiceDefaulting(t *testing.T) {
 						LatestRevision: ptr.Bool(false),
 					}, {
 						Tag:            "latest",
+						Percent:        ptr.Int64(0),
 						LatestRevision: ptr.Bool(true),
 					}},
 				},
