@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
@@ -80,6 +81,13 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 			})
 		} else {
 			trafficMap[tt.Tag] = i
+		}
+
+		if tt.URL.String() != "" {
+			urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), tt.URL.Host)
+			for _, err := range urlErrs {
+				errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("url %q is invalid: %v", tt.URL.String(), err.Error()), "url"))
+			}
 		}
 	}
 
@@ -198,13 +206,20 @@ func (rs *RouteStatus) Validate(ctx context.Context) *apis.FieldError {
 }
 
 // Validate implements apis.Validatable.
-func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
+func (rsf *RouteStatusFields) Validate(ctx context.Context) (errs *apis.FieldError) {
 	// TODO(mattmoor): Validate other status fields.
 
-	if len(rsf.Traffic) != 0 {
-		return validateTrafficList(ctx, rsf.Traffic).ViaField("traffic")
+	if rsf.URL.String() != "" {
+		urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), rsf.URL.Host)
+		for _, err := range urlErrs {
+			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("url %q is invalid: %v", rsf.URL.String(), err.Error()), "url"))
+		}
 	}
-	return nil
+
+	if len(rsf.Traffic) != 0 {
+		errs = errs.Also(validateTrafficList(ctx, rsf.Traffic).ViaField("traffic"))
+	}
+	return errs
 }
 
 func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
