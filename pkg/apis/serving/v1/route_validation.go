@@ -86,7 +86,7 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 		if tt.URL.String() != "" {
 			urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), tt.URL.Host)
 			for _, err := range urlErrs {
-				errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("url %q is invalid: %v", tt.URL.String(), err.Error()), "url"))
+				errs = errs.Also(apis.ErrGeneric(tt.URL.String()+" is invalid: "+err.Error(), "url"))
 			}
 		}
 	}
@@ -212,7 +212,7 @@ func (rsf *RouteStatusFields) Validate(ctx context.Context) (errs *apis.FieldErr
 	if rsf.URL.String() != "" {
 		urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), rsf.URL.Host)
 		for _, err := range urlErrs {
-			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("url %q is invalid: %v", rsf.URL.String(), err.Error()), "url"))
+			errs = errs.Also(apis.ErrGeneric(rsf.URL.String()+" is invalid: "+err.Error(), "url"))
 		}
 	}
 
