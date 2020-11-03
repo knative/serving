@@ -230,7 +230,6 @@ jobs:
         # Apply a kingress option.
         ko resolve -f third_party/kourier-latest | \
           sed 's/LoadBalancer/NodePort/g' | \
-          sed 's/imagePullPolicy:/# DISABLED: imagePullPolicy:/g' | \
           kubectl apply -f -
 
         # This tells the tests what namespace to look in for our kingress LB.
@@ -245,8 +244,7 @@ jobs:
         source test/e2e-networking-library.sh
 
         PATCHED_YAML=$(mktemp)
-        ko resolve -f third_party/net-istio.yaml | \
-          sed 's/imagePullPolicy:/# DISABLED: imagePullPolicy:/g' > $PATCHED_YAML
+        ko resolve -f third_party/net-istio.yaml > $PATCHED_YAML
 
         # TODO: figure out how to use e2e-common.sh directly even if no
         # custom namespace is used here.
