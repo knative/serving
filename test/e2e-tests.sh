@@ -90,11 +90,17 @@ sleep 30
 
 # Run conformance and e2e tests.
 
+# Currently only Istio and Contour implement the alpha features.
+alpha=""
+if [[ -z "${INGRESS_CLASS}" || "${INGRESS_CLASS}" == "istio.ingress.networking.knative.dev" || "${INGRESS_CLASS}" == "contour.ingress.networking.knative.dev" ]]; then
+  alpha="--enable-alpha"
+fi
+
 go_test_e2e -timeout=30m \
  ./test/conformance/api/... ./test/conformance/runtime/... \
  ./test/e2e \
   ${parallelism} \
-  --enable-alpha \
+  ${alpha} \
   --enable-beta \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
