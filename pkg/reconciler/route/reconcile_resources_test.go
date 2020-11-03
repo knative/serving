@@ -256,6 +256,6 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 }
 
 func getContext() context.Context {
-	cfg := ReconcilerTestConfig(false)
+	cfg := reconcilerTestConfig(false)
 	return config.ToContext(context.Background(), cfg)
 }

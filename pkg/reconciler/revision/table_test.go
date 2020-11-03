@@ -646,7 +646,7 @@ func TestReconcile(t *testing.T) {
 			listers.GetRevisionLister(), controller.GetEventRecorder(ctx), r,
 			controller.Options{
 				ConfigStore: &testConfigStore{
-					config: ReconcilerTestConfig(),
+					config: reconcilerTestConfig(),
 				},
 			})
 	}))
@@ -727,7 +727,7 @@ type configOption func(*config.Config)
 
 func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.Deployment {
 	t.Helper()
-	cfg := ReconcilerTestConfig()
+	cfg := reconcilerTestConfig()
 
 	for _, opt := range opts {
 		if configOpt, ok := opt.(configOption); ok {
@@ -754,7 +754,7 @@ func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.D
 }
 
 func image(namespace, name string, co ...configOption) *caching.Image {
-	config := ReconcilerTestConfig()
+	config := reconcilerTestConfig()
 	for _, opt := range co {
 		opt(config)
 	}
@@ -800,13 +800,12 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 
 var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
-func ReconcilerTestConfig() *config.Config {
+func reconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Config: &defaultconfig.Config{
 			Defaults: &defaultconfig.Defaults{},
 			Autoscaler: &autoscalerconfig.Config{
-				InitialScale:          1,
-				AllowZeroInitialScale: false,
+				InitialScale: 1,
 			},
 		},
 		Deployment: testDeploymentConfig(),

@@ -1710,7 +1710,7 @@ func TestReconcile(t *testing.T) {
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(false)}})
+			controller.Options{ConfigStore: &testConfigStore{config: reconcilerTestConfig(false)}})
 	}))
 }
 
@@ -1816,7 +1816,7 @@ func TestReconcileResponsiveGC(t *testing.T) {
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(false)}})
+			controller.Options{ConfigStore: &testConfigStore{config: reconcilerTestConfig(false)}})
 	}))
 }
 
@@ -2369,7 +2369,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(true)}})
+			controller.Options{ConfigStore: &testConfigStore{config: reconcilerTestConfig(true)}})
 	}))
 }
 
@@ -2469,7 +2469,7 @@ func TestReconcileEnableAutoTLSHTTPDisabled(t *testing.T) {
 		Key: "default/becomes-ready",
 	}}
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		cfg := ReconcilerTestConfig(true)
+		cfg := reconcilerTestConfig(true)
 		cfg.Network.HTTPProtocol = network.HTTPDisabled
 		r := &Reconciler{
 			kubeclient:          kubeclient.Get(ctx),
@@ -2529,7 +2529,7 @@ func simplePlaceholderK8sService(ctx context.Context, r *v1.Route, targetName st
 
 func simpleK8sService(r *v1.Route, so ...K8sServiceOption) *corev1.Service {
 	cs := &testConfigStore{
-		config: ReconcilerTestConfig(false),
+		config: reconcilerTestConfig(false),
 	}
 	ctx := cs.ToContext(context.Background())
 
@@ -2659,7 +2659,7 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 
 var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
-func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
+func reconcilerTestConfig(enableAutoTLS bool) *config.Config {
 	return &config.Config{
 		Domain: &config.Domain{
 			Domains: map[string]*config.LabelSelector{
