@@ -51,5 +51,8 @@ data:
     retryPeriod: "2s"
 
     # buckets is the number of buckets used to partition key space of each
-    # Reconciler.
+    # Reconciler. If this number is M and the replica number of the controller
+    # is N, the N replicas will compete for the M buckets. The owner of a
+    # bucket will take care of the reconciling for the keys partitioned into
+    # that bucket.
     buckets: "1"
