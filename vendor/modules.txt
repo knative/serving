@@ -100,11 +100,13 @@ github.com/cespare/xxhash/v2
 ## explicit
 github.com/davecgh/go-spew/spew
 # github.com/docker/cli v0.0.0-20200210162036-a4bedce16568
+## explicit
 github.com/docker/cli/cli/config
 github.com/docker/cli/cli/config/configfile
 github.com/docker/cli/cli/config/credentials
 github.com/docker/cli/cli/config/types
 # github.com/docker/docker v1.13.1
+## explicit
 github.com/docker/docker/pkg/homedir
 # github.com/docker/docker-credential-helpers v0.6.3
 github.com/docker/docker-credential-helpers/client
@@ -242,6 +244,7 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
 # github.com/opencontainers/runc v0.1.1
+## explicit
 github.com/opencontainers/runc/libcontainer/user
 # github.com/openzipkin/zipkin-go v0.2.5
 github.com/openzipkin/zipkin-go
@@ -950,7 +953,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20201029165635-7983fcd03d68
+# knative.dev/caching v0.0.0-20201103013104-4c21374dc777
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -971,10 +974,10 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20201102193445-9349aeeb6701
+# knative.dev/hack v0.0.0-20201103151104-3d5abc3a0075
 ## explicit
 knative.dev/hack
-# knative.dev/networking v0.0.0-20201101040934-f77f64474b76
+# knative.dev/networking v0.0.0-20201103013404-f79e1df6f035
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1007,7 +1010,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20201102194004-c6a8219d518d
+# knative.dev/pkg v0.0.0-20201103150904-7f1970af5b6f
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate

@@ -518,11 +518,13 @@ function go_update_deps() {
 
   local UPGRADE=0
   local VERSION="master"
+  local DOMAIN="knative.dev"
   while [[ $# -ne 0 ]]; do
     parameter=$1
     case ${parameter} in
       --upgrade) UPGRADE=1 ;;
       --release) shift; VERSION="$1" ;;
+      --domain) shift; DOMAIN="$1" ;;
       *) abort "unknown option ${parameter}" ;;
     esac
     shift
@@ -540,7 +542,7 @@ function go_update_deps() {
     else
       echo "Respecting 'GOPROXY=${GOPROXY}'."
     fi
-    FLOATING_DEPS+=( $(run_go_tool knative.dev/test-infra/buoy buoy float ${REPO_ROOT_DIR}/go.mod --release ${VERSION} --domain knative.dev) )
+    FLOATING_DEPS+=( $(run_go_tool knative.dev/test-infra/buoy buoy float ${REPO_ROOT_DIR}/go.mod --release ${VERSION} --domain ${DOMAIN}) )
     if [[ ${#FLOATING_DEPS[@]} > 0 ]]; then
       echo "Floating deps to ${FLOATING_DEPS[@]}"
       go get -d ${FLOATING_DEPS[@]}
