@@ -4,6 +4,8 @@ go 1.14
 
 require (
 	github.com/davecgh/go-spew v1.1.1
+	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
+	github.com/docker/docker v1.13.1 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.2+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.1
@@ -14,6 +16,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/prometheus/client_golang v1.8.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/tsenart/vegeta/v12 v12.8.4
@@ -32,10 +35,10 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20201029165635-7983fcd03d68
-	knative.dev/hack v0.0.0-20201102193445-9349aeeb6701
-	knative.dev/networking v0.0.0-20201101040934-f77f64474b76
-	knative.dev/pkg v0.0.0-20201102194004-c6a8219d518d
+	knative.dev/caching v0.0.0-20201103013104-4c21374dc777
+	knative.dev/hack v0.0.0-20201103151104-3d5abc3a0075
+	knative.dev/networking v0.0.0-20201103013404-f79e1df6f035
+	knative.dev/pkg v0.0.0-20201103150904-7f1970af5b6f
 )
 
 replace (
