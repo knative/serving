@@ -131,14 +131,13 @@ go_test_e2e -timeout=2m ./test/e2e/gc || failed=1
 kubectl patch cm "config-gc" -n ${SYSTEM_NAMESPACE} -p ${GC_CONFIG}
 toggle_feature responsive-revision-gc Disabled
 
-disable_chaosduck
-
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
 # sub-test.  If this is not larger than the maximum scale tested then the test
 # simply cannot pass.
 go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
 
+disable_chaosduck
 # Run HA tests separately as they're stopping core Knative Serving pods
 # Define short -spoofinterval to ensure frequent probing while stopping pods
 go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
