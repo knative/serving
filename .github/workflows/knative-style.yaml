@@ -241,7 +241,7 @@ jobs:
               fi
 
               # Trim spaces.
-              ch=$(echo $ch | xargs)  
+              ch=$(echo $ch | xargs)
               echo "$file:$line: Please consider avoiding tail format like this:%0A- $ch%0A+ $err"
           done |
           reviewdog -efm="%f:%l: %m" \
