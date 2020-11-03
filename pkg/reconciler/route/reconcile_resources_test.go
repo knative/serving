@@ -331,6 +331,6 @@ func newCerts(dnsNames []string, r *v1.Route) *netv1alpha1.Certificate {
 }
 
 func getContext() context.Context {
-	cfg := ReconcilerTestConfig(false)
+	cfg := reconcilerTestConfig(false)
 	return config.ToContext(context.Background(), cfg)
 }
