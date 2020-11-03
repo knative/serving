@@ -1938,6 +1938,8 @@ knative.dev/eventing-contrib v0.6.1-0.20190723221543-5ce18048c08b/go.mod h1:SnXZ
 knative.dev/eventing-contrib v0.11.2/go.mod h1:SnXZgSGgMSMLNFTwTnpaOH7hXDzTFtw0J8OmHflNx3g=
 knative.dev/hack v0.0.0-20201028205534-fe80f1c8af68 h1:ygwpOK8B0PXurq88GHhym2uxKiiMJ+bRFwFeZHqGJNc=
 knative.dev/hack v0.0.0-20201028205534-fe80f1c8af68/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
+knative.dev/hack v0.0.0-20201102193445-9349aeeb6701 h1:at6mUfi8gHWlBRd/qNM66JvUQ4C964cOpsy9hzac+7c=
+knative.dev/hack v0.0.0-20201102193445-9349aeeb6701/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
 knative.dev/networking v0.0.0-20201101040934-f77f64474b76 h1:ZegSP/ZlnZCzzn4z/h85N4TVnM8baImsQv6JXpdJubI=
 knative.dev/networking v0.0.0-20201101040934-f77f64474b76/go.mod h1:MogwjngWMF4suyf8htoTj53UpY3CXNKn1pTpyeBtu2I=
 knative.dev/pkg v0.0.0-20191101194912-56c2594e4f11/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
@@ -1950,8 +1952,8 @@ knative.dev/pkg v0.0.0-20200528142800-1c6815d7e4c9/go.mod h1:QgNZTxnwpB/oSpNcfnL
 knative.dev/pkg v0.0.0-20200711004937-22502028e31a/go.mod h1:AqAJV6rYi8IGikDjJ/9ZQd9qKdkXVlesVnVjwx62YB8=
 knative.dev/pkg v0.0.0-20201029122234-6d905b3f84a6 h1:J7VRiR73Mnc7UeiPo0mCPBIZVYcBBKZO+wPqFc8nlrM=
 knative.dev/pkg v0.0.0-20201029122234-6d905b3f84a6/go.mod h1:G805KH4tlnB6CIVHWIpE82pjx3/+2r9gUqNSOa78tns=
-knative.dev/pkg v0.0.0-20201030200734-72451e0d5973 h1:58ogeuVFlGof8S5YoRE7HUaAQz3gn8a1ZAJjfkn+1OA=
-knative.dev/pkg v0.0.0-20201030200734-72451e0d5973/go.mod h1:G805KH4tlnB6CIVHWIpE82pjx3/+2r9gUqNSOa78tns=
+knative.dev/pkg v0.0.0-20201102194004-c6a8219d518d h1:JrOfK/tIUnXfMNaNHAkfNswIVQ//OkbO1FMly+nQ9t8=
+knative.dev/pkg v0.0.0-20201102194004-c6a8219d518d/go.mod h1:0/9g74jUIRReXdgCBFs85jHU3Ffyl1Fc9jxrllXYDVM=
 knative.dev/test-infra v0.0.0-20200407185800-1b88cb3b45a5/go.mod h1:xcdUkMJrLlBswIZqL5zCuBFOC22WIPMQoVX1L35i0vQ=
 knative.dev/test-infra v0.0.0-20200505052144-5ea2f705bb55/go.mod h1:WqF1Azka+FxPZ20keR2zCNtiQA1MP9ZB4BH4HuI+SIU=
 knative.dev/test-infra v0.0.0-20200513011557-d03429a76034/go.mod h1:aMif0KXL4g19YCYwsy4Ocjjz5xgPlseYV+B95Oo4JGE=

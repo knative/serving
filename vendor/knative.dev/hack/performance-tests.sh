@@ -109,7 +109,7 @@ function update_clusters() {
 # Run the perf-tests tool
 # Parameters: $1..$n - parameters passed to the tool
 function run_perf_cluster_tool() {
-  go run "${REPO_ROOT_DIR}"/vendor/knative.dev/pkg/testutils/clustermanager/perf-tests $@
+  perf-tests $@
 }
 
 # Delete the old clusters belonged to the current repo, and recreate them with the same configuration.

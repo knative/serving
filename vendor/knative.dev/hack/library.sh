@@ -512,6 +512,7 @@ function go_update_deps() {
 
   export GO111MODULE=on
   export GOFLAGS=""
+  export GOSUMDB=off   # Do not use the sum.golang.org service.
 
   echo "=== Update Deps for Golang"
 
