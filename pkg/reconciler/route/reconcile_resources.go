@@ -162,11 +162,10 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 
 			// Make sure that the service has the proper specification.
 			if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {
-				// Don't modify the informers copy
+				// Don't modify the informers copy.
 				existing := service.DeepCopy()
 				existing.Spec = desiredService.Spec
-				_, err = c.kubeclient.CoreV1().Services(ns).Update(ctx, existing, metav1.UpdateOptions{})
-				if err != nil {
+				if _, err := c.kubeclient.CoreV1().Services(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 			}
@@ -207,11 +206,9 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 					if errors.As(err, &errLastPinned) && errLastPinned.Type != v1.AnnotationParseErrorTypeMissing {
 						return err
 					}
-				} else {
+				} else if lastPin.Add(lpDebounce).After(c.clock.Now()) {
 					// Enforce a delay before performing an update on lastPinned to avoid excess churn.
-					if lastPin.Add(lpDebounce).After(c.clock.Now()) {
-						return nil
-					}
+					return nil
 				}
 
 				newRev.SetLastPinned(c.clock.Now())
@@ -229,40 +226,4 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 		}
 	}
 	return eg.Wait()
-}
-
-func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1.Route, desiredCert *netv1alpha1.Certificate) error {
-	recorder := controller.GetEventRecorder(ctx)
-
-	cert, err := c.certificateLister.Certificates(desiredCert.Namespace).Get(desiredCert.Name)
-	if apierrs.IsNotFound(err) {
-		cert, err = c.netclient.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(ctx, desiredCert, metav1.CreateOptions{})
-		if err != nil {
-			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Certificate: %v", err)
-			return fmt.Errorf("failed to create Certificate: %w", err)
-		}
-		recorder.Eventf(r, corev1.EventTypeNormal, "Created",
-			"Created Certificate %s/%s", cert.Namespace, cert.Name)
-		return nil
-	} else if err != nil {
-		return err
-	} else if !metav1.IsControlledBy(cert, r) {
-		// Surface an error in the route's status, and return an error.
-		r.Status.MarkCertificateNotOwned(cert.Name)
-		return fmt.Errorf("route: %s does not own certificate: %s", r.Name, cert.Name)
-	} else if !equality.Semantic.DeepEqual(cert.Spec, desiredCert.Spec) {
-		// Don't modify the informers copy
-		existing := cert.DeepCopy()
-		existing.Spec = desiredCert.Spec
-		_, err := c.netclient.NetworkingV1alpha1().Certificates(existing.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
-		if err != nil {
-			recorder.Eventf(r, corev1.EventTypeWarning, "UpdateFailed",
-				"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)
-			return err
-		}
-		recorder.Eventf(existing, corev1.EventTypeNormal, "Updated",
-			"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
-		return nil
-	}
-	return nil
 }
