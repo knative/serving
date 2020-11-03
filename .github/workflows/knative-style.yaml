@@ -239,6 +239,9 @@ jobs:
               elif echo $ch | grep --quiet -E "fmt\." ; then  # all other fmt. printers.
                 err=$(echo $ch | sed -E 's/(fmt\.)(Print|Fprint)f([^%]+) (%[^sTxq]",)([^,]+)/\1\2\3",\5/')
               fi
+
+              # Trim spaces.
+              ch=$(echo $ch | xargs)  
               echo "$file:$line: Please consider avoiding tail format like this:%0A- $ch%0A+ $err"
           done |
           reviewdog -efm="%f:%l: %m" \
