@@ -394,6 +394,67 @@ func TestRouteValidation(t *testing.T) {
 			},
 		},
 	}, {
+		name: "invalid URL in status.traffic.url",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					Tag:          "bar",
+					RevisionName: "foo",
+					Percent:      ptr.Int64(100),
+				}},
+			},
+			Status: RouteStatus{
+				RouteStatusFields: RouteStatusFields{
+					Traffic: []TrafficTarget{{
+						Tag:          "foo",
+						RevisionName: "bar",
+						Percent:      ptr.Int64(100),
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "invalid.Domain",
+						},
+					}},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "url \"http://invalid.Domain\" is invalid: url: Invalid value: \"invalid.Domain\": a DNS-1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')",
+			Paths: []string{
+				"status.traffic.url",
+			},
+		},
+	}, {
+		name: "invalid URL in status.url",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					Tag:          "bar",
+					RevisionName: "foo",
+					Percent:      ptr.Int64(100),
+				}},
+			},
+			Status: RouteStatus{
+				RouteStatusFields: RouteStatusFields{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "invalid.Domain",
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "url \"http://invalid.Domain\" is invalid: url: Invalid value: \"invalid.Domain\": a DNS-1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')",
+			Paths: []string{
+				"status.url",
+			},
+		},
+	}, {
 		name: "invalid traffic entry (missing oneof)",
 		r: &Route{
 			ObjectMeta: metav1.ObjectMeta{
