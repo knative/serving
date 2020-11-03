@@ -22,7 +22,7 @@ metadata:
   annotations:
     knative.dev/example-checksum: "96896b00"
 data:
-  _example: |-
+  _example: |
     ################################
     #                              #
     #    EXAMPLE CONFIGURATION     #
