@@ -60,7 +60,7 @@ function install_istio() {
     echo "net-istio original YAML: ${1}"
     # Create temp copy in which we replace knative-serving by the test's system namespace.
     local YAML_NAME=$(mktemp -p $TMP_DIR --suffix=.$(basename "$1"))
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
+    sed "s/namespace: \"*${KNATIVE_DEFAULT_NAMESPACE}\"*/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
     echo "net-istio patched YAML: $YAML_NAME"
     ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider=istio || return 1
     UNINSTALL_LIST+=( "${YAML_NAME}" )
