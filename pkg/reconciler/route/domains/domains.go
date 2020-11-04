@@ -100,8 +100,8 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 	}
 
 	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
-	for _, err := range urlErrs {
-		return "", fmt.Errorf("invalid domain name %q: %w", buf.String, err)
+	if urlErrs != nil {
+		return "", fmt.Errorf("invalid domain name %q: %w", buf.String(), urlErrs.ToAggregate())
 	}
 
 	return buf.String(), nil
@@ -125,11 +125,6 @@ func HostnameFromTemplate(ctx context.Context, name, tag string) (string, error)
 	buf := bytes.Buffer{}
 	if err := networkConfig.GetTagTemplate().Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("error executing the TagTemplate: %w", err)
-	}
-
-	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
-	for _, err := range urlErrs {
-		return "", fmt.Errorf("invalid domain name %q: %w", buf.String, err)
 	}
 
 	return buf.String(), nil
