@@ -50,8 +50,6 @@ parallelism=""
 use_https=""
 if (( MESH )); then
   parallelism="-parallel 1"
-  # This is a workaround until Istio fixes https://github.com/istio/istio/issues/23485.
-  kubectl patch mutatingwebhookconfigurations istio-sidecar-injector -p '{"webhooks": [{"name": "sidecar-injector.istio.io", "sideEffects": "None"}]}'
 fi
 
 if (( HTTPS )); then
