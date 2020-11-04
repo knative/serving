@@ -48,7 +48,7 @@ function update_knative() {
 
   # Create the ${SYSTEM_NAMESPACE} is it does not exist.
   kubectl get ns "${SYSTEM_NAMESPACE}" || kubectl create namespace "${SYSTEM_NAMESPACE}"
-  install_istio "./third_party/net-istio.yaml" || abort "Failed to install Istio"
+  install_istio "./third_party/istio-latest/net-istio.yaml" || abort "Failed to install Istio"
 
   # Overprovision the Istio gateways and pilot.
   kubectl patch hpa -n istio-system istio-ingressgateway \
