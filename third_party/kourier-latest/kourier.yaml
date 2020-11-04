@@ -1,31 +1,186 @@
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 apiVersion: v1
 kind: Namespace
 metadata:
   name: kourier-system
   labels:
     networking.knative.dev/ingress-provider: kourier
+
+---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: 3scale-kourier
+  namespace: knative-serving
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: 3scale-kourier
+  namespace: knative-serving
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods", "endpoints", "namespaces", "services", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "update", "create"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
+  - apiGroups: ["networking.internal.knative.dev"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: ["networking.internal.knative.dev"]
+    resources: ["ingresses/status"]
+    verbs: ["update"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: 3scale-kourier
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: 3scale-kourier
+subjects:
+  - kind: ServiceAccount
+    name: 3scale-kourier
+    namespace: knative-serving
+
+---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 3scale-kourier-control
+  namespace: knative-serving
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: 3scale-kourier-control
+  template:
+    metadata:
+      labels:
+        app: 3scale-kourier-control
+    spec:
+      containers:
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:c289ac43cd97a1c4dd0eed0a7aca46586d3f545d936f2bde4c8eb927abdfc750
+          name: kourier-control
+          env:
+            - name: CERTS_SECRET_NAMESPACE
+              value: ""
+            - name: CERTS_SECRET_NAME
+              value: ""
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: METRICS_DOMAIN
+              value: "knative.dev/samples"
+            - name: KOURIER_GATEWAY_NAMESPACE
+              value: "kourier-system"
+          ports:
+            - name: http2-xds
+              containerPort: 18000
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
+      restartPolicy: Always
+      serviceAccountName: 3scale-kourier
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: kourier
-  namespace: kourier-system
+  name: kourier-control
+  namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
 spec:
   ports:
-    - name: http2
-      port: 80
+    - name: grpc-xds
+      port: 18000
       protocol: TCP
-      targetPort: 8080
-    - name: https
-      port: 443
-      protocol: TCP
-      targetPort: 8443
+      targetPort: 18000
   selector:
-    app: 3scale-kourier-gateway
-  type: LoadBalancer
+    app: 3scale-kourier-control
+  type: ClusterIP
+
 ---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -91,105 +246,26 @@ spec:
             name: kourier-bootstrap
       restartPolicy: Always
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Service
 metadata:
-  name: 3scale-kourier-control
-  namespace: knative-serving
+  name: kourier
+  namespace: kourier-system
   labels:
     networking.knative.dev/ingress-provider: kourier
 spec:
-  replicas: 1
+  ports:
+    - name: http2
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 8443
   selector:
-    matchLabels:
-      app: 3scale-kourier-control
-  template:
-    metadata:
-      labels:
-        app: 3scale-kourier-control
-    spec:
-      containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:f5c21531acb30a445f0a3b1d13f1636abc30145623a008ad78e82a0bcba2621d
-          name: kourier-control
-          env:
-            - name: CERTS_SECRET_NAMESPACE
-              value: ""
-            - name: CERTS_SECRET_NAME
-              value: ""
-            - name: SYSTEM_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: METRICS_DOMAIN
-              value: "knative.dev/samples"
-            - name: KOURIER_GATEWAY_NAMESPACE
-              value: "kourier-system"
-          ports:
-            - name: http2-xds
-              containerPort: 18000
-              protocol: TCP
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            capabilities:
-              drop:
-                - all
-      restartPolicy: Always
-      serviceAccountName: 3scale-kourier
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: 3scale-kourier
-  namespace: knative-serving
-  labels:
-    networking.knative.dev/ingress-provider: kourier
-rules:
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["create", "update", "patch"]
-  - apiGroups: [""]
-    resources: ["pods", "endpoints", "namespaces", "services", "secrets"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["get", "list", "watch", "update", "create"]
-  - apiGroups: ["coordination.k8s.io"]
-    resources: ["leases"]
-    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
-  - apiGroups: ["networking.internal.knative.dev"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch", "patch"]
-  - apiGroups: ["networking.internal.knative.dev"]
-    resources: ["ingresses/status"]
-    verbs: ["update"]
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
-    verbs: ["get", "list", "watch"]
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: 3scale-kourier
-  namespace: knative-serving
-  labels:
-    networking.knative.dev/ingress-provider: kourier
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: 3scale-kourier
-  labels:
-    networking.knative.dev/ingress-provider: kourier
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: 3scale-kourier
-subjects:
-  - kind: ServiceAccount
-    name: 3scale-kourier
-    namespace: knative-serving
+    app: 3scale-kourier-gateway
+  type: LoadBalancer
 ---
 apiVersion: v1
 kind: Service
@@ -206,23 +282,6 @@ spec:
       targetPort: 8081
   selector:
     app: 3scale-kourier-gateway
-  type: ClusterIP
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kourier-control
-  namespace: knative-serving
-  labels:
-    networking.knative.dev/ingress-provider: kourier
-spec:
-  ports:
-    - name: grpc-xds
-      port: 18000
-      protocol: TCP
-      targetPort: 18000
-  selector:
-    app: 3scale-kourier-control
   type: ClusterIP
 ---
 apiVersion: v1
