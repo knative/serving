@@ -238,7 +238,7 @@ function install_knative_serving_standard() {
     install_kong || return 1
   else
     if [[ "$1" == "HEAD" ]]; then
-      install_istio "./third_party/net-istio.yaml" || return 1
+      install_istio "./third_party/istio-latest/net-istio.yaml" || return 1
     else
       # Download the latest release of net-istio.
       local url="https://github.com/knative/net-istio/releases/download/${LATEST_NET_ISTIO_RELEASE_VERSION}"
