@@ -23,6 +23,9 @@ import (
 	"strings"
 	"text/template"
 
+	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	network "knative.dev/networking/pkg"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -95,6 +98,12 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 	if err := templ.Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("error executing the DomainTemplate: %w", err)
 	}
+
+	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
+	for _, err := range urlErrs {
+		return "", fmt.Errorf("invalid domain name %q: %w", buf.String, err)
+	}
+
 	return buf.String(), nil
 }
 
@@ -117,6 +126,12 @@ func HostnameFromTemplate(ctx context.Context, name, tag string) (string, error)
 	if err := networkConfig.GetTagTemplate().Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("error executing the TagTemplate: %w", err)
 	}
+
+	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
+	for _, err := range urlErrs {
+		return "", fmt.Errorf("invalid domain name %q: %w", buf.String, err)
+	}
+
 	return buf.String(), nil
 }
 
