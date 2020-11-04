@@ -23,10 +23,9 @@ import (
 	"strings"
 	"text/template"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	network "knative.dev/networking/pkg"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
@@ -126,7 +125,6 @@ func HostnameFromTemplate(ctx context.Context, name, tag string) (string, error)
 	if err := networkConfig.GetTagTemplate().Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("error executing the TagTemplate: %w", err)
 	}
-
 	return buf.String(), nil
 }
 
