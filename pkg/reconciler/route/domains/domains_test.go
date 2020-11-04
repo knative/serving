@@ -228,12 +228,12 @@ func TestGetAllDomainsAndTags(t *testing.T) {
 			"myroute.default.example.com":              "",
 		},
 	}, {
-		name:           "bad template in domain",
+		name:           "bad template in domain template",
 		domainTemplate: "{{.NNName}}.{{.Namespace}}.{{.Domain}}",
 		tagTemplate:    "{{.Name}}-{{.Tag}}",
 		wantErr:        true,
 	}, {
-		name:           "bad template in template",
+		name:           "bad template in tag template",
 		domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 		tagTemplate:    "{{.NNName}}-{{.Tag}}",
 		wantErr:        true,
