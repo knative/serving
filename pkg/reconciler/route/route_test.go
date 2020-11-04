@@ -1562,10 +1562,10 @@ func TestRouteDomain(t *testing.T) {
 		Pass:     true,
 		Expected: "myapp.example.com",
 	}, {
-		Name:     "SuperShort",
+		Name:     "Too short", // domain must be at least two segments separated by dots.
 		Template: "{{.Name}}",
-		Pass:     true,
-		Expected: "myapp",
+		Pass:     false,
+		Expected: "",
 	}, {
 		Name:     "Annotations",
 		Template: `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
