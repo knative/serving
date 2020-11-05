@@ -81,6 +81,8 @@ func TestAutoscalerScaleDownDelay(t *testing.T) {
 	as := New(TestContextWithLogger(t), testNamespace, testRevision, metrics, pc, spec)
 
 	now := time.Time{}
+	err := errors.New("wtf")
+	t.Errorf("This is a test: %v", err)
 
 	t.Run("simple", func(t *testing.T) {
 		// scale up.
