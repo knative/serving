@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	clientgotesting "k8s.io/client-go/testing"
 
 	network "knative.dev/networking/pkg"
@@ -33,7 +34,6 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	pkgnetwork "knative.dev/pkg/network"
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -76,11 +76,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
 		WantCreates: []runtime.Object{
-			&netv1alpha1.ClusterDomainClaim{ObjectMeta: metav1.ObjectMeta{Name: "first-reconcile.com",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
-					domainMapping("default", "first-reconcile.com", withRef("default", "target")),
-				)},
-			}},
+			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-ingress-class"),
 		},
 		WantEvents: []string{
@@ -90,15 +86,8 @@ func TestReconcile(t *testing.T) {
 		Name: "first reconcile, pre-owned domain claim",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
-			&netv1alpha1.ClusterDomainClaim{ObjectMeta: metav1.ObjectMeta{
-				Name: "first-reconcile.com",
-				OwnerReferences: []metav1.OwnerReference{
-					*kmeta.NewControllerRef(
-						domainMapping("default", "first-reconcile.com", withRef("default", "target")),
-					),
-				},
-			}},
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
+			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "first-reconcile.com",
@@ -137,11 +126,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantCreates: []runtime.Object{
 			// this is the clusterdomainclaim create that we induce failure on.
-			&netv1alpha1.ClusterDomainClaim{ObjectMeta: metav1.ObjectMeta{Name: "first-reconcile.com",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
-					domainMapping("default", "first-reconcile.com", withRef("default", "target")),
-				)},
-			}},
+			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `failed to create ClusterDomainClaim: inducing failure for create clusterdomainclaims`),
@@ -150,8 +135,12 @@ func TestReconcile(t *testing.T) {
 		Name: "first reconcile, non-owned domainclaim",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
-			&netv1alpha1.ClusterDomainClaim{ObjectMeta: metav1.ObjectMeta{Name: "first-reconcile.com"}},
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
+			resources.MakeDomainClaim(
+				domainMapping("default", "first-reconcile.com", withRef("default", "target"),
+					withUID("some-other-uid"),
+				),
+			),
 		},
 		WantErr: true,
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -192,11 +181,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
 		WantCreates: []runtime.Object{
-			&netv1alpha1.ClusterDomainClaim{ObjectMeta: metav1.ObjectMeta{Name: "ingressclass.first-reconcile.com",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
-					domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target")),
-				)},
-			}},
+			resources.MakeDomainClaim(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"))),
 			resources.MakeIngress(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target")),
 				"overridden-ingress-class"),
 		},
@@ -209,11 +194,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			domainMapping("default", "ingress-exists.org", withRef("default", "changed")),
 			resources.MakeIngress(domainMapping("default", "ingress-exists.org", withRef("default", "target")), "the-ingress-class"),
-			&netv1alpha1.ClusterDomainClaim{ObjectMeta: metav1.ObjectMeta{Name: "ingress-exists.org",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
-					domainMapping("default", "ingress-exists.org", withRef("default", "target")),
-				)},
-			}},
+			resources.MakeDomainClaim(domainMapping("default", "ingress-exists.org", withRef("default", "target"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "ingress-exists.org",
@@ -241,11 +222,7 @@ func TestReconcile(t *testing.T) {
 			ingress(domainMapping("default", "ingress-failed.me", withRef("default", "failed")), "the-ingress-class",
 				WithLoadbalancerFailed("fell over", "hurt myself"),
 			),
-			&netv1alpha1.ClusterDomainClaim{ObjectMeta: metav1.ObjectMeta{Name: "ingress-failed.me",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
-					domainMapping("default", "ingress-failed.me", withRef("default", "target")),
-				)},
-			}},
+			resources.MakeDomainClaim(domainMapping("default", "ingress-failed.me", withRef("default", "target"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "ingress-failed.me",
@@ -269,11 +246,7 @@ func TestReconcile(t *testing.T) {
 			ingress(domainMapping("default", "ingress-unknown.me", withRef("default", "unknown")), "the-ingress-class",
 				withIngressNotReady,
 			),
-			&netv1alpha1.ClusterDomainClaim{ObjectMeta: metav1.ObjectMeta{Name: "ingress-unknown.me",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
-					domainMapping("default", "ingress-unknown.me", withRef("default", "target")),
-				)},
-			}},
+			resources.MakeDomainClaim(domainMapping("default", "ingress-unknown.me", withRef("default", "target"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "ingress-unknown.me",
@@ -297,11 +270,7 @@ func TestReconcile(t *testing.T) {
 			ingress(domainMapping("default", "ingress-ready.me", withRef("default", "ready")), "the-ingress-class",
 				withIngressReady,
 			),
-			&netv1alpha1.ClusterDomainClaim{ObjectMeta: metav1.ObjectMeta{Name: "ingress-ready.me",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
-					domainMapping("default", "ingress-ready.me", withRef("default", "target")),
-				)},
-			}},
+			resources.MakeDomainClaim(domainMapping("default", "ingress-ready.me", withRef("default", "target"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "ingress-ready.me",
@@ -328,11 +297,7 @@ func TestReconcile(t *testing.T) {
 				withDomainClaimed,
 				withGeneration(1),
 			),
-			&netv1alpha1.ClusterDomainClaim{ObjectMeta: metav1.ObjectMeta{Name: "cantcreate.this",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
-					domainMapping("default", "cantcreate.this", withRef("default", "target")),
-				)},
-			}},
+			resources.MakeDomainClaim(domainMapping("default", "cantcreate.this", withRef("default", "target"))),
 		},
 		WantErr: true,
 		WantCreates: []runtime.Object{
@@ -371,11 +336,7 @@ func TestReconcile(t *testing.T) {
 				withGeneration(1),
 			),
 			ingress(domainMapping("default", "cantupdate.this", withRef("default", "previous-value")), "the-ingress-class"),
-			&netv1alpha1.ClusterDomainClaim{ObjectMeta: metav1.ObjectMeta{Name: "cantupdate.this",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
-					domainMapping("default", "cantupdate.this", withRef("default", "target")),
-				)},
-			}},
+			resources.MakeDomainClaim(domainMapping("default", "cantupdate.this", withRef("default", "target"))),
 		},
 		WantErr: true,
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -436,6 +397,12 @@ func domainMapping(namespace, name string, opt ...domainMappingOption) *v1alpha1
 func withAnnotations(ans map[string]string) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Annotations = ans
+	}
+}
+
+func withUID(uid types.UID) domainMappingOption {
+	return func(dm *v1alpha1.DomainMapping) {
+		dm.UID = uid
 	}
 }
 

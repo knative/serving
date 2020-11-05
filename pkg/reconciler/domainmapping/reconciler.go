@@ -32,7 +32,6 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -132,12 +131,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMa
 func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
 	dc, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Get(ctx, dm.Name, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) {
-		if dc, err = r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, &netv1alpha1.ClusterDomainClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            dm.Name,
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(dm)},
-			},
-		}, metav1.CreateOptions{}); err != nil {
+		if dc, err = r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, resources.MakeDomainClaim(dm), metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create ClusterDomainClaim: %w", err)
 		}
 	} else if err != nil {
