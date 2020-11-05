@@ -54,8 +54,6 @@ fi
 
 if (( HTTPS )); then
   use_https="--https"
-  # TODO: parallel 1 is necessary until https://github.com/knative/serving/issues/7406 is solved.
-  parallelism="-parallel 1"
   toggle_feature autoTLS Enabled config-network
   kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
