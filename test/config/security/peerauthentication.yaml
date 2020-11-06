@@ -43,4 +43,4 @@ metadata:
     test.knative.dev/dependency: istio-sidecar
 spec:
   mtls:
-    mode: PERMISSIVE
+    mode: STRICT
