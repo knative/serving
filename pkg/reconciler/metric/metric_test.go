@@ -211,14 +211,14 @@ func TestReconcileWithCollector(t *testing.T) {
 
 	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(ctx, m, metav1.CreateOptions{})
 
-	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		return collector.createOrUpdateCalls.Load() > 0, nil
 	}); err != nil {
 		t.Fatal("CreateOrUpdate() called 0 times, want non-zero times")
 	}
 
 	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Delete(ctx, m.Name, metav1.DeleteOptions{})
-	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		return collector.deleteCalls.Load() > 0, nil
 	}); err != nil {
 		t.Fatal("Delete() called 0 times, want non-zero times")
