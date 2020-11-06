@@ -201,7 +201,7 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 	t.Log("Creating a new Route and Configuration")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{autoscaleTestImageName},
+		Image:   autoscaleTestImageName,
 	}
 	test.EnsureTearDown(t, clients, &names)
 	resources, err := v1test.CreateServiceReady(t, clients, &names,

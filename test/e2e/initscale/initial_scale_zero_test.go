@@ -34,7 +34,7 @@ func TestInitScaleZero(t *testing.T) {
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
 		Config: test.ObjectNameForTest(t),
-		Images: []string{"helloworld"},
+		Image:  "helloworld",
 	}
 
 	test.EnsureTearDown(t, clients, &names)

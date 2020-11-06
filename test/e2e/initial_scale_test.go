@@ -38,7 +38,7 @@ func TestInitScalePositive(t *testing.T) {
 	clients := Setup(t)
 	names := test.ResourceNames{
 		Config: test.ObjectNameForTest(t),
-		Images: []string{"helloworld"},
+		Image:  "helloworld",
 	}
 	test.EnsureTearDown(t, clients, &names)
 

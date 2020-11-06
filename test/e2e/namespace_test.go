@@ -60,7 +60,7 @@ func TestMultipleNamespace(t *testing.T) {
 
 	defaultResources := test.ResourceNames{
 		Service: serviceName,
-		Images:  []string{test.PizzaPlanet1},
+		Image:   test.PizzaPlanet1,
 	}
 	test.EnsureTearDown(t, defaultClients, &defaultResources)
 	if _, err := v1test.CreateServiceReady(t, defaultClients, &defaultResources); err != nil {
@@ -69,7 +69,7 @@ func TestMultipleNamespace(t *testing.T) {
 
 	altResources := test.ResourceNames{
 		Service: serviceName,
-		Images:  []string{test.PizzaPlanet2},
+		Image:   test.PizzaPlanet2,
 	}
 	test.EnsureTearDown(t, altClients, &altResources)
 	if _, err := v1test.CreateServiceReady(t, altClients, &altResources); err != nil {
@@ -92,7 +92,7 @@ func TestConflictingRouteService(t *testing.T) {
 	names := test.ResourceNames{
 		Service:       test.AppendRandomString("conflicting-route-service"),
 		TrafficTarget: "chips",
-		Images:        []string{test.PizzaPlanet1},
+		Image:         test.PizzaPlanet1,
 	}
 
 	// Create a service in a different namespace but route label points to a route in another namespace

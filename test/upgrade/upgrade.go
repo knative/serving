@@ -69,7 +69,7 @@ func createNewService(serviceName string, t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: serviceName,
-		Images:  []string{test.PizzaPlanet1},
+		Image:   test.PizzaPlanet1,
 	}
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names)

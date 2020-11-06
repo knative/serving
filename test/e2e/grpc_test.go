@@ -325,7 +325,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{"grpc-ping"},
+		Image:   "grpc-ping",
 	}
 
 	fopts = append(fopts, rtesting.WithNamedPort("h2c"))

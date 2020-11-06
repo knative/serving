@@ -78,7 +78,7 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 		testNames[i] = &test.ResourceNames{
 			Service: test.AppendRandomString(fmt.Sprintf("%s-%02d", serviceName, i)),
 			// The crd.go helpers will convert to the actual image path.
-			Images: []string{helloWorldImage},
+			Image: helloWorldImage,
 		}
 	}
 

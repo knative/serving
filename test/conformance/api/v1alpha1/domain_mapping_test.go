@@ -43,7 +43,7 @@ func TestDomainMapping(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{test.HelloWorld},
+		Image:   test.HelloWorld,
 	}
 
 	// Clean up on test failure or interrupt.

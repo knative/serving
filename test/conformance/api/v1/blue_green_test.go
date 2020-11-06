@@ -54,7 +54,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	// Set Service and Image for names to create the initial service
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{test.PizzaPlanet1},
+		Image:   test.PizzaPlanet1,
 	}
 
 	greenImagePath := pkgTest.ImagePath(test.PizzaPlanet2)

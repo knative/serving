@@ -49,7 +49,7 @@ func TestServiceCreateAndUpdate(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{test.PizzaPlanet1},
+		Image:   test.PizzaPlanet1,
 	}
 
 	// Clean up on test failure or interrupt
@@ -85,8 +85,8 @@ func TestServiceCreateAndUpdate(t *testing.T) {
 
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
-	names.Images = []string{test.PizzaPlanet2}
-	image2 := pkgTest.ImagePath(names.Images[0])
+	names.Image = test.PizzaPlanet2
+	image2 := pkgTest.ImagePath(names.Image)
 	if _, err := v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(image2)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
 	}
@@ -188,7 +188,7 @@ func TestServiceBYOName(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{test.PizzaPlanet1},
+		Image:   test.PizzaPlanet1,
 	}
 
 	// Clean up on test failure or interrupt
@@ -231,8 +231,8 @@ func TestServiceBYOName(t *testing.T) {
 
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
-	names.Images = []string{test.PizzaPlanet2}
-	image2 := pkgTest.ImagePath(names.Images[0])
+	names.Image = test.PizzaPlanet2
+	image2 := pkgTest.ImagePath(names.Image)
 	if _, err := v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(image2)); err == nil {
 		t.Fatalf("Patch update for Service %s didn't fail.", names.Service)
 	}
@@ -253,7 +253,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	releaseImagePath3 := pkgTest.ImagePath(test.HelloWorld)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{test.PizzaPlanet1},
+		Image:   test.PizzaPlanet1,
 	}
 	test.EnsureTearDown(t, clients, &names)
 
@@ -492,7 +492,7 @@ func TestAnnotationPropagation(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{test.PizzaPlanet1},
+		Image:   test.PizzaPlanet1,
 	}
 
 	// Clean up on test failure or interrupt
@@ -598,7 +598,7 @@ func TestServiceCreateWithMultipleContainers(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images: []string{
+		Sidecars: []string{
 			test.ServingContainer,
 			test.SidecarContainer,
 		},
@@ -607,12 +607,12 @@ func TestServiceCreateWithMultipleContainers(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureTearDown(t, clients, &names)
 	containers := []corev1.Container{{
-		Image: pkgTest.ImagePath(names.Images[0]),
+		Image: pkgTest.ImagePath(names.Sidecars[0]),
 		Ports: []corev1.ContainerPort{{
 			ContainerPort: 8881,
 		}},
 	}, {
-		Image: pkgTest.ImagePath(names.Images[1]),
+		Image: pkgTest.ImagePath(names.Sidecars[1]),
 	}}
 
 	// Setup initial Service

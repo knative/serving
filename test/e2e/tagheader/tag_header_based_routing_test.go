@@ -48,7 +48,7 @@ func TestTagHeaderBasedRouting(t *testing.T) {
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{test.PizzaPlanet1},
+		Image:   test.PizzaPlanet1,
 	}
 
 	// Setup Initial Service

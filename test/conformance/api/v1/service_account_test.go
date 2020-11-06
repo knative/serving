@@ -39,7 +39,7 @@ func TestServiceAccountValidation(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{test.PizzaPlanet1},
+		Image:   test.PizzaPlanet1,
 	}
 
 	test.EnsureTearDown(t, clients, &names)

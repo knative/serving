@@ -128,8 +128,14 @@ func validateControlPlane(t *testing.T, clients *test.Clients, names test.Resour
 			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %w", names.Revision, err)
 		}
 		for i, v := range r.Status.ContainerStatuses {
-			if validDigest, err := shared.ValidateImageDigest(t, names.Images[i], v.ImageDigest); !validDigest {
-				return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", v.ImageDigest, names.Images[i], err)
+			if names.Image != "" {
+				if validDigest, err := shared.ValidateImageDigest(t, names.Image, v.ImageDigest); !validDigest {
+					return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", v.ImageDigest, names.Image, err)
+				}
+			} else {
+				if validDigest, err := shared.ValidateImageDigest(t, names.Sidecars[i], v.ImageDigest); !validDigest {
+					return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", v.ImageDigest, names.Sidecars[i], err)
+				}
 			}
 		}
 		return true, nil

@@ -41,7 +41,7 @@ func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{test.PizzaPlanet1},
+		Image:   test.PizzaPlanet1,
 	}
 
 	// Clean up on test failure or interrupt

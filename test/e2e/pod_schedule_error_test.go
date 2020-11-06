@@ -45,12 +45,12 @@ func TestPodScheduleError(t *testing.T) {
 	)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{"helloworld"},
+		Image:   "helloworld",
 	}
 
 	test.EnsureTearDown(t, clients, &names)
 
-	t.Log("Creating a new Service", names.Images[0])
+	t.Log("Creating a new Service", names.Image)
 	resources := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU: resource.MustParse("50000m"),

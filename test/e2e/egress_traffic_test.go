@@ -40,7 +40,7 @@ func TestEgressTraffic(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{"httpproxy"},
+		Image:   "httpproxy",
 	}
 	test.EnsureTearDown(t, clients, &names)
 

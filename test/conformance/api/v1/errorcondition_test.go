@@ -52,7 +52,7 @@ func TestContainerErrorMsg(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{test.InvalidHelloWorld},
+		Image:   test.InvalidHelloWorld,
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -162,7 +162,7 @@ func TestContainerExitingMsg(t *testing.T) {
 
 			names := test.ResourceNames{
 				Config: test.ObjectNameForTest(t),
-				Images: []string{test.Failing},
+				Image:  test.Failing,
 			}
 
 			test.EnsureTearDown(t, clients, &names)

@@ -43,7 +43,7 @@ func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (tes
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{test.PizzaPlanet1},
+		Image:   test.PizzaPlanet1,
 	}
 	resources, err := v1test.CreateServiceReady(t, clients, &names, fopt...)
 	if err != nil {

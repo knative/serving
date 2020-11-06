@@ -37,7 +37,7 @@ func fetchRuntimeInfo(
 	clients *test.Clients,
 	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
 
-	names := &test.ResourceNames{Images: []string{test.Runtime}}
+	names := &test.ResourceNames{Image: test.Runtime}
 	t.Helper()
 	names.Service = test.ObjectNameForTest(t)
 

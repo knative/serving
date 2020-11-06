@@ -40,7 +40,7 @@ func TestHelloHTTP2WithPortNameH2C(t *testing.T) {
 	// and behaves like helloworld if called with http/2.
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{"hellohttp2"},
+		Image:   "hellohttp2",
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -80,7 +80,7 @@ func TestHelloHTTP2WithEmptyPortName(t *testing.T) {
 	// and behaves like helloworld if called with http/2.
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{"hellohttp2"},
+		Image:   "hellohttp2",
 	}
 
 	test.EnsureTearDown(t, clients, &names)

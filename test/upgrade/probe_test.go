@@ -46,7 +46,7 @@ func TestProbe(t *testing.T) {
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
 		Service: "upgrade-probe",
-		Images:  []string{test.PizzaPlanet1},
+		Image:   test.PizzaPlanet1,
 	}
 
 	test.EnsureTearDown(t, clients, &names)

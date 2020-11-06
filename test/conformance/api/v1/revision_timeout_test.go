@@ -105,7 +105,7 @@ func TestRevisionTimeout(t *testing.T) {
 
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
-				Images:  []string{test.Timeout},
+				Image:   test.Timeout,
 			}
 
 			test.EnsureTearDown(t, clients, &names)

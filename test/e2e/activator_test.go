@@ -48,7 +48,7 @@ func TestActivatorOverload(t *testing.T) {
 	clients := Setup(t)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Images:  []string{"timeout"},
+		Image:   "timeout",
 	}
 
 	test.EnsureTearDown(t, clients, &names)
