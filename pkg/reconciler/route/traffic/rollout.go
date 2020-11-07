@@ -21,7 +21,9 @@ limitations under the License.
 
 package traffic
 
-import "sort"
+import (
+	"sort"
+)
 
 // Rollout encapsulates the current rollout state of the system.
 // Since the route might reference more than one configuration.
@@ -112,7 +114,8 @@ func (cur *Rollout) Step(prev *Rollout) *Rollout {
 				i++
 			case ccfgs[i].ConfigurationName == pcfgs[j].ConfigurationName:
 				// Config might have 0% traffic assigned, if it is a tag only route (i.e.
-				// receives no traffic via default tag).
+				// receives no traffic via default tag). So just skip it from the rollout
+				// altogether.
 				if ccfgs[i].Percent != 0 {
 					ret = append(ret, *stepConfig(ccfgs[i], pcfgs[j]))
 				}
@@ -120,7 +123,10 @@ func (cur *Rollout) Step(prev *Rollout) *Rollout {
 				j++
 			case ccfgs[i].ConfigurationName < pcfgs[j].ConfigurationName:
 				// A new config, has been added. No action for rollout though.
-				ret = append(ret, *ccfgs[i])
+				// Keep it if it will receive traffic.
+				if ccfgs[i].Percent != 0 {
+					ret = append(ret, *ccfgs[i])
+				}
 				i++
 			default: // cur > prev.
 				// A config has been removed during this update.
@@ -147,7 +153,9 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 		Percent:           goal.Percent,
 	}
 	// goal will always have just one revision in the list – the current desired revision.
-	if goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
+	// If it matches the last revision of the previous rollout state (or there were no revisions)
+	// then no new rollout hast begun for this configuration.
+	if len(prev.Revisions) == 0 || goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
 		// TODO(vagababov): here would go the logic to compute new percentages for the rollout,
 		// i.e step function, so return value will change, depending on that.
 		// TODO(vagababov): percentage might change, so this should trigger recompute of existing
