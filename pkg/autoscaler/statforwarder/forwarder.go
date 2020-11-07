@@ -166,12 +166,13 @@ func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 		}
 
 		// The holder identity is in format of <POD-NAME>_<POD-IP>.
-		ip, err := f.extractIP(*l.Spec.HolderIdentity)
+		holder := *l.Spec.HolderIdentity
+		_, err := f.extractIP(holder)
 		if err != nil {
 			f.logger.Warn("Found invalid Lease holder identify ", *l.Spec.HolderIdentity)
 			return false
 		}
-		if p := f.getProcessor(l.Name); p != nil && p.ip == ip {
+		if p := f.getProcessor(l.Name); p != nil && p.holder == holder {
 			// Already up-to-date.
 			return false
 		}
@@ -195,15 +196,16 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	// Close existing connection if there's one. The target address won't
 	// be the same as the IP has changed.
 	f.shutdown(f.getProcessor(n))
+	holder := *l.Spec.HolderIdentity
 	// The map should have the IP because of the operations in the filter when queueing.
-	ip, ok := f.id2ip[*l.Spec.HolderIdentity]
+	ip, ok := f.id2ip[holder]
 	if !ok {
 		// This shouldn't happen because we store the value into the map in the filter
 		// when queueing. Add a log here in case something unexpected happens.
-		f.logger.Warn("IP not found in cached map for ", *l.Spec.HolderIdentity)
+		f.logger.Warn("IP not found in cached map for ", holder)
 		return
 	}
-	f.setProcessor(n, f.createProcessor(ns, n, ip))
+	f.setProcessor(n, f.createProcessor(ns, n, ip, holder))
 
 	if ip != f.selfIP {
 		// Skip creating/updating Service and Endpoints if not the leader.
@@ -333,17 +335,17 @@ func (f *Forwarder) setProcessor(bkt string, p *bucketProcessor) {
 	f.processors[bkt] = p
 }
 
-func (f *Forwarder) createProcessor(ns, bkt, ip string) *bucketProcessor {
+func (f *Forwarder) createProcessor(ns, bkt, ip, holder string) *bucketProcessor {
 	if ip == f.selfIP {
 		return &bucketProcessor{
 			bkt:    bkt,
 			logger: f.logger.With(zap.String("bucket", bkt)),
-			ip:     ip,
+			holder: holder,
 			accept: f.accept,
 		}
 	}
 
-	return newForwardProcessor(f.logger.With(zap.String("bucket", bkt)), bkt, ip,
+	return newForwardProcessor(f.logger.With(zap.String("bucket", bkt)), bkt, holder,
 		fmt.Sprintf("ws://%s:%d", ip, autoscalerPort),
 		fmt.Sprintf("ws://%s.%s.%s", bkt, ns, svcURLSuffix))
 }
