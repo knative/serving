@@ -315,7 +315,7 @@ func TestMakePA(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := MakePA(test.rev)
 			if !cmp.Equal(got, test.want) {
-				t.Error("MakeK8sService (-want, +got) =", cmp.Diff(test.want, got))
+				t.Error("MakePA (-want, +got) =", cmp.Diff(test.want, got))
 			}
 		})
 	}
