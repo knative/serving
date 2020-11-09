@@ -62,7 +62,7 @@ func TestMinScale(t *testing.T) {
 	t.Log("Creating configuration")
 	cfg, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale),
 		// Pass low resource requirements to avoid Pod scheduling problems
-		// on busy clusters.  This is adapted from ./test/e2e/scale.go
+		// on busy clusters. This is adapted from ./test/e2e/scale.go
 		func(svc *v1.Configuration) {
 			svc.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{

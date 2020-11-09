@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -48,6 +49,59 @@ func TestMakePA(t *testing.T) {
 					},
 					Annotations: map[string]string{
 						"a":                                     "b",
+						serving.RevisionLastPinnedAnnotationKey: "timeless",
+					},
+				},
+				Spec: v1.RevisionSpec{
+					ContainerConcurrency: ptr.Int64(1),
+				},
+			}
+			rev.Status.MarkActiveTrue()
+			return &rev
+		}(),
+		want: &av1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "bar",
+					serving.RevisionUID:      "1234",
+					AppLabelKey:              "bar",
+				},
+				Annotations: map[string]string{
+					"a": "b",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1.SchemeGroupVersion.String(),
+					Kind:               "Revision",
+					Name:               "bar",
+					UID:                "1234",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: av1alpha1.PodAutoscalerSpec{
+				ContainerConcurrency: 1,
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar-deployment",
+				},
+				ProtocolType: networking.ProtocolHTTP1,
+				Reachability: av1alpha1.ReachabilityReachable,
+			},
+		},
+	}, {
+		name: "name is bar (Concurrency=1, Reachable=true), new annotation",
+		rev: func() *v1.Revision {
+			rev := v1.Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "foo",
+					Name:      "bar",
+					UID:       "1234",
+					Annotations: map[string]string{
+						"a":                                     "b",
+						serving.RoutesAnnotationKey:             "a,bc",
 						serving.RevisionLastPinnedAnnotationKey: "timeless",
 					},
 				},
@@ -252,6 +306,64 @@ func TestMakePA(t *testing.T) {
 				Reachability: av1alpha1.ReachabilityUnreachable,
 			}},
 	}, {
+		name: "name is robin (Activating, Revision routable but failed); new annotation",
+		rev: func() *v1.Revision {
+			rev := v1.Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "blah",
+					Name:      "robin",
+					UID:       "4321",
+					Annotations: map[string]string{
+						serving.RoutesAnnotationKey: "route-like-no-other",
+					},
+				},
+				Spec: v1.RevisionSpec{
+					ContainerConcurrency: ptr.Int64(0),
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Ports: []corev1.ContainerPort{{
+								Name:     "h2c",
+								HostPort: int32(443),
+							}},
+						}},
+					},
+				},
+			}
+			rev.Status.MarkActiveUnknown("reasons", "because")
+			rev.Status.MarkResourcesAvailableFalse("foo", "bar")
+			return &rev
+		}(),
+		want: &av1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "blah",
+				Name:      "robin",
+				Labels: map[string]string{
+					serving.RevisionUID:      "4321",
+					serving.RevisionLabelKey: "robin",
+					AppLabelKey:              "robin",
+				},
+				// Annotation is filtered out.
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1.SchemeGroupVersion.String(),
+					Kind:               "Revision",
+					Name:               "robin",
+					UID:                "4321",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: av1alpha1.PodAutoscalerSpec{
+				ContainerConcurrency: 0,
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "robin-deployment",
+				},
+				ProtocolType: networking.ProtocolH2C,
+				// Reachability trumps failure of Revisions.
+				Reachability: av1alpha1.ReachabilityUnknown,
+			}},
+	}, {
 		name: "name is robin (Activating, Revision routable but failed)",
 		rev: func() *v1.Revision {
 			rev := v1.Revision{
@@ -314,8 +426,8 @@ func TestMakePA(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := MakePA(test.rev)
-			if !cmp.Equal(got, test.want) {
-				t.Error("MakePA (-want, +got) =", cmp.Diff(test.want, got))
+			if !cmp.Equal(got, test.want, cmpopts.EquateEmpty()) {
+				t.Error("MakePA (-want, +got) =", cmp.Diff(test.want, got, cmpopts.EquateEmpty()))
 			}
 		})
 	}
