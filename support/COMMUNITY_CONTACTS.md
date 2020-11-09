@@ -34,8 +34,11 @@ community contact's duty (subject to change) is as followed:
 - Check the
   [knative-users@](https://groups.google.com/forum/#!forum/knative-users)
   mailing list and `@serving-help` on Slack for unanswered questions.
-- Check
+- Check Serving
   [unassigned issues / untriaged issues](https://github.com/knative/serving/issues?q=is%3Aopen+is%3Aissue+no%3Aassignee+no%3Amilestone)
+  for unanswered questions.
+- Check Docs
+  [unassigned issues / untriaged issues](https://github.com/knative/docs/issues?q=is%3Aopen+is%3Aissue+no%3Aassignee+no%3Amilestone)
   for unanswered questions.
 
 ## SLO

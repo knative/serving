@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	clientgotesting "k8s.io/client-go/testing"
 
 	network "knative.dev/networking/pkg"
@@ -70,6 +71,32 @@ func TestReconcile(t *testing.T) {
 				withInitDomainMappingConditions,
 				withDomainClaimed,
 				withIngressNotConfigured,
+				withDomainClaimed,
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
+			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-ingress-class"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
+		},
+	}, {
+		Name: "first reconcile, pre-owned domain claim",
+		Key:  "default/first-reconcile.com",
+		Objects: []runtime.Object{
+			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
+			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "first-reconcile.com",
+				withRef("default", "target"),
+				withURL("http", "first-reconcile.com"),
+				withAddress("http", "first-reconcile.com"),
+				withInitDomainMappingConditions,
+				withIngressNotConfigured,
+				withDomainClaimed,
 			),
 		}},
 		WantCreates: []runtime.Object{
@@ -77,6 +104,56 @@ func TestReconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
+		},
+	}, {
+		Name: "first reconcile, cant claim domain",
+		Key:  "default/first-reconcile.com",
+		Objects: []runtime.Object{
+			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
+		},
+		SkipNamespaceValidation: true, // allow (attempted) creation of ClusterDomainClaim.
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "clusterdomainclaims"),
+		},
+		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "first-reconcile.com",
+				withRef("default", "target"),
+				withURL("http", "first-reconcile.com"),
+				withAddress("http", "first-reconcile.com"),
+				withInitDomainMappingConditions,
+			),
+		}},
+		WantCreates: []runtime.Object{
+			// this is the clusterdomainclaim create that we induce failure on.
+			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `failed to create ClusterDomainClaim: inducing failure for create clusterdomainclaims`),
+		},
+	}, {
+		Name: "first reconcile, non-owned domainclaim",
+		Key:  "default/first-reconcile.com",
+		Objects: []runtime.Object{
+			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
+			resources.MakeDomainClaim(
+				domainMapping("default", "first-reconcile.com", withRef("default", "target"),
+					withUID("some-other-uid"),
+				),
+			),
+		},
+		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "first-reconcile.com",
+				withRef("default", "target"),
+				withURL("http", "first-reconcile.com"),
+				withAddress("http", "first-reconcile.com"),
+				withInitDomainMappingConditions,
+				withDomainClaimNotOwned,
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `domain mapping: "first-reconcile.com" does not own matching cluster domain claim`),
 		},
 	}, {
 		Name: "reconcile with ingressClass annotation",
@@ -96,12 +173,15 @@ func TestReconcile(t *testing.T) {
 				withInitDomainMappingConditions,
 				withDomainClaimed,
 				withIngressNotConfigured,
+				withDomainClaimed,
 				withAnnotations(map[string]string{
 					networking.IngressClassAnnotationKey: "overridden-ingress-class",
 				}),
 			),
 		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
 		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"))),
 			resources.MakeIngress(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target")),
 				"overridden-ingress-class"),
 		},
@@ -114,6 +194,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			domainMapping("default", "ingress-exists.org", withRef("default", "changed")),
 			resources.MakeIngress(domainMapping("default", "ingress-exists.org", withRef("default", "target")), "the-ingress-class"),
+			resources.MakeDomainClaim(domainMapping("default", "ingress-exists.org", withRef("default", "target"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "ingress-exists.org",
@@ -123,6 +204,7 @@ func TestReconcile(t *testing.T) {
 				withInitDomainMappingConditions,
 				withDomainClaimed,
 				withIngressNotConfigured,
+				withDomainClaimed,
 			),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -140,6 +222,7 @@ func TestReconcile(t *testing.T) {
 			ingress(domainMapping("default", "ingress-failed.me", withRef("default", "failed")), "the-ingress-class",
 				WithLoadbalancerFailed("fell over", "hurt myself"),
 			),
+			resources.MakeDomainClaim(domainMapping("default", "ingress-failed.me", withRef("default", "target"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "ingress-failed.me",
@@ -163,6 +246,7 @@ func TestReconcile(t *testing.T) {
 			ingress(domainMapping("default", "ingress-unknown.me", withRef("default", "unknown")), "the-ingress-class",
 				withIngressNotReady,
 			),
+			resources.MakeDomainClaim(domainMapping("default", "ingress-unknown.me", withRef("default", "target"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "ingress-unknown.me",
@@ -186,6 +270,7 @@ func TestReconcile(t *testing.T) {
 			ingress(domainMapping("default", "ingress-ready.me", withRef("default", "ready")), "the-ingress-class",
 				withIngressReady,
 			),
+			resources.MakeDomainClaim(domainMapping("default", "ingress-ready.me", withRef("default", "target"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "ingress-ready.me",
@@ -208,8 +293,11 @@ func TestReconcile(t *testing.T) {
 				withRef("default", "cantcreate"),
 				withURL("http", "cantcreate.this"),
 				withAddress("http", "cantcreate.this"),
+				withInitDomainMappingConditions,
+				withDomainClaimed,
 				withGeneration(1),
 			),
+			resources.MakeDomainClaim(domainMapping("default", "cantcreate.this", withRef("default", "target"))),
 		},
 		WantErr: true,
 		WantCreates: []runtime.Object{
@@ -243,9 +331,12 @@ func TestReconcile(t *testing.T) {
 				withRef("default", "cantupdate"),
 				withURL("http", "cantupdate.this"),
 				withAddress("http", "cantupdate.this"),
+				withInitDomainMappingConditions,
+				withDomainClaimed,
 				withGeneration(1),
 			),
 			ingress(domainMapping("default", "cantupdate.this", withRef("default", "previous-value")), "the-ingress-class"),
+			resources.MakeDomainClaim(domainMapping("default", "cantupdate.this", withRef("default", "target"))),
 		},
 		WantErr: true,
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -309,6 +400,12 @@ func withAnnotations(ans map[string]string) domainMappingOption {
 	}
 }
 
+func withUID(uid types.UID) domainMappingOption {
+	return func(dm *v1alpha1.DomainMapping) {
+		dm.UID = uid
+	}
+}
+
 func withRef(namespace, name string) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Spec.Ref.Namespace = namespace
@@ -345,6 +442,10 @@ func withPropagatedStatus(status netv1alpha1.IngressStatus) domainMappingOption 
 
 func withInitDomainMappingConditions(dm *v1alpha1.DomainMapping) {
 	dm.Status.InitializeConditions()
+}
+
+func withDomainClaimNotOwned(dm *v1alpha1.DomainMapping) {
+	dm.Status.MarkDomainClaimNotOwned()
 }
 
 func withDomainClaimed(dm *v1alpha1.DomainMapping) {

@@ -30,15 +30,14 @@ require (
 	google.golang.org/api v0.34.0
 	google.golang.org/grpc v1.33.1
 	k8s.io/api v0.18.8
-	k8s.io/apiextensions-apiserver v0.18.8 // indirect
 	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20201103013104-4c21374dc777
+	knative.dev/caching v0.0.0-20201104174804-1a305923cfbe
 	knative.dev/hack v0.0.0-20201103151104-3d5abc3a0075
-	knative.dev/networking v0.0.0-20201103013404-f79e1df6f035
-	knative.dev/pkg v0.0.0-20201103150904-7f1970af5b6f
+	knative.dev/networking v0.0.0-20201103163404-b9f80f4537af
+	knative.dev/pkg v0.0.0-20201103163404-5514ab0c1fdf
 )
 
 replace (

@@ -27,7 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestRoll(t *testing.T) {
+func TestStep(t *testing.T) {
 	tests := []struct {
 		name            string
 		prev, cur, want *Rollout
@@ -36,6 +36,34 @@ func TestRoll(t *testing.T) {
 		cur:  &Rollout{},
 		prev: nil,
 		want: &Rollout{},
+	}, {
+		name: "prev is empty",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           100,
+				Revisions: []RevisionRollout{{
+					RevisionName: "let-it-bleed",
+					Percent:      100,
+				}},
+			}},
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           100,
+			}},
+		},
+		want: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           100,
+				Revisions: []RevisionRollout{{
+					RevisionName: "let-it-bleed",
+					Percent:      100,
+				}},
+			}},
+		},
 	}, {
 		name: "simplest, same",
 		cur: &Rollout{
@@ -69,6 +97,68 @@ func TestRoll(t *testing.T) {
 			}},
 		},
 	}, {
+		name: "when new revision becomes 0%",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "charlie",
+				Percent:           0,
+				Revisions: []RevisionRollout{{
+					RevisionName: "aftermath",
+					Percent:      0,
+				}},
+			}},
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "charlie",
+				Percent:           100,
+				Revisions: []RevisionRollout{{
+					RevisionName: "your-satanic-majesties-request",
+					Percent:      100,
+				}},
+			}},
+		},
+		want: &Rollout{},
+	}, {
+		name: "when new config is added but it's 0%",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "charlie",
+				Percent:           0,
+				Revisions: []RevisionRollout{{
+					RevisionName: "aftermath",
+					Percent:      0,
+				}},
+			}, {
+				ConfigurationName: "mick",
+				Percent:           100,
+				Revisions: []RevisionRollout{{
+					RevisionName: "between-the-buttons",
+					Percent:      100,
+				}},
+			}},
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           100,
+				Revisions: []RevisionRollout{{
+					RevisionName: "between-the-buttons",
+					Percent:      100,
+				}},
+			}},
+		},
+		want: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           100,
+				Revisions: []RevisionRollout{{
+					RevisionName: "between-the-buttons",
+					Percent:      100,
+				}},
+			}},
+		},
+	}, {
 		name: "simplest, roll",
 		cur: &Rollout{
 			Configurations: []ConfigurationRollout{{
@@ -97,6 +187,41 @@ func TestRoll(t *testing.T) {
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
 					Percent:      99,
+				}, {
+					RevisionName: "let-it-bleed",
+					Percent:      1,
+				}},
+			}},
+		},
+	}, {
+		name: "roll, where sum < 100% (one route targets a revision, e.g.)",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "brian",
+				Percent:           70,
+				Revisions: []RevisionRollout{{
+					RevisionName: "let-it-bleed",
+					Percent:      70,
+				}},
+			}},
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "brian",
+				Percent:           70,
+				Revisions: []RevisionRollout{{
+					RevisionName: "exile-on-main-st",
+					Percent:      70,
+				}},
+			}},
+		},
+		want: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "brian",
+				Percent:           70,
+				Revisions: []RevisionRollout{{
+					RevisionName: "exile-on-main-st",
+					Percent:      69,
 				}, {
 					RevisionName: "let-it-bleed",
 					Percent:      1,
@@ -177,6 +302,38 @@ func TestRoll(t *testing.T) {
 					RevisionName: "goat-head-soup",
 					Percent:      99,
 				}, {
+					RevisionName: "between-the-buttons",
+					Percent:      1,
+				}},
+			}},
+		},
+	}, {
+		name: "roll with delete (minimal config target)",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           1,
+				Revisions: []RevisionRollout{{
+					RevisionName: "between-the-buttons",
+					Percent:      1,
+				}},
+			}},
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           1,
+				Revisions: []RevisionRollout{{
+					RevisionName: "bridges-to-babylon",
+					Percent:      1,
+				}},
+			}},
+		},
+		want: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           1,
+				Revisions: []RevisionRollout{{
 					RevisionName: "between-the-buttons",
 					Percent:      1,
 				}},

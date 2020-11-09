@@ -244,7 +244,7 @@ jobs:
         source test/e2e-networking-library.sh
 
         PATCHED_YAML=$(mktemp)
-        ko resolve -f third_party/net-istio.yaml > $PATCHED_YAML
+        ko resolve -f third_party/istio-latest/net-istio.yaml > $PATCHED_YAML
 
         # TODO: figure out how to use e2e-common.sh directly even if no
         # custom namespace is used here.

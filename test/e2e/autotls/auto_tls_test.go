@@ -83,7 +83,7 @@ func TestTLSDisabledWithAnnotation(t *testing.T) {
 	}
 
 	httpClient := createHTTPClient(t, clients, objects)
-	runtimeRequest(t, httpClient, objects.Route.Status.URL.String())
+	ingress.RuntimeRequest(context.Background(), t, httpClient, objects.Route.Status.URL.String())
 }
 
 func testAutoTLS(t *testing.T) {
@@ -114,7 +114,7 @@ func testAutoTLS(t *testing.T) {
 	certName := getCertificateName(t, clients, objects)
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
-	runtimeRequest(t, httpsClient, objects.Service.Status.URL.String())
+	ingress.RuntimeRequest(context.Background(), t, httpsClient, objects.Service.Status.URL.String())
 
 	t.Run("Tag route", func(t *testing.T) {
 		// Probe main URL while we update the route
@@ -161,7 +161,7 @@ func testAutoTLS(t *testing.T) {
 		}
 		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 		for _, traffic := range route.Status.Traffic {
-			runtimeRequest(t, httpsClient, traffic.URL.String())
+			ingress.RuntimeRequest(context.Background(), t, httpsClient, traffic.URL.String())
 		}
 	})
 }

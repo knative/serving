@@ -44,3 +44,7 @@ spec:
         #
         # see issue: https://github.com/knative/serving/issues/912
         x-kubernetes-preserve-unknown-fields: true
+    additionalPrinterColumns:
+    - name: Image
+      type: string
+      jsonPath: .spec.image
