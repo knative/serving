@@ -38,6 +38,10 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+// This test should be run without the Chaosduck. It expects the old revision
+// to be scaled down after being replaced. If the Chaosduck kills the leading
+// Autoscaler pod, the new one will start with panic state and won't scale down
+// during the first stable window.
 func TestMinScale(t *testing.T) {
 	t.Parallel()
 

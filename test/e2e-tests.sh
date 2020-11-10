@@ -133,12 +133,18 @@ toggle_feature responsive-revision-gc Disabled
 # simply cannot pass.
 go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
 
+# Disable the Chaosduck for following tests.
 disable_chaosduck
-# Run HA tests separately as they're stopping core Knative Serving pods
-# Define short -spoofinterval to ensure frequent probing while stopping pods
+
+# Run HA tests separately as they're stopping core Knative Serving pods.
+# Define short -spoofinterval to ensure frequent probing while stopping pods.
+# In HA tests, all leading pods are deleted explictly instead of depending on
+# the Chaosduck. And we wait for all the new leading pods to become ready. 
 go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
 	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
 
+# The tests with `no-chaosduck` tag are expected to fail when chaosduck kill
+# some core Knative Serving pod randomly.
 go_test_e2e -timeout=10m  ./test/e2e -tags=no-chaosduck \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
