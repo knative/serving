@@ -53,6 +53,7 @@ function install_latest_release() {
 
   install_knative_serving latest-release \
       || fail_test "Knative latest release installation failed"
+  test_logging_config_setup
   wait_until_pods_running ${SYSTEM_NAMESPACE}
   wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
 }
@@ -60,6 +61,7 @@ function install_latest_release() {
 function install_head() {
   header "Installing Knative head release"
   install_knative_serving || fail_test "Knative head release installation failed"
+  test_logging_config_setup
   wait_until_pods_running ${SYSTEM_NAMESPACE}
   wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
 }
