@@ -142,9 +142,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	// being enabled.
 	// Some things, like PA reachability, etc are computed based on various labels/annotations
 	// of revision. So it is useful to provide this information for debugging.
-	log := logging.FromContext(ctx).Desugar()
-	if log.Core().Enabled(zapcore.DebugLevel) {
-		log.Debug("Revision meta: " + spew.Sdump(rev.ObjectMeta))
+	logger := logging.FromContext(ctx).Desugar()
+	if logger.Core().Enabled(zapcore.DebugLevel) {
+		logger.Debug("Revision meta: " + spew.Sdump(rev.ObjectMeta))
 	}
 
 	for _, phase := range []func(context.Context, *v1.Revision) error{
@@ -158,12 +158,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	}
 	readyAfterReconcile := rev.Status.GetCondition(v1.RevisionConditionReady).IsTrue()
 	if !readyBeforeReconcile && readyAfterReconcile {
-		log.Info("Revision became ready")
+		logger.Info("Revision became ready")
 		controller.GetEventRecorder(ctx).Event(
 			rev, corev1.EventTypeNormal, "RevisionReady",
 			"Revision becomes ready upon all resources being ready")
 	} else if readyBeforeReconcile && !readyAfterReconcile {
-		log.Info("Revision stopped being ready")
+		logger.Info("Revision stopped being ready")
 	}
 
 	return nil
