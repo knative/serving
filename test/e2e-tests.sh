@@ -86,10 +86,12 @@ sleep 30
 
 # Run conformance and e2e tests.
 
-# Currently only Istio and Contour implement the alpha features.
-# TODO(#9874): Remove this guard once other ingresses implement these too.
+# Currently only Istio, Contour and Kourier implement the alpha features.
 alpha=""
-if [[ -z "${INGRESS_CLASS}" || "${INGRESS_CLASS}" == "istio.ingress.networking.knative.dev" || "${INGRESS_CLASS}" == "contour.ingress.networking.knative.dev" ]]; then
+if [[ -z "${INGRESS_CLASS}" \
+  || "${INGRESS_CLASS}" == "istio.ingress.networking.knative.dev" \
+  || "${INGRESS_CLASS}" == "contour.ingress.networking.knative.dev" \
+  || "${INGRESS_CLASS}" == "kourier.ingress.networking.knative.dev" ]]; then
   alpha="--enable-alpha"
 fi
 
