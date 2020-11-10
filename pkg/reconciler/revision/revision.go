@@ -21,7 +21,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	"go.uber.org/zap/zapcore"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -136,6 +138,14 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 		return nil
 	}
 
+	// Spew is an expensive operation so guard the computation on the debug level
+	// being enabled.
+	// Some things, like PA reachability, etc are computed based on various labels/annotations
+	// of revision. So it is useful to provide this information for debugging.
+	if l := logging.FromContext(ctx); l.Desugar().Core().Enabled(zapcore.DebugLevel) {
+		l.Debug("Revision meta: ", spew.Sdump(rev.ObjectMeta))
+	}
+
 	for _, phase := range []func(context.Context, *v1.Revision) error{
 		c.reconcileDeployment,
 		c.reconcileImageCache,
@@ -151,6 +161,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 		controller.GetEventRecorder(ctx).Event(
 			rev, corev1.EventTypeNormal, "RevisionReady",
 			"Revision becomes ready upon all resources being ready")
+	} else if readyBeforeReconcile && !readyAfterReconcile {
+		logging.FromContext(ctx).Info("Revision stopped being ready")
 	}
 
 	return nil
