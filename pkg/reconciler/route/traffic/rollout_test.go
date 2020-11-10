@@ -194,6 +194,88 @@ func TestStep(t *testing.T) {
 			}},
 		},
 	}, {
+		name: "roll with percentage change down",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           33,
+				Revisions: []RevisionRollout{{
+					RevisionName: "let-it-bleed",
+					Percent:      33,
+				}},
+			}},
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           42,
+				Revisions: []RevisionRollout{{
+					RevisionName: "goat-head-soup",
+					Percent:      11,
+				}, {
+					RevisionName: "aftermath",
+					Percent:      31,
+				}},
+			}},
+		},
+		want: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           33,
+				Revisions: []RevisionRollout{{
+					RevisionName: "goat-head-soup",
+					Percent:      2,
+				}, {
+					RevisionName: "aftermath",
+					Percent:      30,
+				}, {
+					RevisionName: "let-it-bleed",
+					Percent:      1,
+				}},
+			}},
+		},
+	}, {
+		name: "roll with percentage change up",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           75,
+				Revisions: []RevisionRollout{{
+					RevisionName: "let-it-bleed",
+					Percent:      75,
+				}},
+			}},
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           25,
+				Revisions: []RevisionRollout{{
+					RevisionName: "goat-head-soup",
+					Percent:      11,
+				}, {
+					RevisionName: "aftermath",
+					Percent:      14,
+				}},
+			}},
+		},
+		want: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           75,
+				Revisions: []RevisionRollout{{
+					RevisionName: "goat-head-soup",
+					Percent:      11,
+				}, {
+					RevisionName: "aftermath",
+					Percent:      63,
+				}, {
+					RevisionName: "let-it-bleed",
+					Percent:      1,
+				}},
+			}},
+		},
+	}, {
 		name: "roll, where sum < 100% (one route targets a revision, e.g.)",
 		cur: &Rollout{
 			Configurations: []ConfigurationRollout{{
@@ -524,6 +606,133 @@ func TestStep(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got, want := tc.cur.Step(tc.prev), tc.want; !cmp.Equal(got, want) {
 				t.Errorf("Wrong rolled rollout, diff(-want,+got):\n%s", cmp.Diff(want, got))
+			}
+		})
+	}
+}
+
+func TestAdjustPercentage(t *testing.T) {
+	tests := []struct {
+		name string
+		goal int
+		prev *ConfigurationRollout
+		want []RevisionRollout
+	}{{
+		name: "noop, 100%",
+		goal: 100,
+		prev: &ConfigurationRollout{
+			Percent: 100,
+			Revisions: []RevisionRollout{{
+				Percent: 71,
+			}, {
+				Percent: 29,
+			}},
+		},
+		want: []RevisionRollout{{
+			Percent: 71,
+		}, {
+			Percent: 29,
+		}},
+	}, {
+		name: "noop, 42%",
+		goal: 42,
+		prev: &ConfigurationRollout{
+			Percent: 42,
+			Revisions: []RevisionRollout{{
+				Percent: 21,
+			}, {
+				Percent: 21,
+			}},
+		},
+		want: []RevisionRollout{{
+			Percent: 21,
+		}, {
+			Percent: 21,
+		}},
+	}, {
+		name: "raise, 42% -> 75%",
+		goal: 75,
+		prev: &ConfigurationRollout{
+			Percent: 42,
+			Revisions: []RevisionRollout{{
+				Percent: 21,
+			}, {
+				Percent: 21,
+			}},
+		},
+		want: []RevisionRollout{{
+			Percent: 21,
+		}, {
+			Percent: 54,
+		}},
+	}, {
+		name: "lower, 75%->42%, lose 1",
+		goal: 42,
+		prev: &ConfigurationRollout{
+			Percent: 75,
+			Revisions: []RevisionRollout{{
+				Percent: 21,
+			}, {
+				Percent: 54,
+			}},
+		},
+		want: []RevisionRollout{{
+			Percent: 42,
+		}},
+	}, {
+		name: "lower, 75%->42%, lose 1, update 2, keep 3",
+		goal: 42,
+		prev: &ConfigurationRollout{
+			Percent: 75,
+			Revisions: []RevisionRollout{{
+				Percent: 21,
+			}, {
+				Percent: 22,
+			}, {
+				Percent: 32,
+			}},
+		},
+		want: []RevisionRollout{{
+			Percent: 10,
+		}, {
+			Percent: 32,
+		}},
+	}, {
+		name: "lower, 75%->42%, lose 2, update 3",
+		goal: 42,
+		prev: &ConfigurationRollout{
+			Percent: 75,
+			Revisions: []RevisionRollout{{
+				Percent: 10,
+			}, {
+				Percent: 5,
+			}, {
+				Percent: 60,
+			}},
+		},
+		want: []RevisionRollout{{
+			Percent: 42,
+		}},
+	}, {
+		name: "go to 0%",
+		goal: 0,
+		prev: &ConfigurationRollout{
+			Percent: 75,
+			Revisions: []RevisionRollout{{
+				Percent: 10,
+			}, {
+				Percent: 5,
+			}, {
+				Percent: 60,
+			}},
+		},
+		want: []RevisionRollout{},
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			adjustPercentage(tc.goal, tc.prev)
+			if got, want := tc.prev.Revisions, tc.want; !cmp.Equal(got, want) {
+				t.Errorf("Rollout Mistmatch(-want,+got):\n%s", cmp.Diff(want, got))
 			}
 		})
 	}
