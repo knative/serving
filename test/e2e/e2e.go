@@ -58,12 +58,6 @@ func SetupAlternativeNamespace(t *testing.T) *test.Clients {
 	return SetupWithNamespace(t, test.AlternativeServingNamespace)
 }
 
-//SetupServingNamespaceforSecurityTesting creates the client objects needed in e2e tests
-// under the security testing namespace.
-func SetupServingNamespaceforSecurityTesting(t *testing.T) *test.Clients {
-	return SetupWithNamespace(t, test.ServingNamespaceforSecurityTesting)
-}
-
 // SetupWithNamespace creates the client objects needed in the e2e tests under the specified namespace.
 func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 	t.Helper()
