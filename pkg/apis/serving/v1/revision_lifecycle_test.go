@@ -317,7 +317,7 @@ func TestTypicalFlowWithContainerMissing(t *testing.T) {
 	apistest.CheckConditionOngoing(r, RevisionConditionContainerHealthy, t)
 	apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
 
-	const want = "something about the container being not found"
+	const want = "something about the container being not found %s"
 	r.MarkContainerHealthyFalse(ReasonContainerMissing, want)
 	apistest.CheckConditionOngoing(r, RevisionConditionResourcesAvailable, t)
 	apistest.CheckConditionFailed(r, RevisionConditionContainerHealthy, t)
