@@ -20,7 +20,7 @@ function install_istio() {
   fi
 
   if [[ -z "${NET_ISTIO_COMMIT}" ]]; then
-    readonly NET_ISTIO_COMMIT=$(head -n 1 ${1} | sed 's/^.* //')
+    readonly NET_ISTIO_COMMIT=$(head -n 1 ${1} | grep "# Generated when HEAD was" | sed 's/^.* //')
     echo "Got NET_ISTIO_COMMIT from ${1}: ${NET_ISTIO_COMMIT}"
   fi
 
