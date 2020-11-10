@@ -152,7 +152,7 @@ func adjustPercentage(goal int, cr *ConfigurationRollout) {
 	case diff > 0:
 		cr.Revisions[len(cr.Revisions)-1].Percent += diff
 	case diff < 0:
-		diff *= -1 // To make logic more natural.
+		diff = -diff // To make logic more natural.
 		i := 0
 		for diff > 0 && i < len(cr.Revisions) {
 			if cr.Revisions[i].Percent > diff {
