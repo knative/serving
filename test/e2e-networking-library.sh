@@ -20,8 +20,7 @@ function install_istio() {
   fi
 
   if [[ -z "${NET_ISTIO_COMMIT}" ]]; then
-    # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
-    readonly NET_ISTIO_COMMIT="8102cd3d32f05be1c58260a9717d532a4a6d2f60"
+    readonly NET_ISTIO_COMMIT=$(head -n 1 ${1} | sed 's/^.* //')
   fi
 
   # And checkout the setup script based on that commit.
