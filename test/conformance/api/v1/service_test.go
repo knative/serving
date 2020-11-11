@@ -598,35 +598,32 @@ func TestServiceCreateWithMultipleContainers(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
+		Image:   test.ServingContainer,
+		Sidecars: []string{
+			test.SidecarContainer,
+		},
 	}
 
 	// Clean up on test failure or interrupt
 	test.EnsureTearDown(t, clients, &names)
-	// images are used to validate digest in validateControlPlane function
-	images := map[string]string{
-		"serving-container": test.ServingContainer,
-		"sidecar-container": test.SidecarContainer,
-	}
 	containers := []corev1.Container{{
-		Name:  "serving-container",
-		Image: pkgTest.ImagePath(test.ServingContainer),
+		Image: pkgTest.ImagePath(names.Image),
 		Ports: []corev1.ContainerPort{{
 			ContainerPort: 8881,
 		}},
 	}, {
-		Name:  "sidecar-container",
-		Image: pkgTest.ImagePath(test.SidecarContainer),
+		Image: pkgTest.ImagePath(names.Sidecars[0]),
 	}}
 
 	// Setup initial Service
-	if _, err := v1test.CreateServiceReadyForMultiContainer(t, clients, &names, func(svc *v1.Service) {
+	if _, err := v1test.CreateServiceReady(t, clients, &names, func(svc *v1.Service) {
 		svc.Spec.Template.Spec.Containers = containers
 	}); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
 	// Validate State after Creation
-	if err := validateControlPlane(t, clients, names, "1" /*1 is the expected generation value*/, images); err != nil {
+	if err := validateControlPlane(t, clients, names, "1" /*1 is the expected generation value*/); err != nil {
 		t.Error(err)
 	}
 
