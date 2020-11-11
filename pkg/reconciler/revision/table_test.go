@@ -38,7 +38,6 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -387,7 +386,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Revision("foo", "fix-mutated-pa",
 				WithK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady,
-				WithRevisionLabel(serving.RouteLabelKey, "foo")),
+				WithRoutingState(v1.RoutingStateActive)),
 			pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
 				WithTraffic, WithPASKSReady, WithScaleTargetInitialized, WithReachabilityReachable,
 				WithPAStatusService("fix-mutated-pa")),
@@ -400,7 +399,7 @@ func TestReconcile(t *testing.T) {
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
 				WithK8sServiceName("fix-mutated-pa"),
-				WithRevisionLabel(serving.RouteLabelKey, "foo"), WithLogURL, MarkRevisionReady,
+				WithRoutingState(v1.RoutingStateActive), WithLogURL, MarkRevisionReady,
 				withDefaultContainerStatuses()),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
