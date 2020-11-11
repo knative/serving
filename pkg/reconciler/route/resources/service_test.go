@@ -390,7 +390,6 @@ func testConfig() *config.Config {
 			PodSpecDryRun:         apiConfig.Enabled,
 			PodSpecNodeSelector:   apiConfig.Disabled,
 			PodSpecTolerations:    apiConfig.Disabled,
-			ResponsiveRevisionGC:  apiConfig.Disabled,
 			TagHeaderBasedRouting: apiConfig.Disabled,
 		},
 	}

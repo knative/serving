@@ -18,7 +18,6 @@ package route
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -27,15 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
@@ -175,55 +171,5 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 
 	// TODO(mattmoor): This is where we'd look at the state of the Service and
 	// reflect any necessary state into the Route.
-	return eg.Wait()
-}
-
-// Update the lastPinned annotation on revisions we target so they don't get GC'd.
-func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Config, route *v1.Route) error {
-	gcConfig := config.FromContext(ctx).GC
-	logger := logging.FromContext(ctx)
-	lpDebounce := gcConfig.StaleRevisionLastpinnedDebounce
-
-	eg, egCtx := errgroup.WithContext(ctx)
-	for _, target := range t.Targets {
-		for _, rt := range target {
-			tt := rt.TrafficTarget
-			eg.Go(func() error {
-				rev, err := c.revisionLister.Revisions(route.Namespace).Get(tt.RevisionName)
-				if apierrs.IsNotFound(err) {
-					logger.Infof("Unable to update lastPinned for missing revision %q", tt.RevisionName)
-					return nil
-				} else if err != nil {
-					return err
-				}
-
-				newRev := rev.DeepCopy()
-
-				lastPin, err := newRev.GetLastPinned()
-				if err != nil {
-					// Missing is an expected error case for a not yet pinned revision.
-					var errLastPinned v1.LastPinnedParseError
-					if errors.As(err, &errLastPinned) && errLastPinned.Type != v1.AnnotationParseErrorTypeMissing {
-						return err
-					}
-				} else if lastPin.Add(lpDebounce).After(c.clock.Now()) {
-					// Enforce a delay before performing an update on lastPinned to avoid excess churn.
-					return nil
-				}
-
-				newRev.SetLastPinned(c.clock.Now())
-
-				patch, err := duck.CreateMergePatch(rev, newRev)
-				if err != nil {
-					return err
-				}
-
-				if _, err := c.client.ServingV1().Revisions(route.Namespace).Patch(egCtx, rev.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
-					return fmt.Errorf("failed to set revision annotation: %w", err)
-				}
-				return nil
-			})
-		}
-	}
 	return eg.Wait()
 }

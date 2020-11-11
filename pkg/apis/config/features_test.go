@@ -66,7 +66,6 @@ func TestFeaturesConfiguration(t *testing.T) {
 			PodSpecRuntimeClassName: Enabled,
 			PodSpecSecurityContext:  Enabled,
 			PodSpecTolerations:      Enabled,
-			ResponsiveRevisionGC:    Enabled,
 			TagHeaderBasedRouting:   Enabled,
 		}),
 		data: map[string]string{
@@ -241,24 +240,6 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"kubernetes.podspec-tolerations": "Disabled",
-		},
-	}, {
-		name:    "responsive-revision-gc Allowed",
-		wantErr: false,
-		wantFeatures: defaultWith(&Features{
-			ResponsiveRevisionGC: Allowed,
-		}),
-		data: map[string]string{
-			"responsive-revision-gc": "Allowed",
-		},
-	}, {
-		name:    "responsive-revision-gc Enabled",
-		wantErr: false,
-		wantFeatures: defaultWith(&Features{
-			ResponsiveRevisionGC: Enabled,
-		}),
-		data: map[string]string{
-			"responsive-revision-gc": "Enabled",
 		},
 	}, {
 		name:    "security context Allowed",

@@ -34,7 +34,6 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
-	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
@@ -185,8 +184,7 @@ func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.S
 }
 
 func (c *Reconciler) createConfiguration(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
-	gc := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
-	cfg, err := resources.MakeConfigurationFromExisting(service, &v1.Configuration{}, gc)
+	cfg, err := resources.MakeConfigurationFromExisting(service, &v1.Configuration{})
 	if err != nil {
 		return nil, err
 	}
@@ -214,8 +212,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 	// We are setting the up-to-date default values here so an update won't be triggered if the only
 	// diff is the new default values.
 	existing.SetDefaults(ctx)
-	gc := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
-	desiredConfig, err := resources.MakeConfigurationFromExisting(service, existing, gc)
+	desiredConfig, err := resources.MakeConfigurationFromExisting(service, existing)
 	if err != nil {
 		return nil, err
 	}

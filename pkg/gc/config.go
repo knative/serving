@@ -70,13 +70,6 @@ type Config struct {
 
 func defaultConfig() *Config {
 	return &Config{
-		// V1 GC Settings
-		StaleRevisionCreateDelay:        48 * time.Hour,
-		StaleRevisionTimeout:            15 * time.Hour,
-		StaleRevisionLastpinnedDebounce: 5 * time.Hour,
-		StaleRevisionMinimumGenerations: 20,
-
-		// V2 GC Settings
 		RetainSinceCreateTime:     48 * time.Hour,
 		RetainSinceLastActiveTime: 15 * time.Hour,
 		MinNonActiveRevisions:     20,
@@ -93,12 +86,6 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 
 		var retainCreate, retainActive, max string
 		if err := cm.Parse(configMap.Data,
-			cm.AsDuration("stale-revision-create-delay", &c.StaleRevisionCreateDelay),
-			cm.AsDuration("stale-revision-timeout", &c.StaleRevisionTimeout),
-			cm.AsDuration("stale-revision-lastpinned-debounce", &c.StaleRevisionLastpinnedDebounce),
-			cm.AsInt64("stale-revision-minimum-generations", &c.StaleRevisionMinimumGenerations),
-
-			// v2 settings
 			cm.AsString("retain-since-create-time", &retainCreate),
 			cm.AsString("retain-since-last-active-time", &retainActive),
 			cm.AsInt64("min-non-active-revisions", &c.MinNonActiveRevisions),

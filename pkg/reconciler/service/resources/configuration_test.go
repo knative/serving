@@ -21,9 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/service/resources/names"
 )
 
@@ -51,7 +49,7 @@ func TestConfigurationSpec(t *testing.T) {
 
 func TestConfigurationSpecGCAllowed(t *testing.T) {
 	s := createService()
-	c, _ := MakeConfigurationFromExisting(s, &v1.Configuration{}, cfgmap.Allowed)
+	c, _ := MakeConfiguration(s)
 	if got, want := c.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}

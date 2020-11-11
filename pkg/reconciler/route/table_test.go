@@ -1717,7 +1717,6 @@ func TestReconcile(t *testing.T) {
 func TestReconcileResponsiveGC(t *testing.T) {
 	table := TableTest{{
 		Name: "Update stale lastPinned",
-		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		Objects: []runtime.Object{
 			Route("default", "stale-lastpinned", WithConfigTarget("config"),
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
@@ -1760,7 +1759,6 @@ func TestReconcileResponsiveGC(t *testing.T) {
 		Key: "default/stale-lastpinned",
 	}, {
 		Name: "lastPinned update disabled",
-		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Enabled),
 		Objects: []runtime.Object{
 			Route("default", "stale-lastpinned", WithConfigTarget("config"),
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
@@ -2687,7 +2685,6 @@ func reconcilerTestConfig(enableAutoTLS bool) *config.Config {
 			PodSpecDryRun:         cfgmap.Enabled,
 			PodSpecNodeSelector:   cfgmap.Disabled,
 			PodSpecTolerations:    cfgmap.Disabled,
-			ResponsiveRevisionGC:  cfgmap.Disabled,
 			TagHeaderBasedRouting: cfgmap.Disabled,
 		},
 	}
@@ -2717,10 +2714,4 @@ func url(s string) *apis.URL {
 	}
 
 	return url
-}
-
-func setResponsiveGCFeature(ctx context.Context, flag cfgmap.Flag) context.Context {
-	c := cfgmap.FromContextOrDefaults(ctx)
-	c.Features.ResponsiveRevisionGC = flag
-	return cfgmap.ToContext(ctx, c)
 }

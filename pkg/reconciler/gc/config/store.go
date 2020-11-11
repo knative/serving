@@ -30,7 +30,6 @@ type cfgKey struct{}
 // Config is the configuration for GC.
 type Config struct {
 	RevisionGC *gc.Config
-	Features   *apiconfig.Features
 }
 
 // FromContext fetches the config from the context.
@@ -57,7 +56,6 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 func (s *Store) Load() *Config {
 	return &Config{
 		RevisionGC: s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
-		Features:   s.UntypedLoad(apiconfig.FeaturesConfigName).(*apiconfig.Features).DeepCopy(),
 	}
 }
 

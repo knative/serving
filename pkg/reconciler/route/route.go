@@ -41,7 +41,6 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
-	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
@@ -125,14 +124,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	if traffic == nil || err != nil {
 		// Traffic targets aren't ready, no need to configure child resources.
 		return err
-	}
-
-	if config.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC != cfgmap.Enabled {
-		// In all cases we will add annotations to the referred targets.  This is so that when they become
-		// routable we can know (through a listener) and attempt traffic configuration again.
-		if err := c.reconcileTargetRevisions(ctx, traffic, r); err != nil {
-			return err
-		}
 	}
 
 	r.Status.Address = &duckv1.Addressable{

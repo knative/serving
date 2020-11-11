@@ -37,7 +37,6 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
-	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
@@ -66,18 +65,6 @@ func TestReconcile(t *testing.T) {
 	testClock = clock.NewFakeClock(time.Now())
 	testCtx = context.Background()
 
-	test(t)
-}
-
-func TestReconcileNewGCEnabled(t *testing.T) {
-	testClock = clock.NewFakeClock(time.Now())
-
-	c := &config.Config{
-		Features: &cfgmap.Features{
-			ResponsiveRevisionGC: cfgmap.Enabled,
-		},
-	}
-	testCtx = config.ToContext(context.Background(), c)
 	test(t)
 }
 

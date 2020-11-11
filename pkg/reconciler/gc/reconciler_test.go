@@ -32,7 +32,6 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	pkgrec "knative.dev/pkg/reconciler"
-	apiconfig "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
@@ -69,19 +68,10 @@ func TestGCReconcile(t *testing.T) {
 		ConfigStore: &testConfigStore{
 			config: &config.Config{
 				RevisionGC: &gc.Config{
-					// v1 settings
-					StaleRevisionCreateDelay:        5 * time.Minute,
-					StaleRevisionTimeout:            5 * time.Minute,
-					StaleRevisionMinimumGenerations: 2,
-
-					// v2 settings
 					RetainSinceCreateTime:     5 * time.Minute,
 					RetainSinceLastActiveTime: 5 * time.Minute,
 					MinNonActiveRevisions:     1,
 					MaxNonActiveRevisions:     gc.Disabled,
-				},
-				Features: &apiconfig.Features{
-					ResponsiveRevisionGC: apiconfig.Disabled,
 				},
 			},
 		}}
@@ -139,19 +129,10 @@ func TestGCReconcileV2(t *testing.T) {
 		ConfigStore: &testConfigStore{
 			config: &config.Config{
 				RevisionGC: &gc.Config{
-					// v1 settings
-					StaleRevisionCreateDelay:        5 * time.Minute,
-					StaleRevisionTimeout:            5 * time.Minute,
-					StaleRevisionMinimumGenerations: 2,
-
-					// v2 settings
 					RetainSinceCreateTime:     5 * time.Minute,
 					RetainSinceLastActiveTime: 5 * time.Minute,
 					MinNonActiveRevisions:     1,
 					MaxNonActiveRevisions:     gc.Disabled,
-				},
-				Features: &apiconfig.Features{
-					ResponsiveRevisionGC: apiconfig.Enabled,
 				},
 			},
 		}}

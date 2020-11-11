@@ -96,21 +96,11 @@ func TestReconcileIngressUpdate(t *testing.T) {
 }
 
 func TestReconcileTargetValidRevision(t *testing.T) {
-	var reconciler *Reconciler
-	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
-		reconciler = r
-	})
+	ctx, _, _, _, cancel := newTestSetup(t)
 	defer cancel()
 
 	r := Route("test-ns", "test-route", WithRouteLabel(map[string]string{"route": "test-route"}))
 	rev := newTestRevision(r.Namespace, "revision")
-	tc := traffic.Config{Targets: map[string]traffic.RevisionTargets{
-		traffic.DefaultTarget: {{
-			TrafficTarget: v1.TrafficTarget{
-				RevisionName: "revision",
-				Percent:      ptr.Int64(100),
-			},
-		}}}}
 
 	ctx = config.ToContext(ctx, &config.Config{
 		GC: &gc.Config{
@@ -128,10 +118,6 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 		t.Fatal("Error getting last pinned:", err)
 	}
 
-	if err = reconciler.reconcileTargetRevisions(ctx, &tc, r); err != nil {
-		t.Fatal("Error reconciling target revisions:", err)
-	}
-
 	// Verify last pinned annotation is updated correctly
 	newRev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Get(ctx, rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -147,21 +133,11 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 }
 
 func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
-	var reconciler *Reconciler
-	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
-		reconciler = r
-	})
+	ctx, _, _, _, cancel := newTestSetup(t)
 	defer cancel()
 
 	r := Route("test-ns", "test-route", WithRouteLabel(map[string]string{"route": "test-route"}))
 	rev := newTestRevision(r.Namespace, "revision")
-	tcInvalidRev := traffic.Config{Targets: map[string]traffic.RevisionTargets{
-		traffic.DefaultTarget: {{
-			TrafficTarget: v1.TrafficTarget{
-				RevisionName: "invalid-revision",
-				Percent:      ptr.Int64(100),
-			},
-		}}}}
 	ctx = config.ToContext(ctx, &config.Config{
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Minute,
@@ -169,11 +145,6 @@ func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
 	})
 	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
-
-	// Try reconciling target revisions for a revision that does not exist. No err should be returned
-	if err := reconciler.reconcileTargetRevisions(ctx, &tcInvalidRev, r); err != nil {
-		t.Fatal("Error reconciling target revisions:", err)
-	}
 }
 
 func newTestRevision(namespace, name string) *v1.Revision {
