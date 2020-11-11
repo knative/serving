@@ -20,13 +20,13 @@ function install_istio() {
   fi
 
   if [[ -z "${NET_ISTIO_COMMIT}" ]]; then
-    readonly NET_ISTIO_COMMIT=$(head -n 1 ${1} | grep "# Generated when HEAD was" | sed 's/^.* //')
+    NET_ISTIO_COMMIT=$(head -n 1 ${1} | grep "# Generated when HEAD was" | sed 's/^.* //')
     echo "Got NET_ISTIO_COMMIT from ${1}: ${NET_ISTIO_COMMIT}"
   fi
 
   # TODO: remove this when all the net-istio.yaml in use contain a commit ID
   if [[ -z "${NET_ISTIO_COMMIT}" ]]; then
-    readonly NET_ISTIO_COMMIT="8102cd3d32f05be1c58260a9717d532a4a6d2f60"
+    NET_ISTIO_COMMIT="8102cd3d32f05be1c58260a9717d532a4a6d2f60"
     echo "Hard coded NET_ISTIO_COMMIT: ${NET_ISTIO_COMMIT}"
   fi
 
