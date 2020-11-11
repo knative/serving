@@ -119,9 +119,11 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   "with",
-				Name:        "labels-00100",
-				Annotations: map[string]string{},
+				Namespace: "with",
+				Name:      "labels-00100",
+				Annotations: map[string]string{
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
+				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -133,6 +135,7 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "labels",
 					serving.ConfigurationGenerationLabelKey: "100",
 					serving.ServiceLabelKey:                 "",
+					serving.RoutingStateLabelKey:            "pending",
 					"foo":                                   "bar",
 					"baz":                                   "blah",
 				},
@@ -186,10 +189,12 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "annotations",
 					serving.ConfigurationGenerationLabelKey: "100",
 					serving.ServiceLabelKey:                 "",
+					serving.RoutingStateLabelKey:            "pending",
 				},
 				Annotations: map[string]string{
 					"foo": "bar",
 					"baz": "blah",
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
 				},
 			},
 			Spec: v1.RevisionSpec{
@@ -295,6 +300,7 @@ func TestMakeRevisions(t *testing.T) {
 					"serving.knative.dev/creator": "someone",
 					"foo":                         "bar",
 					"baz":                         "blah",
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
@@ -307,6 +313,7 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "config",
 					serving.ConfigurationGenerationLabelKey: "10",
 					serving.ServiceLabelKey:                 "",
+					serving.RoutingStateLabelKey:            "pending",
 				},
 			},
 			Spec: v1.RevisionSpec{
