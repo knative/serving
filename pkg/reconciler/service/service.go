@@ -184,7 +184,7 @@ func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.S
 }
 
 func (c *Reconciler) createConfiguration(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
-	cfg, err := resources.MakeConfigurationFromExisting(service, &v1.Configuration{})
+	cfg, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
 	}

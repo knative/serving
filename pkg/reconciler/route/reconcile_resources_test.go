@@ -94,37 +94,6 @@ func TestReconcileIngressUpdate(t *testing.T) {
 	}
 }
 
-func TestReconcileTargetValidRevision(t *testing.T) {
-	ctx, _, _, _, cancel := newTestSetup(t)
-	defer cancel()
-
-	r := Route("test-ns", "test-route", WithRouteLabel(map[string]string{"route": "test-route"}))
-	rev := newTestRevision(r.Namespace, "revision")
-
-	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(ctx, rev, metav1.CreateOptions{})
-	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
-
-	// Get timestamp before reconciling, so that we can compare this to the last pinned timestamp
-	// after reconciliation
-	beforeTimestamp, err := getLastPinnedTimestamp(t, rev)
-	if err != nil {
-		t.Fatal("Error getting last pinned:", err)
-	}
-
-	// Verify last pinned annotation is updated correctly
-	newRev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Get(ctx, rev.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatal("Error getting revision:", err)
-	}
-	afterTimestamp, err := getLastPinnedTimestamp(t, newRev)
-	if err != nil {
-		t.Fatal("Error getting last pinned timestamps:", err)
-	}
-	if beforeTimestamp == afterTimestamp {
-		t.Fatal("The last pinned timestamp is not updated")
-	}
-}
-
 func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
 	ctx, _, _, _, cancel := newTestSetup(t)
 	defer cancel()
