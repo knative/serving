@@ -83,11 +83,7 @@ func IsRevisionRoutingActive(r *v1.Revision) (bool, error) {
 	if v1.RoutingState(routingState) == v1.RoutingStateActive {
 		return true, nil
 	}
-
-	// TODO(whaught): remove this fallback as we remove the lastPinned annotation
-	// Fallback to lastPinned - this is needed for downgrade tests where the annotation still exists.
-	_, pinned := r.Annotations[serving.RevisionLastPinnedAnnotationKey]
-	return pinned, nil
+	return false, nil
 }
 
 // IsRevisionAtExpectedGeneration returns a function that will check if the annotations

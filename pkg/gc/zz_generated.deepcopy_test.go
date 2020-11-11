@@ -25,10 +25,10 @@ import (
 
 func TestDeepCopy(t *testing.T) {
 	src := Config{
-		StaleRevisionCreateDelay:        5 * time.Minute,
-		StaleRevisionTimeout:            5 * time.Minute,
-		StaleRevisionMinimumGenerations: 1,
-		StaleRevisionLastpinnedDebounce: 1 * time.Minute,
+		RetainSinceCreateTime:     5 * time.Minute,
+		RetainSinceLastActiveTime: 5 * time.Minute,
+		MinNonActiveRevisions:     1,
+		MaxNonActiveRevisions:     5,
 	}
 
 	if diff := cmp.Diff(src, *src.DeepCopy()); diff != "" {
@@ -39,10 +39,10 @@ func TestDeepCopy(t *testing.T) {
 func TestDeepCopyInto(t *testing.T) {
 	var dest Config
 	src := Config{
-		StaleRevisionCreateDelay:        5 * time.Minute,
-		StaleRevisionTimeout:            5 * time.Minute,
-		StaleRevisionMinimumGenerations: 1,
-		StaleRevisionLastpinnedDebounce: 1 * time.Minute,
+		RetainSinceCreateTime:     5 * time.Minute,
+		RetainSinceLastActiveTime: 5 * time.Minute,
+		MinNonActiveRevisions:     1,
+		MaxNonActiveRevisions:     5,
 	}
 
 	src.DeepCopyInto(&dest)

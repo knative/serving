@@ -2509,24 +2509,10 @@ func mutateIngress(ci *netv1alpha1.Ingress) *netv1alpha1.Ingress {
 	return ci
 }
 
-func patchLastPinned(namespace, name string) clientgotesting.PatchActionImpl {
-	action := clientgotesting.PatchActionImpl{}
-	action.Name = name
-	action.Namespace = namespace
-	lastPinStr := v1.RevisionLastPinnedString(fakeCurTime)
-	patch := fmt.Sprintf(`{"metadata":{"annotations":{"serving.knative.dev/lastPinned":%q}}}`, lastPinStr)
-	action.Patch = []byte(patch)
-	return action
-}
-
 func rev(namespace, name string, generation int64, ro ...RevisionOption) *v1.Revision {
 	r := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Annotations: map[string]string{
-				"serving.knative.dev/lastPinned": v1.RevisionLastPinnedString(
-					fakeCurTime.Add(-1 * time.Second)),
-			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         v1.SchemeGroupVersion.String(),
 				Kind:               "Configuration",

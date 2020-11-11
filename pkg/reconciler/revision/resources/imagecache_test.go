@@ -43,8 +43,7 @@ func TestMakeImageCache(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				Annotations: map[string]string{
-					"a":                                     "b",
-					serving.RevisionLastPinnedAnnotationKey: "c",
+					"a": "b",
 				},
 				UID: "1234",
 			},
@@ -98,8 +97,7 @@ func TestMakeImageCache(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				Annotations: map[string]string{
-					"a":                                     "b",
-					serving.RevisionLastPinnedAnnotationKey: "c",
+					"a": "b",
 				},
 				UID: "1234",
 			},
@@ -161,8 +159,7 @@ func TestMakeImageCache(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				Annotations: map[string]string{
-					"a":                                     "b",
-					serving.RevisionLastPinnedAnnotationKey: "c",
+					"a": "b",
 				},
 				UID: "1234",
 			},

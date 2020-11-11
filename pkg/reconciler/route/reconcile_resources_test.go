@@ -18,9 +18,7 @@ package route
 
 import (
 	"context"
-	"errors"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +27,6 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	fakeciinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
@@ -109,20 +106,9 @@ func newTestRevision(namespace, name string) *v1.Revision {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Annotations: map[string]string{
-				serving.RevisionLastPinnedAnnotationKey: v1.RevisionLastPinnedString(time.Now().Add(-1 * time.Hour)),
-			},
 		},
 		Spec: v1.RevisionSpec{},
 	}
-}
-
-func getLastPinnedTimestamp(t *testing.T, rev *v1.Revision) (string, error) {
-	lastPinnedTime, ok := rev.Annotations[serving.RevisionLastPinnedAnnotationKey]
-	if !ok {
-		return "", errors.New("last pinned annotation not found")
-	}
-	return lastPinnedTime, nil
 }
 
 func newTestIngress(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.Config)) *netv1alpha1.Ingress {

@@ -106,92 +106,18 @@ func TestIsActivationRequired(t *testing.T) {
 	}
 }
 
-func TestRevisionGetLastPinned(t *testing.T) {
-	cases := []struct {
-		name              string
-		annotations       map[string]string
-		expectTime        time.Time
-		setLastPinnedTime time.Time
-		expectErr         error
-	}{{
-		name: "Nil annotations",
-		expectErr: LastPinnedParseError{
-			Type: AnnotationParseErrorTypeMissing,
-		},
-	}, {
-		name:        "Empty map annotations",
-		annotations: map[string]string{},
-		expectErr: LastPinnedParseError{
-			Type: AnnotationParseErrorTypeMissing,
-		},
-	}, {
-		name:              "Empty map annotations - with set time",
-		annotations:       map[string]string{},
-		setLastPinnedTime: time.Unix(1000, 0),
-		expectTime:        time.Unix(1000, 0),
-	}, {
-		name:        "Invalid time",
-		annotations: map[string]string{serving.RevisionLastPinnedAnnotationKey: "abcd"},
-		expectErr: LastPinnedParseError{
-			Type:  AnnotationParseErrorTypeInvalid,
-			Value: "abcd",
-		},
-	}, {
-		name:        "Valid time",
-		annotations: map[string]string{serving.RevisionLastPinnedAnnotationKey: "10000"},
-		expectTime:  time.Unix(10000, 0),
-	}, {
-		name:              "Valid time empty annotations",
-		setLastPinnedTime: time.Unix(1000, 0),
-		expectTime:        time.Unix(1000, 0),
-	}}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			rev := Revision{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: tc.annotations,
-				},
-			}
-
-			if tc.setLastPinnedTime != (time.Time{}) {
-				rev.SetLastPinned(tc.setLastPinnedTime)
-			}
-
-			pt, err := rev.GetLastPinned()
-			failErr := func() {
-				t.Fatalf("Expected error %v got %v", tc.expectErr, err)
-			}
-
-			if tc.expectErr == nil {
-				if err != nil {
-					failErr()
-				}
-			} else {
-				if tc.expectErr.Error() != err.Error() {
-					failErr()
-				}
-			}
-
-			if tc.expectTime != pt {
-				t.Fatalf("Expected pin time %v got %v", tc.expectTime, pt)
-			}
-		})
-	}
-}
-
 func TestRevisionIsReachable(t *testing.T) {
 	tests := []struct {
 		name   string
 		labels map[string]string
 		want   bool
 	}{{
-		name:   "has route annotation",
-		labels: map[string]string{serving.RouteLabelKey: "the-route"},
+		name:   "has serving state label",
+		labels: map[string]string{serving.RoutingStateLabelKey: "active"},
 		want:   true,
 	}, {
 		name:   "empty route annotation",
-		labels: map[string]string{serving.RouteLabelKey: ""},
+		labels: map[string]string{serving.RoutingStateLabelKey: ""},
 		want:   false,
 	}, {
 		name:   "no route annotation",
