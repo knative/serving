@@ -172,7 +172,7 @@ func TestGetServicePort(t *testing.T) {
 
 func BenchmarkHealthyAddresses(b *testing.B) {
 	for _, n := range []int{1, 10, 100, 1000, 10000} {
-		b.Run(fmt.Sprintf("addresses-%d", n), func(b *testing.B) {
+		b.Run(fmt.Sprint("addresses-", n), func(b *testing.B) {
 			ep := eps(10, n)
 			for i := 0; i < b.N; i++ {
 				healthyAddresses(ep, networking.ServicePortNameHTTP1)
@@ -183,7 +183,7 @@ func BenchmarkHealthyAddresses(b *testing.B) {
 
 func BenchmarkEndpointsToDests(b *testing.B) {
 	for _, n := range []int{1, 10, 100, 1000, 10000} {
-		b.Run(fmt.Sprintf("addresses-%d", n), func(b *testing.B) {
+		b.Run(fmt.Sprint("addresses-", n), func(b *testing.B) {
 			ep := eps(10, n)
 			for i := 0; i < b.N; i++ {
 				endpointsToDests(ep, networking.ServicePortNameHTTP1)
