@@ -143,6 +143,31 @@ func (cur *Rollout) Step(prev *Rollout) *Rollout {
 	return ro
 }
 
+// adjustPercentage updates the rollout with the new percentage values.
+// If new percentage is larger than the previous, the last revision gets
+// the difference, if it is decreasing then we start removing traffic from
+// the older revisions.
+func adjustPercentage(goal int, cr *ConfigurationRollout) {
+	switch diff := goal - cr.Percent; {
+	case diff > 0:
+		cr.Revisions[len(cr.Revisions)-1].Percent += diff
+	case diff < 0:
+		diff = -diff // To make logic more natural.
+		i := 0
+		for diff > 0 && i < len(cr.Revisions) {
+			if cr.Revisions[i].Percent > diff {
+				cr.Revisions[i].Percent -= diff
+				break
+			}
+			diff -= cr.Revisions[i].Percent
+			i++
+		}
+		cr.Revisions = cr.Revisions[i:]
+	default: // diff = 0
+		// noop
+	}
+}
+
 // stepConfig takes previous and goal configuration shapes and returns a new
 // config rollout, after computing the percetage allocations.
 func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
@@ -151,6 +176,11 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 		ConfigurationName: goal.ConfigurationName,
 		Tag:               goal.Tag,
 		Percent:           goal.Percent,
+		Revisions:         goal.Revisions,
+	}
+
+	if len(prev.Revisions) > 0 {
+		adjustPercentage(goal.Percent, prev)
 	}
 	// goal will always have just one revision in the list – the current desired revision.
 	// If it matches the last revision of the previous rollout state (or there were no revisions)
@@ -158,9 +188,9 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 	if len(prev.Revisions) == 0 || goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
 		// TODO(vagababov): here would go the logic to compute new percentages for the rollout,
 		// i.e step function, so return value will change, depending on that.
-		// TODO(vagababov): percentage might change, so this should trigger recompute of existing
-		// revision rollouts.
-		ret.Revisions = goal.Revisions
+		if len(prev.Revisions) > 0 {
+			ret.Revisions = prev.Revisions
+		}
 		return ret
 	}
 
