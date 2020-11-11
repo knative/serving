@@ -28,9 +28,6 @@ const (
 	// namespace tests in.
 	AlternativeServingNamespace = "serving-tests-alt"
 
-	// ServingNamespaceforSecurityTesting is the namespace for security tests.
-	ServingNamespaceforSecurityTesting = "serving-tests-security"
-
 	// TLSNamespace is the namespace for serving tls tests
 	TLSNamespace = "tls"
 
