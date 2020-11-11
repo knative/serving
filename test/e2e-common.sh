@@ -421,7 +421,7 @@ function test_setup() {
 # Apply the logging config for testing. This should be called after test_setup has been triggered.
 function test_logging_config_setup() {
   echo ">> Setting up test logging config..."
-  ko apply ${KO_FLAGS} -f ${TMP_DIR}/test/config/config/config-logging.yaml || return 1
+  ko apply ${KO_FLAGS} -f ${TMP_DIR}/test/config/config-logging.yaml || return 1
 }
 
 # Delete test resources
