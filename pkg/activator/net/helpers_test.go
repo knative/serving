@@ -17,6 +17,7 @@ limitations under the License.
 package net
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -167,4 +168,55 @@ func TestGetServicePort(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkHealthyAddresses(b *testing.B) {
+	for _, n := range []int{1, 10, 100, 1000, 10000} {
+		b.Run(fmt.Sprintf("addresses-%d", n), func(b *testing.B) {
+			ep := eps(10, n)
+			for i := 0; i < b.N; i++ {
+				healthyAddresses(ep, networking.ServicePortNameHTTP1)
+			}
+		})
+	}
+}
+
+func BenchmarkEndpointsToDests(b *testing.B) {
+	for _, n := range []int{1, 10, 100, 1000, 10000} {
+		b.Run(fmt.Sprintf("addresses-%d", n), func(b *testing.B) {
+			ep := eps(10, n)
+			for i := 0; i < b.N; i++ {
+				endpointsToDests(ep, networking.ServicePortNameHTTP1)
+			}
+		})
+	}
+}
+
+func eps(activators, apps int) *corev1.Endpoints {
+	return &corev1.Endpoints{
+		Subsets: []corev1.EndpointSubset{{
+			Addresses: addresses("activator", activators),
+			Ports: []corev1.EndpointPort{{
+				Name: networking.ServicePortNameHTTP1,
+				Port: 1234,
+			}},
+		}, {
+			Addresses:         addresses("app", apps),
+			NotReadyAddresses: addresses("app-non-ready", apps),
+			Ports: []corev1.EndpointPort{{
+				Name: networking.ServicePortNameHTTP1,
+				Port: 1234,
+			}},
+		}},
+	}
+}
+
+func addresses(prefix string, n int) []corev1.EndpointAddress {
+	addrs := make([]corev1.EndpointAddress, 0, n)
+	for i := 0; i < n; i++ {
+		addrs = append(addrs, corev1.EndpointAddress{
+			IP: fmt.Sprintf("%s-%d", prefix, i),
+		})
+	}
+	return addrs
 }
