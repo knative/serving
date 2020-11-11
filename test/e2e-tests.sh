@@ -138,8 +138,8 @@ disable_chaosduck
 
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
-# In HA tests, all leading pods are deleted explictly instead of depending on
-# the Chaosduck. And we wait for all the new leading pods to become ready. 
+# In HA tests, all leading pods are deleted explicitly instead of depending on
+# the Chaosduck. And we wait for all the new leading pods to become ready.
 go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
 	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
 
