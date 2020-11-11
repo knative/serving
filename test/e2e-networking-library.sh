@@ -157,6 +157,7 @@ function install_contour() {
 function wait_until_ingress_running() {
   if [[ -n "${ISTIO_VERSION}" ]]; then
     wait_until_pods_running istio-system || return 1
+    echo "external IP ready?"
     wait_until_service_has_external_http_address istio-system istio-ingressgateway
   fi
   if [[ -n "${GLOO_VERSION}" ]]; then
