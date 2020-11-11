@@ -34,6 +34,7 @@ func healthyAddresses(endpoints *corev1.Endpoints, portName string) sets.String 
 		for _, port := range es.Ports {
 			if port.Name == portName {
 				addresses += len(es.Addresses)
+				break
 			}
 		}
 	}
@@ -63,6 +64,7 @@ func endpointsToDests(endpoints *corev1.Endpoints, portName string) (ready, notR
 			if port.Name == portName {
 				readyAddresses += len(es.Addresses)
 				nonReadyAddresses += len(es.NotReadyAddresses)
+				break
 			}
 		}
 	}
