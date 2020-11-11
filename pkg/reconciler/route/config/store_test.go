@@ -19,7 +19,6 @@ package config
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	network "knative.dev/networking/pkg"
@@ -60,19 +59,6 @@ func TestStoreLoadWithContext(t *testing.T) {
 		}
 		if diff := cmp.Diff(expected, config.GC); diff != "" {
 			t.Error("Unexpected controller config (-want, +got):", diff)
-		}
-	})
-
-	t.Run("gc invalid timeout", func(t *testing.T) {
-		gcConfig.Data["stale-revision-timeout"] = "1h"
-		expected, err := gc.NewConfigFromConfigMapFunc(ctx)(gcConfig)
-
-		if err != nil {
-			t.Error("Got error parsing gc config with invalid timeout:", err)
-		}
-
-		if expected.StaleRevisionTimeout != 15*time.Hour {
-			t.Errorf("Expected revision timeout of %v, got %v", 15*time.Hour, expected.StaleRevisionTimeout)
 		}
 	})
 }

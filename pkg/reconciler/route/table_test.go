@@ -47,7 +47,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
-	"knative.dev/serving/pkg/gc"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
@@ -2674,9 +2673,6 @@ func reconcilerTestConfig(enableAutoTLS bool) *config.Config {
 			DomainTemplate:          network.DefaultDomainTemplate,
 			TagTemplate:             network.DefaultTagTemplate,
 			HTTPProtocol:            network.HTTPEnabled,
-		},
-		GC: &gc.Config{
-			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
 		},
 		Features: &cfgmap.Features{
 			MultiContainer:        cfgmap.Disabled,

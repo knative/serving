@@ -33,7 +33,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
-	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
@@ -102,12 +101,6 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 	r := Route("test-ns", "test-route", WithRouteLabel(map[string]string{"route": "test-route"}))
 	rev := newTestRevision(r.Namespace, "revision")
 
-	ctx = config.ToContext(ctx, &config.Config{
-		GC: &gc.Config{
-			StaleRevisionLastpinnedDebounce: time.Minute,
-		},
-	})
-
 	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
@@ -138,11 +131,6 @@ func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
 
 	r := Route("test-ns", "test-route", WithRouteLabel(map[string]string{"route": "test-route"}))
 	rev := newTestRevision(r.Namespace, "revision")
-	ctx = config.ToContext(ctx, &config.Config{
-		GC: &gc.Config{
-			StaleRevisionLastpinnedDebounce: time.Minute,
-		},
-	})
 	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 }
