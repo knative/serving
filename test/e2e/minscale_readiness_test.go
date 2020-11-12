@@ -1,4 +1,4 @@
-// +build no-chaosduck
+// +build e2e
 
 /*
 Copyright 2019 The Knative Authors
@@ -38,10 +38,6 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-// This test should be run without the Chaosduck. It expects the old revision
-// to be scaled down after being replaced. If the Chaosduck kills the leading
-// Autoscaler pod, the new one will start with panic state and won't scale down
-// during the first stable window.
 func TestMinScale(t *testing.T) {
 	t.Parallel()
 
@@ -67,8 +63,8 @@ func TestMinScale(t *testing.T) {
 	cfg, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale),
 		// Pass low resource requirements to avoid Pod scheduling problems
 		// on busy clusters.  This is adapted from ./test/e2e/scale.go
-		func(svc *v1.Configuration) {
-			svc.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+		func(cfg *v1.Configuration) {
+			cfg.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("50m"),
 					corev1.ResourceMemory: resource.MustParse("50Mi"),
@@ -77,6 +73,9 @@ func TestMinScale(t *testing.T) {
 					corev1.ResourceCPU:    resource.MustParse("30m"),
 					corev1.ResourceMemory: resource.MustParse("20Mi"),
 				},
+			}
+			cfg.Spec.Template.Annotations = map[string]string{
+				autoscaling.WindowAnnotationKey: autoscaling.WindowMin.String(), // Make sure we scale down quickly after panic.
 			}
 		})
 	if err != nil {
