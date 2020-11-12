@@ -70,7 +70,7 @@ func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError 
 
 // VerifyNameChange checks that if a user brought their own name previously that it
 // changes at the appropriate times.
-func (rts *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *RevisionTemplateSpec) *apis.FieldError {
+func (rts *RevisionTemplateSpec) VerifyNameChange(_ context.Context, og *RevisionTemplateSpec) *apis.FieldError {
 	if rts.Name == "" {
 		// We only check that Name changes when the RevisionTemplate changes.
 		return nil
@@ -114,7 +114,7 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 }
 
 // Validate implements apis.Validatable
-func (rs *RevisionStatus) Validate(ctx context.Context) *apis.FieldError {
+func (rs *RevisionStatus) Validate(_ context.Context) *apis.FieldError {
 	return nil
 }
 

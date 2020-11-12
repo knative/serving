@@ -61,12 +61,12 @@ func NewRevisionAccessor(
 }
 
 // get implements Accessor
-func (r *Revision) get(ctx context.Context, ns, name string) (kmeta.Accessor, error) {
+func (r *Revision) get(_ context.Context, ns, name string) (kmeta.Accessor, error) {
 	return r.revisionLister.Revisions(ns).Get(name)
 }
 
 // list implements Accessor
-func (r *Revision) list(ctx context.Context, ns, name string) ([]kmeta.Accessor, error) {
+func (r *Revision) list(_ context.Context, ns, name string) ([]kmeta.Accessor, error) {
 	rl, err := r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey: name,
 	}))
@@ -110,12 +110,12 @@ func NewConfigurationAccessor(
 }
 
 // get implements Accessor
-func (c *Configuration) get(ctx context.Context, ns, name string) (kmeta.Accessor, error) {
+func (c *Configuration) get(_ context.Context, ns, name string) (kmeta.Accessor, error) {
 	return c.configurationLister.Configurations(ns).Get(name)
 }
 
 // list implements Accessor
-func (c *Configuration) list(ctx context.Context, ns, name string) ([]kmeta.Accessor, error) {
+func (c *Configuration) list(_ context.Context, ns, name string) ([]kmeta.Accessor, error) {
 	cl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey: name,
 	}))

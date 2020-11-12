@@ -24,11 +24,11 @@ import (
 )
 
 // ConvertTo implements apis.Convertible
-func (source *Route) ConvertTo(ctx context.Context, sink apis.Convertible) error {
+func (source *Route) ConvertTo(_ context.Context, sink apis.Convertible) error {
 	return fmt.Errorf("v1 is the highest known version, got: %T", sink)
 }
 
 // ConvertFrom implements apis.Convertible
-func (sink *Route) ConvertFrom(ctx context.Context, source apis.Convertible) error {
+func (sink *Route) ConvertFrom(_ context.Context, source apis.Convertible) error {
 	return fmt.Errorf("v1 is the highest known version, got: %T", source)
 }

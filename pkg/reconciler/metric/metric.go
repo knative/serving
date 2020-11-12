@@ -36,7 +36,7 @@ type reconciler struct {
 var _ metricreconciler.Interface = (*reconciler)(nil)
 
 // ReconcileKind implements Interface.ReconcileKind.
-func (r *reconciler) ReconcileKind(ctx context.Context, metric *v1alpha1.Metric) pkgreconciler.Event {
+func (r *reconciler) ReconcileKind(_ context.Context, metric *v1alpha1.Metric) pkgreconciler.Event {
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
 		switch {
 		case errors.Is(err, metrics.ErrFailedGetEndpoints):

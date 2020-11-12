@@ -53,7 +53,7 @@ type activationHandler struct {
 }
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(ctx context.Context, t Throttler, transport http.RoundTripper) http.Handler {
+func New(_ context.Context, t Throttler, transport http.RoundTripper) http.Handler {
 	return &activationHandler{
 		transport: transport,
 		tracingTransport: &ochttp.Transport{
