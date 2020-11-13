@@ -714,9 +714,9 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				simpleRollout("config", []traffic.RevisionRollout{{
-					"config-00001", 99,
+					RevisionName: "config-00001", Percent: 99,
 				}, {
-					"config-00002", 1,
+					RevisionName: "config-00002", Percent: 1,
 				}})),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -918,9 +918,9 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				simpleRollout("config", []traffic.RevisionRollout{{
-					"config-00001", 99,
+					RevisionName: "config-00001", Percent: 99,
 				}, {
-					"config-00002", 1,
+					RevisionName: "config-00002", Percent: 1,
 				}})),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
