@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -76,6 +77,29 @@ func TestTCPFailure(t *testing.T) {
 
 	if pb.ProbeContainer() {
 		t.Error("Reported success when no server was available for connection")
+	}
+}
+
+func TestAggressiveFailureOnlyLogsOnce(t *testing.T) {
+	pb := NewProbe(&corev1.Probe{
+		PeriodSeconds:    0, // Aggressive probe.
+		TimeoutSeconds:   1,
+		SuccessThreshold: 1,
+		FailureThreshold: 1,
+		Handler: corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Host: "127.0.0.1",
+				Port: intstr.FromInt(12345),
+			},
+		},
+	})
+
+	var buf bytes.Buffer
+	pb.out = &buf
+
+	pb.ProbeContainer()
+	if got := strings.Count(buf.String(), "aggressive probe error"); got != 1 {
+		t.Error("Expected exactly one instance of 'aggressive probe error' in the log, got", got)
 	}
 }
 
@@ -637,7 +661,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	}
 
 	if probeErr := <-errChan; !probeErr {
-		t.Error("Wanted ProbeContainer() successed but got error")
+		t.Error("Wanted ProbeContainer() to succeed, but got error")
 	}
 	if got := pb.count; got < successThreshold {
 		t.Errorf("Count = %d, want: %d", got, successThreshold)

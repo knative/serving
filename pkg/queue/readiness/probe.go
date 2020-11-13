@@ -143,24 +143,34 @@ func (p *Probe) probeContainerImpl() bool {
 }
 
 func (p *Probe) doProbe(probe func(time.Duration) error) error {
-	if p.IsAggressive() {
-		return wait.PollImmediate(retryInterval, p.pollTimeout, func() (bool, error) {
-			if err := probe(aggressiveProbeTimeout); err != nil {
-				fmt.Fprintln(p.out, "aggressive probe error: ", err)
-				// Reset count of consecutive successes to zero.
-				p.count = 0
-				return false, nil
-			}
-
-			p.count++
-
-			// Return success if count of consecutive successes is equal to or greater
-			// than the probe's SuccessThreshold.
-			return p.count >= p.SuccessThreshold, nil
-		})
+	if !p.IsAggressive() {
+		return probe(time.Duration(p.TimeoutSeconds) * time.Second)
 	}
 
-	return probe(time.Duration(p.TimeoutSeconds) * time.Second)
+	var lastProbeErr error
+	pollErr := wait.PollImmediate(retryInterval, p.pollTimeout, func() (bool, error) {
+		if err := probe(aggressiveProbeTimeout); err != nil {
+			// Reset count of consecutive successes to zero.
+			p.count = 0
+			// Don't log this now since we probe every 50ms and some failures are
+			// expected if the user container takes longer than that to start up.
+			// We'll log the lastProbeErr if we don't eventually succeed.
+			lastProbeErr = err
+			return false, nil
+		}
+
+		p.count++
+
+		// Return success if count of consecutive successes is equal to or greater
+		// than the probe's SuccessThreshold.
+		return p.count >= p.SuccessThreshold, nil
+	})
+
+	if lastProbeErr != nil {
+		fmt.Fprintln(p.out, "aggressive probe error: ", lastProbeErr)
+	}
+
+	return pollErr
 }
 
 // tcpProbe function executes TCP probe once if its standard probe
