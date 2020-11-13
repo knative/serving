@@ -20,24 +20,24 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "github.com/tsenart/vegeta/v12/lib"
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/mako"
 )
 
 // This function constructs an analyzer that validates the p95 aggregate value of the given metric.
 func new95PercentileLatency(name, valueKey string, min, max time.Duration) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String(name),
+		Name: ptr.String(name),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: bound(min),
 			Max: bound(max),
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
-				PercentileMilliRank: proto.Int32(95000),
-				ValueKey:            proto.String(valueKey),
+				PercentileMilliRank: ptr.Int32(95000),
+				ValueKey:            ptr.String(valueKey),
 			},
 		}},
 		CrossRunConfig: mako.NewCrossRunConfig(10),
@@ -182,5 +182,5 @@ var (
 // bound is a helper for making the inline SLOs more readable by expressing
 // them as durations.
 func bound(d time.Duration) *float64 {
-	return proto.Float64(d.Seconds())
+	return ptr.Float64(d.Seconds())
 }

@@ -24,12 +24,12 @@ const (
 	// ServingNamespace is the default namespace for serving e2e tests
 	ServingNamespace = "serving-tests"
 
-	// AlternativeServingNamespace is a different namepace to run cross-
+	// AlternativeServingNamespace is a different namespace to run cross-
 	// namespace tests in.
 	AlternativeServingNamespace = "serving-tests-alt"
 
-	// ServingNamespaceforSecurityTesting is the namespace for security tests.
-	ServingNamespaceforSecurityTesting = "serving-tests-security"
+	// TLSNamespace is the namespace for serving tls tests
+	TLSNamespace = "tls"
 
 	// Environment propagation conformance test objects
 
@@ -45,6 +45,6 @@ const (
 	// EnvValue is the configmap/secret test value to match env variable with
 	EnvValue = "testValue"
 
-	// ContainerMemoryLimit is used in any test which needs a default memory resource limit
-	ContainerMemoryLimit = "350Mi"
+	// testAnnotation is an annotation attached to resources originating from tests.
+	testAnnotation = "knative-e2e-test"
 )

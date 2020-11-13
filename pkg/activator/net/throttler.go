@@ -18,13 +18,12 @@ package net
 
 import (
 	"context"
-	"errors"
 	"math"
 	"math/rand"
 	"sort"
 	"sync"
-	"sync/atomic"
 
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +32,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	pkgnet "knative.dev/networking/pkg/apis/networking"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
@@ -41,38 +41,54 @@ import (
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 )
 
 const (
-
 	// The number of requests that are queued on the breaker before the 503s are sent.
 	// The value must be adjusted depending on the actual production requirements.
+	// This value is used both for the breaker in revisionThrottler (throttling
+	// across the entire revision), and for the individual podTracker breakers.
 	breakerQueueDepth = 10000
 
-	// The upper bound for concurrent requests sent to the revision.
-	// As new endpoints show up, the Breakers concurrency increases up to this value.
-	breakerMaxConcurrency = 1000
+	// The revisionThrottler breaker's concurrency increases up to this value as
+	// new endpoints show up. We need to set some value here since the breaker
+	// requires an explicit buffer size (it's backed by a chan struct{}), but
+	// queue.MaxBreakerCapacity is math.MaxInt32.
+	revisionMaxConcurrency = queue.MaxBreakerCapacity
 )
 
-var (
-	ErrActivatorOverload = errors.New("activator overload")
-
-	breakerParams = queue.BreakerParams{
-		QueueDepth:      breakerQueueDepth,
-		MaxConcurrency:  breakerMaxConcurrency,
-		InitialCapacity: 0,
+func newPodTracker(dest string, b breaker) *podTracker {
+	tracker := &podTracker{
+		dest: dest,
+		b:    b,
 	}
-)
+	tracker.decreaseWeight = func() { tracker.weight.Add(-1) }
+
+	return tracker
+}
 
 type podTracker struct {
 	dest string
 	b    breaker
+
+	// weight is used for LB policy implementations.
+	weight atomic.Int32
+	// decreaseWeight is an allocation optimization for the randomChoice2 policy.
+	decreaseWeight func()
+}
+
+func (p *podTracker) increaseWeight() {
+	p.weight.Add(1)
+}
+
+func (p *podTracker) getWeight() int32 {
+	return p.weight.Load()
 }
 
 func (p *podTracker) String() string {
@@ -86,11 +102,11 @@ func (p *podTracker) Capacity() int {
 	return p.b.Capacity()
 }
 
-func (p *podTracker) UpdateConcurrency(c int) error {
+func (p *podTracker) UpdateConcurrency(c int) {
 	if p.b == nil {
-		return nil
+		return
 	}
-	return p.b.UpdateConcurrency(c)
+	p.b.UpdateConcurrency(c)
 }
 
 func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
@@ -103,22 +119,27 @@ func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
 type breaker interface {
 	Capacity() int
 	Maybe(ctx context.Context, thunk func()) error
-	UpdateConcurrency(int) error
+	UpdateConcurrency(int)
 	Reserve(ctx context.Context) (func(), bool)
 }
 
+// revisionThrottler is used to throttle requests across the entire revision.
+// We use a breaker across the entire revision as well as individual
+// podTrackers because we need to queue requests in case no individual
+// podTracker has available slots (when CC!=0).
 type revisionThrottler struct {
 	revID                types.NamespacedName
 	containerConcurrency int
+	lbPolicy             lbPolicy
 
 	// These are used in slicing to infer which pods to assign
 	// to this activator.
-	numActivators int32
+	numActivators atomic.Int32
 	// If -1, it is presumed that this activator should not receive requests
 	// for the revision. But due to the system being distributed it might take
 	// time for everything to propagate. Thus when this is -1 we assign all the
 	// pod trackers.
-	activatorIndex int32
+	activatorIndex atomic.Int32
 	protocol       string
 
 	// Holds the current number of backends. This is used for when we get an activatorCount update and
@@ -140,7 +161,7 @@ type revisionThrottler struct {
 	clusterIPTracker *podTracker
 
 	// mux guards the "throttler state" which is the state we use during the
-	//request path. This is: trackers, clusterIPDest.
+	// request path. This is: trackers, clusterIPDest.
 	mux sync.RWMutex
 
 	logger *zap.SugaredLogger
@@ -151,11 +172,22 @@ func newRevisionThrottler(revID types.NamespacedName,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger) *revisionThrottler {
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
-	var revBreaker breaker
-	if containerConcurrency == 0 {
+	var (
+		revBreaker breaker
+		lbp        lbPolicy
+	)
+	switch {
+	case containerConcurrency == 0:
 		revBreaker = newInfiniteBreaker(logger)
-	} else {
+		lbp = randomChoice2Policy
+	case containerConcurrency <= 3:
+		// For very low CC values use first available pod.
 		revBreaker = queue.NewBreaker(breakerParams)
+		lbp = firstAvailableLBPolicy
+	default:
+		// Otherwise RR.
+		revBreaker = queue.NewBreaker(breakerParams)
+		lbp = newRoundRobinPolicy()
 	}
 	return &revisionThrottler{
 		revID:                revID,
@@ -163,29 +195,12 @@ func newRevisionThrottler(revID types.NamespacedName,
 		breaker:              revBreaker,
 		logger:               logger,
 		protocol:             proto,
-		activatorIndex:       -1, // Start with unknown.
+		activatorIndex:       *atomic.NewInt32(-1), // Start with unknown.
+		lbPolicy:             lbp,
 	}
 }
 
 func noop() {}
-
-// pickPod picks the first tracker that has open capacity if container concurrency
-// if limited, random pod otherwise.
-func pickPod(ctx context.Context, tgs []*podTracker, cc int) (func(), *podTracker) {
-	// Infinite capacity, pick random. We have to do this
-	// otherwise _all_ the requests will go to the first pod
-	// since it has unlimited capacity.
-	if cc == 0 {
-		return noop, tgs[rand.Intn(len(tgs))]
-	}
-
-	for _, t := range tgs {
-		if cb, ok := t.Reserve(ctx); ok {
-			return cb, t
-		}
-	}
-	return noop, nil
-}
 
 // Returns a dest that at the moment of choosing had an open slot
 // for request.
@@ -196,7 +211,7 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 	if rt.clusterIPTracker != nil {
 		return noop, rt.clusterIPTracker
 	}
-	return pickPod(ctx, rt.assignedTrackers, rt.containerConcurrency)
+	return rt.lbPolicy(ctx, rt.assignedTrackers)
 }
 
 func (rt *revisionThrottler) try(ctx context.Context, function func(string) error) error {
@@ -226,13 +241,16 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 	return ret
 }
 
-func (rt *revisionThrottler) calculateCapacity(size, activatorCount, maxConcurrency int) int {
+func (rt *revisionThrottler) calculateCapacity(size, activatorCount int) int {
 	targetCapacity := rt.containerConcurrency * size
 
-	if size > 0 && (rt.containerConcurrency == 0 || targetCapacity > maxConcurrency) {
+	if size > 0 && (rt.containerConcurrency == 0 || targetCapacity > revisionMaxConcurrency) {
 		// If cc==0, we need to pick a number, but it does not matter, since
 		// infinite breaker will dole out as many tokens as it can.
-		targetCapacity = maxConcurrency
+		// For cc>0 we clamp targetCapacity to maxConcurrency because the backing
+		// breaker requires some limit (it's backed by a chan struct{}), but the
+		// limit is math.MaxInt32 so in practice this should never be a real limit.
+		targetCapacity = revisionMaxConcurrency
 	} else if targetCapacity > 0 {
 		targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
 	}
@@ -259,8 +277,7 @@ func (rt *revisionThrottler) resetTrackers() {
 func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	// We have to make assignments on each updateCapacity, since if number
 	// of activators changes, then we need to rebalance the assignedTrackers.
-
-	ac, ai := int(atomic.LoadInt32(&rt.numActivators)), int(atomic.LoadInt32(&rt.activatorIndex))
+	ac, ai := int(rt.numActivators.Load()), int(rt.activatorIndex.Load())
 	numTrackers := func() int {
 		// We do not have to process the `podTrackers` under lock, since
 		// updateCapacity is guaranteed to be executed by a single goroutine.
@@ -272,14 +289,16 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 			return 0
 		}
 
+		// Sort, so we get more or less stable results.
+		sort.Slice(rt.podTrackers, func(i, j int) bool {
+			return rt.podTrackers[i].dest < rt.podTrackers[j].dest
+		})
 		assigned := rt.podTrackers
-		if rt.containerConcurrency != 0 {
+		if rt.containerConcurrency > 0 {
 			rt.resetTrackers()
-			// TODO(vagababov): pull assign slice into RT.
-			assigned = assignSlice(rt.podTrackers,
-				ai, ac, rt.containerConcurrency)
+			assigned = assignSlice(rt.podTrackers, ai, ac, rt.containerConcurrency)
 		}
-		rt.logger.Debugf("Trackers %d/%d:  %v", ai, ac, rt.assignedTrackers)
+		rt.logger.Debugf("Trackers %d/%d: assignment: %v", ai, ac, assigned)
 		// The actual write out of the assigned trackers has to be under lock.
 		rt.mux.Lock()
 		defer rt.mux.Unlock()
@@ -291,11 +310,11 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	if numTrackers > 0 {
 		// Capacity is computed based off of number of trackers,
 		// when using pod direct routing.
-		capacity = rt.calculateCapacity(len(rt.podTrackers), ac, breakerParams.MaxConcurrency)
+		capacity = rt.calculateCapacity(len(rt.podTrackers), ac)
 	} else {
 		// Capacity is computed off of number of ready backends,
 		// when we are using clusterIP routing.
-		capacity = rt.calculateCapacity(backendCount, ac, breakerParams.MaxConcurrency)
+		capacity = rt.calculateCapacity(backendCount, ac)
 	}
 	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
 		capacity, backendCount, ai, ac)
@@ -304,9 +323,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	rt.breaker.UpdateConcurrency(capacity)
 }
 
-func (rt *revisionThrottler) updateThrottlerState(
-	throttler *Throttler, backendCount int,
-	trackers []*podTracker, clusterIPDest *podTracker) {
+func (rt *revisionThrottler) updateThrottlerState(backendCount int, trackers []*podTracker, clusterIPDest *podTracker) {
 	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d",
 		clusterIPDest, len(trackers), backendCount)
 
@@ -333,8 +350,8 @@ func (rt *revisionThrottler) updateThrottlerState(
 // pickIndices picks the indices for the slicing.
 func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endIndex, remnants int) {
 	if numActivators > numTrackers {
-		// 1. We have fewer pods than than activators. Assign the pod in round robin fashion.
-		// NB: when we implement subsetting this will be less of a problem.
+		// 1. We have fewer pods than than activators. Assign the pods in round robin fashion.
+		// With subsetting this is less of a problem and should almost never happen.
 		// e.g. lt=3, #ac = 5; for selfIdx = 3 => 3 % 3 = 0, or for si = 5 => 5%3 = 2
 		beginIndex = selfIndex % numTrackers
 		endIndex = beginIndex + 1
@@ -353,16 +370,19 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 // assignSlice picks a subset of the individual pods to send requests to
 // for this Activator instance. This only matters in case of direct
 // to pod IP routing, and is irrelevant, when ClusterIP is used.
+// assignSlice should receive podTrackers sorted by address.
 func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*podTracker {
 	// When we're unassigned, doesn't matter what we return.
 	lt := len(trackers)
 	if selfIndex == -1 || lt <= 1 {
 		return trackers
 	}
-	// Sort, so we get more or less stable results.
-	sort.Slice(trackers, func(i, j int) bool {
-		return trackers[i].dest < trackers[j].dest
-	})
+
+	// If there's just a single activator. Take all the trackers.
+	if numActivators == 1 {
+		return trackers
+	}
+
 	bi, ei, remnants := pickIndices(lt, selfIndex, numActivators)
 	x := append(trackers[:0:0], trackers[bi:ei]...)
 	if remnants > 0 {
@@ -373,8 +393,8 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*po
 		rand.Shuffle(remnants, func(i, j int) {
 			tail[i], tail[j] = tail[j], tail[i]
 		})
-		// We need minOneOrValue in order for cc==0 to work.
-		dcc := minOneOrValue(int(math.Ceil(float64(cc) / float64(numActivators))))
+		// assignSlice is not called for CC=0 case.
+		dcc := int(math.Ceil(float64(cc) / float64(numActivators)))
 		// This is basically: x = append(x, trackers[len(trackers)-remnants:]...)
 		// But we need to update the capacity.
 		for _, t := range tail {
@@ -385,11 +405,11 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*po
 	return x
 }
 
-// This function will never be called in parallel but try can be called in parallel to this so we need
+// This function will never be called in parallel but `try` can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
-func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionDestsUpdate) {
-	rt.logger.Debugf("Handling update w/ ClusterIP=%q, %d ready and dests: %v",
-		update.ClusterIPDest, len(update.Dests), update.Dests)
+func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
+	rt.logger.Debugw("Handling update",
+		zap.String("ClusterIP", update.ClusterIPDest), zap.Object("dests", logging.StringSet(update.Dests)))
 
 	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
 	// NB: this will not be called in parallel, thus we can build a new podIPTrackers
@@ -409,28 +429,23 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 			tracker, ok := trackersMap[newDest]
 			if !ok {
 				if rt.containerConcurrency == 0 {
-					tracker = &podTracker{dest: newDest}
+					tracker = newPodTracker(newDest, nil)
 				} else {
-					tracker = &podTracker{
-						dest: newDest,
-						b: queue.NewBreaker(queue.BreakerParams{
-							QueueDepth:      breakerParams.QueueDepth,
-							MaxConcurrency:  rt.containerConcurrency,
-							InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
-						}),
-					}
+					tracker = newPodTracker(newDest, queue.NewBreaker(queue.BreakerParams{
+						QueueDepth:      breakerQueueDepth,
+						MaxConcurrency:  rt.containerConcurrency,
+						InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
+					}))
 				}
 			}
 			trackers = append(trackers, tracker)
 		}
 
-		rt.updateThrottlerState(throttler, len(update.Dests), trackers, nil /*clusterIP*/)
+		rt.updateThrottlerState(len(update.Dests), trackers, nil /*clusterIP*/)
 		return
 	}
 
-	rt.updateThrottlerState(throttler, len(update.Dests), nil /*trackers*/, &podTracker{
-		dest: update.ClusterIPDest,
-	})
+	rt.updateThrottlerState(len(update.Dests), nil /*trackers*/, newPodTracker(update.ClusterIPDest, nil))
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
@@ -473,8 +488,8 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 		FilterFunc: reconciler.LabelFilterFunc(networking.ServiceTypeKey,
 			string(networking.ServiceTypePublic), false),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    t.publicEndspointsUpdated,
-			UpdateFunc: controller.PassNew(t.publicEndspointsUpdated),
+			AddFunc:    t.publicEndpointsUpdated,
+			UpdateFunc: controller.PassNew(t.publicEndpointsUpdated),
 		},
 	})
 	return t
@@ -530,8 +545,13 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 		if err != nil {
 			return nil, err
 		}
-		revThrottler = newRevisionThrottler(revID, int(rev.Spec.GetContainerConcurrency()),
-			networking.ServicePortName(rev.GetProtocol()), breakerParams, t.logger)
+		revThrottler = newRevisionThrottler(
+			revID,
+			int(rev.Spec.GetContainerConcurrency()),
+			pkgnet.ServicePortName(rev.GetProtocol()),
+			queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
+			t.logger,
+		)
 		t.revisionThrottlers[revID] = revThrottler
 	}
 	return revThrottler, nil
@@ -542,12 +562,12 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 func (t *Throttler) revisionUpdated(obj interface{}) {
 	rev := obj.(*v1.Revision)
 	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
-	logger := t.logger.With(zap.String(logkey.Key, revID.String()))
 
-	logger.Debug("Revision update")
+	t.logger.Debug("Revision update", zap.String(logkey.Key, revID.String()))
 
 	if _, err := t.getOrCreateRevisionThrottler(revID); err != nil {
-		logger.Errorw("Failed to get revision throttler for revision", zap.Error(err))
+		t.logger.Errorw("Failed to get revision throttler for revision",
+			zap.Error(err), zap.String(logkey.Key, revID.String()))
 	}
 }
 
@@ -573,7 +593,7 @@ func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 			logger.Errorw("Failed to get revision throttler", zap.Error(err))
 		}
 	} else {
-		rt.handleUpdate(t, update)
+		rt.handleUpdate(update)
 	}
 }
 
@@ -588,7 +608,7 @@ func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
 	}
 	rev := types.NamespacedName{Name: revN, Namespace: eps.Namespace}
 	if rt, err := t.getOrCreateRevisionThrottler(rev); err != nil {
-		logger := t.logger.With(zap.Any(logkey.Key, rev))
+		logger := t.logger.With(zap.String(logkey.Key, rev.String()))
 		if k8serrors.IsNotFound(err) {
 			logger.Debug("Revision not found. It was probably removed")
 		} else {
@@ -615,14 +635,14 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 		return
 	}
 
-	na, ai := atomic.LoadInt32(&rt.numActivators), atomic.LoadInt32(&rt.activatorIndex)
+	na, ai := rt.numActivators.Load(), rt.activatorIndex.Load()
 	if na == newNA && ai == newAI {
 		// The state didn't change, do nothing
 		return
 	}
 
-	atomic.StoreInt32(&rt.numActivators, newNA)
-	atomic.StoreInt32(&rt.activatorIndex, newAI)
+	rt.numActivators.Store(newNA)
+	rt.activatorIndex.Store(newAI)
 	rt.logger.Infof("This activator index is %d/%d was %d/%d",
 		rt.activatorIndex, rt.numActivators, newAI, newNA)
 	rt.updateCapacity(rt.backendCount)
@@ -645,9 +665,9 @@ func inferIndex(eps []string, ipAddress string) int {
 	return idx
 }
 
-func (t *Throttler) publicEndspointsUpdated(newObj interface{}) {
+func (t *Throttler) publicEndpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
-	t.logger.Infof("Public Endpoints %s updated", endpoints.Name)
+	t.logger.Info("Updated public Endpoints: ", endpoints.Name)
 	t.epsUpdateCh <- endpoints
 }
 
@@ -682,8 +702,7 @@ type infiniteBreaker struct {
 	// 0 (no downstream capacity) and 1 (infinite downstream capacity).
 	// `Maybe` checks this value to determine whether to proxy the request
 	// immediately or wait for capacity to appear.
-	// `concurrency` should only be manipulated by `sync/atomic` methods.
-	concurrency int32
+	concurrency atomic.Int32
 
 	logger *zap.SugaredLogger
 }
@@ -698,7 +717,7 @@ func newInfiniteBreaker(logger *zap.SugaredLogger) *infiniteBreaker {
 
 // Capacity returns the current capacity of the breaker
 func (ib *infiniteBreaker) Capacity() int {
-	return int(atomic.LoadInt32(&ib.concurrency))
+	return int(ib.concurrency.Load())
 }
 
 func zeroOrOne(x int) int32 {
@@ -709,13 +728,13 @@ func zeroOrOne(x int) int32 {
 }
 
 // UpdateConcurrency sets the concurrency of the breaker
-func (ib *infiniteBreaker) UpdateConcurrency(cc int) error {
+func (ib *infiniteBreaker) UpdateConcurrency(cc int) {
 	rcc := zeroOrOne(cc)
 	// We lock here to make sure two scale up events don't
 	// stomp on each other's feet.
 	ib.mu.Lock()
 	defer ib.mu.Unlock()
-	old := atomic.SwapInt32(&ib.concurrency, rcc)
+	old := ib.concurrency.Swap(rcc)
 
 	// Scale up/down event.
 	if old != rcc {
@@ -726,7 +745,6 @@ func (ib *infiniteBreaker) UpdateConcurrency(cc int) error {
 			close(ib.broadcast)
 		}
 	}
-	return nil
 }
 
 // Maybe executes thunk when capacity is available
@@ -750,7 +768,7 @@ func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 		thunk()
 		return nil
 	case <-ctx.Done():
-		ib.logger.Infof("Context is closed: %v", ctx.Err())
+		ib.logger.Info("Context is closed: ", ctx.Err())
 		return ctx.Err()
 	}
 }

@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import (
 	"github.com/ghodss/yaml"
 	corev1 "k8s.io/api/core/v1"
 
+	netpkg "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving"
@@ -98,7 +99,8 @@ func (c *Domain) LookupDomainForLabels(labels map[string]string) string {
 	specificity := -1
 	// If we see VisibilityLabelKey sets with VisibilityClusterLocal, that
 	// will take precedence and the route will get a Cluster's Domain Name.
-	if labels[serving.VisibilityLabelKey] == serving.VisibilityClusterLocal {
+	if labels[netpkg.VisibilityLabelKey] == serving.VisibilityClusterLocal ||
+		labels[serving.VisibilityLabelKeyObsolete] == serving.VisibilityClusterLocal {
 		return "svc." + network.GetClusterDomainName()
 	}
 	for k, selector := range c.Domains {

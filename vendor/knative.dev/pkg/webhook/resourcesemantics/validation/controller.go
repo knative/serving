@@ -21,13 +21,15 @@ import (
 
 	// Injection stuff
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	vwhinformer "knative.dev/pkg/client/injection/kube/informers/admissionregistration/v1beta1/validatingwebhookconfiguration"
+	vwhinformer "knative.dev/pkg/client/injection/kube/informers/admissionregistration/v1/validatingwebhookconfiguration"
 	secretinformer "knative.dev/pkg/injection/clients/namespacedkube/informers/core/v1/secret"
+	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/webhook"
 	"knative.dev/pkg/webhook/resourcesemantics"
@@ -40,6 +42,7 @@ func NewAdmissionController(
 	handlers map[schema.GroupVersionKind]resourcesemantics.GenericCRD,
 	wc func(context.Context) context.Context,
 	disallowUnknownFields bool,
+	callbacks ...map[schema.GroupVersionKind]Callback,
 ) *controller.Impl {
 
 	client := kubeclient.Get(ctx)
@@ -47,10 +50,34 @@ func NewAdmissionController(
 	secretInformer := secretinformer.Get(ctx)
 	options := webhook.GetOptions(ctx)
 
+	// This not ideal, we are using a variadic argument to effectively make callbacks optional
+	// This allows this addition to be non-breaking to consumers of /pkg
+	// TODO: once all sub-repos have adopted this, we might move this back to a traditional param.
+	var unwrappedCallbacks map[schema.GroupVersionKind]Callback
+	switch len(callbacks) {
+	case 0:
+		unwrappedCallbacks = map[schema.GroupVersionKind]Callback{}
+	case 1:
+		unwrappedCallbacks = callbacks[0]
+	default:
+		panic("NewAdmissionController may not be called with multiple callback maps")
+	}
+
 	wh := &reconciler{
-		name:     name,
-		path:     path,
-		handlers: handlers,
+		LeaderAwareFuncs: pkgreconciler.LeaderAwareFuncs{
+			// Have this reconciler enqueue our singleton whenever it becomes leader.
+			PromoteFunc: func(bkt pkgreconciler.Bucket, enq func(pkgreconciler.Bucket, types.NamespacedName)) error {
+				enq(bkt, types.NamespacedName{Name: name})
+				return nil
+			},
+		},
+
+		key: types.NamespacedName{
+			Name: name,
+		},
+		path:      path,
+		handlers:  handlers,
+		callbacks: unwrappedCallbacks,
 
 		withContext:           wc,
 		disallowUnknownFields: disallowUnknownFields,
@@ -62,7 +89,7 @@ func NewAdmissionController(
 	}
 
 	logger := logging.FromContext(ctx)
-	c := controller.NewImpl(wh, logger, "ConfigMapWebhook")
+	c := controller.NewImpl(wh, logger, "ValidationWebhook")
 
 	// Reconcile when the named ValidatingWebhookConfiguration changes.
 	vwhInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{

@@ -19,7 +19,8 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-
+  annotations:
+    knative.dev/example-checksum: "1d830d9e"
 data:
   _example: |
     ################################
@@ -49,13 +50,27 @@ data:
     # fractional values in (0, 1] interval (i.e. 0.7 ⇒ 70%).
     # Thus minimal percentage value must be greater than 1.0, or it will be
     # treated as a fraction.
+    # NOTE: that this value does not affect actual number of concurrent requests
+    #       the user container may receive, but only the average number of requests
+    #       that the revision pods will receive.
     container-concurrency-target-percentage: "70"
 
     # The container concurrency target default is what the Autoscaler will
-    # try to maintain when concurrency is used as the scaling metric for a
+    # try to maintain when concurrency is used as the scaling metric for the
     # Revision and the Revision specifies unlimited concurrency.
-    # Even when specifying unlimited concurrency, the autoscaler will
+    # When revision explicitly specifies container concurrency, that value
+    # will be used as a scaling target for autoscaler.
+    # When specifying unlimited concurrency, the autoscaler will
     # horizontally scale the application based on this target concurrency.
+    # This is what we call "soft limit" in the documentation, i.e. it only
+    # affects number of pods and does not affect the number of requests
+    # individual pod processes.
+    # The value must be a positive number such that the value multiplied
+    # by container-concurrency-target-percentage is greater than 0.01.
+    # NOTE: that this value will be adjusted by application of
+    #       container-concurrency-target-percentage, i.e. by default
+    #       the system will target on average 70 concurrent requests
+    #       per revision pod.
     # NOTE: Only one metric can be used for autoscaling a Revision.
     container-concurrency-target-default: "100"
 
@@ -92,8 +107,9 @@ data:
     # enters panic mode. When operating in panic mode, the autoscaler
     # scales on the average concurrency over the panic window which is
     # panic-window-percentage of the stable-window.
+    # Must be in the [1, 100] range.
     # When computing the panic window it will be rounded to the closest
-    # whole second.
+    # whole second, at least 1s.
     panic-window-percentage: "10.0"
 
     # The percentage of the container concurrency target at which to
@@ -105,7 +121,7 @@ data:
     # observed pods.
     # Cannot be less or equal to 1.
     # I.e with value of 2.0 the number of pods can at most go N to 2N
-    # over single Autoscaler period (see tick-interval), but at least N to
+    # over single Autoscaler period (2s), but at least N to
     # N+1, if Autoscaler needs to scale up.
     max-scale-up-rate: "1000.0"
 
@@ -114,24 +130,35 @@ data:
     # desired pods.
     # Cannot be less or equal to 1.
     # I.e. with value of 2.0 the number of pods can at most go N to N/2
-    # over single Autoscaler evaluation period (see tick-interval), but at
+    # over single Autoscaler evaluation period (2s), but at
     # least N to N-1, if Autoscaler needs to scale down.
     max-scale-down-rate: "2.0"
 
-    # Scale to zero feature flag
+    # Scale to zero feature flag.
     enable-scale-to-zero: "true"
-
-    # Tick interval is the time between autoscaling calculations.
-    tick-interval: "2s"
 
     # Scale to zero grace period is the time an inactive revision is left
     # running before it is scaled to zero (min: 6s).
+    # This is the upper limit and is provided not to enforce timeout after
+    # the revision stopped receiving requests for stable window, but to
+    # ensure network reprogramming to put activator in the path has completed.
+    # If the system determines that a shorter period is satisfactory,
+    # then the system will only wait that amount of time before scaling to 0.
+    # NOTE: this period might actually be 0, if activator has been
+    # in the request path sufficiently long.
+    # If there is necessity for the last pod to linger longer use
+    # scale-to-zero-pod-retention-period flag.
     scale-to-zero-grace-period: "30s"
 
-    # Enable graceful scaledown feature flag.
-    # Once enabled, it allows the autoscaler to prioritize pods processing
-    # fewer (or zero) requests for removal when scaling down.
-    enable-graceful-scaledown: "false"
+    # Scale to zero pod retention period defines the minimum amount
+    # of time the last pod will remain after Autoscaler has decided to
+    # scale to zero.
+    # This flag is for the situations where the pod startup is very expensive
+    # and the traffic is bursty (requiring smaller windows for fast action),
+    # but patchy.
+    # The larger of this flag and `scale-to-zero-grace-period` will effectively
+    # determine how the last pod will hang around.
+    scale-to-zero-pod-retention-period: "0s"
 
     # pod-autoscaler-class specifies the default pod autoscaler class
     # that should be used if none is specified. If omitted, the Knative
@@ -145,3 +172,31 @@ data:
     # See the algorithm here: http://bit.ly/38XiCZ3.
     # TODO(vagababov): tune after actual benchmarking.
     activator-capacity: "100.0"
+
+    # initial-scale is the cluster-wide default value for the initial target
+    # scale of a revision after creation, unless overridden by the
+    # "autoscaling.knative.dev/initialScale" annotation.
+    # This value must be greater than 0 unless allow-zero-initial-scale is true.
+    initial-scale: "1"
+
+    # allow-zero-initial-scale controls whether either the cluster-wide initial-scale flag,
+    # or the "autoscaling.knative.dev/initialScale" annotation, can be set to 0.
+    allow-zero-initial-scale: "false"
+
+    # max-scale is the cluster-wide default value for the max scale of a revision,
+    # unless overridden by the "autoscaling.knative.dev/maxScale" annotation.
+    # If set to 0, the revision has no maximum scale.
+    max-scale: "0"
+
+    # scale-down-delay is the amount of time that must pass at reduced
+    # concurrency before a scale down decision is applied. This can be useful,
+    # for example, to maintain replica count and avoid a cold start penalty if
+    # more requests come in within the scale down delay period.
+    # The default, 0s, imposes no delay at all.
+    scale-down-delay: "0s"
+
+    # max-scale-limit sets the maximum permitted value for the max scale of a revision.
+    # When this is set to a positive value, a revision with a maxScale above that value
+    # (including a maxScale of "0" = unlimited) is disallowed.
+    # A value of zero (the default) allows any limit, including unlimited.
+    max-scale-limit: "0"

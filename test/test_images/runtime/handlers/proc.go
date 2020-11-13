@@ -17,6 +17,7 @@ limitations under the License.
 package handlers
 
 import (
+	"errors"
 	"io"
 	"os"
 
@@ -26,7 +27,7 @@ import (
 // stdin attempts to read bytes from the stdin file descriptor and returns the result.
 func stdin() *types.Stdin {
 	_, err := os.Stdin.Read(make([]byte, 1))
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return &types.Stdin{EOF: &yes}
 	}
 	if err != nil {

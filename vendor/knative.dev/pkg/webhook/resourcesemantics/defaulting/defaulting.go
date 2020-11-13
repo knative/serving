@@ -28,11 +28,13 @@ import (
 	"github.com/markbates/inflect"
 	"go.uber.org/zap"
 	jsonpatch "gomodules.xyz/jsonpatch/v2"
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	admissionlisters "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	admissionlisters "k8s.io/client-go/listers/admissionregistration/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
@@ -40,6 +42,7 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/webhook"
 	certresources "knative.dev/pkg/webhook/certificates/resources"
@@ -50,7 +53,10 @@ var errMissingNewObject = errors.New("the new object may not be nil")
 
 // reconciler implements the AdmissionController for resources
 type reconciler struct {
-	name     string
+	webhook.StatelessAdmissionImpl
+	pkgreconciler.LeaderAwareFuncs
+
+	key      types.NamespacedName
 	path     string
 	handlers map[schema.GroupVersionKind]resourcesemantics.GenericCRD
 
@@ -65,16 +71,23 @@ type reconciler struct {
 }
 
 var _ controller.Reconciler = (*reconciler)(nil)
+var _ pkgreconciler.LeaderAware = (*reconciler)(nil)
 var _ webhook.AdmissionController = (*reconciler)(nil)
+var _ webhook.StatelessAdmissionController = (*reconciler)(nil)
 
 // Reconcile implements controller.Reconciler
 func (ac *reconciler) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
 
+	if !ac.IsLeaderFor(ac.key) {
+		logger.Debugf("Skipping key %q, not the leader.", ac.key)
+		return nil
+	}
+
 	// Look up the webhook secret, and fetch the CA cert bundle.
 	secret, err := ac.secretlister.Secrets(system.Namespace()).Get(ac.secretName)
 	if err != nil {
-		logger.Errorf("Error fetching secret: %v", err)
+		logger.Errorw("Error fetching secret", zap.Error(err))
 		return err
 	}
 	caCert, ok := secret.Data[certresources.CACert]
@@ -92,17 +105,17 @@ func (ac *reconciler) Path() string {
 }
 
 // Admit implements AdmissionController
-func (ac *reconciler) Admit(ctx context.Context, request *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
+func (ac *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 	if ac.withContext != nil {
 		ctx = ac.withContext(ctx)
 	}
 
 	logger := logging.FromContext(ctx)
 	switch request.Operation {
-	case admissionv1beta1.Create, admissionv1beta1.Update:
+	case admissionv1.Create, admissionv1.Update:
 	default:
-		logger.Infof("Unhandled webhook operation, letting it through %v", request.Operation)
-		return &admissionv1beta1.AdmissionResponse{Allowed: true}
+		logger.Info("Unhandled webhook operation, letting it through ", request.Operation)
+		return &admissionv1.AdmissionResponse{Allowed: true}
 	}
 
 	patchBytes, err := ac.mutate(ctx, request)
@@ -111,11 +124,11 @@ func (ac *reconciler) Admit(ctx context.Context, request *admissionv1beta1.Admis
 	}
 	logger.Infof("Kind: %q PatchBytes: %v", request.Kind, string(patchBytes))
 
-	return &admissionv1beta1.AdmissionResponse{
+	return &admissionv1.AdmissionResponse{
 		Patch:   patchBytes,
 		Allowed: true,
-		PatchType: func() *admissionv1beta1.PatchType {
-			pt := admissionv1beta1.PatchTypeJSONPatch
+		PatchType: func() *admissionv1.PatchType {
+			pt := admissionv1.PatchTypeJSONPatch
 			return &pt
 		}(),
 	}
@@ -124,19 +137,19 @@ func (ac *reconciler) Admit(ctx context.Context, request *admissionv1beta1.Admis
 func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byte) error {
 	logger := logging.FromContext(ctx)
 
-	var rules []admissionregistrationv1beta1.RuleWithOperations
+	rules := make([]admissionregistrationv1.RuleWithOperations, 0, len(ac.handlers))
 	for gvk := range ac.handlers {
 		plural := strings.ToLower(inflect.Pluralize(gvk.Kind))
 
-		rules = append(rules, admissionregistrationv1beta1.RuleWithOperations{
-			Operations: []admissionregistrationv1beta1.OperationType{
-				admissionregistrationv1beta1.Create,
-				admissionregistrationv1beta1.Update,
+		rules = append(rules, admissionregistrationv1.RuleWithOperations{
+			Operations: []admissionregistrationv1.OperationType{
+				admissionregistrationv1.Create,
+				admissionregistrationv1.Update,
 			},
-			Rule: admissionregistrationv1beta1.Rule{
+			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gvk.Group},
 				APIVersions: []string{gvk.Version},
-				Resources:   []string{plural + "/*"},
+				Resources:   []string{plural, plural + "/status"},
 			},
 		})
 	}
@@ -153,9 +166,9 @@ func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 		return lhs.Resources[0] < rhs.Resources[0]
 	})
 
-	configuredWebhook, err := ac.mwhlister.Get(ac.name)
+	configuredWebhook, err := ac.mwhlister.Get(ac.key.Name)
 	if err != nil {
-		return fmt.Errorf("error retrieving webhook: %v", err)
+		return fmt.Errorf("error retrieving webhook: %w", err)
 	}
 
 	webhook := configuredWebhook.DeepCopy()
@@ -169,6 +182,17 @@ func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 			continue
 		}
 		webhook.Webhooks[i].Rules = rules
+		webhook.Webhooks[i].NamespaceSelector = &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{{
+				Key:      "webhooks.knative.dev/exclude",
+				Operator: metav1.LabelSelectorOpDoesNotExist,
+			}, {
+				// "control-plane" is added to support Azure's AKS, otherwise the controllers fight.
+				// See knative/pkg#1590 for details.
+				Key:      "control-plane",
+				Operator: metav1.LabelSelectorOpDoesNotExist,
+			}},
+		}
 		webhook.Webhooks[i].ClientConfig.CABundle = caCert
 		if webhook.Webhooks[i].ClientConfig.Service == nil {
 			return fmt.Errorf("missing service reference for webhook: %s", wh.Name)
@@ -177,12 +201,12 @@ func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 	}
 
 	if ok, err := kmp.SafeEqual(configuredWebhook, webhook); err != nil {
-		return fmt.Errorf("error diffing webhooks: %v", err)
+		return fmt.Errorf("error diffing webhooks: %w", err)
 	} else if !ok {
 		logger.Info("Updating webhook")
-		mwhclient := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
-		if _, err := mwhclient.Update(webhook); err != nil {
-			return fmt.Errorf("failed to update webhook: %v", err)
+		mwhclient := ac.client.AdmissionregistrationV1().MutatingWebhookConfigurations()
+		if _, err := mwhclient.Update(ctx, webhook, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("failed to update webhook: %w", err)
 		}
 	} else {
 		logger.Info("Webhook is valid")
@@ -190,7 +214,7 @@ func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 	return nil
 }
 
-func (ac *reconciler) mutate(ctx context.Context, req *admissionv1beta1.AdmissionRequest) ([]byte, error) {
+func (ac *reconciler) mutate(ctx context.Context, req *admissionv1.AdmissionRequest) ([]byte, error) {
 	kind := req.Kind
 	newBytes := req.Object.Raw
 	oldBytes := req.OldObject.Raw
@@ -204,7 +228,7 @@ func (ac *reconciler) mutate(ctx context.Context, req *admissionv1beta1.Admissio
 	logger := logging.FromContext(ctx)
 	handler, ok := ac.handlers[gvk]
 	if !ok {
-		logger.Errorf("Unhandled kind: %v", gvk)
+		logger.Error("Unhandled kind: ", gvk)
 		return nil, fmt.Errorf("unhandled kind: %v", gvk)
 	}
 
@@ -218,7 +242,7 @@ func (ac *reconciler) mutate(ctx context.Context, req *admissionv1beta1.Admissio
 			newDecoder.DisallowUnknownFields()
 		}
 		if err := newDecoder.Decode(&newObj); err != nil {
-			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
+			return nil, fmt.Errorf("cannot decode incoming new object: %w", err)
 		}
 	}
 	if len(oldBytes) != 0 {
@@ -228,7 +252,7 @@ func (ac *reconciler) mutate(ctx context.Context, req *admissionv1beta1.Admissio
 			oldDecoder.DisallowUnknownFields()
 		}
 		if err := oldDecoder.Decode(&oldObj); err != nil {
-			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
+			return nil, fmt.Errorf("cannot decode incoming old object: %w", err)
 		}
 	}
 	var patches duck.JSONPatch
@@ -241,7 +265,7 @@ func (ac *reconciler) mutate(ctx context.Context, req *admissionv1beta1.Admissio
 		// because it expects the round tripped through Golang fields to be present already.
 		rtp, err := roundTripPatch(newBytes, newObj)
 		if err != nil {
-			return nil, fmt.Errorf("cannot create patch for round tripped newBytes: %v", err)
+			return nil, fmt.Errorf("cannot create patch for round tripped newBytes: %w", err)
 		}
 		patches = append(patches, rtp...)
 	}
@@ -255,7 +279,7 @@ func (ac *reconciler) mutate(ctx context.Context, req *admissionv1beta1.Admissio
 
 		s, ok := oldObj.(apis.HasSpec)
 		if ok {
-			SetUserInfoAnnotations(s, ctx, req.Resource.Group)
+			setUserInfoAnnotations(ctx, s, req.Resource.Group)
 		}
 
 		if req.SubResource == "" {
@@ -299,7 +323,7 @@ func (ac *reconciler) setUserInfoAnnotations(ctx context.Context, patches duck.J
 
 	b, a := new.DeepCopyObject().(apis.HasSpec), nh
 
-	SetUserInfoAnnotations(nh, ctx, groupName)
+	setUserInfoAnnotations(ctx, nh, groupName)
 
 	patch, err := duck.CreatePatch(b, a)
 	if err != nil {
@@ -321,7 +345,7 @@ func roundTripPatch(bytes []byte, unmarshalled interface{}) (duck.JSONPatch, err
 	}
 	marshaledBytes, err := json.Marshal(unmarshalled)
 	if err != nil {
-		return nil, fmt.Errorf("cannot marshal interface: %v", err)
+		return nil, fmt.Errorf("cannot marshal interface: %w", err)
 	}
 	return jsonpatch.CreatePatch(bytes, marshaledBytes)
 }

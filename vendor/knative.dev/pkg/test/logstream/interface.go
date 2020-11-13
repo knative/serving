@@ -17,36 +17,71 @@ limitations under the License.
 package logstream
 
 import (
+	"context"
 	"os"
+	"sync"
 
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/test"
+	"knative.dev/pkg/test/helpers"
+	logstreamv2 "knative.dev/pkg/test/logstream/v2"
 )
 
 // Canceler is the type of a function returned when a logstream is started to be
 // deferred so that the logstream can be stopped when the test is complete.
-type Canceler func()
+type Canceler = logstreamv2.Canceler
+
+type ti interface {
+	Name() string
+	Error(args ...interface{})
+	Log(args ...interface{})
+	Logf(fmt string, args ...interface{})
+}
 
 // Start begins streaming the logs from system components with a `key:` matching
 // `test.ObjectNameForTest(t)` to `t.Log`.  It returns a Canceler, which must
 // be called before the test completes.
-func Start(t test.TLegacy) Canceler {
+func Start(t ti) Canceler {
+	// Do this lazily to make import ordering less important.
+	once.Do(func() {
+		if ns := os.Getenv(system.NamespaceEnvKey); ns != "" {
+			kc, err := test.NewKubeClient(test.Flags.Kubeconfig, test.Flags.Cluster)
+			if err != nil {
+				t.Error("Error loading client config", "error", err)
+				return
+			}
+
+			stream = &shim{logstreamv2.FromNamespace(context.TODO(), kc, ns)}
+
+		} else {
+			// Otherwise set up a null stream.
+			stream = &null{}
+		}
+	})
+
 	return stream.Start(t)
 }
 
 type streamer interface {
-	Start(t test.TLegacy) Canceler
+	Start(t ti) Canceler
 }
 
-var stream streamer
+var (
+	stream streamer
+	once   sync.Once
+)
 
-func init() {
-	ns := os.Getenv(system.NamespaceEnvKey)
-	if ns != "" {
-		// If SYSTEM_NAMESPACE is set, then start the stream.
-		stream = &kubelogs{namespace: ns}
-	} else {
-		// Otherwise set up a null stream.
-		stream = &null{}
+type shim struct {
+	logstreamv2.Source
+}
+
+func (s *shim) Start(t ti) Canceler {
+	name := helpers.ObjectPrefixForTest(t)
+	canceler, err := s.StartStream(name, t.Logf)
+
+	if err != nil {
+		t.Error("Failed to start logstream", "error", err)
 	}
+
+	return canceler
 }

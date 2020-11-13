@@ -169,7 +169,7 @@ func roundTripViaHub(t *testing.T, gvk schema.GroupVersionKind, scheme, hubs *ru
 	obj = obj.DeepCopyObject().(convertibleObject)
 
 	if !apiequality.Semantic.DeepEqual(original, obj) {
-		t.Errorf("DeepCopy altered the object, diff: %v", diff(original, obj))
+		t.Error("DeepCopy modified the original object (DeepCopy should not have side-effects), diff:", diff(original, obj))
 		return
 	}
 
@@ -178,7 +178,7 @@ func roundTripViaHub(t *testing.T, gvk schema.GroupVersionKind, scheme, hubs *ru
 	}
 
 	if !apiequality.Semantic.DeepEqual(original, obj) {
-		t.Errorf("Conversion to hub (%s) alterted the object, diff: %v", hubGVK, diff(original, obj))
+		t.Errorf("Conversion to hub (%s) modified the original object (ConvertFrom should not have side-effects), diff: %v", hubGVK, diff(original, obj))
 		return
 	}
 
@@ -210,7 +210,7 @@ func objForGVK(t *testing.T,
 
 	obj, err := scheme.New(gvk)
 	if err != nil {
-		t.Fatalf("unable to create object instance for type %s", err)
+		t.Fatal("unable to create object instance for type", err)
 	}
 
 	objType, err := apimeta.TypeAccessor(obj)
@@ -244,7 +244,7 @@ func hubInstanceForGK(t *testing.T,
 		if hubGVK.GroupKind() == gk {
 			obj, err := hubs.New(hubGVK)
 			if err != nil {
-				t.Fatalf("error creating objects %s", err)
+				t.Fatal("error creating objects", err)
 			}
 
 			return obj.(apis.Convertible), hubGVK

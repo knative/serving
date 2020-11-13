@@ -27,17 +27,20 @@ import (
 	"knative.dev/serving/pkg/reconciler/service"
 
 	// This defines the shared main for injected controllers.
+	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 )
 
+var ctors = []injection.ControllerConstructor{
+	configuration.NewController,
+	labeler.NewController,
+	revision.NewController,
+	route.NewController,
+	serverlessservice.NewController,
+	service.NewController,
+	gc.NewController,
+}
+
 func main() {
-	sharedmain.Main("controller",
-		configuration.NewController,
-		labeler.NewController,
-		revision.NewController,
-		route.NewController,
-		serverlessservice.NewController,
-		service.NewController,
-		gc.NewController,
-	)
+	sharedmain.Main("controller", ctors...)
 }

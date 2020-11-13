@@ -19,9 +19,11 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -53,8 +55,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 		Image:   test.Autoscale,
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names, withResources)
 	if err != nil {
@@ -63,19 +64,21 @@ func TestCustomResourcesLimits(t *testing.T) {
 	endpoint := objects.Route.Status.URL.URL()
 
 	_, err = pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		endpoint,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"ResourceTestServesText",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}
 
 	sendPostRequest := func(resolvableDomain bool, url *url.URL) (*spoof.Response, error) {
-		t.Logf("Request %s", url)
-		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain)
+		t.Log("Request", url)
+		client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 		if err != nil {
 			return nil, err
 		}
@@ -90,7 +93,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	pokeCowForMB := func(mb int) error {
 		u, _ := url.Parse(endpoint.String())
 		q := u.Query()
-		q.Set("bloat", fmt.Sprintf("%d", mb))
+		q.Set("bloat", strconv.Itoa(mb))
 		u.RawQuery = q.Encode()
 		response, err := sendPostRequest(test.ServingFlags.ResolvableDomain, u)
 		if err != nil {

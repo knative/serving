@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -140,7 +141,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// If it is a numeric error and it's parsing error, then
 		// try to parse it as a duration
-		if nerr, ok := err.(*strconv.NumError); ok && nerr.Err == strconv.ErrSyntax {
+		if errors.Is(err, strconv.ErrSyntax) {
 			ms, hasMs, err = parseDurationParam(r, "sleep")
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -157,12 +158,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Negative query params are not supported", http.StatusBadRequest)
 		return
 	}
-	mssd, hasMssd, err := parseIntParam(r, "sleep-stddev")
+	msSD, hasMsSD, err := parseIntParam(r, "sleep-stddev")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if mssd < 0 {
+	if msSD < 0 {
 		http.Error(w, "Negative query params are not supported", http.StatusBadRequest)
 		return
 	}
@@ -171,8 +172,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if max < 0 {
-		http.Error(w, "Negative query params are not supported", http.StatusBadRequest)
+	if hasMax && max <= 0 {
+		http.Error(w, "Non-positive query params are not supported", http.StatusBadRequest)
 		return
 	}
 	mb, hasMb, err := parseIntParam(r, "bloat")
@@ -180,35 +181,35 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if mb < 0 {
-		http.Error(w, "Negative durations are not supported", http.StatusBadRequest)
+	if hasMb && mb <= 0 {
+		http.Error(w, "Non-positive durations are not supported", http.StatusBadRequest)
 		return
 	}
 	// Consume time, cpu and memory in parallel.
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	if hasMs && !hasMssd && ms > 0 {
+	if hasMs && !hasMsSD {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			fmt.Fprint(w, sleep(ms))
 		}()
 	}
-	if hasMs && hasMssd && ms > 0 && mssd > 0 {
+	if hasMs && hasMsSD {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fmt.Fprint(w, randSleep(ms, mssd))
+			fmt.Fprint(w, randSleep(ms, msSD))
 		}()
 	}
-	if hasMax && max > 0 {
+	if hasMax {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			fmt.Fprint(w, prime(max))
 		}()
 	}
-	if hasMb && mb > 0 {
+	if hasMb {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

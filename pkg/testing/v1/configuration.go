@@ -21,6 +21,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -42,6 +44,7 @@ func WithConfigImage(img string) ConfigOption {
 	}
 }
 
+// WithConfigDeletionTimestamp sets the DeletionTimestamp on the Config.
 func WithConfigDeletionTimestamp(r *v1.Configuration) {
 	t := metav1.NewTime(time.Unix(1e9, 0))
 	r.ObjectMeta.SetDeletionTimestamp(&t)
@@ -54,15 +57,15 @@ func WithConfigContainerConcurrency(cc int64) ConfigOption {
 	}
 }
 
-// WithGeneration sets the generation of the Configuration.
-func WithGeneration(gen int64) ConfigOption {
+// WithConfigGeneration sets the generation of the Configuration.
+func WithConfigGeneration(gen int64) ConfigOption {
 	return func(cfg *v1.Configuration) {
 		cfg.Generation = gen
 	}
 }
 
-// WithObservedGen sets the observed generation of the Configuration.
-func WithObservedGen(cfg *v1.Configuration) {
+// WithConfigObservedGen sets the observed generation of the Configuration.
+func WithConfigObservedGen(cfg *v1.Configuration) {
 	cfg.Status.ObservedGeneration = cfg.Generation
 }
 
@@ -99,14 +102,32 @@ func MarkLatestCreatedFailed(msg string) ConfigOption {
 // WithConfigLabel attaches a particular label to the configuration.
 func WithConfigLabel(key, value string) ConfigOption {
 	return func(config *v1.Configuration) {
-		if config.Labels == nil {
-			config.Labels = make(map[string]string)
-		}
-		config.Labels[key] = value
+		config.Labels = kmeta.UnionMaps(config.Labels, map[string]string{key: value})
+	}
+}
+
+// WithConfigAnn attaches a particular label to the configuration.
+func WithConfigAnn(key, value string) ConfigOption {
+	return func(config *v1.Configuration) {
+		config.Annotations = kmeta.UnionMaps(config.Annotations, map[string]string{key: value})
 	}
 }
 
 // WithConfigOwnersRemoved clears the owner references of this Configuration.
 func WithConfigOwnersRemoved(cfg *v1.Configuration) {
 	cfg.OwnerReferences = nil
+}
+
+// WithConfigEnv configures the Service to use the provided environment variables.
+func WithConfigEnv(evs ...corev1.EnvVar) ConfigOption {
+	return func(c *v1.Configuration) {
+		c.Spec.Template.Spec.Containers[0].Env = evs
+	}
+}
+
+// WithConfigRevisionTimeoutSeconds sets revision timeout.
+func WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ConfigOption {
+	return func(cfg *v1.Configuration) {
+		cfg.Spec.Template.Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
+	}
 }

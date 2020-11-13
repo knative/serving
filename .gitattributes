@@ -10,6 +10,7 @@
 # coverage. If a path is marked as linguist-generated already, it will be implicitly excluded and
 # there is no need to add the coverage-excluded attribute
 /pkg/**/testing/** coverage-excluded=true
+/pkg/**/*pb.go coverage-excluded=true
 /vendor/** coverage-excluded=true
 /test/** coverage-excluded=true
 /cmd/**/main.go coverage-excluded=true

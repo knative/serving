@@ -43,41 +43,44 @@ func TestSingleConcurrency(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   test.SingleThreadedImage,
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names, rtesting.WithContainerConcurrency(1))
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 	url := objects.Service.Status.URL.URL()
 
 	// Ready does not actually mean Ready for a Route just yet.
 	// See https://github.com/knative/serving/issues/1582
-	t.Logf("Probing %s", url)
+	t.Log("Probing", url)
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Fatalf("Error probing %s: %v", url, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
-		t.Fatalf("Error creating spoofing client: %v", err)
+		t.Fatal("Error creating spoofing client:", err)
 	}
 
 	concurrency := 5
 	duration := 20 * time.Second
 	t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	group, _ := errgroup.WithContext(context.Background())
+	group, egCtx := errgroup.WithContext(context.Background())
 	for i := 0; i < concurrency; i++ {
+		threadIdx := i
 		group.Go(func() error {
+			requestIdx := 0
 			done := time.After(duration)
-			req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+			req, err := http.NewRequestWithContext(egCtx, http.MethodGet, url.String(), nil)
 			if err != nil {
 				return fmt.Errorf("error creating http request: %w", err)
 			}
@@ -88,13 +91,14 @@ func TestSingleConcurrency(t *testing.T) {
 					return nil
 				default:
 					res, err := client.Do(req)
+					requestIdx++
 					if err != nil {
-						return fmt.Errorf("error making request %w", err)
+						return fmt.Errorf("error making request, thread index: %d, request index: %d: %w", threadIdx, requestIdx, err)
 					}
 					if res.StatusCode == http.StatusInternalServerError {
 						return errors.New("detected concurrent requests")
 					} else if res.StatusCode != http.StatusOK {
-						return fmt.Errorf("non 200 response %v", res.StatusCode)
+						return fmt.Errorf("non 200 response, thread index: %d, request index: %d, response %s", threadIdx, requestIdx, res)
 					}
 				}
 			}

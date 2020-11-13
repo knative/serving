@@ -24,6 +24,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	network "knative.dev/networking/pkg"
 )
 
 const (
@@ -68,9 +69,12 @@ func newGV(n, h string) *prometheus.GaugeVec {
 
 // PrometheusStatsReporter structure represents a prometheus stats reporter.
 type PrometheusStatsReporter struct {
-	handler         http.Handler
-	reportingPeriod time.Duration
-	startTime       time.Time
+	handler   http.Handler
+	startTime time.Time
+
+	// RequestsPerSecond and ProxiedRequestsPerSecond need to be divided by the
+	// reporting period they were collected over to get a "per-second" value.
+	reportingPeriodSeconds float64
 
 	requestsPerSecond                prometheus.Gauge
 	proxiedRequestsPerSecond         prometheus.Gauge
@@ -112,9 +116,10 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporti
 	}
 
 	return &PrometheusStatsReporter{
-		handler:         promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
-		reportingPeriod: reportingPeriod,
-		startTime:       time.Now(),
+		handler:   promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
+		startTime: time.Now(),
+
+		reportingPeriodSeconds: reportingPeriod.Seconds(),
 
 		requestsPerSecond:                requestsPerSecondGV.With(labels),
 		proxiedRequestsPerSecond:         proxiedRequestsPerSecondGV.With(labels),
@@ -125,18 +130,16 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporti
 }
 
 // Report captures request metrics.
-func (r *PrometheusStatsReporter) Report(acr float64, apcr float64, rc float64, prc float64) {
+func (r *PrometheusStatsReporter) Report(stats network.RequestStatsReport) {
 	// Requests per second is a rate over time while concurrency is not.
-	rp := r.reportingPeriod.Seconds()
-	r.requestsPerSecond.Set(rc / rp)
-	r.proxiedRequestsPerSecond.Set(prc / rp)
-	r.averageConcurrentRequests.Set(acr)
-	r.averageProxiedConcurrentRequests.Set(apcr)
+	r.requestsPerSecond.Set(stats.RequestCount / r.reportingPeriodSeconds)
+	r.proxiedRequestsPerSecond.Set(stats.ProxiedRequestCount / r.reportingPeriodSeconds)
+	r.averageConcurrentRequests.Set(stats.AverageConcurrency)
+	r.averageProxiedConcurrentRequests.Set(stats.AverageProxiedConcurrency)
 	r.processUptime.Set(time.Since(r.startTime).Seconds())
 }
 
-// Handler returns an uninstrumented http.Handler used to serve stats registered by this
-// PrometheusStatsReporter.
-func (r *PrometheusStatsReporter) Handler() http.Handler {
-	return r.handler
+// ServeHTTP serves the stats in prometheus format over HTTP.
+func (r *PrometheusStatsReporter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	r.handler.ServeHTTP(w, req)
 }

@@ -35,20 +35,22 @@ func defaultMetric(class string) string {
 	}
 }
 
-func (r *PodAutoscaler) SetDefaults(ctx context.Context) {
-	r.Spec.SetDefaults(apis.WithinSpec(ctx))
+// SetDefaults sets the default values for the PodAutoscaler.
+func (pa *PodAutoscaler) SetDefaults(ctx context.Context) {
+	pa.Spec.SetDefaults(apis.WithinSpec(ctx))
 	config := config.FromContextOrDefaults(ctx)
-	if r.Annotations == nil {
-		r.Annotations = make(map[string]string)
+	if pa.Annotations == nil {
+		pa.Annotations = make(map[string]string, 2)
 	}
-	if _, ok := r.Annotations[autoscaling.ClassAnnotationKey]; !ok {
+	if _, ok := pa.Annotations[autoscaling.ClassAnnotationKey]; !ok {
 		// Default class based on configmap setting (KPA if none specified).
-		r.Annotations[autoscaling.ClassAnnotationKey] = config.Autoscaler.PodAutoscalerClass
+		pa.Annotations[autoscaling.ClassAnnotationKey] = config.Autoscaler.PodAutoscalerClass
 	}
-	// Default metric per class
-	if _, ok := r.Annotations[autoscaling.MetricAnnotationKey]; !ok {
-		r.Annotations[autoscaling.MetricAnnotationKey] = defaultMetric(r.Class())
+	// Default metric per class.
+	if _, ok := pa.Annotations[autoscaling.MetricAnnotationKey]; !ok {
+		pa.Annotations[autoscaling.MetricAnnotationKey] = defaultMetric(pa.Class())
 	}
 }
 
-func (rs *PodAutoscalerSpec) SetDefaults(ctx context.Context) {}
+// SetDefaults sets the default values for the PodAutoscalerSpec.
+func (pa *PodAutoscalerSpec) SetDefaults(ctx context.Context) {}

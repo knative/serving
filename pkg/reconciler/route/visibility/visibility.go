@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,8 +23,8 @@ import (
 	apilabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	listers "k8s.io/client-go/listers/core/v1"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/network"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -99,7 +99,7 @@ func (b *Resolver) GetVisibility(ctx context.Context, route *v1.Route) (map[stri
 		ttVisibility := netv1alpha1.IngressVisibilityExternalIP
 		// Is there a visibility setting on the placeholder Service?
 		if svc, ok := services[hostname]; ok {
-			if labels.IsObjectLocalVisibility(svc.ObjectMeta) {
+			if labels.IsObjectLocalVisibility(&svc.ObjectMeta) {
 				ttVisibility = netv1alpha1.IngressVisibilityClusterLocal
 			}
 		}

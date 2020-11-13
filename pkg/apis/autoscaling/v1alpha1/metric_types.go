@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -52,6 +52,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Metric.
 	_ kmeta.OwnerRefable = (*Metric)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Metric)(nil)
 )
 
 // MetricSpec contains all values a metric collector needs to operate.
@@ -77,4 +80,9 @@ type MetricList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Metric `json:"items"`
+}
+
+// GetStatus retrieves the status of the Metric. Implements the KRShaped interface.
+func (m *Metric) GetStatus() *duckv1.Status {
+	return &m.Status.Status
 }

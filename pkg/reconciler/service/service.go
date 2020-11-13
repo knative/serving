@@ -25,7 +25,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
@@ -35,17 +34,13 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	configresources "knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/service/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
-)
-
-const (
-	// ReconcilerName is the name of the reconciler
-	ReconcilerName = "Services"
 )
 
 // Reconciler implements controller.Reconciler for Service resources.
@@ -61,17 +56,11 @@ type Reconciler struct {
 // Check that our Reconciler implements ksvcreconciler.Interface
 var _ ksvcreconciler.Interface = (*Reconciler)(nil)
 
+// ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 
-	// We may be reading a version of the object that was stored at an older version
-	// and may not have had all of the assumed defaults specified.  This won't result
-	// in this getting written back to the API Server, but lets downstream logic make
-	// assumptions about defaulting.
-	service.SetDefaults(ctx)
-	service.Status.InitializeConditions()
-
-	config, err := c.config(ctx, logger, service)
+	config, err := c.config(ctx, service)
 	if err != nil {
 		return err
 	}
@@ -87,6 +76,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 			return nil
 		}
 	} else {
+		logger.Debugf("Configuration Conditions = %#v", config.Status.Conditions)
 		// Update our Status based on the state of our underlying Configuration.
 		service.Status.PropagateConfigurationStatus(&config.Status)
 	}
@@ -101,7 +91,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 		return nil
 	}
 
-	route, err := c.route(ctx, logger, service)
+	route, err := c.route(ctx, service)
 	if err != nil {
 		return err
 	}
@@ -118,17 +108,15 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	}
 
 	c.checkRoutesNotReady(config, logger, route, service)
-	service.Status.ObservedGeneration = service.Generation
-
 	return nil
 }
 
-func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, service *v1.Service) (*v1.Configuration, error) {
+func (c *Reconciler) config(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
 	recorder := controller.GetEventRecorder(ctx)
 	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
 	if apierrs.IsNotFound(err) {
-		config, err = c.createConfiguration(service)
+		config, err = c.createConfiguration(ctx, service)
 		if err != nil {
 			recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
 			return nil, fmt.Errorf("failed to create Configuration: %w", err)
@@ -146,12 +134,12 @@ func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, serv
 	return config, nil
 }
 
-func (c *Reconciler) route(ctx context.Context, logger *zap.SugaredLogger, service *v1.Service) (*v1.Route, error) {
+func (c *Reconciler) route(ctx context.Context, service *v1.Service) (*v1.Route, error) {
 	recorder := controller.GetEventRecorder(ctx)
 	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
 	if apierrs.IsNotFound(err) {
-		route, err = c.createRoute(service)
+		route, err = c.createRoute(ctx, service)
 		if err != nil {
 			recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v", routeName, err)
 			return nil, fmt.Errorf("failed to create Route: %w", err)
@@ -196,12 +184,13 @@ func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.S
 	}
 }
 
-func (c *Reconciler) createConfiguration(service *v1.Service) (*v1.Configuration, error) {
-	cfg, err := resources.MakeConfiguration(service)
+func (c *Reconciler) createConfiguration(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
+	gc := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
+	cfg, err := resources.MakeConfigurationFromExisting(service, &v1.Configuration{}, gc)
 	if err != nil {
 		return nil, err
 	}
-	return c.client.ServingV1().Configurations(service.Namespace).Create(cfg)
+	return c.client.ServingV1().Configurations(service.Namespace).Create(ctx, cfg, metav1.CreateOptions{})
 }
 
 func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configuration) (bool, error) {
@@ -210,11 +199,12 @@ func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configu
 	if err != nil {
 		logger.Errorw("Error diffing config spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Configuration: %w", err)
+	} else if specDiff != "" {
+		logger.Info("Reconciling configuration diff (-desired, +observed):\n", specDiff)
 	}
-	logger.Infof("Reconciling configuration diff (-desired, +observed):\n%s", specDiff)
 	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
-		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Annotations, config.ObjectMeta.Annotations) &&
+		equality.Semantic.DeepEqual(desiredConfig.Labels, config.Labels) &&
+		equality.Semantic.DeepEqual(desiredConfig.Annotations, config.Annotations) &&
 		specDiff == "", nil
 }
 
@@ -224,7 +214,8 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 	// We are setting the up-to-date default values here so an update won't be triggered if the only
 	// diff is the new default values.
 	existing.SetDefaults(ctx)
-	desiredConfig, err := resources.MakeConfiguration(service)
+	gc := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
+	desiredConfig, err := resources.MakeConfigurationFromExisting(service, existing, gc)
 	if err != nil {
 		return nil, err
 	}
@@ -235,14 +226,17 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 		return config, nil
 	}
 
+	logger := logging.FromContext(ctx)
+	logger.Warnf("Service-delegated Configuration %q diff found. Clobbering.", existing.Name)
+
 	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
 	existing.Spec = desiredConfig.Spec
-	existing.ObjectMeta.Labels = desiredConfig.ObjectMeta.Labels
-	existing.ObjectMeta.Annotations = desiredConfig.ObjectMeta.Annotations
-	return c.client.ServingV1().Configurations(service.Namespace).Update(existing)
+	existing.Labels = desiredConfig.Labels
+	existing.Annotations = desiredConfig.Annotations
+	return c.client.ServingV1().Configurations(service.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
 }
 
-func (c *Reconciler) createRoute(service *v1.Service) (*v1.Route, error) {
+func (c *Reconciler) createRoute(ctx context.Context, service *v1.Service) (*v1.Route, error) {
 	route, err := resources.MakeRoute(service)
 	if err != nil {
 		// This should be unreachable as configuration creation
@@ -250,7 +244,7 @@ func (c *Reconciler) createRoute(service *v1.Service) (*v1.Route, error) {
 		// that would make `MakeRoute` fail as well.
 		return nil, err
 	}
-	return c.client.ServingV1().Routes(service.Namespace).Create(route)
+	return c.client.ServingV1().Routes(service.Namespace).Create(ctx, route, metav1.CreateOptions{})
 }
 
 func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1.Route) (bool, error) {
@@ -259,11 +253,12 @@ func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1.Route) (bo
 	if err != nil {
 		logger.Errorw("Error diffing route spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Route: %w", err)
+	} else if specDiff != "" {
+		logger.Info("Reconciling route diff (-desired, +observed):\n", specDiff)
 	}
-	logger.Infof("Reconciling route diff (-desired, +observed):\n%s", specDiff)
 	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
-		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations) &&
+		equality.Semantic.DeepEqual(desiredRoute.Labels, route.Labels) &&
+		equality.Semantic.DeepEqual(desiredRoute.Annotations, route.Annotations) &&
 		specDiff == "", nil
 }
 
@@ -289,9 +284,9 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1.Service, ro
 
 	// Preserve the rest of the object (e.g. ObjectMeta except for labels and annotations).
 	existing.Spec = desiredRoute.Spec
-	existing.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
-	existing.ObjectMeta.Annotations = desiredRoute.ObjectMeta.Annotations
-	return c.client.ServingV1().Routes(service.Namespace).Update(existing)
+	existing.Labels = desiredRoute.Labels
+	existing.Annotations = desiredRoute.Annotations
+	return c.client.ServingV1().Routes(service.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
 }
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration
@@ -305,7 +300,7 @@ func CheckNameAvailability(config *v1.Configuration, lister listers.RevisionList
 	if name == "" {
 		return nil
 	}
-	errConflict := errors.NewAlreadyExists(v1.Resource("revisions"), name)
+	errConflict := apierrs.NewAlreadyExists(v1.Resource("revisions"), name)
 
 	rev, err := lister.Revisions(config.Namespace).Get(name)
 	if err != nil {

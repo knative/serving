@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,19 +21,24 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
+
+	network "knative.dev/networking/pkg"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -44,9 +49,9 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	// A standalone revision
-	rev := getTestRevision("test-rev")
+	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName("test-rev"))
 	// A route targeting the revision
-	route := getTestRouteWithTrafficTargets(WithSpecTraffic(
+	route := Route(testNamespace, "test-route", WithSpecTraffic(
 		v1.TrafficTarget{
 			RevisionName: "test-rev",
 			Percent:      ptr.Int64(100),
@@ -74,56 +79,56 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfgmap.FeaturesConfigName,
+			Namespace: system.Namespace(),
+		},
 	})
 
-	ctrl := NewController(ctx, configMapWatcher)
-
 	servingClient := fakeservingclient.Get(ctx)
+	networkingClient := fakenetworkingclient.Get(ctx)
 
 	h := NewHooks()
-
 	// Check for Ingress created as a signal that syncHandler ran
-	h.OnCreate(&servingClient.Fake, "ingresses", func(obj runtime.Object) HookResult {
+	h.OnCreate(&networkingClient.Fake, "ingresses", func(obj runtime.Object) HookResult {
 		ci := obj.(*netv1alpha1.Ingress)
 		t.Logf("ingress created: %q", ci.Name)
 
 		return HookComplete
 	})
 
-	eg := errgroup.Group{}
-
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
+
+	// Run the controller.
+	eg := errgroup.Group{}
+	eg.Go(func() error {
+		ctrl := NewController(ctx, configMapWatcher)
+		return ctrl.Run(2, ctx.Done())
+	})
+
 	defer func() {
 		cancel()
 		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
+			t.Fatal("Error running controller:", err)
 		}
 		waitInformers()
 	}()
 
-	// Run the controller.
-	eg.Go(func() error {
-		return ctrl.Run(2, ctx.Done())
-	})
-
-	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(rev); err != nil {
-		t.Errorf("Unexpected error creating revision: %v", err)
+	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{}); err != nil {
+		t.Fatal("Unexpected error creating revision:", err)
 	}
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
-	for i, informer := range informers {
-		if ok := cache.WaitForCacheSync(ctx.Done(), informer.HasSynced); !ok {
-			t.Fatalf("failed to wait for cache at index %d to sync", i)
-		}
+	if _, err := servingClient.ServingV1().Routes(route.Namespace).Create(ctx, route, metav1.CreateOptions{}); err != nil {
+		t.Fatal("Unexpected error creating route:", err)
 	}
-
-	if _, err := servingClient.ServingV1().Routes(route.Namespace).Create(route); err != nil {
-		t.Errorf("Unexpected error creating route: %v", err)
-	}
+	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }

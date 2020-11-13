@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,29 +28,31 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
+	// Inject the fakes for informers this reconciler depends on.
+	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	namespacereconciler "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	. "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
 	"knative.dev/serving/pkg/reconciler/nscert/resources/names"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 
+	"knative.dev/networking/pkg/client/injection/client"
+	fakeclient "knative.dev/networking/pkg/client/injection/client/fake"
+	fakecertinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakensinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace/fake"
-	servingclient "knative.dev/serving/pkg/client/injection/client"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 
+	_ "knative.dev/pkg/metrics/testing"
 	_ "knative.dev/pkg/system/testing"
 
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -72,7 +74,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	ctx, ccl, ifs := SetupFakeContextWithCancel(t)
 	wf, err := controller.RunInformers(ctx.Done(), ifs...)
 	if err != nil {
-		t.Fatalf("Error starting informers: %v", err)
+		t.Fatal("Error starting informers:", err)
 	}
 	cancel := func() {
 		ccl()
@@ -107,14 +109,19 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		configMapWatcher.OnChange(cfg)
 	}
 	if err := configMapWatcher.Start(ctx.Done()); err != nil {
-		t.Fatalf("failed to start config manager: %v", err)
+		t.Fatal("failed to start config manager:", err)
 	}
 
 	certEvents := make(chan *v1alpha1.Certificate)
 	fakecertinformer.Get(ctx).Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Namespace")),
+		FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind("Namespace")),
 		Handler: controller.HandleAll(func(obj interface{}) {
-			certEvents <- obj.(*v1alpha1.Certificate)
+			select {
+			case <-ctx.Done():
+				// context go cancelled, no more reads necessary.
+			case certEvents <- obj.(*v1alpha1.Certificate):
+				// written successfully.
+			}
 		}),
 	})
 
@@ -179,7 +186,7 @@ func TestReconcile(t *testing.T) {
 		Name:                    "create Knative certificate for namespace with explicitly enabled",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
-			kubeNamespaceWithDisableLabelValue("foo", "false"),
+			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DisableWildcardCertLabelKey: "false"}),
 		},
 		WantCreates: []runtime.Object{
 			knCert(kubeNamespace("foo")),
@@ -189,10 +196,51 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo",
 	}, {
-		Name: "certificate not created for excluded namespace",
+		Name:                    "create Knative certificate for namespace with explicitly enabled for internal label",
+		SkipNamespaceValidation: true,
+		Objects: []runtime.Object{
+			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DisableWildcardCertLabelKey: "false"}),
+		},
+		WantCreates: []runtime.Object{
+			knCert(kubeNamespace("foo")),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Knative Certificate %s/%s", "foo", defaultCertName),
+		},
+		Key: "foo",
+	}, {
+		Name: "certificate not created for excluded namespace with internal label",
 		Key:  "foo",
 		Objects: []runtime.Object{
-			kubeNamespaceWithDisableLabelValue("foo", "true"),
+			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DisableWildcardCertLabelKey: "true"}),
+		},
+	}, {
+		Name: "certificate not created for excluded namespace with external label",
+		Key:  "foo",
+		Objects: []runtime.Object{
+			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DeprecatedDisableWildcardCertLabelKey: "true"}),
+		},
+	}, {
+		Name: "certificate not created for excluded namespace when both internal and external labels are present",
+		Key:  "foo",
+		Objects: []runtime.Object{
+			kubeNamespaceWithLabelValue("foo", map[string]string{
+				networking.DeprecatedDisableWildcardCertLabelKey: "true",
+				networking.DisableWildcardCertLabelKey:           "true",
+			}),
+		},
+	}, {
+		Name: "certificate not created for different wildcard cert label",
+		Key:  "foo",
+		Objects: []runtime.Object{
+			kubeNamespaceWithLabelValue("foo", map[string]string{
+				networking.DeprecatedDisableWildcardCertLabelKey: "true",
+				networking.DisableWildcardCertLabelKey:           "false",
+			}),
+		},
+		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "both networking.knative.dev/disableWildcardCert and networking.internal.knative.dev/disableWildcardCert are specified but values do not match"),
 		},
 	}, {
 		Name:                    "certificate creation failed",
@@ -216,7 +264,7 @@ func TestReconcile(t *testing.T) {
 		Name: "disabling namespace cert feature deletes the cert",
 		Key:  "foo",
 		Objects: []runtime.Object{
-			kubeNamespaceWithDisableLabelValue("foo", "true"),
+			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DisableWildcardCertLabelKey: "true"}),
 			knCert(kubeNamespace("foo")),
 		},
 		SkipNamespaceValidation: true,
@@ -224,11 +272,7 @@ func TestReconcile(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "networking.internal.knative.dev",
-					Version:  "v1alpha1",
-					Resource: "certificates",
-				},
+				Resource:  v1alpha1.SchemeGroupVersion.WithResource("certificates"),
 			},
 			Name: "foo.example.com",
 		}},
@@ -238,18 +282,19 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		return &reconciler{
-			client:              servingclient.Get(ctx),
-			recorder:            controller.GetEventRecorder(ctx),
+		r := &reconciler{
+			client:              client.Get(ctx),
 			knCertificateLister: listers.GetKnCertificateLister(),
-			nsLister:            listers.GetNamespaceLister(),
-			configStore: &testConfigStore{
+		}
+
+		return namespacereconciler.NewReconciler(ctx, logging.FromContext(ctx), fakekubeclient.Get(ctx),
+			listers.GetNamespaceLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{
 				config: &config.Config{
 					Network: networkConfig(),
 					Domain:  domainConfig(),
 				},
-			},
-		}
+			}})
 	}))
 }
 
@@ -267,13 +312,13 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	defer cancel()
 
 	namespace := kubeNamespace("testns")
-	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(namespace)
+	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
 	fakensinformer.Get(ctx).Informer().GetIndexer().Add(namespace)
 
 	want := []string{fmt.Sprintf("*.%s.%s", namespace.Name, routecfg.DefaultDomain)}
 	cert := <-certEvents
 	if diff := cmp.Diff(want, cert.Spec.DNSNames); diff != "" {
-		t.Errorf("DNSNames (-want, +got) = %s", diff)
+		t.Error("DNSNames (-want, +got) =", diff)
 	}
 
 	// Update the domain template to something matched by the existing DNSName
@@ -313,10 +358,11 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	want = []string{fmt.Sprintf("*.subdomain.%s.%s", namespace.Name, routecfg.DefaultDomain)}
 	cert = <-certEvents
 	if diff := cmp.Diff(want, cert.Spec.DNSNames); diff != "" {
-		t.Errorf("DNSNames (-want, +got) = %s", diff)
+		t.Error("DNSNames (-want, +got) =", diff)
 	}
 
 	// Invalid domain template for wildcard certs
+	oldDomain := want
 	netCfg = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      network.ConfigName,
@@ -328,12 +374,18 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		},
 	}
 	watcher.OnChange(netCfg)
-
 	// With an invalid domain template nothing change
-	select {
-	case <-certEvents:
-		t.Error("Unexpected event")
-	case <-time.After(100 * time.Millisecond):
+	done := time.After(100 * time.Millisecond)
+	for {
+		select {
+		case cert := <-certEvents:
+			// We don't expect the domain of cert to be changed.
+			if diff := cmp.Diff(oldDomain, cert.Spec.DNSNames); diff != "" {
+				t.Fatal("DNSNames should not be changed: (-want, +got) =", diff)
+			}
+		case <-done:
+			return
+		}
 	}
 }
 
@@ -352,7 +404,7 @@ func TestChangeDefaultDomain(t *testing.T) {
 	defer cancel()
 
 	namespace := kubeNamespace("testns")
-	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(namespace)
+	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
 	fakensinformer.Get(ctx).Informer().GetIndexer().Add(namespace)
 
 	// The certificate should be created with the default domain.
@@ -380,7 +432,7 @@ func TestChangeDefaultDomain(t *testing.T) {
 	}
 
 	// Assert we have exactly one certificate.
-	certs, _ := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(namespace.Name).List(metav1.ListOptions{})
+	certs, _ := fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(namespace.Name).List(ctx, metav1.ListOptions{})
 	if len(certs.Items) > 1 {
 		t.Errorf("Expected 1 certificate, got %d.", len(certs.Items))
 	}
@@ -432,7 +484,7 @@ func TestDomainConfigDomain(t *testing.T) {
 			ctx, ccl, ifs := SetupFakeContextWithCancel(t)
 			wf, err := controller.RunInformers(ctx.Done(), ifs...)
 			if err != nil {
-				t.Fatalf("Error starting informers: %v", err)
+				t.Fatal("Error starting informers:", err)
 			}
 			defer func() {
 				ccl()
@@ -444,22 +496,18 @@ func TestDomainConfigDomain(t *testing.T) {
 			configStore.WatchConfigs(cmw)
 
 			r := &reconciler{
-				client:              servingclient.Get(ctx),
-				recorder:            controller.GetEventRecorder(ctx),
-				configStore:         configStore,
-				nsLister:            fakensinformer.Get(ctx).Lister(),
+				client:              client.Get(ctx),
 				knCertificateLister: fakecertinformer.Get(ctx).Lister(),
 			}
 
 			namespace := kubeNamespace(ns)
-			fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(namespace)
-			fakensinformer.Get(ctx).Informer().GetIndexer().Add(namespace)
 
-			r.Reconcile(ctx, ns)
+			ctx = configStore.ToContext(ctx)
+			r.ReconcileKind(ctx, namespace)
 
-			cert, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(ns).Get(test.wantCertName, metav1.GetOptions{})
+			cert, err := fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(ns).Get(ctx, test.wantCertName, metav1.GetOptions{})
 			if err != nil {
-				t.Fatalf("Could not get certificate: %v", err)
+				t.Fatal("Could not get certificate:", err)
 			}
 			if got, want := cert.Spec.DNSNames[0], test.wantDNSName; got != want {
 				t.Errorf("DNSName[0] = %s, want %s", got, want)
@@ -511,13 +559,11 @@ func kubeNamespace(name string) *corev1.Namespace {
 	}
 }
 
-func kubeNamespaceWithDisableLabelValue(name, value string) *corev1.Namespace {
+func kubeNamespaceWithLabelValue(name string, labels map[string]string) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				networking.DisableWildcardCertLabelKey: value,
-			},
+			Name:   name,
+			Labels: labels,
 		},
 	}
 }

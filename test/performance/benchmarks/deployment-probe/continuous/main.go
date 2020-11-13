@@ -27,21 +27,24 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/google/mako/go/quickstore"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"knative.dev/pkg/apis"
+
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/signals"
 
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	"knative.dev/pkg/test/mako"
 	asv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 )
 
@@ -51,14 +54,14 @@ var (
 	frequency = flag.Duration("frequency", 5*time.Second, "The frequency at which to create services.")
 )
 
-func readTemplate() (*v1beta1.Service, error) {
+func readTemplate() (*v1.Service, error) {
 	path := filepath.Join(os.Getenv("KO_DATA_PATH"), *template+"-template.yaml")
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	svc := &v1beta1.Service{}
-	if err := yaml.Unmarshal([]byte(b), svc); err != nil {
+	svc := &v1.Service{}
+	if err := yaml.Unmarshal(b, svc); err != nil {
 		return nil, err
 	}
 
@@ -75,7 +78,7 @@ func readTemplate() (*v1beta1.Service, error) {
 }
 
 func handle(q *quickstore.Quickstore, svc kmeta.Accessor, status duckv1.Status,
-	seen *sets.String, metric string) {
+	seen sets.String, metric string) {
 	if seen.Has(svc.GetName()) {
 		return
 	}
@@ -92,7 +95,7 @@ func handle(q *quickstore.Quickstore, svc kmeta.Accessor, status duckv1.Status,
 		q.AddSamplePoint(mako.XTime(created), map[string]float64{
 			metric: elapsed.Seconds(),
 		})
-		log.Printf("Ready: %s", svc.GetName())
+		log.Print("Ready: ", svc.GetName())
 	} else if cc.Status == corev1.ConditionFalse {
 		q.AddError(mako.XTime(created), cc.Message)
 		log.Printf("Not Ready: %s; %s: %s", svc.GetName(), cc.Reason, cc.Message)
@@ -123,7 +126,7 @@ func main() {
 	}
 	mc, err := mako.Setup(ctx, tags...)
 	if err != nil {
-		log.Fatalf("Failed to setup mako: %v", err)
+		log.Fatal("Failed to setup mako: ", err)
 	}
 	q, qclose, ctx := mc.Quickstore, mc.ShutDownFunc, mc.Context
 	// Use a fresh context here so that our RPC to terminate the sidecar
@@ -132,8 +135,8 @@ func main() {
 
 	sc := servingclient.Get(ctx)
 	cleanup := func() error {
-		return sc.ServingV1beta1().Services(tmpl.Namespace).DeleteCollection(
-			&metav1.DeleteOptions{}, metav1.ListOptions{})
+		return sc.ServingV1().Services(tmpl.Namespace).DeleteCollection(
+			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
 	}
 	defer cleanup()
 
@@ -160,49 +163,50 @@ func main() {
 
 	// TODO(mattmoor): We could maybe use a duckv1.KResource to eliminate this boilerplate.
 
-	serviceWI, err := sc.ServingV1beta1().Services(tmpl.Namespace).Watch(lo)
+	serviceWI, err := sc.ServingV1().Services(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch services: %v", err)
 	}
 	defer serviceWI.Stop()
 	serviceSeen := sets.String{}
 
-	configurationWI, err := sc.ServingV1beta1().Configurations(tmpl.Namespace).Watch(lo)
+	configurationWI, err := sc.ServingV1().Configurations(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch configurations: %v", err)
 	}
 	defer configurationWI.Stop()
 	configurationSeen := sets.String{}
 
-	routeWI, err := sc.ServingV1beta1().Routes(tmpl.Namespace).Watch(lo)
+	routeWI, err := sc.ServingV1().Routes(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch routes: %v", err)
 	}
 	defer routeWI.Stop()
 	routeSeen := sets.String{}
 
-	revisionWI, err := sc.ServingV1beta1().Revisions(tmpl.Namespace).Watch(lo)
+	revisionWI, err := sc.ServingV1().Revisions(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch revisions: %v", err)
 	}
 	defer revisionWI.Stop()
 	revisionSeen := sets.String{}
 
-	ingressWI, err := sc.NetworkingV1alpha1().Ingresses(tmpl.Namespace).Watch(lo)
+	nc := networkingclient.Get(ctx)
+	ingressWI, err := nc.NetworkingV1alpha1().Ingresses(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch ingresss: %v", err)
 	}
 	defer ingressWI.Stop()
 	ingressSeen := sets.String{}
 
-	sksWI, err := sc.NetworkingV1alpha1().ServerlessServices(tmpl.Namespace).Watch(lo)
+	sksWI, err := nc.NetworkingV1alpha1().ServerlessServices(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch skss: %v", err)
 	}
 	defer sksWI.Stop()
 	sksSeen := sets.String{}
 
-	paWI, err := sc.AutoscalingV1alpha1().PodAutoscalers(tmpl.Namespace).Watch(lo)
+	paWI, err := sc.AutoscalingV1alpha1().PodAutoscalers(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch pas: %v", err)
 	}
@@ -219,45 +223,45 @@ func main() {
 				return
 
 			case ts := <-tick.C:
-				svc, err := sc.ServingV1beta1().Services(tmpl.Namespace).Create(tmpl)
+				svc, err := sc.ServingV1().Services(tmpl.Namespace).Create(ctx, tmpl, metav1.CreateOptions{})
 				if err != nil {
 					q.AddError(mako.XTime(ts), err.Error())
-					log.Printf("Error creating service: %v", err)
+					log.Println("Error creating service:", err)
 					break
 				}
-				log.Printf("Created: %s", svc.Name)
+				log.Println("Created:", svc.Name)
 
 			case event := <-serviceWI.ResultChan():
 				if event.Type != watch.Modified {
 					// Skip events other than modifications
 					break
 				}
-				svc := event.Object.(*v1beta1.Service)
-				handle(q, svc, svc.Status.Status, &serviceSeen, "dl")
+				svc := event.Object.(*v1.Service)
+				handle(q, svc, svc.Status.Status, serviceSeen, "dl")
 
 			case event := <-configurationWI.ResultChan():
 				if event.Type != watch.Modified {
 					// Skip events other than modifications
 					break
 				}
-				cfg := event.Object.(*v1beta1.Configuration)
-				handle(q, cfg, cfg.Status.Status, &configurationSeen, "cl")
+				cfg := event.Object.(*v1.Configuration)
+				handle(q, cfg, cfg.Status.Status, configurationSeen, "cl")
 
 			case event := <-routeWI.ResultChan():
 				if event.Type != watch.Modified {
 					// Skip events other than modifications
 					break
 				}
-				rt := event.Object.(*v1beta1.Route)
-				handle(q, rt, rt.Status.Status, &routeSeen, "rl")
+				rt := event.Object.(*v1.Route)
+				handle(q, rt, rt.Status.Status, routeSeen, "rl")
 
 			case event := <-revisionWI.ResultChan():
 				if event.Type != watch.Modified {
 					// Skip events other than modifications
 					break
 				}
-				rev := event.Object.(*v1beta1.Revision)
-				handle(q, rev, rev.Status.Status, &revisionSeen, "rvl")
+				rev := event.Object.(*v1.Revision)
+				handle(q, rev, rev.Status.Status, revisionSeen, "rvl")
 
 			case event := <-ingressWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -265,7 +269,7 @@ func main() {
 					break
 				}
 				ing := event.Object.(*netv1alpha1.Ingress)
-				handle(q, ing, ing.Status.Status, &ingressSeen, "il")
+				handle(q, ing, ing.Status.Status, ingressSeen, "il")
 
 			case event := <-sksWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -273,7 +277,7 @@ func main() {
 					break
 				}
 				ing := event.Object.(*netv1alpha1.ServerlessService)
-				handle(q, ing, ing.Status.Status, &sksSeen, "sksl")
+				handle(q, ing, ing.Status.Status, sksSeen, "sksl")
 
 			case event := <-paWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -281,7 +285,7 @@ func main() {
 					break
 				}
 				pa := event.Object.(*asv1alpha1.PodAutoscaler)
-				handle(q, pa, pa.Status.Status, &paSeen, "pal")
+				handle(q, pa, pa.Status.Status, paSeen, "pal")
 			}
 		}
 	}()

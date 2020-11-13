@@ -50,12 +50,12 @@ func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerRef
 		Name:       testServiceName,
 	}}
 	if diff := cmp.Diff(expectedRefs, ownerRefs, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
-		t.Errorf("Unexpected service owner refs diff (-want +got): %v", diff)
+		t.Error("Unexpected service owner refs diff (-want +got):", diff)
 	}
 }
 
-func createConfiguration(containerName string) v1.ConfigurationSpec {
-	return v1.ConfigurationSpec{
+func createConfiguration(containerName string) *v1.ConfigurationSpec {
+	return &v1.ConfigurationSpec{
 		Template: v1.RevisionTemplateSpec{
 			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{

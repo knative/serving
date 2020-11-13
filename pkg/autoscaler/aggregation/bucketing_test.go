@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ func TestTimedFloat64BucketsSimple(t *testing.T) {
 			})
 
 			if !cmp.Equal(tt.want, got) {
-				t.Errorf("Unexpected values (-want +got): %v", cmp.Diff(tt.want, got))
+				t.Error("Unexpected values (-want +got):", cmp.Diff(tt.want, got))
 			}
 		})
 	}
@@ -113,17 +113,55 @@ func TestTimedFloat64BucketsManyReps(t *testing.T) {
 		}
 	}
 	// So the buckets are:
-	// [0, 1, 2, 3, 4] = 10
-	// [1, 2, 3, 4, 5] = 15
-	// ...						 = ...
-	// [4, 5, 6, 7, 8]  = 30
-	//                  = 100
+	// t0: [0, 1, 2, 3, 4] = 10
+	// t1: [1, 2, 3, 4, 5] = 15
+	// t2: [2, 3, 4, 5, 6] = 20
+	// t3: [3, 4, 5, 6, 7] = 25
+	// t4: [4, 5, 6, 7, 8] = 30
+	//                     = 100
 	const want = 100.
 	sum1, sum2 := 0., 0.
 	buckets.forEachBucket(trunc1, func(_ time.Time, b float64) {
 		sum1 += b
 	})
 	buckets.forEachBucket(trunc1, func(_ time.Time, b float64) {
+		sum2 += b
+	})
+	if got, want := sum1, want; got != want {
+		t.Errorf("Sum1 = %f, want: %f", got, want)
+	}
+
+	if got, want := sum2, want; got != want {
+		t.Errorf("Sum2 = %f, want: %f", got, want)
+	}
+}
+
+func TestTimedFloat64BucketsManyRepsWithNonMonotonicalOrder(t *testing.T) {
+	start := time.Now().Truncate(granularity)
+	end := start
+	buckets := NewTimedFloat64Buckets(time.Minute, granularity)
+
+	d := []int{0, 3, 2, 1, 4}
+	for p := 0; p < 5; p++ {
+		end = start.Add(time.Duration(d[p]) * granularity)
+		for t := 0; t < 5; t++ {
+			buckets.Record(end, float64(p+t))
+		}
+	}
+
+	// So the buckets are:
+	// t0: [0, 1, 2, 3, 4] = 10
+	// t1: [3, 4, 5, 6, 7] = 25
+	// t2: [2, 3, 4, 5, 6] = 20
+	// t3: [1, 2, 3, 4, 5] = 15
+	// t4: [4, 5, 6, 7, 8] = 30
+	//                     = 100
+	const want = 100.
+	sum1, sum2 := 0., 0.
+	buckets.forEachBucket(end, func(_ time.Time, b float64) {
+		sum1 += b
+	})
+	buckets.forEachBucket(end, func(_ time.Time, b float64) {
 		sum2 += b
 	})
 	if got, want := sum1, want; got != want {
@@ -176,6 +214,58 @@ func TestTimedFloat64BucketsWindowAverage(t *testing.T) {
 	now = now.Add(time.Minute)
 	buckets.Record(now, 1984)
 	if got, want := buckets.WindowAverage(now), 1984.; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// Check with an earlier time.
+	buckets.Record(now.Add(-3*time.Second), 4)
+	if got, want := buckets.WindowAverage(now), (4.+1984)/4; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// One more second pass.
+	now = now.Add(time.Second)
+	buckets.Record(now, 5)
+	if got, want := buckets.WindowAverage(now), (4.+1984+5)/5; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// Insert an earlier time again.
+	buckets.Record(now.Add(-3*time.Second), 10)
+	if got, want := buckets.WindowAverage(now), (4.+10+1984+5)/5; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// Verify that we ignore the value which is too early.
+	buckets.Record(now.Add(-6*time.Second), 10)
+	if got, want := buckets.WindowAverage(now), (4.+10+1984+5)/5; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// Verify that we ignore the value with bound timestamp.
+	buckets.Record(now.Add(-5*time.Second), 10)
+	if got, want := buckets.WindowAverage(now), (4.+10+1984+5)/5; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// Verify we clear up the data when not receiving data for exact `window` peroid.
+	buckets.Record(now.Add(5*time.Second), 10)
+	if got, want := buckets.WindowAverage(now.Add(5*time.Second)), 10.; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+}
+
+func TestDescendingRecord(t *testing.T) {
+	now := time.Now()
+	buckets := NewTimedFloat64Buckets(5*time.Second, 1*time.Second)
+
+	for i := 8 * time.Second; i >= 0*time.Second; i -= time.Second {
+		buckets.Record(now.Add(i), 5)
+	}
+
+	if got, want := buckets.WindowAverage(now.Add(5*time.Second)), 5.; got != want {
+		// we wrote a 5 every second, and we never wrote in the same second twice,
+		// so the average _should_ be 5.
 		t.Errorf("WindowAverage = %v, want: %v", got, want)
 	}
 }
@@ -247,7 +337,7 @@ func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
 		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
 	}
 	if got, want := buckets.window, 10*time.Second; got != want {
-		t.Fatalf("Resized bucket windos = %v, want: %v", got, want)
+		t.Fatalf("Resized bucket windows = %v, want: %v", got, want)
 	}
 
 	// Verify values were properly copied.
@@ -338,7 +428,7 @@ func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
 		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
 	}
 	if got, want := buckets.window, 10*time.Second; got != want {
-		t.Fatalf("Resized bucket windos = %v, want: %v", got, want)
+		t.Fatalf("Resized bucket windows = %v, want: %v", got, want)
 	}
 
 	// Verify values were properly copied.

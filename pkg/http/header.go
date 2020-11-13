@@ -19,19 +19,12 @@ package http
 import "net/http"
 
 // LastHeaderValue gets the last value associated with the given key.
-// It is case insensitive; textproto.CanonicalMIMEHeaderKey is used
-// to canonicalize the provided key.
+// Key is canonicalized.
 // If there are no values associated with the key, Get returns "".
 func LastHeaderValue(header http.Header, key string) string {
-	if header == nil {
-		return ""
+	v := header.Values(key)
+	if l := len(v); l > 0 {
+		return v[l-1]
 	}
-
-	v := header[http.CanonicalHeaderKey(key)]
-
-	if len(v) == 0 {
-		return ""
-	}
-
-	return v[len(v)-1]
+	return ""
 }

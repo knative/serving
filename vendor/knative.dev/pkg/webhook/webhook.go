@@ -22,16 +22,20 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	// Injection stuff
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	kubeinformerfactory "knative.dev/pkg/injection/clients/namespacedkube/informers/factory"
+	"knative.dev/pkg/network/handlers"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 	certresources "knative.dev/pkg/webhook/certificates/resources"
 )
@@ -58,12 +62,31 @@ type Options struct {
 	StatsReporter StatsReporter
 }
 
+// Operation is the verb being operated on
+// it is aliased in Validation from the k8s admission package
+type Operation = admissionv1.Operation
+
+// Operation types
+const (
+	Create  Operation = admissionv1.Create
+	Update  Operation = admissionv1.Update
+	Delete  Operation = admissionv1.Delete
+	Connect Operation = admissionv1.Connect
+)
+
 // Webhook implements the external webhook for validation of
 // resources and configuration.
 type Webhook struct {
 	Client  kubernetes.Interface
 	Options Options
 	Logger  *zap.SugaredLogger
+
+	// synced is function that is called when the informers have been synced.
+	synced context.CancelFunc
+
+	// grace period is how long to wait after failing readiness probes
+	// before shutting down.
+	gracePeriod time.Duration
 
 	mux          http.ServeMux
 	secretlister corelisters.SecretLister
@@ -105,36 +128,45 @@ func New(
 		opts.StatsReporter = reporter
 	}
 
+	syncCtx, cancel := context.WithCancel(context.Background())
+
 	webhook = &Webhook{
 		Client:       client,
 		Options:      *opts,
 		secretlister: secretInformer.Lister(),
 		Logger:       logger,
+		synced:       cancel,
+		gracePeriod:  network.DefaultDrainTimeout,
 	}
 
 	webhook.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, fmt.Sprintf("no controller registered for: %s", r.URL.Path), http.StatusBadRequest)
+		http.Error(w, fmt.Sprint("no controller registered for: ", r.URL.Path), http.StatusBadRequest)
 	})
 
 	for _, controller := range controllers {
-		var handler http.Handler
-		var path string
-
 		switch c := controller.(type) {
 		case AdmissionController:
-			handler = admissionHandler(logger, opts.StatsReporter, c)
-			path = c.Path()
+			handler := admissionHandler(logger, opts.StatsReporter, c, syncCtx.Done())
+			webhook.mux.Handle(c.Path(), handler)
+
 		case ConversionController:
-			handler = conversionHandler(logger, opts.StatsReporter, c)
-			path = c.Path()
+			handler := conversionHandler(logger, opts.StatsReporter, c)
+			webhook.mux.Handle(c.Path(), handler)
+
 		default:
 			return nil, fmt.Errorf("unknown webhook controller type:  %T", controller)
 		}
 
-		webhook.mux.Handle(path, handler)
 	}
 
 	return
+}
+
+// InformersHaveSynced is called when the informers have all been synced, which allows any outstanding
+// admission webhooks through.
+func (wh *Webhook) InformersHaveSynced() {
+	wh.synced()
+	wh.Logger.Info("Informers have been synced, unblocking admission webhooks.")
 }
 
 // Run implements the admission controller run loop.
@@ -142,10 +174,16 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 	logger := wh.Logger
 	ctx := logging.WithLogger(context.Background(), logger)
 
+	drainer := &handlers.Drainer{
+		Inner:       wh,
+		QuietPeriod: wh.gracePeriod,
+	}
+
 	server := &http.Server{
-		Handler: wh,
-		Addr:    fmt.Sprintf(":%d", wh.Options.Port),
+		Handler: drainer,
+		Addr:    fmt.Sprint(":", wh.Options.Port),
 		TLSConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
 			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 				secret, err := wh.secretlister.Secrets(system.Namespace()).Get(wh.Options.SecretName)
 				if err != nil {
@@ -169,11 +207,9 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 		},
 	}
 
-	logger.Info("Found certificates for webhook...")
-
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		if err := server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Errorw("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
 			return err
 		}
@@ -182,12 +218,22 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 
 	select {
 	case <-stop:
-		if err := server.Close(); err != nil {
-			return err
-		}
+		eg.Go(func() error {
+			// As we start to shutdown, disable keep-alives to avoid clients hanging onto connections.
+			server.SetKeepAlivesEnabled(false)
+
+			// Start failing readiness probes immediately.
+			logger.Info("Starting to fail readiness probes...")
+			drainer.Drain()
+
+			return server.Shutdown(context.Background())
+		})
+
+		// Wait for all outstanding go routined to terminate, including our new one.
 		return eg.Wait()
+
 	case <-ctx.Done():
-		return fmt.Errorf("webhook server bootstrap failed %v", ctx.Err())
+		return fmt.Errorf("webhook server bootstrap failed %w", ctx.Err())
 	}
 }
 

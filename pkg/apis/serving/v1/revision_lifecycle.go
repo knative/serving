@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -34,6 +34,10 @@ const (
 	// as false if the a container image for the revision is missing.
 	ReasonContainerMissing = "ContainerMissing"
 
+	// ReasonResolvingDigests defines the reason for marking container healthiness status
+	// as unknown if the digests for the container images are being resolved.
+	ReasonResolvingDigests = "ResolvingDigests"
+
 	// ReasonDeploying defines the reason for marking revision availability status as
 	// unknown if the revision is still deploying.
 	ReasonDeploying = "Deploying"
@@ -52,14 +56,30 @@ var revisionCondSet = apis.NewLivingConditionSet(
 	RevisionConditionContainerHealthy,
 )
 
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*Revision) GetConditionSet() apis.ConditionSet {
+	return revisionCondSet
+}
+
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
 }
 
-// IsReady returns if the revision is ready to serve the requested configuration.
-func (rs *RevisionStatus) IsReady() bool {
-	return revisionCondSet.Manage(rs).IsHappy()
+// IsReady returns true if the Status condition RevisionConditionReady
+// is true and the latest spec has been observed.
+func (r *Revision) IsReady() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation &&
+		rs.GetCondition(RevisionConditionReady).IsTrue()
+}
+
+// IsFailed returns true if the resource has observed the latest generation
+// and ready is false.
+func (r *Revision) IsFailed() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation &&
+		rs.GetCondition(RevisionConditionReady).IsFalse()
 }
 
 // GetContainerConcurrency returns the container concurrency. If
@@ -103,12 +123,16 @@ func (rs *RevisionStatus) MarkContainerHealthyTrue() {
 
 // MarkContainerHealthyFalse marks ContainerHealthy status on revision as False
 func (rs *RevisionStatus) MarkContainerHealthyFalse(reason, message string) {
-	revisionCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, reason, message)
+	// We escape here, because errors sometimes contain `%` and that makes the error message
+	// quite poor.
+	revisionCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, reason, "%s", message)
 }
 
 // MarkContainerHealthyUnknown marks ContainerHealthy status on revision as Unknown
 func (rs *RevisionStatus) MarkContainerHealthyUnknown(reason, message string) {
-	revisionCondSet.Manage(rs).MarkUnknown(RevisionConditionContainerHealthy, reason, message)
+	// We escape here, because errors sometimes contain `%` and that makes the error message
+	// quite poor.
+	revisionCondSet.Manage(rs).MarkUnknown(RevisionConditionContainerHealthy, reason, "%s", message)
 }
 
 // MarkResourcesAvailableTrue marks ResourcesAvailable status on revision as True
@@ -131,9 +155,6 @@ func (rs *RevisionStatus) MarkResourcesAvailableUnknown(reason, message string) 
 func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentStatus) {
 	ds := serving.TransformDeploymentStatus(original)
 	cond := ds.GetCondition(serving.DeploymentConditionReady)
-	if cond == nil {
-		return
-	}
 
 	m := revisionCondSet.Manage(rs)
 	switch cond.Status {
@@ -158,16 +179,47 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerS
 		return
 	}
 
+	// Don't mark the resources available, if deployment status already determined
+	// it isn't so.
+	resUnavailable := rs.GetCondition(RevisionConditionResourcesAvailable).IsFalse()
+	if ps.IsScaleTargetInitialized() && !resUnavailable {
+		// Precondition for PA being initialized is SKS being active and
+		// that implies that |service.endpoints| > 0.
+		rs.MarkResourcesAvailableTrue()
+		rs.MarkContainerHealthyTrue()
+	}
+
 	switch cond.Status {
 	case corev1.ConditionUnknown:
 		rs.MarkActiveUnknown(cond.Reason, cond.Message)
 	case corev1.ConditionFalse:
+		// Here we have 2 things coming together at the same time:
+		// 1. The ready is False, meaning the revision is scaled to 0
+		// 2. Initial scale was never achieved, which means we failed to progress
+		//    towards initial scale during the progress deadline period and scaled to 0
+		//		failing to activate.
+		// So mark the revision as failed at that point.
+		// See #8922 for details. When we try to scale to 0, we force the Deployment's
+		// Progress status to become `true`, since successful scale down means
+		// progress has been achieved.
+		// There's the possibility of the revision reconciler reconciling PA before
+		// the ServiceName is populated, and therefore even though we will mark
+		// ScaleTargetInitialized down the road, we would have marked resources
+		// unavailable here, and have no way of recovering later.
+		// If the ResourcesAvailable is already false, don't override the message.
+		if !ps.IsScaleTargetInitialized() && !resUnavailable && ps.ServiceName != "" {
+			rs.MarkResourcesAvailableFalse(ReasonProgressDeadlineExceeded,
+				"Initial scale was never achieved")
+		}
 		rs.MarkActiveFalse(cond.Reason, cond.Message)
 	case corev1.ConditionTrue:
 		rs.MarkActiveTrue()
 
 		// Precondition for PA being active is SKS being active and
-		// that entices that |service.endpoints| > 0.
+		// that implies that |service.endpoints| > 0.
+		//
+		// Note: This is needed for backwards compatibility as we're adding the new
+		// ScaleTargetInitialized condition to gate readiness.
 		rs.MarkResourcesAvailableTrue()
 		rs.MarkContainerHealthyTrue()
 	}
@@ -181,13 +233,13 @@ func ResourceNotOwnedMessage(kind, name string) string {
 
 // ExitCodeReason constructs the status message from an exit code
 func ExitCodeReason(exitCode int32) string {
-	return fmt.Sprintf("ExitCode%d", exitCode)
+	return fmt.Sprint("ExitCode", exitCode)
 }
 
 // RevisionContainerExitingMessage constructs the status message if a container
 // fails to come up.
 func RevisionContainerExitingMessage(message string) string {
-	return fmt.Sprintf("Container failed with: %s", message)
+	return fmt.Sprint("Container failed with: ", message)
 }
 
 // RevisionContainerMissingMessage constructs the status message if a given image

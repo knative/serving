@@ -19,7 +19,8 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-
+  annotations:
+    knative.dev/example-checksum: "74c3fc6a"
 data:
   _example: |
     ################################
@@ -47,14 +48,14 @@ data:
     example.org: |
       selector:
         app: nonprofit
-    
-    # Routes having domain suffix of 'svc.cluster.local' will not be exposed
-    # through Ingress. You can define your own label selector to assign that
-    # domain suffix to your Route here, or you can set the label
+
+    # Routes having the cluster domain suffix (by default 'svc.cluster.local')
+    # will not be exposed through Ingress. You can define your own label
+    # selector to assign that domain suffix to your Route here, or you can set
+    # the label
     #    "serving.knative.dev/visibility=cluster-local"
     # to achieve the same effect.  This shows how to make routes having
     # the label app=secret only exposed to the local cluster.
     svc.cluster.local: |
       selector:
         app: secret
-  

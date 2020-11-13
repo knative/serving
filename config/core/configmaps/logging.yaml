@@ -19,7 +19,8 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-
+  annotations:
+    knative.dev/example-checksum: "23eed3d8"
 data:
   _example: |
     ################################
@@ -69,3 +70,7 @@ data:
     loglevel.queueproxy: "info"
     loglevel.webhook: "info"
     loglevel.activator: "info"
+    loglevel.hpaautoscaler: "info"
+    loglevel.certcontroller: "info"
+    loglevel.istiocontroller: "info"
+    loglevel.nscontroller: "info"

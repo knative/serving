@@ -5,12 +5,12 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: knative-contour-core
   labels:
+    networking.knative.dev/ingress-provider: contour
     serving.knative.dev/controller: "true"
 rules:
-- apiGroups: ["projectcontour.io"]
-  resources: ["httpproxies"]
-  verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch",
-    "watch"]
+  - apiGroups: ["projectcontour.io"]
+    resources: ["httpproxies"]
+    verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch", "watch"]
 
 ---
 # Copyright 2019 The Knative Authors
@@ -33,7 +33,8 @@ metadata:
   name: config-contour
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200320-4e0ffb0"
+    networking.knative.dev/ingress-provider: contour
+    serving.knative.dev/release: "v20201111-2ae0c66f"
 data:
   _example: |
     ################################
@@ -41,6 +42,18 @@ data:
     #    EXAMPLE CONFIGURATION     #
     #                              #
     ################################
+
+    # timeout-policy-idle sets TimeoutPolicy.Idle in contour HTTPProxy spec
+    timeout-policy-idle: "infinity"
+
+    # timeout-policy-response sets TimeoutPolicy.Response in contour HTTPProxy spec
+    timeou-policy-response: "infinity"
+
+    # If auto-TLS is disabled fallback to the following certificate
+    #
+    # An operator is required to setup a TLSCertificateDelegation
+    # for this secret to be used
+    default-tls-secret: "some-namespace/some-secret"
 
     # visibility contains the configuration for how to expose services
     # of assorted visibilities.  Each entry is keyed by the visibility
@@ -75,6 +88,8 @@ kind: Deployment
 metadata:
   name: contour-ingress-controller
   namespace: knative-serving
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   replicas: 1
   selector:
@@ -87,34 +102,39 @@ spec:
     spec:
       serviceAccountName: controller
       containers:
-      - name: controller
-        # This is the Go import path for the binary that is containerized
-        # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:7d6a9f136ab0ad740f689839f85e70c882c3f4622908137e1c034d1d7c358d87
-        resources:
-          requests:
-            cpu: 40m
-            memory: 40Mi
-          limits:
-            cpu: 400m
-            memory: 400Mi
-        env:
-        - name: SYSTEM_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CONFIG_LOGGING_NAME
-          value: config-logging
-        - name: CONFIG_OBSERVABILITY_NAME
-          value: config-observability
-        - name: METRICS_DOMAIN
-          value: knative.dev/net-contour
-        ports:
-        - name: metrics
-          containerPort: 9090
-        - name: profiling
-          containerPort: 8008
-        securityContext:
-          allowPrivilegeEscalation: false
+        - name: controller
+          # This is the Go import path for the binary that is containerized
+          # and substituted here.
+          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:6a1866086c4ee0570306239ece6d0a95504042b50c081f39516247063f3e341a
+          resources:
+            requests:
+              cpu: 40m
+              memory: 40Mi
+            limits:
+              cpu: 400m
+              memory: 400Mi
+          env:
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CONFIG_LOGGING_NAME
+              value: config-logging
+            - name: CONFIG_OBSERVABILITY_NAME
+              value: config-observability
+            - name: METRICS_DOMAIN
+              value: knative.dev/net-contour
+          ports:
+            - name: metrics
+              containerPort: 9090
+            - name: profiling
+              containerPort: 8008
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
 
 ---

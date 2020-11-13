@@ -1,0 +1,64 @@
+run:
+  timeout: 5m
+
+  build-tags:
+    - e2e
+    - performance
+    - probe
+    - preupgrade
+    - postupgrade
+    - postdowngrade
+    - istio
+
+  skip-dirs:
+    - pkg/client
+
+  skip-files:
+    - ".pb.go$"
+
+linters:
+  enable:
+    - asciicheck
+    - errorlint
+    - golint
+    - gosec
+    - prealloc
+    - stylecheck
+    - tparallel
+    - unconvert
+    - unparam
+  disable:
+    - errcheck
+
+issues:
+  include:
+    # Disable excluding issues about comments from golint.
+    - EXC0002
+
+  exclude-rules:
+    - path: test # Excludes /test, *_test.go etc.
+      linters:
+        - gosec
+        - unparam
+
+    # Ignore "context.Context should be the first parameter of a function" errors in tests.
+    # See: https://github.com/golang/lint/issues/422
+    - path: test
+      text: "context.Context should be the first"
+      linters:
+        - golint
+
+    # Allow source and sink receivers in conversion code for clarity.
+    - path: _conversion\.go
+      text: "ST1016:"
+      linters:
+        - stylecheck
+    - path: _conversion\.go
+      text: "receiver name"
+      linters:
+        - golint
+
+    # This check has quite a few false positives where there isn't much value in the package comment.
+    - text: "ST1000: at least one file in a package should have a package comment"
+      linters:
+        - stylecheck

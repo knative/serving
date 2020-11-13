@@ -31,14 +31,16 @@ import (
 	"knative.dev/pkg/logging/logkey"
 )
 
-const ConfigMapNameEnv = "CONFIG_LOGGING_NAME"
-
 const (
+	configMapNameEnv   = "CONFIG_LOGGING_NAME"
 	loggerConfigKey    = "zap-logger-config"
 	fallbackLoggerName = "fallback-logger"
 )
 
-var errEmptyLoggerConfig = errors.New("empty logger configuration")
+var (
+	errEmptyLoggerConfig     = errors.New("empty logger configuration")
+	errEmptyJSONLogginString = errors.New("json logging string is empty")
+)
 
 // NewLogger creates a logger with the supplied configuration.
 // In addition to the logger, it returns AtomicLevel that can
@@ -49,7 +51,7 @@ var errEmptyLoggerConfig = errors.New("empty logger configuration")
 func NewLogger(configJSON string, levelOverride string, opts ...zap.Option) (*zap.SugaredLogger, zap.AtomicLevel) {
 	logger, atomicLevel, err := newLoggerFromConfig(configJSON, levelOverride, opts)
 	if err == nil {
-		return enrichLoggerWithCommitID(logger.Sugar()), atomicLevel
+		return enrichLoggerWithCommitID(logger), atomicLevel
 	}
 
 	loggingCfg := zap.NewProductionConfig()
@@ -63,18 +65,18 @@ func NewLogger(configJSON string, levelOverride string, opts ...zap.Option) (*za
 	if err2 != nil {
 		panic(err2)
 	}
-	return enrichLoggerWithCommitID(logger.Named(fallbackLoggerName).Sugar()), loggingCfg.Level
+	return enrichLoggerWithCommitID(logger.Named(fallbackLoggerName)), loggingCfg.Level
 }
 
-func enrichLoggerWithCommitID(logger *zap.SugaredLogger) *zap.SugaredLogger {
-	commmitID, err := changeset.Get()
+func enrichLoggerWithCommitID(logger *zap.Logger) *zap.SugaredLogger {
+	commitID, err := changeset.Get()
 	if err == nil {
 		// Enrich logs with GitHub commit ID.
-		return logger.With(zap.String(logkey.GitHubCommitID, commmitID))
+		return logger.With(zap.String(logkey.GitHubCommitID, commitID)).Sugar()
 	}
 
-	logger.Infof("Fetch GitHub commit ID from kodata failed: %v", err)
-	return logger
+	logger.Info("Fetch GitHub commit ID from kodata failed", zap.Error(err))
+	return logger.Sugar()
 }
 
 // NewLoggerFromConfig creates a logger using the provided Config
@@ -106,7 +108,7 @@ func newLoggerFromConfig(configJSON string, levelOverride string, opts []zap.Opt
 	}
 
 	logger.Info("Successfully created the logger.")
-	logger.Sugar().Infof("Logging level set to %v", loggingCfg.Level)
+	logger.Info("Logging level set to: " + loggingCfg.Level.String())
 	return logger, loggingCfg.Level, nil
 }
 
@@ -150,17 +152,21 @@ const defaultZLC = `{
   }
 }`
 
+func defaultConfig() *Config {
+	return &Config{
+		LoggingConfig: defaultZLC,
+		LoggingLevel:  make(map[string]zapcore.Level),
+	}
+}
+
 // NewConfigFromMap creates a LoggingConfig from the supplied map,
 // expecting the given list of components.
 func NewConfigFromMap(data map[string]string) (*Config, error) {
-	lc := &Config{}
+	lc := defaultConfig()
 	if zlc, ok := data[loggerConfigKey]; ok {
 		lc.LoggingConfig = zlc
-	} else {
-		lc.LoggingConfig = defaultZLC
 	}
 
-	lc.LoggingLevel = make(map[string]zapcore.Level)
 	for k, v := range data {
 		if component := strings.TrimPrefix(k, "loglevel."); component != k && component != "" {
 			if len(v) > 0 {
@@ -206,7 +212,7 @@ func UpdateLevelFromConfigMap(logger *zap.SugaredLogger, atomicLevel zap.AtomicL
 			// reset to global level
 			loggingCfg, err := zapConfigFromJSON(config.LoggingConfig)
 			switch {
-			case err == errEmptyLoggerConfig:
+			case errors.Is(err, errEmptyLoggerConfig):
 				level = zap.NewAtomicLevel().Level()
 			case err != nil:
 				logger.With(zap.Error(err)).Errorf("Failed to parse logger configuration. "+
@@ -226,18 +232,17 @@ func UpdateLevelFromConfigMap(logger *zap.SugaredLogger, atomicLevel zap.AtomicL
 
 // ConfigMapName gets the name of the logging ConfigMap
 func ConfigMapName() string {
-	cm := os.Getenv(ConfigMapNameEnv)
-	if cm == "" {
-		return "config-logging"
+	if cm := os.Getenv(configMapNameEnv); cm != "" {
+		return cm
 	}
-	return cm
+	return "config-logging"
 }
 
-// JsonToLoggingConfig converts a json string of a Config.
-// Returns a non-nil Config always.
-func JsonToLoggingConfig(jsonCfg string) (*Config, error) {
+// JSONToConfig converts a JSON string of a Config.
+// Always returns a non-nil Config.
+func JSONToConfig(jsonCfg string) (*Config, error) {
 	if jsonCfg == "" {
-		return nil, errors.New("json logging string is empty")
+		return nil, errEmptyJSONLogginString
 	}
 
 	var configMap map[string]string
@@ -248,15 +253,13 @@ func JsonToLoggingConfig(jsonCfg string) (*Config, error) {
 	cfg, err := NewConfigFromMap(configMap)
 	if err != nil {
 		// Get the default config from logging package.
-		if cfg, err = NewConfigFromMap(nil); err != nil {
-			return nil, err
-		}
+		return NewConfigFromConfigMap(nil)
 	}
 	return cfg, nil
 }
 
-// LoggingConfigToJson converts a Config to a json string.
-func LoggingConfigToJson(cfg *Config) (string, error) {
+// ConfigToJSON  converts a Config to a JSON string.
+func ConfigToJSON(cfg *Config) (string, error) {
 	if cfg == nil || cfg.LoggingConfig == "" {
 		return "", nil
 	}
@@ -264,9 +267,5 @@ func LoggingConfigToJson(cfg *Config) (string, error) {
 	jsonCfg, err := json.Marshal(map[string]string{
 		loggerConfigKey: cfg.LoggingConfig,
 	})
-	if err != nil {
-		return "", err
-	}
-
-	return string(jsonCfg), nil
+	return string(jsonCfg), err
 }

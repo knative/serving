@@ -30,6 +30,7 @@ var _ credentials.AuthInfo = (*altsAuthInfo)(nil)
 // application. altsAuthInfo is immutable and implements credentials.AuthInfo.
 type altsAuthInfo struct {
 	p *altspb.AltsContext
+	credentials.CommonAuthInfo
 }
 
 // New returns a new altsAuthInfo object given handshaker results.
@@ -47,7 +48,9 @@ func newAuthInfo(result *altspb.HandshakerResult) *altsAuthInfo {
 			PeerServiceAccount:  result.GetPeerIdentity().GetServiceAccount(),
 			LocalServiceAccount: result.GetLocalIdentity().GetServiceAccount(),
 			PeerRpcVersions:     result.GetPeerRpcVersions(),
+			PeerAttributes:      result.GetPeerIdentity().GetAttributes(),
 		},
+		CommonAuthInfo: credentials.CommonAuthInfo{SecurityLevel: credentials.PrivacyAndIntegrity},
 	}
 }
 
@@ -84,4 +87,9 @@ func (s *altsAuthInfo) LocalServiceAccount() string {
 // PeerRPCVersions returns the context's peer RPC versions.
 func (s *altsAuthInfo) PeerRPCVersions() *altspb.RpcProtocolVersions {
 	return s.p.GetPeerRpcVersions()
+}
+
+// PeerAttributes returns the context's peer attributes.
+func (s *altsAuthInfo) PeerAttributes() map[string]string {
+	return s.p.GetPeerAttributes()
 }

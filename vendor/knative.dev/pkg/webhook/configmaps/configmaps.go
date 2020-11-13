@@ -20,15 +20,19 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"go.uber.org/zap"
+	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	admissionlisters "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	admissionlisters "k8s.io/client-go/listers/admissionregistration/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 
 	"knative.dev/pkg/configmap"
@@ -36,6 +40,7 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/webhook"
 	certresources "knative.dev/pkg/webhook/certificates/resources"
@@ -43,7 +48,10 @@ import (
 
 // reconciler implements the AdmissionController for ConfigMaps
 type reconciler struct {
-	name         string
+	webhook.StatelessAdmissionImpl
+	pkgreconciler.LeaderAwareFuncs
+
+	key          types.NamespacedName
 	path         string
 	constructors map[string]reflect.Value
 
@@ -55,15 +63,22 @@ type reconciler struct {
 }
 
 var _ controller.Reconciler = (*reconciler)(nil)
+var _ pkgreconciler.LeaderAware = (*reconciler)(nil)
 var _ webhook.AdmissionController = (*reconciler)(nil)
+var _ webhook.StatelessAdmissionController = (*reconciler)(nil)
 
 // Reconcile implements controller.Reconciler
 func (ac *reconciler) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
 
+	if !ac.IsLeaderFor(ac.key) {
+		logger.Debugf("Skipping key %q, not the leader.", ac.key)
+		return nil
+	}
+
 	secret, err := ac.secretlister.Secrets(system.Namespace()).Get(ac.secretName)
 	if err != nil {
-		logger.Errorf("Error fetching secret: %v", err)
+		logger.Errorw("Error fetching secret ", zap.Error(err))
 		return err
 	}
 
@@ -81,20 +96,20 @@ func (ac *reconciler) Path() string {
 }
 
 // Admit implements AdmissionController
-func (ac *reconciler) Admit(ctx context.Context, request *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
+func (ac *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 	logger := logging.FromContext(ctx)
 	switch request.Operation {
-	case admissionv1beta1.Create, admissionv1beta1.Update:
+	case admissionv1.Create, admissionv1.Update:
 	default:
-		logger.Infof("Unhandled webhook operation, letting it through %v", request.Operation)
-		return &admissionv1beta1.AdmissionResponse{Allowed: true}
+		logger.Info("Unhandled webhook operation, letting it through ", request.Operation)
+		return &admissionv1.AdmissionResponse{Allowed: true}
 	}
 
 	if err := ac.validate(ctx, request); err != nil {
 		return webhook.MakeErrorStatus("validation failed: %v", err)
 	}
 
-	return &admissionv1beta1.AdmissionResponse{
+	return &admissionv1.AdmissionResponse{
 		Allowed: true,
 	}
 }
@@ -102,13 +117,13 @@ func (ac *reconciler) Admit(ctx context.Context, request *admissionv1beta1.Admis
 func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []byte) error {
 	logger := logging.FromContext(ctx)
 
-	ruleScope := admissionregistrationv1beta1.NamespacedScope
-	rules := []admissionregistrationv1beta1.RuleWithOperations{{
-		Operations: []admissionregistrationv1beta1.OperationType{
-			admissionregistrationv1beta1.Create,
-			admissionregistrationv1beta1.Update,
+	ruleScope := admissionregistrationv1.NamespacedScope
+	rules := []admissionregistrationv1.RuleWithOperations{{
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
 		},
-		Rule: admissionregistrationv1beta1.Rule{
+		Rule: admissionregistrationv1.Rule{
 			APIGroups:   []string{""},
 			APIVersions: []string{"v1"},
 			Resources:   []string{"configmaps/*"},
@@ -116,9 +131,9 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 		},
 	}}
 
-	configuredWebhook, err := ac.vwhlister.Get(ac.name)
+	configuredWebhook, err := ac.vwhlister.Get(ac.key.Name)
 	if err != nil {
-		return fmt.Errorf("error retrieving webhook: %v", err)
+		return fmt.Errorf("error retrieving webhook: %w", err)
 	}
 
 	webhook := configuredWebhook.DeepCopy()
@@ -134,18 +149,18 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 		webhook.Webhooks[i].Rules = rules
 		webhook.Webhooks[i].ClientConfig.CABundle = caCert
 		if webhook.Webhooks[i].ClientConfig.Service == nil {
-			return fmt.Errorf("missing service reference for webhook: %s", wh.Name)
+			return errors.New("missing service reference for webhook: " + wh.Name)
 		}
 		webhook.Webhooks[i].ClientConfig.Service.Path = ptr.String(ac.Path())
 	}
 
 	if ok, err := kmp.SafeEqual(configuredWebhook, webhook); err != nil {
-		return fmt.Errorf("error diffing webhooks: %v", err)
+		return fmt.Errorf("error diffing webhooks: %w", err)
 	} else if !ok {
 		logger.Info("Updating webhook")
-		vwhclient := ac.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
-		if _, err := vwhclient.Update(webhook); err != nil {
-			return fmt.Errorf("failed to update webhook: %v", err)
+		vwhclient := ac.client.AdmissionregistrationV1().ValidatingWebhookConfigurations()
+		if _, err := vwhclient.Update(ctx, webhook, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("failed to update webhook: %w", err)
 		}
 	} else {
 		logger.Info("Webhook is valid")
@@ -154,7 +169,7 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 	return nil
 }
 
-func (ac *reconciler) validate(ctx context.Context, req *admissionv1beta1.AdmissionRequest) error {
+func (ac *reconciler) validate(ctx context.Context, req *admissionv1.AdmissionRequest) error {
 	logger := logging.FromContext(ctx)
 	kind := req.Kind
 	newBytes := req.Object.Raw
@@ -168,7 +183,7 @@ func (ac *reconciler) validate(ctx context.Context, req *admissionv1beta1.Admiss
 
 	resourceGVK := corev1.SchemeGroupVersion.WithKind("ConfigMap")
 	if gvk != resourceGVK {
-		logger.Errorf("Unhandled kind: %v", gvk)
+		logger.Error("Unhandled kind: ", gvk)
 		return fmt.Errorf("unhandled kind: %v", gvk)
 	}
 
@@ -176,12 +191,20 @@ func (ac *reconciler) validate(ctx context.Context, req *admissionv1beta1.Admiss
 	if len(newBytes) != 0 {
 		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
 		if err := newDecoder.Decode(&newObj); err != nil {
-			return fmt.Errorf("cannot decode incoming new object: %v", err)
+			return fmt.Errorf("cannot decode incoming new object: %w", err)
 		}
 	}
 
-	var err error
 	if constructor, ok := ac.constructors[newObj.Name]; ok {
+		// Only validate example data if this is a configMap we know about.
+		exampleData, hasExampleData := newObj.Data[configmap.ExampleKey]
+		exampleChecksum, hasExampleChecksumAnnotation := newObj.Annotations[configmap.ExampleChecksumAnnotation]
+		if hasExampleData && hasExampleChecksumAnnotation &&
+			exampleChecksum != configmap.Checksum(exampleData) {
+			return fmt.Errorf(
+				"the update modifies a key in %q which is probably not what you want. Instead, copy the respective setting to the top-level of the ConfigMap, directly below %q",
+				configmap.ExampleKey, "data")
+		}
 
 		inputs := []reflect.Value{
 			reflect.ValueOf(&newObj),
@@ -191,11 +214,11 @@ func (ac *reconciler) validate(ctx context.Context, req *admissionv1beta1.Admiss
 		errVal := outputs[1]
 
 		if !errVal.IsNil() {
-			err = errVal.Interface().(error)
+			return errVal.Interface().(error)
 		}
 	}
 
-	return err
+	return nil
 }
 
 func (ac *reconciler) registerConfig(name string, constructor interface{}) {

@@ -4,7 +4,8 @@ Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-    https://www.apache.org/licenses/LICENSE-2.0
+
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,7 +26,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/test"
 )
 
@@ -68,11 +69,11 @@ func getTargetHostEnv() string {
 func initialHTTPProxy(proxyURL string) *httputil.ReverseProxy {
 	target, err := url.Parse(proxyURL)
 	if err != nil {
-		log.Fatalf("Failed to parse url %v", proxyURL)
+		log.Fatal("Failed to parse url ", proxyURL)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
-		log.Printf("error reverse proxying request: %v", err)
+		log.Print("error reverse proxying request: ", err)
 		http.Error(w, err.Error(), http.StatusBadGateway)
 	}
 	return proxy
@@ -92,12 +93,12 @@ func main() {
 	if gateway != "" {
 		targetHost = gateway
 	}
-	targetURL := fmt.Sprintf("http://%s", targetHost)
+	targetURL := fmt.Sprint("http://", targetHost)
 	log.Print("target is " + targetURL)
 	httpProxy = initialHTTPProxy(targetURL)
 
-	address := fmt.Sprintf(":%s", port)
-	log.Printf("Listening on address: %s", address)
+	address := fmt.Sprint(":", port)
+	log.Print("Listening on address: ", address)
 	// Handle forwarding requests which uses "K-Network-Hash" header.
 	probeHandler := network.NewProbeHandler(http.HandlerFunc(handler)).ServeHTTP
 	test.ListenAndServeGracefully(address, probeHandler)

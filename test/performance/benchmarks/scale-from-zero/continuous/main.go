@@ -28,6 +28,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/apps/v1"
+	"knative.dev/pkg/injection"
 
 	"github.com/google/mako/go/quickstore"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,12 +39,11 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"knative.dev/pkg/injection/sharedmain"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	ktest "knative.dev/serving/pkg/testing/v1alpha1"
+	ktest "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -63,14 +63,14 @@ const (
 )
 
 func clientsFromConfig() (*test.Clients, error) {
-	cfg, err := sharedmain.GetConfig("", "")
+	cfg, err := injection.GetRESTConfig("", "")
 	if err != nil {
-		return nil, fmt.Errorf("error building kubeconfig: %v", err)
+		return nil, fmt.Errorf("error building kubeconfig: %w", err)
 	}
 	return test.NewClientsFromConfig(cfg, testNamespace)
 }
 
-func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjects, func(), error) {
+func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects, func(), error) {
 	testNames := make([]*test.ResourceNames, count)
 
 	// Initialize our service names.
@@ -84,11 +84,11 @@ func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjec
 
 	cleanupNames := func() {
 		for i := 0; i < count; i++ {
-			test.TearDown(clients, *testNames[i])
+			test.TearDown(clients, testNames[i])
 		}
 	}
 
-	objs := make([]*v1a1test.ResourceObjects, count)
+	objs := make([]*v1test.ResourceObjects, count)
 	begin := time.Now()
 	sos := []ktest.ServiceOption{
 		// We set a small resource alloc so that we can pack more pods into the cluster.
@@ -111,8 +111,8 @@ func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjec
 		ndx := i
 		g.Go(func() error {
 			var err error
-			if objs[ndx], _, err = v1a1test.CreateRunLatestServiceReady(&testing.T{}, clients, testNames[ndx], false, sos...); err != nil {
-				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
+			if objs[ndx], err = v1test.CreateServiceReady(&testing.T{}, clients, testNames[ndx], sos...); err != nil {
+				return fmt.Errorf("%02d: failed to create Ready service: %w", ndx, err)
 			}
 			return nil
 		})
@@ -120,11 +120,11 @@ func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjec
 	if err := g.Wait(); err != nil {
 		return nil, nil, err
 	}
-	log.Printf("Created all the services in %v", time.Since(begin))
+	log.Print("Created all the services in ", time.Since(begin))
 	return objs, cleanupNames, nil
 }
 
-func waitForScaleToZero(ctx context.Context, objs []*v1a1test.ResourceObjects) error {
+func waitForScaleToZero(ctx context.Context, objs []*v1test.ResourceObjects) error {
 	g := errgroup.Group{}
 	for i := 0; i < len(objs); i++ {
 		idx := i
@@ -146,7 +146,7 @@ func waitForScaleToZero(ctx context.Context, objs []*v1a1test.ResourceObjects) e
 	return g.Wait()
 }
 
-func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v1a1test.ResourceObjects, q *quickstore.Quickstore) {
+func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v1test.ResourceObjects, q *quickstore.Quickstore) {
 	count := len(objs)
 	// Get the key for saving latency and error metrics in the benchmark.
 	lk := "l" + strconv.Itoa(count)
@@ -180,14 +180,14 @@ func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v
 	wg.Wait()
 }
 
-func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v1a1test.ResourceObjects) (
+func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v1test.ResourceObjects) (
 	time.Duration, time.Duration, error) {
 	selector := labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: ro.Service.Name,
 	})
 
-	watcher, err := clients.KubeClient.Kube.AppsV1().Deployments(testNamespace).Watch(
-		metav1.ListOptions{LabelSelector: selector.String()})
+	watcher, err := clients.KubeClient.AppsV1().Deployments(testNamespace).Watch(
+		context.Background(), metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		m := fmt.Sprintf("%02d: unable to watch the deployment for the service: %v", idx, err)
 		log.Println(m)
@@ -203,6 +203,7 @@ func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v
 		log.Printf("%02d: waiting for endpoint to serve request", idx)
 		url := ro.Route.Status.URL.URL()
 		_, err := pkgTest.WaitForEndpointStateWithTimeout(
+			context.Background(),
 			clients.KubeClient,
 			log.Printf,
 			url,
@@ -244,7 +245,7 @@ func testScaleFromZero(clients *test.Clients, count int) {
 	parallelTag := fmt.Sprintf("parallel=%d", count)
 	mc, err := mako.Setup(context.Background(), parallelTag)
 	if err != nil {
-		log.Fatalf("failed to setup mako: %v", err)
+		log.Fatal("failed to setup mako: ", err)
 	}
 	q, qclose, ctx := mc.Quickstore, mc.ShutDownFunc, mc.Context
 	defer qclose(ctx)
@@ -277,7 +278,7 @@ func main() {
 	flag.Parse()
 	clients, err := clientsFromConfig()
 	if err != nil {
-		log.Fatalf("Failed to setup clients: %v", err)
+		log.Fatal("Failed to setup clients: ", err)
 	}
 
 	testScaleFromZero(clients, *parallelCount)

@@ -20,6 +20,7 @@ import (
 	"context"
 	"strings"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -31,8 +32,11 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 	// have changed (i.e. due to config-defaults changes), we elide the metadata and
 	// spec validation.
 	if !apis.IsInStatusUpdate(ctx) {
-		errs = errs.Also(serving.ValidateObjectMetadata(s.GetObjectMeta()).Also(
-			s.validateLabels().ViaField("labels")).ViaField("metadata"))
+		errs = errs.Also(serving.ValidateObjectMetadata(ctx, s.GetObjectMeta()))
+		errs = errs.Also(s.validateLabels().ViaField("labels"))
+		errs = errs.Also(serving.ValidateHasNoAutoscalingAnnotation(s.GetAnnotations()).ViaField("annotations"))
+		errs = errs.ViaField("metadata")
+
 		ctx = apis.WithinParent(ctx, s.ObjectMeta)
 		errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
@@ -44,7 +48,7 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 		errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, s.Spec, original.GetAnnotations(),
 			s.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
 		err := s.Spec.ConfigurationSpec.Template.VerifyNameChange(ctx,
-			original.Spec.ConfigurationSpec.Template)
+			&original.Spec.ConfigurationSpec.Template)
 		errs = errs.Also(err.ViaField("spec.template"))
 	}
 	return errs
@@ -68,7 +72,7 @@ func (ss *ServiceStatus) Validate(ctx context.Context) *apis.FieldError {
 func (s *Service) validateLabels() (errs *apis.FieldError) {
 	for key, val := range s.GetLabels() {
 		switch {
-		case key == serving.VisibilityLabelKey:
+		case key == network.VisibilityLabelKey || key == serving.VisibilityLabelKeyObsolete:
 			errs = errs.Also(validateClusterVisibilityLabel(val))
 		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))

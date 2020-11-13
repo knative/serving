@@ -18,197 +18,100 @@ package metrics
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	network "knative.dev/networking/pkg"
 )
 
 const (
-	testURL = "http://test-revision-zhudex.test-namespace:9090/metrics"
-
-	// TODO: Use Prometheus lib to generate the following text instead of using text format directly.
-	testAverageConcurrencyContext = `# HELP queue_average_concurrent_requests Number of requests currently being handled by this pod
-# TYPE queue_average_concurrent_requests gauge
-queue_average_concurrent_requests{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 3.0
-`
-	testQPSContext = `# HELP queue_requests_per_second Number of requests received since last Stat
-# TYPE queue_requests_per_second gauge
-queue_requests_per_second{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 5
-`
-	testAverageProxiedConcurrenyContext = `# HELP queue_average_proxied_concurrent_requests Number of proxied requests currently being handled by this pod
-# TYPE queue_average_proxied_concurrent_requests gauge
-queue_average_proxied_concurrent_requests{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 2.0
-`
-	testProxiedQPSContext = `# HELP queue_proxied_operations_per_second Number of proxied requests received since last Stat
-# TYPE queue_proxied_operations_per_second gauge
-queue_proxied_operations_per_second{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 4
-`
-	testFullContext = testAverageConcurrencyContext + testQPSContext + testAverageProxiedConcurrenyContext + testProxiedQPSContext
-
-	testUptimeContext = `# HELP process_uptime The number of seconds that the process has been up
-# TYPE process_uptime gauge
-process_uptime{destination_configuration="s1",destination_namespace="default",destination_pod="s1-tdgpn-deployment-86f6459cf8-mc9mw",destination_revision="s1-tdgpn"} 2937.12
-`
-
-	testOptionalContext = testFullContext + testUptimeContext
+	queueAverageConcurrentRequests        = 3.0
+	queueRequestsPerSecond                = 5
+	queueAverageProxiedConcurrentRequests = 2.0
+	queueProxiedOperationsPerSecond       = 4
+	processUptime                         = 2937.12
+	podName                               = "test-revision-1234"
 )
 
-func TestNewHTTPScrapeClient_ErrorCases(t *testing.T) {
-	testCases := []struct {
-		name        string
-		client      *http.Client
-		expectedErr string
-	}{{
-		name:        "Empty HTTP client",
-		expectedErr: "HTTP client must not be nil",
-	}}
+var (
+	testURL = "http://test-revision-zhudex.test-namespace:9090/metrics"
 
-	for _, test := range testCases {
-		t.Run(test.name, func(t *testing.T) {
-			if _, err := newHTTPScrapeClient(test.client); err != nil {
-				got := err.Error()
-				want := test.expectedErr
-				if got != want {
-					t.Errorf("Got error message: %v. Want: %v", got, want)
-				}
-			} else {
-				t.Error("Expected error from newHTTPScrapeClient, got nil")
-			}
-		})
+	stat = Stat{
+		PodName:                          podName,
+		AverageConcurrentRequests:        queueAverageConcurrentRequests,
+		AverageProxiedConcurrentRequests: queueAverageProxiedConcurrentRequests,
+		RequestCount:                     queueRequestsPerSecond,
+		ProxiedRequestCount:              queueProxiedOperationsPerSecond,
+		ProcessUptime:                    processUptime,
 	}
-}
-
-func TestHTTPScrapeClientScrapeHappyCase(t *testing.T) {
-	hClient := newTestHTTPClient(getHTTPResponse(http.StatusOK, testFullContext), nil)
-	sClient, err := newHTTPScrapeClient(hClient)
-	if err != nil {
-		t.Fatalf("newHTTPScrapeClient = %v, want no error", err)
-	}
-
-	stat, err := sClient.Scrape(testURL)
-	if err != nil {
-		t.Errorf("scrapeViaURL = %v, want no error", err)
-	}
-	if stat.AverageConcurrentRequests != 3.0 {
-		t.Errorf("stat.AverageConcurrentRequests = %v, want 3.0", stat.AverageConcurrentRequests)
-	}
-	if stat.RequestCount != 5 {
-		t.Errorf("stat.RequestCount = %v, want 5", stat.RequestCount)
-	}
-	if stat.AverageProxiedConcurrentRequests != 2.0 {
-		t.Errorf("stat.AverageProxiedConcurrency = %v, want 2.0", stat.AverageProxiedConcurrentRequests)
-	}
-	if stat.ProxiedRequestCount != 4 {
-		t.Errorf("stat.ProxiedCount = %v, want 4", stat.ProxiedRequestCount)
-	}
-	if stat.PodName != "test-revision-1234" {
-		t.Errorf("stat.PodName = %s, want test-revision-1234", stat.PodName)
-	}
-	if stat.ProcessUptime != 0 {
-		t.Errorf("default/missing stat.ProcessUptime = %v, want: 0", stat.ProcessUptime)
-	}
-}
+)
 
 func TestHTTPScrapeClientScrapeHappyCaseWithOptionals(t *testing.T) {
-	hClient := newTestHTTPClient(getHTTPResponse(http.StatusOK, testOptionalContext), nil)
-	sClient, err := newHTTPScrapeClient(hClient)
+	hClient := newTestHTTPClient(makeProtoResponse(http.StatusOK, stat, network.ProtoAcceptContent), nil)
+	sClient := newHTTPScrapeClient(hClient)
+	got, err := sClient.Scrape(context.Background(), testURL)
 	if err != nil {
-		t.Fatalf("newHTTPScrapeClient = %v, want no error", err)
+		t.Fatalf("Scrape = %v, want no error", err)
 	}
-
-	stat, err := sClient.Scrape(testURL)
-	if err != nil {
-		t.Errorf("scrapeViaURL = %v, want no error", err)
-	}
-	if stat.AverageConcurrentRequests != 3.0 {
-		t.Errorf("stat.AverageConcurrentRequests = %v, want 3.0", stat.AverageConcurrentRequests)
-	}
-	if stat.RequestCount != 5 {
-		t.Errorf("stat.RequestCount = %v, want 5", stat.RequestCount)
-	}
-	if stat.AverageProxiedConcurrentRequests != 2.0 {
-		t.Errorf("stat.AverageProxiedConcurrency = %v, want 2.0", stat.AverageProxiedConcurrentRequests)
-	}
-	if stat.ProxiedRequestCount != 4 {
-		t.Errorf("stat.ProxiedCount = %v, want 4", stat.ProxiedRequestCount)
-	}
-	if stat.PodName != "test-revision-1234" {
-		t.Errorf("stat.PodName = %s, want test-revision-1234", stat.PodName)
-	}
-	if got, want := stat.ProcessUptime, 2937.12; got != want {
-		t.Errorf("stat.ProcessUptime = %v, want: %v", got, want)
+	if !cmp.Equal(got, stat) {
+		t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(stat, got))
 	}
 }
 
-func TestHTTPScrapeClient_Scrape_ErrorCases(t *testing.T) {
+func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 	testCases := []struct {
-		name            string
-		responseCode    int
-		responseErr     error
-		responseContext string
-		expectedErr     string
+		name         string
+		responseCode int
+		responseType string
+		responseErr  error
+		stat         Stat
+		expectedErr  string
 	}{{
 		name:         "Non 200 return code",
 		responseCode: http.StatusForbidden,
-		expectedErr:  fmt.Sprintf(`GET request for URL %q returned HTTP status 403`, testURL),
+		expectedErr:  fmt.Sprintf("GET request for URL %q returned HTTP status 403", testURL),
 	}, {
 		name:         "Error got when sending request",
 		responseCode: http.StatusOK,
 		responseErr:  errors.New("upstream closed"),
 		expectedErr:  "upstream closed",
 	}, {
-		name:            "Bad response context format",
-		responseCode:    http.StatusOK,
-		responseContext: "bad context",
-		expectedErr:     "reading text format failed: text format parsing error in line 1: unexpected end of input stream",
-	}, {
-		name:            "Missing average concurrency",
-		responseCode:    http.StatusOK,
-		responseContext: testQPSContext + testAverageProxiedConcurrenyContext + testProxiedQPSContext,
-		expectedErr:     "could not find value for queue_average_concurrent_requests in response",
-	}, {
-		name:            "Missing QPS",
-		responseCode:    http.StatusOK,
-		responseContext: testAverageConcurrencyContext + testAverageProxiedConcurrenyContext + testProxiedQPSContext,
-		expectedErr:     "could not find value for queue_requests_per_second in response",
-	}, {
-		name:            "Missing average proxied concurrency",
-		responseCode:    http.StatusOK,
-		responseContext: testAverageConcurrencyContext + testQPSContext + testProxiedQPSContext,
-		expectedErr:     "could not find value for queue_average_proxied_concurrent_requests in response",
-	}, {
-		name:            "Missing proxied QPS",
-		responseCode:    http.StatusOK,
-		responseContext: testAverageConcurrencyContext + testQPSContext + testAverageProxiedConcurrenyContext,
-		expectedErr:     "could not find value for queue_proxied_operations_per_second in response",
+		name:         "Wrong Content-Type",
+		responseCode: http.StatusOK,
+		responseType: "text/html",
+		expectedErr:  errUnsupportedMetricType.Error(),
 	}}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			hClient := newTestHTTPClient(getHTTPResponse(test.responseCode, test.responseContext), test.responseErr)
-			sClient, err := newHTTPScrapeClient(hClient)
-			if err != nil {
-				t.Errorf("newHTTPScrapeClient=%v, want no error", err)
+			hClient := newTestHTTPClient(makeProtoResponse(test.responseCode, test.stat, test.responseType), test.responseErr)
+			sClient := newHTTPScrapeClient(hClient)
+			_, err := sClient.Scrape(context.Background(), testURL)
+			if err == nil {
+				t.Fatal("Got no error")
 			}
-			if _, err := sClient.Scrape(testURL); err != nil {
-				if !strings.Contains(err.Error(), test.expectedErr) {
-					t.Errorf("Got error message: %q, want to contain: %q", err.Error(), test.expectedErr)
-				}
-			} else {
-				t.Error("Expected error from newServiceScraperWithClient, got nil")
+			if !strings.Contains(err.Error(), test.expectedErr) {
+				t.Errorf("Error = %q, want to contain: %q", err.Error(), test.expectedErr)
 			}
 		})
 	}
 }
 
-func getHTTPResponse(statusCode int, context string) *http.Response {
-	return &http.Response{
+func makeProtoResponse(statusCode int, stat Stat, contentType string) *http.Response {
+	buffer, _ := stat.Marshal()
+	res := &http.Response{
 		StatusCode: statusCode,
-		Body:       ioutil.NopCloser(bytes.NewBufferString(context)),
+		Body:       ioutil.NopCloser(bytes.NewBuffer(buffer)),
 	}
+	res.Header = http.Header{}
+	res.Header.Set("Content-Type", contentType)
+	return res
 }
 
 type fakeRoundTripper struct {
@@ -226,5 +129,47 @@ func newTestHTTPClient(response *http.Response, err error) *http.Client {
 			response:      response,
 			responseError: err,
 		},
+	}
+}
+
+func BenchmarkUnmarshallingProtoData(b *testing.B) {
+	stat := Stat{
+		ProcessUptime:                    12.2,
+		AverageConcurrentRequests:        2.3,
+		AverageProxiedConcurrentRequests: 100.2,
+		RequestCount:                     122,
+		ProxiedRequestCount:              122,
+	}
+
+	benchmarks := []struct {
+		name    string
+		podName string
+	}{{
+		name:    "BenchmarkStatWithEmptyPodName",
+		podName: "",
+	}, {
+		name:    "BenchmarkStatWithSmallPodName",
+		podName: "a-lzrjc-deployment-85d4b7d859-gspjs",
+	}, {
+		name:    "BenchmarkStatWithMediumPodName",
+		podName: "a-lzrjc-deployment-85d4b7d859-gspjs" + strings.Repeat("p", 50),
+	}, {
+		name:    "BenchmarkStatWithLargePodName",
+		podName: strings.Repeat("p", 253),
+	}}
+	for _, bm := range benchmarks {
+		stat.PodName = bm.podName
+		bodyBytes, err := stat.Marshal()
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, err = statFromProto(bytes.NewReader(bodyBytes))
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }

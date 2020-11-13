@@ -15,9 +15,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package autotls
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
@@ -25,46 +27,67 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/networking/pkg/apis/networking"
+	ntest "knative.dev/networking/test"
+	"knative.dev/networking/test/conformance/ingress"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/spoof"
-	"knative.dev/serving/pkg/apis/networking"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	testingress "knative.dev/serving/test/conformance/ingress"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
-
-type dnsRecord struct {
-	ip     string
-	domain string
-}
 
 type config struct {
 	// ServiceName is the name of testing Knative Service.
 	// It is not required for self-signed CA or for the HTTP01 challenge when wildcard domain
 	// is mapped to the Ingress IP.
-	TLSServiceName string `envconfig:"tls_service_name" required: "false"`
+	TLSServiceName string `envconfig:"tls_service_name" required:"false"`
 	// AutoTLSTestName is the name of the auto tls. It is not required for local test.
-	AutoTLSTestName string `envconfig:"auto_tls_test_name" required: "false" default:"TestAutoTLS"`
+	AutoTLSTestName string `envconfig:"auto_tls_test_name" required:"false" default:"TestAutoTLS"`
 }
 
 var env config
 
-func TestAutoTLS(t *testing.T) {
+func TestTLS(t *testing.T) {
 	if err := envconfig.Process("", &env); err != nil {
 		t.Fatalf("Failed to process environment variable: %v.", err)
 	}
 	t.Run(env.AutoTLSTestName, testAutoTLS)
 }
 
+func TestTLSDisabledWithAnnotation(t *testing.T) {
+	clients := e2e.SetupWithNamespace(t, test.TLSNamespace)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "runtime",
+	}
+	test.EnsureTearDown(t, clients, &names)
+
+	objects, err := v1test.CreateServiceReady(t, clients, &names, rtesting.WithServiceAnnotations(map[string]string{networking.DisableAutoTLSAnnotationKey: "true"}))
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeTLSDisabled, "RouteTLSDisabled"); err != nil {
+		t.Fatalf("Traffic for route: %s does not have TLS disabled: %v", names.Route, err)
+	}
+
+	if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeURLHTTP, "RouteURLIsHTTP"); err != nil {
+		t.Fatalf("Traffic for route: %s is not HTTP: %v", names.Route, err)
+	}
+
+	httpClient := createHTTPClient(t, clients, objects)
+	ingress.RuntimeRequest(context.Background(), t, httpClient, objects.Route.Status.URL.String())
+}
+
 func testAutoTLS(t *testing.T) {
-	clients := e2e.Setup(t)
+	clients := e2e.SetupWithNamespace(t, test.TLSNamespace)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -73,8 +96,7 @@ func testAutoTLS(t *testing.T) {
 	if len(env.TLSServiceName) != 0 {
 		names.Service = env.TLSServiceName
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
@@ -92,7 +114,7 @@ func testAutoTLS(t *testing.T) {
 	certName := getCertificateName(t, clients, objects)
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
-	testingress.RuntimeRequest(t, httpsClient, objects.Service.Status.URL.String())
+	ingress.RuntimeRequest(context.Background(), t, httpsClient, objects.Service.Status.URL.String())
 
 	t.Run("Tag route", func(t *testing.T) {
 		// Probe main URL while we update the route
@@ -100,30 +122,31 @@ func testAutoTLS(t *testing.T) {
 			transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 			return transport
 		}
+
 		if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, servingv1.RouteSpec{
 			Traffic: []servingv1.TrafficTarget{{
-				Tag:            "tag1",
+				Tag:            "r",
 				Percent:        ptr.Int64(50),
 				LatestRevision: ptr.Bool(true),
 			}, {
-				Tag:            "tag2",
+				Tag:            "b",
 				Percent:        ptr.Int64(50),
 				LatestRevision: ptr.Bool(true),
 			}},
 		}); err != nil {
-			t.Fatalf("Failed to update Service route spec: %v", err)
+			t.Fatal("Failed to update Service route spec:", err)
 		}
 		if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeTrafficHTTPS, "RouteTrafficIsHTTPS"); err != nil {
 			t.Fatalf("Traffic for route: %s is not HTTPS: %v", names.Route, err)
 		}
 
-		ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+		ing, err := clients.NetworkingClient.Ingresses.Get(context.Background(), routenames.Ingress(objects.Route), metav1.GetOptions{})
 		if err != nil {
-			t.Fatalf("Failed to get ingress: %v", err)
+			t.Fatal("Failed to get ingress:", err)
 		}
 		for _, tls := range ing.Spec.TLS {
 			// Each new cert has to be added to the root pool so we can make requests.
-			if !rootCAs.AppendCertsFromPEM(getPEMDataFromSecret(t, clients, tls.SecretNamespace, tls.SecretName)) {
+			if !rootCAs.AppendCertsFromPEM(test.PemDataFromSecret(context.Background(), t.Logf, clients, tls.SecretNamespace, tls.SecretName)) {
 				t.Fatal("Failed to add the certificate to the root CA")
 			}
 		}
@@ -132,20 +155,20 @@ func testAutoTLS(t *testing.T) {
 		prober := test.RunRouteProber(t.Logf, clients, objects.Service.Status.URL.URL(), transportOption)
 		defer test.AssertProberDefault(t, prober)
 
-		route, err := clients.ServingClient.Routes.Get(objects.Route.Name, metav1.GetOptions{})
+		route, err := clients.ServingClient.Routes.Get(context.Background(), objects.Route.Name, metav1.GetOptions{})
 		if err != nil {
-			t.Fatalf("Failed to get route: %v", err)
+			t.Fatal("Failed to get route:", err)
 		}
 		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 		for _, traffic := range route.Status.Traffic {
-			testingress.RuntimeRequest(t, httpsClient, traffic.URL.String())
+			ingress.RuntimeRequest(context.Background(), t, httpsClient, traffic.URL.String())
 		}
 	})
 }
 
 func getCertificateName(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects) string {
 	t.Helper()
-	ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+	ing, err := clients.NetworkingClient.Ingresses.Get(context.Background(), routenames.Ingress(objects.Route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
@@ -161,7 +184,16 @@ func routeTrafficHTTPS(route *servingv1.Route) (bool, error) {
 			return false, nil
 		}
 	}
-	return route.Status.IsReady() && true, nil
+	return route.IsReady(), nil
+}
+
+func routeURLHTTP(route *servingv1.Route) (bool, error) {
+	return route.Status.URL.URL().Scheme == "http", nil
+}
+
+func routeTLSDisabled(route *servingv1.Route) (bool, error) {
+	var cond = route.Status.GetCondition("CertificateProvisioned")
+	return cond.Status == "True" && cond.Reason == "TLSNotEnabled", nil
 }
 
 func httpsReady(svc *servingv1.Service) (bool, error) {
@@ -174,19 +206,9 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 	}
 }
 
-func getPEMDataFromSecret(t *testing.T, clients *test.Clients, ns, secretName string) []byte {
-	t.Helper()
-	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
-		secretName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get Secret %s: %v", secretName, err)
-	}
-	return secret.Data[corev1.TLSCertKey]
-}
-
 func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
 	t.Helper()
-	pemData := getPEMDataFromSecret(t, clients, ns, secretName)
+	pemData := test.PemDataFromSecret(context.Background(), t.Logf, clients, ns, secretName)
 
 	rootCAs, err := x509.SystemCertPool()
 	if rootCAs == nil || err != nil {
@@ -203,11 +225,13 @@ func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 
 func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects, rootCAs *x509.CertPool) *http.Client {
 	t.Helper()
-	ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+	ing, err := clients.NetworkingClient.Ingresses.Get(context.Background(), routenames.Ingress(objects.Route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
-	dialer := testingress.CreateDialContext(t, ing, clients)
+	dialer := ingress.CreateDialContext(context.Background(), t, ing, &ntest.Clients{
+		KubeClient: clients.KubeClient,
+	})
 	tlsConfig := &tls.Config{
 		RootCAs: rootCAs,
 	}
@@ -218,23 +242,18 @@ func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.Reso
 		}}
 }
 
-func disableNamespaceCertWithWhiteList(t *testing.T, clients *test.Clients, whiteLists sets.String) {
+func createHTTPClient(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects) *http.Client {
 	t.Helper()
-	namespaces, err := clients.KubeClient.Kube.CoreV1().Namespaces().List(metav1.ListOptions{})
+	ing, err := clients.NetworkingClient.Ingresses.Get(context.Background(), routenames.Ingress(objects.Route), metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to list namespaces: %v", err)
+		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
-	for _, ns := range namespaces.Items {
-		if ns.Labels == nil {
-			ns.Labels = map[string]string{}
-		}
-		if whiteLists.Has(ns.Name) {
-			delete(ns.Labels, networking.DisableWildcardCertLabelKey)
-		} else {
-			ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
-		}
-		if _, err := clients.KubeClient.Kube.CoreV1().Namespaces().Update(&ns); err != nil {
-			t.Errorf("Fail to disable namespace cert: %v", err)
-		}
-	}
+	dialer := ingress.CreateDialContext(context.Background(), t, ing, &ntest.Clients{
+		KubeClient: clients.KubeClient,
+	})
+	return &http.Client{
+		Transport: &http.Transport{
+			DialContext:     dialer,
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}}
 }

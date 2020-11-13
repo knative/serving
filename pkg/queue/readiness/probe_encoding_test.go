@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package readiness
 
 import (
@@ -93,6 +94,6 @@ func TestEncodeNilProbe(t *testing.T) {
 	}
 
 	if jsonProbe != "" {
-		t.Errorf("Expected empty probe string; got %s", jsonProbe)
+		t.Error("Expected empty probe string; got", jsonProbe)
 	}
 }

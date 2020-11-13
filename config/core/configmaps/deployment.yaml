@@ -19,12 +19,12 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-
+  annotations:
+    knative.dev/example-checksum: "52900e59"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
   queueSidecarImage: ko://knative.dev/serving/cmd/queue
-
   _example: |
     ################################
     #                              #
@@ -42,4 +42,38 @@ data:
     # to actually change the configuration.
 
     # List of repositories for which tag to digest resolving should be skipped
-    registriesSkippingTagResolving: "ko.local,dev.local"
+    registriesSkippingTagResolving: "kind.local,ko.local,dev.local"
+
+    # digestResolutionTimeout is the maximum time allowed for an image's
+    # digests to be resolved.
+    digestResolutionTimeout: "10s"
+
+    # ProgressDeadline is the duration we wait for the deployment to
+    # be ready before considering it failed.
+    progressDeadline: "120s"
+
+    # queueSidecarCPURequest is the requests.cpu to set for the queue proxy sidecar container.
+    # If omitted, a default value (currently "25m"), is used.
+    queueSidecarCPURequest: "25m"
+
+    # queueSidecarCPULimit is the limits.cpu to set for the queue proxy sidecar container.
+    # If omitted, no value is specified and the system default is used.
+    queueSidecarCPULimit: "1000m"
+
+    # queueSidecarMemoryRequest is the requests.memory to set for the queue proxy container.
+    # If omitted, no value is specified and the system default is used.
+    queueSidecarMemoryRequest: "400Mi"
+
+    # queueSidecarMemoryLimit is the limits.memory to set for the queue proxy container.
+    # If omitted, no value is specified and the system default is used.
+    queueSidecarMemoryLimit: "800Mi"
+
+    # queueSidecarEphemeralStorageRequest is the requests.ephemeral-storage to
+    # set for the queue proxy sidecar container.
+    # If omitted, no value is specified and the system default is used.
+    queueSidecarEphemeralStorageRequest: "512Mi"
+
+    # queueSidecarEphemeralStorageLimit is the limits.ephemeral-storage to set
+    # for the queue proxy sidecar container.
+    # If omitted, no value is specified and the system default is used.
+    queueSidecarEphemeralStorageLimit: "1024Mi"

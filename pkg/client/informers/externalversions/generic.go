@@ -24,10 +24,8 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	networkingv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	v1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other
@@ -62,14 +60,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case v1alpha1.SchemeGroupVersion.WithResource("podautoscalers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().PodAutoscalers().Informer()}, nil
 
-		// Group=networking.internal.knative.dev, Version=v1alpha1
-	case networkingv1alpha1.SchemeGroupVersion.WithResource("certificates"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().Certificates().Informer()}, nil
-	case networkingv1alpha1.SchemeGroupVersion.WithResource("ingresses"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().Ingresses().Informer()}, nil
-	case networkingv1alpha1.SchemeGroupVersion.WithResource("serverlessservices"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().ServerlessServices().Informer()}, nil
-
 		// Group=serving.knative.dev, Version=v1
 	case v1.SchemeGroupVersion.WithResource("configurations"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1().Configurations().Informer()}, nil
@@ -81,24 +71,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1().Services().Informer()}, nil
 
 		// Group=serving.knative.dev, Version=v1alpha1
-	case servingv1alpha1.SchemeGroupVersion.WithResource("configurations"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Configurations().Informer()}, nil
-	case servingv1alpha1.SchemeGroupVersion.WithResource("revisions"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Revisions().Informer()}, nil
-	case servingv1alpha1.SchemeGroupVersion.WithResource("routes"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Routes().Informer()}, nil
-	case servingv1alpha1.SchemeGroupVersion.WithResource("services"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Services().Informer()}, nil
-
-		// Group=serving.knative.dev, Version=v1beta1
-	case v1beta1.SchemeGroupVersion.WithResource("configurations"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1beta1().Configurations().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("revisions"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1beta1().Revisions().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("routes"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1beta1().Routes().Informer()}, nil
-	case v1beta1.SchemeGroupVersion.WithResource("services"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1beta1().Services().Informer()}, nil
+	case servingv1alpha1.SchemeGroupVersion.WithResource("domainmappings"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().DomainMappings().Informer()}, nil
 
 	}
 

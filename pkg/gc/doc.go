@@ -15,6 +15,6 @@ limitations under the License.
 */
 
 // +k8s:deepcopy-gen=package
-// Package gc holds the typed objects that define the schemas for
-// assorted ConfigMap objects on which the Route controller depends.
+
+// Package gc manages garbage collection of old resources.
 package gc

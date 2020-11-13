@@ -18,10 +18,4 @@ limitations under the License.
 
 package v1alpha1
 
-type ConfigurationExpansion interface{}
-
-type RevisionExpansion interface{}
-
-type RouteExpansion interface{}
-
-type ServiceExpansion interface{}
+type DomainMappingExpansion interface{}

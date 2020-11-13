@@ -21,6 +21,7 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
@@ -29,7 +30,16 @@ import (
 
 func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.RequestLogHandler) func(configMap *corev1.ConfigMap) {
 	return func(configMap *corev1.ConfigMap) {
-		newTemplate := configMap.Data["logging.request-log-template"]
+		obsconfig, err := metrics.NewObservabilityConfigFromConfigMap(configMap)
+		if err != nil {
+			logger.Errorw("Failed to get observability configmap.", zap.Error(err), "configmap", configMap)
+			return
+		}
+
+		var newTemplate string
+		if obsconfig.EnableRequestLog {
+			newTemplate = obsconfig.RequestLogTemplate
+		}
 		if err := h.SetTemplate(newTemplate); err != nil {
 			logger.Errorw("Failed to update the request log template.", zap.Error(err), "template", newTemplate)
 		} else {

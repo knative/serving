@@ -21,55 +21,6 @@ metadata:
     serving.knative.dev/release: devel
 
 data:
-  _example: |
-    ################################
-    #                              #
-    #    EXAMPLE CONFIGURATION     #
-    #                              #
-    ################################
-
-    # This block is not actually functional configuration,
-    # but serves to illustrate the available configuration
-    # options and document them in a way that is accessible
-    # to users that `kubectl edit` this config map.
-    #
-    # These sample configuration options may be copied out of
-    # this example block and unindented to be in the data block
-    # to actually change the configuration.
-
-    # Common configuration for all Knative codebase
-    zap-logger-config: |
-      {
-        "level": "info",
-        "development": false,
-        "outputPaths": ["stdout"],
-        "errorOutputPaths": ["stderr"],
-        "encoding": "json",
-        "encoderConfig": {
-          "timeKey": "ts",
-          "levelKey": "level",
-          "nameKey": "logger",
-          "callerKey": "caller",
-          "messageKey": "msg",
-          "stacktraceKey": "stacktrace",
-          "lineEnding": "",
-          "levelEncoder": "",
-          "timeEncoder": "iso8601",
-          "durationEncoder": "",
-          "callerEncoder": ""
-        }
-      }
-
-    # Log level overrides
-    # For all components except the autoscaler and queue proxy,
-    # changes are be picked up immediately.
-    # For autoscaler and queue proxy, changes require recreation of the pods.
-    loglevel.controller: "info"
-    loglevel.autoscaler: "info"
-    loglevel.queueproxy: "info"
-    loglevel.webhook: "info"
-    loglevel.activator: "info"
-
   zap-logger-config: |
     {
       "level": "debug",
@@ -101,3 +52,8 @@ data:
   loglevel.queueproxy: "debug"
   loglevel.webhook: "debug"
   loglevel.activator: "debug"
+  loglevel.hpaautoscaler: "debug"
+  loglevel.domainmapping: "debug"
+  loglevel.certcontroller: "debug"
+  loglevel.istiocontroller: "debug"
+  loglevel.nscontroller: "debug"

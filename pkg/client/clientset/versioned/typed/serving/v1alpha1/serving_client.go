@@ -26,10 +26,7 @@ import (
 
 type ServingV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	ConfigurationsGetter
-	RevisionsGetter
-	RoutesGetter
-	ServicesGetter
+	DomainMappingsGetter
 }
 
 // ServingV1alpha1Client is used to interact with features provided by the serving.knative.dev group.
@@ -37,20 +34,8 @@ type ServingV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *ServingV1alpha1Client) Configurations(namespace string) ConfigurationInterface {
-	return newConfigurations(c, namespace)
-}
-
-func (c *ServingV1alpha1Client) Revisions(namespace string) RevisionInterface {
-	return newRevisions(c, namespace)
-}
-
-func (c *ServingV1alpha1Client) Routes(namespace string) RouteInterface {
-	return newRoutes(c, namespace)
-}
-
-func (c *ServingV1alpha1Client) Services(namespace string) ServiceInterface {
-	return newServices(c, namespace)
+func (c *ServingV1alpha1Client) DomainMappings(namespace string) DomainMappingInterface {
+	return newDomainMappings(c, namespace)
 }
 
 // NewForConfig creates a new ServingV1alpha1Client for the given config.

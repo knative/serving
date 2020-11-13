@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,18 +13,17 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package core
 
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 
@@ -100,95 +99,75 @@ func (f *FakeAccessor) GetSecretLister() corev1listers.SecretLister {
 }
 
 func TestReconcileSecretCreate(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	kubeClient := fakekubeclient.Get(ctx)
+	ctx, accessor := setup(t)
 
-	h := NewHooks()
-	h.OnCreate(&kubeClient.Fake, "secrets", func(obj runtime.Object) HookResult {
-		got := obj.(*corev1.Secret)
-		if diff := cmp.Diff(got, desired); diff != "" {
-			t.Logf("Unexpected Secret (-want, +got): %v", diff)
-			return HookIncomplete
-		}
-		return HookComplete
-	})
+	desired, err := ReconcileSecret(ctx, ownerObj, desired, accessor)
+	if err != nil {
+		t.Fatal("ReconcileSecret() =", err)
+	}
 
-	accessor, waitInformers := setup(ctx, []*corev1.Secret{}, kubeClient, t)
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
-
-	ReconcileSecret(ctx, ownerObj, desired, accessor)
-
-	if err := h.WaitForHooks(3 * time.Second); err != nil {
-		t.Errorf("Failed to Reconcile Secret: %v", err)
+	fake := fakekubeclient.Get(ctx)
+	secret, err := fake.CoreV1().Secrets(desired.Namespace).Get(ctx, desired.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Failed to see secret creation:", err)
+	} else if !cmp.Equal(secret, desired) {
+		t.Fatal("ReconcileSecret():", cmp.Diff(desired, secret))
 	}
 }
 
 func TestReconcileSecretUpdate(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	ctx, accessor := setup(t, origin)
 
-	kubeClient := fakekubeclient.Get(ctx)
-	accessor, waitInformers := setup(ctx, []*corev1.Secret{origin}, kubeClient, t)
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
+	desired, err := ReconcileSecret(ctx, ownerObj, desired, accessor)
+	if err != nil {
+		t.Fatal("ReconcileSecret() =", err)
+	}
 
-	h := NewHooks()
-	h.OnUpdate(&kubeClient.Fake, "secrets", func(obj runtime.Object) HookResult {
-		got := obj.(*corev1.Secret)
-		if diff := cmp.Diff(got, desired); diff != "" {
-			t.Logf("Unexpected Secret (-want, +got): %v", diff)
-			return HookIncomplete
-		}
-		return HookComplete
-	})
-
-	ReconcileSecret(ctx, ownerObj, desired, accessor)
-	if err := h.WaitForHooks(3 * time.Second); err != nil {
-		t.Errorf("Failed to Reconcile Secret: %v", err)
+	fake := fakekubeclient.Get(ctx)
+	secret, err := fake.CoreV1().Secrets(desired.Namespace).Get(ctx, desired.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Failed to see secret creation:", err)
+	} else if !cmp.Equal(secret, desired) {
+		t.Fatal("ReconcileSecret():", cmp.Diff(desired, secret))
 	}
 }
 
 func TestNotOwnedFailure(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-
-	kubeClient := fakekubeclient.Get(ctx)
-	accessor, waitInformers := setup(ctx, []*corev1.Secret{notOwnedSecret}, kubeClient, t)
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
+	ctx, accessor := setup(t, notOwnedSecret)
 
 	_, err := ReconcileSecret(ctx, ownerObj, desired, accessor)
 	if err == nil {
 		t.Error("Expected to get error when calling ReconcileSecret, but got no error.")
 	}
 	if !kaccessor.IsNotOwned(err) {
-		t.Errorf("Expected to get NotOwnedError but got %v", err)
+		t.Error("Expected to get NotOwnedError but got", err)
 	}
 }
 
-func setup(ctx context.Context, secrets []*corev1.Secret,
-	kubeClient kubernetes.Interface, t *testing.T) (*FakeAccessor, func()) {
+func setup(t *testing.T, secrets ...*corev1.Secret) (context.Context, *FakeAccessor) {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
-	secretInformer := fakesecretinformer.Get(ctx)
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatal("Failed to start secret informer:", err)
+	}
+	// Order matters
+	t.Cleanup(waitInformers)
+	t.Cleanup(cancel)
 
 	fake := fakekubeclient.Get(ctx)
+	fakeinformer := fakesecretinformer.Get(ctx)
 	for _, secret := range secrets {
-		fake.CoreV1().Secrets(secret.Namespace).Create(secret)
-		secretInformer.Informer().GetIndexer().Add(secret)
+		if _, err := fake.CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{}); err != nil {
+			t.Fatal("Error creating secret:", err)
+		}
+		if err := fakeinformer.Informer().GetIndexer().Add(secret); err != nil {
+			t.Fatal("Error adding secret to index:", err)
+		}
 	}
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), secretInformer.Informer())
-	if err != nil {
-		t.Fatalf("failed to start secret informer: %v", err)
+	return ctx, &FakeAccessor{
+		client:       fake,
+		secretLister: fakeinformer.Lister(),
 	}
-
-	return &FakeAccessor{
-		client:       kubeClient,
-		secretLister: secretInformer.Lister(),
-	}, waitInformers
 }

@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package v1alpha1
 
 import (
@@ -45,6 +46,14 @@ func TestMetricDuckTypes(t *testing.T) {
 				t.Errorf("VerifyType(Metric, %T) = %v", test.t, err)
 			}
 		})
+	}
+}
+
+func TestMetricGetConditionSet(t *testing.T) {
+	r := &Metric{}
+
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GetTopLevelConditionType=%v, want=%v", got, want)
 	}
 }
 
@@ -115,8 +124,15 @@ func TestMetricIsReady(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.isReady, tc.status.IsReady(); e != a {
+			m := Metric{Status: tc.status}
+			if e, a := tc.isReady, m.IsReady(); e != a {
 				t.Errorf("Ready = %v, want: %v", a, e)
+			}
+
+			m.Generation = 1
+			m.Status.ObservedGeneration = 2
+			if m.IsReady() {
+				t.Error("Expected IsReady() to be false when Generation != ObservedGeneration")
 			}
 		})
 	}
@@ -133,7 +149,7 @@ func TestMetricGetSetCondition(t *testing.T) {
 	}
 	ms.MarkMetricReady()
 	if diff := cmp.Diff(mc, ms.GetCondition(MetricConditionReady), cmpopts.IgnoreFields(apis.Condition{}, "LastTransitionTime")); diff != "" {
-		t.Errorf("GetCondition refs diff (-want +got): %v", diff)
+		t.Error("GetCondition refs diff (-want +got):", diff)
 	}
 }
 

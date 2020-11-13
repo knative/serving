@@ -88,7 +88,7 @@ func TestMakeLabels(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := makeLabels(test.rev)
 			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("makeLabels (-want, +got) = %v", diff)
+				t.Error("makeLabels (-want, +got) =", diff)
 			}
 
 			wantSelector := &metav1.LabelSelector{
@@ -96,9 +96,48 @@ func TestMakeLabels(t *testing.T) {
 			}
 			gotSelector := makeSelector(test.rev)
 			if diff := cmp.Diff(wantSelector, gotSelector); diff != "" {
-				t.Errorf("makeLabels (-want, +got) = %v", diff)
+				t.Error("makeLabels (-want, +got) =", diff)
 			}
 
+		})
+	}
+}
+
+func TestMakeAnnotations(t *testing.T) {
+	tests := []struct {
+		name string
+		rev  *v1.Revision
+		want map[string]string
+	}{{
+		name: "no user annotations",
+		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+			},
+		},
+		want: map[string]string{},
+	}, {
+		name: "exclude annotation",
+		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				Annotations: map[string]string{
+					serving.RoutingStateModifiedAnnotationKey: "exclude me",
+					"keep": "keep me",
+				},
+			},
+		},
+		want: map[string]string{"keep": "keep me"},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := makeAnnotations(test.rev)
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Error("makeLabels (-want, +got) =", diff)
+			}
 		})
 	}
 }

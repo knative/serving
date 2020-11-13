@@ -51,7 +51,7 @@ func TestRouteDefaulting(t *testing.T) {
 		},
 		wc: WithDefaultConfigurationName,
 	}, {
-		// Make sure it keeps a 'nil' as a 'nil' and not 'zero'
+		// Make sure it replaces a 'nil' as a '0'.
 		name: "implied zero percent",
 		in: &Route{
 			Spec: RouteSpec{
@@ -70,8 +70,8 @@ func TestRouteDefaulting(t *testing.T) {
 					LatestRevision: ptr.Bool(true),
 				}, {
 					RevisionName:   "bar",
-					Percent:        nil,
 					LatestRevision: ptr.Bool(false),
+					Percent:        ptr.Int64(0),
 				}},
 			},
 		},

@@ -28,20 +28,8 @@ type FakeServingV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeServingV1alpha1) Configurations(namespace string) v1alpha1.ConfigurationInterface {
-	return &FakeConfigurations{c, namespace}
-}
-
-func (c *FakeServingV1alpha1) Revisions(namespace string) v1alpha1.RevisionInterface {
-	return &FakeRevisions{c, namespace}
-}
-
-func (c *FakeServingV1alpha1) Routes(namespace string) v1alpha1.RouteInterface {
-	return &FakeRoutes{c, namespace}
-}
-
-func (c *FakeServingV1alpha1) Services(namespace string) v1alpha1.ServiceInterface {
-	return &FakeServices{c, namespace}
+func (c *FakeServingV1alpha1) DomainMappings(namespace string) v1alpha1.DomainMappingInterface {
+	return &FakeDomainMappings{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -1,17 +1,6 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: helloworld-test-image
-  namespace: default
-spec:
-  template:
-    spec:
-      containers:
-      - image: ko://knative.dev/serving/test/test_images/helloworld
----
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
   name: httpproxy-test-image
   namespace: default
 spec:
@@ -22,4 +11,3 @@ spec:
         env:
         - name: TARGET_HOST
           value: "helloworld-test-image.default.svc.cluster.local"
-

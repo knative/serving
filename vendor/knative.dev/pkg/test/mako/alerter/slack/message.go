@@ -48,11 +48,11 @@ type MessageHandler struct {
 func Setup(userName, readTokenPath, writeTokenPath string, channels []config.Channel, dryrun bool) (*MessageHandler, error) {
 	readClient, err := slackutil.NewReadClient(userName, readTokenPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot authenticate to slack read client: %v", err)
+		return nil, fmt.Errorf("cannot authenticate to slack read client: %w", err)
 	}
 	writeClient, err := slackutil.NewWriteClient(userName, writeTokenPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot authenticate to slack write client: %v", err)
+		return nil, fmt.Errorf("cannot authenticate to slack write client: %w", err)
 	}
 	return &MessageHandler{
 		readClient:  readClient,

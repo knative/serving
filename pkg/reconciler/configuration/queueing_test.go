@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,11 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/system"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	autoscalercfg "knative.dev/serving/pkg/autoscaler/config"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakeconfigurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
-	"knative.dev/serving/pkg/gc"
 
+	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
 )
 
@@ -86,13 +88,25 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	defer func() {
 		cancel()
 		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
+			t.Fatal("Error running controller:", err)
 		}
 	}()
 
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      gc.ConfigName,
+			Name:      cfgmap.FeaturesConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfgmap.DefaultsConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      autoscalercfg.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},

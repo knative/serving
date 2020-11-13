@@ -64,6 +64,9 @@ type ManagedConnection struct {
 	closeChan chan struct{}
 	closeOnce sync.Once
 
+	establishChan chan struct{}
+	establishOnce sync.Once
+
 	// Used to capture asynchronous processes to be waited
 	// on when shutting the connection down.
 	processingWg sync.WaitGroup
@@ -90,6 +93,25 @@ type ManagedConnection struct {
 // in case of a loss of connectivity.
 func NewDurableSendingConnection(target string, logger *zap.SugaredLogger) *ManagedConnection {
 	return NewDurableConnection(target, nil, logger)
+}
+
+// NewDurableSendingConnectionGuaranteed creates a new websocket connection
+// that can only send messages to the endpoint it connects to. It returns
+// the connection if the connection can be established within the given
+// `duration`. Otherwise it returns the ErrConnectionNotEstablished error.
+//
+// The connection will continuously be kept alive and reconnected
+// in case of a loss of connectivity.
+func NewDurableSendingConnectionGuaranteed(target string, duration time.Duration, logger *zap.SugaredLogger) (*ManagedConnection, error) {
+	c := NewDurableConnection(target, nil, logger)
+
+	select {
+	case <-c.establishChan:
+		return c, nil
+	case <-time.After(duration):
+		c.Shutdown()
+		return nil, ErrConnectionNotEstablished
+	}
 }
 
 // NewDurableConnection creates a new websocket connection, that
@@ -129,12 +151,12 @@ func NewDurableConnection(target string, messageChan chan []byte, logger *zap.Su
 		for {
 			select {
 			default:
-				logger.Infof("Connecting to %s", target)
+				logger.Info("Connecting to ", target)
 				if err := c.connect(); err != nil {
-					logger.With(zap.Error(err)).Errorf("Connecting to %s failed", target)
+					logger.Errorw("Failed connecting to "+target, zap.Error(err))
 					continue
 				}
-				logger.Debugf("Connected to %s", target)
+				logger.Debug("Connected to ", target)
 				if err := c.keepalive(); err != nil {
 					logger.With(zap.Error(err)).Errorf("Connection to %s broke down, reconnecting...", target)
 				}
@@ -175,6 +197,7 @@ func newConnection(connFactory func() (rawConnection, error), messageChan chan [
 	conn := &ManagedConnection{
 		connectionFactory: connFactory,
 		closeChan:         make(chan struct{}),
+		establishChan:     make(chan struct{}),
 		messageChan:       messageChan,
 		connectionBackoff: wait.Backoff{
 			Duration: 100 * time.Millisecond,
@@ -211,6 +234,9 @@ func (c *ManagedConnection) connect() error {
 			defer c.connectionLock.Unlock()
 
 			c.connection = conn
+			c.establishOnce.Do(func() {
+				close(c.establishChan)
+			})
 			return true, nil
 		case <-c.closeChan:
 			return false, errShuttingDown
@@ -310,6 +336,11 @@ func (c *ManagedConnection) Send(msg interface{}) error {
 	}
 
 	return c.write(websocket.BinaryMessage, b.Bytes())
+}
+
+// SendRaw sends a message over the websocket connection without performing any encoding.
+func (c *ManagedConnection) SendRaw(messageType int, msg []byte) error {
+	return c.write(messageType, msg)
 }
 
 // Shutdown closes the websocket connection.

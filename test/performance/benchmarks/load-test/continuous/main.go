@@ -25,13 +25,13 @@ import (
 	"time"
 
 	"github.com/google/mako/go/quickstore"
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "github.com/tsenart/vegeta/v12/lib"
 	"k8s.io/apimachinery/pkg/labels"
 
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/test/mako"
 	pkgpacers "knative.dev/pkg/test/vegeta/pacers"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test/performance"
 	"knative.dev/serving/test/performance/metrics"
@@ -65,7 +65,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 
 	ctx, cancel := context.WithCancel(ctx)
 	deploymentStatus := metrics.FetchDeploymentsStatus(ctx, namespace, selector, time.Second)
-	sksMode := metrics.FetchSKSMode(ctx, namespace, selector, time.Second)
+	sksMode := metrics.FetchSKSStatus(ctx, namespace, selector, time.Second)
 	defer cancel()
 
 	for {
@@ -91,6 +91,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			}
 			q.AddSamplePoint(mako.XTime(sksm.Time), map[string]float64{
 				"sks": mode,
+				"na":  float64(sksm.NumActivators),
 			})
 		}
 	}
@@ -117,7 +118,7 @@ func main() {
 	tbcTag := "tbc=" + *flavor
 	mc, err := mako.Setup(ctx, tbcTag)
 	if err != nil {
-		log.Fatalf("Failed to setup mako: %v", err)
+		log.Fatal("Failed to setup mako: ", err)
 	}
 	q, qclose, ctx := mc.Quickstore, mc.ShutDownFunc, mc.Context
 	// Use a fresh context here so that our RPC to terminate the sidecar

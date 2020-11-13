@@ -18,17 +18,16 @@ package v1alpha1
 
 import (
 	"context"
-	"math"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	net "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
-	net "knative.dev/serving/pkg/apis/networking"
 )
 
 func TestPodAutoscalerSpecValidation(t *testing.T) {
@@ -60,7 +59,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingField("protocolType"),
 	}, {
-		name: "protcol type invalid",
+		name: "protocol type invalid",
 		rs: &PodAutoscalerSpec{
 			ContainerConcurrency: 0,
 			ScaleTargetRef: corev1.ObjectReference{
@@ -144,7 +143,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.rs.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %s", diff)
+				t.Error("Validate (-want, +got) =", diff)
 			}
 		})
 	}
@@ -158,7 +157,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 	}{{
 		name: "valid",
 		r: &PodAutoscaler{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
 			Spec: PodAutoscalerSpec{
@@ -174,7 +173,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 	}, {
 		name: "bad protocol",
 		r: &PodAutoscaler{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
 					autoscaling.MinScaleAnnotationKey: "2",
@@ -193,7 +192,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 	}, {
 		name: "bad scale bounds",
 		r: &PodAutoscaler{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
 					autoscaling.MinScaleAnnotationKey: "FOO",
@@ -208,11 +207,11 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				ProtocolType: net.ProtocolHTTP1,
 			},
 		},
-		want: apis.ErrOutOfBoundsValue("FOO", 1, math.MaxInt32, autoscaling.MinScaleAnnotationKey).ViaField("metadata", "annotations"),
+		want: apis.ErrInvalidValue("FOO", autoscaling.MinScaleAnnotationKey).ViaField("metadata", "annotations"),
 	}, {
 		name: "empty spec",
 		r: &PodAutoscaler{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
 		},
@@ -220,7 +219,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 	}, {
 		name: "nested spec error",
 		r: &PodAutoscaler{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
 			Spec: PodAutoscalerSpec{

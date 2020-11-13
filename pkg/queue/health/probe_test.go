@@ -27,7 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 )
 
 func TestTCPProbe(t *testing.T) {
@@ -41,7 +41,7 @@ func TestTCPProbe(t *testing.T) {
 	}
 	// Connecting to the server should work
 	if err := TCPProbe(config); err != nil {
-		t.Errorf("Probe failed with: %v", err)
+		t.Error("Probe failed with:", err)
 	}
 
 	// Close the server so probing fails afterwards
@@ -86,10 +86,10 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	}
 	// Connecting to the server should work
 	if err := HTTPProbe(config); err != nil {
-		t.Errorf("Expected probe to succeed but it failed with %v", err)
+		t.Error("Expected probe to succeed but it failed with", err)
 	}
 	if d := cmp.Diff(gotHeader, expectedHeader); d != "" {
-		t.Errorf("Expected probe headers to match but got %s", d)
+		t.Error("Expected probe headers to match but got", d)
 	}
 	if !gotKubeletHeader {
 		t.Error("Expected kubelet probe header to be added to request")
@@ -116,7 +116,7 @@ func TestHTTPsSchemeProbeSuccess(t *testing.T) {
 	}
 	// Connecting to the server should work
 	if err := HTTPProbe(config); err != nil {
-		t.Errorf("Expected probe to succeed but failed with error %v", err)
+		t.Error("Expected probe to succeed but failed with error", err)
 	}
 
 	// Close the server so probing fails afterwards
@@ -166,6 +166,41 @@ func TestHTTPProbeResponseErrorFailure(t *testing.T) {
 	}
 }
 
+func TestIsHTTPProbeShuttingDown(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		wantResult bool
+	}{{
+		name:       "statusCode: 410",
+		statusCode: 410,
+		wantResult: true,
+	}, {
+		name:       "statusCode: 503",
+		statusCode: 503,
+		wantResult: false,
+	}, {
+		name:       "statusCode: 200",
+		statusCode: 200,
+		wantResult: false,
+	}, {
+		name:       "statusCode: 301",
+		statusCode: 301,
+		wantResult: false,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			response := http.Response{StatusCode: test.statusCode}
+			result := IsHTTPProbeShuttingDown(&response)
+			if result != test.wantResult {
+				t.Errorf("IsHTTPProbeShuttingDown returned unexpected result: got %v want %v",
+					result, test.wantResult)
+			}
+		})
+	}
+}
+
 func newHTTPGetAction(t *testing.T, serverURL string) *corev1.HTTPGetAction {
 	urlParsed, err := url.Parse(serverURL)
 	if err != nil {
@@ -180,7 +215,7 @@ func newHTTPGetAction(t *testing.T, serverURL string) *corev1.HTTPGetAction {
 	case "https":
 		uriScheme = corev1.URISchemeHTTPS
 	default:
-		t.Fatalf("Unsupported scheme %s", urlParsed.Scheme)
+		t.Fatal("Unsupported scheme", urlParsed.Scheme)
 	}
 
 	return &corev1.HTTPGetAction{

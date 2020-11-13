@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -26,7 +25,8 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -46,7 +46,7 @@ func TestMakeMetric(t *testing.T) {
 		pa:   pa(WithWindowAnnotation("10s"), WithPanicWindowPercentageAnnotation("10")),
 		msn:  "wil",
 		want: metric(withScrapeTarget("wil"), withWindowAnnotation("10s"),
-			withStableWindow(10*time.Second), withPanicWindow(autoscalerconfig.BucketSize),
+			withStableWindow(10*time.Second), withPanicWindow(asconfig.BucketSize),
 			withPanicWindowPercentageAnnotation("10")),
 	}, {
 		name: "with longer stable window, no panic window percentage, defaults to 10%",
@@ -76,7 +76,7 @@ func TestMakeMetric(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.want, MakeMetric(context.Background(), tc.pa, tc.msn, config)); diff != "" {
+			if diff := cmp.Diff(tc.want, MakeMetric(tc.pa, tc.msn, config)); diff != "" {
 				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
 			}
 		})
@@ -180,6 +180,5 @@ var config = &autoscalerconfig.Config{
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,
 	PanicWindowPercentage:              10,
-	TickInterval:                       2 * time.Second,
 	ScaleToZeroGracePeriod:             30 * time.Second,
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors.
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,22 +22,23 @@ import (
 	"testing"
 
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
+	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakeistioclient "knative.dev/serving/pkg/client/istio/injection/client/fake"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/reconciler"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
@@ -67,12 +68,10 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		ctx = logging.WithLogger(ctx, logger)
 
 		ctx, kubeClient := fakekubeclient.With(ctx, ls.GetKubeObjects()...)
-		ctx, istioClient := fakeistioclient.With(ctx, ls.GetIstioObjects()...)
 		ctx, client := fakeservingclient.With(ctx, ls.GetServingObjects()...)
-		ctx, dynamicClient := fakedynamicclient.With(ctx,
-			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
+		ctx, netclient := fakenetworkingclient.With(ctx, ls.GetNetworkingObjects()...)
+		ctx, dynamicClient := fakedynamicclient.With(ctx, ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
-		ctx, certManagerClient := fakecertmanagerclient.With(ctx, ls.GetCMCertificateObjects()...)
 		ctx = context.WithValue(ctx, TrackerKey, &rtesting.FakeTracker{})
 
 		// The dynamic client's support for patching is BS.  Implement it
@@ -104,13 +103,17 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		// Update the context with the stuff we decorated it with.
 		r.Ctx = ctx
 
+		// The Reconciler won't do any work until it becomes the leader.
+		if la, ok := c.(reconciler.LeaderAware); ok {
+			la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
+		}
+
 		for _, reactor := range r.WithReactors {
 			kubeClient.PrependReactor("*", "*", reactor)
-			istioClient.PrependReactor("*", "*", reactor)
 			client.PrependReactor("*", "*", reactor)
+			netclient.PrependReactor("*", "*", reactor)
 			dynamicClient.PrependReactor("*", "*", reactor)
 			cachingClient.PrependReactor("*", "*", reactor)
-			certManagerClient.PrependReactor("*", "*", reactor)
 		}
 
 		// Validate all Create operations through the serving client.
@@ -123,7 +126,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 			return rtesting.ValidateUpdates(context.Background(), action)
 		})
 
-		actionRecorderList := rtesting.ActionRecorderList{istioClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient}
+		actionRecorderList := rtesting.ActionRecorderList{dynamicClient, client, netclient, kubeClient, cachingClient}
 		eventList := rtesting.EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList
@@ -140,23 +143,23 @@ func ToUnstructured(t *testing.T, sch *runtime.Scheme, objs []runtime.Object) (u
 		// Determine and set the TypeMeta for this object based on our test scheme.
 		gvks, _, err := sch.ObjectKinds(obj)
 		if err != nil {
-			t.Fatalf("Unable to determine kind for type: %v", err)
+			t.Fatal("Unable to determine kind for type:", err)
 		}
 		apiv, k := gvks[0].ToAPIVersionAndKind()
 		ta, err := meta.TypeAccessor(obj)
 		if err != nil {
-			t.Fatalf("Unable to create type accessor: %v", err)
+			t.Fatal("Unable to create type accessor:", err)
 		}
 		ta.SetAPIVersion(apiv)
 		ta.SetKind(k)
 
 		b, err := json.Marshal(obj)
 		if err != nil {
-			t.Fatalf("Unable to marshal: %v", err)
+			t.Fatal("Unable to marshal:", err)
 		}
 		u := &unstructured.Unstructured{}
 		if err := json.Unmarshal(b, u); err != nil {
-			t.Fatalf("Unable to unmarshal: %v", err)
+			t.Fatal("Unable to unmarshal:", err)
 		}
 		us = append(us, u)
 	}

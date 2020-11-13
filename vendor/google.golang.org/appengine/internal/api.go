@@ -44,6 +44,7 @@ var (
 	curNamespaceHeader = http.CanonicalHeaderKey("X-AppEngine-Current-Namespace")
 	userIPHeader       = http.CanonicalHeaderKey("X-AppEngine-User-IP")
 	remoteAddrHeader   = http.CanonicalHeaderKey("X-AppEngine-Remote-Addr")
+	devRequestIdHeader = http.CanonicalHeaderKey("X-Appengine-Dev-Request-Id")
 
 	// Outgoing headers.
 	apiEndpointHeader      = http.CanonicalHeaderKey("X-Google-RPC-Service-Endpoint")
@@ -57,8 +58,11 @@ var (
 
 	apiHTTPClient = &http.Client{
 		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			Dial:  limitDial,
+			Proxy:               http.ProxyFromEnvironment,
+			Dial:                limitDial,
+			MaxIdleConns:        1000,
+			MaxIdleConnsPerHost: 10000,
+			IdleConnTimeout:     90 * time.Second,
 		},
 	}
 
@@ -494,6 +498,9 @@ func Call(ctx netcontext.Context, service, method string, in, out proto.Message)
 	if ticket == "" {
 		ticket = DefaultTicket()
 	}
+	if dri := c.req.Header.Get(devRequestIdHeader); IsDevAppServer() && dri != "" {
+		ticket = dri
+	}
 	req := &remotepb.Request{
 		ServiceName: &service,
 		Method:      &method,
@@ -579,7 +586,10 @@ func logf(c *context, level int64, format string, args ...interface{}) {
 		Level:         &level,
 		Message:       &s,
 	})
-	log.Print(logLevelName[level] + ": " + s)
+	// Only duplicate log to stderr if not running on App Engine second generation
+	if !IsSecondGen() {
+		log.Print(logLevelName[level] + ": " + s)
+	}
 }
 
 // flushLog attempts to flush any pending logs to the appserver.

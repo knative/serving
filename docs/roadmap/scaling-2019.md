@@ -13,13 +13,13 @@ on the CI systems and to avoid unwanted regressions.
 
 **Goal**: All relevant performance numbers are tracked and reported.
 
-**Project**: No seperate project for now.
+**Project**: No separate project for now.
 
 ### Sub-Second Cold Start
 
 As a serverless framework, Knative should only run code when it needs to.
 Including scaling to zero when the Revision is not being used. However the
-Revison must also come back quickly, otherwise the illusion of "serverless" is
+Revision must also come back quickly, otherwise the illusion of "serverless" is
 broken--it must seem as if it was always there. Generally less than one second
 is a good start.
 
@@ -68,7 +68,7 @@ load.
 
 ## Reliability
 
-### Autoscaling Availabilty
+### Autoscaling Availability
 
 Because Knative scales to zero, the autoscaling system is in the critical-path
 for serving requests. If the Autoscaler or Activator isn't available when an
@@ -125,10 +125,8 @@ replaced independently.
 
 The current Knative integration with K8s HPA only supports CPU autoscaling.
 However it should be able to scale on concurrency as well. Ultimately, the HPA
-may be able to replace the Knative Autoscaler (KPA) entirely (see
-["make everything better"](https://github.com/knative/serving/blob/master/docs/roadmap/scaling-2018.md#references)).
-Additionally, HPA should be able to scale on user-provided custom metrics as
-well.
+may be able to replace the Knative Autoscaler (KPA) entirely. Additionally, HPA
+should be able to scale on user-provided custom metrics as well.
 
 **Goal**: Knative HPA-class PodAutoscalers support concurrency autoscaling.
 
@@ -155,11 +153,8 @@ but doesn't yet. For example, enforcing single-threaded request or reporting
 concurrency metrics in the way we want. Ultimately we should push these features
 upstream and get rid of the queue-proxy sidecar.
 
-However we're not doing that yet because the requirements haven't stablized
+However we're not doing that yet because the requirements haven't stabilized
 enough yet. And it's still useful to have a component to innovate within.
-
-See
-[2018 What We Are Not Doing Yet](https://github.com/knative/serving/blob/master/docs/roadmap/scaling-2018.md#what-we-are-not-doing-yet)
 
 ### Vertical Pod Autoscaling Beta
 

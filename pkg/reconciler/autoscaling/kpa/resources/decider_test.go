@@ -27,7 +27,8 @@ import (
 
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	. "knative.dev/serving/pkg/testing"
 )
@@ -36,17 +37,30 @@ func TestMakeDecider(t *testing.T) {
 	cases := []struct {
 		name   string
 		pa     *v1alpha1.PodAutoscaler
-		svc    string
 		want   *scaling.Decider
 		cfgOpt func(autoscalerconfig.Config) *autoscalerconfig.Config
 	}{{
 		name: "defaults",
 		pa:   pa(),
-		want: decider(withTarget(100.0), withPanicThreshold(200.0), withTotal(100)),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
+	}, {
+		name: "unreachable",
+		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
+			pa.Spec.Reachability = v1alpha1.ReachabilityUnreachable
+		}),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), func(d *scaling.Decider) {
+			d.Spec.Reachable = false
+		}),
+	}, {
+		name: "explicit reachable",
+		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
+			pa.Spec.Reachability = v1alpha1.ReachabilityReachable
+		}),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
 	}, {
 		name: "tu < 1", // See #4449 why Target=100
 		pa:   pa(),
-		want: decider(withTarget(80), withPanicThreshold(160.0), withTotal(100)),
+		want: decider(withTarget(80), withPanicThreshold(2.0), withTotal(100)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -54,7 +68,7 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "scale up and scale down rates",
 		pa:   pa(),
-		want: decider(withTarget(100.0), withPanicThreshold(200.0), withTotal(100),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
 			withScaleUpDownRates(19.84, 19.88)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.MaxScaleUpRate = 19.84
@@ -72,7 +86,7 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "with container concurrency and tu < 1",
 		pa:   pa(WithPAContainerConcurrency(100)),
-		want: decider(withTarget(80), withTotal(100), withPanicThreshold(160)), // PanicThreshold depends on TCC.
+		want: decider(withTarget(80), withTotal(100), withPanicThreshold(2.0)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -80,7 +94,7 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "with burst capacity set",
 		pa:   pa(WithPAContainerConcurrency(120)),
-		want: decider(withTarget(96), withTotal(120), withPanicThreshold(192), withTargetBurstCapacity(63)),
+		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0), withTargetBurstCapacity(63)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.TargetBurstCapacity = 63
 			c.ContainerConcurrencyTargetFraction = 0.8
@@ -89,7 +103,7 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "with activator capacity override",
 		pa:   pa(),
-		want: decider(withActivatorCapacity(420), withTarget(100.0), withPanicThreshold(200.0), withTotal(100)),
+		want: decider(withActivatorCapacity(420), withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ActivatorCapacity = 420
 			return &c
@@ -97,7 +111,7 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "with burst capacity set on the annotation",
 		pa:   pa(WithPAContainerConcurrency(120), withTBCAnnotation("211")),
-		want: decider(withTarget(96), withTotal(120), withPanicThreshold(192),
+		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0),
 			withDeciderTBCAnnotation("211"), withTargetBurstCapacity(211)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.TargetBurstCapacity = 63
@@ -116,20 +130,38 @@ func TestMakeDecider(t *testing.T) {
 		name: "with higher panic target",
 		pa:   pa(WithTargetAnnotation("10"), WithPanicThresholdPercentageAnnotation("400")),
 		want: decider(
-			withTarget(10.0), withPanicThreshold(40.0), withTotal(10),
-			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
-	}, {
-		name: "with service name",
-		pa:   pa(WithTargetAnnotation("10"), WithPanicThresholdPercentageAnnotation("400")),
-		svc:  "rock-solid",
-		want: decider(
-			withService("rock-solid"),
-			withTarget(10.0), withPanicThreshold(40.0), withTotal(10.0),
+			withTarget(10.0), withPanicThreshold(4.0), withTotal(10),
 			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}, {
 		name: "with metric annotation",
 		pa:   pa(WithMetricAnnotation("rps")),
-		want: decider(withTarget(100.0), withPanicThreshold(200.0), withTotal(100), withMetric("rps"), withMetricAnnotation("rps")),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withMetric("rps"), withMetricAnnotation("rps")),
+	}, {
+		name: "with scale down delay from config",
+		pa:   pa(),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.ScaleDownDelay = 5 * time.Minute
+			return &c
+		},
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withScaleDownDelay(5*time.Minute)),
+	}, {
+		name: "with scale down delay from annotation",
+		pa:   pa(withScaleDownDelayAnnotation("10m")),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.ScaleDownDelay = 5 * time.Minute
+			return &c
+		},
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withScaleDownDelay(10*time.Minute), withDeciderScaleDownDelayAnnotation("10m")),
+	}, {
+		name: "with initial scale",
+		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
+			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+		}),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
+			func(d *scaling.Decider) {
+				d.Spec.InitialScale = 2
+				d.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+			}),
 	}}
 
 	for _, tc := range cases {
@@ -139,8 +171,60 @@ func TestMakeDecider(t *testing.T) {
 				cfg = tc.cfgOpt(*config)
 			}
 
-			if diff := cmp.Diff(tc.want, MakeDecider(context.Background(), tc.pa, cfg, tc.svc)); diff != "" {
+			if diff := cmp.Diff(tc.want, MakeDecider(context.Background(), tc.pa, cfg)); diff != "" {
 				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
+			}
+		})
+	}
+}
+
+func TestGetInitialScale(t *testing.T) {
+	tests := []struct {
+		name          string
+		paMutation    func(*v1alpha1.PodAutoscaler)
+		configMutator func(*autoscalerconfig.Config)
+		want          int
+	}{{
+		name: "revision initial scale not set",
+		want: 1,
+	}, {
+		name: "revision initial scale overrides cluster initial scale",
+		paMutation: func(pa *v1alpha1.PodAutoscaler) {
+			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+		},
+		want: 2,
+	}, {
+		name: "cluster allows initial scale zero",
+		paMutation: func(pa *v1alpha1.PodAutoscaler) {
+			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+		},
+		configMutator: func(c *autoscalerconfig.Config) {
+			c.AllowZeroInitialScale = true
+		},
+		want: 0,
+	}, {
+		name: "cluster does not allows initial scale zero",
+		paMutation: func(pa *v1alpha1.PodAutoscaler) {
+			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+		},
+		configMutator: func(c *autoscalerconfig.Config) {
+			c.AllowZeroInitialScale = false
+		},
+		want: 1,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ac, _ := asconfig.NewConfigFromMap(map[string]string{})
+			if test.configMutator != nil {
+				test.configMutator(ac)
+			}
+			pa := pa()
+			if test.paMutation != nil {
+				test.paMutation(pa)
+			}
+			got := int(GetInitialScale(ac, pa))
+			if want := test.want; got != want {
+				t.Errorf("got = %v, want: %v", got, want)
 			}
 		})
 	}
@@ -165,6 +249,18 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 		fn(p)
 	}
 	return p
+}
+
+func withScaleDownDelayAnnotation(sdd string) PodAutoscalerOption {
+	return func(pa *v1alpha1.PodAutoscaler) {
+		pa.Annotations[autoscaling.ScaleDownDelayAnnotationKey] = sdd
+	}
+}
+
+func withDeciderScaleDownDelayAnnotation(sdd string) deciderOption {
+	return func(d *scaling.Decider) {
+		d.Annotations[autoscaling.ScaleDownDelayAnnotationKey] = sdd
+	}
 }
 
 func withTBCAnnotation(tbc string) PodAutoscalerOption {
@@ -193,7 +289,6 @@ func decider(options ...deciderOption) *scaling.Decider {
 		},
 		Spec: scaling.DeciderSpec{
 			MaxScaleUpRate:      config.MaxScaleUpRate,
-			TickInterval:        config.TickInterval,
 			ScalingMetric:       "concurrency",
 			TargetValue:         100,
 			TotalValue:          100,
@@ -201,6 +296,8 @@ func decider(options ...deciderOption) *scaling.Decider {
 			PanicThreshold:      200,
 			ActivatorCapacity:   811,
 			StableWindow:        config.StableWindow,
+			InitialScale:        1,
+			Reachable:           true,
 		},
 	}
 	for _, fn := range options {
@@ -234,6 +331,12 @@ func withScaleUpDownRates(up, down float64) deciderOption {
 	}
 }
 
+func withScaleDownDelay(d time.Duration) deciderOption {
+	return func(decider *scaling.Decider) {
+		decider.Spec.ScaleDownDelay = d
+	}
+}
+
 func withTotal(total float64) deciderOption {
 	return func(decider *scaling.Decider) {
 		decider.Spec.TotalValue = total
@@ -243,12 +346,6 @@ func withTotal(total float64) deciderOption {
 func withTarget(target float64) deciderOption {
 	return func(decider *scaling.Decider) {
 		decider.Spec.TargetValue = target
-	}
-}
-
-func withService(s string) deciderOption {
-	return func(d *scaling.Decider) {
-		d.Spec.ServiceName = s
 	}
 }
 
@@ -288,6 +385,7 @@ var config = &autoscalerconfig.Config{
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,
 	PanicWindowPercentage:              10,
-	TickInterval:                       2 * time.Second,
 	ScaleToZeroGracePeriod:             30 * time.Second,
+	InitialScale:                       1,
+	AllowZeroInitialScale:              false,
 }

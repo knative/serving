@@ -21,6 +21,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -34,17 +35,18 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	corev1 "k8s.io/api/core/v1"
+	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/networking/pkg/client/clientset/versioned"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/client/clientset/versioned"
-	"knative.dev/serving/pkg/network"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 var (
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	serverURL  = flag.String("server", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	magicDNS   = flag.String("magic-dns", "", "The hostname for the magic DNS service, e.g. xip.io or nip.io")
 )
@@ -57,8 +59,8 @@ const (
 	appName     = "default-domain"
 )
 
-func clientsFromFlags() (*kubernetes.Clientset, *versioned.Clientset, error) {
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+func clientsFromFlags() (kubernetes.Interface, *versioned.Clientset, error) {
+	cfg, err := clientcmd.BuildConfigFromFlags(*serverURL, *kubeconfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error building kubeconfig: %w", err)
 	}
@@ -73,12 +75,12 @@ func clientsFromFlags() (*kubernetes.Clientset, *versioned.Clientset, error) {
 	return kubeClient, client, nil
 }
 
-func lookupConfigMap(kubeClient *kubernetes.Clientset, name string) (*corev1.ConfigMap, error) {
-	return kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(name, metav1.GetOptions{})
+func lookupConfigMap(ctx context.Context, kubeClient kubernetes.Interface, name string) (*corev1.ConfigMap, error) {
+	return kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, name, metav1.GetOptions{})
 }
 
-func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clientset) (*corev1.LoadBalancerIngress, error) {
-	netCM, err := lookupConfigMap(kubeclient, network.ConfigName)
+func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, client *versioned.Clientset) (*corev1.LoadBalancerIngress, error) {
+	netCM, err := lookupConfigMap(ctx, kubeclient, network.ConfigName)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +90,7 @@ func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clie
 	}
 
 	// Create a KIngress that points at that Service
-	ing, err := client.NetworkingV1alpha1().Ingresses(system.Namespace()).Create(&v1alpha1.Ingress{
+	ing, err := client.NetworkingV1alpha1().Ingresses(system.Namespace()).Create(ctx, &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "default-domain-",
 			Namespace:    system.Namespace(),
@@ -113,20 +115,20 @@ func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clie
 				},
 			}},
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
-	defer client.NetworkingV1alpha1().Ingresses(system.Namespace()).Delete(ing.Name, &metav1.DeleteOptions{})
+	defer client.NetworkingV1alpha1().Ingresses(system.Namespace()).Delete(ctx, ing.Name, metav1.DeleteOptions{})
 
 	// Wait for the Ingress to be Ready.
 	if err := wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
 		ing, err = client.NetworkingV1alpha1().Ingresses(system.Namespace()).Get(
-			ing.Name, metav1.GetOptions{})
+			ctx, ing.Name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
-		return ing.Status.IsReady(), nil
+		return ing.IsReady(), nil
 	}); err != nil {
 		return nil, err
 	}
@@ -146,7 +148,7 @@ func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clie
 	// Wait for the Ingress Service to have an external IP.
 	var svc *corev1.Service
 	if err := wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
-		svc, err = kubeclient.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+		svc, err = kubeclient.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
@@ -159,7 +161,8 @@ func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clie
 
 func main() {
 	flag.Parse()
-	logger := logging.FromContext(context.Background()).Named(appName)
+	ctx := signals.NewContext()
+	logger := logging.FromContext(ctx).Named(appName)
 	defer logger.Sync()
 
 	kubeClient, client, err := clientsFromFlags()
@@ -168,7 +171,7 @@ func main() {
 	}
 
 	// Fetch and parse the domain ConfigMap from the system namespace.
-	domainCM, err := lookupConfigMap(kubeClient, routecfg.DomainConfigName)
+	domainCM, err := lookupConfigMap(ctx, kubeClient, routecfg.DomainConfigName)
 	if err != nil {
 		logger.Fatalw("Error getting ConfigMap", zap.Error(err))
 	}
@@ -179,7 +182,7 @@ func main() {
 	// If there is a catch-all domain configured, then bail out (successfully) here.
 	defaultDomain := domainConfig.LookupDomainForLabels(map[string]string{})
 	if defaultDomain != routecfg.DefaultDomain {
-		logger.Infof("Domain is configured as: %v", defaultDomain)
+		logger.Info("Domain is configured as: ", defaultDomain)
 		return
 	}
 
@@ -191,13 +194,21 @@ func main() {
 	go server.ListenAndServe()
 
 	// Determine the address of the gateway service.
-	address, err := findGatewayAddress(kubeClient, client)
+	address, err := findGatewayAddress(ctx, kubeClient, client)
 	if err != nil {
 		logger.Fatalw("Error finding gateway address", zap.Error(err))
 	}
+	ip := address.IP
 	if address.IP == "" {
-		logger.Info("Gateway has a domain instead of IP address -- leaving default domain config intact")
-		return
+		if address.Hostname == "" {
+			logger.Info("Gateway has neither IP nor hostname -- leaving default domain config intact")
+			return
+		}
+		ipAddr, err := net.ResolveIPAddr("ip4", address.Hostname)
+		if err != nil {
+			logger.Fatalw("Error resolving the IP address of %q", address.Hostname, zap.Error(err))
+		}
+		ip = ipAddr.String()
 	}
 
 	// Use the IP (assumes IPv4) to set up a magic DNS name under a top-level Magic
@@ -205,12 +216,12 @@ func main() {
 	//     1.2.3.4.xip.io  ===(magically resolves to)===> 1.2.3.4
 	// Add this magic DNS name without a label selector to the ConfigMap,
 	// and send it back to the API server.
-	domain := fmt.Sprintf("%s.%s", address.IP, *magicDNS)
+	domain := fmt.Sprintf("%s.%s", ip, *magicDNS)
 	domainCM.Data[domain] = ""
-	if _, err = kubeClient.CoreV1().ConfigMaps(system.Namespace()).Update(domainCM); err != nil {
+	if _, err = kubeClient.CoreV1().ConfigMaps(system.Namespace()).Update(ctx, domainCM, metav1.UpdateOptions{}); err != nil {
 		logger.Fatalw("Error updating ConfigMap", zap.Error(err))
 	}
 
-	logger.Infof("Updated default domain to: %s", domain)
+	logger.Info("Updated default domain to: ", domain)
 	server.Shutdown(context.Background())
 }

@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"net/url"
 	"testing"
 
@@ -40,12 +41,14 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 	t.Log("Serves the expected data at the endpoint")
 
 	_, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err)
 	}
@@ -106,19 +109,18 @@ func TestRouteCreation(t *testing.T) {
 		Image:         test.PizzaPlanet1,
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Route and Configuration")
 	config, err := v1test.CreateConfiguration(t, clients, names)
 	if err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
+		t.Fatal("Failed to create Configuration:", err)
 	}
 	objects.Config = config
 
 	route, err := v1test.CreateRoute(t, clients, names)
 	if err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
+		t.Fatal("Failed to create Route:", err)
 	}
 	objects.Route = route
 
@@ -133,11 +135,11 @@ func TestRouteCreation(t *testing.T) {
 		t.Fatalf("Failed to get URL from route %s: %v", names.Route, err)
 	}
 
-	t.Logf("The Route URL is: %s", url)
+	t.Log("The Route URL is:", url)
 	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, url, "1", test.PizzaPlanetText1)
 
 	// We start a prober at background thread to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, url)
+	prober := test.RunRouteProber(t.Logf, clients, url, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	defer test.AssertProberDefault(t, prober)
 
 	t.Log("Updating the Configuration to use a different image")

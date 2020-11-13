@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,42 +19,42 @@ package config
 import (
 	"context"
 
-	"knative.dev/serving/pkg/apis/config"
-
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
-	pkgmetrics "knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
-	deployment "knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/network"
+	apiconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/deployment"
 )
 
 type cfgKey struct{}
 
-// +k8s:deepcopy-gen=false
+// Config contains the configmaps requires for revision reconciliation.
 type Config struct {
+	*apiconfig.Config
 	Deployment    *deployment.Config
+	Logging       *logging.Config
 	Network       *network.Config
 	Observability *metrics.ObservabilityConfig
-	Logging       *logging.Config
 	Tracing       *pkgtracing.Config
-	Defaults      *config.Defaults
-	Autoscaler    *autoscalerconfig.Config
 }
 
+// FromContext loads the configuration from the context.
 func FromContext(ctx context.Context) *Config {
 	return ctx.Value(cfgKey{}).(*Config)
 }
 
+// ToContext persists the configuration to the context.
 func ToContext(ctx context.Context, c *Config) context.Context {
 	return context.WithValue(ctx, cfgKey{}, c)
 }
 
+// Store is a typed wrapper around configmap.UntypedStore to handle our configmaps.
 // +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
+	apiStore *apiconfig.Store
 }
 
 // NewStore creates a new store of Configs and optionally calls functions when ConfigMaps are updated for Revisions
@@ -64,34 +64,53 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"revision",
 			logger,
 			configmap.Constructors{
-				deployment.ConfigName:       deployment.NewConfigFromConfigMap,
-				network.ConfigName:          network.NewConfigFromConfigMap,
-				pkgmetrics.ConfigMapName():  metrics.NewObservabilityConfigFromConfigMap,
-				logging.ConfigMapName():     logging.NewConfigFromConfigMap,
-				pkgtracing.ConfigName:       pkgtracing.NewTracingConfigFromConfigMap,
-				config.DefaultsConfigName:   config.NewDefaultsConfigFromConfigMap,
-				autoscalerconfig.ConfigName: autoscalerconfig.NewConfigFromConfigMap,
+				deployment.ConfigName:   deployment.NewConfigFromConfigMap,
+				logging.ConfigMapName(): logging.NewConfigFromConfigMap,
+				metrics.ConfigMapName(): metrics.NewObservabilityConfigFromConfigMap,
+				network.ConfigName:      network.NewConfigFromConfigMap,
+				pkgtracing.ConfigName:   pkgtracing.NewTracingConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
+		apiStore: apiconfig.NewStore(logger),
 	}
-
 	return store
 }
 
-func (s *Store) ToContext(ctx context.Context) context.Context {
-	return ToContext(ctx, s.Load())
+// WatchConfigs uses the provided configmap.Watcher
+// to setup watches for the config names provided in the
+// Constructors map
+func (s *Store) WatchConfigs(cmw configmap.Watcher) {
+	s.UntypedStore.WatchConfigs(cmw)
+	s.apiStore.WatchConfigs(cmw)
 }
 
-func (s *Store) Load() *Config {
+// ToContext persists the config on the context.
+func (s *Store) ToContext(ctx context.Context) context.Context {
+	return s.apiStore.ToContext(ToContext(ctx, s.Load()))
+}
 
-	return &Config{
-		Deployment:    s.UntypedLoad(deployment.ConfigName).(*deployment.Config).DeepCopy(),
-		Network:       s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
-		Observability: s.UntypedLoad(pkgmetrics.ConfigMapName()).(*metrics.ObservabilityConfig).DeepCopy(),
-		Logging:       s.UntypedLoad((logging.ConfigMapName())).(*logging.Config).DeepCopy(),
-		Tracing:       s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config).DeepCopy(),
-		Defaults:      s.UntypedLoad(config.DefaultsConfigName).(*config.Defaults).DeepCopy(),
-		Autoscaler:    s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
+// Load returns the config from the store.
+func (s *Store) Load() *Config {
+	cfg := &Config{
+		Config: s.apiStore.Load(),
 	}
+
+	if dep, ok := s.UntypedLoad(deployment.ConfigName).(*deployment.Config); ok {
+		cfg.Deployment = dep.DeepCopy()
+	}
+	if log, ok := s.UntypedLoad((logging.ConfigMapName())).(*logging.Config); ok {
+		cfg.Logging = log.DeepCopy()
+	}
+	if net, ok := s.UntypedLoad(network.ConfigName).(*network.Config); ok {
+		cfg.Network = net.DeepCopy()
+	}
+	if obs, ok := s.UntypedLoad(metrics.ConfigMapName()).(*metrics.ObservabilityConfig); ok {
+		cfg.Observability = obs.DeepCopy()
+	}
+	if tr, ok := s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config); ok {
+		cfg.Tracing = tr.DeepCopy()
+	}
+
+	return cfg
 }

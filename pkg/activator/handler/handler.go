@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -17,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -25,14 +27,14 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
 	tracingconfig "knative.dev/pkg/tracing/config"
+	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
-	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 )
 
@@ -51,13 +53,15 @@ type activationHandler struct {
 }
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(ctx context.Context, t Throttler) http.Handler {
-	defaultTransport := pkgnet.AutoTransport
+func New(ctx context.Context, t Throttler, transport http.RoundTripper) http.Handler {
 	return &activationHandler{
-		transport:        defaultTransport,
-		tracingTransport: &ochttp.Transport{Base: defaultTransport},
-		throttler:        t,
-		bufferPool:       network.NewBufferPool(),
+		transport: transport,
+		tracingTransport: &ochttp.Transport{
+			Base:        transport,
+			Propagation: tracecontextb3.B3Egress,
+		},
+		throttler:  t,
+		bufferPool: network.NewBufferPool(),
 	}
 }
 
@@ -75,7 +79,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)
 		if tracingEnabled {
-			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "proxy")
+			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "activator_proxy")
 		}
 		a.proxyRequest(logger, w, r.WithContext(proxyCtx), &url.URL{
 			Scheme: "http",
@@ -85,16 +89,15 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		return nil
 	}); err != nil {
-		// Set error on our capacity waiting span and end it
+		// Set error on our capacity waiting span and end it.
 		trySpan.Annotate([]trace.Attribute{trace.StringAttribute("activator.throttler.error", err.Error())}, "ThrottlerTry")
 		trySpan.End()
 
 		logger.Errorw("Throttler try error", zap.Error(err))
 
-		switch err {
-		case activatornet.ErrActivatorOverload, context.DeadlineExceeded, queue.ErrRequestQueueFull:
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, queue.ErrRequestQueueFull) {
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		default:
+		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 	}
@@ -104,14 +107,14 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 	network.RewriteHostIn(r)
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
-	// Setup the reverse proxy.
+	// Set up the reverse proxy.
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
 	if tracingEnabled {
 		proxy.Transport = a.tracingTransport
 	}
-	proxy.FlushInterval = -1
+	proxy.FlushInterval = network.FlushInterval
 	proxy.ErrorHandler = pkgnet.ErrorHandler(logger)
 	util.SetupHeaderPruning(proxy)
 

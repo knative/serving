@@ -1,10 +1,13 @@
 /*
 Copyright 2019 The Knative Authors
- Licensed under the Apache License, Version 2.0 (the "License");
+
+Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-     http://www.apache.org/licenses/LICENSE-2.0
- Unless required by applicable law or agreed to in writing, software
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -91,10 +94,11 @@ var MustFiles = map[string]FileInfo{
 		IsDir: ptr.Bool(true),
 		Perm:  "rwxrwxrwx",
 	},
-	"/var/log": {
-		IsDir: ptr.Bool(true),
-		Perm:  "rwxrwxrwx",
-	},
+	// TODO(dprotaso) Re-enable this as a potential MAY requirement
+	// "/var/log": {
+	// 	IsDir: ptr.Bool(true),
+	// 	Perm:  "rwxrwxrwx",
+	// },
 }
 
 // ShouldFiles specifies the file paths and expected permissions that SHOULD be set as specified in the runtime contract.
@@ -119,8 +123,8 @@ type RuntimeInfo struct {
 
 // RequestInfo encapsulates information about the request.
 type RequestInfo struct {
-	// Ts is the timestamp of when the request came in from the system time.
-	Ts time.Time `json:"ts"`
+	// Timestamp is the timestamp of when the request came in from the system time.
+	Timestamp time.Time `json:"ts"`
 	// URI is the request-target of the Request-Line.
 	URI string `json:"uri"`
 	// Host is the hostname on which the URL is sought.
@@ -156,7 +160,7 @@ type HostInfo struct {
 type Stdin struct {
 	// EOF is true if the first byte read from stdin results in EOF.
 	EOF *bool `json:"eof,omitempty"`
-	// Error is the String representation of an error probing sdtin.
+	// Error is the String representation of an error probing stdin.
 	Error string `json:"error,omitempty"`
 }
 
@@ -169,6 +173,7 @@ type UserInfo struct {
 	Cwd  *Cwd `json:"cwd"`
 }
 
+// Cwd represents the Current Working Directory for a user.
 type Cwd struct {
 	Directory string `json:"directory"`
 	Error     string `json:"error"`

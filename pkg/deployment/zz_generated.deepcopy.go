@@ -34,6 +34,36 @@ func (in *Config) DeepCopyInto(out *Config) {
 			(*out)[key] = val
 		}
 	}
+	if in.QueueSidecarCPURequest != nil {
+		in, out := &in.QueueSidecarCPURequest, &out.QueueSidecarCPURequest
+		x := (*in).DeepCopy()
+		*out = &x
+	}
+	if in.QueueSidecarCPULimit != nil {
+		in, out := &in.QueueSidecarCPULimit, &out.QueueSidecarCPULimit
+		x := (*in).DeepCopy()
+		*out = &x
+	}
+	if in.QueueSidecarMemoryRequest != nil {
+		in, out := &in.QueueSidecarMemoryRequest, &out.QueueSidecarMemoryRequest
+		x := (*in).DeepCopy()
+		*out = &x
+	}
+	if in.QueueSidecarMemoryLimit != nil {
+		in, out := &in.QueueSidecarMemoryLimit, &out.QueueSidecarMemoryLimit
+		x := (*in).DeepCopy()
+		*out = &x
+	}
+	if in.QueueSidecarEphemeralStorageRequest != nil {
+		in, out := &in.QueueSidecarEphemeralStorageRequest, &out.QueueSidecarEphemeralStorageRequest
+		x := (*in).DeepCopy()
+		*out = &x
+	}
+	if in.QueueSidecarEphemeralStorageLimit != nil {
+		in, out := &in.QueueSidecarEphemeralStorageLimit, &out.QueueSidecarEphemeralStorageLimit
+		x := (*in).DeepCopy()
+		*out = &x
+	}
 	return
 }
 

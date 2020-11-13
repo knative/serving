@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -27,17 +28,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
-	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 func TestHelloWorld(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -46,65 +44,40 @@ func TestHelloWorld(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	if test.ServingFlags.Https {
-		// Save the current Gateway to restore it after the test
-		oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(v1a1test.Namespace).Get(v1a1test.GatewayName, metav1.GetOptions{})
-		if err != nil {
-			t.Fatalf("Failed to get Gateway %s/%s", v1a1test.Namespace, v1a1test.GatewayName)
-		}
-		test.CleanupOnInterrupt(func() { v1a1test.RestoreGateway(t, clients, *oldGateway) })
-		defer v1a1test.RestoreGateway(t, clients, *oldGateway)
-	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service")
-	resources, httpsTransportOption, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, test.ServingFlags.Https)
+
+	resources, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
 	url := resources.Route.Status.URL.URL()
-	var opt interface{}
-	if test.ServingFlags.Https {
-		url.Scheme = "https"
-		if httpsTransportOption == nil {
-			t.Fatalf("Https transport option is nil")
-		}
-		opt = *httpsTransportOption
-	}
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
-		opt); err != nil {
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
 
 	revision := resources.Revision
-	if val, ok := revision.Labels["serving.knative.dev/configuration"]; ok {
-		if val != names.Config {
-			t.Fatalf("Expect configuration name in revision label %q but got %q ", names.Config, val)
-		}
-	} else {
-		t.Fatalf("Failed to get configuration name from Revision label")
+	if val := revision.Labels[serving.ConfigurationLabelKey]; val != names.Config {
+		t.Fatalf("Got revision label configuration=%q, want=%q ", names.Config, val)
 	}
-	if val, ok := revision.Labels["serving.knative.dev/service"]; ok {
-		if val != names.Service {
-			t.Fatalf("Expect Service name in revision label %q but got %q ", names.Service, val)
-		}
-	} else {
-		t.Fatalf("Failed to get Service name from Revision label")
+	if val := revision.Labels[serving.ServiceLabelKey]; val != names.Service {
+		t.Fatalf("Got revision label service=%q, want=%q", val, names.Service)
 	}
 }
 
 func TestQueueSideCarResourceLimit(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -113,22 +86,20 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service")
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
-		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"):    resource.MustParse("50m"),
-				corev1.ResourceName("memory"): resource.MustParse("128Mi"),
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
 			},
 			Limits: corev1.ResourceList{
-				corev1.ResourceName("cpu"):    resource.MustParse("100m"),
-				corev1.ResourceName("memory"): resource.MustParse("258Mi"),
+				corev1.ResourceCPU:    resource.MustParse("100m"),
+				corev1.ResourceMemory: resource.MustParse("258Mi"),
 			},
-		}), v1a1opts.WithConfigAnnotations(map[string]string{
+		}), rtesting.WithConfigAnnotations(map[string]string{
 			serving.QueueSideCarResourcePercentageAnnotation: "0.2",
 		}))
 	if err != nil {
@@ -137,12 +108,15 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	url := resources.Route.Status.URL.URL()
 
 	if _, err = pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, test.HelloWorldText, err)
 	}
 
@@ -168,29 +142,29 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	}
 
 	if container.Resources.Limits.Cpu().Cmp(resource.MustParse("40m")) != 0 {
-		t.Fatalf("queue-proxy should have limit.cpu set to 40m got %v", container.Resources.Limits.Cpu())
+		t.Fatal("queue-proxy should have limit.cpu set to 40m got", container.Resources.Limits.Cpu())
 	}
 	if container.Resources.Limits.Memory().Cmp(resource.MustParse("200Mi")) != 0 {
-		t.Fatalf("queue-proxy should have limit.memory set to 200Mi got %v", container.Resources.Limits.Memory())
+		t.Fatal("queue-proxy should have limit.memory set to 200Mi got", container.Resources.Limits.Memory())
 	}
 	if container.Resources.Requests.Cpu().Cmp(resource.MustParse("25m")) != 0 {
-		t.Fatalf("queue-proxy should have request.cpu set to 25m got %v", container.Resources.Requests.Cpu())
+		t.Fatal("queue-proxy should have request.cpu set to 25m got", container.Resources.Requests.Cpu())
 	}
 	if container.Resources.Requests.Memory().Cmp(resource.MustParse("50Mi")) != 0 {
-		t.Fatalf("queue-proxy should have request.memory set to 50Mi got %v", container.Resources.Requests.Memory())
+		t.Fatal("queue-proxy should have request.memory set to 50Mi got", container.Resources.Requests.Memory())
 	}
 }
 
 // Container returns container for given Pod and Container in the namespace
 func getContainer(client *pkgTest.KubeClient, podName, containerName, namespace string) (corev1.Container, error) {
-	pods := client.Kube.CoreV1().Pods(namespace)
-	podList, err := pods.List(metav1.ListOptions{})
+	pods := client.CoreV1().Pods(namespace)
+	podList, err := pods.List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return corev1.Container{}, err
 	}
 	for _, pod := range podList.Items {
 		if strings.Contains(pod.Name, podName) {
-			result, err := pods.Get(pod.Name, metav1.GetOptions{})
+			result, err := pods.Get(context.Background(), pod.Name, metav1.GetOptions{})
 			if err != nil {
 				return corev1.Container{}, err
 			}

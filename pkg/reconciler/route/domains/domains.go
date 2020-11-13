@@ -24,12 +24,14 @@ import (
 	"text/template"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	network "knative.dev/networking/pkg"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	pkgnet "knative.dev/pkg/network"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 )
@@ -75,6 +77,7 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 		Namespace:   r.Namespace,
 		Domain:      domain,
 		Annotations: annotations,
+		Labels:      rLabels,
 	}
 
 	networkConfig := config.FromContext(ctx).Network
@@ -83,7 +86,8 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 	var templ *template.Template
 	// If the route is "cluster local" then don't use the user-defined
 	// domain template, use the default one
-	if rLabels[serving.VisibilityLabelKey] == serving.VisibilityClusterLocal {
+	if rLabels[network.VisibilityLabelKey] == serving.VisibilityClusterLocal ||
+		rLabels[serving.VisibilityLabelKeyObsolete] == serving.VisibilityClusterLocal {
 		templ = template.Must(template.New("domain-template").Parse(
 			network.DefaultDomainTemplate))
 	} else {
@@ -93,12 +97,18 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 	if err := templ.Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("error executing the DomainTemplate: %w", err)
 	}
+
+	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
+	if urlErrs != nil {
+		return "", fmt.Errorf("invalid domain name %q: %w", buf.String(), urlErrs.ToAggregate())
+	}
+
 	return buf.String(), nil
 }
 
 // HostnameFromTemplate generates domain name base on the template specified in the `config-network` ConfigMap.
 // name is the "subdomain" which will be referred as the "name" in the template
-func HostnameFromTemplate(ctx context.Context, name string, tag string) (string, error) {
+func HostnameFromTemplate(ctx context.Context, name, tag string) (string, error) {
 	if tag == "" {
 		return name, nil
 	}

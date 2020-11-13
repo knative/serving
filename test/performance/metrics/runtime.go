@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,9 +24,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	sksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
@@ -75,7 +75,7 @@ func fetchStatusInternal(ctx context.Context, duration time.Duration,
 		// Overlay the desired and ready pod counts.
 		deployments, err := f()
 		if err != nil {
-			log.Printf("Error getting deployment(s): %v", err)
+			log.Print("Error getting deployment(s): ", err)
 			return err
 		}
 
@@ -94,13 +94,14 @@ func fetchStatusInternal(ctx context.Context, duration time.Duration,
 
 // ServerlessServiceStatus is a struct that wraps the status of a serverless service.
 type ServerlessServiceStatus struct {
-	Mode netv1alpha1.ServerlessServiceOperationMode
+	Mode          netv1alpha1.ServerlessServiceOperationMode
+	NumActivators int32
 	// Time is the time when the status is fetched
 	Time time.Time
 }
 
-// FetchSKSMode creates a channel that can return the up-to-date ServerlessServiceOperationMode periodically.
-func FetchSKSMode(
+// FetchSKSStatus creates a channel that can return the up-to-date ServerlessServiceOperationMode periodically.
+func FetchSKSStatus(
 	ctx context.Context, namespace string, selector labels.Selector,
 	duration time.Duration,
 ) <-chan ServerlessServiceStatus {
@@ -110,13 +111,14 @@ func FetchSKSMode(
 		// Overlay the SKS "mode".
 		skses, err := sksl.ServerlessServices(namespace).List(selector)
 		if err != nil {
-			log.Printf("Error listing serverless services: %v", err)
+			log.Print("Error listing serverless services: ", err)
 			return err
 		}
 		for _, sks := range skses {
 			skss := ServerlessServiceStatus{
-				Mode: sks.Spec.Mode,
-				Time: t,
+				NumActivators: sks.Spec.NumActivators,
+				Mode:          sks.Spec.Mode,
+				Time:          t,
 			}
 			ch <- skss
 		}

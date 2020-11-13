@@ -17,7 +17,7 @@ limitations under the License.
 package scaling
 
 import (
-	"knative.dev/serving/pkg/metrics"
+	pkgmetrics "knative.dev/pkg/metrics"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -70,60 +70,51 @@ func register() {
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
 	// View name defaults to the measure name if unspecified.
-	if err := view.Register(
+	if err := pkgmetrics.RegisterResourceView(
 		&view.View{
 			Description: "Number of pods autoscaler wants to allocate",
 			Measure:     desiredPodCountM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Average of requests count over the stable window",
 			Measure:     stableRequestConcurrencyM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Current excess burst capacity over average request count over the stable window",
 			Measure:     excessBurstCapacityM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Average of requests count over the panic window",
 			Measure:     panicRequestConcurrencyM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "The desired number of concurrent requests for each pod",
 			Measure:     targetRequestConcurrencyM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "1 if autoscaler is in panic mode, 0 otherwise",
 			Measure:     panicM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Average requests-per-second over the stable window",
 			Measure:     stableRPSM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Average requests-per-second over the panic window",
 			Measure:     panicRPSM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "The desired requests-per-second for each pod",
 			Measure:     targetRPSM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 	); err != nil {
 		panic(err)

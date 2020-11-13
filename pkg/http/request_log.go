@@ -22,12 +22,13 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"text/template"
 	"time"
 	"unsafe"
 
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 )
 
 // RequestLogHandler implements an http.Handler that writes request logs
@@ -99,7 +100,7 @@ func NewRequestLogHandler(h http.Handler, w io.Writer, templateStr string,
 }
 
 // SetTemplate sets the template to use for formatting request logs.
-// Setting the template to an empty string turns of writing request logs.
+// Setting the template to an empty string turns off writing request logs.
 func (h *RequestLogHandler) SetTemplate(templateStr string) error {
 	var t *template.Template
 	// If templateStr is empty, we will set the template to nil
@@ -108,7 +109,7 @@ func (h *RequestLogHandler) SetTemplate(templateStr string) error {
 		// Make sure that the template ends with a newline. Otherwise,
 		// logging backends will not be able to parse entries separately.
 		if !strings.HasSuffix(templateStr, "\n") {
-			templateStr = templateStr + "\n"
+			templateStr += "\n"
 		}
 		var err error
 		t, err = template.New("requestLog").Parse(templateStr)
@@ -137,7 +138,7 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		// Filter probe requests for request logs if disabled.
-		if network.IsProbe(r) && !h.enableProbeRequestLog {
+		if !h.enableProbeRequestLog && network.IsProbe(r) {
 			return
 		}
 
@@ -155,7 +156,7 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.write(t, h.inputGetter(r, &RequestLogResponse{
 				Code:    rr.ResponseCode,
 				Latency: latency,
-				Size:    (int)(rr.ResponseSize),
+				Size:    rr.ResponseSize,
 			}))
 		}
 	}()
@@ -163,11 +164,19 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.handler.ServeHTTP(rr, r)
 }
 
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
+
 func (h *RequestLogHandler) write(t *template.Template, in *RequestLogTemplateInput) {
-	// Use a local buffer to store the whole template expansion first. If h.writer
-	// is used directly, parallel template executions may result in interleaved
-	// output.
-	w := &bytes.Buffer{}
+	// Use a buffer to store the whole template expansion first. If h.writer is
+	// used directly, parallel template executions may result in interleaved output.
+	w := bufPool.Get().(*bytes.Buffer)
+	w.Reset()
+	defer bufPool.Put(w)
+
 	if err := t.Execute(w, in); err != nil {
 		// Template execution failed. Write an error message with some basic information about the request.
 		fmt.Fprintf(h.writer, "Invalid request log template: method: %v, response code: %v, latency: %v, url: %v\n",

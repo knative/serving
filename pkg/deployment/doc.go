@@ -16,4 +16,5 @@ limitations under the License.
 
 // +k8s:deepcopy-gen=package
 
+// Package deployment manages the deployment config.
 package deployment

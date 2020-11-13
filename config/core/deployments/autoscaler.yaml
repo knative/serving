@@ -32,6 +32,17 @@ spec:
         app: autoscaler
         serving.knative.dev/release: devel
     spec:
+      # To avoid node becoming SPOF, spread our replicas to different nodes.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: autoscaler
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+
       serviceAccountName: controller
       containers:
       - name: autoscaler
@@ -48,6 +59,14 @@ spec:
             memory: 400Mi
 
         env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         - name: SYSTEM_NAMESPACE
           valueFrom:
             fieldRef:
@@ -62,6 +81,11 @@ spec:
 
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - all
 
         ports:
         - name: metrics
@@ -70,20 +94,20 @@ spec:
           containerPort: 8008
         - name: websocket
           containerPort: 8080
-        - name: custom-metrics
-          containerPort: 8443
 
-        readinessProbe: &probe
+        readinessProbe:
           httpGet:
             port: 8080
             httpHeaders:
             - name: k-kubelet-probe
               value: "autoscaler"
-        livenessProbe: *probe
-
-        args:
-        - "--secure-port=8443"
-        - "--cert-dir=/tmp"
+        livenessProbe:
+          httpGet:
+            port: 8080
+            httpHeaders:
+            - name: k-kubelet-probe
+              value: "autoscaler"
+          failureThreshold: 6
 
 ---
 apiVersion: v1
@@ -106,8 +130,5 @@ spec:
   - name: http
     port: 8080
     targetPort: 8080
-  - name: https-custom-metrics
-    port: 443
-    targetPort: 8443
   selector:
     app: autoscaler

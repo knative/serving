@@ -17,22 +17,35 @@ limitations under the License.
 package metrics
 
 import (
+	"fmt"
 	"os"
-	"strings"
 	texttemplate "text/template"
 
 	corev1 "k8s.io/api/core/v1"
+	cm "knative.dev/pkg/configmap"
 )
 
 const (
 	// The following is used to set the default log url template
-	DefaultLogURLTemplate = "http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.knative-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))"
+	DefaultLogURLTemplate = ""
+
+	// DefaultRequestLogTemplate is the default format for emitting request logs.
+	DefaultRequestLogTemplate = `{"httpRequest": {"requestMethod": "{{.Request.Method}}", "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}", "status": {{.Response.Code}}, "responseSize": "{{.Response.Size}}", "userAgent": "{{js .Request.UserAgent}}", "remoteIp": "{{js .Request.RemoteAddr}}", "serverIp": "{{.Revision.PodIP}}", "referer": "{{js .Request.Referer}}", "latency": "{{.Response.Latency}}s", "protocol": "{{.Request.Proto}}"}, "traceId": "{{index .Request.Header "X-B3-Traceid"}}"}`
 
 	// The following is used to set the default metrics backend
-	DefaultRequestMetricsBackend = "prometheus"
+	defaultRequestMetricsBackend = "prometheus"
 
 	// The env var name for config-observability
-	ConfigMapNameEnv = "CONFIG_OBSERVABILITY_NAME"
+	configMapNameEnv = "CONFIG_OBSERVABILITY_NAME"
+
+	// ReqLogTemplateKey is the CM key for the request log template.
+	ReqLogTemplateKey = "logging.request-log-template"
+
+	// EnableReqLogKey is the CM key to enable request log.
+	EnableReqLogKey = "logging.enable-request-log"
+
+	// EnableProbeReqLogKey is the CM key to enable request logs for probe requests.
+	EnableProbeReqLogKey = "logging.enable-probe-request-log"
 )
 
 // ObservabilityConfig contains the configuration defined in the observability ConfigMap.
@@ -53,47 +66,55 @@ type ObservabilityConfig struct {
 	EnableProbeRequestLog bool
 
 	// RequestMetricsBackend specifies the request metrics destination, e.g. Prometheus,
-	// Stackdriver.
+	// Stackdriver. "None" disables all backends.
 	RequestMetricsBackend string
 
 	// EnableProfiling indicates whether it is allowed to retrieve runtime profiling data from
 	// the pods via an HTTP server in the format expected by the pprof visualization tool.
 	EnableProfiling bool
+
+	// EnableRequestLog enables activator/queue-proxy to write request logs.
+	EnableRequestLog bool
+
+	// MetricsCollectorAddress specifies the metrics collector address. This is only used
+	// when the metrics backend is opencensus.
+	MetricsCollectorAddress string
+}
+
+func defaultConfig() *ObservabilityConfig {
+	return &ObservabilityConfig{
+		LoggingURLTemplate:    DefaultLogURLTemplate,
+		RequestLogTemplate:    DefaultRequestLogTemplate,
+		RequestMetricsBackend: defaultRequestMetricsBackend,
+	}
 }
 
 // NewObservabilityConfigFromConfigMap creates a ObservabilityConfig from the supplied ConfigMap
 func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*ObservabilityConfig, error) {
-	oc := &ObservabilityConfig{}
-	if evlc, ok := configMap.Data["logging.enable-var-log-collection"]; ok {
-		oc.EnableVarLogCollection = strings.EqualFold(evlc, "true")
+	oc := defaultConfig()
+
+	if err := cm.Parse(configMap.Data,
+		cm.AsBool("logging.enable-var-log-collection", &oc.EnableVarLogCollection),
+		cm.AsString("logging.revision-url-template", &oc.LoggingURLTemplate),
+		cm.AsString(ReqLogTemplateKey, &oc.RequestLogTemplate),
+		cm.AsBool(EnableReqLogKey, &oc.EnableRequestLog),
+		cm.AsBool(EnableProbeReqLogKey, &oc.EnableProbeRequestLog),
+		cm.AsString("metrics.request-metrics-backend-destination", &oc.RequestMetricsBackend),
+		cm.AsBool("profiling.enable", &oc.EnableProfiling),
+		cm.AsString("metrics.opencensus-address", &oc.MetricsCollectorAddress),
+	); err != nil {
+		return nil, err
 	}
 
-	if rut, ok := configMap.Data["logging.revision-url-template"]; ok {
-		oc.LoggingURLTemplate = rut
-	} else {
-		oc.LoggingURLTemplate = DefaultLogURLTemplate
+	if oc.RequestLogTemplate == "" && oc.EnableRequestLog {
+		return nil, fmt.Errorf("%q was set to true, but no %q was specified", EnableReqLogKey, ReqLogTemplateKey)
 	}
 
-	if rlt, ok := configMap.Data["logging.request-log-template"]; ok {
+	if oc.RequestLogTemplate != "" {
 		// Verify that we get valid templates.
-		if _, err := texttemplate.New("requestLog").Parse(rlt); err != nil {
+		if _, err := texttemplate.New("requestLog").Parse(oc.RequestLogTemplate); err != nil {
 			return nil, err
 		}
-		oc.RequestLogTemplate = rlt
-	}
-
-	if eprl, ok := configMap.Data["logging.enable-probe-request-log"]; ok {
-		oc.EnableProbeRequestLog = strings.EqualFold(eprl, "true")
-	}
-
-	if mb, ok := configMap.Data["metrics.request-metrics-backend-destination"]; ok {
-		oc.RequestMetricsBackend = mb
-	} else {
-		oc.RequestMetricsBackend = DefaultRequestMetricsBackend
-	}
-
-	if prof, ok := configMap.Data["profiling.enable"]; ok {
-		oc.EnableProfiling = strings.EqualFold(prof, "true")
 	}
 
 	return oc, nil
@@ -101,9 +122,8 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 
 // ConfigMapName gets the name of the metrics ConfigMap
 func ConfigMapName() string {
-	cm := os.Getenv(ConfigMapNameEnv)
-	if cm == "" {
-		return "config-observability"
+	if cm := os.Getenv(configMapNameEnv); cm != "" {
+		return cm
 	}
-	return cm
+	return "config-observability"
 }

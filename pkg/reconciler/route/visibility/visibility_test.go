@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,12 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package visibility
 
 import (
 	"context"
 	"errors"
-	"log"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -26,10 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	listers "k8s.io/client-go/listers/core/v1"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	networking "knative.dev/networking/pkg"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
@@ -44,9 +45,9 @@ func getContext(domainSuffix string) context.Context {
 				domainSuffix: {},
 			},
 		},
-		Network: &network.Config{
-			TagTemplate:    network.DefaultTagTemplate,
-			DomainTemplate: network.DefaultDomainTemplate,
+		Network: &networking.Config{
+			TagTemplate:    networking.DefaultTagTemplate,
+			DomainTemplate: networking.DefaultDomainTemplate,
 		},
 	})
 }
@@ -77,7 +78,7 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 				Labels: map[string]string{
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		},
@@ -95,16 +96,16 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "irrelevance",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "bar",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "bar",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}},
@@ -125,8 +126,8 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "blue-foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
@@ -192,10 +193,11 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		expected: map[string]netv1alpha1.IngressVisibility{
@@ -204,19 +206,20 @@ func TestVisibility(t *testing.T) {
 			"green":               netv1alpha1.IngressVisibilityExternalIP,
 		},
 	}, {
-		name: "two tags initial default with .svc.cluster.local domain suffix",
+		name: "two tags initial default with cluster domain suffix",
 		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
-		domainSuffix: "svc.cluster.local",
+		domainSuffix: "svc." + network.GetClusterDomainName(),
 		expected: map[string]netv1alpha1.IngressVisibility{
 			traffic.DefaultTarget: netv1alpha1.IngressVisibilityClusterLocal,
 			"blue":                netv1alpha1.IngressVisibilityClusterLocal,
@@ -229,10 +232,11 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		services: []*corev1.Service{{
@@ -268,14 +272,15 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 				Labels: map[string]string{
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		services: []*corev1.Service{{
@@ -312,18 +317,19 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		services: []*corev1.Service{{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "blue-foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}},
@@ -339,26 +345,27 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		services: []*corev1.Service{{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "blue-foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "green-foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}},
@@ -374,34 +381,35 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{Tag: "blue"},
-					{Tag: "green"},
-				},
+				Traffic: []v1.TrafficTarget{{
+					Tag: "blue",
+				}, {
+					Tag: "green",
+				}},
 			},
 		},
 		services: []*corev1.Service{{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "blue-foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "green-foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 				Labels: map[string]string{
-					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					serving.RouteLabelKey:         "foo",
+					networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}},
@@ -424,17 +432,18 @@ func TestVisibility(t *testing.T) {
 			lister := &fakeServiceLister{services: tt.services, listerErr: tt.listerErr}
 			ctx := getContext(tt.domainSuffix)
 			visibility, err := NewResolver(lister).GetVisibility(ctx, tt.route)
-			if diff := cmp.Diff(tt.expected, visibility); diff != "" {
-				t.Errorf("Unexpected visibility diff (-want +got): %v", diff)
+			if got, want := visibility, tt.expected; !cmp.Equal(got, want) {
+				t.Errorf("Unexpected visibility diff (-want +got):\n%s", cmp.Diff(want, got))
 			}
-			if tt.expectedErr != err {
-				t.Errorf("Expected err=%v, saw %v", tt.expectedErr, err)
+			if !errors.Is(err, tt.expectedErr) {
+				t.Errorf("Err = %v, want: %v", err, tt.expectedErr)
 			}
 		})
 	}
 }
 
 type fakeServiceLister struct {
+	listers.ServiceNamespaceLister
 	services  []*corev1.Service
 	listerErr error
 }
@@ -454,14 +463,4 @@ func (l *fakeServiceLister) List(selector labels.Selector) ([]*corev1.Service, e
 
 func (l *fakeServiceLister) Services(namespace string) listers.ServiceNamespaceLister {
 	return l
-}
-
-func (l *fakeServiceLister) Get(name string) (*corev1.Service, error) {
-	log.Panic("not implemented")
-	return nil, nil
-}
-
-func (l *fakeServiceLister) GetPodServices(pod *corev1.Pod) ([]*corev1.Service, error) {
-	log.Panic("not implemented")
-	return nil, nil
 }

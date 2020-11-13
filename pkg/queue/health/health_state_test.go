@@ -21,6 +21,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"knative.dev/serving/pkg/queue"
 )
 
 func TestHealthStateSetsState(t *testing.T) {
@@ -72,74 +74,68 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		state:        &State{alive: true},
 		isAggressive: false,
 		wantStatus:   http.StatusOK,
-		wantBody:     aliveBody,
+		wantBody:     queue.Name,
 	}, {
 		name:         "alive: false, prober: true, K-Probe",
 		state:        &State{alive: false},
 		prober:       func() bool { return true },
 		isAggressive: false,
 		wantStatus:   http.StatusOK,
-		wantBody:     aliveBody,
+		wantBody:     queue.Name,
 	}, {
 		name:         "alive: false, prober: false, K-Probe",
 		state:        &State{alive: false},
 		prober:       func() bool { return false },
 		isAggressive: false,
 		wantStatus:   http.StatusServiceUnavailable,
-		wantBody:     notAliveBody,
 	}, {
 		name:         "alive: false, no prober, K-Probe",
 		state:        &State{alive: false},
 		isAggressive: false,
 		wantStatus:   http.StatusOK,
-		wantBody:     aliveBody,
+		wantBody:     queue.Name,
 	}, {
 		name:         "shuttingDown: true, K-Probe",
 		state:        &State{shuttingDown: true},
 		isAggressive: false,
-		wantStatus:   http.StatusServiceUnavailable,
-		wantBody:     notAliveBody,
+		wantStatus:   http.StatusGone,
 	}, {
 		name:         "no prober, shuttingDown: false",
 		state:        &State{},
 		isAggressive: true,
 		wantStatus:   http.StatusOK,
-		wantBody:     aliveBody,
+		wantBody:     queue.Name,
 	}, {
 		name:         "prober: true, shuttingDown: true",
 		state:        &State{shuttingDown: true},
 		prober:       func() bool { return true },
 		isAggressive: true,
-		wantStatus:   http.StatusServiceUnavailable,
-		wantBody:     notAliveBody,
+		wantStatus:   http.StatusGone,
 	}, {
 		name:         "prober: true, shuttingDown: false",
 		state:        &State{},
 		prober:       func() bool { return true },
 		isAggressive: true,
 		wantStatus:   http.StatusOK,
-		wantBody:     aliveBody,
+		wantBody:     queue.Name,
 	}, {
 		name:         "prober: false, shuttingDown: false",
 		state:        &State{},
 		prober:       func() bool { return false },
 		isAggressive: true,
 		wantStatus:   http.StatusServiceUnavailable,
-		wantBody:     notAliveBody,
 	}, {
 		name:         "prober: false, shuttingDown: true",
 		state:        &State{},
 		prober:       func() bool { return false },
 		isAggressive: true,
 		wantStatus:   http.StatusServiceUnavailable,
-		wantBody:     notAliveBody,
 	}, {
 		name:         "alive: true, prober: false, shuttingDown: false",
 		state:        &State{alive: true},
 		prober:       func() bool { return false },
 		isAggressive: true,
 		wantStatus:   http.StatusServiceUnavailable,
-		wantBody:     notAliveBody,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -163,11 +159,7 @@ func TestHealthStateDrainHandler(t *testing.T) {
 	state := &State{}
 	state.setAlive()
 
-	req, err := http.NewRequest(http.MethodGet, "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rr := httptest.NewRecorder()
 
 	completedCh := make(chan struct{}, 1)

@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,18 +20,20 @@ import (
 	"context"
 	"net/http"
 
+	"go.uber.org/zap"
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
 	imageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
-	configmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap"
-	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -39,12 +41,16 @@ import (
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/network"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
 const controllerAgentName = "revision-controller"
+
+// digestResolutionWorkers is the number of image digest resolutions that can
+// take place in parallel. MaxIdleConns and MaxIdleConnsPerHost for the digest
+// resolution's Transport will also be set to this value.
+const digestResolutionWorkers = 100
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
@@ -62,20 +68,11 @@ func newControllerWithOptions(
 	cmw configmap.Watcher,
 	opts ...reconcilerOption,
 ) *controller.Impl {
-	transport := http.DefaultTransport
-	if rt, err := newResolverTransport(k8sCertPath); err != nil {
-		logging.FromContext(ctx).Errorf("Failed to create resolver transport: %v", err)
-	} else {
-		transport = rt
-	}
-
 	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
-	deploymentInformer := deploymentinformer.Get(ctx)
-	serviceInformer := serviceinformer.Get(ctx)
-	configMapInformer := configmapinformer.Get(ctx)
-	imageInformer := imageinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
+	deploymentInformer := deploymentinformer.Get(ctx)
+	imageInformer := imageinformer.Get(ctx)
 	paInformer := painformer.Get(ctx)
 
 	c := &Reconciler{
@@ -86,12 +83,8 @@ func newControllerWithOptions(
 		podAutoscalerLister: paInformer.Lister(),
 		imageLister:         imageInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
-		serviceLister:       serviceInformer.Lister(),
-		resolver: &digestResolver{
-			client:    kubeclient.Get(ctx),
-			transport: transport,
-		},
 	}
+
 	impl := revisionreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		configsToResync := []interface{}{
 			&network.Config{},
@@ -111,28 +104,38 @@ func newControllerWithOptions(
 		return controller.Options{ConfigStore: configStore}
 	})
 
+	transport := http.DefaultTransport
+	if rt, err := newResolverTransport(k8sCertPath, digestResolutionWorkers, digestResolutionWorkers); err != nil {
+		logging.FromContext(ctx).Errorw("Failed to create resolver transport", zap.Error(err))
+	} else {
+		transport = rt
+	}
+
+	resolver := newBackgroundResolver(logger, &digestResolver{client: kubeclient.Get(ctx), transport: transport}, impl.EnqueueKey)
+	resolver.Start(ctx.Done(), digestResolutionWorkers)
+	c.resolver = resolver
+
 	// Set up an event handler for when the resource types of interest change
 	logger.Info("Setting up event handlers")
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
-
-	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Revision")),
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj interface{}) {
+			if om, ok := obj.(metav1.Object); ok {
+				resolver.Clear(types.NamespacedName{Namespace: om.GetNamespace(), Name: om.GetName()})
+			}
+		},
 	})
 
-	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Revision")),
+	handleMatchingControllers := cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterControllerGK(v1.Kind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
+	}
+	deploymentInformer.Informer().AddEventHandler(handleMatchingControllers)
+	paInformer.Informer().AddEventHandler(handleMatchingControllers)
 
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of
 	// a functioning Image controller.
-
-	configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Revision")),
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
 
 	for _, opt := range opts {
 		opt(c)

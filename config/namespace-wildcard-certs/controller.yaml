@@ -32,6 +32,17 @@ spec:
         app: networking-ns-cert
         serving.knative.dev/release: devel
     spec:
+      # To avoid node becoming SPOF, spread our replicas to different nodes.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: networking-ns-cert
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+
       serviceAccountName: controller
       containers:
       - name: networking-nscert
@@ -63,6 +74,11 @@ spec:
 
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - all
 
         ports:
         - name: metrics

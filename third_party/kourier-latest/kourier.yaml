@@ -1,25 +1,255 @@
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 apiVersion: v1
 kind: Namespace
 metadata:
   name: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+
+---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: 3scale-kourier
+  namespace: knative-serving
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: 3scale-kourier
+  namespace: knative-serving
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods", "endpoints", "services", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
+  - apiGroups: ["networking.internal.knative.dev"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: ["networking.internal.knative.dev"]
+    resources: ["ingresses/status"]
+    verbs: ["update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: 3scale-kourier
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: 3scale-kourier
+subjects:
+  - kind: ServiceAccount
+    name: 3scale-kourier
+    namespace: knative-serving
+
+---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 3scale-kourier-control
+  namespace: knative-serving
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: 3scale-kourier-control
+  template:
+    metadata:
+      labels:
+        app: 3scale-kourier-control
+    spec:
+      containers:
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:28183c42d1b02e927db16861ed9984c653cc9c0cc72b5d9ab450f3c229c2872e
+          name: kourier-control
+          env:
+            - name: CERTS_SECRET_NAMESPACE
+              value: ""
+            - name: CERTS_SECRET_NAME
+              value: ""
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: METRICS_DOMAIN
+              value: "knative.dev/samples"
+            - name: KOURIER_GATEWAY_NAMESPACE
+              value: "kourier-system"
+          ports:
+            - name: http2-xds
+              containerPort: 18000
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
+      restartPolicy: Always
+      serviceAccountName: 3scale-kourier
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Service
 metadata:
-  name: config-logging
-  namespace: kourier-system
+  name: kourier-control
+  namespace: knative-serving
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+spec:
+  ports:
+    - name: grpc-xds
+      port: 18000
+      protocol: TCP
+      targetPort: 18000
+  selector:
+    app: 3scale-kourier-control
+  type: ClusterIP
+
 ---
-apiVersion: v1
-kind: ConfigMap
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: config-observability
+  name: 3scale-kourier-gateway
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+spec:
+  selector:
+    matchLabels:
+      app: 3scale-kourier-gateway
+  template:
+    metadata:
+      labels:
+        app: 3scale-kourier-gateway
+    spec:
+      containers:
+        - args:
+            - --base-id 1
+            - -c /tmp/config/envoy-bootstrap.yaml
+            - --log-level info
+          command:
+            - /usr/local/bin/envoy
+          image: docker.io/maistra/proxyv2-ubi8:1.1.5
+          name: kourier-gateway
+          ports:
+            - name: http2-external
+              containerPort: 8080
+              protocol: TCP
+            - name: http2-internal
+              containerPort: 8081
+              protocol: TCP
+            - name: https-external
+              containerPort: 8443
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+            capabilities:
+              drop:
+                - all
+          volumeMounts:
+            - name: config-volume
+              mountPath: /tmp/config
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "curl -X POST --unix /tmp/envoy.admin http://localhost/healthcheck/fail; sleep 15"]
+          readinessProbe:
+            httpGet:
+              httpHeaders:
+                - name: Host
+                  value: internalkourier
+              path: /ready
+              port: 8081
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: config-volume
+          configMap:
+            name: kourier-bootstrap
+      restartPolicy: Always
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: kourier
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 spec:
   ports:
     - name: http2
@@ -34,129 +264,13 @@ spec:
     app: 3scale-kourier-gateway
   type: LoadBalancer
 ---
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: 3scale-kourier-gateway
-  namespace: kourier-system
-spec:
-  selector:
-    matchLabels:
-      app: 3scale-kourier-gateway
-  template:
-    metadata:
-      labels:
-        app: 3scale-kourier-gateway
-    spec:
-      containers:
-        - args:
-            - -c
-            - /tmp/config/envoy-bootstrap.yaml
-          command:
-            - /usr/local/bin/envoy
-          image: docker.io/maistra/proxyv2-ubi8:1.0.8
-          imagePullPolicy: Always
-          name: kourier-gateway
-          ports:
-            - name: http2
-              containerPort: 8080
-              protocol: TCP
-            - name: https
-              containerPort: 8443
-              protocol: TCP
-          volumeMounts:
-            - name: config-volume
-              mountPath: /tmp/config
-          readinessProbe:
-            httpGet:
-              httpHeaders:
-                - name: Host
-                  value: internalkourier
-              path: /__internalkouriersnapshot
-              port: 8081
-              scheme: HTTP
-            initialDelaySeconds: 5
-            periodSeconds: 2
-      volumes:
-        - name: config-volume
-          configMap:
-            name: kourier-bootstrap
-      restartPolicy: Always
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: 3scale-kourier-control
-  namespace: kourier-system
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: 3scale-kourier-control
-  template:
-    metadata:
-      labels:
-        app: 3scale-kourier-control
-    spec:
-      containers:
-        - image: quay.io/3scale/kourier:v0.3.12
-          imagePullPolicy: Always
-          name: kourier-control
-          env:
-            - name: CERTS_SECRET_NAMESPACE
-              value: ""
-            - name: CERTS_SECRET_NAME
-              value: ""
-            - name: SYSTEM_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-      restartPolicy: Always
-      serviceAccountName: 3scale-kourier
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: 3scale-kourier
-  namespace: kourier-system
-rules:
-  - apiGroups: [""]
-    resources: ["pods", "endpoints", "namespaces", "services", "secrets", "configmaps"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["networking.internal.knative.dev"]
-    resources: ["clusteringresses","ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["networking.internal.knative.dev"]
-    resources: ["ingresses/status","clusteringresses/status"]
-    verbs: ["update"]
-  - apiGroups: [ "apiextensions.k8s.io" ]
-    resources: [ "customresourcedefinitions" ]
-    verbs: ["get", "list", "watch"]
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: 3scale-kourier
-  namespace: kourier-system
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: 3scale-kourier
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: 3scale-kourier
-subjects:
-  - kind: ServiceAccount
-    name: 3scale-kourier
-    namespace: kourier-system
----
 apiVersion: v1
 kind: Service
 metadata:
   name: kourier-internal
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 spec:
   ports:
     - name: http2
@@ -168,24 +282,12 @@ spec:
   type: ClusterIP
 ---
 apiVersion: v1
-kind: Service
-metadata:
-  name: kourier-control
-  namespace: kourier-system
-spec:
-  ports:
-    - port: 18000
-      protocol: TCP
-      targetPort: 18000
-  selector:
-    app: 3scale-kourier-control
-  type: ClusterIP
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kourier-bootstrap
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 data:
   envoy-bootstrap.yaml: |
     dynamic_resources:
@@ -245,7 +347,7 @@ data:
           connect_timeout: 1s
           hosts:
             - socket_address:
-                address: "kourier-control"
+                address: "kourier-control.knative-serving"
                 port_value: 18000
           http2_protocol_options: {}
           type: STRICT_DNS
@@ -254,3 +356,5 @@ data:
       address:
         pipe:
           path: /tmp/envoy.admin
+
+---

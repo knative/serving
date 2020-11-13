@@ -44,7 +44,7 @@ func TestServicePreUpgrade(t *testing.T) {
 		}),
 	)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 	url := resources.Service.Status.URL.URL()
 	assertServiceResourcesUpdated(t, clients, names, url, test.PizzaPlanetText1)
@@ -65,13 +65,13 @@ func TestServicePreUpgradeAndScaleToZero(t *testing.T) {
 		}),
 	)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 	url := resources.Service.Status.URL.URL()
 	assertServiceResourcesUpdated(t, clients, names, url, test.PizzaPlanetText1)
 
 	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
-		t.Fatalf("Could not scale to zero: %v", err)
+		t.Fatal("Could not scale to zero:", err)
 	}
 }
 
@@ -87,6 +87,23 @@ func TestBYORevisionPreUpgrade(t *testing.T) {
 
 	if _, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithBYORevisionName(byoRevName)); err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
+	}
+}
+
+func TestInitialScalePreUpgrade(t *testing.T) {
+	t.Parallel()
+	clients := e2e.Setup(t)
+	names := test.ResourceNames{
+		Service: initialScaleServiceName,
+		Image:   test.PizzaPlanet1,
+	}
+
+	resources, err := v1test.CreateServiceReady(t, clients, &names)
+	if err != nil {
+		t.Fatal("Failed to create Service:", err)
+	}
+	if err = e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
+		t.Fatal("Could not scale to zero:", err)
 	}
 }

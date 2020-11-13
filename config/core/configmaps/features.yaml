@@ -1,0 +1,123 @@
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-features
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+  annotations:
+    knative.dev/example-checksum: "2d4c16b9"
+data:
+  _example: |
+    ################################
+    #                              #
+    #    EXAMPLE CONFIGURATION     #
+    #                              #
+    ################################
+
+    # This block is not actually functional configuration,
+    # but serves to illustrate the available configuration
+    # options and document them in a way that is accessible
+    # to users that `kubectl edit` this config map.
+    #
+    # These sample configuration options may be copied out of
+    # this example block and unindented to be in the data block
+    # to actually change the configuration.
+
+    # Indicates whether multi container support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#multi-containers
+    multi-container: "enabled"
+
+    # Indicates whether Kubernetes affinity support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-node-affinity
+    kubernetes.podspec-affinity: "disabled"
+
+    # Indicates whether Kubernetes nodeSelector support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-node-selector
+    kubernetes.podspec-nodeselector: "disabled"
+
+    # Indicates whether Kubernetes tolerations support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-toleration
+    kubernetes.podspec-tolerations: "disabled"
+
+    # Indicates whether Kubernetes FieldRef support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-fieldref
+    kubernetes.podspec-fieldref: "disabled"
+
+    # Indicates whether Kubernetes RuntimeClassName support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-runtime-class
+    kubernetes.podspec-runtimeclassname: "disabled"
+
+    # This feature allows end-users to set a subset of fields on the Pod's SecurityContext
+    # in addition to expanding the allowable fields within a Container's SecurityContext.
+    #
+    # When set to "enabled" or "allowed" it allows the following
+    # PodSecurityContext properties:
+    # - FSGroup
+    # - RunAsGroup
+    # - RunAsNonRoot
+    # - SupplementalGroups
+    # - RunAsUser
+    #
+    # When set to "enabled" or "allowed" it allows the following
+    # Container SecurityContext properties:
+    # - RunAsNonRoot
+    # - RunAsGroup
+    # - RunAsUser (already allowed without this flag)
+    #
+    # This feature flag should be used with caution as the PodSecurityContext
+    # properties may have a side-effect on non-user sidecar containers that come
+    # from Knative or your service mesh
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-security-context
+    kubernetes.podspec-securitycontext: "disabled"
+
+    # This feature validates PodSpecs from the validating webhook
+    # against the K8s API Server.
+    #
+    # When "enabled", the server will always run the extra validation.
+    # When "allowed", the server will not run the dry-run validation by default.
+    #   However, clients may enable the behavior on an individual Service by
+    #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-dry-run
+    kubernetes.podspec-dryrun: "allowed"
+
+    # Indicates whether new responsive garbage collection is enabled. This
+    # feature labels revisions in real-time as they become referenced and
+    # dereferenced by Routes. This allows us to reap revisions shortly after
+    # they are no longer active.
+    # See: https://knative.dev/docs/serving/feature-flags/#responsive-revision-garbage-collector
+    responsive-revision-gc: "enabled"
+
+    # Controls whether tag header based routing feature are enabled or not.
+    # 1. Enabled: enabling tag header based routing
+    # 2. Disabled: disabling tag header based routing
+    # See: https://knative.dev/docs/serving/feature-flags/#tag-header-based-routing
+    tag-header-based-routing: "disabled"

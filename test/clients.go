@@ -19,50 +19,43 @@ limitations under the License.
 package test
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"context"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	// Allow E2E to run against a cluster using OpenID.
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+
+	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
+	networkingv1alpha1 "knative.dev/networking/pkg/client/clientset/versioned/typed/networking/v1alpha1"
 	"knative.dev/pkg/test"
 	"knative.dev/serving/pkg/client/clientset/versioned"
-	networkingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/networking/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
-	istioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned"
+
+	// Every E2E test requires this, so add it here.
+	_ "knative.dev/pkg/metrics/testing"
 )
 
 // Clients holds instances of interfaces for making requests to Knative Serving.
 type Clients struct {
 	KubeClient         *test.KubeClient
 	ServingAlphaClient *ServingAlphaClients
-	ServingBetaClient  *ServingBetaClients
 	ServingClient      *ServingClients
 	NetworkingClient   *NetworkingClients
 	Dynamic            dynamic.Interface
-	IstioClient        istioclientset.Interface
 }
 
-// ServingAlphaClients holds instances of interfaces for making requests to knative serving clients
+// ServingAlphaClients holds instances of interfaces for making requests to knative serving clients.
 type ServingAlphaClients struct {
-	Routes    servingv1alpha1.RouteInterface
-	Configs   servingv1alpha1.ConfigurationInterface
-	Revisions servingv1alpha1.RevisionInterface
-	Services  servingv1alpha1.ServiceInterface
+	DomainMappings servingv1alpha1.DomainMappingInterface
 }
 
-// ServingBetaClients holds instances of interfaces for making requests to knative serving clients
-type ServingBetaClients struct {
-	Routes    servingv1beta1.RouteInterface
-	Configs   servingv1beta1.ConfigurationInterface
-	Revisions servingv1beta1.RevisionInterface
-	Services  servingv1beta1.ServiceInterface
-}
-
-// ServingClients holds instances of interfaces for making requests to knative serving clients
+// ServingClients holds instances of interfaces for making requests to knative serving clients.
 type ServingClients struct {
 	Routes    servingv1.RouteInterface
 	Configs   servingv1.ConfigurationInterface
@@ -81,7 +74,7 @@ type NetworkingClients struct {
 // NewClients instantiates and returns several clientsets required for making request to the
 // Knative Serving cluster specified by the combination of clusterName and configPath. Clients can
 // make requests within namespace.
-func NewClients(configPath string, clusterName string, namespace string) (*Clients, error) {
+func NewClients(configPath, clusterName, namespace string) (*Clients, error) {
 	cfg, err := BuildClientConfig(configPath, clusterName)
 	if err != nil {
 		return nil, err
@@ -102,29 +95,19 @@ func NewClientsFromConfig(cfg *rest.Config, namespace string) (*Clients, error) 
 	if err != nil {
 		return nil, err
 	}
-	clients.KubeClient = &test.KubeClient{Kube: kubeClient}
-
-	clients.ServingAlphaClient, err = newServingAlphaClients(cfg, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	clients.ServingBetaClient, err = newServingBetaClients(cfg, namespace)
-	if err != nil {
-		return nil, err
-	}
+	clients.KubeClient = &test.KubeClient{Interface: kubeClient}
 
 	clients.ServingClient, err = newServingClients(cfg, namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	clients.Dynamic, err = dynamic.NewForConfig(cfg)
+	clients.ServingAlphaClient, err = newServingAlphaClients(cfg, namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	clients.IstioClient, err = istioclientset.NewForConfig(cfg)
+	clients.Dynamic, err = dynamic.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -138,9 +121,9 @@ func NewClientsFromConfig(cfg *rest.Config, namespace string) (*Clients, error) 
 }
 
 // newNetworkingClients instantiates and returns the networking clientset required to make requests
-// to Networking resources on the Knative service cluster
+// to Networking resources on the Knative service cluster.
 func newNetworkingClients(cfg *rest.Config, namespace string) (*NetworkingClients, error) {
-	cs, err := versioned.NewForConfig(cfg)
+	cs, err := netclientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -160,26 +143,7 @@ func newServingAlphaClients(cfg *rest.Config, namespace string) (*ServingAlphaCl
 	}
 
 	return &ServingAlphaClients{
-		Configs:   cs.ServingV1alpha1().Configurations(namespace),
-		Revisions: cs.ServingV1alpha1().Revisions(namespace),
-		Routes:    cs.ServingV1alpha1().Routes(namespace),
-		Services:  cs.ServingV1alpha1().Services(namespace),
-	}, nil
-}
-
-// newServingBetaClients instantiates and returns the serving clientset required to make requests to the
-// knative serving cluster.
-func newServingBetaClients(cfg *rest.Config, namespace string) (*ServingBetaClients, error) {
-	cs, err := versioned.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ServingBetaClients{
-		Configs:   cs.ServingV1beta1().Configurations(namespace),
-		Revisions: cs.ServingV1beta1().Revisions(namespace),
-		Routes:    cs.ServingV1beta1().Routes(namespace),
-		Services:  cs.ServingV1beta1().Services(namespace),
+		DomainMappings: cs.ServingV1alpha1().DomainMappings(namespace),
 	}, nil
 }
 
@@ -199,25 +163,28 @@ func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, err
 	}, nil
 }
 
-// Delete will delete all Routes and Configs with the names routes and configs, if clients
-// has been successfully initialized.
-func (clients *ServingAlphaClients) Delete(routes []string, configs []string, services []string) error {
+// Delete will delete all Routes and Configs with the named routes and configs, if clients
+// have been successfully initialized.
+func (clients *ServingClients) Delete(routes, configs, services []string) []error {
 	deletions := []struct {
 		client interface {
-			Delete(name string, options *v1.DeleteOptions) error
+			Delete(ctx context.Context, name string, options metav1.DeleteOptions) error
 		}
 		items []string
 	}{
+		// Delete services first, since we otherwise might delete a route/configuration
+		// out from under the ksvc
+		{clients.Services, services},
 		{clients.Routes, routes},
 		{clients.Configs, configs},
-		{clients.Services, services},
 	}
 
-	propPolicy := v1.DeletePropagationForeground
-	dopt := &v1.DeleteOptions{
+	propPolicy := metav1.DeletePropagationForeground
+	dopt := metav1.DeleteOptions{
 		PropagationPolicy: &propPolicy,
 	}
 
+	var errs []error
 	for _, deletion := range deletions {
 		if deletion.client == nil {
 			continue
@@ -228,17 +195,17 @@ func (clients *ServingAlphaClients) Delete(routes []string, configs []string, se
 				continue
 			}
 
-			if err := deletion.client.Delete(item, dopt); err != nil {
-				return err
+			if err := deletion.client.Delete(context.Background(), item, dopt); err != nil {
+				errs = append(errs, err)
 			}
 		}
 	}
 
-	return nil
+	return errs
 }
 
 // BuildClientConfig builds client config for testing.
-func BuildClientConfig(kubeConfigPath string, clusterName string) (*rest.Config, error) {
+func BuildClientConfig(kubeConfigPath, clusterName string) (*rest.Config, error) {
 	overrides := clientcmd.ConfigOverrides{}
 	// Override the cluster name if provided.
 	if clusterName != "" {

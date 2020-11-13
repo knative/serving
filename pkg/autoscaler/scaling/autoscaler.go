@@ -28,48 +28,66 @@ import (
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/autoscaler/aggregation/max"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/resources"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// Autoscaler stores current state of an instance of an autoscaler.
-type Autoscaler struct {
+// MinActivators is the minimum number of activators a revision will get.
+const MinActivators = 2
+
+type podCounter interface {
+	ReadyCount() (int, error)
+}
+
+// autoscaler stores current state of an instance of an autoscaler.
+type autoscaler struct {
 	namespace    string
 	revision     string
 	metricClient metrics.MetricClient
-	lister       corev1listers.EndpointsLister
+	podCounter   podCounter
 	reporterCtx  context.Context
 
-	// State in panic mode. Carries over multiple Scale calls. Guarded
-	// by the stateMux.
-	stateMux     sync.Mutex
+	// State in panic mode.
 	panicTime    time.Time
 	maxPanicPods int32
 
-	// specMux guards the current DeciderSpec and the PodCounter.
+	// delayWindow is used to defer scale-down decisions until a time
+	// window has passed at the reduced concurrency.
+	delayWindow *max.TimeWindow
+
+	// specMux guards the current DeciderSpec.
 	specMux     sync.RWMutex
 	deciderSpec *DeciderSpec
-	podCounter  resources.EndpointsCounter
 }
 
-// New creates a new instance of autoscaler
+// New creates a new instance of default autoscaler implementation.
 func New(
-	namespace string,
-	revision string,
+	reporterCtx context.Context,
+	namespace, revision string,
 	metricClient metrics.MetricClient,
-	lister corev1listers.EndpointsLister,
+	podCounter resources.EndpointsCounter,
+	deciderSpec *DeciderSpec) UniScaler {
+
+	var delayer *max.TimeWindow
+	if deciderSpec.ScaleDownDelay > 0 {
+		delayer = max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)
+	}
+
+	return newAutoscaler(reporterCtx, namespace, revision, metricClient,
+		podCounter, deciderSpec, delayer)
+}
+
+func newAutoscaler(
+	reporterCtx context.Context,
+	namespace, revision string,
+	metricClient metrics.MetricClient,
+	podCounter podCounter,
 	deciderSpec *DeciderSpec,
-	reporterCtx context.Context) (*Autoscaler, error) {
-	if lister == nil {
-		return nil, errors.New("'lister' must not be nil")
-	}
-	if reporterCtx == nil {
-		return nil, errors.New("stats reporter must not be nil")
-	}
+	delayWindow *max.TimeWindow) *autoscaler {
 
 	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
 	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
@@ -77,8 +95,6 @@ func New(
 	// momentarily scale down, and that is not a desired behaviour.
 	// Thus, we're keeping at least the current scale until we
 	// accumulate enough data to make conscious decisions.
-	podCounter := resources.NewScopedEndpointsCounter(lister,
-		namespace, deciderSpec.ServiceName)
 	curC, err := podCounter.ReadyCount()
 	if err != nil {
 		// This always happens on new revision creation, since decider
@@ -94,31 +110,27 @@ func New(
 		pkgmetrics.Record(reporterCtx, panicM.M(0))
 	}
 
-	return &Autoscaler{
+	return &autoscaler{
 		namespace:    namespace,
 		revision:     revision,
 		metricClient: metricClient,
-		lister:       lister,
 		reporterCtx:  reporterCtx,
 
 		deciderSpec: deciderSpec,
 		podCounter:  podCounter,
 
+		delayWindow: delayWindow,
+
 		panicTime:    pt,
 		maxPanicPods: int32(curC),
-	}, nil
+	}
 }
 
 // Update reconfigures the UniScaler according to the DeciderSpec.
-func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
+func (a *autoscaler) Update(deciderSpec *DeciderSpec) error {
 	a.specMux.Lock()
 	defer a.specMux.Unlock()
 
-	// Update the podCounter if service name changes.
-	if deciderSpec.ServiceName != a.deciderSpec.ServiceName {
-		a.podCounter = resources.NewScopedEndpointsCounter(a.lister, a.namespace,
-			deciderSpec.ServiceName)
-	}
 	a.deciderSpec = deciderSpec
 	return nil
 }
@@ -126,15 +138,17 @@ func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
 // Scale calculates the desired scale based on current statistics given the current time.
 // desiredPodCount is the calculated pod count the autoscaler would like to set.
 // validScale signifies whether the desiredPodCount should be applied or not.
-func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount int32, excessBC int32, validScale bool) {
+// Scale is not thread safe in regards to panic state, but it's thread safe in
+// regards to acquiring the decider spec.
+func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	logger := logging.FromContext(ctx)
 
-	spec, podCounter := a.currentSpecAndPC()
-	originalReadyPodsCount, err := podCounter.ReadyCount()
+	spec := a.currentSpec()
+	originalReadyPodsCount, err := a.podCounter.ReadyCount()
 	// If the error is NotFound, then presume 0.
 	if err != nil && !apierrors.IsNotFound(err) {
-		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-		return 0, 0, false
+		logger.Errorw("Failed to get ready pod count via K8S Lister", zap.Error(err))
+		return invalidSR
 	}
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
@@ -159,12 +173,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	logger = logger.With(zap.String("metric", metricName))
 
 	if err != nil {
-		if err == metrics.ErrNoData {
+		if errors.Is(err, metrics.ErrNoData) {
 			logger.Debug("No data to scale on yet")
 		} else {
 			logger.Errorw("Failed to obtain metrics", zap.Error(err))
 		}
-		return 0, 0, false
+		return invalidSR
 	}
 
 	// Make sure we don't get stuck with the same number of pods, if the scale up rate
@@ -174,7 +188,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	// 3 pods. See the unit test for this scenario in action.
 	maxScaleUp := math.Ceil(spec.MaxScaleUpRate * readyPodsCount)
 	// Same logic, opposite math applies here.
-	maxScaleDown := math.Floor(readyPodsCount / spec.MaxScaleDownRate)
+	maxScaleDown := 0.
+	if spec.Reachable {
+		maxScaleDown = math.Floor(readyPodsCount / spec.MaxScaleDownRate)
+	}
 
 	dspc := math.Ceil(observedStableValue / spec.TargetValue)
 	dppc := math.Ceil(observedPanicValue / spec.TargetValue)
@@ -190,15 +207,16 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	logger.With(zap.String("mode", "panic")).Debugf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
 		observedPanicValue, spec.TargetValue)
 
-	isOverPanicThreshold := observedPanicValue/readyPodsCount >= spec.PanicThreshold
+	isOverPanicThreshold := dppc/readyPodsCount >= spec.PanicThreshold
 
-	a.stateMux.Lock()
-	defer a.stateMux.Unlock()
 	if a.panicTime.IsZero() && isOverPanicThreshold {
 		// Begin panicking when we cross the threshold in the panic window.
 		logger.Info("PANICKING.")
 		a.panicTime = now
 		pkgmetrics.Record(a.reporterCtx, panicM.M(1))
+	} else if isOverPanicThreshold {
+		// If we're still over panic threshold right now — extend the panic window.
+		a.panicTime = now
 	} else if !a.panicTime.IsZero() && !isOverPanicThreshold && a.panicTime.Add(spec.StableWindow).Before(now) {
 		// Stop panicking after the surge has made its way into the stable metric.
 		logger.Info("Un-panicking.")
@@ -207,46 +225,89 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		pkgmetrics.Record(a.reporterCtx, panicM.M(0))
 	}
 
+	desiredPodCount := desiredStablePodCount
 	if !a.panicTime.IsZero() {
+		// In some edgecases stable window metric might be larger
+		// than panic one. And we should provision for stable as for panic,
+		// so pick the larger of the two.
+		if desiredPodCount < desiredPanicPodCount {
+			desiredPodCount = desiredPanicPodCount
+		}
 		logger.Debug("Operating in panic mode.")
 		// We do not scale down while in panic mode. Only increases will be applied.
-		if desiredPanicPodCount > a.maxPanicPods {
-			logger.Infof("Increasing pods from %d to %d.", originalReadyPodsCount, desiredPanicPodCount)
-			a.panicTime = now
-			a.maxPanicPods = desiredPanicPodCount
-		} else if desiredPanicPodCount < a.maxPanicPods {
-			logger.Infof("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPanicPodCount)
+		if desiredPodCount > a.maxPanicPods {
+			logger.Infof("Increasing pods from %d to %d.", originalReadyPodsCount, desiredPodCount)
+			a.maxPanicPods = desiredPodCount
+		} else if desiredPodCount < a.maxPanicPods {
+			logger.Infof("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPodCount)
 		}
 		desiredPodCount = a.maxPanicPods
 	} else {
 		logger.Debug("Operating in stable mode.")
-		desiredPodCount = desiredStablePodCount
 	}
 
-	// Compute the excess burst capacity based on stable value for now, since we don't want to
-	// be making knee-jerk decisions about Activator in the request path. Negative EBC means
-	// that the deployment does not have enough capacity to serve the desired burst off hand.
-	// EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
+	// Delay scale down decisions, if a ScaleDownDelay was specified.
+	// We only do this if there's a non-nil delayWindow because although a
+	// one-element delay window is _almost_ the same as no delay at all, it is
+	// not the same in the case where two Scale()s happen in the same time
+	// interval (because the largest will be picked rather than the most recent
+	// in that case).
+	if a.delayWindow != nil {
+		a.delayWindow.Record(now, desiredPodCount)
+		delayedPodCount := a.delayWindow.Current()
+		if delayedPodCount != desiredPodCount {
+			logger.Debugf("Delaying scale to %d, staying at %d", desiredPodCount, delayedPodCount)
+			desiredPodCount = delayedPodCount
+		}
+	}
+
+	// Here we compute two numbers: excess burst capacity and number of activators
+	// for subsetting.
+	// - the excess burst capacity is based on panic value, since we don't want to
+	//   be making knee-jerk decisions about Activator in the request path.
+	//   Negative EBC means that the deployment does not have enough capacity to serve
+	//   the desired burst off hand.
+	//   EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
+	// - number of activators is based on total capacity and TargetBurstCapacity values.
+	//   if tbc==0, then activators are in play only for scale from 0 and the revision gets
+	//   the default number.
+	//   if tbc > 0, then revision gets number of activators to support total capacity and
+	//   tbc additional units.
+	//   if tbc==-1, then revision gets the number of activators needed to support total capacity.
+	//   With default target utilization of 0.7, we're overprovisioning number of needed activators
+	//   by rate of 1/0.7=1.42.
 	excessBCF := -1.
+	numAct := int32(MinActivators)
 	switch {
 	case a.deciderSpec.TargetBurstCapacity == 0:
 		excessBCF = 0
-	case a.deciderSpec.TargetBurstCapacity >= 0:
-		excessBCF = math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue - observedStableValue -
-			a.deciderSpec.TargetBurstCapacity)
+		// numAct stays at MinActivators, only needed to scale from 0.
+	case a.deciderSpec.TargetBurstCapacity > 0:
+		totCap := float64(originalReadyPodsCount) * a.deciderSpec.TotalValue
+		excessBCF = math.Floor(totCap - a.deciderSpec.TargetBurstCapacity - observedPanicValue)
+		numAct = int32(math.Max(MinActivators,
+			math.Ceil((totCap+a.deciderSpec.TargetBurstCapacity)/a.deciderSpec.ActivatorCapacity)))
+	case a.deciderSpec.TargetBurstCapacity == -1:
+		numAct = int32(math.Max(MinActivators,
+			math.Ceil(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue/a.deciderSpec.ActivatorCapacity)))
 	}
-	logger.Debugf("PodCount=%v Total1PodCapacity=%v ObsStableValue=%v ObsPanicValue=%v TargetBC=%v ExcessBC=%v",
+	logger.Debugf("PodCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f NumActivators=%d",
 		originalReadyPodsCount, a.deciderSpec.TotalValue, observedStableValue,
-		observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF)
+		observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF, numAct)
 
 	pkgmetrics.RecordBatch(a.reporterCtx, excessBurstCapacityM.M(excessBCF),
 		desiredPodCountM.M(int64(desiredPodCount)))
 
-	return desiredPodCount, int32(excessBCF), true
+	return ScaleResult{
+		DesiredPodCount:     desiredPodCount,
+		ExcessBurstCapacity: int32(excessBCF),
+		NumActivators:       numAct,
+		ScaleValid:          true,
+	}
 }
 
-func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {
+func (a *autoscaler) currentSpec() *DeciderSpec {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
-	return a.deciderSpec, a.podCounter
+	return a.deciderSpec
 }

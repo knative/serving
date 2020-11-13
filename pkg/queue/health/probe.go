@@ -17,15 +17,16 @@ limitations under the License.
 package health
 
 import (
-	"crypto/tls"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 )
 
 // HTTPProbeConfigOptions holds the HTTP probe config options
@@ -54,17 +55,21 @@ func TCPProbe(config TCPProbeConfigOptions) error {
 	return nil
 }
 
+var transport = func() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.DisableKeepAlives = true
+	//nolint:gosec // We explicitly don't need to check certs here.
+	t.TLSClientConfig.InsecureSkipVerify = true
+	return t
+}()
+
 // HTTPProbe checks that HTTP connection can be established to the address.
 func HTTPProbe(config HTTPProbeConfigOptions) error {
 	httpClient := &http.Client{
-		Transport: &http.Transport{
-			DisableKeepAlives: true,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
-		Timeout: config.Timeout,
+		Transport: transport,
+		Timeout:   config.Timeout,
 	}
+
 	url := url.URL{
 		Scheme: string(config.Scheme),
 		Host:   net.JoinHostPort(config.Host, config.Port.String()),
@@ -85,7 +90,13 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+
+	defer func() {
+		// Ensure body is both read _and_ closed so it can be reused for keep-alive.
+		// No point handling errors, connection just won't be reused.
+		io.Copy(ioutil.Discard, res.Body)
+		res.Body.Close()
+	}()
 
 	if !IsHTTPProbeReady(res) {
 		return fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
@@ -96,10 +107,12 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 
 // IsHTTPProbeReady checks whether we received a successful Response
 func IsHTTPProbeReady(res *http.Response) bool {
-	if res == nil {
-		return false
-	}
-
 	// response status code between 200-399 indicates success
 	return res.StatusCode >= 200 && res.StatusCode < 400
+}
+
+// IsHTTPProbeShuttingDown checks whether the Response indicates the prober is shutting down.
+func IsHTTPProbeShuttingDown(res *http.Response) bool {
+	// status 410 (Gone) indicates the probe returned a shutdown scenario.
+	return res.StatusCode == http.StatusGone
 }

@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,15 +22,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
-	"strconv"
 	"strings"
 	"text/template"
 
+	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
+	cm "knative.dev/pkg/configmap"
+	"knative.dev/pkg/ptr"
 )
 
 const (
@@ -48,54 +50,81 @@ const (
 	DefaultUserContainerName = "user-container"
 
 	// DefaultContainerConcurrency is the default container concurrency. It will be set if ContainerConcurrency is not specified.
-	DefaultContainerConcurrency int64 = 0
+	DefaultContainerConcurrency = 0
 
 	// DefaultMaxRevisionContainerConcurrency is the maximum configurable
 	// container concurrency.
-	DefaultMaxRevisionContainerConcurrency int64 = 1000
+	DefaultMaxRevisionContainerConcurrency = 1000
+
+	// DefaultAllowContainerConcurrencyZero is whether, by default,
+	// containerConcurrency can be set to zero (i.e. unbounded) by users.
+	DefaultAllowContainerConcurrencyZero = true
 )
 
-func defaultConfig() *Defaults {
+var (
+	templateCache *lru.Cache
+
+	// Verify the default template is valid.
+	_ = template.Must(template.New("user-container-template").Parse(DefaultUserContainerName))
+)
+
+func init() {
+	// The only failure is due to negative size.
+	// Store 10 latest templates.
+	templateCache, _ = lru.New(10)
+}
+
+func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
-		RevisionTimeoutSeconds:       DefaultRevisionTimeoutSeconds,
-		MaxRevisionTimeoutSeconds:    DefaultMaxRevisionTimeoutSeconds,
-		UserContainerNameTemplate:    DefaultUserContainerName,
-		ContainerConcurrency:         DefaultContainerConcurrency,
-		ContainerConcurrencyMaxLimit: DefaultMaxRevisionContainerConcurrency,
+		RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
+		MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+		UserContainerNameTemplate:     DefaultUserContainerName,
+		ContainerConcurrency:          DefaultContainerConcurrency,
+		ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
+		AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
+		EnableServiceLinks:            ptr.Bool(false),
 	}
 }
 
-// NewDefaultsConfigFromMap creates a Defaults from the supplied Map
-func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
-	nc := defaultConfig()
-
-	// Process bool field.
-	nc.EnableMultiContainer = strings.EqualFold(data["enable-multi-container"], "true")
-
-	// Process int64 fields
-	for _, i64 := range []struct {
-		key   string
-		field *int64
-	}{{
-		key:   "revision-timeout-seconds",
-		field: &nc.RevisionTimeoutSeconds,
-	}, {
-		key:   "max-revision-timeout-seconds",
-		field: &nc.MaxRevisionTimeoutSeconds,
-	}, {
-		key:   "container-concurrency",
-		field: &nc.ContainerConcurrency,
-	}, {
-		key:   "container-concurrency-max-limit",
-		field: &nc.ContainerConcurrencyMaxLimit,
-	}} {
-		if raw, ok := data[i64.key]; ok {
-			if val, err := strconv.ParseInt(raw, 10, 64); err != nil {
-				return nil, err
-			} else {
-				*i64.field = val
+func asTriState(key string, target **bool, defValue *bool) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			switch {
+			case strings.EqualFold(raw, "true"):
+				*target = ptr.Bool(true)
+			case strings.EqualFold(raw, "false"):
+				*target = ptr.Bool(false)
+			default:
+				*target = defValue
 			}
 		}
+		return nil
+	}
+}
+
+// NewDefaultsConfigFromMap creates a Defaults from the supplied Map.
+func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
+	nc := defaultDefaultsConfig()
+
+	if err := cm.Parse(data,
+		cm.AsString("container-name-template", &nc.UserContainerNameTemplate),
+
+		cm.AsBool("allow-container-concurrency-zero", &nc.AllowContainerConcurrencyZero),
+		asTriState("enable-service-links", &nc.EnableServiceLinks, nil),
+
+		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
+		cm.AsInt64("max-revision-timeout-seconds", &nc.MaxRevisionTimeoutSeconds),
+		cm.AsInt64("container-concurrency", &nc.ContainerConcurrency),
+		cm.AsInt64("container-concurrency-max-limit", &nc.ContainerConcurrencyMaxLimit),
+
+		cm.AsQuantity("revision-cpu-request", &nc.RevisionCPURequest),
+		cm.AsQuantity("revision-memory-request", &nc.RevisionMemoryRequest),
+		cm.AsQuantity("revision-ephemeral-storage-request", &nc.RevisionEphemeralStorageRequest),
+		cm.AsQuantity("revision-cpu-limit", &nc.RevisionCPULimit),
+		cm.AsQuantity("revision-memory-limit", &nc.RevisionMemoryLimit),
+		cm.AsQuantity("revision-ephemeral-storage-limit", &nc.RevisionEphemeralStorageLimit),
+	); err != nil {
+		return nil, err
 	}
 
 	if nc.RevisionTimeoutSeconds > nc.MaxRevisionTimeoutSeconds {
@@ -110,63 +139,28 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 			nc.ContainerConcurrency, 0, nc.ContainerConcurrencyMaxLimit, "container-concurrency")
 	}
 
-	// Process resource quantity fields
-	for _, rsrc := range []struct {
-		key   string
-		field **resource.Quantity
-	}{{
-		key:   "revision-cpu-request",
-		field: &nc.RevisionCPURequest,
-	}, {
-		key:   "revision-memory-request",
-		field: &nc.RevisionMemoryRequest,
-	}, {
-		key:   "revision-cpu-limit",
-		field: &nc.RevisionCPULimit,
-	}, {
-		key:   "revision-memory-limit",
-		field: &nc.RevisionMemoryLimit,
-	}} {
-		if raw, ok := data[rsrc.key]; !ok {
-			*rsrc.field = nil
-		} else if val, err := resource.ParseQuantity(raw); err != nil {
-			return nil, err
-		} else {
-			*rsrc.field = &val
-		}
+	tmpl, err := template.New("user-container").Parse(nc.UserContainerNameTemplate)
+	if err != nil {
+		return nil, err
 	}
-
-	if raw, ok := data["container-name-template"]; !ok {
-		nc.UserContainerNameTemplate = DefaultUserContainerName
-	} else {
-		tmpl, err := template.New("user-container").Parse(raw)
-		if err != nil {
-			return nil, err
-		}
-		// Check that the template properly applies to ObjectMeta.
-		if err := tmpl.Execute(ioutil.Discard, metav1.ObjectMeta{}); err != nil {
-			return nil, fmt.Errorf("error executing template: %w", err)
-		}
-		// We store the raw template because we run deepcopy-gen on the
-		// config and that doesn't copy nicely.
-		nc.UserContainerNameTemplate = raw
+	// Check that the template properly applies to ObjectMeta.
+	if err := tmpl.Execute(ioutil.Discard, metav1.ObjectMeta{}); err != nil {
+		return nil, fmt.Errorf("error executing template: %w", err)
 	}
+	templateCache.Add(nc.UserContainerNameTemplate, tmpl)
 
 	return nc, nil
 }
 
-// NewDefaultsConfigFromConfigMap creates a Defaults from the supplied configMap
+// NewDefaultsConfigFromConfigMap creates a Defaults from the supplied configMap.
 func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error) {
 	return NewDefaultsConfigFromMap(config.Data)
 }
 
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
-	// Feature flag to enable multi container support
-	EnableMultiContainer bool
-
 	RevisionTimeoutSeconds int64
-	// This is the timeout set for cluster ingress.
+	// This is the timeout set for ingress.
 	// RevisionTimeoutSeconds must be less than this value.
 	MaxRevisionTimeoutSeconds int64
 
@@ -178,16 +172,32 @@ type Defaults struct {
 	// or target value in the system.
 	ContainerConcurrencyMaxLimit int64
 
-	RevisionCPURequest    *resource.Quantity
-	RevisionCPULimit      *resource.Quantity
-	RevisionMemoryRequest *resource.Quantity
-	RevisionMemoryLimit   *resource.Quantity
+	// AllowContainerConcurrencyZero determines whether users are permitted to specify
+	// a containerConcurrency of 0 (i.e. unbounded).
+	AllowContainerConcurrencyZero bool
+
+	// Permits defaulting of `enableServiceLinks` pod spec field.
+	// See: https://github.com/knative/serving/issues/8498 for details.
+	EnableServiceLinks *bool
+
+	RevisionCPURequest              *resource.Quantity
+	RevisionCPULimit                *resource.Quantity
+	RevisionMemoryRequest           *resource.Quantity
+	RevisionMemoryLimit             *resource.Quantity
+	RevisionEphemeralStorageRequest *resource.Quantity
+	RevisionEphemeralStorageLimit   *resource.Quantity
 }
 
 // UserContainerName returns the name of the user container based on the context.
 func (d *Defaults) UserContainerName(ctx context.Context) string {
-	tmpl := template.Must(
-		template.New("user-container").Parse(d.UserContainerNameTemplate))
+	var tmpl *template.Template
+	if tt, ok := templateCache.Get(d.UserContainerNameTemplate); ok {
+		tmpl = tt.(*template.Template)
+	} else {
+		// Fallback for unit tests.
+		tmpl = template.Must(
+			template.New("user-container").Parse(d.UserContainerNameTemplate))
+	}
 	buf := &bytes.Buffer{}
 	if err := tmpl.Execute(buf, apis.ParentMeta(ctx)); err != nil {
 		return ""

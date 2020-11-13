@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v27/github"
 
 	"knative.dev/pkg/test/ghutil"
 	"knative.dev/pkg/test/helpers"
@@ -84,61 +84,10 @@ func Setup(org, repo, githubTokenPath string, dryrun bool) (*IssueHandler, error
 	}
 	ghc, err := ghutil.NewGithubClient(githubTokenPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot authenticate to github: %v", err)
+		return nil, fmt.Errorf("cannot authenticate to github: %w", err)
 	}
 	conf := config{org: org, repo: repo, dryrun: dryrun}
 	return &IssueHandler{client: ghc, config: conf}, nil
-}
-
-// CreateIssueForTest will try to add an issue with the given testName and description.
-// If there is already an issue related to the test, it will try to update that issue.
-func (gih *IssueHandler) CreateIssueForTest(testName, desc string) error {
-	title := fmt.Sprintf(issueTitleTemplate, testName)
-	issue, err := gih.findIssue(title)
-	if err != nil {
-		return fmt.Errorf("failed to find issues for test %q: %v, skipped creating new issue", testName, err)
-	}
-	// If the issue hasn't been created, create one
-	if issue == nil {
-		commentBody := fmt.Sprintf(issueBodyTemplate, gih.config.repo, testName)
-		issue, err := gih.createNewIssue(title, commentBody)
-		if err != nil {
-			return fmt.Errorf("failed to create a new issue for test %q: %v", testName, err)
-		}
-		commentBody = fmt.Sprintf(issueSummaryCommentTemplate, desc)
-		if err := gih.addComment(*issue.Number, commentBody); err != nil {
-			return fmt.Errorf("failed to add comment for new issue %d: %v", *issue.Number, err)
-		}
-		return nil
-	}
-
-	// If the issue has been created, edit it
-	issueNumber := *issue.Number
-
-	// If the issue has been closed, reopen it
-	if *issue.State == string(ghutil.IssueCloseState) {
-		if err := gih.reopenIssue(issueNumber); err != nil {
-			return fmt.Errorf("failed to reopen issue %d: %v", issueNumber, err)
-		}
-		if err := gih.addComment(issueNumber, reopenIssueComment); err != nil {
-			return fmt.Errorf("failed to add comment for reopened issue %d: %v", issueNumber, err)
-		}
-	}
-
-	// Edit the old comment
-	comments, err := gih.getComments(issueNumber)
-	if err != nil {
-		return fmt.Errorf("failed to get comments from issue %d: %v", issueNumber, err)
-	}
-	if len(comments) < 1 {
-		return fmt.Errorf("existing issue %d is malformed, cannot update", issueNumber)
-	}
-	commentBody := fmt.Sprintf(issueSummaryCommentTemplate, desc)
-	if err := gih.editComment(issueNumber, *comments[0].ID, commentBody); err != nil {
-		return fmt.Errorf("failed to edit the comment for issue %d: %v", issueNumber, err)
-	}
-
-	return nil
 }
 
 // createNewIssue will create a new issue, and add perfLabel for it.
@@ -167,6 +116,56 @@ func (gih *IssueHandler) createNewIssue(title, body string) (*github.Issue, erro
 	return newIssue, nil
 }
 
+// CreateIssueForTest will try to add an issue with the given testName and description.
+// If there is already an issue related to the test, it will try to update that issue.
+func (gih *IssueHandler) CreateIssueForTest(testName, desc string) error {
+	title := fmt.Sprintf(issueTitleTemplate, testName)
+	issue, err := gih.findIssue(title)
+	if err != nil {
+		return fmt.Errorf("failed to find issues for test %q: %w, skipped creating new issue", testName, err)
+	}
+	// If the issue hasn't been created, create one
+	if issue == nil {
+		commentBody := fmt.Sprintf(issueBodyTemplate, gih.config.repo, testName)
+		issue, err := gih.createNewIssue(title, commentBody)
+		if err != nil {
+			return fmt.Errorf("failed to create a new issue for test %q: %w", testName, err)
+		}
+		commentBody = fmt.Sprintf(issueSummaryCommentTemplate, desc)
+		if err := gih.addComment(*issue.Number, commentBody); err != nil {
+			return fmt.Errorf("failed to add comment for new issue %d: %w", *issue.Number, err)
+		}
+		return nil
+	}
+
+	// If the issue has been created, edit it
+	issueNumber := *issue.Number
+
+	// If the issue has been closed, reopen it
+	if *issue.State == string(ghutil.IssueCloseState) {
+		if err := gih.reopenIssue(issueNumber); err != nil {
+			return fmt.Errorf("failed to reopen issue %d: %w", issueNumber, err)
+		}
+		if err := gih.addComment(issueNumber, reopenIssueComment); err != nil {
+			return fmt.Errorf("failed to add comment for reopened issue %d: %w", issueNumber, err)
+		}
+	}
+
+	// Edit the old comment
+	comments, err := gih.getComments(issueNumber)
+	if err != nil {
+		return fmt.Errorf("failed to get comments from issue %d: %w", issueNumber, err)
+	}
+	if len(comments) < 1 {
+		return fmt.Errorf("existing issue %d is malformed, cannot update", issueNumber)
+	}
+	commentBody := fmt.Sprintf(issueSummaryCommentTemplate, desc)
+	if err := gih.editComment(issueNumber, *comments[0].ID, commentBody); err != nil {
+		return fmt.Errorf("failed to edit the comment for issue %d: %w", issueNumber, err)
+	}
+	return nil
+}
+
 // CloseIssueForTest will try to close the issue for the given testName.
 // If there is no issue related to the test or the issue is already closed, the function will do nothing.
 func (gih *IssueHandler) CloseIssueForTest(testName string) error {
@@ -183,10 +182,10 @@ func (gih *IssueHandler) CloseIssueForTest(testName string) error {
 
 	issueNumber := *issue.Number
 	if err := gih.addComment(issueNumber, closeIssueComment); err != nil {
-		return fmt.Errorf("failed to add comment for the issue %d to close: %v", issueNumber, err)
+		return fmt.Errorf("failed to add comment for the issue %d to close: %w", issueNumber, err)
 	}
 	if err := gih.closeIssue(issueNumber); err != nil {
-		return fmt.Errorf("failed to close the issue %d: %v", issueNumber, err)
+		return fmt.Errorf("failed to close the issue %d: %w", issueNumber, err)
 	}
 	return nil
 }
@@ -279,7 +278,7 @@ func (gih *IssueHandler) addComment(issueNumber int, commentBody string) error {
 // editComment will edit the comment to the new body.
 func (gih *IssueHandler) editComment(issueNumber int, commentID int64, commentBody string) error {
 	return helpers.Run(
-		fmt.Sprintf("editting comment to %q for issue %d in %q", commentBody, issueNumber, gih.config.repo),
+		fmt.Sprintf("editing comment to %q for issue %d in %q", commentBody, issueNumber, gih.config.repo),
 		func() error {
 			return gih.client.EditComment(gih.config.org, gih.config.repo, commentID, commentBody)
 		},

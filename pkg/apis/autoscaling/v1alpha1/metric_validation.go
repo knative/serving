@@ -26,8 +26,8 @@ import (
 
 // Validate validates the entire Metric.
 func (m *Metric) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(m.GetObjectMeta()).ViaField("metadata")
-	return errs.Also(m.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	return serving.ValidateObjectMetadata(ctx, m.GetObjectMeta()).ViaField("metadata").
+		Also(m.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 }
 
 // Validate validates Metric's Spec.

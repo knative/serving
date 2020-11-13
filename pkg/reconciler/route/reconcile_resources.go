@@ -1,11 +1,11 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package route
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -29,10 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
@@ -43,7 +44,7 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired 
 	recorder := controller.GetEventRecorder(ctx)
 	ingress, err := c.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
-		ingress, err = c.client.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(desired)
+		ingress, err = c.netclient.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
 		if err != nil {
 			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
 			return nil, fmt.Errorf("failed to create Ingress: %w", err)
@@ -53,31 +54,33 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired 
 		return ingress, nil
 	} else if err != nil {
 		return nil, err
-	} else {
+	} else if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
+		!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) ||
+		!equality.Semantic.DeepEqual(ingress.Labels, desired.Labels) {
 		// It is notable that one reason for differences here may be defaulting.
 		// When that is the case, the Update will end up being a nop because the
 		// webhook will bring them into alignment and no new reconciliation will occur.
-		// Also, compare annotation in case ingress.Class is updated.
-		if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
-			!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) {
-			// Don't modify the informers copy
-			origin := ingress.DeepCopy()
-			origin.Spec = desired.Spec
-			origin.Annotations = desired.Annotations
-			updated, err := c.client.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(origin)
-			if err != nil {
-				return nil, fmt.Errorf("failed to update Ingress: %w", err)
-			}
-			return updated, nil
+		// Also, compare annotation and label in case ingress.Class or parent route's labels
+		// is updated.
+
+		// Don't modify the informers copy
+		origin := ingress.DeepCopy()
+		origin.Spec = desired.Spec
+		origin.Annotations = desired.Annotations
+		origin.Labels = desired.Labels
+		updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(ctx, origin, metav1.UpdateOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to update Ingress: %w", err)
 		}
+		return updated, nil
 	}
 
 	return ingress, err
 }
 
-func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) error {
+func (c *Reconciler) deleteServices(ctx context.Context, namespace string, serviceNames sets.String) error {
 	for _, serviceName := range serviceNames.List() {
-		if err := c.kubeclient.CoreV1().Services(namespace).Delete(serviceName, nil); err != nil {
+		if err := c.kubeclient.CoreV1().Services(namespace).Delete(ctx, serviceName, metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("failed to delete Service: %w", err)
 		}
 	}
@@ -91,37 +94,34 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 
 	existingServices, err := c.getServices(route)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch existing services: %w", err)
 	}
 	existingServiceNames := resources.GetNames(existingServices)
 
 	ns := route.Namespace
-
-	names := sets.NewString()
+	names := make(sets.String, len(targets))
 	for name := range targets {
 		names.Insert(name)
 	}
 
-	createdServiceNames := sets.String{}
-
-	var services []*corev1.Service
+	services := make([]*corev1.Service, 0, names.Len())
+	createdServiceNames := make(sets.String, names.Len())
 	for _, name := range names.List() {
 		desiredService, err := resources.MakeK8sPlaceholderService(ctx, route, name)
 		if err != nil {
-			logger.Warnw("Failed to construct placeholder k8s service", zap.Error(err))
-			return nil, err
+			return nil, fmt.Errorf("failed to construct placeholder k8s service: %w", err)
 		}
 
 		service, err := c.serviceLister.Services(ns).Get(desiredService.Name)
 		if apierrs.IsNotFound(err) {
 			// Doesn't exist, create it.
-			service, err = c.kubeclient.CoreV1().Services(ns).Create(desiredService)
+			service, err = c.kubeclient.CoreV1().Services(ns).Create(ctx, desiredService, metav1.CreateOptions{})
 			if err != nil {
 				recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed",
 					"Failed to create placeholder service %q: %v", desiredService.Name, err)
 				return nil, fmt.Errorf("failed to create placeholder service: %w", err)
 			}
-			logger.Infof("Created service %s", desiredService.Name)
+			logger.Info("Created service ", desiredService.Name)
 			recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created placeholder service %q", desiredService.Name)
 		} else if err != nil {
 			return nil, err
@@ -136,7 +136,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	}
 
 	// Delete any current services that was no longer desired.
-	if err := c.deleteServices(ns, existingServiceNames.Difference(createdServiceNames)); err != nil {
+	if err := c.deleteServices(ctx, ns, existingServiceNames.Difference(createdServiceNames)); err != nil {
 		return nil, err
 	}
 
@@ -149,24 +149,23 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 
-	eg, _ := errgroup.WithContext(ctx)
+	eg, egCtx := errgroup.WithContext(ctx)
 	for _, service := range services {
 		service := service
 		eg.Go(func() error {
-			desiredService, err := resources.MakeK8sService(ctx, route, service.Name, ingress, resources.IsClusterLocalService(service))
+			desiredService, err := resources.MakeK8sService(egCtx, route, service.Name, ingress, resources.IsClusterLocalService(service), service.Spec.ClusterIP)
 			if err != nil {
 				// Loadbalancer not ready, no need to update.
-				logger.Warnf("Failed to update k8s service: %v", err)
+				logger.Warnw("Failed to update k8s service", zap.Error(err))
 				return nil
 			}
 
 			// Make sure that the service has the proper specification.
 			if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {
-				// Don't modify the informers copy
+				// Don't modify the informers copy.
 				existing := service.DeepCopy()
 				existing.Spec = desiredService.Spec
-				_, err = c.kubeclient.CoreV1().Services(ns).Update(existing)
-				if err != nil {
+				if _, err := c.kubeclient.CoreV1().Services(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 			}
@@ -185,7 +184,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 	logger := logging.FromContext(ctx)
 	lpDebounce := gcConfig.StaleRevisionLastpinnedDebounce
 
-	eg, _ := errgroup.WithContext(ctx)
+	eg, egCtx := errgroup.WithContext(ctx)
 	for _, target := range t.Targets {
 		for _, rt := range target {
 			tt := rt.TrafficTarget
@@ -203,14 +202,13 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 				lastPin, err := newRev.GetLastPinned()
 				if err != nil {
 					// Missing is an expected error case for a not yet pinned revision.
-					if err.(v1.LastPinnedParseError).Type != v1.AnnotationParseErrorTypeMissing {
+					var errLastPinned v1.LastPinnedParseError
+					if errors.As(err, &errLastPinned) && errLastPinned.Type != v1.AnnotationParseErrorTypeMissing {
 						return err
 					}
-				} else {
+				} else if lastPin.Add(lpDebounce).After(c.clock.Now()) {
 					// Enforce a delay before performing an update on lastPinned to avoid excess churn.
-					if lastPin.Add(lpDebounce).After(c.clock.Now()) {
-						return nil
-					}
+					return nil
 				}
 
 				newRev.SetLastPinned(c.clock.Now())
@@ -220,7 +218,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 					return err
 				}
 
-				if _, err := c.client.ServingV1().Revisions(route.Namespace).Patch(rev.Name, types.MergePatchType, patch); err != nil {
+				if _, err := c.client.ServingV1().Revisions(route.Namespace).Patch(egCtx, rev.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 					return fmt.Errorf("failed to set revision annotation: %w", err)
 				}
 				return nil
@@ -228,42 +226,4 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 		}
 	}
 	return eg.Wait()
-}
-
-func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1.Route, desiredCert *netv1alpha1.Certificate) (*netv1alpha1.Certificate, error) {
-	recorder := controller.GetEventRecorder(ctx)
-
-	cert, err := c.certificateLister.Certificates(desiredCert.Namespace).Get(desiredCert.Name)
-	if apierrs.IsNotFound(err) {
-		cert, err = c.client.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)
-		if err != nil {
-			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Certificate: %v", err)
-			return nil, fmt.Errorf("failed to create Certificate: %w", err)
-		}
-		recorder.Eventf(r, corev1.EventTypeNormal, "Created",
-			"Created Certificate %s/%s", cert.Namespace, cert.Name)
-		return cert, nil
-	} else if err != nil {
-		return nil, err
-	} else if !metav1.IsControlledBy(cert, r) {
-		// Surface an error in the route's status, and return an error.
-		r.Status.MarkCertificateNotOwned(cert.Name)
-		return nil, fmt.Errorf("route: %s does not own certificate: %s", r.Name, cert.Name)
-	} else {
-		if !equality.Semantic.DeepEqual(cert.Spec, desiredCert.Spec) {
-			// Don't modify the informers copy
-			existing := cert.DeepCopy()
-			existing.Spec = desiredCert.Spec
-			cert, err := c.client.NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
-			if err != nil {
-				recorder.Eventf(r, corev1.EventTypeWarning, "UpdateFailed",
-					"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)
-				return nil, err
-			}
-			recorder.Eventf(existing, corev1.EventTypeNormal, "Updated",
-				"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
-			return cert, nil
-		}
-	}
-	return cert, nil
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,9 +37,11 @@ func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
 	defaultsConfig := ConfigMapFromTestFile(t, DefaultsConfigName)
+	featuresConfig := ConfigMapFromTestFile(t, FeaturesConfigName)
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
 
 	store.OnConfigChanged(defaultsConfig)
+	store.OnConfigChanged(featuresConfig)
 	store.OnConfigChanged(autoscalerConfig)
 
 	config := FromContextOrDefaults(store.ToContext(context.Background()))
@@ -47,34 +49,49 @@ func TestStoreLoadWithContext(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		expected, _ := NewDefaultsConfigFromConfigMap(defaultsConfig)
 		if diff := cmp.Diff(expected, config.Defaults, ignoreStuff...); diff != "" {
-			t.Errorf("Unexpected defaults config (-want, +got): %v", diff)
+			t.Errorf("Unexpected defaults config (-want, +got):\n%v", diff)
+		}
+	})
+
+	t.Run("features", func(t *testing.T) {
+		expected, _ := NewFeaturesConfigFromConfigMap(featuresConfig)
+		if diff := cmp.Diff(expected, config.Features, ignoreStuff...); diff != "" {
+			t.Errorf("Unexpected features config (-want, +got):\n%v", diff)
 		}
 	})
 
 	t.Run("autoscaler", func(t *testing.T) {
 		expected, _ := autoscalerconfig.NewConfigFromConfigMap(autoscalerConfig)
 		if diff := cmp.Diff(expected, config.Autoscaler, ignoreStuff...); diff != "" {
-			t.Errorf("Unexpected autoscaler config (-want, +got): %v", diff)
+			t.Errorf("Unexpected autoscaler config (-want, +got):\n%v", diff)
 		}
 	})
 }
 
 func TestStoreLoadWithContextOrDefaults(t *testing.T) {
 	defaultsConfig := ConfigMapFromTestFile(t, DefaultsConfigName)
+	featuresConfig := ConfigMapFromTestFile(t, FeaturesConfigName)
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
 	config := FromContextOrDefaults(context.Background())
 
 	t.Run("defaults", func(t *testing.T) {
 		expected, _ := NewDefaultsConfigFromConfigMap(defaultsConfig)
 		if diff := cmp.Diff(expected, config.Defaults, ignoreStuff...); diff != "" {
-			t.Errorf("Unexpected defaults config (-want, +got): %v", diff)
+			t.Errorf("Unexpected defaults config (-want, +got):\n%v", diff)
+		}
+	})
+
+	t.Run("features", func(t *testing.T) {
+		expected, _ := NewFeaturesConfigFromConfigMap(featuresConfig)
+		if diff := cmp.Diff(expected, config.Features, ignoreStuff...); diff != "" {
+			t.Errorf("Unexpected features config (-want, +got):\n%v", diff)
 		}
 	})
 
 	t.Run("autoscaler", func(t *testing.T) {
 		expected, _ := autoscalerconfig.NewConfigFromConfigMap(autoscalerConfig)
 		if diff := cmp.Diff(expected, config.Autoscaler, ignoreStuff...); diff != "" {
-			t.Errorf("Unexpected autoscaler config (-want, +got): %v", diff)
+			t.Errorf("Unexpected autoscaler config (-want, +got):\n%v", diff)
 		}
 	})
 }
@@ -83,17 +100,23 @@ func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DefaultsConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, FeaturesConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
 
 	config := store.Load()
 
 	config.Defaults.RevisionTimeoutSeconds = 1234
+	config.Features.MultiContainer = Disabled
 	config.Autoscaler.TargetBurstCapacity = 99
 
 	newConfig := store.Load()
 
 	if newConfig.Defaults.RevisionTimeoutSeconds == 1234 {
 		t.Error("Defaults config is not immutable")
+	}
+
+	if newConfig.Features.MultiContainer == Disabled {
+		t.Error("Features config is not immutable")
 	}
 
 	if newConfig.Autoscaler.TargetBurstCapacity == 99 {

@@ -31,43 +31,62 @@
 
 source $(dirname $0)/e2e-common.sh
 
+latest_version() {
+  local semver=$(git describe --match "v[0-9]*" --abbrev=0)
+  local major_minor=$(echo "$semver" | cut -d. -f1-2)
+
+  # Get the latest patch release for the major minor
+  git tag -l "${major_minor}*" | sort -r --version-sort | head -n1
+}
+
 # Latest serving release. If user does not supply this as a flag, the latest
 # tagged release on the current branch will be used.
-LATEST_SERVING_RELEASE_VERSION=$(git describe --match "v[0-9]*" --abbrev=0)
+LATEST_SERVING_RELEASE_VERSION=$(latest_version)
+
+# Latest net-istio release.
+LATEST_NET_ISTIO_RELEASE_VERSION=$(
+  curl -L --silent "https://api.github.com/repos/knative/net-istio/releases" | grep '"tag_name"' \
+    | cut -f2 -d: | sed "s/[^v0-9.]//g" | sort | tail -n1)
 
 function install_latest_release() {
   header "Installing Knative latest public release"
-  local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
-  local yaml="serving.yaml"
 
-  local RELEASE_YAML="$(mktemp)"
-  wget "${url}/${yaml}" -O "${RELEASE_YAML}" \
-      || fail_test "Unable to download latest Knative release."
-
-  install_knative_serving "${RELEASE_YAML}" \
+  install_knative_serving latest-release \
       || fail_test "Knative latest release installation failed"
-  wait_until_pods_running knative-serving
+  test_logging_config_setup
+  wait_until_pods_running ${SYSTEM_NAMESPACE}
+  wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
 }
 
 function install_head() {
   header "Installing Knative head release"
   install_knative_serving || fail_test "Knative head release installation failed"
-  wait_until_pods_running knative-serving
+  test_logging_config_setup
+  wait_until_pods_running ${SYSTEM_NAMESPACE}
+  wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
 }
 
 function knative_setup() {
-  # Build Knative to generate Istio manifests from HEAD for install_latest_release
-  # We do it here because it's a one-time setup
-  build_knative_from_source
   install_latest_release
 }
 
 # Script entry point.
 
-initialize $@ --skip-istio-addon
+# Skip installing istio as an add-on.
+# Temporarily increasing the cluster size for serving tests to rule out
+# resource/eviction as causes of flakiness.
+initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4
+
+# We haven't configured these deployments for high-availability,
+# so disable the chaos duck.
+# TODO(mattmoor): Reconsider this after 0.17 cuts.
+disable_chaosduck
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=10m
+# Probe tests starts before postupgrade tests and ends after postdowngrade tests.
+# The timeout should be at least 10m + 10m + installation time
+PROBE_TIMEOUT=20m
 
 header "Running preupgrade tests"
 
@@ -76,10 +95,12 @@ go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade \
 
 header "Starting prober test"
 
-# Remove this in case we failed to clean it up in an earlier test.
+# Remove the following files in case we failed to clean them up in an earlier test.
 rm -f /tmp/prober-signal
+rm -f /tmp/autoscaling-signal
+rm -f /tmp/autoscaling-tbc-signal
 
-go_test_e2e -tags=probe -timeout=${TIMEOUT} ./test/upgrade \
+go_test_e2e -tags=probe -timeout=${PROBE_TIMEOUT} ./test/upgrade \
   --resolvabledomain=$(use_resolvable_domain) &
 PROBER_PID=$!
 echo "Prober PID is ${PROBER_PID}"
@@ -96,11 +117,13 @@ header "Running postdowngrade tests"
 go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade \
   --resolvabledomain=$(use_resolvable_domain) || fail_test
 
-# The prober is blocking on /tmp/prober-signal to know when it should exit.
+# The probe tests are blocking on the following files to know when it should exit.
 #
 # This is kind of gross. First attempt was to just send a signal to the go test,
 # but "go test" intercepts the signal and always exits with a non-zero code.
 echo "done" > /tmp/prober-signal
+echo "done" > /tmp/autoscaling-signal
+echo "done" > /tmp/autoscaling-tbc-signal
 
 header "Waiting for prober test"
 wait ${PROBER_PID} || fail_test "Prober failed"

@@ -22,18 +22,15 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/test/logstream"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
-	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/e2e"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	"knative.dev/serving/test/conformance/api/shared"
+	v1test "knative.dev/serving/test/v1"
 )
 
 func TestProbeRuntime(t *testing.T) {
-	cancel := logstream.Start(t)
-	defer cancel()
-
+	t.Parallel()
 	clients := test.Setup(t)
 
 	var testCases = []struct {
@@ -73,13 +70,11 @@ func TestProbeRuntime(t *testing.T) {
 				Image:   test.Runtime,
 			}
 
-			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-			defer test.TearDown(clients, names)
+			test.EnsureTearDown(t, clients, &names)
 
 			t.Log("Creating a new Service")
-			resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-				test.ServingFlags.Https,
-				v1a1opts.WithReadinessProbe(
+			resources, err := v1test.CreateServiceReady(t, clients, &names,
+				v1opts.WithReadinessProbe(
 					&corev1.Probe{
 						Handler: tc.handler,
 					}))
@@ -87,8 +82,8 @@ func TestProbeRuntime(t *testing.T) {
 				t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 			}
 			// Check if scaling down works even if access from liveness probe exists.
-			if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
-				t.Fatalf("Could not scale to zero: %v", err)
+			if err := shared.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
+				t.Fatal("Could not scale to zero:", err)
 			}
 		})
 	}

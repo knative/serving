@@ -30,7 +30,7 @@ func (rt *Image) Validate(ctx context.Context) *apis.FieldError {
 	return rt.Spec.Validate(ctx).ViaField("spec")
 }
 
-func (rs *ImageSpec) Validate(ctx context.Context) *apis.FieldError {
+func (rs *ImageSpec) Validate(ctx context.Context) (errs *apis.FieldError) {
 	if rs.Image == "" {
 		return apis.ErrMissingField("image")
 	}
@@ -39,8 +39,8 @@ func (rs *ImageSpec) Validate(ctx context.Context) *apis.FieldError {
 	// https://github.com/google/go-containerregistry/blob/2f3e3e1/pkg/name/ref.go#L41
 	for index, ips := range rs.ImagePullSecrets {
 		if equality.Semantic.DeepEqual(ips, corev1.LocalObjectReference{}) {
-			return apis.ErrMissingField(fmt.Sprintf("imagePullSecrets[%d].name", index))
+			errs = errs.Also(apis.ErrMissingField(fmt.Sprintf("imagePullSecrets[%d].name", index)))
 		}
 	}
-	return nil
+	return errs
 }

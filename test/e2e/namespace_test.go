@@ -15,17 +15,18 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,12 +34,15 @@ import (
 
 func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedText string) error {
 	_, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+	)
 	if err != nil {
 		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %w", names.Route, names.URL.String(), expectedText, err)
 	}
@@ -48,8 +52,6 @@ func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames
 
 func TestMultipleNamespace(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	defaultClients := Setup(t) // This one uses the default namespace `test.ServingNamespace`
 	altClients := SetupAlternativeNamespace(t)
@@ -60,10 +62,8 @@ func TestMultipleNamespace(t *testing.T) {
 		Service: serviceName,
 		Image:   test.PizzaPlanet1,
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(defaultClients, defaultResources) })
-	defer test.TearDown(defaultClients, defaultResources)
-	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, defaultClients, &defaultResources,
-		test.ServingFlags.Https); err != nil {
+	test.EnsureTearDown(t, defaultClients, &defaultResources)
+	if _, err := v1test.CreateServiceReady(t, defaultClients, &defaultResources); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", defaultResources.Service, test.ServingNamespace, err)
 	}
 
@@ -71,10 +71,8 @@ func TestMultipleNamespace(t *testing.T) {
 		Service: serviceName,
 		Image:   test.PizzaPlanet2,
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(altClients, altResources) })
-	defer test.TearDown(altClients, altResources)
-	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, altClients, &altResources,
-		test.ServingFlags.Https); err != nil {
+	test.EnsureTearDown(t, altClients, &altResources)
+	if _, err := v1test.CreateServiceReady(t, altClients, &altResources); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, test.AlternativeServingNamespace, err)
 	}
 
@@ -90,8 +88,6 @@ func TestMultipleNamespace(t *testing.T) {
 // This test is to ensure we do not leak deletion of services in other namespaces when deleting a route.
 func TestConflictingRouteService(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	names := test.ResourceNames{
 		Service:       test.AppendRandomString("conflicting-route-service"),
@@ -115,19 +111,15 @@ func TestConflictingRouteService(t *testing.T) {
 	}
 
 	altClients := SetupAlternativeNamespace(t)
-	altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Create(svc)
-	cleanup := func() {
-		altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(svc.Name, &metav1.DeleteOptions{})
-	}
-	test.CleanupOnInterrupt(cleanup)
-	defer cleanup()
+	altClients.KubeClient.CoreV1().Services(test.AlternativeServingNamespace).Create(context.Background(), svc, metav1.CreateOptions{})
+	test.EnsureCleanup(t, func() {
+		altClients.KubeClient.CoreV1().Services(test.AlternativeServingNamespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{})
+	})
 
 	clients := Setup(t)
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
-	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https); err != nil {
+	test.EnsureTearDown(t, clients, &names)
+	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
 		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingNamespace, err)
 	}
 }

@@ -57,7 +57,7 @@ tooling developers_, by extension) running code in the environment.
     that tooling which wraps developer code complies with this runtime contract.
 - **Operators** (also known as **platform providers**) provision the compute
   resources and manage the software configuration of Knative and the underlying
-  abstractions (for example, Linux, Kubernetes, Istio, etc).
+  abstractions (for example, Linux, Kubernetes, etc).
 
 ## Runtime and Lifecycle
 
@@ -180,14 +180,14 @@ Inbound network connectivity is assumed to use HTTP/1.1 compatible transport.
 
 The container MUST accept HTTP/1.1 requests from the environment. The
 environment SHOULD
-[offer an HTTP/2.0 upgrade option](https://http2.github.io/http2-spec/#discover-http)
+[offer an HTTP/2.0 upgrade option](https://httpwg.org/specs/rfc7540.html#discover-http)
 (`Upgrade: h2c` on either the initial request or an `OPTIONS` request) on the
 same port as HTTP/1.1. The developer MAY specify this port at deployment; if the
 developer does not specify a port, the platform provider MUST provide a default.
 Only one inbound `containerPort`
 [SHALL](https://github.com/knative/serving/blob/master/test/conformance/runtime/container_test.go)
 be specified in the
-[`core.v1.Container`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
+[`core.v1.Container`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#containerport-v1-core)
 specification. The `hostPort` parameter
 [SHOULD NOT](https://github.com/knative/serving/blob/master/test/conformance/runtime/container_test.go)
 be set by the developer or the platform provider, as it can interfere with
@@ -198,16 +198,16 @@ The platform provider SHOULD configure the platform to perform HTTPS termination
 and protocol transformation e.g. between QUIC or HTTP/2 and HTTP/1.1. Developers
 ought not need to implement multiple transports between the platform and their
 code. Unless overridden by setting the
-[`name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
+[`name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#containerport-v1-core)
 field on the inbound port, the platform will perform automatic detection as
 described above. If the
-[`core.v1.Container.ports[0].name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
+[`core.v1.Container.ports[0].name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#containerport-v1-core)
 is set to one of the following values, HTTP negotiation will be disabled and the
 following protocol will be used:
 
 - `http1`: HTTP/1.1 transport and will not attempt to upgrade to h2c..
 - `h2c`: HTTP/2 transport, as described in
-  [section 3.4 of the HTTP2 spec (Starting HTTP/2 with Prior Knowledge)](https://http2.github.io/http2-spec/#known-http)
+  [section 3.4 of the HTTP2 spec (Starting HTTP/2 with Prior Knowledge)](https://httpwg.org/specs/rfc7540.html#known-http)
 
 Developers ought to use automatic content negotiation where available, and MUST
 NOT set the `name` field to arbitrary values, as additional transports might be
@@ -260,7 +260,7 @@ environment specific information.
 #### Meta Requests
 
 The
-[`core.v1.Container`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#container-v1-core)
+[`core.v1.Container`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#container-v1-core)
 object allows specifying both a
 [`readinessProbe`](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#define-readiness-probes)
 and a
@@ -292,13 +292,13 @@ the probe succeeds.
 ##### Deployment probe
 
 On the initial deployment, platform providers
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/errorcondition_test.go)
+[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/readiness_probe_test.go)
 start an instance of the container to validate that the container is valid and
 will become ready. This startup
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/errorcondition_test.go)
+[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/readiness_probe_test.go)
 occur even if the container would not serve any user requests. If a container
 cannot satisfy the `readinessProbe` during deployment startup, the Revision
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/errorcondition_test.go)
+[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/readiness_probe_test.go)
 be marked as failed.
 
 Initial readiness probes allow the platform to avoid attempting to later
@@ -423,13 +423,13 @@ developers might not have access to the container's filesystems (or the
 containers might be rapidly recycled), so log aggregation SHOULD be provided.
 
 In addition to the filesystems recommended in the OCI, the following filesystems
-[MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/filesystem_perm_test.go)
+[MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/filesystem_test.go)
 be provided:
 
-| Mount      | Description                                                                                                                                                      |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/tmp`     | MUST be Read-write.<p>SHOULD be backed by tmpfs if disk load is a concern.                                                                                       |
-| `/var/log` | MUST be a directory with write permissions for logs storage. Implementations MAY permit the creation of additional subdirectories and log rotation and renaming. |
+| Mount      | Description                                                                                                                                                     |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/tmp`     | MUST be Read-write.<p>SHOULD be backed by tmpfs if disk load is a concern.                                                                                      |
+| `/var/log` | MAY be a directory with write permissions for logs storage. Implementations MAY permit the creation of additional subdirectories and log rotation and renaming. |
 
 To enable DNS resolution, the following files might be overwritten at runtime:
 
@@ -504,7 +504,7 @@ changes.
 From the OCI spec:
 
 > `rootfsPropagation` (string, OPTIONAL) sets the rootfs's mount propagation.
-> Its value is either slave, private, shared or unbindable. The
+> Its value is either slave, private, shared or unbindable. The <!-- wokeignore:rule=slave -->
 > [Shared Subtrees](https://www.kernel.org/doc/Documentation/filesystems/sharedsubtree.txt)
 > article in the kernel documentation has more information about mount
 > propagation.

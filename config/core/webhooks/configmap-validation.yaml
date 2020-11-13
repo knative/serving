@@ -12,15 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.serving.knative.dev
   labels:
     serving.knative.dev/release: devel
 webhooks:
-- admissionReviewVersions:
-  - v1beta1
+- admissionReviewVersions: ["v1", "v1beta1"]
   clientConfig:
     service:
       name: webhook
@@ -32,3 +31,4 @@ webhooks:
     matchExpressions:
     - key: serving.knative.dev/release
       operator: Exists
+  timeoutSeconds: 10

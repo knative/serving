@@ -2,9 +2,10 @@
 
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/knative/serving)
 [![Go Report Card](https://goreportcard.com/badge/knative/serving)](https://goreportcard.com/report/knative/serving)
-[![Releases](https://img.shields.io/github/release-pre/knative/serving.svg)](https://github.com/knative/serving/releases)
+[![Releases](https://img.shields.io/github/release-pre/knative/serving.svg?sort=semver)](https://github.com/knative/serving/releases)
 [![LICENSE](https://img.shields.io/github/license/knative/serving.svg)](https://github.com/knative/serving/blob/master/LICENSE)
 [![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://knative.slack.com)
+[![codecov](https://codecov.io/gh/knative/serving/branch/master/graph/badge.svg)](https://codecov.io/gh/knative/serving)
 
 Knative Serving builds on Kubernetes to support deploying and serving of
 applications and functions as serverless containers. Serving is easy to get
@@ -14,7 +15,7 @@ The Knative Serving project provides middleware primitives that enable:
 
 - Rapid deployment of serverless containers
 - Automatic scaling up and down to zero
-- Routing and network programming for Istio components
+- Routing and network programming
 - Point-in-time snapshots of deployed code and configurations
 
 For documentation on using Knative Serving, see the

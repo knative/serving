@@ -22,18 +22,14 @@ import (
 	"testing"
 
 	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 func TestRollbackBYOName(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -45,30 +41,25 @@ func TestRollbackBYOName(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
-	withTrafficSpecOld := WithInlineRouteSpec(v1alpha1.RouteSpec{
-		Traffic: []v1alpha1.TrafficTarget{{
-			TrafficTarget: v1.TrafficTarget{
-				RevisionName: byoNameOld,
-				Percent:      ptr.Int64(100),
-			},
+	withTrafficSpecOld := rtesting.WithRouteSpec(v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{{
+			RevisionName: byoNameOld,
+			Percent:      ptr.Int64(100),
 		}},
 	})
-	withTrafficSpecNew := WithInlineRouteSpec(v1alpha1.RouteSpec{
-		Traffic: []v1alpha1.TrafficTarget{{
-			TrafficTarget: v1.TrafficTarget{
-				RevisionName: byoNameNew,
-				Percent:      ptr.Int64(100),
-			},
+	withTrafficSpecNew := rtesting.WithRouteSpec(v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{{
+			RevisionName: byoNameNew,
+			Percent:      ptr.Int64(100),
 		}},
 	})
 
 	t.Logf("Creating a new Service with byo config name %q.", byoNameOld)
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
-		withTrafficSpecOld, func(svc *v1alpha1.Service) {
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
+		withTrafficSpecOld,
+		func(svc *v1.Service) {
 			svc.Spec.ConfigurationSpec.Template.ObjectMeta.Name = byoNameOld
 		})
 	if err != nil {
@@ -82,17 +73,17 @@ func TestRollbackBYOName(t *testing.T) {
 
 	// Update service to use a new byo name
 	t.Logf("Updating the Service to a new revision with a new byo name %q.", byoNameNew)
-	newSvc := resources.Service.DeepCopy()
-	newSvc.Spec.ConfigurationSpec.Template.ObjectMeta.Name = byoNameNew
-	withTrafficSpecNew(newSvc)
-	svc, err := v1a1test.PatchService(t, clients, resources.Service, newSvc)
+	svc, err := v1test.PatchService(t, clients, resources.Service, func(s *v1.Service) {
+		s.Spec.Template.Name = byoNameNew
+		withTrafficSpecNew(s)
+	})
 	resources.Service = svc
 	if err != nil {
 		t.Fatalf("Patch update for Service (new byo name %q) failed: %v", byoNameNew, err)
 	}
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
-	newRevision, err := v1a1test.WaitForServiceLatestRevision(clients, names)
+	newRevision, err := v1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with the Revision for new byo name %s: %v", names.Service, byoNameNew, err)
 	}
@@ -101,9 +92,9 @@ func TestRollbackBYOName(t *testing.T) {
 	}
 
 	// Now, rollback to the first RevisionSpec
-	rollbackSvc := resources.Service.DeepCopy()
-	rollbackSvc.Spec = originalServiceSpec
-	svc, err = v1a1test.PatchService(t, clients, resources.Service, rollbackSvc)
+	svc, err = v1test.PatchService(t, clients, resources.Service, func(s *v1.Service) {
+		s.Spec = originalServiceSpec
+	})
 	resources.Service = svc
 	if err != nil {
 		t.Fatalf("Patch update for Service (rollback to byo name %q) failed: %v", byoNameOld, err)
@@ -112,7 +103,7 @@ func TestRollbackBYOName(t *testing.T) {
 	t.Logf("We are rolling back to the previous revision (byoNameOld %q).", byoNameOld)
 	// Wait for the route to become ready, and check that the traffic split between the byoNameOld
 	// and byoNameNew is 100 and 0, respectively
-	err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
 		for _, tr := range s.Status.Traffic {
 			if tr.RevisionName != byoNameOld {
 				return false, nil
@@ -129,7 +120,7 @@ func TestRollbackBYOName(t *testing.T) {
 
 	// Verify that the latest ready revision and latest created revision are both byoNameNew,
 	// which means no new revision is created in the rollback
-	err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
 		return (s.Status.LatestReadyRevisionName == byoNameOld && s.Status.LatestCreatedRevisionName == byoNameOld), nil
 	}, "ServiceNoNewRevisionCreated")
 	if err != nil {

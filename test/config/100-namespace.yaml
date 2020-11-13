@@ -25,4 +25,4 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: serving-tests-security
+  name: tls

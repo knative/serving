@@ -17,18 +17,30 @@ limitations under the License.
 package metrics
 
 import (
+	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+
+	fakepodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
+
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler/fake"
 	"knative.dev/serving/pkg/resources"
+
+	. "knative.dev/pkg/reconciler/testing"
 )
 
 var (
@@ -53,6 +65,11 @@ var (
 	}}
 )
 
+const (
+	testRevision  = "just-a-test-revision"
+	testNamespace = "putting-fun-into-namespaces"
+)
+
 // testStatsWithTime will generate n Stats, each stat having
 // pod start time spaced 10s in the past more than the previous one.
 // Each pod will return `(i+1)*2`, as it's `AverageConcurrentRequests`.
@@ -75,87 +92,19 @@ func testStatsWithTime(n int, youngestSecs float64) []Stat {
 }
 
 func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
-	client := newTestScrapeClient(testStats, []error{nil})
-	if scraper, err := serviceScraperForTest(client); err != nil {
-		t.Fatalf("serviceScraperForTest=%v, want no error", err)
-	} else if scraper.url != testURL {
-		t.Errorf("scraper.url=%v, want %v", scraper.url, testURL)
-	}
-}
-
-func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	metric := testMetric()
-	invalidMetric := testMetric()
-	invalidMetric.Labels = map[string]string{}
-	client := newTestScrapeClient(testStats, []error{nil})
-	lister := fake.KubeInformer.Core().V1().Endpoints().Lister()
-	counter := resources.NewScopedEndpointsCounter(lister, fake.TestNamespace, fake.TestService)
-
-	testCases := []struct {
-		name        string
-		metric      *av1alpha1.Metric
-		client      scrapeClient
-		counter     resources.EndpointsCounter
-		expectedErr string
-	}{{
-		name:        "Empty Decider",
-		client:      client,
-		counter:     counter,
-		expectedErr: "metric must not be nil",
-	}, {
-		name:        "Missing revision label in Decider",
-		metric:      invalidMetric,
-		client:      client,
-		counter:     counter,
-		expectedErr: "no Revision label found for Metric test-revision",
-	}, {
-		name:        "Empty scrape client",
-		metric:      metric,
-		counter:     counter,
-		expectedErr: "scrape client must not be nil",
-	}, {
-		name:        "Empty lister",
-		metric:      metric,
-		client:      client,
-		counter:     nil,
-		expectedErr: "counter must not be nil",
-	}}
-
-	for _, test := range testCases {
-		t.Run(test.name, func(t *testing.T) {
-			if _, err := newServiceScraperWithClient(test.metric, test.counter, test.client); err != nil {
-				got := err.Error()
-				want := test.expectedErr
-				if got != want {
-					t.Errorf("Got error message: %v. Want: %v", got, want)
-				}
-			} else {
-				t.Error("Expected error from CreateNewServiceScraper, got nil")
-			}
-		})
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	t.Cleanup(cancel)
+	accessor := resources.NewPodAccessor(
+		fakepodsinformer.Get(ctx).Lister(),
+		testNamespace, testRevision)
+	sc := NewStatsScraper(metric, testRevision, accessor, logtesting.TestLogger(t))
+	if svcS, want := sc.(*serviceScraper), urlFromTarget(testRevision+"-zhudex", testNamespace); svcS.url != want {
+		t.Errorf("scraper.url = %s, want: %s", svcS.url, want)
 	}
 }
 
-func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
-	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client)
-	if err != nil {
-		t.Fatalf("serviceScraperForTest=%v, want no error", err)
-	}
-
-	// Make an Endpoints with 3 pods.
-	fake.Endpoints(3, fake.TestService)
-
-	// Scrape will set a timestamp bigger than this.
-	now := time.Now()
-	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
-	if err != nil {
-		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
-	}
-
-	if got.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want bigger than %v", got.Time, now)
-	}
+func checkBaseStat(t *testing.T, got Stat) {
 	if got.PodName != scraperPodName {
 		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
 	}
@@ -166,7 +115,7 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	}
 	// ((5 + 7 + 5) / 3.0) * 3 = 17
 	if got.RequestCount != 17 {
-		t.Errorf("stat.RequestCount=%v, want %v", got.RequestCount, 15)
+		t.Errorf("stat.RequestCount=%v, want %v", got.RequestCount, 17)
 	}
 	// (2.0 + 4.0 + 2.0) / 3.0 * 3 = 8
 	if got.AverageProxiedConcurrentRequests != 8.0 {
@@ -175,8 +124,161 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	}
 	// ((4 + 6 + 4) / 3.0) * 3 = 14
 	if got.ProxiedRequestCount != 14 {
-		t.Errorf("stat.ProxiedCount=%v, want %v", got.ProxiedRequestCount, 12)
+		t.Errorf("stat.ProxiedRequestCount=%v, want %v", got.ProxiedRequestCount, 14)
 	}
+}
+
+func TestPodDirectScrapeSuccess(t *testing.T) {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("StartInformers() =", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+
+	client := newTestScrapeClient(testStats, []error{nil})
+	scraper := serviceScraperForTest(ctx, t, client, nil /* mesh not used */, true)
+
+	// No pods at all.
+	if stat, err := scraper.Scrape(defaultMetric.Spec.StableWindow); err != nil {
+		t.Error("Unexpected error from scraper.Scrape():", err)
+	} else if !cmp.Equal(stat, emptyStat) {
+		t.Errorf("Wanted empty stat got: %#v", stat)
+	}
+
+	makePods(ctx, "pods-", 3, metav1.Now())
+	if _, err := scraper.Scrape(defaultMetric.Spec.StableWindow); err != nil {
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
+	}
+
+	if !scraper.podsAddressable {
+		t.Error("PodAddressable switched to false")
+	}
+}
+
+func TestPodDirectScrapeSomeFailButSuccess(t *testing.T) {
+	// For 5 pods, we need 4 successes.
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("StartInformers() =", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+	makePods(ctx, "pods-", 5, metav1.Now())
+
+	client := newTestScrapeClient(testStats, []error{nil, nil, errors.New("okay"), nil, nil})
+	scraper := serviceScraperForTest(ctx, t, client, nil /* mesh not used */, true)
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
+	}
+
+	// Checking one of the metrics is enough here.
+	if got.AverageConcurrentRequests != 20.0 {
+		t.Errorf("stat.AverageConcurrentRequests=%v, want %v",
+			got.AverageConcurrentRequests, 20.0)
+	}
+
+	if !scraper.podsAddressable {
+		t.Error("PodAddressable switched to false")
+	}
+}
+
+func TestPodDirectScrapeNoneSucceed(t *testing.T) {
+	testStats := testStatsWithTime(4, youngPodCutOffDuration.Seconds() /*youngest*/)
+	direct := newTestScrapeClient(testStats, []error{
+		// Pods fail.
+		errors.New("okay"), errors.New("okay"), errors.New("okay"), errors.New("okay"),
+	})
+	mesh := newTestScrapeClient(testStats, []error{
+		// Service succeeds.
+		nil, nil, nil, nil,
+	})
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("StartInformers() =", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+	makePods(ctx, "pods-", 4, metav1.Now())
+
+	scraper := serviceScraperForTest(ctx, t, direct, mesh, true)
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
+	}
+
+	// Checking one of the metrics is enough here.
+	if got.AverageConcurrentRequests != 20.0 {
+		t.Errorf("stat.AverageConcurrentRequests=%v, want %v",
+			got.AverageConcurrentRequests, 20.0)
+	}
+
+	if scraper.podsAddressable {
+		t.Error("PodAddressable didn't switch to false")
+	}
+}
+
+func TestPodDirectScrapePodsExhausted(t *testing.T) {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("StartInformers() =", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+	makePods(ctx, "pods-", 4, metav1.Now())
+
+	client := newTestScrapeClient(testStats, []error{nil, nil, errors.New("okay"), nil})
+	scraper := serviceScraperForTest(ctx, t, client, nil /* mesh not used */, true)
+	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err == nil {
+		t.Fatal("Expected an error")
+	}
+
+	if !scraper.podsAddressable {
+		t.Error("PodAddressable switched to false")
+	}
+}
+
+func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("StartInformers() =", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+	makePods(ctx, "pods-", 3, metav1.Now())
+
+	// Scrape will set a timestamp bigger than this.
+	client := newTestScrapeClient(testStats, []error{nil})
+	scraper := serviceScraperForTest(ctx, t, client, client, false)
+
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
+	}
+
+	checkBaseStat(t, got)
 }
 
 var youngPodCutOffDuration = defaultMetric.Spec.StableWindow
@@ -189,24 +291,27 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 	// acceptable.
 	testStats := testStatsWithTime(numP, 0. /*youngest*/)
 
-	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client)
+	direct := newTestScrapeClient(testStats, []error{errNoPodsScraped}) // fall back to service scrape
+	mesh := newTestScrapeClient(testStats, []error{nil})
+
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("serviceScraperForTest=%v, want no error", err)
+		cancel()
+		t.Fatal("StartInformers() =", err)
 	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+	makePods(ctx, "pods-", numP, metav1.Now())
 
-	fake.Endpoints(numP, fake.TestService)
-
-	// Scrape will set a timestamp bigger than this.
-	now := time.Now()
+	scraper := serviceScraperForTest(ctx, t, direct, mesh, false)
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
-		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
-	if got.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want bigger than %v", got.Time, now)
-	}
 	if got.PodName != scraperPodName {
 		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
 	}
@@ -221,24 +326,25 @@ func TestScrapeAllPodsOldPods(t *testing.T) {
 	// All pods are at least cutoff time old, so first 5 stats will be picked.
 	testStats := testStatsWithTime(numP, youngPodCutOffDuration.Seconds() /*youngest*/)
 
-	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("serviceScraperForTest=%v, want no error", err)
+		cancel()
+		t.Fatal("StartInformers() =", err)
 	}
-
-	fake.Endpoints(numP, fake.TestService)
-
-	// Scrape will set a timestamp bigger than this.
-	now := time.Now()
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+	makePods(ctx, "pods-", numP, metav1.Now())
+	direct := newTestScrapeClient(testStats, []error{errNoPodsScraped}) // fall back to service scrape
+	mesh := newTestScrapeClient(testStats, []error{nil})
+	scraper := serviceScraperForTest(ctx, t, direct, mesh, false)
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
-		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
-	if got.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want bigger than %v", got.Time, now)
-	}
 	if got.PodName != scraperPodName {
 		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
 	}
@@ -254,24 +360,28 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 	// So pods 3-10 qualify (for 11 total sample is 7).
 	testStats := testStatsWithTime(numP, youngPodCutOffDuration.Seconds()/2 /*youngest*/)
 
-	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("serviceScraperForTest=%v, want no error", err)
+		cancel()
+		t.Fatal("StartInformers() =", err)
 	}
-
-	fake.Endpoints(numP, fake.TestService)
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+	makePods(ctx, "pods-", numP, metav1.Now())
 
 	// Scrape will set a timestamp bigger than this.
-	now := time.Now()
+	direct := newTestScrapeClient(testStats, []error{errNoPodsScraped}) // fall back to service scrape
+	mesh := newTestScrapeClient(testStats, []error{nil})
+	scraper := serviceScraperForTest(ctx, t, direct, mesh, false)
+
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
-		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
-	if got.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want bigger than %v", got.Time, now)
-	}
 	if got.PodName != scraperPodName {
 		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
 	}
@@ -282,14 +392,20 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 }
 
 func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
-	client := newTestScrapeClient(testStats[2:], []error{nil})
-	scraper, err := serviceScraperForTest(client)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("serviceScraperForTest=%v, want no error", err)
+		cancel()
+		t.Fatal("StartInformers() =", err)
 	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+	makePods(ctx, "pods-", 2, metav1.Now())
 
-	// Make an Endpoints with 2 pods.
-	fake.Endpoints(2, fake.TestService)
+	client := newTestScrapeClient(testStats[2:], []error{nil})
+	scraper := serviceScraperForTest(ctx, t, client, client, false)
 
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err == nil {
@@ -300,16 +416,22 @@ func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	errTest := errors.New("test")
 
-	// 1 success and 10 failures so one scrape fails permanently through retries.
-	client := newTestScrapeClient(testStats, []error{nil,
-		errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest})
-	scraper, err := serviceScraperForTest(client)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("serviceScraperForTest=%v, want no error", err)
+		cancel()
+		t.Fatal("StartInformers() =", err)
 	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+	makePods(ctx, "pods-", 2, metav1.Now())
 
-	// Make an Endpoints with 2 pods.
-	fake.Endpoints(2, fake.TestService)
+	// 1 success and 10 failures so one scrape fails permanently through retries.
+	client := newTestScrapeClient(testStats, []error{nil, errTest, errTest,
+		errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest})
+	scraper := serviceScraperForTest(ctx, t, client, client, false)
 
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if !errors.Is(err, errTest) {
@@ -318,71 +440,267 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 }
 
 func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	t.Cleanup(cancel)
 	client := newTestScrapeClient(testStats, nil)
-	scraper, err := serviceScraperForTest(client)
-	if err != nil {
-		t.Fatalf("serviceScraperForTest=%v, want no error", err)
-	}
-
-	// Make an Endpoints with 0 pods.
-	fake.Endpoints(0, fake.TestService)
+	scraper := serviceScraperForTest(ctx, t, client, client, false)
 
 	stat, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
-		t.Fatalf("scraper.Scrape() returned error: %v", err)
+		t.Fatal("scraper.Scrape() returned error:", err)
 	}
 	if stat != emptyStat {
 		t.Error("Received unexpected Stat.")
 	}
 }
 
-func serviceScraperForTest(sClient scrapeClient) (*ServiceScraper, error) {
+func TestMixedPodShuffle(t *testing.T) {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("StartInformers() =", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+
+	tm := metav1.NewTime(time.Now().Add(-time.Hour))
+	const (
+		numPods = 25
+		oldPods = 5
+	)
+	makePods(ctx, "old-", oldPods, tm)
+	makePods(ctx, "new-", numPods-oldPods, metav1.Now())
+	wantScrapes := int(populationMeanSampleSize(numPods))
+	t.Log("WantScrapes", wantScrapes)
+
+	client := newTestScrapeClient(testStats, []error{nil})
+	scraper := serviceScraperForTest(ctx, t, client, client, true)
+
+	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatal("scraper.Scrape() returned error:", err)
+	}
+	if got, want := len(client.urls), wantScrapes; got != want {
+		t.Fatalf("Got = %d unique URLS, want: %d", got, want)
+	}
+
+	// Ensure all the old pods are there.
+	cnt := 0
+	for s := range client.urls {
+		t.Log(s)
+		if strings.Contains(s, "old-") {
+			cnt++
+		}
+	}
+	if got, want := cnt, oldPods; got != want {
+		t.Errorf("Number of scraped old pods = %d, want: %d", got, want)
+	}
+}
+
+func TestOldPodShuffle(t *testing.T) {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("StartInformers() =", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+
+	tm := metav1.NewTime(time.Now().Add(-time.Hour))
+	const numPods = 30
+	makePods(ctx, "old-", 25, tm)
+	makePods(ctx, "young-", numPods-25, metav1.Now())
+	wantScrapes := int(populationMeanSampleSize(numPods))
+	t.Log("WantScrapes", wantScrapes)
+
+	client := newTestScrapeClient(testStats, []error{nil})
+	scraper := serviceScraperForTest(ctx, t, client, client, true)
+
+	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatal("scraper.Scrape() returned error:", err)
+	}
+	if got, want := len(client.urls), wantScrapes; got != want {
+		t.Fatalf("Got = %d unique URLS, want: %d", got, want)
+	}
+	// Store and reset.
+	firstRun := client.urls
+	client.urls = sets.NewString()
+
+	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatal("scraper.Scrape() returned error:", err)
+	}
+	if got, want := len(client.urls), wantScrapes; got != want {
+		t.Fatalf("Got = %d unique URLS, want: %d", got, want)
+	}
+
+	// Verify we shuffled.
+	// This might fail every `3268760` runs.
+	if firstRun.Equal(client.urls) {
+		t.Error("The same set of URLs was scraped both times")
+	}
+
+	// Ensure all the old pods are there.
+	cnt := 0
+	for s := range client.urls {
+		t.Log(s)
+		if strings.Contains(s, "old-") {
+			cnt++
+		}
+	}
+	if got, want := cnt, wantScrapes; got != want {
+		t.Errorf("Number of scraped old pods = %d, want: %d", got, want)
+	}
+}
+
+func TestOldPodsFallback(t *testing.T) {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("StartInformers() =", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+
+	tm := metav1.NewTime(time.Now().Add(-time.Hour))
+	const (
+		numPods = 30
+		oldPods = 11
+	)
+	makePods(ctx, "old-", oldPods, tm) // If all succeeded this would've covered.
+	makePods(ctx, "young-", numPods-oldPods, metav1.Now())
+	wantScrapes := int(populationMeanSampleSize(numPods))
+	t.Log("WantScrapes", wantScrapes)
+
+	client := newTestScrapeClient(testStats, func() []error {
+		r := make([]error, numPods)
+		// This will fail all the old pods.
+		for i := 0; i < oldPods; i++ {
+			r[i] = errors.New("bad-hair-day")
+		}
+		// But succeed all the youngs.
+		for i := oldPods; i < numPods; i++ {
+			r[i] = nil
+		}
+		return r
+	}())
+	scraper := serviceScraperForTest(ctx, t, client, client, true /*directPodScrapes*/)
+
+	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatal("scraper.Scrape() returned error:", err)
+	}
+	if got, want := len(client.urls), wantScrapes*2; got != want {
+		t.Fatalf("Got = %d unique URLS, want: %d", got, want)
+	}
+
+	// Ensure all the old pods are there.
+	ocnt, ycnt := 0, 0
+	for s := range client.urls {
+		if strings.Contains(s, "old-") {
+			ocnt++
+		} else {
+			ycnt++
+		}
+	}
+	if got, want := ocnt, wantScrapes; got != want {
+		t.Fatalf("Number of scraped old pods = %d, want: %d", got, want)
+	}
+	if got, want := ycnt, wantScrapes; got != want {
+		t.Errorf("Number of scraped young pods = %d, want: %d", got, want)
+	}
+}
+
+func serviceScraperForTest(ctx context.Context, t *testing.T, directClient, meshClient scrapeClient, podsAddressable bool) *serviceScraper {
 	metric := testMetric()
-	counter := resources.NewScopedEndpointsCounter(fake.KubeInformer.Core().V1().Endpoints().Lister(), fake.TestNamespace, fake.TestService)
-	return newServiceScraperWithClient(metric, counter, sClient)
+	accessor := resources.NewPodAccessor(
+		fakepodsinformer.Get(ctx).Lister(),
+		testNamespace, testRevision)
+	logger := logtesting.TestLogger(t)
+	ss := newServiceScraperWithClient(metric, testRevision, accessor, directClient, meshClient, logger)
+	ss.podsAddressable = podsAddressable
+	return ss
 }
 
 func testMetric() *av1alpha1.Metric {
 	return &av1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: fake.TestNamespace,
-			Name:      fake.TestRevision,
+			Namespace: testNamespace,
+			Name:      testRevision,
 			Labels: map[string]string{
-				serving.RevisionLabelKey: fake.TestRevision,
+				serving.RevisionLabelKey: testRevision,
 			},
 		},
 		Spec: av1alpha1.MetricSpec{
-			ScrapeTarget: fake.TestRevision + "-zhudex",
+			StableWindow: time.Minute,
+			ScrapeTarget: testRevision + "-zhudex",
 		},
 	}
 }
 
-func newTestScrapeClient(stats []Stat, errs []error) scrapeClient {
+func newTestScrapeClient(stats []Stat, errs []error) *fakeScrapeClient {
 	return &fakeScrapeClient{
 		stats: stats,
 		errs:  errs,
+		urls:  sets.NewString(),
 	}
 }
 
 type fakeScrapeClient struct {
-	i     int
-	stats []Stat
-	errs  []error
-	mutex sync.Mutex
+	curIdx int
+	stats  []Stat
+	errs   []error
+	urls   sets.String
+	mutex  sync.Mutex
 }
 
 // Scrape return the next item in the stats and error array of fakeScrapeClient.
-func (c *fakeScrapeClient) Scrape(url string) (Stat, error) {
+func (c *fakeScrapeClient) Scrape(_ context.Context, url string) (Stat, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	ans := c.stats[c.i%len(c.stats)]
-	err := c.errs[c.i%len(c.errs)]
-	c.i++
+	ans := c.stats[c.curIdx%len(c.stats)]
+	err := c.errs[c.curIdx%len(c.errs)]
+	c.curIdx++
+	c.urls.Insert(url)
 	return ans, err
 }
 
 func TestURLFromTarget(t *testing.T) {
 	if got, want := "http://dance.now:9090/metrics", urlFromTarget("dance", "now"); got != want {
 		t.Errorf("urlFromTarget = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
+	}
+}
+
+func makePods(ctx context.Context, prefix string, n int, startTime metav1.Time) {
+	for i := 0; i < n; i++ {
+		p := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      prefix + strconv.Itoa(i),
+				Namespace: testNamespace,
+				Labels:    map[string]string{serving.RevisionLabelKey: testRevision},
+			},
+			Status: corev1.PodStatus{
+				StartTime: &startTime,
+				Phase:     corev1.PodRunning,
+				PodIP:     prefix + "1.2.3." + strconv.Itoa(4+i), // no longer a real IP, but ¯\_(ツ)_/¯.
+				Conditions: []corev1.PodCondition{{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		}
+
+		fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(ctx, p, metav1.CreateOptions{})
+		fakepodsinformer.Get(ctx).Informer().GetIndexer().Add(p)
 	}
 }

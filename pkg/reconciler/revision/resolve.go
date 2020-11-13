@@ -17,21 +17,17 @@ limitations under the License.
 package revision
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
-	"runtime"
-	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 )
@@ -51,7 +47,7 @@ const (
 // at path to the system cert pool.
 //
 // Use this with k8sCertPath to trust the same certs as the cluster.
-func newResolverTransport(path string) (*http.Transport, error) {
+func newResolverTransport(path string, maxIdleConns, maxIdleConnsPerHost int) (*http.Transport, error) {
 	pool, err := x509.SystemCertPool()
 	if err != nil {
 		pool = x509.NewCertPool()
@@ -63,34 +59,24 @@ func newResolverTransport(path string) (*http.Transport, error) {
 		return nil, errors.New("failed to append k8s cert bundle to cert pool")
 	}
 
-	// Copied from https://github.com/golang/go/blob/release-branch.go1.12/src/net/http/transport.go#L42-L53
-	// We want to use the DefaultTransport but change its TLSClientConfig. There
-	// isn't a clean way to do this yet: https://github.com/golang/go/issues/26013
-	return &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-			DualStack: true,
-		}).DialContext,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: 10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		// Use the cert pool with k8s cert bundle appended.
-		TLSClientConfig: &tls.Config{
-			RootCAs: pool,
-		},
-	}, nil
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.MaxIdleConns = maxIdleConns
+	transport.MaxIdleConnsPerHost = maxIdleConnsPerHost
+	transport.TLSClientConfig = &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		RootCAs:    pool,
+	}
+
+	return transport, nil
 }
 
 // Resolve resolves the image references that use tags to digests.
 func (r *digestResolver) Resolve(
+	ctx context.Context,
 	image string,
 	opt k8schain.Options,
 	registriesToSkip sets.String) (string, error) {
-	kc, err := k8schain.New(r.client, opt)
+	kc, err := k8schain.New(ctx, r.client, opt)
 	if err != nil {
 		return "", fmt.Errorf("failed to initialize authentication: %w", err)
 	}
@@ -108,29 +94,10 @@ func (r *digestResolver) Resolve(
 	if registriesToSkip.Has(tag.Registry.RegistryStr()) {
 		return "", nil
 	}
-	platform := v1.Platform{
-		Architecture: runtime.GOARCH,
-		OS:           runtime.GOOS,
-	}
-	desc, err := remote.Get(tag, remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc), remote.WithPlatform(platform))
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch image information: %w", err)
-	}
 
-	// TODO(#3997): Use remote.Get to resolve manifest lists to digests as well
-	// once CRI-O is fixed: https://github.com/cri-o/cri-o/issues/2157
-	switch desc.MediaType {
-	case types.OCIImageIndex, types.DockerManifestList:
-		img, err := desc.Image()
-		if err != nil {
-			return "", fmt.Errorf("failed to get image reference: %w", err)
-		}
-		dgst, err := img.Digest()
-		if err != nil {
-			return "", fmt.Errorf("failed to get image digest: %w", err)
-		}
-		return fmt.Sprintf("%s@%s", tag.Repository.String(), dgst), nil
-	default:
-		return fmt.Sprintf("%s@%s", tag.Repository.String(), desc.Digest), nil
+	desc, err := remote.Head(tag, remote.WithContext(ctx), remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc))
+	if err != nil {
+		return "", err
 	}
+	return fmt.Sprintf("%s@%s", tag.Repository.String(), desc.Digest), nil
 }

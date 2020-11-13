@@ -33,6 +33,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
+	"knative.dev/serving/test/conformance/api/shared"
 	v1test "knative.dev/serving/test/v1"
 )
 
@@ -50,19 +51,15 @@ func TestBlueGreenRoute(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	imagePaths := []string{
-		pkgTest.ImagePath(test.PizzaPlanet1),
-		pkgTest.ImagePath(test.PizzaPlanet2),
-	}
-
 	// Set Service and Image for names to create the initial service
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   test.PizzaPlanet1,
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	greenImagePath := pkgTest.ImagePath(test.PizzaPlanet2)
+
+	test.EnsureTearDown(t, clients, &names)
 
 	// Setup Initial Service
 	t.Log("Creating a new Service in runLatest")
@@ -78,16 +75,16 @@ func TestBlueGreenRoute(t *testing.T) {
 	green.TrafficTarget = "green"
 
 	t.Log("Updating the Service to use a different image")
-	service, err := v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(imagePaths[1]))
+	service, err := v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(greenImagePath))
 	if err != nil {
-		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, imagePaths[1], err)
+		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, greenImagePath, err)
 	}
 	objects.Service = service
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
 	green.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, imagePaths[1], err)
+		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, greenImagePath, err)
 	}
 
 	t.Log("Updating RouteSpec")
@@ -102,7 +99,7 @@ func TestBlueGreenRoute(t *testing.T) {
 			Percent:      ptr.Int64(50),
 		}},
 	}); err != nil {
-		t.Fatalf("Failed to update Service: %v", err)
+		t.Fatal("Failed to update Service:", err)
 	}
 
 	t.Log("Wait for the service domains to be ready")
@@ -110,7 +107,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	service, err = clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	service, err = clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}
@@ -129,36 +126,36 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 	tealURL := service.Status.URL.URL()
 
-	// Istio network programming takes some time to be effective.  Currently Istio
-	// does not expose a Status, so we rely on probes to know when they are effective.
 	// Since we are updating the service the teal domain probe will succeed before our changes
 	// take effect so we probe the green domain.
-	t.Logf("Probing %s", greenURL)
+	t.Log("Probing", greenURL)
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		greenURL,
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Fatalf("Error probing %s: %v", greenURL, err)
 	}
 
 	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
-	g, _ := errgroup.WithContext(context.Background())
+	g, egCtx := errgroup.WithContext(context.Background())
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinSplitPercentage))
-		return checkDistribution(t, clients, tealURL, test.ConcurrentRequests, min, []string{expectedBlue, expectedGreen})
+		return shared.CheckDistribution(egCtx, t, clients, tealURL, test.ConcurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return checkDistribution(t, clients, blueURL, test.ConcurrentRequests, min, []string{expectedBlue})
+		return shared.CheckDistribution(egCtx, t, clients, blueURL, test.ConcurrentRequests, min, []string{expectedBlue})
 	})
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return checkDistribution(t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
+		return shared.CheckDistribution(egCtx, t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
-		t.Fatalf("Error sending requests: %v", err)
+		t.Fatal("Error sending requests:", err)
 	}
 }

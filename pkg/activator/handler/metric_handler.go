@@ -1,5 +1,6 @@
 /*
 Copyright 2019 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -27,7 +28,7 @@ import (
 	"knative.dev/serving/pkg/metrics"
 )
 
-// NewMetricHandler creates a handler collects and reports request metrics
+// NewMetricHandler creates a handler that collects and reports request metrics.
 func NewMetricHandler(podName string, next http.Handler) *MetricHandler {
 	return &MetricHandler{
 		nextHandler: next,
@@ -35,7 +36,7 @@ func NewMetricHandler(podName string, next http.Handler) *MetricHandler {
 	}
 }
 
-// MetricHandler sends metrics via reporter
+// MetricHandler is a handler that records request metrics.
 type MetricHandler struct {
 	podName     string
 	nextHandler http.Handler

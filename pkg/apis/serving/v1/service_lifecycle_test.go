@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package v1
 
 import (
@@ -44,6 +45,14 @@ func TestServiceDuckTypes(t *testing.T) {
 				t.Errorf("VerifyType(Service, %T) = %v", test.t, err)
 			}
 		})
+	}
+}
+
+func TestServiceGetConditionSet(t *testing.T) {
+	r := &Service{}
+
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GetTopLevelCondition=%v, want=%v", got, want)
 	}
 }
 
@@ -153,9 +162,81 @@ func TestServiceIsReady(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isReady, tc.status.IsReady(); e != a {
+		s := Service{Status: tc.status}
+		if e, a := tc.isReady, s.IsReady(); e != a {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
+
+		s.Generation = 1
+		s.Status.ObservedGeneration = 2
+		if s.IsReady() {
+			t.Error("Expected IsReady() to be false when Generation != ObservedGeneration")
+		}
+	}
+}
+
+func TestServiceIsFailed(t *testing.T) {
+	cases := []struct {
+		name     string
+		status   ServiceStatus
+		isFailed bool
+	}{{
+		name:     "empty status should not be failed",
+		status:   ServiceStatus{},
+		isFailed: false,
+	}, {
+		name: "False condition status should be failed",
+		status: ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   ServiceConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isFailed: true,
+	}, {
+		name: "Unknown condition status should not be failed",
+		status: ServiceStatus{
+			Status: duckv1.Status{
+
+				Conditions: duckv1.Conditions{{
+					Type:   ServiceConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		isFailed: false,
+	}, {
+		name: "Missing condition status should not be failed",
+		status: ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type: ServiceConditionReady,
+				}},
+			},
+		},
+		isFailed: false,
+	}, {
+		name: "True condition status should not be failed",
+		status: ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   ServiceConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isFailed: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := Service{Status: tc.status}
+			if e, a := tc.isFailed, r.IsFailed(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
 	}
 }
 
@@ -469,7 +550,7 @@ func TestConfigurationStatusPropagation(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(want, svc.Status); diff != "" {
-		t.Errorf("unexpected ServiceStatus (-want +got): %s", diff)
+		t.Error("unexpected ServiceStatus (-want +got):", diff)
 	}
 }
 
@@ -626,6 +707,6 @@ func TestRouteStatusPropagation(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(want, svc.Status); diff != "" {
-		t.Errorf("unexpected ServiceStatus (-want +got): %s", diff)
+		t.Error("unexpected ServiceStatus (-want +got):", diff)
 	}
 }

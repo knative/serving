@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,33 +24,34 @@ import (
 	"time"
 
 	// Inject the fakes for informers this reconciler depends on.
+	networkingclient "knative.dev/networking/pkg/client/injection/client/fake"
+	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	"knative.dev/pkg/logging"
-	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	clientgotesting "k8s.io/client-go/testing"
+
+	pkgnet "knative.dev/networking/pkg/apis/networking"
+	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	sksreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/apis/networking"
-	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
-
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	clientgotesting "k8s.io/client-go/testing"
+	presources "knative.dev/serving/pkg/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -123,6 +124,50 @@ func TestReconcile(t *testing.T) {
 			Object: endpointspub("steady", "to-proxy", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		}},
 	}, {
+		Name: "steady switch to proxy mode, subset",
+		Key:  "steady/to-proxy-with-subset",
+		Objects: []runtime.Object{
+			SKS("steady", "to-proxy-with-subset", markHappy, WithPubService, WithPrivateService,
+				WithDeployRef("bar"), withProxyMode, WithNumActivators(5)),
+			deploy("steady", "bar"),
+			svcpub("steady", "to-proxy-with-subset"),
+			svcpriv("steady", "to-proxy-with-subset"),
+			endpointspub("steady", "to-proxy-with-subset", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+			endpointspriv("steady", "to-proxy-with-subset"),
+			activatorEndpoints(withNSubsets(2, 4 /*8 in total*/)),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("steady", "to-proxy-with-subset", WithDeployRef("bar"), markNoEndpoints,
+				withProxyMode, WithPubService, WithPrivateService, WithNumActivators(5)),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("steady", "to-proxy-with-subset",
+				withPickedSubset(2, 4, 5, "to-proxy-with-subset"),
+				withFilteredPorts(networking.BackendHTTPPort)),
+		}},
+	}, {
+		Name: "steady switch to proxy mode, subset all",
+		Key:  "steady/to-proxy-with-subset",
+		Objects: []runtime.Object{
+			SKS("steady", "to-proxy-with-subset", markHappy, WithPubService, WithPrivateService,
+				WithDeployRef("bar"), withProxyMode, WithNumActivators(8)),
+			deploy("steady", "bar"),
+			svcpub("steady", "to-proxy-with-subset"),
+			svcpriv("steady", "to-proxy-with-subset"),
+			endpointspub("steady", "to-proxy-with-subset", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+			endpointspriv("steady", "to-proxy-with-subset"),
+			activatorEndpoints(withNSubsets(2, 4 /*8 in total*/)),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("steady", "to-proxy-with-subset", WithDeployRef("bar"), markNoEndpoints,
+				withProxyMode, WithPubService, WithPrivateService, WithNumActivators(8)),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("steady", "to-proxy-with-subset",
+				withPickedSubset(2, 4, 8, "to-proxy-with-subset"),
+				withFilteredPorts(networking.BackendHTTPPort)),
+		}},
+	}, {
 		// This is the case for once we are proxying for unsufficient burst capacity.
 		// It should be a no-op.
 		Name: "steady switch to proxy mode with endpoints",
@@ -139,34 +184,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: endpointspub("steady", "to-proxy", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-		}},
-	}, {
-		Name: "many-private-services",
-		Key:  "many/privates",
-		Objects: []runtime.Object{
-			SKS("many", "privates", markHappy, WithPubService, WithPrivateService,
-				WithDeployRef("bar")),
-			deploy("many", "bar"),
-			svcpub("many", "privates"),
-			svcpriv("many", "privates"),
-			svcpriv("many", "privates", svcWithName("privates-brutality-is-here")),
-			svcpriv("many", "privates", svcWithName("privates-uncharacteristically-pretty"),
-				WithK8sSvcOwnersRemoved), // unowned, should remain.
-			endpointspub("many", "privates", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-			endpointspriv("many", "privates", WithSubsets),
-			activatorEndpoints(WithSubsets),
-		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			ActionImpl: clientgotesting.ActionImpl{
-				Namespace: "many",
-				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "core",
-					Version:  "v1",
-					Resource: "services",
-				},
-			},
-			Name: "privates-brutality-is-here",
 		}},
 	}, {
 		Name: "user changes public svc",
@@ -250,7 +267,8 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "endpoints"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: endpointspub("update-eps", "failA", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)), // The attempted update.
+			Object: endpointspub("update-eps", "failA", WithSubsets,
+				withFilteredPorts(networking.BackendHTTPPort)), // The attempted update.
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -652,7 +670,7 @@ func TestReconcile(t *testing.T) {
 			psInformerFactory: podscalable.Get(ctx),
 		}
 
-		return sksreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+		return sksreconciler.NewReconciler(ctx, logging.FromContext(ctx), networkingclient.Get(ctx),
 			listers.GetServerlessServiceLister(), controller.GetEventRecorder(ctx), r)
 	}))
 }
@@ -660,14 +678,27 @@ func TestReconcile(t *testing.T) {
 // Keeps only desired port.
 func withFilteredPorts(port int32) EndpointsOption {
 	return func(ep *corev1.Endpoints) {
-		for _, p := range ep.Subsets[0].Ports {
-			if p.Port == port {
-				ep.Subsets[0].Ports[0] = p
-				break
+		for i := range ep.Subsets {
+			for _, p := range ep.Subsets[i].Ports {
+				if p.Port == port {
+					ep.Subsets[i].Ports[i] = p
+					break
+				}
 			}
+			// Strip all the others.
+			ep.Subsets[i].Ports = ep.Subsets[i].Ports[:1]
 		}
-		// Strip all the others.
-		ep.Subsets[0].Ports = ep.Subsets[0].Ports[:1]
+	}
+}
+
+// withPickedSubset simulates the picking of the activator
+// address subset.
+func withPickedSubset(numSS, numAddrs, pickN int, target string) EndpointsOption {
+	return func(ep *corev1.Endpoints) {
+		// Generate the full set.
+		withNSubsets(numSS, numAddrs)(ep)
+		// Now pick and replace.
+		ep.Subsets = subsetEndpoints(ep, target, pickN).Subsets
 	}
 }
 
@@ -701,7 +732,7 @@ func markNoEndpoints(sks *nv1a1.ServerlessService) {
 }
 
 func withHTTP2Protocol(sks *nv1a1.ServerlessService) {
-	sks.Spec.ProtocolType = networking.ProtocolH2C
+	sks.Spec.ProtocolType = pkgnet.ProtocolH2C
 }
 
 type deploymentOption func(*appsv1.Deployment)
@@ -734,7 +765,7 @@ func withHTTP2Priv(svc *corev1.Service) {
 }
 
 func withHTTP2(svc *corev1.Service) {
-	svc.Spec.Ports[0].Port = networking.ServiceHTTP2Port
+	svc.Spec.Ports[0].Port = pkgnet.ServiceHTTP2Port
 	svc.Spec.Ports[0].Name = "http2"
 	svc.Spec.Ports[0].TargetPort = intstr.FromInt(networking.BackendHTTP2Port)
 }
@@ -758,13 +789,6 @@ func svcpub(namespace, name string, so ...K8sServiceOption) *corev1.Service {
 		opt(s)
 	}
 	return s
-}
-
-func svcWithName(n string) K8sServiceOption {
-	return func(s *corev1.Service) {
-		s.GenerateName = ""
-		s.Name = n
-	}
 }
 
 func svcpriv(namespace, name string, so ...K8sServiceOption) *corev1.Service {
@@ -805,6 +829,21 @@ func endpointspriv(namespace, name string, eo ...EndpointsOption) *corev1.Endpoi
 	return ep
 }
 
+// withNSubsets populates the endpoints object with numSS subsets
+// each having numAddr endpoints.
+func withNSubsets(numSS, numAddr int) EndpointsOption {
+	return func(ep *corev1.Endpoints) {
+		ep.Subsets = make([]corev1.EndpointSubset, numSS)
+		for i := 0; i < numSS; i++ {
+			ep.Subsets[i].Ports = []corev1.EndpointPort{{Port: 8012}, {Port: 8013}}
+			ep.Subsets[i].Addresses = make([]corev1.EndpointAddress, numAddr)
+			for j := 0; j < numAddr; j++ {
+				ep.Subsets[i].Addresses[j].IP = fmt.Sprintf("10.1.%d.%d", i+1, j+1)
+			}
+		}
+	}
+}
+
 func endpointspub(namespace, name string, eo ...EndpointsOption) *corev1.Endpoints {
 	service := svcpub(namespace, name)
 	ep := &corev1.Endpoints{
@@ -818,4 +857,76 @@ func endpointspub(namespace, name string, eo ...EndpointsOption) *corev1.Endpoin
 
 func withTimeSelector(svc *corev1.Service) {
 	svc.Spec.Selector = map[string]string{"pod-x": fmt.Sprintf("a-%d", time.Now().UnixNano())}
+}
+
+func TestSubsetEndpoints(t *testing.T) {
+	// This just tests the `subsetEndpoints` helper.
+	t.Run("empty", func(t *testing.T) {
+		aeps := activatorEndpoints()
+		if got, want := subsetEndpoints(aeps, "rev", 1), aeps; got != want {
+			t.Errorf("Empty EPS = %p, want: %p", got, want)
+		}
+		aeps = activatorEndpoints(withNSubsets(1, 0))
+		if got, want := subsetEndpoints(aeps, "rev", 1), aeps; got != want {
+			t.Errorf("Empty EPS = %p, want: %p", got, want)
+		}
+	})
+	t.Run("over-requested or all", func(t *testing.T) {
+		tests := []struct {
+			name            string
+			nss, naddr, req int
+		}{{
+			"1x1", 1, 1, 1,
+		}, {
+			"1x2", 1, 2, 2,
+		}, {
+			"2x1", 2, 1, 3,
+		}, {
+			"20x10", 20, 10, 212,
+		}, {
+			"20x10", 20, 10, 0,
+		}}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				aeps := activatorEndpoints(withNSubsets(tc.nss, tc.naddr))
+				if got, want := subsetEndpoints(aeps, "rev", tc.req), aeps; got != want {
+					t.Errorf("Select all: EPS = %p, want: %p", got, want)
+				}
+			})
+		}
+	})
+	t.Run("actual subset", func(t *testing.T) {
+		// We need to verify two things
+		// 1. that exactly N items were returned
+		// 2. they are distinct
+		// 3. No empty subset is returned.
+		tests := []struct {
+			name            string
+			nss, naddr, req int
+		}{{
+			"1x2 - 1", 1, 2, 1,
+		}, {
+			"2x1 - 1", 2, 1, 1,
+		}, {
+			"5x5 - 1", 5, 5, 1,
+		}, {
+			"5x5 - 12", 5, 5, 12,
+		}, {
+			"5x5 - 24", 5, 5, 24,
+		}}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				aeps := activatorEndpoints(withNSubsets(tc.nss, tc.naddr))
+				subset := subsetEndpoints(aeps, "target", tc.req)
+				if got, want := presources.ReadyAddressCount(subset), tc.req; got != want {
+					t.Errorf("Endpoint count = %d, want: %d", got, want)
+				}
+				for i, ss := range subset.Subsets {
+					if len(ss.Addresses) == 0 {
+						t.Errorf("Size of subset %d is 0", i)
+					}
+				}
+			})
+		}
+	})
 }

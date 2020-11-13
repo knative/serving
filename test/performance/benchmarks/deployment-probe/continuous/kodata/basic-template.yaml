@@ -20,6 +20,7 @@ metadata:
 spec:
   template:
     spec:
+      enableServiceLinks: false
       containers:
       - image: gcr.io/knative-samples/autoscale-go:0.1
         # Limit resources so that we can pack more on-cluster.

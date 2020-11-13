@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,7 +41,7 @@ var podautoscalersResource = schema.GroupVersionResource{Group: "autoscaling.int
 var podautoscalersKind = schema.GroupVersionKind{Group: "autoscaling.internal.knative.dev", Version: "v1alpha1", Kind: "PodAutoscaler"}
 
 // Get takes name of the podAutoscaler, and returns the corresponding podAutoscaler object, and an error if there is any.
-func (c *FakePodAutoscalers) Get(name string, options v1.GetOptions) (result *v1alpha1.PodAutoscaler, err error) {
+func (c *FakePodAutoscalers) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PodAutoscaler, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(podautoscalersResource, c.ns, name), &v1alpha1.PodAutoscaler{})
 
@@ -50,7 +52,7 @@ func (c *FakePodAutoscalers) Get(name string, options v1.GetOptions) (result *v1
 }
 
 // List takes label and field selectors, and returns the list of PodAutoscalers that match those selectors.
-func (c *FakePodAutoscalers) List(opts v1.ListOptions) (result *v1alpha1.PodAutoscalerList, err error) {
+func (c *FakePodAutoscalers) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PodAutoscalerList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(podautoscalersResource, podautoscalersKind, c.ns, opts), &v1alpha1.PodAutoscalerList{})
 
@@ -72,14 +74,14 @@ func (c *FakePodAutoscalers) List(opts v1.ListOptions) (result *v1alpha1.PodAuto
 }
 
 // Watch returns a watch.Interface that watches the requested podAutoscalers.
-func (c *FakePodAutoscalers) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakePodAutoscalers) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(podautoscalersResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a podAutoscaler and creates it.  Returns the server's representation of the podAutoscaler, and an error, if there is any.
-func (c *FakePodAutoscalers) Create(podAutoscaler *v1alpha1.PodAutoscaler) (result *v1alpha1.PodAutoscaler, err error) {
+func (c *FakePodAutoscalers) Create(ctx context.Context, podAutoscaler *v1alpha1.PodAutoscaler, opts v1.CreateOptions) (result *v1alpha1.PodAutoscaler, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(podautoscalersResource, c.ns, podAutoscaler), &v1alpha1.PodAutoscaler{})
 
@@ -90,7 +92,7 @@ func (c *FakePodAutoscalers) Create(podAutoscaler *v1alpha1.PodAutoscaler) (resu
 }
 
 // Update takes the representation of a podAutoscaler and updates it. Returns the server's representation of the podAutoscaler, and an error, if there is any.
-func (c *FakePodAutoscalers) Update(podAutoscaler *v1alpha1.PodAutoscaler) (result *v1alpha1.PodAutoscaler, err error) {
+func (c *FakePodAutoscalers) Update(ctx context.Context, podAutoscaler *v1alpha1.PodAutoscaler, opts v1.UpdateOptions) (result *v1alpha1.PodAutoscaler, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(podautoscalersResource, c.ns, podAutoscaler), &v1alpha1.PodAutoscaler{})
 
@@ -102,7 +104,7 @@ func (c *FakePodAutoscalers) Update(podAutoscaler *v1alpha1.PodAutoscaler) (resu
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakePodAutoscalers) UpdateStatus(podAutoscaler *v1alpha1.PodAutoscaler) (*v1alpha1.PodAutoscaler, error) {
+func (c *FakePodAutoscalers) UpdateStatus(ctx context.Context, podAutoscaler *v1alpha1.PodAutoscaler, opts v1.UpdateOptions) (*v1alpha1.PodAutoscaler, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(podautoscalersResource, "status", c.ns, podAutoscaler), &v1alpha1.PodAutoscaler{})
 
@@ -113,7 +115,7 @@ func (c *FakePodAutoscalers) UpdateStatus(podAutoscaler *v1alpha1.PodAutoscaler)
 }
 
 // Delete takes name of the podAutoscaler and deletes it. Returns an error if one occurs.
-func (c *FakePodAutoscalers) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakePodAutoscalers) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(podautoscalersResource, c.ns, name), &v1alpha1.PodAutoscaler{})
 
@@ -121,15 +123,15 @@ func (c *FakePodAutoscalers) Delete(name string, options *v1.DeleteOptions) erro
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakePodAutoscalers) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(podautoscalersResource, c.ns, listOptions)
+func (c *FakePodAutoscalers) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(podautoscalersResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.PodAutoscalerList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched podAutoscaler.
-func (c *FakePodAutoscalers) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.PodAutoscaler, err error) {
+func (c *FakePodAutoscalers) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PodAutoscaler, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(podautoscalersResource, c.ns, name, pt, data, subresources...), &v1alpha1.PodAutoscaler{})
 

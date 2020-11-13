@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -24,13 +25,13 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"sync/atomic"
 	"testing"
 	"time"
 
-	"go.opencensus.io/plugin/ochttp"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
@@ -39,12 +40,11 @@ import (
 	tracetesting "knative.dev/pkg/tracing/testing"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
-	anet "knative.dev/serving/pkg/activator/net"
 	activatortest "knative.dev/serving/pkg/activator/testing"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -85,7 +85,6 @@ func TestActivationHandler(t *testing.T) {
 		name:      "active endpoint",
 		wantBody:  wantBody,
 		wantCode:  http.StatusOK,
-		wantErr:   nil,
 		throttler: fakeThrottler{},
 	}, {
 		name:      "request error",
@@ -97,14 +96,12 @@ func TestActivationHandler(t *testing.T) {
 		name:      "throttler timeout",
 		wantBody:  context.DeadlineExceeded.Error() + "\n",
 		wantCode:  http.StatusServiceUnavailable,
-		wantErr:   nil,
 		throttler: fakeThrottler{err: context.DeadlineExceeded},
 	}, {
 		name:      "overflow",
-		wantBody:  "activator overload\n",
+		wantBody:  "pending request queue full\n",
 		wantCode:  http.StatusServiceUnavailable,
-		wantErr:   nil,
-		throttler: fakeThrottler{err: anet.ErrActivatorOverload},
+		throttler: fakeThrottler{err: queue.ErrRequestQueueFull},
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -129,10 +126,7 @@ func TestActivationHandler(t *testing.T) {
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
-			handler := (New(ctx, test.throttler)).(*activationHandler)
-
-			// Setup transports.
-			handler.transport = rt
+			handler := New(ctx, test.throttler, rt)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -151,10 +145,10 @@ func TestActivationHandler(t *testing.T) {
 
 			gotBody, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				t.Fatalf("Error reading body: %v", err)
+				t.Fatal("Error reading body:", err)
 			}
 			if string(gotBody) != test.wantBody {
-				t.Errorf("Unexpected response body. Response body %q, want %q", gotBody, test.wantBody)
+				t.Errorf("Response body = %q, want: %q", gotBody, test.wantBody)
 			}
 		})
 	}
@@ -171,8 +165,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	handler := (New(ctx, fakeThrottler{})).(*activationHandler)
-	handler.transport = rt
+	handler := New(ctx, fakeThrottler{}, rt)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -187,10 +180,10 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	select {
 	case httpReq := <-interceptCh:
 		if got := httpReq.Header.Get(network.ProxyHeaderName); got != activator.Name {
-			t.Errorf("Header %q = %q, want:  %q", network.ProxyHeaderName, got, activator.Name)
+			t.Errorf("Header %q = %q, want: %q", network.ProxyHeaderName, got, activator.Name)
 		}
 	case <-time.After(1 * time.Second):
-		t.Fatal("Timed out waiting for a request to be intercepted")
+		t.Error("Timed out waiting for a request to be intercepted")
 	}
 }
 
@@ -205,16 +198,15 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		traceBackend: tracingconfig.Zipkin,
 	}, {
 		name:         "trace disabled",
-		wantSpans:    0,
 		traceBackend: tracingconfig.None,
 	}}
 
+	spanNames := []string{"throttler_try", "/", "activator_proxy"}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup transport
 			fakeRT := activatortest.FakeRoundTripper{
 				RequestResponse: &activatortest.FakeResponse{
-					Err:  nil,
 					Code: http.StatusOK,
 					Body: wantBody,
 				},
@@ -227,7 +219,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 
 			cm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "config-tracing",
+					Name: tracingconfig.ConfigName,
 				},
 				Data: map[string]string{
 					"zipkin-endpoint": "localhost:1234",
@@ -237,10 +229,10 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			}
 			cfg, err := tracingconfig.NewTracingConfigFromConfigMap(cm)
 			if err != nil {
-				t.Fatalf("Failed to generate config: %v", err)
+				t.Fatal("Failed to generate config:", err)
 			}
 			if err := oct.ApplyConfig(cfg); err != nil {
-				t.Errorf("Failed to apply tracer config: %v", err)
+				t.Error("Failed to apply tracer config:", err)
 			}
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
@@ -250,9 +242,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				oct.Finish()
 			}()
 
-			handler := (New(ctx, fakeThrottler{})).(*activationHandler)
-			handler.transport = rt
-			handler.tracingTransport = &ochttp.Transport{Base: rt}
+			handler := New(ctx, fakeThrottler{}, rt)
 
 			// Set up config store to populate context.
 			configStore := setupConfigStore(t, logging.FromContext(ctx))
@@ -262,20 +252,19 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 
 			gotSpans := reporter.Flush()
 			if len(gotSpans) != tc.wantSpans {
-				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
+				t.Errorf("NumSpans = %d, want: %d", len(gotSpans), tc.wantSpans)
 			}
 
-			spanNames := []string{"throttler_try", "/", "proxy"}
 			for i, spanName := range spanNames[0:tc.wantSpans] {
 				if gotSpans[i].Name != spanName {
-					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
+					t.Errorf("Span[%d] = %q, expected %q", i, gotSpans[i].Name, spanName)
 				}
 			}
 		})
 	}
 }
 
-func sendRequest(namespace, revName string, handler *activationHandler, store *activatorconfig.Store) *httptest.ResponseRecorder {
+func sendRequest(namespace, revName string, handler http.Handler, store *activatorconfig.Store) *httptest.ResponseRecorder {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	ctx := store.ToContext(req.Context())
@@ -309,7 +298,7 @@ func setupConfigStore(t *testing.T, logger *zap.SugaredLogger) *activatorconfig.
 
 func BenchmarkHandler(b *testing.B) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(&testing.T{})
-	defer cancel()
+	b.Cleanup(cancel)
 	configStore := setupConfigStore(&testing.T{}, logging.FromContext(ctx))
 
 	// bodyLength is in kilobytes.
@@ -323,8 +312,7 @@ func BenchmarkHandler(b *testing.B) {
 			}, nil
 		})
 
-		handler := (New(ctx, fakeThrottler{})).(*activationHandler)
-		handler.transport = rt
+		handler := New(ctx, fakeThrottler{}, rt)
 
 		request := func() *http.Request {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -341,7 +329,7 @@ func BenchmarkHandler(b *testing.B) {
 			if resp.code != http.StatusOK {
 				b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.code)
 			}
-			if got, want := resp.size, int32(len(body)); got != want {
+			if got, want := resp.size.Load(), int32(len(body)); got != want {
 				b.Fatalf("|body| = %d, want = %d", got, want)
 			}
 		}
@@ -365,7 +353,7 @@ func BenchmarkHandler(b *testing.B) {
 }
 
 func randomString(n int) string {
-	var letter = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	letter := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 	b := make([]rune, n)
 	for i := range b {
@@ -378,18 +366,16 @@ func randomString(n int) string {
 // that captures the response code and size.
 type responseRecorder struct {
 	code int
-	size int32
+	size atomic.Int32
 }
-
-func (rr *responseRecorder) Flush() {}
 
 func (rr *responseRecorder) Header() http.Header {
 	return http.Header{}
 }
 
 func (rr *responseRecorder) Write(p []byte) (int, error) {
-	atomic.AddInt32(&rr.size, int32(len(p)))
-	return ioutil.Discard.Write(p)
+	rr.size.Add(int32(len(p)))
+	return len(p), nil
 }
 
 func (rr *responseRecorder) WriteHeader(code int) {

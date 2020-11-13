@@ -23,9 +23,10 @@ metadata:
 spec:
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
       labels:
         app: "default-domain"
-        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:
@@ -37,10 +38,13 @@ spec:
         ports:
         - name: http
           containerPort: 8080
-        readinessProbe: &probe
+        readinessProbe:
           httpGet:
             port: 8080
-        livenessProbe: *probe
+        livenessProbe:
+          httpGet:
+            port: 8080
+          failureThreshold: 6
         env:
         - name: POD_NAME
           valueFrom:

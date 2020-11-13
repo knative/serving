@@ -19,16 +19,17 @@ package resources
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/serving/pkg/apis/networking"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
@@ -38,7 +39,7 @@ var errLoadBalancerNotFound = errors.New("failed to fetch loadbalancer domain/IP
 
 // GetNames returns a set of service names.
 func GetNames(services []*corev1.Service) sets.String {
-	names := sets.NewString()
+	names := make(sets.String, len(services))
 
 	for i := range services {
 		names.Insert(services[i].Name)
@@ -53,7 +54,7 @@ func SelectorFromRoute(route *v1.Route) labels.Selector {
 }
 
 // MakeK8sPlaceholderService creates a placeholder Service to prevent naming collisions. It's owned by the
-// provided v1.Route. The purpose of this service is to provide a placeholder domain name for Istio routing.
+// provided v1.Route.
 func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, targetName string) (*corev1.Service, error) {
 	hostname, err := domains.HostnameFromTemplate(ctx, route.Name, targetName)
 	if err != nil {
@@ -72,6 +73,11 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, targetName 
 		Type:            corev1.ServiceTypeExternalName,
 		ExternalName:    fullName,
 		SessionAffinity: corev1.ServiceAffinityNone,
+		Ports: []corev1.ServicePort{{
+			Name:       networking.ServicePortNameH2C,
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(80),
+		}},
 	}
 
 	return service, nil
@@ -79,9 +85,8 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, targetName 
 
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in Ingress status. It's owned by the provided v1.Route.
-// The purpose of this service is to provide a domain name for Istio routing.
-func MakeK8sService(ctx context.Context, route *v1.Route, targetName string, ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.Service, error) {
-	svcSpec, err := makeServiceSpec(ingress, isPrivate)
+func MakeK8sService(ctx context.Context, route *v1.Route, targetName string, ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP string) (*corev1.Service, error) {
+	svcSpec, err := makeServiceSpec(ingress, isPrivate, clusterIP)
 	if err != nil {
 		return nil, err
 	}
@@ -112,23 +117,25 @@ func makeK8sService(ctx context.Context, route *v1.Route, targetName string) (*c
 				// This service is owned by the Route.
 				*kmeta.NewControllerRef(route),
 			},
-			Labels: svcLabels,
+			Labels: kmeta.UnionMaps(kmeta.FilterMap(route.GetLabels(), func(key string) bool {
+				// Do not propagate the visibility label from Route as users may want to set the label
+				// in the specific k8s svc for subroute. see https://github.com/knative/serving/pull/4560.
+				return (key == network.VisibilityLabelKey || key == serving.VisibilityLabelKeyObsolete)
+			}), svcLabels),
+			Annotations: route.GetAnnotations(),
 		},
 	}, nil
 }
 
-func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.ServiceSpec, error) {
+func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP string) (*corev1.ServiceSpec, error) {
 	ingressStatus := ingress.Status
 
-	var lbStatus *netv1alpha1.LoadBalancerStatus
-
+	lbStatus := ingressStatus.PublicLoadBalancer
 	if isPrivate || ingressStatus.PrivateLoadBalancer != nil {
 		// Always use private load balancer if it exists,
 		// because k8s service is only useful for inter-cluster communication.
 		// External communication will be handle via ingress gateway, which won't be affected by what is configured here.
 		lbStatus = ingressStatus.PrivateLoadBalancer
-	} else {
-		lbStatus = ingressStatus.PublicLoadBalancer
 	}
 
 	if lbStatus == nil || len(lbStatus.Ingress) == 0 {
@@ -136,7 +143,8 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.Serv
 	}
 	if len(lbStatus.Ingress) > 1 {
 		// Return error as we only support one LoadBalancer currently.
-		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of Ingress %s", ingress.GetName())
+		return nil, errors.New(
+			"more than one ingress are specified in status(LoadBalancer) of Ingress " + ingress.GetName())
 	}
 	balancer := lbStatus.Ingress[0]
 
@@ -144,16 +152,26 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.Serv
 	// DomainInternal > Domain > LoadBalancedIP to prioritize cluster-local,
 	// and domain (since it would change less than IP).
 	switch {
-	case len(balancer.DomainInternal) != 0:
+	case balancer.DomainInternal != "":
 		return &corev1.ServiceSpec{
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    balancer.DomainInternal,
 			SessionAffinity: corev1.ServiceAffinityNone,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		}, nil
-	case len(balancer.Domain) != 0:
+	case balancer.Domain != "":
 		return &corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
 			ExternalName: balancer.Domain,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		}, nil
 	case balancer.MeshOnly:
 		// The Ingress is loadbalanced through a Service mesh.
@@ -162,36 +180,16 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.Serv
 		// sure the domain name is available for access within the
 		// mesh.
 		return &corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: clusterIP,
 			Ports: []corev1.ServicePort{{
 				Name: networking.ServicePortNameHTTP1,
 				Port: networking.ServiceHTTPPort,
 			}},
 		}, nil
-	case len(balancer.IP) != 0:
+	case balancer.IP != "":
 		// TODO(lichuqiang): deal with LoadBalancer IP.
 		// We'll also need ports info to make it take effect.
 	}
 	return nil, errLoadBalancerNotFound
-}
-
-// GetDesiredServiceNames returns a list of service names that we expect to create
-func GetDesiredServiceNames(ctx context.Context, route *v1.Route) (sets.String, error) {
-	traffic := route.Spec.Traffic
-
-	// We always want create the route with the service name.
-	// If the traffic stanza only contains revision targets, then
-	// this will not be added below, and as a consequence we'll create
-	// a public route to it.
-	names := sets.NewString(route.Name)
-
-	for _, t := range traffic {
-		serviceName, err := domains.HostnameFromTemplate(ctx, route.Name, t.Tag)
-		if err != nil {
-			return sets.String{}, err
-		}
-		names.Insert(serviceName)
-	}
-
-	return names, nil
 }

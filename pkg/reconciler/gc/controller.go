@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ func NewController(
 		configurationInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 		revisionInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-			FilterFunc: controller.FilterGroupKind(v1.Kind("Configuration")),
+			FilterFunc: controller.FilterControllerGK(v1.Kind("Configuration")),
 			Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 		})
 
@@ -78,6 +78,9 @@ func NewController(
 
 		return controller.Options{
 			ConfigStore: configStore,
+			AgentName:   controllerAgentName,
+			// The GC reconciler shouldn't mutate the revision's status.
+			SkipStatusUpdates: true,
 		}
 	})
 }

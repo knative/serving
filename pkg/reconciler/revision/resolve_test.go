@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,9 +18,11 @@ package revision
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -28,17 +30,15 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/random"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -47,58 +47,52 @@ import (
 
 var emptyRegistrySet = sets.NewString()
 
-type digestible interface {
-	Digest() (v1.Hash, error)
-}
-
-func mustDigest(t *testing.T, d digestible) v1.Hash {
-	h, err := d.Digest()
+func mustDigest(t *testing.T, img v1.Image) v1.Hash {
+	h, err := img.Digest()
 	if err != nil {
-		t.Fatalf("Digest() = %v", err)
+		t.Fatal("Digest() =", err)
 	}
 	return h
 }
 
-func mustRawManifest(t *testing.T, img partial.WithRawManifest) []byte {
-	m, err := img.RawManifest()
-	if err != nil {
-		t.Fatalf("RawManifest() = %v", err)
-	}
-	return m
-}
-
-func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image, idx v1.ImageIndex) *httptest.Server {
-	indexPath := fmt.Sprintf("/v2/%s/manifests/latest", repo)
-	imagePath := fmt.Sprintf("/v2/%s/manifests/%s", repo, mustDigest(t, img))
-	schema1Path := fmt.Sprintf("/v2/%s/manifests/schema1", repo)
+func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image) *httptest.Server {
+	manifestPath := fmt.Sprintf("/v2/%s/manifests/latest", repo)
+	const basicAuth = "Basic "
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v2/":
 			// Issue a "Basic" auth challenge, so we can check the auth sent to the registry.
-			w.Header().Set("WWW-Authenticate", `Basic `)
+			w.Header().Set("WWW-Authenticate", basicAuth)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		case indexPath:
+		case manifestPath:
 			// Check that we get an auth header with base64 encoded username:password
 			hdr := r.Header.Get("Authorization")
-			if !strings.HasPrefix(hdr, "Basic ") {
-				t.Errorf("Header.Get(Authorization); got %v, want Basic prefix", hdr)
+			if !strings.HasPrefix(hdr, basicAuth) {
+				t.Errorf("Header.Get(Authorization) = %q, want %q prefix", hdr, basicAuth)
 			}
 			if want := base64.StdEncoding.EncodeToString([]byte(username + ":" + password)); !strings.HasSuffix(hdr, want) {
-				t.Errorf("Header.Get(Authorization); got %v, want suffix %v", hdr, want)
+				t.Errorf("Header.Get(Authorization) = %q, want suffix %q", hdr, want)
 			}
-			if r.Method != http.MethodGet {
-				t.Errorf("Method; got %v, want %v", r.Method, http.MethodGet)
+			if r.Method != http.MethodHead {
+				t.Errorf("Method = %v, want %v", r.Method, http.MethodHead)
 			}
-			w.Header().Set("Content-Type", string(types.OCIImageIndex))
-			w.Write(mustRawManifest(t, idx))
-		case imagePath:
-			w.Write(mustRawManifest(t, img))
-		case schema1Path:
-			w.Header().Set("Content-Type", string(types.DockerManifestSchema1Signed))
-			w.Header().Set("Docker-Content-Digest", mustDigest(t, idx).String())
-			w.Write([]byte("{}"))
+			mt, err := img.MediaType()
+			if err != nil {
+				t.Error("MediaType() =", err)
+			}
+			sz, err := img.Size()
+			if err != nil {
+				t.Error("Size() =", err)
+			}
+			digest, err := img.Digest()
+			if err != nil {
+				t.Error("Digest() =", err)
+			}
+			w.Header().Set("Content-Type", string(mt))
+			w.Header().Set("Content-Length", fmt.Sprint(sz))
+			w.Header().Set("Docker-Content-Digest", digest.String())
 		default:
-			t.Fatalf("Unexpected path: %v", r.URL.Path)
+			t.Error("Unexpected path:", r.URL.Path)
 		}
 	}))
 }
@@ -109,7 +103,7 @@ func fakeRegistryPingFailure(t *testing.T) *httptest.Server {
 		case "/v2/":
 			http.Error(w, "Oops", http.StatusInternalServerError)
 		default:
-			t.Fatalf("Unexpected path: %v", r.URL.Path)
+			t.Error("Unexpected path:", r.URL.Path)
 		}
 	}))
 }
@@ -125,101 +119,107 @@ func fakeRegistryManifestFailure(t *testing.T, repo string) *httptest.Server {
 		case manifestPath:
 			http.Error(w, "Boom", http.StatusInternalServerError)
 		default:
-			t.Fatalf("Unexpected path: %v", r.URL.Path)
+			t.Error("Unexpected path:", r.URL.Path)
 		}
 	}))
 }
 
+func fakeRegistryBlocking(t *testing.T) (ts *httptest.Server, cancel func()) {
+	ch := make(chan struct{})
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v2/":
+			w.Header().Set("WWW-Authenticate", `Basic `)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		default:
+			<-ch
+		}
+	}))
+
+	return ts, func() {
+		close(ch)
+		ts.Close()
+	}
+}
+
 func TestResolve(t *testing.T) {
-	username, password := "foo", "bar"
-	ns, svcacct := "user-project", "user-robot"
+	const (
+		ns           = "user-project"
+		svcacct      = "user-robot"
+		username     = "foo"
+		password     = "bar"
+		sname        = "secret"
+		expectedRepo = "booger/nose"
+	)
 
-	idx, err := random.Index(1, 3, 1024)
+	img, err := random.Image(3, 1024)
 	if err != nil {
-		t.Fatalf("random.Index() = %v", err)
-	}
-	manifest, err := idx.IndexManifest()
-	if err != nil {
-		t.Fatalf("idx.IndexManifest() = %v", err)
-	}
-	img, err := idx.Image(manifest.Manifests[0].Digest)
-	if err != nil {
-		t.Fatalf("idx.Image(%v) = %v", manifest.Manifests[0].Digest, err)
-	}
-	// Make sure we resolve this child no matter which platform this test is being run on.
-	manifest.Manifests[0].Platform = &v1.Platform{
-		Architecture: runtime.GOARCH,
-		OS:           runtime.GOOS,
+		t.Fatal("random.Image() =", err)
 	}
 
-	// Stand up a fake registry
-	expectedRepo := "booger/nose"
-	server := fakeRegistry(t, expectedRepo, username, password, img, idx)
+	// Stand up a fake registry.
+	server := fakeRegistry(t, expectedRepo, username, password, img)
 	defer server.Close()
 	u, err := url.Parse(server.URL)
 	if err != nil {
-		t.Fatalf("url.Parse(%v) = %v", server.URL, err)
+		t.Fatal("url.Parse() =", err)
 	}
 
-	for ref, dgst := range map[string]v1.Hash{
-		"latest": mustDigest(t, img),
-		// This is a bit silly, but we are just going to pretend that the
-		// registry has a schema1 manifest with the same digest as our index.
-		"schema1": mustDigest(t, idx),
-	} {
-		// Create a tag pointing to an image on our fake registry
-		tag, err := name.NewTag(fmt.Sprintf("%s/%s:%s", u.Host, expectedRepo, ref), name.WeakValidation)
-		if err != nil {
-			t.Fatalf("NewTag() = %v", err)
-		}
+	// Create a tag pointing to an image on our fake registry.
+	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation)
+	if err != nil {
+		t.Fatal("NewTag() =", err)
+	}
 
-		// Set up a fake service account with pull secrets for our fake registry
-		client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      svcacct,
-				Namespace: ns,
-			},
-			ImagePullSecrets: []corev1.LocalObjectReference{{
-				Name: "secret",
-			}},
-		}, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "secret",
-				Namespace: ns,
-			},
-			Type: corev1.SecretTypeDockercfg,
-			Data: map[string][]byte{
-				corev1.DockerConfigKey: []byte(
-					fmt.Sprintf(`{%q: {"username": %q, "password": %q}}`,
-						tag.RegistryStr(), username, password),
-				),
-			},
-		})
+	// Set up a fake service account with pull secrets for our fake registry.
+	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svcacct,
+			Namespace: ns,
+		},
+		ImagePullSecrets: []corev1.LocalObjectReference{{
+			Name: sname,
+		}},
+	}, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sname,
+			Namespace: ns,
+		},
+		Type: corev1.SecretTypeDockercfg,
+		Data: map[string][]byte{
+			corev1.DockerConfigKey: []byte(
+				fmt.Sprintf(`{%q: {"username": %q, "password": %q}}`,
+					tag.RegistryStr(), username, password),
+			),
+		},
+	})
 
-		// Resolve our tag on the fake registry to the digest of the random.Image()
-		dr := &digestResolver{client: client, transport: http.DefaultTransport}
-		opt := k8schain.Options{
-			Namespace:          ns,
-			ServiceAccountName: svcacct,
-		}
-		resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet)
-		if err != nil {
-			t.Fatalf("Resolve() = %v", err)
-		}
+	// Resolve our tag on the fake registry to the digest of the random.Image().
+	dr := &digestResolver{client: client, transport: http.DefaultTransport}
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
+	}
+	resolvedDigest, err := dr.Resolve(context.Background(), tag.String(), opt, emptyRegistrySet)
+	if err != nil {
+		t.Fatal("Resolve() =", err)
+	}
 
-		// Make sure that we get back the appropriate digest.
-		digest, err := name.NewDigest(resolvedDigest, name.WeakValidation)
-		if err != nil {
-			t.Fatalf("NewDigest() = %v", err)
-		}
-		if got, want := digest.DigestStr(), dgst.String(); got != want {
-			t.Fatalf("Resolve() = %v, want %v", got, want)
-		}
+	// Make sure that we get back the appropriate digest.
+	digest, err := name.NewDigest(resolvedDigest, name.WeakValidation)
+	if err != nil {
+		t.Fatal("NewDigest() =", err)
+	}
+	if got, want := digest.DigestStr(), mustDigest(t, img).String(); got != want {
+		t.Fatalf("Resolve() = %v, want %v", got, want)
 	}
 }
 
 func TestResolveWithDigest(t *testing.T) {
-	ns, svcacct := "foo", "default"
+	const (
+		ns      = "foo"
+		svcacct = "default"
+	)
 	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
@@ -232,21 +232,24 @@ func TestResolveWithDigest(t *testing.T) {
 		Namespace:          ns,
 		ServiceAccountName: svcacct,
 	}
-	resolvedDigest, err := dr.Resolve(originalDigest, opt, emptyRegistrySet)
+	resolvedDigest, err := dr.Resolve(context.Background(), originalDigest, opt, emptyRegistrySet)
 	if err != nil {
-		t.Fatalf("Resolve() = %v", err)
+		t.Fatal("Resolve() =", err)
 	}
 
 	if diff := cmp.Diff(originalDigest, resolvedDigest); diff != "" {
-		t.Errorf("Digest should not change (-want +got): %s", diff)
+		t.Errorf("Digest should not change (-want +got):\n%s", diff)
 	}
 }
 
 func TestResolveWithBadTag(t *testing.T) {
-	ns, svcacct := "foo", "default"
+	const (
+		ns      = "foo"
+		svcacct = "default"
+	)
 	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default",
+			Name:      svcacct,
 			Namespace: ns,
 		},
 	})
@@ -257,29 +260,30 @@ func TestResolveWithBadTag(t *testing.T) {
 		ServiceAccountName: svcacct,
 	}
 
-	// Invalid character
+	// Invalid character.
 	invalidImage := "ubuntu%latest"
-	if resolvedDigest, err := dr.Resolve(invalidImage, opt, emptyRegistrySet); err == nil {
-		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
+	if resolvedDigest, err := dr.Resolve(context.Background(), invalidImage, opt, emptyRegistrySet); err == nil {
+		t.Fatalf("Resolve() succeeded with %q, want error", resolvedDigest)
 	}
 }
 
 func TestResolveWithPingFailure(t *testing.T) {
-	ns, svcacct := "user-project", "user-robot"
-
-	// Stand up a fake registry
-	expectedRepo := "booger/nose"
+	const (
+		ns           = "user-project"
+		svcacct      = "user-robot"
+		expectedRepo = "booger/nose"
+	)
 	server := fakeRegistryPingFailure(t)
 	defer server.Close()
 	u, err := url.Parse(server.URL)
 	if err != nil {
-		t.Fatalf("url.Parse(%v) = %v", server.URL, err)
+		t.Fatal("url.Parse() =", err)
 	}
 
 	// Create a tag pointing to an image on our fake registry
 	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation)
 	if err != nil {
-		t.Fatalf("NewTag() = %v", err)
+		t.Fatal("NewTag() =", err)
 	}
 
 	// Set up a fake service account with pull secrets for our fake registry
@@ -296,27 +300,30 @@ func TestResolveWithPingFailure(t *testing.T) {
 		Namespace:          ns,
 		ServiceAccountName: svcacct,
 	}
-	if resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet); err == nil {
+	if resolvedDigest, err := dr.Resolve(context.Background(), tag.String(), opt, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
 
 func TestResolveWithManifestFailure(t *testing.T) {
-	ns, svcacct := "user-project", "user-robot"
+	const (
+		ns           = "user-project"
+		svcacct      = "user-robot"
+		expectedRepo = "booger/nose"
+	)
 
 	// Stand up a fake registry
-	expectedRepo := "booger/nose"
 	server := fakeRegistryManifestFailure(t, expectedRepo)
 	defer server.Close()
 	u, err := url.Parse(server.URL)
 	if err != nil {
-		t.Fatalf("url.Parse(%v) = %v", server.URL, err)
+		t.Fatal("url.Parse() =", err)
 	}
 
 	// Create a tag pointing to an image on our fake registry
 	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation)
 	if err != nil {
-		t.Fatalf("NewTag() = %v", err)
+		t.Fatal("NewTag() =", err)
 	}
 
 	// Set up a fake service account with pull secrets for our fake registry
@@ -333,13 +340,16 @@ func TestResolveWithManifestFailure(t *testing.T) {
 		Namespace:          ns,
 		ServiceAccountName: svcacct,
 	}
-	if resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet); err == nil {
+	if resolvedDigest, err := dr.Resolve(context.Background(), tag.String(), opt, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
 
 func TestResolveNoAccess(t *testing.T) {
-	ns, svcacct := "foo", "default"
+	const (
+		ns      = "foo"
+		svcacct = "default"
+	)
 	client := fakeclient.NewSimpleClientset()
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
 	opt := k8schain.Options{
@@ -347,14 +357,66 @@ func TestResolveNoAccess(t *testing.T) {
 		ServiceAccountName: svcacct,
 	}
 	// If there is a failure accessing the ServiceAccount for this Pod, then we should see an error.
-	if resolvedDigest, err := dr.Resolve("ubuntu:latest", opt, emptyRegistrySet); err == nil {
+	if resolvedDigest, err := dr.Resolve(context.Background(), "ubuntu:latest", opt, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
 
+func TestResolveTimeout(t *testing.T) {
+	// Stand up a fake registry which blocks until cancelled.
+	server, cancel := fakeRegistryBlocking(t)
+	t.Cleanup(cancel)
+
+	u, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatal("url.Parse() =", err)
+	}
+
+	// Create a tag pointing to an image on our fake registry.
+	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, "doesnt/matter"), name.WeakValidation)
+	if err != nil {
+		t.Fatal("NewTag() =", err)
+	}
+
+	// Set up a fake service account with pull secrets for our fake registry.
+	const (
+		ns      = "user-project"
+		svcacct = "user-robot"
+	)
+	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svcacct,
+			Namespace: ns,
+		},
+	})
+
+	// Time out after 200ms (long enough to be sure we're testing cancelling of
+	// digest lookup, rather than just credential lookup).
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	t.Cleanup(cancel)
+
+	// Resolve the digest. The endpoint will never resolve, but we
+	// should give up anyway due the context timeout above.
+	dr := &digestResolver{client: client, transport: http.DefaultTransport}
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
+	}
+
+	_, err = dr.Resolve(ctx, tag.String(), opt, emptyRegistrySet)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("Expected Resolve() to fail via timeout, but failed with", err)
+	}
+}
+
 func TestResolveSkippingRegistry(t *testing.T) {
-	username, password := "foo", "bar"
-	ns, svcacct := "user-project", "user-robot"
+	const (
+		ns       = "user-project"
+		svcacct  = "user-robot"
+		username = "foo"
+		password = "bar"
+		name     = "secret"
+	)
 
 	// Set up a fake service account with pull secrets for our fake registry
 	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
@@ -363,11 +425,11 @@ func TestResolveSkippingRegistry(t *testing.T) {
 			Namespace: ns,
 		},
 		ImagePullSecrets: []corev1.LocalObjectReference{{
-			Name: "secret",
+			Name: name,
 		}},
 	}, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "secret",
+			Name:      name,
 			Namespace: ns,
 		},
 		Type: corev1.SecretTypeDockercfg,
@@ -390,9 +452,9 @@ func TestResolveSkippingRegistry(t *testing.T) {
 		ServiceAccountName: svcacct,
 	}
 
-	resolvedDigest, err := dr.Resolve("localhost:5000/ubuntu:latest", opt, registriesToSkip)
+	resolvedDigest, err := dr.Resolve(context.Background(), "localhost:5000/ubuntu:latest", opt, registriesToSkip)
 	if err != nil {
-		t.Fatalf("Resolve() = %v", err)
+		t.Fatal("Resolve() =", err)
 	}
 
 	if got, want := resolvedDigest, ""; got != want {
@@ -427,8 +489,7 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 -----END CERTIFICATE-----`
 
 	cases := []struct {
-		name string
-
+		name               string
 		certBundle         string
 		certBundleContents []byte
 
@@ -454,7 +515,7 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 
 	tmpDir, err := ioutil.TempDir("", "TestNewResolverTransport-")
 	if err != nil {
-		t.Fatalf("failed to create tempdir for certs: %v", err)
+		t.Fatal("Failed to create tempdir for certs:", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -464,12 +525,12 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 			// Setup.
 			path, err := writeCertFile(tmpDir, tc.certBundle, tc.certBundleContents)
 			if err != nil {
-				t.Fatalf("Failed to write cert bundle file: %v", err)
+				t.Fatal("Failed to write cert bundle file:", err)
 			}
 
 			// The actual test.
-			if tr, err := newResolverTransport(path); err != nil && !tc.wantErr {
-				t.Errorf("Got unexpected err: %v", err)
+			if tr, err := newResolverTransport(path, 100, 100); err != nil && !tc.wantErr {
+				t.Error("Got unexpected err:", err)
 			} else if tc.wantErr && err == nil {
 				t.Error("Didn't get an error when we wanted it")
 			} else if err == nil {
@@ -477,7 +538,7 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 				subjects := tr.TLSClientConfig.RootCAs.Subjects()
 
 				if !containsSubject(t, subjects, tc.certBundleContents) {
-					t.Error("cert pool does not contain certBundleContents")
+					t.Error("Cert pool does not contain certBundleContents")
 				}
 			}
 		})
@@ -495,13 +556,13 @@ func writeCertFile(dir, path string, contents []byte) (string, error) {
 }
 
 func containsSubject(t *testing.T, subjects [][]byte, contents []byte) bool {
-	block, _ := pem.Decode([]byte(contents))
+	block, _ := pem.Decode(contents)
 	if block == nil {
-		t.Fatal("failed to parse certificate PEM")
+		t.Fatal("Failed to parse certificate PEM")
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		t.Fatalf("failed to parse certificate: %v", err)
+		t.Fatal("Failed to parse certificate:", err)
 	}
 
 	for _, b := range subjects {

@@ -19,7 +19,8 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-
+  annotations:
+    knative.dev/example-checksum: "cdabec96"
 data:
   _example: |
     ################################
@@ -46,27 +47,48 @@ data:
     # seconds that can be used for revision-timeout-seconds.
     # This value must be greater than or equal to revision-timeout-seconds.
     # If omitted, the system default is used (600 seconds).
+    #
+    # If this value is increased, the activator's terminationGraceTimeSeconds
+    # should also be increased to prevent in-flight requests being disrupted.
     max-revision-timeout-seconds: "600"  # 10 minutes
 
     # revision-cpu-request contains the cpu allocation to assign
     # to revisions by default.  If omitted, no value is specified
     # and the system default is used.
+    # Below is an example of setting revision-cpu-request.
+    # By default, it is not set by Knative.
     revision-cpu-request: "400m"  # 0.4 of a CPU (aka 400 milli-CPU)
 
     # revision-memory-request contains the memory allocation to assign
     # to revisions by default.  If omitted, no value is specified
     # and the system default is used.
+    # Below is an example of setting revision-memory-request.
+    # By default, it is not set by Knative.
     revision-memory-request: "100M"  # 100 megabytes of memory
+
+    # revision-ephemeral-storage-request contains the ephemeral storage
+    # allocation to assign to revisions by default.  If omitted, no value is
+    # specified and the system default is used.
+    revision-ephemeral-storage-request: "500M"  # 500 megabytes of storage
 
     # revision-cpu-limit contains the cpu allocation to limit
     # revisions to by default.  If omitted, no value is specified
     # and the system default is used.
+    # Below is an example of setting revision-cpu-limit.
+    # By default, it is not set by Knative.
     revision-cpu-limit: "1000m"  # 1 CPU (aka 1000 milli-CPU)
 
     # revision-memory-limit contains the memory allocation to limit
     # revisions to by default.  If omitted, no value is specified
     # and the system default is used.
+    # Below is an example of setting revision-memory-limit.
+    # By default, it is not set by Knative.
     revision-memory-limit: "200M"  # 200 megabytes of memory
+
+    # revision-ephemeral-storage-limit contains the ephemeral storage
+    # allocation to limit revisions to by default.  If omitted, no value is
+    # specified and the system default is used.
+    revision-ephemeral-storage-limit: "750M"  # 750 megabytes of storage
 
     # container-name-template contains a template for the default
     # container name, if none is specified.  This field supports
@@ -86,8 +108,25 @@ data:
     # the individual revisions cannot have arbitrary large concurrency
     # values, or autoscaling targets. `container-concurrency` default setting
     # must be at or below this value.
+    #
     # Must be greater than 1.
+    #
+    # Note: even with this set, a user can choose a containerConcurrency
+    # of 0 (i.e. unbounded) unless allow-container-concurrency-zero is
+    # set to "false".
     container-concurrency-max-limit: "1000"
 
-    # feature flag indicates whether to enable multi container support or not
-    enable-multi-container: "false"
+    # allow-container-concurrency-zero controls whether users can
+    # specify 0 (i.e. unbounded) for containerConcurrency.
+    allow-container-concurrency-zero: "true"
+
+    # enable-service-links specifies the default value used for the
+    # enableServiceLinks field of the PodSpec, when it is omitted by the user.
+    # See: https://kubernetes.io/docs/concepts/services-networking/connect-applications-service/#accessing-the-service
+    #
+    # This is a tri-state flag with possible values of (true|false|default).
+    #
+    # In environments with large number of services it is suggested
+    # to set this value to `false`.
+    # See https://github.com/knative/serving/issues/8498.
+    enable-service-links: "false"

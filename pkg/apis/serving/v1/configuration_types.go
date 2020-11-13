@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -55,6 +55,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Configuration.
 	_ kmeta.OwnerRefable = (*Configuration)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Configuration)(nil)
 )
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
@@ -70,6 +73,7 @@ const (
 	ConfigurationConditionReady = apis.ConditionReady
 )
 
+// IsConfigurationCondition returns true if the given ConditionType is a ConfigurationCondition.
 func IsConfigurationCondition(t apis.ConditionType) bool {
 	return t == ConfigurationConditionReady
 }
@@ -104,4 +108,9 @@ type ConfigurationList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Configuration `json:"items"`
+}
+
+// GetStatus retrieves the status of the Configuration. Implements the KRShaped interface.
+func (t *Configuration) GetStatus() *duckv1.Status {
+	return &t.Status.Status
 }

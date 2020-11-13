@@ -17,13 +17,13 @@ limitations under the License.
 package resources
 
 import (
-	"context"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
 // StableWindow returns the stable window for the revision from PA, if set, or
@@ -37,8 +37,7 @@ func StableWindow(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) t
 }
 
 // MakeMetric constructs a Metric resource from a PodAutoscaler
-func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, metricSvc string,
-	config *autoscalerconfig.Config) *v1alpha1.Metric {
+func MakeMetric(pa *v1alpha1.PodAutoscaler, metricSvc string, config *autoscalerconfig.Config) *v1alpha1.Metric {
 	stableWindow := StableWindow(pa, config)
 
 	// Look for a panic window percentage annotation.
@@ -48,8 +47,8 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, metricSvc strin
 		panicWindowPercentage = config.PanicWindowPercentage
 	}
 	panicWindow := time.Duration(float64(stableWindow) * panicWindowPercentage / 100.0).Round(time.Second)
-	if panicWindow < autoscalerconfig.BucketSize {
-		panicWindow = autoscalerconfig.BucketSize
+	if panicWindow < asconfig.BucketSize {
+		panicWindow = asconfig.BucketSize
 	}
 	return &v1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{

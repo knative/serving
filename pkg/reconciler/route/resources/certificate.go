@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,13 +21,13 @@ import (
 	"hash/adler32"
 	"sort"
 
-	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
-	networkingv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
 )
@@ -43,7 +43,7 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 	}
 	order.Sort()
 
-	var certs []*networkingv1alpha1.Certificate
+	certs := make([]*networkingv1alpha1.Certificate, 0, len(order))
 	for _, dnsName := range order {
 		tag := domainTagMap[dnsName]
 
@@ -54,7 +54,7 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 		// The "-[tag digest]" is computed only if there's a tag
 		certName := names.Certificate(route)
 		if tag != "" {
-			certName += fmt.Sprintf("-%d", adler32.Checksum([]byte(tag)))
+			certName += fmt.Sprint("-", adler32.Checksum([]byte(tag)))
 		}
 
 		certs = append(certs, &networkingv1alpha1.Certificate{
@@ -64,7 +64,7 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
 				Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 					networking.CertificateClassAnnotationKey: certClass,
-				}, route.ObjectMeta.Annotations), func(key string) bool {
+				}, route.Annotations), func(key string) bool {
 					return key == corev1.LastAppliedConfigAnnotation
 				}),
 				Labels: map[string]string{

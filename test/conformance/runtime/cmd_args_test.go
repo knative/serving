@@ -22,13 +22,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	v1a1options "knative.dev/serving/pkg/testing/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	v1options "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 )
 
-func withCmdArgs(cmds []string, args []string) v1a1options.ServiceOption {
-	return func(s *v1alpha1.Service) {
+func withCmdArgs(cmds []string, args []string) v1options.ServiceOption {
+	return func(s *v1.Service) {
 		c := &s.Spec.Template.Spec.Containers[0]
 		c.Command = cmds
 		c.Args = args
@@ -44,7 +44,7 @@ func TestCmdArgs(t *testing.T) {
 
 	_, ri, err := fetchRuntimeInfo(t, clients, withCmdArgs(cmds, args))
 	if err != nil {
-		t.Fatalf("Failed to fetch runtime info: %v", err)
+		t.Fatal("Failed to fetch runtime info:", err)
 	}
 
 	want := append(cmds, args...)

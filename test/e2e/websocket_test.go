@@ -2,11 +2,14 @@
 
 /*
 Copyright 2019 The Knative Authors
- Licensed under the Apache License, Version 2.0 (the "License");
+
+Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-     http://www.apache.org/licenses/LICENSE-2.0
- Unless required by applicable law or agreed to in writing, software
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -16,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -27,13 +31,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const (
@@ -121,8 +123,6 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 // (4) verifies that we receive back the same message.
 func TestWebSocket(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -132,12 +132,10 @@ func TestWebSocket(t *testing.T) {
 	}
 
 	// Clean up in both abnormal and normal exits.
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, &names)
 
-	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https); err != nil {
-		t.Fatalf("Failed to create WebSocket server: %v", err)
+	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
+		t.Fatal("Failed to create WebSocket server:", err)
 	}
 
 	// Validate the websocket connection.
@@ -149,8 +147,6 @@ func TestWebSocket(t *testing.T) {
 // and with -1 as target burst capacity and then validates that we can still serve.
 func TestWebSocketViaActivator(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -160,22 +156,24 @@ func TestWebSocketViaActivator(t *testing.T) {
 	}
 
 	// Clean up in both abnormal and normal exits.
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, &names)
 
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}),
 	)
 	if err != nil {
-		t.Fatalf("Failed to create WebSocket server: %v", err)
+		t.Fatal("Failed to create WebSocket server:", err)
 	}
 
 	// Wait for the activator endpoints to equalize.
-	if err := waitForActivatorEndpoints(resources, clients); err != nil {
-		t.Fatalf("Never got Activator endpoints in the service: %v", err)
+	if err := waitForActivatorEndpoints(&TestContext{
+		t:         t,
+		resources: resources,
+		clients:   clients,
+	}); err != nil {
+		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 	if err := validateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)
@@ -192,13 +190,11 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 		Image:   wsServerTestImageName,
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	// Setup Initial Service
 	t.Log("Creating a new Service in runLatest")
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
+	objects, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithEnv(corev1.EnvVar{
 			Name:  "SUFFIX",
 			Value: "Blue",
@@ -211,9 +207,9 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	blue.TrafficTarget = "blue"
 
 	t.Log("Updating the Service to use a different suffix")
-	greenSvc := objects.Service.DeepCopy()
-	greenSvc.Spec.ConfigurationSpec.Template.Spec.Containers[0].Env[0].Value = "Green"
-	greenSvc, err = v1a1test.PatchService(t, clients, objects.Service, greenSvc)
+	greenSvc, err := v1test.PatchService(t, clients, objects.Service, func(s *v1.Service) {
+		s.Spec.Template.Spec.Containers[0].Env[0].Value = "Green"
+	})
 	if err != nil {
 		t.Fatalf("Patch update for Service %s with new env var failed: %v", names.Service, err)
 	}
@@ -222,36 +218,32 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	green.TrafficTarget = "green"
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
-	green.Revision, err = v1a1test.WaitForServiceLatestRevision(clients, names)
+	green.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with the new Revision: %v", names.Service, err)
 	}
 
 	t.Log("Updating RouteSpec")
-	if _, err := v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
-		Traffic: []v1alpha1.TrafficTarget{{
-			TrafficTarget: v1.TrafficTarget{
-				Tag:          blue.TrafficTarget,
-				RevisionName: blue.Revision,
-				Percent:      ptr.Int64(50),
-			},
+	if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{{
+			Tag:          blue.TrafficTarget,
+			RevisionName: blue.Revision,
+			Percent:      ptr.Int64(50),
 		}, {
-			TrafficTarget: v1.TrafficTarget{
-				Tag:          green.TrafficTarget,
-				RevisionName: green.Revision,
-				Percent:      ptr.Int64(50),
-			},
+			Tag:          green.TrafficTarget,
+			RevisionName: green.Revision,
+			Percent:      ptr.Int64(50),
 		}},
 	}); err != nil {
-		t.Fatalf("Failed to update Service route spec: %v", err)
+		t.Fatal("Failed to update Service route spec:", err)
 	}
 
 	t.Log("Wait for the service domains to be ready")
-	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	service, err := clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
+	service, err := clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}
@@ -269,10 +261,10 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	// We'll just use the service URL.
 	tealURL := service.Status.URL.URL().Hostname()
 
-	// But since Istio network programming takes some time to take effect
+	// But since network programming takes some time to take effect
 	// and it doesn't have a Status, we'll probe `green` until it's ready first.
 	if err := validateWebSocketConnection(t, clients, green); err != nil {
-		t.Fatalf("Error initializing WS connection: %v", err)
+		t.Fatal("Error initializing WS connection:", err)
 	}
 
 	// The actual test.
@@ -283,7 +275,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	)
 	resps, err := webSocketResponseFreqs(t, clients, tealURL, numReqs)
 	if err != nil {
-		t.Errorf("Failed to send and receive websocket messages: %v", err)
+		t.Error("Failed to send and receive websocket messages:", err)
 	}
 	if len(resps) != 2 {
 		t.Errorf("Number of responses: %d, want: 2", len(resps))

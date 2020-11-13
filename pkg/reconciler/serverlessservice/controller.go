@@ -1,11 +1,11 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,21 +19,21 @@ package serverlessservice
 import (
 	"context"
 
+	"k8s.io/client-go/tools/cache"
+
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	sksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	sksreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
-	"knative.dev/pkg/logging"
-	pkgreconciler "knative.dev/pkg/reconciler"
-	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
-	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
-
-	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/apis/networking"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
+	"knative.dev/serving/pkg/networking"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 )
 
@@ -74,7 +74,7 @@ func NewController(
 
 	// Watch all the services that we have created.
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupVersionKind(netv1alpha1.SchemeGroupVersion.WithKind("ServerlessService")),
+		FilterFunc: controller.FilterControllerGVK(netv1alpha1.SchemeGroupVersion.WithKind("ServerlessService")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 

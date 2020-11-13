@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,92 +18,213 @@ package deployment
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+
 	"knative.dev/pkg/system"
+	"knative.dev/serving/test/conformance/api/shared"
 
 	. "knative.dev/pkg/configmap/testing"
 	_ "knative.dev/pkg/system/testing"
 )
 
-var noSidecarImage = ""
+const defaultSidecarImage = "defaultImage"
+
+func TestMatchingExceptions(t *testing.T) {
+	cfg := defaultConfig()
+
+	if delta := cfg.RegistriesSkippingTagResolving.Difference(shared.DigestResolutionExceptions); delta.Len() > 0 {
+		t.Error("Got extra:", delta.List())
+	}
+
+	if delta := shared.DigestResolutionExceptions.Difference(cfg.RegistriesSkippingTagResolving); delta.Len() > 0 {
+		t.Error("Didn't get:", delta.List())
+	}
+}
 
 func TestControllerConfigurationFromFile(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, ConfigName, QueueSidecarImageKey)
 
 	if _, err := NewConfigFromConfigMap(cm); err != nil {
-		t.Errorf("NewConfigFromConfigMap(actual) = %v", err)
+		t.Error("NewConfigFromConfigMap(actual) =", err)
 	}
 
-	if _, err := NewConfigFromConfigMap(example); err != nil {
-		t.Errorf("NewConfigFromConfigMap(example) = %v", err)
+	if got, err := NewConfigFromConfigMap(example); err != nil {
+		t.Error("NewConfigFromConfigMap(example) =", err)
+	} else {
+		want := defaultConfig()
+		// We require QSI to be explicitly set. So do it here.
+		want.QueueSidecarImage = "ko://knative.dev/serving/cmd/queue"
+
+		// The following are in the example yaml, to show usage,
+		// but default is nil, i.e. inheriting k8s.
+		// So for this test we ignore those, but verify the other fields.
+		got.QueueSidecarCPULimit = nil
+		got.QueueSidecarMemoryRequest, got.QueueSidecarMemoryLimit = nil, nil
+		got.QueueSidecarEphemeralStorageRequest, got.QueueSidecarEphemeralStorageLimit = nil, nil
+		if !cmp.Equal(got, want) {
+			t.Error("Example stanza does not match default, diff(-want,+got):", cmp.Diff(want, got))
+		}
 	}
 }
 
 func TestControllerConfiguration(t *testing.T) {
 	configTests := []struct {
-		name           string
-		wantErr        bool
-		wantController interface{}
-		config         *corev1.ConfigMap
+		name       string
+		wantErr    bool
+		wantConfig *Config
+		data       map[string]string
 	}{{
-		name:    "controller configuration with bad registries",
-		wantErr: false,
-		wantController: &Config{
+		name: "controller configuration with bad registries",
+		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
-			QueueSidecarImage:              noSidecarImage,
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			ProgressDeadline:               ProgressDeadlineDefault,
 		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				QueueSidecarImageKey:           noSidecarImage,
-				registriesSkippingTagResolving: "ko.local,,",
-			},
-		}}, {
-		name:    "controller configuration with registries",
-		wantErr: false,
-		wantController: &Config{
-			RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
-			QueueSidecarImage:              noSidecarImage,
-		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				QueueSidecarImageKey:           noSidecarImage,
-				registriesSkippingTagResolving: "ko.local,ko.dev",
-			},
+		data: map[string]string{
+			QueueSidecarImageKey:              defaultSidecarImage,
+			registriesSkippingTagResolvingKey: "ko.local,,",
 		},
 	}, {
-		name:           "controller with no side car image",
-		wantErr:        true,
-		wantController: (*Config)(nil),
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{},
+		name: "controller configuration good progress deadline",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			ProgressDeadline:               444 * time.Second,
+		},
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			ProgressDeadlineKey:  "444s",
+		},
+	}, {
+		name: "controller configuration good digest resolution timeout",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        60 * time.Second,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			ProgressDeadline:               ProgressDeadlineDefault,
+		},
+		data: map[string]string{
+			QueueSidecarImageKey:       defaultSidecarImage,
+			digestResolutionTimeoutKey: "60s",
+		},
+	}, {
+		name: "controller configuration with registries",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			ProgressDeadline:               ProgressDeadlineDefault,
+		},
+		data: map[string]string{
+			QueueSidecarImageKey:              defaultSidecarImage,
+			registriesSkippingTagResolvingKey: "ko.local,ko.dev",
+		},
+	}, {
+		name: "controller configuration with custom queue sidecar resource request/limits",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving:      sets.NewString("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:             digestResolutionTimeoutDefault,
+			QueueSidecarImage:                   defaultSidecarImage,
+			ProgressDeadline:                    ProgressDeadlineDefault,
+			QueueSidecarCPURequest:              resourcePtr(resource.MustParse("123m")),
+			QueueSidecarMemoryRequest:           resourcePtr(resource.MustParse("456M")),
+			QueueSidecarEphemeralStorageRequest: resourcePtr(resource.MustParse("789m")),
+			QueueSidecarCPULimit:                resourcePtr(resource.MustParse("987M")),
+			QueueSidecarMemoryLimit:             resourcePtr(resource.MustParse("654m")),
+			QueueSidecarEphemeralStorageLimit:   resourcePtr(resource.MustParse("321M")),
+		},
+		data: map[string]string{
+			QueueSidecarImageKey:                   defaultSidecarImage,
+			queueSidecarCPURequestKey:              "123m",
+			queueSidecarMemoryRequestKey:           "456M",
+			queueSidecarEphemeralStorageRequestKey: "789m",
+			queueSidecarCPULimitKey:                "987M",
+			queueSidecarMemoryLimitKey:             "654m",
+			queueSidecarEphemeralStorageLimitKey:   "321M",
+		},
+	}, {
+		name:    "controller with no side car image",
+		wantErr: true,
+		data:    map[string]string{},
+	}, {
+		name:    "controller configuration invalid digest resolution timeout",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey:       defaultSidecarImage,
+			digestResolutionTimeoutKey: "-1s",
+		},
+	}, {
+		name:    "controller configuration invalid progress deadline",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			ProgressDeadlineKey:  "not-a-duration",
+		},
+	}, {
+		name:    "controller configuration invalid progress deadline II",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			ProgressDeadlineKey:  "-21s",
+		},
+	}, {
+		name:    "controller configuration invalid progress deadline III",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			ProgressDeadlineKey:  "0ms",
+		},
+	}, {
+		name:    "controller configuration invalid progress deadline IV",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			ProgressDeadlineKey:  "1982ms",
 		},
 	}}
 
 	for _, tt := range configTests {
-		actualController, err := NewConfigFromConfigMap(tt.config)
+		t.Run(tt.name, func(t *testing.T) {
+			gotConfigCM, err := NewConfigFromConfigMap(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: system.Namespace(),
+					Name:      ConfigName,
+				},
+				Data: tt.data,
+			})
 
-		if (err != nil) != tt.wantErr {
-			t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
-		}
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewConfigFromConfigMap() error = %v, want: %v", err, tt.wantErr)
+			}
 
-		if diff := cmp.Diff(actualController, tt.wantController); diff != "" {
-			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantController, actualController)
-		}
+			if got, want := gotConfigCM, tt.wantConfig; !cmp.Equal(got, want) {
+				t.Error("Config mismatch, diff(-want,+got):", cmp.Diff(want, got))
+			}
+
+			gotConfig, err := NewConfigFromMap(tt.data)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewConfigFromMap() error = %v, WantErr %v", err, tt.wantErr)
+			}
+			if diff := cmp.Diff(gotConfig, gotConfigCM); diff != "" {
+				t.Fatalf("Config mismatch: diff(-want,+got):\n%s", diff)
+			}
+		})
 	}
+}
+
+func resourcePtr(q resource.Quantity) *resource.Quantity {
+	return &q
 }

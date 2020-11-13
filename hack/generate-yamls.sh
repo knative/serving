@@ -48,28 +48,31 @@ fi
 rm -fr ${YAML_OUTPUT_DIR}/*.yaml
 
 # Generated Knative component YAML files
-readonly SERVING_YAML=${YAML_OUTPUT_DIR}/serving.yaml
 readonly SERVING_CORE_YAML=${YAML_OUTPUT_DIR}/serving-core.yaml
 readonly SERVING_DEFAULT_DOMAIN_YAML=${YAML_OUTPUT_DIR}/serving-default-domain.yaml
+readonly SERVING_STORAGE_VERSION_MIGRATE_YAML=${YAML_OUTPUT_DIR}/serving-storage-version-migration.yaml
 readonly SERVING_HPA_YAML=${YAML_OUTPUT_DIR}/serving-hpa.yaml
+readonly SERVING_DOMAINMAPPING_YAML=${YAML_OUTPUT_DIR}/serving-domainmapping.yaml
+readonly SERVING_DOMAINMAPPING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-domainmapping-crds.yaml
 readonly SERVING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-crds.yaml
-readonly SERVING_CERT_MANAGER_YAML=${YAML_OUTPUT_DIR}/serving-cert-manager.yaml
 readonly SERVING_NSCERT_YAML=${YAML_OUTPUT_DIR}/serving-nscert.yaml
+readonly SERVING_POST_INSTALL_JOBS_YAML=${YAML_OUTPUT_DIR}/serving-post-install-jobs.yaml
 
-readonly MONITORING_FILES=${YAML_OUTPUT_DIR}/monitoring.lst
-readonly MONITORING_YAML=${YAML_OUTPUT_DIR}/monitoring.yaml
-readonly MONITORING_CORE_YAML=${YAML_OUTPUT_DIR}/monitoring-core.yaml
-readonly MONITORING_METRIC_PROMETHEUS_YAML=${YAML_OUTPUT_DIR}/monitoring-metrics-prometheus.yaml
-readonly MONITORING_TRACE_ZIPKIN_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin.yaml
-readonly MONITORING_TRACE_ZIPKIN_IN_MEM_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin-in-mem.yaml
-readonly MONITORING_TRACE_JAEGER_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-jaeger.yaml
-readonly MONITORING_TRACE_JAEGER_IN_MEM_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-jaeger-in-mem.yaml
-readonly MONITORING_LOG_ELASTICSEARCH_YAML=${YAML_OUTPUT_DIR}/monitoring-logs-elasticsearch.yaml
+declare -A CONSOLIDATED_ARTIFACTS
+CONSOLIDATED_ARTIFACTS=(
+  ["${SERVING_POST_INSTALL_JOBS_YAML}"]="${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
+)
+readonly CONSOLIDATED_ARTIFACTS
 
 # Flags for all ko commands
 KO_YAML_FLAGS="-P"
 [[ "${KO_DOCKER_REPO}" != gcr.io/* ]] && KO_YAML_FLAGS=""
-readonly KO_YAML_FLAGS="${KO_YAML_FLAGS} ${KO_FLAGS} --strict"
+
+if [[ "${KO_FLAGS}" != *"--platform"* ]]; then
+  KO_YAML_FLAGS="${KO_YAML_FLAGS} --platform=all"
+fi
+
+readonly KO_YAML_FLAGS="${KO_YAML_FLAGS} ${KO_FLAGS}"
 
 if [[ -n "${TAG}" ]]; then
   LABEL_YAML_CMD=(sed -e "s|serving.knative.dev/release: devel|serving.knative.dev/release: \"${TAG}\"|")
@@ -83,86 +86,50 @@ export KO_DOCKER_REPO
 cd "${YAML_REPO_ROOT}"
 
 echo "Building Knative Serving"
-ko resolve ${KO_YAML_FLAGS} -R -f config/300-imagecache.yaml -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
 
-ko resolve ${KO_YAML_FLAGS} -f config/post-install/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/post-install/default-domain.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
+
+ko resolve ${KO_YAML_FLAGS} -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
 
 # These don't have images, but ko will concatenate them for us.
-ko resolve ${KO_YAML_FLAGS} -f config/core/resources/ -f config/300-imagecache.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/core/300-resources/ -f config/core/300-imagecache.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
 
 # Create hpa-class autoscaling related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
 
-# Create cert-manager related yaml
-ko resolve ${KO_YAML_FLAGS} -f config/cert-manager/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CERT_MANAGER_YAML}"
+# Create domain mapping related yaml
+ko resolve ${KO_YAML_FLAGS} -R -f config/domain-mapping/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_DOMAINMAPPING_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/domain-mapping/300-resources/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_DOMAINMAPPING_CRD_YAML}"
 
 # Create nscert related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
 
-# Create serving.yaml with all of the default components
-cat "${SERVING_CORE_YAML}" > "${SERVING_YAML}"
-cat "${SERVING_HPA_YAML}" >> "${SERVING_YAML}"
-cat "./third_party/net-istio.yaml" >> "${SERVING_YAML}"
-
-# Metrics via Prometheus & Grafana
-ko resolve ${KO_YAML_FLAGS} -R \
-    -f third_party/config/monitoring/metrics/prometheus \
-    -f config/monitoring/metrics/prometheus | "${LABEL_YAML_CMD[@]}" > "${MONITORING_METRIC_PROMETHEUS_YAML}"
-
-# Logs via ElasticSearch, Fluentd & Kibana
-ko resolve ${KO_YAML_FLAGS} -R \
-    -f third_party/config/monitoring/logging/elasticsearch \
-    -f config/monitoring/logging/elasticsearch | "${LABEL_YAML_CMD[@]}" > "${MONITORING_LOG_ELASTICSEARCH_YAML}"
-
-# Traces via Zipkin when ElasticSearch is installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_YAML}"
-
-# Traces via Zipkin in Memory when ElasticSearch is not installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
-
-echo "Building Monitoring & Logging"
-
-# By putting the list of files used to create the monitoring.yaml
+# By putting the list of files used to create serving-upgrade.yaml
 # people can choose to exclude certain ones via 'grep' but still keep in-sync
 # with the complete list if things change in the future
-echo "${MONITORING_LOG_ELASTICSEARCH_YAML}" >  "${MONITORING_FILES}"
-echo "${MONITORING_METRIC_PROMETHEUS_YAML}" >> "${MONITORING_FILES}"
-echo "${MONITORING_TRACE_ZIPKIN_YAML}"      >> "${MONITORING_FILES}"
-
-# Generate the core monitoring file - basically just the namespace
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
-    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_CORE_YAML}"
-
-# Use ko to concatenate them all together.
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
-    $(sed "s/^/-f /" < "${MONITORING_FILES}") \
-    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_YAML}"
-
-# Traces via Jaeger when ElasticSearch is installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/elasticsearch -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_YAML}"
-
-# Traces via Jaeger in Memory when ElasticSearch is not installed
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/memory -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_IN_MEM_YAML}"
+for artifact in "${!CONSOLIDATED_ARTIFACTS[@]}"; do
+  echo "Assembling Knative Serving - ${artifact}"
+  echo "" > ${artifact}
+  for component in ${CONSOLIDATED_ARTIFACTS[${artifact}]}; do
+    echo "---" >> ${artifact}
+    echo "# ${component}" >> ${artifact}
+    cat ${component} >> ${artifact}
+  done
+done
 
 echo "All manifests generated"
 
-# List generated YAML files, with serving.yaml first.
+# List generated YAML files, with serving-core.yaml first.
 
 cat << EOF > ${YAML_LIST_FILE}
-${SERVING_YAML}
 ${SERVING_CORE_YAML}
 ${SERVING_DEFAULT_DOMAIN_YAML}
+${SERVING_STORAGE_VERSION_MIGRATE_YAML}
+${SERVING_POST_INSTALL_JOBS_YAML}
 ${SERVING_HPA_YAML}
+${SERVING_DOMAINMAPPING_YAML}
+${SERVING_DOMAINMAPPING_CRD_YAML}
 ${SERVING_CRD_YAML}
-${SERVING_CERT_MANAGER_YAML}
 ${SERVING_NSCERT_YAML}
-${MONITORING_FILES}
-${MONITORING_YAML}
-${MONITORING_CORE_YAML}
-${MONITORING_METRIC_PROMETHEUS_YAML}
-${MONITORING_TRACE_ZIPKIN_YAML}
-${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}
-${MONITORING_TRACE_JAEGER_YAML}
-${MONITORING_TRACE_JAEGER_IN_MEM_YAML}
-${MONITORING_LOG_ELASTICSEARCH_YAML}
 EOF

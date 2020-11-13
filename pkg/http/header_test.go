@@ -22,7 +22,10 @@ import (
 )
 
 func TestLastHeaderValue(t *testing.T) {
-	headerKey := "Header-Key"
+	const (
+		headerKey    = "Header-Key"
+		nonCanonical = "hEaDer-kEY"
+	)
 
 	tests := []struct {
 		name     string
@@ -53,9 +56,9 @@ func TestLastHeaderValue(t *testing.T) {
 	}}
 
 	for _, test := range tests {
-		got := LastHeaderValue(test.headers, headerKey)
+		got := LastHeaderValue(test.headers, nonCanonical)
 		if got != test.expected {
-			t.Errorf("Unexpected header value got - %q want - %q", got, test.expected)
+			t.Errorf("Got = %q, want: %q", got, test.expected)
 		}
 	}
 }

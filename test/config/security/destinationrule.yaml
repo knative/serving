@@ -17,6 +17,8 @@ kind: "DestinationRule"
 metadata:
   name: "mtls-services"
   namespace: "serving-tests"
+  labels:
+    test.knative.dev/dependency: istio-sidecar
 spec:
   host: "*.local"
   trafficPolicy:
@@ -28,6 +30,8 @@ kind: "DestinationRule"
 metadata:
   name: "mtls-services"
   namespace: "serving-tests-alt"
+  labels:
+    test.knative.dev/dependency: istio-sidecar
 spec:
   host: "*.local"
   trafficPolicy:

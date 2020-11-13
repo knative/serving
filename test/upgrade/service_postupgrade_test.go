@@ -19,6 +19,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"context"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,22 +35,39 @@ import (
 
 func TestServicePostUpgrade(t *testing.T) {
 	t.Parallel()
+
 	clients := e2e.Setup(t)
 
 	// Before updating the service, the route and configuration objects should
 	// not be updated just because there has been an upgrade.
 	if hasGeneration, err := configHasGeneration(clients, serviceName, 1); err != nil {
-		t.Fatalf("Error comparing Configuration generation: %v", err)
+		t.Fatal("Error comparing Configuration generation", err)
 	} else if !hasGeneration {
 		t.Fatal("Configuration is updated after an upgrade.")
 	}
-	// TODO(https://github.com/knative/serving/issues/6984): Re-enable this after 0.13 cuts.
-	// if hasGeneration, err := routeHasGeneration(clients, serviceName, 1); err != nil {
-	// 	t.Fatalf("Error comparing Route generation: %v", err)
-	// } else if !hasGeneration {
-	// 	t.Fatal("Route is updated after an upgrade.")
-	// }
+	if hasGeneration, err := routeHasGeneration(clients, serviceName, 1); err != nil {
+		t.Fatal("Error comparing Route generation", err)
+	} else if !hasGeneration {
+		t.Fatal("Route is updated after an upgrade.")
+	}
+
 	updateService(serviceName, t)
+}
+
+func configHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
+	configObj, err := clients.ServingClient.Configs.Get(context.Background(), serviceName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return configObj.Generation == int64(generation), nil
+}
+
+func routeHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
+	routeObj, err := clients.ServingClient.Routes.Get(context.Background(), serviceName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return routeObj.Generation == int64(generation), nil
 }
 
 func TestServicePostUpgradeFromScaleToZero(t *testing.T) {
@@ -73,24 +91,8 @@ func TestBYORevisionPostUpgrade(t *testing.T) {
 			Percent:      ptr.Int64(100),
 		}},
 	}); err != nil {
-		t.Fatalf("Failed to update Service: %v", err)
+		t.Fatal("Failed to update Service:", err)
 	}
-}
-
-func configHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
-	configObj, err := clients.ServingClient.Configs.Get(serviceName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	return configObj.Generation == int64(generation), nil
-}
-
-func routeHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
-	routeObj, err := clients.ServingClient.Routes.Get(serviceName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	return routeObj.Generation == int64(generation), nil
 }
 
 func updateService(serviceName string, t *testing.T) {
@@ -101,9 +103,9 @@ func updateService(serviceName string, t *testing.T) {
 	}
 
 	t.Logf("Getting service %q", names.Service)
-	svc, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	svc, err := clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Service: %v", err)
+		t.Fatal("Failed to get Service:", err)
 	}
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
@@ -137,4 +139,18 @@ func updateService(serviceName string, t *testing.T) {
 func TestCreateNewServicePostUpgrade(t *testing.T) {
 	t.Parallel()
 	createNewService(postUpgradeServiceName, t)
+}
+
+func TestInitialScalePostUpgrade(t *testing.T) {
+	t.Parallel()
+	clients := e2e.Setup(t)
+
+	t.Logf("Getting service %q", initialScaleServiceName)
+	svc, err := clients.ServingClient.Services.Get(context.Background(), initialScaleServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Failed to get Service:", err)
+	}
+	if !svc.IsReady() {
+		t.Fatalf("Post upgrade Service is not ready with reason %q", svc.Status.GetCondition(v1.ServiceConditionRoutesReady).Reason)
+	}
 }

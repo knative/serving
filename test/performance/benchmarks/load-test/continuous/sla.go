@@ -19,9 +19,9 @@ package main
 import (
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/mako"
 )
 
@@ -30,14 +30,14 @@ import (
 // state (once the autoscaling decisions have leveled off).
 func newLoadTest95PercentileLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("95p latency"),
+		Name: ptr.String("95p latency"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: bound(100 * time.Millisecond),
 			Max: bound(115 * time.Millisecond),
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
-				PercentileMilliRank: proto.Int32(95000),
-				ValueKey:            proto.String("l"),
+				PercentileMilliRank: ptr.Int32(95000),
+				ValueKey:            ptr.String("l"),
 			},
 		}},
 		CrossRunConfig: mako.NewCrossRunConfig(10, tags...),
@@ -50,13 +50,13 @@ func newLoadTest95PercentileLatency(tags ...string) *tpb.ThresholdAnalyzerInput 
 // of non-cold-start overload requests.
 func newLoadTestMaximumLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("Maximum latency"),
+		Name: ptr.String("Maximum latency"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: bound(100 * time.Millisecond),
 			Max: bound(100*time.Millisecond + 10*time.Second),
 			DataFilter: &mpb.DataFilter{
 				DataType: mpb.DataFilter_METRIC_AGGREGATE_MAX.Enum(),
-				ValueKey: proto.String("l"),
+				ValueKey: ptr.String("l"),
 			},
 		}},
 		CrossRunConfig: mako.NewCrossRunConfig(10, tags...),
@@ -67,12 +67,12 @@ func newLoadTestMaximumLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 // stepped burst is 0.
 func newLoadTestMaximumErrorRate(tags ...string) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("Mean error rate"),
+		Name: ptr.String("Mean error rate"),
 		Configs: []*tpb.ThresholdConfig{{
-			Max: proto.Float64(0),
+			Max: ptr.Float64(0),
 			DataFilter: &mpb.DataFilter{
 				DataType: mpb.DataFilter_METRIC_AGGREGATE_MEAN.Enum(),
-				ValueKey: proto.String("es"),
+				ValueKey: ptr.String("es"),
 			},
 		}},
 		CrossRunConfig: mako.NewCrossRunConfig(10, tags...),
@@ -82,5 +82,5 @@ func newLoadTestMaximumErrorRate(tags ...string) *tpb.ThresholdAnalyzerInput {
 // bound is a helper for making the inline SLOs more readable by expressing
 // them as durations.
 func bound(d time.Duration) *float64 {
-	return proto.Float64(d.Seconds())
+	return ptr.Float64(d.Seconds())
 }

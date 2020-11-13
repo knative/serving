@@ -19,12 +19,9 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
+  annotations:
+    knative.dev/example-checksum: "96896b00"
 data:
-  # An inactive but valid configuration follows; see example.
-  resourceLock: "leases"
-  leaseDuration: "15s"
-  renewDeadline: "10s"
-  retryPeriod: "2s"
   _example: |
     ################################
     #                              #
@@ -41,29 +38,21 @@ data:
     # this example block and unindented to be in the data block
     # to actually change the configuration.
 
-    # resourceLock controls which API resource is used as the basis for the
-    # leader election lock. Valid values are:
-    #
-    # - leases -> use the coordination API
-    # - configmaps -> use configmaps
-    # - endpoints -> use endpoints
-    resourceLock: "leases"
-
     # leaseDuration is how long non-leaders will wait to try to acquire the
     # lock; 15 seconds is the value used by core kubernetes controllers.
     leaseDuration: "15s"
+
     # renewDeadline is how long a leader will try to renew the lease before
     # giving up; 10 seconds is the value used by core kubernetes controllers.
     renewDeadline: "10s"
+
     # retryPeriod is how long the leader election client waits between tries of
     # actions; 2 seconds is the value used by core kubernetes controllers.
     retryPeriod: "2s"
-    # enabledComponents is a comma-delimited list of component names for which
-    # leader election is enabled. Valid values are:
-    #
-    # - controller
-    # - hpaautoscaler
-    # - certcontroller
-    # - istiocontroller
-    # - nscontroller
-    enabledComponents: "controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller"
+
+    # buckets is the number of buckets used to partition key space of each
+    # Reconciler. If this number is M and the replica number of the controller
+    # is N, the N replicas will compete for the M buckets. The owner of a
+    # bucket will take care of the reconciling for the keys partitioned into
+    # that bucket.
+    buckets: "1"

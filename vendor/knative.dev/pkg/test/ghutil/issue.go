@@ -21,7 +21,7 @@ package ghutil
 import (
 	"fmt"
 
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v27/github"
 )
 
 const (

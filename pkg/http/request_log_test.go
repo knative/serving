@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 )
 
 var (
@@ -211,7 +211,7 @@ func TestSetTemplate(t *testing.T) {
 	buf := bytes.NewBufferString("")
 	handler, err := NewRequestLogHandler(baseHandler, buf, "", defaultInputGetter, false)
 	if err != nil {
-		t.Fatalf("want: no error, got: %v", err)
+		t.Fatal("want: no error, got:", err)
 	}
 
 	for _, test := range tests {
@@ -236,7 +236,7 @@ func TestSetTemplate(t *testing.T) {
 func BenchmarkRequestLogHandlerNoTemplate(b *testing.B) {
 	handler, err := NewRequestLogHandler(baseHandler, ioutil.Discard, "", defaultInputGetter, false)
 	if err != nil {
-		b.Fatalf("Failed to create handler: %v", err)
+		b.Fatal("Failed to create handler:", err)
 	}
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	resp := httptest.NewRecorder()
@@ -261,7 +261,7 @@ func BenchmarkRequestLogHandlerDefaultTemplate(b *testing.B) {
 	tpl := `{"httpRequest": {"requestMethod": "{{.Request.Method}}", "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}", "status": {{.Response.Code}}, "responseSize": "{{.Response.Size}}", "userAgent": "{{js .Request.UserAgent}}", "remoteIp": "{{js .Request.RemoteAddr}}", "serverIp": "{{.Revision.PodIP}}", "referer": "{{js .Request.Referer}}", "latency": "{{.Response.Latency}}s", "protocol": "{{.Request.Proto}}"}, "traceId": "{{index .Request.Header "X-B3-Traceid"}}"}`
 	handler, err := NewRequestLogHandler(baseHandler, ioutil.Discard, tpl, defaultInputGetter, false)
 	if err != nil {
-		b.Fatalf("Failed to create handler: %v", err)
+		b.Fatal("Failed to create handler:", err)
 	}
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	resp := httptest.NewRecorder()

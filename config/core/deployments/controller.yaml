@@ -31,6 +31,17 @@ spec:
         app: controller
         serving.knative.dev/release: devel
     spec:
+      # To avoid node becoming SPOF, spread our replicas to different nodes.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: controller
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+
       serviceAccountName: controller
       containers:
       - name: controller
@@ -47,6 +58,10 @@ spec:
             memory: 1000Mi
 
         env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         - name: SYSTEM_NAMESPACE
           valueFrom:
             fieldRef:
@@ -62,6 +77,11 @@ spec:
 
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - all
 
         ports:
         - name: metrics

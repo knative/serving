@@ -452,10 +452,44 @@ value of the `<key>` annotation on a resource must match the value provided to
 `NewImpl` (or `NewReconcile`) for `ReconcileKind` or `FinalizeKind` to be called
 for that resource.
 
+#### Annotation based common logic
+
+**krshapedlogic=false may be used to omit common reconciler logic**
+
+Reconcilers can handle common logic for resources that conform to the KRShaped
+interface. This allows the generated code to automatically increment
+ObservedGeneration.
+
+```go
+// +genreconciler
+```
+
+Setting this annotation will emit the following in the generated reconciler.
+
+```go
+reconciler.PreProcessReconcile(ctx, resource)
+
+reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
+
+reconciler.PostProcessReconcile(ctx, resource, oldResource)
+```
+
 #### Stubs
 
-To get started, or to use as reference. It is intended to be copied out of the
-`client` dir.
+To enable stubs generation, add the stubs flag:
+
+```go
+// +genreconciler:stubs
+```
+
+Or with the class annotation:
+
+```go
+// +genreconciler:class=example.com/filter.class,stubs
+```
+
+The stubs are intended to be used to get started, or to use as reference. It is
+intended to be copied out of the `client` dir.
 
 `knative.dev/<repo>/pkg/client/injection/reconciler/<clientgroup>/<version>/<kind>/stubs/controller.go`
 

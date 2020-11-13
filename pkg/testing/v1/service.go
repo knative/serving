@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
@@ -72,10 +73,18 @@ func WithInitSvcConditions(s *v1.Service) {
 	s.Status.InitializeConditions()
 }
 
-// WithConfigSpec confgures the Service to use the given config spec
-func WithConfigSpec(config v1.ConfigurationSpec) ServiceOption {
+// WithServiceObservedGenFailure marks the top level condition as unknown when the reconciler
+// does not set any condition during reconciliation of a new generation.
+func WithServiceObservedGenFailure(s *v1.Service) {
+	condSet := s.GetConditionSet()
+	condSet.Manage(&s.Status).MarkUnknown(condSet.GetTopLevelConditionType(),
+		"NewObservedGenFailure", "unsuccessfully observed a new generation")
+}
+
+// WithConfigSpec configures the Service to use the given config spec
+func WithConfigSpec(config *v1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1.Service) {
-		svc.Spec.ConfigurationSpec = config
+		svc.Spec.ConfigurationSpec = *config
 	}
 }
 
@@ -298,7 +307,7 @@ func WithServiceGeneration(generation int64) ServiceOption {
 func WithServiceLabel(key, value string) ServiceOption {
 	return func(service *v1.Service) {
 		if service.Labels == nil {
-			service.Labels = make(map[string]string)
+			service.Labels = make(map[string]string, 1)
 		}
 		service.Labels[key] = value
 	}
@@ -367,7 +376,7 @@ func WithSvcStatusAddress(s *v1.Service) {
 	s.Status.Address = &duckv1.Addressable{
 		URL: &apis.URL{
 			Scheme: "http",
-			Host:   fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
+			Host:   network.GetServiceHostname(s.Name, s.Namespace),
 		},
 	}
 }
@@ -387,6 +396,14 @@ func WithSvcStatusTraffic(targets ...v1.TrafficTarget) ServiceOption {
 func WithServiceLatestReadyRevision(lrr string) ServiceOption {
 	return func(s *v1.Service) {
 		s.Status.LatestReadyRevisionName = lrr
+	}
+}
+
+// WithReadinessProbe sets the provided probe to be the readiness
+// probe on the service.
+func WithReadinessProbe(p *corev1.Probe) ServiceOption {
+	return func(s *v1.Service) {
+		s.Spec.Template.Spec.Containers[0].ReadinessProbe = p
 	}
 }
 

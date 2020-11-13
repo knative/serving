@@ -1,0 +1,62 @@
+/*
+Copyright 2020 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+syntax = "proto3";
+
+package metrics;
+
+// Stat defines a single measurement at a point in time.
+message Stat {
+  // The unique identity of this pod.  Used to count how many pods
+  // are contributing to the metrics.
+  string pod_name = 1;
+
+  // Average number of requests currently being handled by this pod.
+  double average_concurrent_requests = 2;
+
+  // Part of AverageConcurrentRequests, for requests going through a proxy.
+  double average_proxied_concurrent_requests = 3;
+
+  // Number of requests received since last Stat (approximately requests per second).
+  double request_count = 4;
+
+  // Part of RequestCount, for requests going through a proxy.
+  double proxied_request_count = 5;
+
+  // Process uptime in seconds.
+  double process_uptime = 6;
+
+  // Time/date that the stat was generated in seconds since
+  // 1970-01-01 00:00:00.000 UTC.
+  int64 timestamp = 7;
+}
+
+// WireStatMessage is a copy of the StatMessage Golang type, exploding the fields of
+// `types.NamespacedName` to make it compatible with protobufs.
+message WireStatMessage {
+  // Namespace is the namespace of the entity the stat belongs to.
+  string namespace = 1;
+  // Name is the name of the entity the stat belongs to.
+  string name = 2;
+  // Stat are the actual metrics being sent.
+  Stat stat = 3;
+}
+
+// WireStatMessages is a wrapper to send multiple WireStatMessages at once.
+message WireStatMessages {
+  // Messages is a list of WireStatMessages.
+  repeated WireStatMessage messages = 1;
+}

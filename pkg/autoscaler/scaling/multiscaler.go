@@ -32,6 +32,10 @@ import (
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
+// tickInterval is how often the Autoscaler evaluates the metrics
+// and issues a decision.
+const tickInterval = 2 * time.Second
+
 // Decider is a resource which observes the request load of a Revision and
 // recommends a number of replicas to run.
 // +k8s:deepcopy-gen=true
@@ -41,10 +45,8 @@ type Decider struct {
 	Status DeciderStatus
 }
 
-// DeciderSpec is the parameters in which the Revision should scaled.
+// DeciderSpec is the parameters by which the Revision should be scaled.
 type DeciderSpec struct {
-	// TickInterval denotes how often we evaluate the scale suggestion.
-	TickInterval     time.Duration
 	MaxScaleUpRate   float64
 	MaxScaleDownRate float64
 	// The metric used for scaling, i.e. concurrency, rps.
@@ -59,13 +61,22 @@ type DeciderSpec struct {
 	TargetBurstCapacity float64
 	// ActivatorCapacity is the single activator capacity, for subsetting.
 	ActivatorCapacity float64
-	// PanicThreshold is the threshold value of panic to stable concurrency
-	// ratio to transition into panic mode.
+	// PanicThreshold is the threshold at which panic mode is entered. It represents
+	// a factor of the currently observed load over the panic window over the ready
+	// pods. I.e. if this is 2, panic mode will be entered if the observed metric
+	// is twice as high as the current population can handle.
 	PanicThreshold float64
 	// StableWindow is needed to determine when to exit panic mode.
 	StableWindow time.Duration
-	// The name of the k8s service for pod information.
-	ServiceName string
+	// ScaleDownDelay is the time that must pass at reduced concurrency before a
+	// scale-down decision is applied.
+	ScaleDownDelay time.Duration
+	// InitialScale is the calculated initial scale of the revision, taking both
+	// revision initial scale and cluster initial scale into account. Revision initial
+	// scale overrides cluster initial scale.
+	InitialScale int32
+	// Reachable describes whether the revision is referenced by any route.
+	Reachable bool
 }
 
 // DeciderStatus is the current scale recommendation.
@@ -80,14 +91,35 @@ type DeciderStatus struct {
 	// If this number is negative: Activator will be threaded in
 	// the request path by the PodAutoscaler controller.
 	ExcessBurstCapacity int32
+
+	// NumActivators is the computed number of activators
+	// necessary to back the revision.
+	NumActivators int32
+}
+
+// ScaleResult holds the scale result of the UniScaler evaluation cycle.
+type ScaleResult struct {
+	// DesiredPodCount is the number of pods Autoscaler suggests for the revision.
+	DesiredPodCount int32
+	// ExcessBurstCapacity is computed headroom of the revision taking into
+	// the account target burst capacity.
+	ExcessBurstCapacity int32
+	// NumActivators is the number of activators required to back this revision.
+	NumActivators int32
+	// ScaleValid specifies whether this scale result is valid, i.e. whether
+	// Autoscaler had all the necessary information to compute a suggestion.
+	ScaleValid bool
+}
+
+var invalidSR = ScaleResult{
+	ScaleValid:    false,
+	NumActivators: MinActivators,
 }
 
 // UniScaler records statistics for a particular Decider and proposes the scale for the Decider's target based on those statistics.
 type UniScaler interface {
-	// Scale either proposes a number of replicas and available excess burst capacity,
-	// or skips proposing. The proposal is requested at the given time.
-	// The returned boolean is true if and only if a proposal was returned.
-	Scale(context.Context, time.Time) (int32, int32, bool)
+	// Scale computes a scaling suggestion for a revision.
+	Scale(context.Context, time.Time) ScaleResult
 
 	// Update reconfigures the UniScaler according to the DeciderSpec.
 	Update(*DeciderSpec) error
@@ -117,35 +149,40 @@ func sameSign(a, b int32) bool {
 	return (a&math.MinInt32)^(b&math.MinInt32) == 0
 }
 
-func (sr *scalerRunner) updateLatestScale(proposed, ebc int32) bool {
+func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
 	ret := false
 	sr.mux.Lock()
 	defer sr.mux.Unlock()
-	if sr.decider.Status.DesiredScale != proposed {
-		sr.decider.Status.DesiredScale = proposed
+	if sr.decider.Status.DesiredScale != sRes.DesiredPodCount {
+		sr.decider.Status.DesiredScale = sRes.DesiredPodCount
+		ret = true
+	}
+	if sr.decider.Status.NumActivators != sRes.NumActivators {
+		sr.decider.Status.NumActivators = sRes.NumActivators
 		ret = true
 	}
 
-	// If sign has changed -- then we have to update KPA
-	ret = ret || !sameSign(sr.decider.Status.ExcessBurstCapacity, ebc)
+	// If sign has changed -- then we have to update KPA.
+	ret = ret || !sameSign(sr.decider.Status.ExcessBurstCapacity, sRes.ExcessBurstCapacity)
 
 	// Update with the latest calculation anyway.
-	sr.decider.Status.ExcessBurstCapacity = ebc
+	sr.decider.Status.ExcessBurstCapacity = sRes.ExcessBurstCapacity
 	return ret
 }
 
-// MultiScaler maintains a collection of Uniscalers.
+// MultiScaler maintains a collection of UniScalers.
 type MultiScaler struct {
-	scalers       map[types.NamespacedName]*scalerRunner
-	scalersMutex  sync.RWMutex
+	scalersMutex sync.RWMutex
+	scalers      map[types.NamespacedName]*scalerRunner
+
 	scalersStopCh <-chan struct{}
 
 	uniScalerFactory UniScalerFactory
 
 	logger *zap.SugaredLogger
 
-	watcher      func(types.NamespacedName)
 	watcherMutex sync.RWMutex
+	watcher      func(types.NamespacedName)
 
 	tickProvider func(time.Duration) *time.Ticker
 }
@@ -165,7 +202,7 @@ func NewMultiScaler(
 }
 
 // Get returns the copy of the current Decider.
-func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider, error) {
+func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, error) {
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
@@ -201,23 +238,17 @@ func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, e
 	return scaler.decider, nil
 }
 
-// Update applied the desired DeciderSpec to a currently running Decider.
-func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, error) {
+// Update applies the desired DeciderSpec to a currently running Decider.
+func (m *MultiScaler) Update(_ context.Context, decider *Decider) (*Decider, error) {
 	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
-	logger := m.logger.With(zap.String(logkey.Key, key.String()))
-	ctx = logging.WithLogger(ctx, logger)
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[key]; exists {
 		scaler.mux.Lock()
 		defer scaler.mux.Unlock()
-		oldDeciderSpec := scaler.decider.Spec
 		// Make sure we store the copy.
 		scaler.decider = decider.DeepCopy()
 		scaler.scaler.Update(&decider.Spec)
-		if oldDeciderSpec.TickInterval != decider.Spec.TickInterval {
-			m.updateRunner(ctx, scaler)
-		}
 		return decider, nil
 	}
 	// This GroupResource is a lie, but unfortunately this interface requires one.
@@ -225,7 +256,7 @@ func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, e
 }
 
 // Delete stops and removes a Decider.
-func (m *MultiScaler) Delete(ctx context.Context, namespace, name string) error {
+func (m *MultiScaler) Delete(_ context.Context, namespace, name string) error {
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
@@ -259,14 +290,9 @@ func (m *MultiScaler) Inform(event types.NamespacedName) bool {
 	return false
 }
 
-func (m *MultiScaler) updateRunner(ctx context.Context, runner *scalerRunner) {
-	runner.stopCh <- struct{}{}
-	m.runScalerTicker(ctx, runner)
-}
-
 func (m *MultiScaler) runScalerTicker(ctx context.Context, runner *scalerRunner) {
 	metricKey := types.NamespacedName{Namespace: runner.decider.Namespace, Name: runner.decider.Name}
-	ticker := m.tickProvider(runner.decider.Spec.TickInterval)
+	ticker := m.tickProvider(tickInterval)
 	go func() {
 		defer ticker.Stop()
 		for {
@@ -302,10 +328,9 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 	case -1, 0:
 		d.Status.ExcessBurstCapacity = int32(tbc)
 	default:
-		// If TBC > Target * InitialScale (currently 1), then we know initial
+		// If TBC > Target * InitialScale, then we know initial
 		// scale won't be enough to cover TBC and we'll be behind activator.
-		// TODO(autoscale-wg): fix this when we switch to non "1" initial scale.
-		d.Status.ExcessBurstCapacity = int32(1*d.Spec.TotalValue - tbc)
+		d.Status.ExcessBurstCapacity = int32(float64(d.Spec.InitialScale)*d.Spec.TotalValue - tbc)
 	}
 
 	m.runScalerTicker(ctx, runner)
@@ -313,20 +338,13 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 }
 
 func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *scalerRunner, metricKey types.NamespacedName) {
-	logger := logging.FromContext(ctx)
-	desiredScale, excessBC, scaled := scaler.Scale(ctx, time.Now())
+	sr := scaler.Scale(ctx, time.Now())
 
-	if !scaled {
+	if !sr.ScaleValid {
 		return
 	}
 
-	// Cannot scale negative (nor we can compute burst capacity).
-	if desiredScale < 0 {
-		logger.Errorf("Cannot scale: desiredScale %d < 0.", desiredScale)
-		return
-	}
-
-	if runner.updateLatestScale(desiredScale, excessBC) {
+	if runner.updateLatestScale(sr) {
 		m.Inform(metricKey)
 	}
 }

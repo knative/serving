@@ -30,6 +30,7 @@ import (
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/network"
 )
 
 const (
@@ -46,16 +47,21 @@ func createCertTemplate(name, namespace string, notAfter time.Time) (*x509.Certi
 	}
 
 	serviceName := name + "." + namespace
+	commonName := serviceName + ".svc"
+	serviceHostname := network.GetServiceHostname(name, namespace)
 	serviceNames := []string{
 		name,
 		serviceName,
-		serviceName + ".svc",
-		serviceName + ".svc.cluster.local",
+		commonName,
+		serviceHostname,
 	}
 
 	tmpl := x509.Certificate{
-		SerialNumber:          serialNumber,
-		Subject:               pkix.Name{Organization: []string{organization}},
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{organization},
+			CommonName:   commonName,
+		},
 		SignatureAlgorithm:    x509.SHA256WithRSA,
 		NotBefore:             time.Now(),
 		NotAfter:              notAfter,
@@ -90,7 +96,7 @@ func createServerCertTemplate(name, namespace string, notAfter time.Time) (*x509
 }
 
 // Actually sign the cert and return things in a form that we can use later on
-func createCert(template, parent *x509.Certificate, pub interface{}, parentPriv interface{}) (
+func createCert(template, parent *x509.Certificate, pub, parentPriv interface{}) (
 	cert *x509.Certificate, certPEM []byte, err error) {
 
 	certDER, err := x509.CreateCertificate(rand.Reader, template, parent, pub, parentPriv)

@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,22 +27,36 @@ import (
 // TimedFloat64Buckets keeps buckets that have been collected at a certain time.
 type TimedFloat64Buckets struct {
 	bucketsMutex sync.RWMutex
-	buckets      []float64
-	// The total sum of all valid buckets within the window.
-	windowTotal float64
-	lastWrite   time.Time
+	// buckets is a ring buffer indexed by timeToIndex() % len(buckets).
+	// Each element represents a certain granularity of time, and the total
+	// represented duration adds up to a window length of time.
+	buckets []float64
+
 	// firstWrite holds the time when the first write has been made.
-	// this time is reset to `now` when the very first write happens,
+	// This time is reset to `now` when the very first write happens,
 	// or when a first write happens after `window` time of inactivity.
 	// The difference between `now` and `firstWrite` is used to compute
 	// the number of eligible buckets for computation of average values.
 	firstWrite time.Time
 
+	// lastWrite stores the time when the last write was made.
+	// This is used to detect when we have gaps in the data (i.e. more than a
+	// granularity has expired since the last write) so that we can zero those
+	// entries in the buckets array. It is also used when calculating the
+	// WindowAverage to know how much of the buckets array represents valid data.
+	lastWrite time.Time
+
+	// granularity is the duration represented by each bucket in the buckets ring buffer.
 	granularity time.Duration
-	window      time.Duration
+	// window is the total time represented by the buckets ring buffer.
+	window time.Duration
+	// The total sum of all buckets within the window. This total includes
+	// invalid buckets, e.g. buckets written to before firstTime or after
+	// lastTime are included in this total.
+	windowTotal float64
 }
 
-// Implements stringer interface.
+// String implements the Stringer interface.
 func (t *TimedFloat64Buckets) String() string {
 	return spew.Sdump(t.buckets)
 }
@@ -60,7 +74,7 @@ func NewTimedFloat64Buckets(window, granularity time.Duration) *TimedFloat64Buck
 	}
 }
 
-// IsEmpty returns if no data has been recorded for the `window` period.
+// IsEmpty returns true if no data has been recorded for the `window` period.
 func (t *TimedFloat64Buckets) IsEmpty(now time.Time) bool {
 	now = now.Truncate(t.granularity)
 	t.bucketsMutex.RLock()
@@ -74,6 +88,21 @@ func roundToNDigits(n int, f float64) float64 {
 }
 
 // WindowAverage returns the average bucket value over the window.
+//
+// If the first write was less than the window length ago, an average is
+// returned over the partial window. For example, if firstWrite was 6 seconds
+// ago, the average will be over these 6 seconds worth of buckets, even if the
+// window is 60s. If a window passes with no data being received, the first
+// write time is reset so this behaviour takes effect again.
+//
+// Similarly, if we have not received recent data, the average is based on a
+// partial window. For example, if the window is 60 seconds but we last
+// received data 10 seconds ago, the window average will be the average over
+// the first 50 seconds.
+//
+// In other cases, for example if there are gaps in the data shorter than the
+// window length, the missing data is assumed to be 0 and the average is over
+// the whole window length inclusive of the missing data.
 func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	const precision = 6
 	now = now.Truncate(t.granularity)
@@ -118,6 +147,11 @@ func (t *TimedFloat64Buckets) timeToIndex(tm time.Time) int {
 }
 
 // Record adds a value with an associated time to the correct bucket.
+// If this record would introduce a gap in the data, any intervening times
+// between the last write and this one will be recorded as zero. If an entire
+// window length has expired without data, the firstWrite time is reset,
+// meaning the WindowAverage will be of a partial window until enough data is
+// received to fill it again.
 func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 	bucketTime := now.Truncate(t.granularity)
 
@@ -127,31 +161,42 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 	writeIdx := t.timeToIndex(now)
 
 	if t.lastWrite != bucketTime {
-		if t.firstWrite.IsZero() {
-			t.firstWrite = bucketTime
-		}
-		// This should not really happen, but is here for correctness.
-		if bucketTime.Sub(t.lastWrite) > t.window {
-			// This means we had no writes for the duration of `window`. So reset the firstWrite time.
-			t.firstWrite = bucketTime
-			// Reset all the buckets.
-			for i := range t.buckets {
-				t.buckets[i] = 0
+		if bucketTime.Add(t.window).After(t.lastWrite) {
+			// If it is the first write or it happened before the first write which we
+			// have in record, update the firstWrite.
+			if t.firstWrite.IsZero() || t.firstWrite.After(bucketTime) {
+				t.firstWrite = bucketTime
 			}
-			t.windowTotal = 0
+
+			if bucketTime.After(t.lastWrite) {
+				if bucketTime.Sub(t.lastWrite) >= t.window {
+					// This means we had no writes for the duration of `window`. So reset the firstWrite time.
+					t.firstWrite = bucketTime
+					// Reset all the buckets.
+					for i := range t.buckets {
+						t.buckets[i] = 0
+					}
+					t.windowTotal = 0
+				} else {
+					// In theory we might lose buckets between stats gathering.
+					// Thus we need to clean not only the current index, but also
+					// all the ones from the last write. This is slower than the loop above
+					// due to possible wrap-around, so they are not merged together.
+					for i := t.timeToIndex(t.lastWrite) + 1; i <= writeIdx; i++ {
+						idx := i % len(t.buckets)
+						t.windowTotal -= t.buckets[idx]
+						t.buckets[idx] = 0
+					}
+				}
+				// Update the last write time.
+				t.lastWrite = bucketTime
+			}
+			// The else case is t.lastWrite - t.window < bucketTime < t.lastWrite, we can simply add
+			// the value to the bucket.
 		} else {
-			// In theory we might lose buckets between stats gathering.
-			// Thus we need to clean not only the current index, but also
-			// all the ones from the last write. This is slower than the loop above
-			// due to possible wrap-around, so they are not merged together.
-			for i := t.timeToIndex(t.lastWrite) + 1; i <= writeIdx; i++ {
-				idx := i % len(t.buckets)
-				t.windowTotal -= t.buckets[idx]
-				t.buckets[idx] = 0
-			}
+			// Ignore this value because it happened a window size ago.
+			return
 		}
-		// Update the last write time.
-		t.lastWrite = bucketTime
 	}
 	t.buckets[writeIdx%len(t.buckets)] += value
 	t.windowTotal += value

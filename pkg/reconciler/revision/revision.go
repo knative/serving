@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,22 +18,25 @@ package revision
 
 import (
 	"context"
-	"fmt"
 	"strings"
+	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	"go.uber.org/zap/zapcore"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
 	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
@@ -41,7 +44,8 @@ import (
 )
 
 type resolver interface {
-	Resolve(string, k8schain.Options, sets.String) (string, error)
+	Resolve(*v1.Revision, k8schain.Options, sets.String, time.Duration) ([]v1.ContainerStatus, error)
+	Clear(types.NamespacedName)
 }
 
 // Reconciler implements controller.Reconciler for Revision resources.
@@ -54,7 +58,6 @@ type Reconciler struct {
 	podAutoscalerLister palisters.PodAutoscalerLister
 	imageLister         cachinglisters.ImageLister
 	deploymentLister    appsv1listers.DeploymentLister
-	serviceLister       corev1listers.ServiceLister
 
 	resolver resolver
 }
@@ -62,13 +65,29 @@ type Reconciler struct {
 // Check that our Reconciler implements revisionreconciler.Interface
 var _ revisionreconciler.Interface = (*Reconciler)(nil)
 
-func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
-	// The image digest has already been resolved.
-	if rev.Status.ImageDigest != "" {
-		return nil
+func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (bool, error) {
+	if rev.Status.ContainerStatuses == nil {
+		rev.Status.ContainerStatuses = make([]v1.ContainerStatus, 0, len(rev.Spec.Containers))
 	}
 
-	var imagePullSecrets []string
+	if rev.Status.DeprecatedImageDigest != "" {
+		// Default old revisions to have ContainerStatuses filled in.
+		// This path should only be taken by "old" revisions that have exactly one container.
+		if len(rev.Status.ContainerStatuses) == 0 {
+			rev.Status.ContainerStatuses = append(rev.Status.ContainerStatuses, v1.ContainerStatus{
+				Name:        rev.Spec.Containers[0].Name,
+				ImageDigest: rev.Status.DeprecatedImageDigest,
+			})
+		}
+	}
+
+	// The image digest has already been resolved.
+	if len(rev.Status.ContainerStatuses) == len(rev.Spec.Containers) {
+		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
+		return true, nil
+	}
+
+	imagePullSecrets := make([]string, 0, len(rev.Spec.ImagePullSecrets))
 	for _, s := range rev.Spec.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, s.Name)
 	}
@@ -78,75 +97,86 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 		ImagePullSecrets:   imagePullSecrets,
 	}
-	digest, err := c.resolver.Resolve(rev.Spec.GetContainer().Image,
-		opt, cfgs.Deployment.RegistriesSkippingTagResolving)
+
+	statuses, err := c.resolver.Resolve(rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, cfgs.Deployment.DigestResolutionTimeout)
 	if err != nil {
-		err = fmt.Errorf("failed to resolve image to digest: %w", err)
-		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
-			v1.RevisionContainerMissingMessage(
-				rev.Spec.GetContainer().Image, err.Error()))
-		return err
+		// Clear the resolver so we can retry the digest resolution rather than
+		// being stuck with this error.
+		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
+		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing, err.Error())
+		return true, err
+	}
+	if len(statuses) > 0 {
+		rev.Status.ContainerStatuses = statuses
+
+		// For backwards-compatibility we need to continue to set the DeprecatedImageDigest field.
+		for i := range rev.Spec.Containers {
+			if len(rev.Spec.Containers) == 1 || len(rev.Spec.Containers[i].Ports) != 0 {
+				rev.Status.DeprecatedImageDigest = statuses[i].ImageDigest
+			}
+		}
+
+		return true, nil
 	}
 
-	rev.Status.ImageDigest = digest
-
-	return nil
+	// No digest yet, wait for re-enqueue when resolution is done.
+	return false, nil
 }
 
+// ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
-	readyBeforeReconcile := rev.Status.IsReady()
-
-	// We may be reading a version of the object that was stored at an older version
-	// and may not have had all of the assumed defaults specified.  This won't result
-	// in this getting written back to the API Server, but lets downstream logic make
-	// assumptions about defaulting.
-	rev.SetDefaults(ctx)
-	rev.Status.InitializeConditions()
+	readyBeforeReconcile := rev.IsReady()
 	c.updateRevisionLoggingURL(ctx, rev)
 
-	phases := []struct {
-		name string
-		f    func(context.Context, *v1.Revision) error
-	}{{
-		name: "image digest",
-		f:    c.reconcileDigest,
-	}, {
-		name: "user deployment",
-		f:    c.reconcileDeployment,
-	}, {
-		name: "image cache",
-		f:    c.reconcileImageCache,
-	}, {
-		name: "PA",
-		f:    c.reconcilePA,
-	}}
+	reconciled, err := c.reconcileDigest(ctx, rev)
+	if err != nil {
+		return err
+	}
+	if !reconciled {
+		// Digest not resolved yet, wait for background resolution to re-enqueue the revision.
+		rev.Status.MarkResourcesAvailableUnknown(v1.ReasonResolvingDigests, "")
+		return nil
+	}
 
-	for _, phase := range phases {
-		if err := phase.f(ctx, rev); err != nil {
+	// Spew is an expensive operation so guard the computation on the debug level
+	// being enabled.
+	// Some things, like PA reachability, etc are computed based on various labels/annotations
+	// of revision. So it is useful to provide this information for debugging.
+	logger := logging.FromContext(ctx).Desugar()
+	if logger.Core().Enabled(zapcore.DebugLevel) {
+		logger.Debug("Revision meta: " + spew.Sdump(rev.ObjectMeta))
+	}
+
+	for _, phase := range []func(context.Context, *v1.Revision) error{
+		c.reconcileDeployment,
+		c.reconcileImageCache,
+		c.reconcilePA,
+	} {
+		if err := phase(ctx, rev); err != nil {
 			return err
 		}
 	}
-
-	readyAfterReconcile := rev.Status.IsReady()
+	readyAfterReconcile := rev.Status.GetCondition(v1.RevisionConditionReady).IsTrue()
 	if !readyBeforeReconcile && readyAfterReconcile {
+		logger.Info("Revision became ready")
 		controller.GetEventRecorder(ctx).Event(
 			rev, corev1.EventTypeNormal, "RevisionReady",
 			"Revision becomes ready upon all resources being ready")
+	} else if readyBeforeReconcile && !readyAfterReconcile {
+		logger.Info("Revision stopped being ready")
 	}
 
-	rev.Status.ObservedGeneration = rev.Generation
 	return nil
 }
 
 func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revision) {
 	config := config.FromContext(ctx)
 	if config.Observability.LoggingURLTemplate == "" {
+		rev.Status.LogURL = ""
 		return
 	}
 
-	uid := string(rev.UID)
-
-	rev.Status.LogURL = strings.Replace(
+	rev.Status.LogURL = strings.ReplaceAll(
 		config.Observability.LoggingURLTemplate,
-		"${REVISION_UID}", uid, -1)
+		"${REVISION_UID}", string(rev.UID))
 }

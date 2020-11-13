@@ -14,46 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-readonly ROOT_DIR=$(dirname $0)/..
-source ${ROOT_DIR}/vendor/knative.dev/test-infra/scripts/library.sh
-
 set -o errexit
 set -o nounset
 set -o pipefail
 
-cd ${ROOT_DIR}
+source $(dirname "$0")/../vendor/knative.dev/hack/library.sh
 
-# The list of dependencies that we track at HEAD and periodically
-# float forward in this repository.
-FLOATING_DEPS=(
-  "knative.dev/pkg"
-  "knative.dev/caching"
-  "knative.dev/test-infra"
-)
-
-# Parse flags to determine any we should pass to dep.
-DEP_FLAGS=()
-while [[ $# -ne 0 ]]; do
-  parameter=$1
-  case ${parameter} in
-    --upgrade) DEP_FLAGS=( -update ${FLOATING_DEPS[@]} ) ;;
-    *) abort "unknown option ${parameter}" ;;
-  esac
-  shift
-done
-readonly DEP_FLAGS
-
-# Ensure we have everything we need under vendor/
-dep ensure ${DEP_FLAGS[@]}
-
-# Apply Patches
-echo "Applying patches"
-git apply ${REPO_ROOT_DIR}/hack/patches/*.patch
-
-rm -rf $(find vendor/ -name 'OWNERS')
-rm -rf $(find vendor/ -name '*_test.go')
-
-# Do this for every package under "cmd" except kodata and cmd itself.
-update_licenses third_party/VENDOR-LICENSE "$(find ./cmd -type d | grep -v kodata | grep -vE 'cmd$')"
-
-remove_broken_symlinks ./vendor
+go_update_deps "$@"

@@ -20,26 +20,25 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"knative.dev/pkg/logging"
+	network "knative.dev/networking/pkg"
+	pkgnet "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/metrics"
-	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/readiness"
+	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
 const (
@@ -51,37 +50,68 @@ const (
 var (
 	queueHTTPPort = corev1.ContainerPort{
 		Name:          requestQueueHTTPPortName,
-		ContainerPort: int32(networking.BackendHTTPPort),
+		ContainerPort: networking.BackendHTTPPort,
 	}
 	queueHTTP2Port = corev1.ContainerPort{
 		Name:          requestQueueHTTPPortName,
-		ContainerPort: int32(networking.BackendHTTP2Port),
+		ContainerPort: networking.BackendHTTP2Port,
 	}
 	queueNonServingPorts = []corev1.ContainerPort{{
 		// Provides health checks and lifecycle hooks.
 		Name:          v1.QueueAdminPortName,
-		ContainerPort: int32(networking.QueueAdminPort),
+		ContainerPort: networking.QueueAdminPort,
 	}, {
 		Name:          v1.AutoscalingQueueMetricsPortName,
-		ContainerPort: int32(networking.AutoscalingQueueMetricsPort),
+		ContainerPort: networking.AutoscalingQueueMetricsPort,
 	}, {
 		Name:          v1.UserQueueMetricsPortName,
-		ContainerPort: int32(networking.UserQueueMetricsPort),
+		ContainerPort: networking.UserQueueMetricsPort,
 	}}
 
 	profilingPort = corev1.ContainerPort{
 		Name:          profilingPortName,
-		ContainerPort: int32(profiling.ProfilingPort),
+		ContainerPort: profiling.ProfilingPort,
 	}
 
 	queueSecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: ptr.Bool(false),
+		ReadOnlyRootFilesystem:   ptr.Bool(true),
+		RunAsNonRoot:             ptr.Bool(true),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"all"},
+		},
 	}
 )
 
-func createQueueResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
-	resourceRequests := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
+func createQueueResources(cfg *deployment.Config, annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
+	resourceRequests := corev1.ResourceList{}
 	resourceLimits := corev1.ResourceList{}
+
+	for _, r := range []struct {
+		Name    corev1.ResourceName
+		Request *resource.Quantity
+		Limit   *resource.Quantity
+	}{{
+		Name:    corev1.ResourceCPU,
+		Request: cfg.QueueSidecarCPURequest,
+		Limit:   cfg.QueueSidecarCPULimit,
+	}, {
+		Name:    corev1.ResourceMemory,
+		Request: cfg.QueueSidecarMemoryRequest,
+		Limit:   cfg.QueueSidecarMemoryLimit,
+	}, {
+		Name:    corev1.ResourceEphemeralStorage,
+		Request: cfg.QueueSidecarEphemeralStorageRequest,
+		Limit:   cfg.QueueSidecarEphemeralStorageLimit,
+	}} {
+		if r.Request != nil {
+			resourceRequests[r.Name] = *r.Request
+		}
+		if r.Limit != nil {
+			resourceLimits[r.Name] = *r.Limit
+		}
+	}
+
 	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
 
 	if resourceFraction, ok := fractionFromPercentage(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
@@ -138,7 +168,7 @@ func computeResourceRequirements(resourceQuantity *resource.Quantity, fraction f
 
 func fractionFromPercentage(m map[string]string, k string) (float64, bool) {
 	value, err := strconv.ParseFloat(m[k], 64)
-	return float64(value / 100), err == nil
+	return value / 100, err == nil
 }
 
 func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
@@ -149,11 +179,19 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 					Command: []string{"/ko-app/queue", "-probe-period", "0"},
 				},
 			},
-			// We want to mark the service as not ready as soon as the
-			// PreStop handler is called, so we need to check a little
-			// bit more often than the default.  It is a small
-			// sacrifice for a low rate of 503s.
-			PeriodSeconds: 1,
+			// The exec probe enables us to retry failed probes quickly to get sub-second
+			// resolution and achieve faster cold-starts.  However, for draining pods as
+			// part of the K8s lifecycle this period will bound the tail of how quickly
+			// we can remove a Pod's endpoint from the K8s service.
+			//
+			// The trade-off here is that exec probes cost CPU to run, and for idle pods
+			// (e.g. due to minScale) we see ~50m/{period} of idle CPU usage in the
+			// queue-proxy.  So while setting this to 1s results in slightly faster drains
+			// it also means that in the steady state the queue-proxy is consuming 10x
+			// more CPU due to probes than with a period of 10s.
+			//
+			// See also: https://github.com/knative/serving/issues/8147
+			PeriodSeconds: 10,
 			// We keep the connection open for a while because we're
 			// actively probing the user-container on that endpoint and
 			// thus don't want to be limited by K8s granularity here.
@@ -166,20 +204,19 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 		return out
 	}
 
-	timeout := 1
-
+	timeout := time.Second
 	if in.TimeoutSeconds > 1 {
-		timeout = int(in.TimeoutSeconds)
+		timeout = time.Duration(in.TimeoutSeconds) * time.Second
 	}
 
 	return &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe-period", strconv.Itoa(timeout)},
+				Command: []string{"/ko-app/queue", "-probe-period", timeout.String()},
 			},
 		},
 		PeriodSeconds:       in.PeriodSeconds,
-		TimeoutSeconds:      int32(timeout),
+		TimeoutSeconds:      int32(timeout.Seconds()),
 		SuccessThreshold:    in.SuccessThreshold,
 		FailureThreshold:    in.FailureThreshold,
 		InitialDelaySeconds: in.InitialDelaySeconds,
@@ -187,8 +224,7 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 }
 
 // makeQueueContainer creates the container spec for the queue sidecar.
-func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig,
-	autoscalerConfig *autoscalerconfig.Config, deploymentConfig *deployment.Config) (*corev1.Container, error) {
+func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container, error) {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -198,7 +234,7 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	userPort := getUserPort(rev)
 
 	var loggingLevel string
-	if ll, ok := loggingConfig.LoggingLevel["queueproxy"]; ok {
+	if ll, ok := cfg.Logging.LoggingLevel["queueproxy"]; ok {
 		loggingLevel = ll.String()
 	}
 
@@ -208,25 +244,16 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	}
 
 	ports := queueNonServingPorts
-	if observabilityConfig.EnableProfiling {
+	if cfg.Observability.EnableProfiling {
 		ports = append(ports, profilingPort)
 	}
 	// We need to configure only one serving port for the Queue proxy, since
 	// we know the protocol that is being used by this application.
 	servingPort := queueHTTPPort
-	if rev.GetProtocol() == networking.ProtocolH2C {
+	if rev.GetProtocol() == pkgnet.ProtocolH2C {
 		servingPort = queueHTTP2Port
 	}
 	ports = append(ports, servingPort)
-
-	var volumeMounts []corev1.VolumeMount
-	if observabilityConfig.EnableVarLogCollection {
-		volumeMounts = append(volumeMounts, internalVolumeMount)
-	}
-
-	if autoscalerConfig.EnableGracefulScaledown {
-		volumeMounts = append(volumeMounts, labelVolumeMount)
-	}
 
 	container := rev.Spec.GetContainer()
 	rp := container.ReadinessProbe.DeepCopy()
@@ -240,11 +267,10 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 
 	return &corev1.Container{
 		Name:            QueueContainerName,
-		Image:           deploymentConfig.QueueSidecarImage,
-		Resources:       createQueueResources(rev.GetAnnotations(), container),
+		Image:           cfg.Deployment.QueueSidecarImage,
+		Resources:       createQueueResources(cfg.Deployment, rev.GetAnnotations(), container),
 		Ports:           ports,
 		ReadinessProbe:  makeQueueProbe(rp),
-		VolumeMounts:    volumeMounts,
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
@@ -283,31 +309,34 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			},
 		}, {
 			Name:  "SERVING_LOGGING_CONFIG",
-			Value: loggingConfig.LoggingConfig,
+			Value: cfg.Logging.LoggingConfig,
 		}, {
 			Name:  "SERVING_LOGGING_LEVEL",
 			Value: loggingLevel,
 		}, {
 			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
-			Value: observabilityConfig.RequestLogTemplate,
+			Value: cfg.Observability.RequestLogTemplate,
+		}, {
+			Name:  "SERVING_ENABLE_REQUEST_LOG",
+			Value: strconv.FormatBool(cfg.Observability.EnableRequestLog),
 		}, {
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
-			Value: observabilityConfig.RequestMetricsBackend,
+			Value: cfg.Observability.RequestMetricsBackend,
 		}, {
 			Name:  "TRACING_CONFIG_BACKEND",
-			Value: string(tracingConfig.Backend),
+			Value: string(cfg.Tracing.Backend),
 		}, {
 			Name:  "TRACING_CONFIG_ZIPKIN_ENDPOINT",
-			Value: tracingConfig.ZipkinEndpoint,
+			Value: cfg.Tracing.ZipkinEndpoint,
 		}, {
 			Name:  "TRACING_CONFIG_STACKDRIVER_PROJECT_ID",
-			Value: tracingConfig.StackdriverProjectID,
+			Value: cfg.Tracing.StackdriverProjectID,
 		}, {
 			Name:  "TRACING_CONFIG_DEBUG",
-			Value: strconv.FormatBool(tracingConfig.Debug),
+			Value: strconv.FormatBool(cfg.Tracing.Debug),
 		}, {
 			Name:  "TRACING_CONFIG_SAMPLE_RATE",
-			Value: fmt.Sprintf("%f", tracingConfig.SampleRate),
+			Value: fmt.Sprint(cfg.Tracing.SampleRate),
 		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
@@ -315,32 +344,20 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			Name:  system.NamespaceEnvKey,
 			Value: system.Namespace(),
 		}, {
-			Name:  pkgmetrics.DomainEnv,
-			Value: pkgmetrics.Domain(),
-		}, {
-			Name:  "USER_CONTAINER_NAME",
-			Value: rev.Spec.GetContainer().Name,
-		}, {
-			Name:  "ENABLE_VAR_LOG_COLLECTION",
-			Value: strconv.FormatBool(observabilityConfig.EnableVarLogCollection),
-		}, {
-			Name:  "VAR_LOG_VOLUME_NAME",
-			Value: varLogVolumeName,
-		}, {
-			Name:  "INTERNAL_VOLUME_PATH",
-			Value: internalVolumePath,
-		}, {
-			Name:  "DOWNWARD_API_LABELS_PATH",
-			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
+			Name:  metrics.DomainEnv,
+			Value: metrics.Domain(),
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: probeJSON,
 		}, {
 			Name:  "ENABLE_PROFILING",
-			Value: strconv.FormatBool(observabilityConfig.EnableProfiling),
+			Value: strconv.FormatBool(cfg.Observability.EnableProfiling),
 		}, {
 			Name:  "SERVING_ENABLE_PROBE_REQUEST_LOG",
-			Value: strconv.FormatBool(observabilityConfig.EnableProbeRequestLog),
+			Value: strconv.FormatBool(cfg.Observability.EnableProbeRequestLog),
+		}, {
+			Name:  "METRICS_COLLECTOR_ADDRESS",
+			Value: cfg.Observability.MetricsCollectorAddress,
 		}},
 	}, nil
 }

@@ -17,36 +17,36 @@ limitations under the License.
 package leaderelection
 
 import (
-	"errors"
-	"reflect"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
+
+	. "knative.dev/pkg/configmap/testing"
 	kle "knative.dev/pkg/leaderelection"
 )
 
 func okConfig() *kle.Config {
 	return &kle.Config{
-		ResourceLock:      "leases",
-		LeaseDuration:     15 * time.Second,
-		RenewDeadline:     10 * time.Second,
-		RetryPeriod:       2 * time.Second,
-		EnabledComponents: sets.NewString("controller"),
+		Buckets:       5,
+		LeaseDuration: 15 * time.Second,
+		RenewDeadline: 10 * time.Second,
+		RetryPeriod:   2 * time.Second,
 	}
 }
 
 func okData() map[string]string {
 	return map[string]string{
-		"resourceLock": "leases",
+		"buckets": "5",
 		// values in this data come from the defaults suggested in the
 		// code:
 		// https://github.com/kubernetes/client-go/blob/kubernetes-1.16.0/tools/leaderelection/leaderelection.go
-		"leaseDuration":     "15s",
-		"renewDeadline":     "10s",
-		"retryPeriod":       "2s",
-		"enabledComponents": "controller",
+		"leaseDuration": "15s",
+		"renewDeadline": "10s",
+		"retryPeriod":   "2s",
 	}
 }
 
@@ -55,36 +55,73 @@ func TestValidateConfig(t *testing.T) {
 		name     string
 		data     map[string]string
 		expected *kle.Config
-		err      error
-	}{
-		{
-			name:     "OK",
-			data:     okData(),
-			expected: okConfig(),
-		},
-		{
-			name: "invalid component",
-			data: func() map[string]string {
-				data := okData()
-				data["enabledComponents"] = "controller,frobulator"
-				return data
-			}(),
-			err: errors.New(`invalid enabledComponent "frobulator": valid values are ["certcontroller" "controller" "hpaautoscaler" "istiocontroller" "nscontroller"]`),
-		},
+		err      string
+	}{{
+		name:     "OK",
+		data:     okData(),
+		expected: okConfig(),
+	}, {
+		name: "bad time",
+		data: func() map[string]string {
+			data := okData()
+			data["renewDeadline"] = "not a duration"
+			return data
+		}(),
+		err: `failed to parse "renewDeadline": time: invalid duration`,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actualConfig, actualErr := ValidateConfig(&corev1.ConfigMap{Data: tc.data})
+
+			if actualErr != nil {
+				// Different versions of Go quote input differently, so check prefix.
+				if got, want := actualErr.Error(), tc.err; !strings.HasPrefix(got, want) {
+					t.Fatalf("Err = '%s', want: '%s'", got, want)
+				}
+			} else if tc.err != "" {
+				t.Fatal("Expected an error, got none")
+			}
+			if got, want := actualConfig, tc.expected; !cmp.Equal(got, want) {
+				t.Errorf("Config = %v, want: %v, diff(-want,+got):\n%s", got, want, cmp.Diff(want, got))
+			}
+		})
 	}
+}
 
-	for i := range cases {
-		tc := cases[i]
-		actualConfig, actualErr := ValidateConfig(&corev1.ConfigMap{Data: tc.data})
-		if !reflect.DeepEqual(tc.err, actualErr) {
-			t.Errorf("%v: expected error %v, got %v", tc.name, tc.err, actualErr)
-			continue
-		}
-
-		if !reflect.DeepEqual(tc.expected, actualConfig) {
-			t.Errorf("%v: expected config:\n%+v\ngot:\n%+v", tc.name, tc.expected, actualConfig)
-			continue
-		}
+func TestServingConfig(t *testing.T) {
+	actual, example := ConfigMapsFromTestFile(t, "config-leader-election")
+	for _, test := range []struct {
+		name string
+		data *corev1.ConfigMap
+		want *kle.Config
+	}{{
+		name: "Default config",
+		want: &kle.Config{
+			Buckets:       1,
+			LeaseDuration: 15 * time.Second,
+			RenewDeadline: 10 * time.Second,
+			RetryPeriod:   2 * time.Second,
+		},
+		data: actual,
+	}, {
+		name: "Example config",
+		want: &kle.Config{
+			Buckets:       1,
+			LeaseDuration: 15 * time.Second,
+			RenewDeadline: 10 * time.Second,
+			RetryPeriod:   2 * time.Second,
+		},
+		data: example,
+	}} {
+		t.Run(test.name, func(t *testing.T) {
+			cm, err := ValidateConfig(test.data)
+			if err != nil {
+				t.Fatal("Error parsing config =", err)
+			}
+			if got, want := cm, test.want; !cmp.Equal(got, want) {
+				t.Errorf("Config mismatch: (-want,+got):\n%s", cmp.Diff(want, got))
+			}
+		})
 	}
-
 }

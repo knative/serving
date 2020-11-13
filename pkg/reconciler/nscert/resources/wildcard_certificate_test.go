@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,8 +22,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/nscert/resources/names"
 )
 
@@ -59,6 +59,6 @@ func TestMakeWildcardCertificate(t *testing.T) {
 
 	got := MakeWildcardCertificate(namespace, dnsName, domain, "dns-01.rocks")
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("MakeWildcardCertificate (-want, +got) = %s", diff)
+		t.Error("MakeWildcardCertificate (-want, +got) =", diff)
 	}
 }

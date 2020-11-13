@@ -17,35 +17,60 @@ limitations under the License.
 package autoscaling
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
-func getIntGE0(m map[string]string, k string) (int64, *apis.FieldError) {
+func getIntGE0(m map[string]string, k string) (int32, *apis.FieldError) {
 	v, ok := m[k]
 	if !ok {
 		return 0, nil
 	}
+	// Parsing as uint gives a bad format error, rather than invalid range, unfortunately.
 	i, err := strconv.ParseInt(v, 10, 32)
-	if err != nil || i < 0 {
-		return 0, apis.ErrOutOfBoundsValue(v, 1, math.MaxInt32, k)
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			return 0, apis.ErrOutOfBoundsValue(v, 0, math.MaxInt32, k)
+		}
+		return 0, apis.ErrInvalidValue(v, k)
 	}
-	return i, nil
+	if i < 0 {
+		return 0, apis.ErrOutOfBoundsValue(v, 0, math.MaxInt32, k)
+	}
+
+	return int32(i), nil
 }
 
-func ValidateAnnotations(anns map[string]string) *apis.FieldError {
-	if len(anns) == 0 {
-		return nil
-	}
-	return validateMinMaxScale(anns).Also(validateFloats(anns)).Also(validateWindows(anns).Also(validateMetric(anns)))
+// ValidateAnnotations verifies the autoscaling annotations.
+func ValidateAnnotations(ctx context.Context, config *autoscalerconfig.Config, anns map[string]string) *apis.FieldError {
+	return validateClass(anns).
+		Also(validateMinMaxScale(ctx, config, anns)).
+		Also(validateFloats(anns)).
+		Also(validateWindow(anns)).
+		Also(validateLastPodRetention(anns)).
+		Also(validateScaleDownDelay(anns)).
+		Also(validateMetric(anns)).
+		Also(validateInitialScale(config, anns))
 }
 
-func validateFloats(annotations map[string]string) *apis.FieldError {
-	var errs *apis.FieldError
+func validateClass(annotations map[string]string) *apis.FieldError {
+	if c, ok := annotations[ClassAnnotationKey]; ok {
+		if strings.HasSuffix(c, domain) && c != KPA && c != HPA {
+			return apis.ErrInvalidValue(c, ClassAnnotationKey)
+		}
+	}
+	return nil
+}
+
+func validateFloats(annotations map[string]string) (errs *apis.FieldError) {
 	if v, ok := annotations[PanicWindowPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
 			errs = errs.Also(apis.ErrInvalidValue(v, PanicWindowPercentageAnnotationKey))
@@ -58,14 +83,14 @@ func validateFloats(annotations map[string]string) *apis.FieldError {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
 			errs = errs.Also(apis.ErrInvalidValue(v, PanicThresholdPercentageAnnotationKey))
 		} else if fv < PanicThresholdPercentageMin || fv > PanicThresholdPercentageMax {
-			errs = errs.Also(apis.ErrOutOfBoundsValue(v, PanicThresholdPercentageMin, PanicThresholdPercentageMax,
-				PanicThresholdPercentageAnnotationKey))
+			errs = errs.Also(apis.ErrOutOfBoundsValue(v, PanicThresholdPercentageMin,
+				PanicThresholdPercentageMax, PanicThresholdPercentageAnnotationKey))
 		}
 	}
 
 	if v, ok := annotations[TargetAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < TargetMin {
-			errs = errs.Also(apis.ErrInvalidValue(v, TargetAnnotationKey))
+			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("target %s should be at least %g", v, TargetMin), TargetAnnotationKey))
 		}
 	}
 
@@ -85,28 +110,54 @@ func validateFloats(annotations map[string]string) *apis.FieldError {
 	return errs
 }
 
-func validateWindows(annotations map[string]string) *apis.FieldError {
+func validateScaleDownDelay(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
-	if w, ok := annotations[WindowAnnotationKey]; ok {
-		if annotations[ClassAnnotationKey] == HPA && annotations[MetricAnnotationKey] == CPU {
-			return apis.ErrInvalidKeyName(WindowAnnotationKey, fmt.Sprintf("%s for %s %s", HPA, MetricAnnotationKey, CPU))
-		}
-		d, err := time.ParseDuration(w)
-		if err != nil {
-			errs = apis.ErrInvalidValue(w, WindowAnnotationKey)
-		} else if d < WindowMin || d > WindowMax {
-			errs = apis.ErrOutOfBoundsValue(w, WindowMin, WindowMax, WindowAnnotationKey)
+	if w, ok := annotations[ScaleDownDelayAnnotationKey]; ok {
+		if d, err := time.ParseDuration(w); err != nil {
+			errs = apis.ErrInvalidValue(w, ScaleDownDelayAnnotationKey)
+		} else if d < 0 || d > WindowMax {
+			// Since we disallow windows longer than WindowMax, so we should limit this
+			// as well.
+			errs = apis.ErrOutOfBoundsValue(w, 0*time.Second, WindowMax, ScaleDownDelayAnnotationKey)
+		} else if d.Round(time.Second) != d {
+			errs = apis.ErrGeneric("must be specified with at most second precision", ScaleDownDelayAnnotationKey)
 		}
 	}
 	return errs
 }
 
-func validateMinMaxScale(annotations map[string]string) *apis.FieldError {
-	var errs *apis.FieldError
+func validateLastPodRetention(annotations map[string]string) *apis.FieldError {
+	if w, ok := annotations[ScaleToZeroPodRetentionPeriodKey]; ok {
+		if d, err := time.ParseDuration(w); err != nil {
+			return apis.ErrInvalidValue(w, ScaleToZeroPodRetentionPeriodKey)
+		} else if d < 0 || d > WindowMax {
+			// Since we disallow windows longer than WindowMax, so we should limit this
+			// as well.
+			return apis.ErrOutOfBoundsValue(w, time.Duration(0), WindowMax, ScaleToZeroPodRetentionPeriodKey)
+		}
+	}
+	return nil
+}
 
-	min, err := getIntGE0(annotations, MinScaleAnnotationKey)
-	errs = errs.Also(err)
+func validateWindow(annotations map[string]string) *apis.FieldError {
+	if w, ok := annotations[WindowAnnotationKey]; ok {
+		if annotations[ClassAnnotationKey] == HPA && annotations[MetricAnnotationKey] == CPU {
+			return apis.ErrInvalidKeyName(WindowAnnotationKey, apis.CurrentField, fmt.Sprintf("%s for %s %s", HPA, MetricAnnotationKey, CPU))
+		}
+		switch d, err := time.ParseDuration(w); {
+		case err != nil:
+			return apis.ErrInvalidValue(w, WindowAnnotationKey)
+		case d < WindowMin || d > WindowMax:
+			return apis.ErrOutOfBoundsValue(w, WindowMin, WindowMax, WindowAnnotationKey)
+		case d.Truncate(time.Second) != d:
+			return apis.ErrGeneric("must be specified with at most second precision", WindowAnnotationKey)
+		}
+	}
+	return nil
+}
 
+func validateMinMaxScale(ctx context.Context, config *autoscalerconfig.Config, annotations map[string]string) *apis.FieldError {
+	min, errs := getIntGE0(annotations, MinScaleAnnotationKey)
 	max, err := getIntGE0(annotations, MaxScaleAnnotationKey)
 	errs = errs.Also(err)
 
@@ -114,6 +165,21 @@ func validateMinMaxScale(annotations map[string]string) *apis.FieldError {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("maxScale=%d is less than minScale=%d", max, min),
 			Paths:   []string{MaxScaleAnnotationKey, MinScaleAnnotationKey},
+		})
+	}
+	_, exists := annotations[MaxScaleAnnotationKey]
+	// If max scale annotation is not set but default MaxScale is set, then max scale will not be unlimited.
+	if !apis.IsInCreate(ctx) || config.MaxScaleLimit == 0 || (!exists && config.MaxScale > 0) {
+		return errs
+	}
+	if max > config.MaxScaleLimit {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(
+			max, 1, config.MaxScaleLimit, MaxScaleAnnotationKey))
+	}
+	if max == 0 {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprint("maxScale=0 (unlimited), must be less than ", config.MaxScaleLimit),
+			Paths:   []string{MaxScaleAnnotationKey},
 		})
 	}
 	return errs
@@ -133,7 +199,7 @@ func validateMetric(annotations map[string]string) *apis.FieldError {
 			}
 		case HPA:
 			switch metric {
-			case CPU, Concurrency, RPS:
+			case CPU:
 				return nil
 			}
 		default:
@@ -141,6 +207,16 @@ func validateMetric(annotations map[string]string) *apis.FieldError {
 			return nil
 		}
 		return apis.ErrInvalidValue(metric, MetricAnnotationKey)
+	}
+	return nil
+}
+
+func validateInitialScale(config *autoscalerconfig.Config, annotations map[string]string) *apis.FieldError {
+	if initialScale, ok := annotations[InitialScaleAnnotationKey]; ok {
+		initScaleInt, err := strconv.Atoi(initialScale)
+		if err != nil || initScaleInt < 0 || (!config.AllowZeroInitialScale && initScaleInt == 0) {
+			return apis.ErrInvalidValue(initialScale, InitialScaleAnnotationKey)
+		}
 	}
 	return nil
 }

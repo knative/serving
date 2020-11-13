@@ -25,6 +25,7 @@ spec:
     spec:
       containers:
       - image: ko://knative.dev/serving/test/test_images/autoscale
+      containerConcurrency: 0 # Explicitly set the default, since it might be overridden in CM.
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -39,6 +40,7 @@ spec:
     spec:
       containers:
       - image: ko://knative.dev/serving/test/test_images/autoscale
+      containerConcurrency: 0 # Explicitly set the default, since it might be overridden in CM.
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -53,3 +55,5 @@ spec:
     spec:
       containers:
       - image: ko://knative.dev/serving/test/test_images/autoscale
+      containerConcurrency: 0 # Explicitly set the default, since it might be overridden in CM.
+---

@@ -19,6 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	time "time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,13 +62,13 @@ func NewFilteredMetricInformer(client versioned.Interface, namespace string, res
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AutoscalingV1alpha1().Metrics(namespace).List(options)
+				return client.AutoscalingV1alpha1().Metrics(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AutoscalingV1alpha1().Metrics(namespace).Watch(options)
+				return client.AutoscalingV1alpha1().Metrics(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&autoscalingv1alpha1.Metric{},

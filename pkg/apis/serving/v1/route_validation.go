@@ -22,13 +22,14 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
 // Validate makes sure that Route is properly configured.
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).Also(
+	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta()).Also(
 		r.validateLabels().ViaField("labels")).ViaField("metadata")
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
@@ -62,7 +63,11 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 		if tt.Tag == "" {
 			continue
 		}
-
+		if msgs := validation.IsDNS1035Label(tt.Tag); len(msgs) > 0 {
+			errs = errs.Also(apis.ErrInvalidArrayValue(
+				fmt.Sprint("not a DNS 1035 label: ", msgs),
+				"tag", i))
+		}
 		if idx, ok := trafficMap[tt.Tag]; ok {
 			// We want only single definition of the route, even if it points
 			// to the same config or revision.
@@ -204,7 +209,7 @@ func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
 
 func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
 	if label != serving.VisibilityClusterLocal {
-		errs = apis.ErrInvalidValue(label, serving.VisibilityLabelKey)
+		errs = apis.ErrInvalidValue(label, network.VisibilityLabelKey)
 	}
 	return
 }
@@ -212,13 +217,15 @@ func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
 // validateLabels function validates route labels.
 func (r *Route) validateLabels() (errs *apis.FieldError) {
 	for key, val := range r.GetLabels() {
-		switch {
-		case key == serving.VisibilityLabelKey:
+		switch key {
+		case serving.VisibilityLabelKeyObsolete, network.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisibilityLabel(val))
-		case key == serving.ServiceLabelKey:
+		case serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))
-		case strings.HasPrefix(key, serving.GroupNamePrefix):
-			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
+		default:
+			if strings.HasPrefix(key, serving.GroupNamePrefix) {
+				errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
+			}
 		}
 	}
 	return

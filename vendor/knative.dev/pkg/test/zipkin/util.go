@@ -19,15 +19,23 @@ limitations under the License.
 package zipkin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"sync"
+	"testing"
 	"time"
+
+	tracingconfig "knative.dev/pkg/tracing/config"
 
 	"github.com/openzipkin/zipkin-go/model"
 	"go.opencensus.io/trace"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/monitoring"
@@ -46,10 +54,7 @@ const (
 
 	// App is the name of this component.
 	// This will be used as a label selector.
-	app = "zipkin"
-
-	// istioNS is the namespace we are using for istio components.
-	istioNS = "istio-system"
+	appLabel = "zipkin"
 )
 
 var (
@@ -65,26 +70,66 @@ var (
 	teardownOnce sync.Once
 )
 
+// SetupZipkinTracingFromConfigTracing setups zipkin tracing like SetupZipkinTracing but retrieving the zipkin configuration
+// from config-tracing config map
+func SetupZipkinTracingFromConfigTracing(ctx context.Context, kubeClientset kubernetes.Interface, logf logging.FormatLogger, configMapNamespace string) error {
+	cm, err := kubeClientset.CoreV1().ConfigMaps(configMapNamespace).Get(ctx, "config-tracing", metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("error while retrieving config-tracing config map: %w", err)
+	}
+	c, err := tracingconfig.NewTracingConfigFromConfigMap(cm)
+	if err != nil {
+		return fmt.Errorf("error while parsing config-tracing config map: %w", err)
+	}
+	zipkinEndpointURL, err := url.Parse(c.ZipkinEndpoint)
+	if err != nil {
+		return fmt.Errorf("error while parsing the zipkin endpoint in config-tracing config map: %w", err)
+	}
+	unparsedPort := zipkinEndpointURL.Port()
+	port := uint64(80)
+	if unparsedPort != "" {
+		port, err = strconv.ParseUint(unparsedPort, 10, 16)
+		if err != nil {
+			return fmt.Errorf("error while parsing the zipkin endpoint port in config-tracing config map: %w", err)
+		}
+	}
+
+	namespace, err := parseNamespaceFromHostname(zipkinEndpointURL.Host)
+	if err != nil {
+		return fmt.Errorf("error while parsing the Zipkin endpoint in config-tracing config map: %w", err)
+	}
+
+	return SetupZipkinTracing(ctx, kubeClientset, logf, int(port), namespace)
+}
+
+// SetupZipkinTracingFromConfigTracingOrFail is same as SetupZipkinTracingFromConfigTracing, but fails the test if an error happens
+func SetupZipkinTracingFromConfigTracingOrFail(ctx context.Context, t testing.TB, kubeClientset kubernetes.Interface, configMapNamespace string) {
+	if err := SetupZipkinTracingFromConfigTracing(ctx, kubeClientset, t.Logf, configMapNamespace); err != nil {
+		t.Fatal("Error while setup Zipkin tracing:", err)
+	}
+}
+
 // SetupZipkinTracing sets up zipkin tracing which involves:
 // 1. Setting up port-forwarding from localhost to zipkin pod on the cluster
 //    (pid of the process doing Port-Forward is stored in a global variable).
 // 2. Enable AlwaysSample config for tracing for the SpoofingClient.
-func SetupZipkinTracing(kubeClientset *kubernetes.Clientset, logf logging.FormatLogger) bool {
+// The zipkin deployment must have the label app=zipkin
+func SetupZipkinTracing(ctx context.Context, kubeClientset kubernetes.Interface, logf logging.FormatLogger, zipkinRemotePort int, zipkinNamespace string) (err error) {
 	setupOnce.Do(func() {
-		if err := monitoring.CheckPortAvailability(ZipkinPort); err != nil {
-			logf("Zipkin port not available on the machine: %v", err)
+		if e := monitoring.CheckPortAvailability(zipkinRemotePort); e != nil {
+			err = fmt.Errorf("zipkin port not available on the machine: %w", err)
 			return
 		}
 
-		zipkinPods, err := monitoring.GetPods(kubeClientset, app, istioNS)
-		if err != nil {
-			logf("Error retrieving Zipkin pod details: %v", err)
+		zipkinPods, e := monitoring.GetPods(ctx, kubeClientset, appLabel, zipkinNamespace)
+		if e != nil {
+			err = fmt.Errorf("error retrieving Zipkin pod details: %w", err)
 			return
 		}
 
-		zipkinPortForwardPID, err = monitoring.PortForward(logf, zipkinPods, ZipkinPort, ZipkinPort, istioNS)
-		if err != nil {
-			logf("Error starting kubectl port-forward command: %v", err)
+		zipkinPortForwardPID, e = monitoring.PortForward(logf, zipkinPods, ZipkinPort, zipkinRemotePort, zipkinNamespace)
+		if e != nil {
+			err = fmt.Errorf("error starting kubectl port-forward command: %w", err)
 			return
 		}
 
@@ -93,9 +138,15 @@ func SetupZipkinTracing(kubeClientset *kubernetes.Clientset, logf logging.Format
 		// Applying AlwaysSample config to ensure we propagate zipkin header for every request made by this client.
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 		logf("Successfully setup SpoofingClient for Zipkin Tracing")
-		ZipkinTracingEnabled = true
 	})
-	return ZipkinTracingEnabled
+	return
+}
+
+// SetupZipkinTracingOrFail is same as SetupZipkinTracing, but fails the test if an error happens
+func SetupZipkinTracingOrFail(ctx context.Context, t testing.TB, kubeClientset kubernetes.Interface, zipkinRemotePort int, zipkinNamespace string) {
+	if err := SetupZipkinTracing(ctx, kubeClientset, t.Logf, zipkinRemotePort, zipkinNamespace); err != nil {
+		t.Fatal("Error while setup zipkin tracing:", err)
+	}
 }
 
 // CleanupZipkinTracingSetup cleans up the Zipkin tracing setup on the machine. This involves killing the process performing port-forward.
@@ -160,7 +211,7 @@ type TimeoutError struct {
 }
 
 func (t *TimeoutError) Error() string {
-	return fmt.Sprintf("timeout getting JSONTrace, most recent error: %v", t.lastErr)
+	return fmt.Sprint("timeout getting JSONTrace, most recent error:", t.lastErr)
 }
 
 // jsonTrace gets a trace from Zipkin and returns it. Errors returned from this function should be
@@ -183,7 +234,15 @@ func jsonTrace(traceID string) ([]model.SpanModel, error) {
 	var models []model.SpanModel
 	err = json.Unmarshal(body, &models)
 	if err != nil {
-		return empty, fmt.Errorf("got an error in unmarshalling JSON %q: %v", body, err)
+		return empty, fmt.Errorf("got an error in unmarshalling JSON %q: %w", body, err)
 	}
 	return models, nil
+}
+
+func parseNamespaceFromHostname(hostname string) (string, error) {
+	parts := strings.Split(hostname, ".")
+	if len(parts) < 3 || !(parts[2] == "svc" || strings.HasPrefix(parts[2], "svc:")) {
+		return "", fmt.Errorf("could not extract namespace/name from %s", hostname)
+	}
+	return parts[1], nil
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,38 +24,62 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	. "knative.dev/pkg/configmap/testing"
-	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
-var defaultConfig = Config{
-	EnableScaleToZero:                  true,
-	EnableGracefulScaledown:            false,
-	ContainerConcurrencyTargetFraction: 0.7,
-	ContainerConcurrencyTargetDefault:  100,
-	RPSTargetDefault:                   200,
-	ActivatorCapacity:                  100,
-	TargetUtilization:                  0.7,
-	TargetBurstCapacity:                200,
-	MaxScaleUpRate:                     1000,
-	MaxScaleDownRate:                   2,
-	StableWindow:                       time.Minute,
-	ScaleToZeroGracePeriod:             30 * time.Second,
-	TickInterval:                       2 * time.Second,
-	PanicWindowPercentage:              10.0,
-	PanicThresholdPercentage:           200.0,
-	PodAutoscalerClass:                 autoscaling.KPA,
-}
-
 func TestNewConfig(t *testing.T) {
+	actual, example := ConfigMapsFromTestFile(t, ConfigName)
 	tests := []struct {
 		name    string
 		input   map[string]string
-		want    *Config
+		want    *autoscalerconfig.Config
 		wantErr bool
 	}{{
 		name:  "default",
 		input: map[string]string{},
-		want:  &defaultConfig,
+		want:  defaultConfig(),
+	}, {
+		name:  "actual",
+		input: actual.Data,
+		want:  defaultConfig(),
+	}, {
+		name:  "example",
+		input: example.Data,
+		want:  defaultConfig(),
+	}, {
+		name: "overridden",
+		input: map[string]string{
+			"enable-scale-to-zero":                    "true",
+			"max-scale-down-rate":                     "3.0",
+			"max-scale-up-rate":                       "1.01",
+			"container-concurrency-target-percentage": "0.71",
+			"container-concurrency-target-default":    "10.5",
+			"requests-per-second-target-default":      "10.11",
+			"target-burst-capacity":                   "12345",
+			"scale-down-delay":                        "15m",
+			"stable-window":                           "5m",
+			"tick-interval":                           "2s",
+			"panic-window-percentage":                 "10",
+			"panic-threshold-percentage":              "200",
+			"pod-autoscaler-class":                    "some.class",
+			"activator-capacity":                      "905",
+			"scale-to-zero-pod-retention-period":      "2m3s",
+		},
+		want: func() *autoscalerconfig.Config {
+			c := defaultConfig()
+			c.TargetBurstCapacity = 12345
+			c.ContainerConcurrencyTargetDefault = 10.5
+			c.ContainerConcurrencyTargetFraction = 0.71
+			c.RPSTargetDefault = 10.11
+			c.MaxScaleDownRate = 3
+			c.MaxScaleUpRate = 1.01
+			c.ScaleDownDelay = 15 * time.Minute
+			c.StableWindow = 5 * time.Minute
+			c.ActivatorCapacity = 905
+			c.PodAutoscalerClass = "some.class"
+			c.ScaleToZeroPodRetentionPeriod = 2*time.Minute + 3*time.Second
+			return c
+		}(),
 	}, {
 		name: "minimum",
 		input: map[string]string{
@@ -69,96 +93,80 @@ func TestNewConfig(t *testing.T) {
 			"panic-threshold-percentage":              "200",
 			"activator-capacity":                      "1",
 		},
-		want: func(c Config) *Config {
+		want: func() *autoscalerconfig.Config {
+			c := defaultConfig()
 			c.ContainerConcurrencyTargetFraction = 0.5
 			c.ContainerConcurrencyTargetDefault = 10
 			c.MaxScaleUpRate = 1.001
 			c.TargetBurstCapacity = 0
 			c.StableWindow = 5 * time.Minute
 			c.ActivatorCapacity = 1
-			return &c
-		}(defaultConfig),
+			return c
+		}(),
 	}, {
-		name: "concurrencty target percentage as percent",
+		name: "concurrency target percentage as percent",
 		input: map[string]string{
 			"container-concurrency-target-percentage": "55",
 		},
-		want: func(c Config) *Config {
+		want: func() *autoscalerconfig.Config {
+			c := defaultConfig()
 			c.ContainerConcurrencyTargetFraction = 0.55
-			return &c
-		}(defaultConfig),
+			return c
+		}(),
 	}, {
 		name: "with -1 tbc",
 		input: map[string]string{
 			"target-burst-capacity": "-1",
 		},
-		want: func(c Config) *Config {
+		want: func() *autoscalerconfig.Config {
+			c := defaultConfig()
 			c.TargetBurstCapacity = -1
-			return &c
-		}(defaultConfig),
-	}, {
-		name: "with default toggles set",
-		input: map[string]string{
-			"enable-scale-to-zero":                    "true",
-			"enable-graceful-scaledown":               "false",
-			"max-scale-down-rate":                     "3.0",
-			"max-scale-up-rate":                       "1.01",
-			"container-concurrency-target-percentage": "0.71",
-			"container-concurrency-target-default":    "10.5",
-			"requests-per-second-target-default":      "10.11",
-			"target-burst-capacity":                   "12345",
-			"stable-window":                           "5m",
-			"tick-interval":                           "2s",
-			"panic-window-percentage":                 "10",
-			"panic-threshold-percentage":              "200",
-			"pod-autoscaler-class":                    "some.class",
-			"activator-capacity":                      "905",
-		},
-		want: func(c Config) *Config {
-			c.TargetBurstCapacity = 12345
-			c.ContainerConcurrencyTargetDefault = 10.5
-			c.ContainerConcurrencyTargetFraction = 0.71
-			c.RPSTargetDefault = 10.11
-			c.MaxScaleDownRate = 3
-			c.MaxScaleUpRate = 1.01
-			c.StableWindow = 5 * time.Minute
-			c.ActivatorCapacity = 905
-			c.PodAutoscalerClass = "some.class"
-			return &c
-		}(defaultConfig),
+			return c
+		}(),
 	}, {
 		name: "with toggles on strange casing",
 		input: map[string]string{
-			"enable-scale-to-zero":      "TRUE",
-			"enable-graceful-scaledown": "FALSE",
+			"enable-scale-to-zero": "TRUE",
 		},
-		want: &defaultConfig,
+		want: defaultConfig(),
 	}, {
 		name: "with toggles explicitly flipped",
 		input: map[string]string{
-			"enable-scale-to-zero":      "false",
-			"enable-graceful-scaledown": "true",
+			"enable-scale-to-zero": "false",
 		},
-		want: func(c Config) *Config {
+		want: func() *autoscalerconfig.Config {
+			c := defaultConfig()
 			c.EnableScaleToZero = false
-			c.EnableGracefulScaledown = true
-			return &c
-		}(defaultConfig),
+			return c
+		}(),
 	}, {
 		name: "with explicit grace period",
 		input: map[string]string{
 			"enable-scale-to-zero":       "false",
 			"scale-to-zero-grace-period": "33s",
 		},
-		want: func(c Config) *Config {
+		want: func() *autoscalerconfig.Config {
+			c := defaultConfig()
 			c.EnableScaleToZero = false
 			c.ScaleToZeroGracePeriod = 33 * time.Second
-			return &c
-		}(defaultConfig),
+			return c
+		}(),
 	}, {
 		name: "malformed float",
 		input: map[string]string{
 			"max-scale-up-rate": "not a float",
+		},
+		wantErr: true,
+	}, {
+		name: "invalid scale-down-delay",
+		input: map[string]string{
+			"scale-down-delay": "-1m23s",
+		},
+		wantErr: true,
+	}, {
+		name: "invalid pod retention period",
+		input: map[string]string{
+			"scale-to-zero-pod-retention-period": "-4m11s",
 		},
 		wantErr: true,
 	}, {
@@ -210,6 +218,12 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
+		name: "stable window too big",
+		input: map[string]string{
+			"stable-window": "1h1s",
+		},
+		wantErr: true,
+	}, {
 		name: "stable window too small",
 		input: map[string]string{
 			"stable-window": "1s",
@@ -222,6 +236,12 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
+		name: "scale-down-delay not seconds",
+		input: map[string]string{
+			"scale-down-delay": "61984ms",
+		},
+		wantErr: true,
+	}, {
 		name: "activator-capacity invalid",
 		input: map[string]string{
 			"activator-capacity": "0.95",
@@ -230,8 +250,7 @@ func TestNewConfig(t *testing.T) {
 	}, {
 		name: "panic window percentage too small",
 		input: map[string]string{
-			"stable-window":           "12s",
-			"panic-window-percentage": "5", // 0.6s < BucketSize
+			"panic-window-percentage": "0.1",
 		},
 		wantErr: true,
 	}, {
@@ -256,30 +275,108 @@ func TestNewConfig(t *testing.T) {
 			"scale-to-zero-grace-period": "4s",
 		},
 		wantErr: true,
+	}, {
+		name: "with prohibited default initial scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "false",
+			"initial-scale":            "0",
+		},
+		wantErr: true,
+	}, {
+		name: "with negative default initial scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "false",
+			"initial-scale":            "-1",
+		},
+		wantErr: true,
+	}, {
+		name: "with non-parseable default initial scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "false",
+			"initial-scale":            "invalid",
+		},
+		wantErr: true,
+	}, {
+		name: "with valid default initial scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "true",
+			"initial-scale":            "0",
+		},
+		want: func() *autoscalerconfig.Config {
+			c := defaultConfig()
+			c.AllowZeroInitialScale = true
+			c.InitialScale = 0
+			return c
+		}(),
+	}, {
+		name: "with non-parseable allow-zero-initial-scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "invalid",
+		},
+		wantErr: true,
+	}, {
+		name: "with negative default max scale",
+		input: map[string]string{
+			"max-scale": "-1",
+		},
+		wantErr: true,
+	}, {
+		name: "with valid default max scale",
+		input: map[string]string{
+			"max-scale": "10",
+		},
+		want: func() *autoscalerconfig.Config {
+			c := defaultConfig()
+			c.MaxScale = 10
+			return c
+		}(),
+	}, {
+		name: "max scale exceeding max scale limit",
+		input: map[string]string{
+			"max-scale":       "10",
+			"max-scale-limit": "9",
+		},
+		wantErr: true,
+	}, {
+		name: "with negative max scale limit",
+		input: map[string]string{
+			"max-scale-limit": "-9",
+		},
+		wantErr: true,
+	}, {
+		name: "with valid default max scale and max scale limit",
+		input: map[string]string{
+			"max-scale":       "10",
+			"max-scale-limit": "11",
+		},
+		want: func() *autoscalerconfig.Config {
+			c := defaultConfig()
+			c.MaxScale = 10
+			c.MaxScaleLimit = 11
+			return c
+		}(),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := NewConfigFromConfigMap(&corev1.ConfigMap{
+			gotCM, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 				Data: test.input,
 			})
-			t.Logf("Error = %v", err)
+			t.Log("Error =", err)
 			if (err != nil) != test.wantErr {
-				t.Errorf("NewConfig() = %v, want %v", err, test.wantErr)
+				t.Errorf("NewConfigFromConfigMap() = %v, want %v", err, test.wantErr)
 			}
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("NewConfig (-want, +got) = %v", diff)
+			if diff := cmp.Diff(test.want, gotCM); diff != "" {
+				t.Error("NewConfigFromConfigMap (-want, +got) =", diff)
+			}
+
+			got, err := NewConfigFromMap(test.input)
+			if (err != nil) != test.wantErr {
+				t.Errorf("NewConfigFromMap() = %v, want %v", err, test.wantErr)
+			}
+			if diff := cmp.Diff(got, gotCM); diff != "" {
+				t.Error("NewConfigFromMap (-got, +gotCM) =", diff)
 			}
 		})
-	}
-}
-
-func TestOurConfig(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, ConfigName)
-	if _, err := NewConfigFromConfigMap(cm); err != nil {
-		t.Errorf("NewConfigFromConfigMap(actual) = %v", err)
-	}
-	if _, err := NewConfigFromConfigMap(example); err != nil {
-		t.Errorf("NewConfigFromConfigMap(example) = %v", err)
 	}
 }

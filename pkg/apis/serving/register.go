@@ -33,13 +33,31 @@ const (
 	// pinned a revision
 	RevisionLastPinnedAnnotationKey = GroupName + "/lastPinned"
 
+	// RevisionPreservedAnnotationKey is the annotation key used for preventing garbage collector
+	// from automatically deleting the revision.
+	RevisionPreservedAnnotationKey = GroupName + "/no-gc"
+
 	// RouteLabelKey is the label key attached to a Configuration indicating by
 	// which Route it is configured as traffic target.
+	// The key is also attached to Revision resources to indicate they are directly
+	// referenced by a Route, or are a child of a Configuration which is referenced by a Route.
 	// The key can also be attached to Ingress resources to indicate
 	// which Route triggered their creation.
 	// The key is also attached to k8s Service resources to indicate which Route
 	// triggered their creation.
 	RouteLabelKey = GroupName + "/route"
+
+	// RoutesAnnotationKey is an annotation attached to a Revision to indicate that it is
+	// referenced by one or many routes. The value is a comma separated list of Route names.
+	RoutesAnnotationKey = GroupName + "/routes"
+
+	// RoutingStateLabelKey is the label attached to a Revision indicating
+	// its state in relation to serving a Route.
+	RoutingStateLabelKey = GroupName + "/routingState"
+
+	// RoutingStateModifiedAnnotationKey indicates the last time the RoutingStateLabel
+	// was modified. This is used for ordering when Garbage Collecting old Revisions.
+	RoutingStateModifiedAnnotationKey = GroupName + "/routingStateModified"
 
 	// RouteNamespaceLabelKey is the label key attached to a Ingress
 	// by a Route to indicate which namespace the Route was created in.
@@ -61,6 +79,12 @@ const (
 	// metadata generation of the Configuration that created this revision
 	ConfigurationGenerationLabelKey = GroupName + "/configurationGeneration"
 
+	// ForceUpgradeAnnotationKey is the annotation which was added to resources
+	// upgraded from v1alpha1.
+	// This annotation is no longer used since v1alpha1 was removed, but
+	// must continue to be allowed since it may be present on existing resources.
+	ForceUpgradeAnnotationKey = GroupName + "/forceUpgrade"
+
 	// CreatorAnnotation is the annotation key to describe the user that
 	// created the resource.
 	CreatorAnnotation = GroupName + "/creator"
@@ -72,11 +96,10 @@ const (
 	// It has to be in [0.1,100]
 	QueueSideCarResourcePercentageAnnotation = "queue.sidecar." + GroupName + "/resourcePercentage"
 
-	// VisibilityLabelKey is the label to indicate visibility of Route
-	// and KServices.  It can be an annotation too but since users are
-	// already using labels for domain, it probably best to keep this
-	// consistent.
-	VisibilityLabelKey = "serving.knative.dev/visibility"
+	// VisibilityLabelKeyObsolete is the obsolete VisibilityLabelKey.
+	// This will move over to VisibilityLabelKey in networking repo..
+	VisibilityLabelKeyObsolete = "serving.knative.dev/visibility"
+
 	// VisibilityClusterLocal is the label value for VisibilityLabelKey
 	// that will result to the Route/KService getting a cluster local
 	// domain suffix.

@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package v1alpha1
 
 import (
@@ -29,6 +30,7 @@ import (
 	apistest "knative.dev/pkg/apis/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
 func TestPodAutoscalerDuckTypes(t *testing.T) {
@@ -50,10 +52,18 @@ func TestPodAutoscalerDuckTypes(t *testing.T) {
 	}
 }
 
+func TestPodAutoscalerGetConditionSet(t *testing.T) {
+	r := &PodAutoscaler{}
+
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GetTopLevelConditionType=%v, want=%v", got, want)
+	}
+}
+
 func TestGeneration(t *testing.T) {
 	r := PodAutoscaler{}
 	if a := r.GetGeneration(); a != 0 {
-		t.Errorf("empty pa generation should be 0 was: %d", a)
+		t.Error("empty pa generation should be 0 was:", a)
 	}
 
 	r.SetGeneration(5)
@@ -63,18 +73,27 @@ func TestGeneration(t *testing.T) {
 
 }
 
-func TestCanScaleToZero(t *testing.T) {
+func TestInactiveFor(t *testing.T) {
 	now := time.Now()
 	cases := []struct {
 		name   string
 		status PodAutoscalerStatus
-		result bool
-		grace  time.Duration
+		result time.Duration
 	}{{
 		name:   "empty status",
 		status: PodAutoscalerStatus{},
-		result: false,
-		grace:  10 * time.Second,
+		result: -1,
+	}, {
+		name: "unknown condition",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		result: -1,
 	}, {
 		name: "active condition",
 		status: PodAutoscalerStatus{
@@ -85,8 +104,7 @@ func TestCanScaleToZero(t *testing.T) {
 				}},
 			},
 		},
-		result: false,
-		grace:  10 * time.Second,
+		result: -1,
 	}, {
 		name: "inactive condition (no LTT)",
 		status: PodAutoscalerStatus{
@@ -98,10 +116,9 @@ func TestCanScaleToZero(t *testing.T) {
 				}},
 			},
 		},
-		result: true,
-		grace:  10 * time.Second,
+		result: time.Since(time.Time{}),
 	}, {
-		name: "inactive condition (LTT longer than grace period ago)",
+		name: "inactive condition (LTT longer than idle period ago)",
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
@@ -114,10 +131,9 @@ func TestCanScaleToZero(t *testing.T) {
 				}},
 			},
 		},
-		result: true,
-		grace:  10 * time.Second,
+		result: 30 * time.Second,
 	}, {
-		name: "inactive condition (LTT less than grace period ago)",
+		name: "inactive condition (LTT less than idle period ago)",
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
@@ -130,14 +146,13 @@ func TestCanScaleToZero(t *testing.T) {
 				}},
 			},
 		},
-		result: false,
-		grace:  30 * time.Second,
+		result: 10 * time.Second,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.result, tc.status.CanScaleToZero(now, tc.grace); e != a {
-				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			if got, want := tc.status.InactiveFor(now), tc.result; got != want {
+				t.Errorf("InactiveFor = %v, want: %v", got, want)
 			}
 		})
 	}
@@ -220,18 +235,12 @@ func TestActiveFor(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if got, want := tc.status.ActiveFor(now), tc.result; absDiff(got, want) > 10*time.Millisecond {
-			t.Errorf("ActiveFor = %v, want: %v", got, want)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if got, want := tc.status.ActiveFor(now), tc.result; got != want {
+				t.Errorf("ActiveFor = %v, want: %v", got, want)
+			}
+		})
 	}
-}
-
-func absDiff(a, b time.Duration) time.Duration {
-	a -= b
-	if a < 0 {
-		a *= -1
-	}
-	return a
 }
 
 func TestCanFailActivation(t *testing.T) {
@@ -307,8 +316,8 @@ func TestCanFailActivation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.result, tc.status.CanFailActivation(now, tc.grace); e != a {
-				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			if got, want := tc.status.CanFailActivation(now, tc.grace), tc.result; got != want {
+				t.Errorf("CanFailActivation = %v, want: %v", got, want)
 			}
 		})
 	}
@@ -322,7 +331,7 @@ func TestIsActivating(t *testing.T) {
 	}{{
 		name:         "empty status",
 		status:       PodAutoscalerStatus{},
-		isActivating: false,
+		isActivating: true,
 	}, {
 		name: "active=unknown",
 		status: PodAutoscalerStatus{
@@ -359,9 +368,11 @@ func TestIsActivating(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isActivating, tc.status.IsActivating(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if got, want := tc.status.IsActivating(), tc.isActivating; got != want {
+				t.Errorf("IsActivating = %v, want: %v", got, want)
+			}
+		})
 	}
 }
 
@@ -459,9 +470,18 @@ func TestIsReady(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isReady, tc.status.IsReady(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			pa := PodAutoscaler{Status: tc.status}
+			if got, want := pa.IsReady(), tc.isReady; got != want {
+				t.Errorf("IsReady = %v, want: %v", got, want)
+			}
+
+			pa.Generation = 1
+			pa.Status.ObservedGeneration = 2
+			if pa.IsReady() {
+				t.Error("Expected IsReady() to be false when Generation != ObservedGeneration")
+			}
+		})
 	}
 }
 
@@ -503,10 +523,10 @@ func TestTargetAnnotation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotTarget, gotOK := tc.pa.Target()
 			if gotTarget != tc.wantTarget {
-				t.Errorf("got target: %v wanted: %v", gotTarget, tc.wantTarget)
+				t.Errorf("Target = %v; want: %v", gotTarget, tc.wantTarget)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("got ok: %v wanted %v", gotOK, tc.wantOK)
+				t.Errorf("OK = %v; want: %v", gotOK, tc.wantOK)
 			}
 		})
 	}
@@ -517,6 +537,7 @@ func TestScaleBounds(t *testing.T) {
 		name         string
 		min          string
 		max          string
+		config       autoscalerconfig.Config
 		reachability ReachabilityType
 		wantMin      int32
 		wantMax      int32
@@ -535,6 +556,21 @@ func TestScaleBounds(t *testing.T) {
 		min:     "1",
 		wantMin: 1,
 		wantMax: 0,
+	}, {
+		name:    "only min, overridden",
+		min:     "1",
+		wantMin: 1,
+		wantMax: 10,
+		config: autoscalerconfig.Config{
+			MaxScale: 10,
+		},
+	}, {
+		name:    "max and config",
+		max:     "5",
+		wantMax: 5,
+		config: autoscalerconfig.Config{
+			MaxScale: 10,
+		},
 	}, {
 		name:    "only max",
 		max:     "1",
@@ -560,12 +596,6 @@ func TestScaleBounds(t *testing.T) {
 		max:     "sandwich",
 		wantMin: 0,
 		wantMax: 0,
-	}, {
-		name:    "too small",
-		min:     "-1",
-		max:     "-1",
-		wantMin: 0,
-		wantMax: 0,
 	}}
 
 	for _, tc := range cases {
@@ -579,7 +609,7 @@ func TestScaleBounds(t *testing.T) {
 			}
 			pa.Spec.Reachability = tc.reachability
 
-			min, max := pa.ScaleBounds()
+			min, max := pa.ScaleBounds(&tc.config)
 
 			if min != tc.wantMin {
 				t.Errorf("got min: %v wanted: %v", min, tc.wantMin)
@@ -596,10 +626,10 @@ func TestMarkResourceNotOwned(t *testing.T) {
 	pa.Status.MarkResourceNotOwned("doesn't", "matter")
 	active := pa.Status.GetCondition("Active")
 	if active.Status != corev1.ConditionFalse {
-		t.Errorf("TestMarkResourceNotOwned expected active.Status: False got: %v", active.Status)
+		t.Error("TestMarkResourceNotOwned expected active.Status: False got:", active.Status)
 	}
 	if active.Reason != "NotOwned" {
-		t.Errorf("TestMarkResourceNotOwned expected active.Reason: NotOwned got: %v", active.Reason)
+		t.Error("TestMarkResourceNotOwned expected active.Reason: NotOwned got:", active.Reason)
 	}
 }
 
@@ -610,10 +640,10 @@ func TestMarkResourceFailedCreation(t *testing.T) {
 
 	active := pa.GetCondition("Active")
 	if active.Status != corev1.ConditionFalse {
-		t.Errorf("TestMarkResourceFailedCreation expected active.Status: False got: %v", active.Status)
+		t.Error("TestMarkResourceFailedCreation expected active.Status: False got:", active.Status)
 	}
 	if active.Reason != "FailedCreate" {
-		t.Errorf("TestMarkResourceFailedCreation expected active.Reason: FailedCreate got: %v", active.Reason)
+		t.Error("TestMarkResourceFailedCreation expected active.Reason: FailedCreate got:", active.Reason)
 	}
 }
 
@@ -697,6 +727,53 @@ func TestMetric(t *testing.T) {
 	}
 }
 
+func TestScaleDownDelayAnnotation(t *testing.T) {
+	cases := []struct {
+		name      string
+		pa        *PodAutoscaler
+		wantDelay time.Duration
+		wantOK    bool
+	}{{
+		name:      "not present",
+		pa:        pa(map[string]string{}),
+		wantDelay: 0,
+		wantOK:    false,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.ScaleDownDelayAnnotationKey: "120s",
+		}),
+		wantDelay: 120 * time.Second,
+		wantOK:    true,
+	}, {
+		name: "complex",
+		pa: pa(map[string]string{
+			autoscaling.ScaleDownDelayAnnotationKey: "2m33s",
+		}),
+		wantDelay: 153 * time.Second,
+		wantOK:    true,
+	}, {
+		name: "invalid",
+		pa: pa(map[string]string{
+			autoscaling.ScaleDownDelayAnnotationKey: "365d",
+		}),
+		wantDelay: 0,
+		wantOK:    false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotDelay, gotOK := tc.pa.ScaleDownDelay()
+			if gotDelay != tc.wantDelay {
+				t.Errorf("ScaleDownDelay = %v, want: %v", gotDelay, tc.wantDelay)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+			}
+		})
+	}
+}
+
 func TestWindowAnnotation(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -713,7 +790,14 @@ func TestWindowAnnotation(t *testing.T) {
 		pa: pa(map[string]string{
 			autoscaling.WindowAnnotationKey: "120s",
 		}),
-		wantWindow: time.Second * 120,
+		wantWindow: 120 * time.Second,
+		wantOK:     true,
+	}, {
+		name: "complex",
+		pa: pa(map[string]string{
+			autoscaling.WindowAnnotationKey: "2m33s",
+		}),
+		wantWindow: 153 * time.Second,
 		wantOK:     true,
 	}, {
 		name: "invalid",
@@ -728,10 +812,10 @@ func TestWindowAnnotation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotWindow, gotOK := tc.pa.Window()
 			if gotWindow != tc.wantWindow {
-				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantWindow, gotWindow)
+				t.Errorf("Window = %v, want: %v", gotWindow, tc.wantWindow)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
 			}
 		})
 	}
@@ -768,10 +852,10 @@ func TestPanicWindowPercentageAnnotation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotPercentage, gotOK := tc.pa.PanicWindowPercentage()
 			if gotPercentage != tc.wantPercentage {
-				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantPercentage, gotPercentage)
+				t.Errorf("PanicWindowPercentage = %v, want: %v", gotPercentage, tc.wantPercentage)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
 			}
 		})
 	}
@@ -808,10 +892,10 @@ func TestTargetUtilization(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, gotOK := tc.pa.TargetUtilization()
 			if got, want := got, tc.want; got != want {
-				t.Errorf("%q target utilization: %v want: %v", tc.name, got, want)
+				t.Errorf("TU = %v, want: %v", got, want)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
 			}
 		})
 	}
@@ -841,17 +925,17 @@ func TestPanicThresholdPercentage(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotPercentage, gotOK := tc.pa.PanicThresholdPercentage()
 			if gotPercentage != tc.wantPercentage {
-				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantPercentage, gotPercentage)
+				t.Errorf("PanicThresholdPercentage = %v, want: %v", gotPercentage, tc.wantPercentage)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
 			}
 		})
 	}
 }
 
 func pa(annotations map[string]string) *PodAutoscaler {
-	p := &PodAutoscaler{
+	return &PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   "test-namespace",
 			Name:        "test-name",
@@ -862,7 +946,6 @@ func pa(annotations map[string]string) *PodAutoscaler {
 		},
 		Status: PodAutoscalerStatus{},
 	}
-	return p
 }
 
 func TestTypicalFlow(t *testing.T) {
@@ -870,19 +953,44 @@ func TestTypicalFlow(t *testing.T) {
 	r.InitializeConditions()
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionSKSReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionScaleTargetInitialized, t)
+
+	r.MarkActive()
+	r.MarkSKSReady()
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
 
 	// When we see traffic, mark ourselves active.
 	r.MarkActive()
+	r.MarkScaleTargetInitialized()
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
 	// Check idempotency.
 	r.MarkActive()
+	r.MarkScaleTargetInitialized()
+	r.MarkSKSReady()
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
+
+	r.MarkSKSNotReady("something something private")
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionSKSReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
+
+	// Restore.
+	r.MarkSKSReady()
 
 	// When we stop seeing traffic, mark ourselves inactive.
 	r.MarkInactive("TheReason", "the message")
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionFailed(r, PodAutoscalerConditionActive, t)
 	if !r.IsInactive() {
 		t.Error("IsInactive was not set.")
@@ -892,14 +1000,20 @@ func TestTypicalFlow(t *testing.T) {
 	// When traffic hits the activator and we scale up the deployment we mark
 	// ourselves as activating.
 	r.MarkActivating("Activating", "Red team, GO!")
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
 
 	// When the activator successfully forwards traffic to the deployment,
 	// we mark ourselves as active once more.
 	r.MarkActive()
+	if !r.IsActive() {
+		t.Error("Active was not set.")
+	}
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 }
 
 func TestTargetBC(t *testing.T) {
@@ -911,7 +1025,6 @@ func TestTargetBC(t *testing.T) {
 	}{{
 		name: "not present",
 		pa:   pa(map[string]string{}),
-		want: 0.0,
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
@@ -938,17 +1051,16 @@ func TestTargetBC(t *testing.T) {
 		pa: pa(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "NPH",
 		}),
-		want: 0.0,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got, gotOK := tc.pa.TargetBC()
 			if got, want := got, tc.want; got != want {
-				t.Errorf("%q target burst capacity: %v want: %v", tc.name, got, want)
+				t.Errorf("TBC = %v, want: %v", got, want)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
 			}
 		})
 	}
@@ -982,5 +1094,96 @@ func TestPodAutoscalerGetGroupVersionKind(t *testing.T) {
 	}
 	if got := p.GetGroupVersionKind(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
+	}
+}
+
+func TestScaleToZeroPodRetention(t *testing.T) {
+	cases := []struct {
+		name   string
+		pa     *PodAutoscaler
+		want   time.Duration
+		wantOK bool
+	}{{
+		name: "nil",
+		pa:   pa(nil),
+	}, {
+		name: "not present",
+		pa:   pa(map[string]string{}),
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.ScaleToZeroPodRetentionPeriodKey: "311s",
+		}),
+		want:   311 * time.Second,
+		wantOK: true,
+	}, {
+		name: "complex",
+		pa: pa(map[string]string{
+			autoscaling.ScaleToZeroPodRetentionPeriodKey: "4m21s",
+		}),
+		want:   261 * time.Second,
+		wantOK: true,
+	}, {
+		name: "invalid",
+		pa: pa(map[string]string{
+			autoscaling.ScaleToZeroPodRetentionPeriodKey: "365d",
+		}),
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotOK := tc.pa.ScaleToZeroPodRetention()
+			if got != tc.want {
+				t.Errorf("ScaleToZeroPodRetention = %v, want: %v", got, tc.want)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+			}
+		})
+	}
+}
+
+func TestInitialScale(t *testing.T) {
+	cases := []struct {
+		name   string
+		pa     *PodAutoscaler
+		want   int32
+		wantOK bool
+	}{{
+		name: "nil",
+		pa:   pa(nil),
+	}, {
+		name: "not present",
+		pa:   pa(map[string]string{}),
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.InitialScaleAnnotationKey: "2",
+		}),
+		want:   2,
+		wantOK: true,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotOK := tc.pa.InitialScale()
+			if got != tc.want {
+				t.Errorf("InitialScale = %v, want: %v", got, tc.want)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+			}
+		})
+	}
+}
+
+func TestIsScaleTargetInitialized(t *testing.T) {
+	p := PodAutoscaler{}
+	if got, want := p.Status.IsScaleTargetInitialized(), false; got != want {
+		t.Errorf("before marking initially active: got: %v, want: %v", got, want)
+	}
+	p.Status.MarkScaleTargetInitialized()
+	if got, want := p.Status.IsScaleTargetInitialized(), true; got != want {
+		t.Errorf("after marking initially active: got: %v, want: %v", got, want)
 	}
 }

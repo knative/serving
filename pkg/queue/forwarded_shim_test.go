@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package queue
 
 import (
@@ -34,7 +35,7 @@ func TestForwardedShimHandler(t *testing.T) {
 		xff:  "127.0.0.1, ::1",
 		xfh:  "h",
 		xfp:  "p",
-		want: "for=127.0.0.1;host=h;proto=p, for=\"[::1]\"",
+		want: `for=127.0.0.1;host=h;proto=p, for="[::1]"`,
 	}, {
 		name: "single xff",
 		xff:  "127.0.0.1",
@@ -44,17 +45,17 @@ func TestForwardedShimHandler(t *testing.T) {
 	}, {
 		name: "multiple xff, no xfh, no xfp",
 		xff:  "127.0.0.1, ::1",
-		want: "for=127.0.0.1, for=\"[::1]\"",
+		want: `for=127.0.0.1, for="[::1]"`,
 	}, {
 		name: "multiple xff, no xfh",
 		xff:  "127.0.0.1, ::1",
 		xfp:  "p",
-		want: "for=127.0.0.1;proto=p, for=\"[::1]\"",
+		want: `for=127.0.0.1;proto=p, for="[::1]"`,
 	}, {
 		name: "multiple xff, no xfp",
 		xff:  "127.0.0.1, ::1",
 		xfh:  "h",
-		want: "for=127.0.0.1;host=h, for=\"[::1]\"",
+		want: `for=127.0.0.1;host=h, for="[::1]"`,
 	}, {
 		name: "only xfh",
 		xfh:  "h",
@@ -68,6 +69,10 @@ func TestForwardedShimHandler(t *testing.T) {
 		xfh:  "h",
 		xfp:  "p",
 		want: "host=h;proto=p",
+	}, {
+		name: "broken for",
+		xff:  ",,,",
+		want: "for=, for=, for=",
 	}, {
 		name: "existing fwd",
 		xff:  "127.0.0.1, ::1",
@@ -83,10 +88,7 @@ func TestForwardedShimHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := ""
 
-			req, err := http.NewRequest(http.MethodGet, "/", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
 
 			if test.xff != "" {
 				req.Header.Set("X-Forwarded-For", test.xff)
@@ -110,8 +112,14 @@ func TestForwardedShimHandler(t *testing.T) {
 			ForwardedShimHandler(h).ServeHTTP(resp, req)
 
 			if test.want != got {
-				t.Errorf("Wrong header value. Want %q, got %q", test.want, got)
+				t.Errorf("Header = %s, want: %s", test.want, got)
 			}
 		})
+	}
+}
+
+func BenchmarkForwardedShimHandler(b *testing.B) {
+	for j := 0; j < b.N; j++ {
+		generateForwarded("127.0.0.1,127.0.0.2,::1", "http", "localhost")
 	}
 }

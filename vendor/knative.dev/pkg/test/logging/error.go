@@ -50,15 +50,14 @@ func keysAndValuesToSpewedMap(args ...interface{}) map[string]string {
 	return m
 }
 
-// Implement `error` interface
+// Error implements `error` interface
 func (e structuredError) Error() string {
 	// TODO(coryrc): accept zap.Field entries?
 	if e.print {
 		// %v for fmt.Sprintf does print keys sorted
 		return fmt.Sprintf("Error: %s\nContext:\n%v", e.msg, keysAndValuesToSpewedMap(e.keysAndValues...))
-	} else {
-		return e.msg
 	}
+	return e.msg
 }
 
 // GetValues gives you the structured key values in a plist
@@ -78,7 +77,7 @@ func (e *structuredError) EnableValuePrinting() {
 
 // Create a StructuredError. Gives a little better logging when given to a TLogger.
 // This may prove to not be useful if users use the logger's WithValues() better.
-func Error(msg string, keysAndValues ...interface{}) *structuredError {
+func Error(msg string, keysAndValues ...interface{}) error {
 	return &structuredError{msg, keysAndValues, true}
 }
 

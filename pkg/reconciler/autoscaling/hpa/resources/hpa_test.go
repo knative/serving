@@ -27,7 +27,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -165,10 +165,10 @@ func TestMakeHPA(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := MakeHPA(tc.pa, config)
 			if equal, err := kmp.SafeEqual(tc.want, got); err != nil {
-				t.Errorf("Got error comparing output, err = %v", err)
+				t.Error("Got error comparing output, err =", err)
 			} else if !equal {
 				if diff, err := kmp.SafeDiff(tc.want, got); err != nil {
-					t.Errorf("Got error diffing output, err = %v", err)
+					t.Error("Got error diffing output, err =", err)
 				} else {
 					t.Errorf("MakeHPA() = (-want, +got):\n%v", diff)
 				}
@@ -239,7 +239,7 @@ type hpaOption func(*autoscalingv2beta1.HorizontalPodAutoscaler)
 func withAnnotationValue(key, value string) hpaOption {
 	return func(pa *autoscalingv2beta1.HorizontalPodAutoscaler) {
 		if pa.Annotations == nil {
-			pa.Annotations = make(map[string]string)
+			pa.Annotations = make(map[string]string, 1)
 		}
 		pa.Annotations[key] = value
 	}
@@ -273,6 +273,5 @@ var config = &autoscalerconfig.Config{
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,
 	PanicWindowPercentage:              10,
-	TickInterval:                       2 * time.Second,
 	ScaleToZeroGracePeriod:             30 * time.Second,
 }

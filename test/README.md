@@ -170,7 +170,7 @@ flags:
 - [`--https`](#using-https)
 - [`--ingressClass`](#using-ingress-class)
 
-### Overridding docker repo
+### Overriding docker repo
 
 The `--dockerrepo` argument lets you specify the docker repo from which images
 used by your tests should be pulled. This will default to the value of your

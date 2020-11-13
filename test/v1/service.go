@@ -20,14 +20,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"testing"
 
-	"github.com/mattbaird/jsonpatch"
-
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/reconciler"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -58,22 +59,22 @@ func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNam
 
 // GetResourceObjects obtains the services resources from the k8s API server.
 func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*ResourceObjects, error) {
-	routeObject, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	routeObject, err := clients.ServingClient.Routes.Get(context.Background(), names.Route, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	serviceObject, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	serviceObject, err := clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	configObject, err := clients.ServingClient.Configs.Get(names.Config, metav1.GetOptions{})
+	configObject, err := clients.ServingClient.Configs.Get(context.Background(), names.Config, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	revisionObject, err := clients.ServingClient.Revisions.Get(names.Revision, metav1.GetOptions{})
+	revisionObject, err := clients.ServingClient.Revisions.Get(context.Background(), names.Revision, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -90,17 +91,19 @@ func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*Resou
 // passed in through 'names'.  Names is updated with the Route and Configuration created by the Service
 // and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // Returns error if the service does not come up correctly.
-func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
+func CreateServiceReady(t testing.TB, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
 	if names.Image == "" {
 		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
-
 	t.Log("Creating a new Service", "service", names.Service)
 	svc, err := CreateService(t, clients, *names, fopt...)
 	if err != nil {
 		return nil, err
 	}
+	return getResourceObjects(t, clients, names, svc)
+}
 
+func getResourceObjects(t testing.TB, clients *test.Clients, names *test.ResourceNames, svc *v1.Service) (*ResourceObjects, error) {
 	// Populate Route and Configuration Objects with name
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
@@ -116,7 +119,7 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 	}
 
 	t.Log("Checking to ensure Service Status is populated for Ready service")
-	err = validateCreatedServiceStatus(clients, names)
+	err := validateCreatedServiceStatus(clients, names)
 	if err != nil {
 		return nil, err
 	}
@@ -130,39 +133,53 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 }
 
 // CreateService creates a service in namespace with the name names.Service and names.Image
-func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
-	service := Service(names, fopt...)
+func CreateService(t testing.TB, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
+	svc := Service(names, fopt...)
+	return createService(t, clients, svc)
+}
+
+func createService(t testing.TB, clients *test.Clients, service *v1.Service) (svc *v1.Service, err error) {
+	test.AddTestAnnotation(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
-	return clients.ServingClient.Services.Create(service)
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingClient.Services.Create(context.Background(), service, metav1.CreateOptions{})
+		return err
+	})
 }
 
 // PatchService patches the existing service passed in with the applied mutations.
 // Returns the latest service object
-func PatchService(t pkgTest.T, clients *test.Clients, svc *v1.Service, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
-	newSvc := svc.DeepCopy()
+func PatchService(t testing.TB, clients *test.Clients, service *v1.Service, fopt ...rtesting.ServiceOption) (svc *v1.Service, err error) {
+	newSvc := service.DeepCopy()
 	for _, opt := range fopt {
 		opt(newSvc)
 	}
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
+	patchBytes, err := duck.CreateBytePatch(service, newSvc)
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingClient.Services.Patch(context.Background(), service.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	})
 }
 
 // UpdateServiceRouteSpec updates a service to use the route name in names.
-func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (*v1.Service, error) {
-	patches := []jsonpatch.JsonPatchOperation{{
-		Operation: "replace",
-		Path:      "/spec/traffic",
-		Value:     rs.Traffic,
+func UpdateServiceRouteSpec(t testing.TB, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (svc *v1.Service, err error) {
+	patch := []map[string]interface{}{{
+		"op":    "replace",
+		"path":  "/spec/traffic",
+		"value": rs.Traffic,
 	}}
-	patchBytes, err := json.Marshal(patches)
+	patchBytes, err := json.Marshal(patch)
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingClient.Services.Patch(context.Background(), names.Service, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	})
 }
 
 // WaitForServiceLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
@@ -173,10 +190,9 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 	if err := WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
 		if s.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = s.Status.LatestCreatedRevisionName
-			// We also check that the revision is pinned, meaning it's not a stale revision.
 			// Without this it might happen that the latest created revision is later overridden by a newer one
 			// and the following check for LatestReadyRevisionName would fail.
-			if revErr := CheckRevisionState(clients.ServingClient, revisionName, IsRevisionPinned); revErr != nil {
+			if revErr := CheckRevisionState(clients.ServingClient, revisionName, IsRevisionRoutingActive); revErr != nil {
 				return false, nil
 			}
 			return true, nil
@@ -197,10 +213,13 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 // Service returns a Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
 func Service(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1.Service {
-	a := append([]rtesting.ServiceOption{
-		rtesting.WithConfigSpec(*ConfigurationSpec(pkgTest.ImagePath(names.Image))),
-	}, fopt...)
-	return rtesting.ServiceWithoutNamespace(names.Service, a...)
+	if names.Image != "" && len(names.Sidecars) == 0 {
+		a := append([]rtesting.ServiceOption{
+			rtesting.WithConfigSpec(ConfigurationSpec(pkgTest.ImagePath(names.Image))),
+		}, fopt...)
+		return rtesting.ServiceWithoutNamespace(names.Service, a...)
+	}
+	return rtesting.ServiceWithoutNamespace(names.Service, fopt...)
 }
 
 // WaitForServiceState polls the status of the Service called name
@@ -213,8 +232,10 @@ func WaitForServiceState(client *test.ServingClients, name string, inState func(
 
 	var lastState *v1.Service
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		var err error
-		lastState, err = client.Services.Get(name, metav1.GetOptions{})
+		err := reconciler.RetryTestErrors(func(int) (err error) {
+			lastState, err = client.Services.Get(context.Background(), name, metav1.GetOptions{})
+			return err
+		})
 		if err != nil {
 			return true, err
 		}
@@ -231,7 +252,11 @@ func WaitForServiceState(client *test.ServingClients, name string, inState func(
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForServiceState.
 func CheckServiceState(client *test.ServingClients, name string, inState func(s *v1.Service) (bool, error)) error {
-	s, err := client.Services.Get(name, metav1.GetOptions{})
+	var s *v1.Service
+	err := reconciler.RetryTestErrors(func(int) (err error) {
+		s, err = client.Services.Get(context.Background(), name, metav1.GetOptions{})
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -246,11 +271,41 @@ func CheckServiceState(client *test.ServingClients, name string, inState func(s 
 // IsServiceReady will check the status conditions of the service and return true if the service is
 // ready. This means that its configurations and routes have all reported ready.
 func IsServiceReady(s *v1.Service) (bool, error) {
-	return s.Generation == s.Status.ObservedGeneration && s.Status.IsReady(), nil
+	return s.IsReady(), nil
 }
 
-// IsServiceNotReady will check the status conditions of the service and return true if the service is
+// IsServiceFailed will check the status conditions of the service and return true if the service is
 // not ready.
-func IsServiceNotReady(s *v1.Service) (bool, error) {
-	return s.Generation == s.Status.ObservedGeneration && !s.Status.IsReady(), nil
+func IsServiceFailed(s *v1.Service) (bool, error) {
+	return s.IsFailed(), nil
+}
+
+// IsServiceAndChildrenFailed will check the readiness, route and config conditions of the service
+// and return true if they are all failed.
+func IsServiceAndChildrenFailed(s *v1.Service) (bool, error) {
+	if s.Generation != s.Status.ObservedGeneration {
+		return false, nil
+	}
+
+	if failed := s.IsFailed(); !failed {
+		return false, nil
+	}
+
+	routeCond := s.Status.GetCondition(v1.ServiceConditionRoutesReady)
+	if routeCond == nil || routeCond.Status != corev1.ConditionFalse {
+		return false, nil
+	}
+
+	configCond := s.Status.GetCondition(v1.ServiceConditionConfigurationsReady)
+	if configCond == nil || configCond.Status != corev1.ConditionFalse {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// IsServiceRoutesNotReady checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.
+func IsServiceRoutesNotReady(s *v1.Service) (bool, error) {
+	result := s.Status.GetCondition(v1.ServiceConditionRoutesReady)
+	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
 }

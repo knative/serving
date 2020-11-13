@@ -22,27 +22,63 @@ package test
 import (
 	"os"
 	"os/signal"
+	"sync"
+	"testing"
 )
 
-// CleanupOnInterrupt will execute the function cleanup if an interrupt signal is caught
-func CleanupOnInterrupt(cleanup func()) {
+func init() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	go func() {
-		for range c {
-			cleanup()
+	go cleanupOnInterrupt(c)
+}
+
+var cf struct {
+	o sync.Once
+	m sync.RWMutex
+	f []func()
+}
+
+// cleanupOnInterrupt registers a signal handler and will execute a stack of functions if an interrupt signal is caught
+func cleanupOnInterrupt(c chan os.Signal) {
+	for range c {
+		cf.o.Do(func() {
+			cf.m.RLock()
+			defer cf.m.RUnlock()
+			for i := len(cf.f) - 1; i >= 0; i-- {
+				cf.f[i]()
+			}
 			os.Exit(1)
-		}
-	}()
+		})
+	}
+}
+
+// CleanupOnInterrupt stores cleanup functions to execute if an interrupt signal is caught
+func CleanupOnInterrupt(cleanup func()) {
+	cf.m.Lock()
+	defer cf.m.Unlock()
+	cf.f = append(cf.f, cleanup)
 }
 
 // TearDown will delete created names using clients.
-func TearDown(clients *Clients, names ResourceNames) {
-	if clients != nil && clients.ServingBetaClient != nil {
-		clients.ServingAlphaClient.Delete(
+func TearDown(clients *Clients, names *ResourceNames) {
+	if clients != nil && clients.ServingClient != nil {
+		clients.ServingClient.Delete(
 			[]string{names.Route},
 			[]string{names.Config},
 			[]string{names.Service},
 		)
 	}
+}
+
+// EnsureCleanup will run the provided cleanup function when the test ends,
+// either via t.Cleanup or on interrupt via CleanupOnInterrupt.
+func EnsureCleanup(t *testing.T, cleanup func()) {
+	t.Cleanup(cleanup)
+	CleanupOnInterrupt(cleanup)
+}
+
+// EnsureTearDown will delete created names when the test ends, either via
+// t.Cleanup, or on interrupt via CleanupOnInterrupt.
+func EnsureTearDown(t *testing.T, clients *Clients, names *ResourceNames) {
+	EnsureCleanup(t, func() { TearDown(clients, names) })
 }

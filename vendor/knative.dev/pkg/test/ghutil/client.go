@@ -20,13 +20,14 @@ package ghutil
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"strings"
 	"time"
 
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v27/github"
 	"golang.org/x/oauth2"
 )
 
@@ -61,6 +62,7 @@ type GithubOperations interface {
 	ListCommits(org, repo string, ID int) ([]*github.RepositoryCommit, error)
 	ListFiles(org, repo string, ID int) ([]*github.CommitFile, error)
 	CreatePullRequest(org, repo, head, base, title, body string) (*github.PullRequest, error)
+	ListBranches(org, repo string) ([]*github.Branch, error)
 }
 
 // GithubClient provides methods to perform github operations
@@ -118,10 +120,11 @@ func (gc *GithubClient) retry(message string, maxRetries int, call func() (*gith
 		if resp, err = call(); nil == err {
 			return resp, nil
 		}
-		switch err := err.(type) {
-		case *github.RateLimitError:
-			gc.waitForRateReset(&err.Rate)
-		default:
+
+		var errRateLimit *github.RateLimitError
+		if errors.As(err, &errRateLimit) {
+			gc.waitForRateReset(&errRateLimit.Rate)
+		} else {
 			return resp, err
 		}
 		log.Printf("error %s: %v. Will retry.\n", message, err)
@@ -146,7 +149,7 @@ func (gc *GithubClient) depaginate(message string, maxRetries int, options *gith
 	for ; options.Page <= lastPage; options.Page++ {
 		resp, err := gc.retry(message, maxRetries, wrapper)
 		if err != nil {
-			return allItems, fmt.Errorf("error while depaginating page %d/%d: %v", options.Page, lastPage, err)
+			return allItems, fmt.Errorf("error while depaginating page %d/%d: %w", options.Page, lastPage, err)
 		}
 		if resp.LastPage > 0 {
 			lastPage = resp.LastPage

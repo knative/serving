@@ -22,11 +22,12 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/networking"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 )
@@ -44,18 +45,18 @@ func WithSpecTraffic(traffic ...v1.TrafficTarget) RouteOption {
 // WithRouteUID sets the Route's UID
 func WithRouteUID(uid types.UID) RouteOption {
 	return func(r *v1.Route) {
-		r.ObjectMeta.UID = uid
+		r.UID = uid
 	}
 }
 
 // WithRouteGeneration sets the route's generation
 func WithRouteGeneration(generation int64) RouteOption {
-	return func(svc *v1.Route) {
-		svc.Status.ObservedGeneration = generation
+	return func(r *v1.Route) {
+		r.Generation = generation
 	}
 }
 
-// WithRouteObservedGeneneration sets the route's observed generation to it's generation
+// WithRouteObservedGeneration sets the route's observed generation to it's generation
 func WithRouteObservedGeneration(r *v1.Route) {
 	r.Status.ObservedGeneration = r.Generation
 }
@@ -121,6 +122,7 @@ func WithURL(r *v1.Route) {
 	}
 }
 
+// WithHTTPSDomain sets the .Status.URL field to a https-domain based on the name and namespace.
 func WithHTTPSDomain(r *v1.Route) {
 	r.Status.URL = &apis.URL{
 		Scheme: "https",
@@ -133,7 +135,7 @@ func WithAddress(r *v1.Route) {
 	r.Status.Address = &duckv1.Addressable{
 		URL: &apis.URL{
 			Scheme: "http",
-			Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
+			Host:   network.GetServiceHostname(r.Name, r.Namespace),
 		},
 	}
 }
@@ -146,17 +148,38 @@ func WithAnotherDomain(r *v1.Route) {
 	}
 }
 
-// WithLocalDomain sets the .Status.Domain field to use `svc.cluster.local` suffix.
+// WithLocalDomain sets the .Status.Domain field to use ClusterDomain suffix.
 func WithLocalDomain(r *v1.Route) {
 	r.Status.URL = &apis.URL{
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s.%s.svc.cluster.local", r.Name, r.Namespace),
+		Host:   network.GetServiceHostname(r.Name, r.Namespace),
 	}
 }
 
 // WithInitRouteConditions initializes the Service's conditions.
 func WithInitRouteConditions(rt *v1.Route) {
 	rt.Status.InitializeConditions()
+}
+
+// WithRouteConditionsAutoTLSDisabled calls MarkTLSNotEnabled with AutoTLSNotEnabledMessage
+// after initialized the Service's conditions.
+func WithRouteConditionsAutoTLSDisabled(rt *v1.Route) {
+	rt.Status.InitializeConditions()
+	rt.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
+}
+
+// WithRouteConditionsTLSNotEnabledForClusterLocalMessage calls
+// MarkTLSNotEnabled with TLSNotEnabledForClusterLocalMessage after initialized
+// the Service's conditions.
+func WithRouteConditionsTLSNotEnabledForClusterLocalMessage(rt *v1.Route) {
+	rt.Status.InitializeConditions()
+	rt.Status.MarkTLSNotEnabled(v1.TLSNotEnabledForClusterLocalMessage)
+}
+
+// WithRouteConditionsHTTPDowngrade calls MarkHTTPDowngrade after initialized the Service's conditions.
+func WithRouteConditionsHTTPDowngrade(rt *v1.Route) {
+	rt.Status.InitializeConditions()
+	rt.Status.MarkHTTPDowngrade(routenames.Certificate(rt))
 }
 
 // MarkTrafficAssigned calls the method of the same name on .Status
@@ -203,6 +226,13 @@ func MarkIngressNotConfigured(r *v1.Route) {
 	r.Status.MarkIngressNotConfigured()
 }
 
+// WithPropagatedStatus propagates the given IngressStatus into the routes status.
+func WithPropagatedStatus(status netv1alpha1.IngressStatus) RouteOption {
+	return func(r *v1.Route) {
+		r.Status.PropagateIngressStatus(status)
+	}
+}
+
 // MarkMissingTrafficTarget calls the method of the same name on .Status
 func MarkMissingTrafficTarget(kind, revision string) RouteOption {
 	return func(r *v1.Route) {
@@ -227,9 +257,6 @@ func MarkConfigurationFailed(name string) RouteOption {
 // WithRouteLabel sets the specified label on the Route.
 func WithRouteLabel(labels map[string]string) RouteOption {
 	return func(r *v1.Route) {
-		if r.Labels == nil {
-			r.Labels = make(map[string]string)
-		}
 		r.Labels = labels
 	}
 }
@@ -238,19 +265,16 @@ func WithRouteLabel(labels map[string]string) RouteOption {
 func WithIngressClass(ingressClass string) RouteOption {
 	return func(r *v1.Route) {
 		if r.Annotations == nil {
-			r.Annotations = make(map[string]string)
+			r.Annotations = make(map[string]string, 1)
 		}
 		r.Annotations[networking.IngressClassAnnotationKey] = ingressClass
 	}
 }
 
 // WithRouteAnnotation sets the specified annotation on the Route.
-func WithRouteAnnotation(annotation map[string]string) RouteOption {
+func WithRouteAnnotation(annotations map[string]string) RouteOption {
 	return func(r *v1.Route) {
-		if r.Annotations == nil {
-			r.Annotations = make(map[string]string)
-		}
-		r.Annotations = annotation
+		r.Annotations = annotations
 	}
 }
 

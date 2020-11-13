@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"sync"
 	"sync/atomic"
+	"testing"
 
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
@@ -138,7 +139,7 @@ func (m *manager) Spawn(url *url.URL) Prober {
 	m.probes[url] = p
 
 	errGrp.Go(func() error {
-		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logf, url.Hostname(), ServingFlags.ResolvableDomain, m.transportOptions...)
+		client, err := pkgTest.NewSpoofingClient(ctx, m.clients.KubeClient, m.logf, url.Hostname(), ServingFlags.ResolvableDomain, m.transportOptions...)
 		if err != nil {
 			return fmt.Errorf("failed to generate client: %w", err)
 		}
@@ -160,6 +161,7 @@ func (m *manager) Spawn(url *url.URL) Prober {
 					close(p.minDoneCh)
 				}
 				if err != nil {
+					p.logf("%q error: %v", p.url, err)
 					atomic.AddInt64(&p.failures, 1)
 				} else if res.StatusCode != http.StatusOK {
 					p.logf("%q status = %d, want: %d", p.url, res.StatusCode, http.StatusOK)
@@ -179,7 +181,7 @@ func (m *manager) Stop() error {
 
 	m.logf("Stopping all probers")
 
-	errgrp := &errgroup.Group{}
+	errgrp := errgroup.Group{}
 	for _, prober := range m.probes {
 		errgrp.Go(prober.Stop)
 	}
@@ -187,7 +189,7 @@ func (m *manager) Stop() error {
 }
 
 // SLI implements Prober
-func (m *manager) SLI() (total int64, failures int64) {
+func (m *manager) SLI() (total, failures int64) {
 	m.m.RLock()
 	defer m.m.RUnlock()
 	for _, prober := range m.probes {
@@ -230,7 +232,7 @@ func RunRouteProber(logf logging.FormatLogger, clients *Clients, url *url.URL, o
 // AssertProberDefault is a helper for stopping the Prober and checking its SLI
 // against the default SLO, which requires perfect responses.
 // This takes `testing.T` so that it may be used in `defer`.
-func AssertProberDefault(t pkgTest.T, p Prober) {
+func AssertProberDefault(t testing.TB, p Prober) {
 	t.Helper()
 	if err := p.Stop(); err != nil {
 		t.Error("Stop()", "error", err.Error())

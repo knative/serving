@@ -42,7 +42,7 @@ func TestMustHaveHeadersSet(t *testing.T) {
 
 	_, ri, err := fetchRuntimeInfo(t, clients)
 	if err != nil {
-		t.Fatalf("Error fetching runtime info: %v", err)
+		t.Fatal("Error fetching runtime info:", err)
 	}
 
 	// For incoming requests, the Host header is promoted to the
@@ -97,7 +97,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 
 	_, ri, err := fetchRuntimeInfo(t, clients, pkgTest.WithHeader(userHeaders))
 	if err != nil {
-		t.Fatalf("Error fetching runtime info: %v", err)
+		t.Fatal("Error fetching runtime info:", err)
 	}
 
 	headers := ri.Request.Headers

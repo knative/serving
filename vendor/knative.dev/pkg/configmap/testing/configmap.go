@@ -1,5 +1,6 @@
 /*
 Copyright 2019 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -20,6 +21,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/ghodss/yaml"
 	corev1 "k8s.io/api/core/v1"
@@ -45,7 +47,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 
 	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", name))
 	if err != nil {
-		t.Fatalf("ReadFile() = %v", err)
+		t.Fatal("ReadFile() =", err)
 	}
 
 	var orig corev1.ConfigMap
@@ -53,7 +55,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 	// Use github.com/ghodss/yaml since it reads json struct
 	// tags so things unmarshal properly
 	if err := yaml.Unmarshal(b, &orig); err != nil {
-		t.Fatalf("yaml.Unmarshal() = %v", err)
+		t.Fatal("yaml.Unmarshal() =", err)
 	}
 
 	// We expect each of the allowed keys, and a key holding an example
@@ -73,18 +75,27 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 	}
 	// With the length and membership checks, we know that the keyspace matches.
 
-	exampleBody := orig.Data[configmap.ExampleKey]
+	exampleBody, hasExampleBody := orig.Data[configmap.ExampleKey]
 	// Check that exampleBody does not have lines that end in a trailing space,
 	for i, line := range strings.Split(exampleBody, "\n") {
-		if strings.HasSuffix(line, " ") {
+		if strings.TrimRightFunc(line, unicode.IsSpace) != line {
 			t.Errorf("line %d of %q example contains trailing spaces", i, name)
+		}
+	}
+
+	// Check that the hashed exampleBody matches the assigned annotation, if present.
+	gotChecksum, hasExampleChecksumAnnotation := orig.Annotations[configmap.ExampleChecksumAnnotation]
+	if hasExampleBody && hasExampleChecksumAnnotation {
+		wantChecksum := configmap.Checksum(exampleBody)
+		if gotChecksum != wantChecksum {
+			t.Errorf("example checksum annotation = %s, want %s (you may need to re-run ./hack/update-codegen.sh)", gotChecksum, wantChecksum)
 		}
 	}
 
 	// Parse exampleBody into exemplar.Data
 	exemplar := orig.DeepCopy()
 	if err := yaml.Unmarshal([]byte(exampleBody), &exemplar.Data); err != nil {
-		t.Fatalf("yaml.Unmarshal() = %v", err)
+		t.Fatal("yaml.Unmarshal() =", err)
 	}
 	// Augment the sample with actual configuration
 	for k, v := range orig.Data {

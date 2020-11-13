@@ -25,12 +25,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	testv1 "knative.dev/serving/test/v1"
 )
 
-// TestMustNotContainerContraints tests that attempting to set unsupported fields or invalid values as
+// TestMustNotContainerConstraints tests that attempting to set unsupported fields or invalid values as
 // defined by "MUST NOT" statements from the runtime contract results in a user facing error.
 func TestMustNotContainerConstraints(t *testing.T) {
 	t.Parallel()
@@ -38,17 +38,17 @@ func TestMustNotContainerConstraints(t *testing.T) {
 
 	testCases := []struct {
 		name    string
-		options func(s *v1alpha1.Service)
+		options func(s *v1.Service)
 	}{{
 		name: "TestArbitraryPortName",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{
 				Name: "arbitrary",
 			}}
 		},
 	}, {
 		name: "TestMountPropagation",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			propagationMode := corev1.MountPropagationHostToContainer
 			s.Spec.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{{
 				Name:             "VolumeMount",
@@ -58,7 +58,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestReadinessHTTPProbePort",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
@@ -70,7 +70,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestLivenessHTTPProbePort",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
@@ -82,7 +82,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestReadinessTCPProbePort",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
@@ -91,7 +91,7 @@ func TestMustNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestLivenessTCPProbePort",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
@@ -108,14 +108,14 @@ func TestMustNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   test.Runtime,
 			}
-			if svc, err := v1a1test.CreateLatestService(t, clients, names, tc.options); err == nil {
+			if svc, err := testv1.CreateService(t, clients, names, tc.options); err == nil {
 				t.Errorf("CreateService = %v, want: error", spew.Sdump(svc))
 			}
 		})
 	}
 }
 
-// TestShouldNotContainerContraints tests that attempting to set unsupported fields or invalid values as
+// TestShouldNotContainerConstraints tests that attempting to set unsupported fields or invalid values as
 // defined by "SHOULD NOT" statements from the runtime contract results in a user facing error.
 func TestShouldNotContainerConstraints(t *testing.T) {
 	t.Parallel()
@@ -123,10 +123,10 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 
 	testCases := []struct {
 		name    string
-		options func(s *v1alpha1.Service)
+		options func(s *v1.Service)
 	}{{
 		name: "TestPoststartHook",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			lifecycleHandler := &corev1.ExecAction{
 				Command: []string{"/bin/sh", "-c", "echo Hello from the post start handler > /usr/share/message"},
 			}
@@ -136,7 +136,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestPrestopHook",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			lifecycleHandler := &corev1.ExecAction{
 				Command: []string{"/bin/sh", "-c", "echo Hello from the pre stop handler > /usr/share/message"},
 			}
@@ -146,7 +146,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestMultiplePorts",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{
 				{ContainerPort: 80},
 				{ContainerPort: 81},
@@ -154,29 +154,29 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 		},
 	}, {
 		name: "TestHostPort",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{
 				HostPort: 80,
 			}}
 		},
 	}, {
 		name: "TestStdin",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].Stdin = true
 		},
 	}, {
 		name: "TestStdinOnce",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].StdinOnce = true
 		},
 	}, {
 		name: "TestTTY",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].TTY = true
 		},
 	}, {
 		name: "TestInvalidUID",
-		options: func(s *v1alpha1.Service) {
+		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
 				RunAsUser: ptr.Int64(-10),
 			}
@@ -191,7 +191,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   test.Runtime,
 			}
-			if svc, err := v1a1test.CreateLatestService(t, clients, names, tc.options); err == nil {
+			if svc, err := testv1.CreateService(t, clients, names, tc.options); err == nil {
 				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
 			}
 		})
