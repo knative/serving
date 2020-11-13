@@ -51,8 +51,6 @@ const (
 	testRouteName       = "test-route"
 	testAnnotationValue = "test-annotation-value"
 	testIngressClass    = "test-ingress"
-
-	emptyRollout = "{}"
 )
 
 func TestMakeIngressCorrectMetadata(t *testing.T) {
@@ -81,7 +79,6 @@ func TestMakeIngressCorrectMetadata(t *testing.T) {
 			// Make sure to get passdownIngressClass instead of ingressClass
 			networking.IngressClassAnnotationKey: passdownIngressClass,
 			"test-annotation":                    "bar",
-			networking.RolloutAnnotationKey:      emptyRollout,
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
@@ -133,7 +130,6 @@ func TestMakeIngressWithRollout(t *testing.T) {
 			// Make sure to get passdownIngressClass instead of ingressClass
 			networking.IngressClassAnnotationKey: passdownIngressClass,
 			"test-annotation":                    "bar",
-			networking.RolloutAnnotationKey:      serializeRollout(context.Background(), cfg.BuildRollout()),
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
@@ -922,7 +918,6 @@ func TestMakeIngressWithTLS(t *testing.T) {
 			Namespace: ns,
 			Annotations: map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
-				networking.RolloutAnnotationKey:      emptyRollout,
 			},
 			Labels: map[string]string{
 				serving.RouteLabelKey:          "test-route",
