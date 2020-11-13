@@ -63,6 +63,10 @@ var (
 	unreadyConfig *v1.Configuration
 	unreadyRev    *v1.Revision
 
+	readyUnreadyConfig *v1.Configuration
+	readyRevision      *v1.Revision
+	newUnreadyRev      *v1.Revision
+
 	// failedConfig only has failedRev, and it fails to be ready.
 	failedConfig *v1.Configuration
 	failedRev    *v1.Revision
@@ -94,6 +98,7 @@ func setUp() {
 	emptyConfig = getTestEmptyConfig("empty")
 	revDeletedConfig = testConfigWithDeletedRevision("latest-rev-deleted")
 	unreadyConfig, unreadyRev = getTestUnreadyConfig("unready")
+	readyUnreadyConfig, readyRevision, newUnreadyRev = createReadyUnreadyConfig("ready-unready")
 	failedConfig, failedRev = getTestFailedConfig("failed")
 	inactiveConfig, inactiveRev = getTestInactiveConfig("inactive")
 	goodConfig, goodOldRev, goodNewRev = getTestReadyConfig("good")
@@ -117,6 +122,7 @@ func setUp() {
 		emptyConfig,
 		goodConfig, goodOldRev, goodNewRev,
 		niceConfig, niceOldRev, niceNewRev,
+		readyUnreadyConfig, readyRevision, newUnreadyRev,
 	}
 
 	for _, obj := range objs {
@@ -1136,6 +1142,65 @@ func TestBuildTrafficConfigurationNotRoutableRevision(t *testing.T) {
 	}
 }
 
+func TestBuildTrafficConfigurationReadyNotReadyConfig(t *testing.T) {
+	expected := &Config{
+		Targets: map[string]RevisionTargets{
+			DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					RevisionName:      readyRevision.Name,
+					ConfigurationName: readyUnreadyConfig.Name,
+					LatestRevision:    ptr.Bool(true),
+					Percent:           ptr.Int64(100),
+				},
+				Protocol: net.ProtocolHTTP1,
+			}},
+		},
+		revisionTargets: []RevisionTarget{{
+			TrafficTarget: v1.TrafficTarget{
+				RevisionName:      readyRevision.Name,
+				ConfigurationName: readyUnreadyConfig.Name,
+				LatestRevision:    ptr.Bool(true),
+				Percent:           ptr.Int64(100),
+			},
+			Protocol: net.ProtocolHTTP1,
+		}},
+		Revisions: map[string]*v1.Revision{
+			readyRevision.Name: readyRevision,
+		},
+		Configurations: map[string]*v1.Configuration{
+			readyUnreadyConfig.Name: readyUnreadyConfig,
+		},
+	}
+	tc, err := BuildTrafficConfiguration(
+		configLister, revLister,
+		testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
+			ConfigurationName: readyUnreadyConfig.Name,
+			LatestRevision:    ptr.Bool(true),
+			Percent:           ptr.Int64(100),
+		},
+		)))
+	if err != nil {
+		t.Fatal("BuildTrafficConfiguration =", err)
+	}
+	if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
+		t.Errorf("Incorrect trafficm diff:(-want +got):\n%s", cmp.Diff(want, got, cmpOpts...))
+	}
+	gotR := tc.BuildRollout()
+	wantR := &Rollout{
+		Configurations: []ConfigurationRollout{{
+			ConfigurationName: readyUnreadyConfig.Name,
+			Percent:           100,
+			Revisions: []RevisionRollout{{
+				RevisionName: readyRevision.Name,
+				Percent:      100,
+			}},
+		}},
+	}
+	if !cmp.Equal(gotR, wantR) {
+		t.Errorf("Rollout mismatch, diff(-want,+got):\n%s", cmp.Diff(wantR, gotR))
+	}
+}
+
 func TestBuildTrafficConfigurationNotRoutableConfiguration(t *testing.T) {
 	expected := &Config{
 		Targets:        map[string]RevisionTargets{},
@@ -1358,8 +1423,23 @@ func testConfigWithDeletedRevision(name string) *v1.Configuration {
 	return config
 }
 
+func createReadyUnreadyConfig(name string) (*v1.Configuration, *v1.Revision, *v1.Revision) {
+	config := testConfig(name + "-config")
+
+	rev1 := testRevForConfig(config, name+"-revision-1")
+	rev1.Status.MarkResourcesAvailableTrue()
+	rev1.Status.MarkContainerHealthyTrue()
+	rev1.Status.MarkActiveTrue()
+	config.Status.SetLatestReadyRevisionName(rev1.Name)
+
+	rev2 := testRevForConfig(config, name+"-revision")
+	config.Status.SetLatestCreatedRevisionName(rev2.Name)
+	return config, rev1, rev2
+}
+
 func getTestUnreadyConfig(name string) (*v1.Configuration, *v1.Revision) {
 	config := testConfig(name + "-config")
+
 	rev := testRevForConfig(config, name+"-revision")
 	config.Status.SetLatestCreatedRevisionName(rev.Name)
 	return config, rev
