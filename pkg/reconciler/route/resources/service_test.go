@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	network "knative.dev/networking/pkg"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/networking/pkg/apis/networking"
 	apiConfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -42,17 +42,7 @@ import (
 )
 
 var (
-	r            = Route("test-ns", "test-route")
-	expectedMeta = metav1.ObjectMeta{
-		Name:      "test-route",
-		Namespace: "test-ns",
-		OwnerReferences: []metav1.OwnerReference{
-			*kmeta.NewControllerRef(r),
-		},
-		Labels: map[string]string{
-			serving.RouteLabelKey: r.Name,
-		},
-	}
+	r = Route("test-ns", "test-route")
 
 	ingressSvc = &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -68,141 +58,66 @@ var (
 			}},
 		},
 	}
+
+	subsets = []corev1.EndpointSubset{{
+		Addresses: []corev1.EndpointAddress{{
+			IP: "128.0.0.1",
+		}},
+		Ports: []corev1.EndpointPort{{
+			Name: networking.ServicePortNameHTTP1,
+			Port: 1234,
+		}},
+	}}
 )
 
-// TODO: test for MakeEndpoints
-/*
 func TestMakeEndpoints(t *testing.T) {
 	tests := []struct {
-		name         string
-		route        *v1.Route
-		ingress      *netv1alpha1.Ingress
-		targetName   string
-		expectedSpec corev1.ServiceSpec
-		expectedMeta metav1.ObjectMeta
+		name            string
+		route           *v1.Route
+		svc             *corev1.Service
+		srcEps          *corev1.Endpoints
+		expectedSubsets []corev1.EndpointSubset
+		expectedLabels  map[string]string
+		expectedAnnos   map[string]string
 	}{{
-		name:  "ingress-with-domain",
-		route: r,
-		ingress: &netv1alpha1.Ingress{
-			Status: netv1alpha1.IngressStatus{
-				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
-				},
-				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
-				},
-				PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
-				},
-			},
+		name: "labels and annotations are propagated from the route",
+		route: Route("test-ns", "test-route",
+			WithRouteLabel(map[string]string{"route-label": "foo"}), WithRouteAnnotation(map[string]string{"route-anno": "bar"})),
+		svc:             ingressSvc,
+		srcEps:          &corev1.Endpoints{Subsets: subsets},
+		expectedSubsets: subsets,
+		expectedLabels: map[string]string{
+			serving.RouteLabelKey: "test-route",
+			"route-label":         "foo",
 		},
-		expectedMeta: expectedMeta,
-		expectedSpec: corev1.ServiceSpec{
-			Type:            corev1.ServiceTypeClusterIP,
-			SessionAffinity: corev1.ServiceAffinityNone,
-			Ports:           ingressSvc.Spec.Ports,
-		},
-	}, {
-		name:  "ingress-with-domaininternal",
-		route: r,
-		ingress: &netv1alpha1.Ingress{
-			Status: netv1alpha1.IngressStatus{
-				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")}},
-				},
-				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")}},
-				},
-				PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system")}},
-				},
-			},
-		},
-		expectedMeta: expectedMeta,
-		expectedSpec: corev1.ServiceSpec{
-			Type:            corev1.ServiceTypeClusterIP,
-			SessionAffinity: corev1.ServiceAffinityNone,
-			Ports:           ingressSvc.Spec.Ports,
-		},
-	}, {
-		name:  "ingress-with-only-mesh",
-		route: r,
-		ingress: &netv1alpha1.Ingress{
-			Status: netv1alpha1.IngressStatus{
-				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
-				},
-				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
-				},
-				PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
-				},
-			},
-		},
-		expectedMeta: expectedMeta,
-		expectedSpec: corev1.ServiceSpec{
-			Type:            corev1.ServiceTypeClusterIP,
-			SessionAffinity: corev1.ServiceAffinityNone,
-			Ports:           defaultServicePort,
-		},
-	}, {
-		name:       "with-target-name-specified",
-		route:      r,
-		targetName: "my-target-name",
-		ingress: &netv1alpha1.Ingress{
-			Status: netv1alpha1.IngressStatus{
-				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
-				},
-				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
-				},
-				PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
-				},
-			},
-		},
-		expectedMeta: metav1.ObjectMeta{
-			Name:      "my-target-name-test-route",
-			Namespace: r.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*kmeta.NewControllerRef(r),
-			},
-			Labels: map[string]string{
-				serving.RouteLabelKey: r.Name,
-			},
-		},
-		expectedSpec: corev1.ServiceSpec{
-			Type:            corev1.ServiceTypeClusterIP,
-			SessionAffinity: corev1.ServiceAffinityNone,
-			Ports:           defaultServicePort,
+		expectedAnnos: map[string]string{
+			"route-anno": "bar",
 		},
 	}}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			cfg := testConfig()
 			ctx := config.ToContext(context.Background(), cfg)
-			svc := ingressSvc
-			if tc.ingress.Status.PublicLoadBalancer != nil && tc.ingress.Status.PublicLoadBalancer.Ingress[0].MeshOnly {
-				svc = nil
-			}
-			service, err := MakeK8sService(ctx, tc.route, tc.targetName, svc, "")
-			if err != nil {
-				t.Fatal("MakeK8sService:", err)
+
+			got := MakeEndpoints(ctx, tt.svc, tt.route, tt.srcEps)
+
+			if got == nil {
+				t.Fatal("Unexpected nil service")
 			}
 
-			if !cmp.Equal(tc.expectedMeta, service.ObjectMeta) {
-				t.Error("Unexpected Metadata (-want +got):", cmp.Diff(tc.expectedMeta, service.ObjectMeta))
+			if !cmp.Equal(tt.expectedLabels, got.Labels) {
+				t.Error("Unexpected Labels (-want +got):", cmp.Diff(tt.expectedLabels, got.Labels))
 			}
-			if !cmp.Equal(tc.expectedSpec, service.Spec) {
-				t.Error("Unexpected ServiceSpec (-want +got):", cmp.Diff(tc.expectedSpec, service.Spec))
+			if !cmp.Equal(tt.expectedAnnos, got.ObjectMeta.Annotations) {
+				t.Error("Unexpected Annotations (-want +got):", cmp.Diff(tt.expectedAnnos, got.ObjectMeta.Annotations))
+			}
+			if !cmp.Equal(tt.expectedSubsets, got.Subsets) {
+				t.Error("Unexpected endpoints subsets (-want +got):", cmp.Diff(tt.expectedSubsets, got.Subsets))
 			}
 		})
 	}
 }
-*/
 
 func TestMakeK8sPlaceholderService(t *testing.T) {
 	tests := []struct {

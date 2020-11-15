@@ -104,13 +104,9 @@ func MakeEndpoints(ctx context.Context, svc *corev1.Service, route *v1.Route, sr
 	}
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      svc.Name, // Name of Endpoints must match that of Service.
-			Namespace: svc.Namespace,
-			Labels: kmeta.UnionMaps(kmeta.FilterMap(route.GetLabels(), func(key string) bool {
-				// Do not propagate the visibility label from Route as users may want to set the label
-				// in the specific k8s svc for subroute. see https://github.com/knative/serving/pull/4560.
-				return (key == network.VisibilityLabelKey || key == serving.VisibilityLabelKeyObsolete)
-			}), svcLabels),
+			Name:        svc.Name, // Name of Endpoints must match that of Service.
+			Namespace:   svc.Namespace,
+			Labels:      kmeta.UnionMaps(route.GetLabels(), svcLabels),
 			Annotations: route.GetAnnotations(),
 			OwnerReferences: []metav1.OwnerReference{
 				// This service is owned by the Route.
