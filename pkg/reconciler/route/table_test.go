@@ -632,6 +632,9 @@ func TestReconcile(t *testing.T) {
 					"different-domain.default.another-example.com",
 				),
 			),
+		}, {
+			Object: simpleK8sService(Route("default", "different-domain", WithConfigTarget("config"),
+				WithRouteLabel(map[string]string{"app": "prod"})), kingressService(kingressEndpoints())),
 		}},
 		Key: "default/different-domain",
 	}, {

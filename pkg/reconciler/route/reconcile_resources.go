@@ -176,12 +176,12 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 				if err := c.reconcileEndpoints(ctx, balancer.DomainInternal, service, route); err != nil {
 					return err
 				}
-				return c.reconcilePlaceholderServiceSpec(ctx, balancer.DomainInternal, service, route)
+				return c.reconcilePlaceholderService(ctx, balancer.DomainInternal, service, route)
 			case balancer.Domain != "":
 				if err := c.reconcileEndpoints(ctx, balancer.Domain, service, route); err != nil {
 					return err
 				}
-				return c.reconcilePlaceholderServiceSpec(ctx, balancer.Domain, service, route)
+				return c.reconcilePlaceholderService(ctx, balancer.Domain, service, route)
 			case balancer.MeshOnly:
 				// No need to update Placeholderr service.
 			case balancer.IP != "":
@@ -232,7 +232,7 @@ func (c *Reconciler) reconcileEndpoints(ctx context.Context, ingress string, ser
 	return nil
 }
 
-func (c *Reconciler) reconcilePlaceholderServiceSpec(ctx context.Context, ingress string, service *corev1.Service, route *v1.Route) error {
+func (c *Reconciler) reconcilePlaceholderService(ctx context.Context, ingress string, service *corev1.Service, route *v1.Route) error {
 	parts := strings.Split(ingress, ".")
 	name, namespace := parts[0], parts[1]
 
@@ -241,15 +241,22 @@ func (c *Reconciler) reconcilePlaceholderServiceSpec(ctx context.Context, ingres
 		return fmt.Errorf("failed to find ingress service: %w", err)
 	}
 
-	desiredSpec := ingService.Spec
-	desiredSpec.Type = corev1.ServiceTypeClusterIP
-	desiredSpec.SessionAffinity = corev1.ServiceAffinityNone
+	desiredService, err := resources.MakeK8sPlaceholderService(ctx, route, name)
+	if err != nil {
+		return fmt.Errorf("failed to construct placeholder k8s service: %w", err)
+	}
+
+	desiredService.Spec.Ports = ingService.Spec.Ports
 
 	// Make sure that the service has the proper specification.
-	if !equality.Semantic.DeepEqual(service.Spec, desiredSpec) {
+	if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) ||
+		!equality.Semantic.DeepEqual(service.Labels, desiredService.Labels) ||
+		!equality.Semantic.DeepEqual(service.Annotations, desiredService.Annotations) {
 		// Don't modify the informers copy.
 		existing := service.DeepCopy()
-		existing.Spec = desiredSpec
+		existing.Spec = desiredService.Spec
+		existing.Labels = desiredService.Labels
+		existing.Annotations = desiredService.Annotations
 		if _, err := c.kubeclient.CoreV1().Services(service.Namespace).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
