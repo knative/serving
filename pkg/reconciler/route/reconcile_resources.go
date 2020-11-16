@@ -252,7 +252,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 func serializeRollout(ctx context.Context, r *traffic.Rollout) string {
 	sr, err := json.Marshal(r)
 	if err != nil {
-		// This must not never happen in the normal course of things.
+		// This must never happen in the normal course of things.
 		logging.FromContext(ctx).Warnw("Error serializing Rollout: "+spew.Sprint(r),
 			zap.Error(err))
 		return ""
