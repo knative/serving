@@ -866,7 +866,7 @@ func TestMakeIngressRuleZeroPercentTargetInactive(t *testing.T) {
 	}
 }
 
-func TestMakeIngressRuleNilPercentTargetInactive(t *testing.T) {
+func TestMakeIngressRuleImplicit0PercentTargetInactive(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
@@ -878,7 +878,7 @@ func TestMakeIngressRuleNilPercentTargetInactive(t *testing.T) {
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
-			Percent:           nil,
+			Percent:           ptr.Int64(0),
 		},
 	}}
 	domains := []string{"test.org"}
