@@ -64,7 +64,7 @@ type Collector interface {
 	// Record allows stats to be captured that came from outside the Collector.
 	Record(key types.NamespacedName, now time.Time, stat Stat)
 	// Delete deletes a Metric and halts collection.
-	Delete(string, string) error
+	Delete(string, string)
 	// Watch registers a singleton function to call when a specific collector's status changes.
 	// The passed name is the namespace/name of the metric owned by the respective collector.
 	Watch(func(types.NamespacedName))
@@ -136,7 +136,7 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 }
 
 // Delete deletes a Metric and halts collection.
-func (c *MetricCollector) Delete(namespace, name string) error {
+func (c *MetricCollector) Delete(namespace, name string) {
 	c.collectionsMutex.Lock()
 	defer c.collectionsMutex.Unlock()
 
@@ -145,7 +145,6 @@ func (c *MetricCollector) Delete(namespace, name string) error {
 		collection.close()
 		delete(c.collections, key)
 	}
-	return nil
 }
 
 // Record records a stat that's been generated outside of the metric collector.
