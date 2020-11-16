@@ -260,7 +260,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets) *netv1alpha
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
-		if t.Percent == nil || *t.Percent == 0 {
+		if *t.Percent == 0 {
 			continue
 		}
 
