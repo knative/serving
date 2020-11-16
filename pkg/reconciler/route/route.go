@@ -183,7 +183,7 @@ func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1.Route,
 		return nil, err
 	}
 
-	ingress, err := c.reconcileIngress(ctx, r, desired)
+	ingress, err := c.reconcileIngress(ctx, r, desired, tc)
 	if err != nil {
 		return nil, err
 	}
