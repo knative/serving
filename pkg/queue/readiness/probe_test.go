@@ -103,6 +103,42 @@ func TestAggressiveFailureOnlyLogsOnce(t *testing.T) {
 	}
 }
 
+func TestAggressiveFailureNotLoggedOnSuccess(t *testing.T) {
+	var polled atomic.Int64
+	tsURL := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		// Fail a few times before succeeding to ensure no failures are
+		// misleadingly logged as long as we eventually succeed.
+		if polled.Inc() > 20 {
+			w.WriteHeader(200)
+			return
+		}
+
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	pb := NewProbe(&corev1.Probe{
+		PeriodSeconds:    0, // Aggressive probe.
+		TimeoutSeconds:   1,
+		SuccessThreshold: 1,
+		FailureThreshold: 1,
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: "http",
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
+			},
+		},
+	})
+
+	var buf bytes.Buffer
+	pb.out = &buf
+
+	pb.ProbeContainer()
+	if got := buf.String(); got != "" {
+		t.Error("Expected no error to be logged on success, got:", got)
+	}
+}
+
 func TestEmptyHandler(t *testing.T) {
 	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    1,

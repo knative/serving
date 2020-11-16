@@ -168,7 +168,7 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 		return p.count >= p.SuccessThreshold, nil
 	})
 
-	if lastProbeErr != nil {
+	if pollErr != nil && lastProbeErr != nil {
 		fmt.Fprintf(p.out, "aggressive probe error (failed %d times): %v\n", failCount, lastProbeErr)
 	}
 
