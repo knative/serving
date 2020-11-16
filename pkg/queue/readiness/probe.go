@@ -147,6 +147,7 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 		return probe(time.Duration(p.TimeoutSeconds) * time.Second)
 	}
 
+	var failCount int
 	var lastProbeErr error
 	pollErr := wait.PollImmediate(retryInterval, p.pollTimeout, func() (bool, error) {
 		if err := probe(aggressiveProbeTimeout); err != nil {
@@ -156,6 +157,7 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 			// expected if the user container takes longer than that to start up.
 			// We'll log the lastProbeErr if we don't eventually succeed.
 			lastProbeErr = err
+			failCount++
 			return false, nil
 		}
 
@@ -167,7 +169,7 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 	})
 
 	if lastProbeErr != nil {
-		fmt.Fprintln(p.out, "aggressive probe error: ", lastProbeErr)
+		fmt.Fprintf(p.out, "aggressive probe error (failed %d times): %v\n", failCount, lastProbeErr)
 	}
 
 	return pollErr
