@@ -41,16 +41,26 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
+	"knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
 
-func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired *netv1alpha1.Ingress, tc *traffic.Config) (*netv1alpha1.Ingress, error) {
+func (c *Reconciler) reconcileIngress(
+	ctx context.Context, r *v1.Route, tc *traffic.Config,
+	tls []netv1alpha1.IngressTLS,
+	ingressClass string,
+	acmeChallenges ...netv1alpha1.HTTP01Challenge,
+) (*netv1alpha1.Ingress, error) {
 	recorder := controller.GetEventRecorder(ctx)
-	ingress, err := c.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
 
+	desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, acmeChallenges...)
+	if err != nil {
+		return nil, err
+	}
 	// Get the current rollout state as described by the traffic.
 	curRO := tc.BuildRollout()
 
+	ingress, err := c.ingressLister.Ingresses(r.Namespace).Get(names.Ingress(r))
 	if apierrs.IsNotFound(err) {
 		// If there is no exisiting Ingress, then current rollout is _the_ rollout.
 		desired.Annotations = kmeta.UnionMaps(desired.Annotations, map[string]string{
@@ -87,6 +97,7 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired 
 			origin.Spec = desired.Spec
 			origin.Annotations = desired.Annotations
 			origin.Labels = desired.Labels
+
 			updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(
 				ctx, origin, metav1.UpdateOptions{})
 			if err != nil {
