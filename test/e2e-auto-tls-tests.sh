@@ -166,7 +166,7 @@ initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4
 
 header "Enabling high-availability"
 
-scale_controlplane controller autoscaler-hpa webhook
+scale_controlplane "${HA_COMPONENTS[@]}"
 
 # Wait for a new leader Controller to prevent race conditions during service reconciliation
 wait_for_leader_controller || failed=1
