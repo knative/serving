@@ -27,7 +27,6 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	fakeciinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	fakeingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
@@ -231,7 +230,7 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 	}
 
 	updated := getRouteIngressFromClient(ctx, t, r)
-	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(updated)
+	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(updated)
 
 	if _, err := reconciler.reconcileIngress(updateContext(ctx), r, tc, tls, expClass); err != nil {
 		t.Error("Unexpected error:", err)
