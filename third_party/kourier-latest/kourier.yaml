@@ -117,7 +117,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:c54e716803231005fd3d4b946013d139e5c5ac7d9921924efb41974a25eb9cc0
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:28183c42d1b02e927db16861ed9984c653cc9c0cc72b5d9ab450f3c229c2872e
           name: kourier-control
           env:
             - name: CERTS_SECRET_NAMESPACE

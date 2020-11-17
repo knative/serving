@@ -111,9 +111,7 @@ func TestMetricCollectorCRUD(t *testing.T) {
 			t.Errorf("Updated scraper URL = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
 		}
 
-		if err := coll.Delete(defaultNamespace, defaultName); err != nil {
-			t.Errorf("Delete() = %v, want no error", err)
-		}
+		coll.Delete(defaultNamespace, defaultName)
 	})
 }
 

@@ -18,11 +18,8 @@ package resources
 
 import (
 	"context"
-	"encoding/json"
 	"sort"
 
-	"github.com/davecgh/go-spew/spew"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -33,7 +30,6 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	ingress "knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/activator"
 	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
@@ -78,7 +74,6 @@ func MakeIngress(
 			}),
 			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
-				networking.RolloutAnnotationKey:      serializeRollout(ctx, tc.BuildRollout()),
 			}, r.GetAnnotations()), func(key string) bool {
 				return key == corev1.LastAppliedConfigAnnotation
 			}),
@@ -86,17 +81,6 @@ func MakeIngress(
 		},
 		Spec: spec,
 	}, nil
-}
-
-func serializeRollout(ctx context.Context, r *traffic.Rollout) string {
-	sr, err := json.Marshal(r)
-	if err != nil {
-		// This must not never happen in the normal course of things.
-		logging.FromContext(ctx).Warnw("Error serializing Rollout: "+spew.Sprint(r),
-			zap.Error(err))
-		return ""
-	}
-	return string(sr)
 }
 
 // makeIngressSpec builds a new IngressSpec from inputs.
@@ -260,7 +244,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets) *netv1alpha
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
-		if t.Percent == nil || *t.Percent == 0 {
+		if *t.Percent == 0 {
 			continue
 		}
 

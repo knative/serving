@@ -29,7 +29,17 @@ import (
 // healthyAddresses takes an endpoints object and a port name and return the set
 // of addresses that implement this port.
 func healthyAddresses(endpoints *corev1.Endpoints, portName string) sets.String {
-	ready := sets.NewString()
+	var addresses int
+	for _, es := range endpoints.Subsets {
+		for _, port := range es.Ports {
+			if port.Name == portName {
+				addresses += len(es.Addresses)
+				break
+			}
+		}
+	}
+
+	ready := make(sets.String, addresses)
 
 	for _, es := range endpoints.Subsets {
 		for _, port := range es.Ports {
@@ -48,8 +58,19 @@ func healthyAddresses(endpoints *corev1.Endpoints, portName string) sets.String 
 // endpointsToDests takes an endpoints object and a port name and returns two sets of
 // ready and non-ready l4 dests in the endpoints object which have that port.
 func endpointsToDests(endpoints *corev1.Endpoints, portName string) (ready, notReady sets.String) {
-	ready = sets.NewString()
-	notReady = sets.NewString()
+	var readyAddresses, nonReadyAddresses int
+	for _, es := range endpoints.Subsets {
+		for _, port := range es.Ports {
+			if port.Name == portName {
+				readyAddresses += len(es.Addresses)
+				nonReadyAddresses += len(es.NotReadyAddresses)
+				break
+			}
+		}
+	}
+
+	ready = make(sets.String, readyAddresses)
+	notReady = make(sets.String, nonReadyAddresses)
 
 	for _, es := range endpoints.Subsets {
 		for _, port := range es.Ports {

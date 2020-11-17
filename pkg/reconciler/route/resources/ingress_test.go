@@ -51,8 +51,6 @@ const (
 	testRouteName       = "test-route"
 	testAnnotationValue = "test-annotation-value"
 	testIngressClass    = "test-ingress"
-
-	emptyRollout = "{}"
 )
 
 func TestMakeIngressCorrectMetadata(t *testing.T) {
@@ -81,7 +79,6 @@ func TestMakeIngressCorrectMetadata(t *testing.T) {
 			// Make sure to get passdownIngressClass instead of ingressClass
 			networking.IngressClassAnnotationKey: passdownIngressClass,
 			"test-annotation":                    "bar",
-			networking.RolloutAnnotationKey:      emptyRollout,
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
@@ -133,7 +130,6 @@ func TestMakeIngressWithRollout(t *testing.T) {
 			// Make sure to get passdownIngressClass instead of ingressClass
 			networking.IngressClassAnnotationKey: passdownIngressClass,
 			"test-annotation":                    "bar",
-			networking.RolloutAnnotationKey:      serializeRollout(context.Background(), cfg.BuildRollout()),
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
@@ -625,7 +621,7 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 	}
 }
 
-// One active target and a target of nil (implied zero) percent.
+// One active target and a target of 0 percent (nil is now impossible with defaulting to 0).
 func TestMakeIngressRuleNilPercentTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
@@ -638,6 +634,7 @@ func TestMakeIngressRuleNilPercentTarget(t *testing.T) {
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
+			Percent:           ptr.Int64(0),
 		},
 	}}
 	domains := []string{"test.org"}
@@ -865,7 +862,7 @@ func TestMakeIngressRuleZeroPercentTargetInactive(t *testing.T) {
 	}
 }
 
-func TestMakeIngressRuleNilPercentTargetInactive(t *testing.T) {
+func TestMakeIngressRuleImplicit0PercentTargetInactive(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
@@ -877,7 +874,7 @@ func TestMakeIngressRuleNilPercentTargetInactive(t *testing.T) {
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
-			Percent:           nil,
+			Percent:           ptr.Int64(0),
 		},
 	}}
 	domains := []string{"test.org"}
@@ -922,7 +919,6 @@ func TestMakeIngressWithTLS(t *testing.T) {
 			Namespace: ns,
 			Annotations: map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
-				networking.RolloutAnnotationKey:      emptyRollout,
 			},
 			Labels: map[string]string{
 				serving.RouteLabelKey:          "test-route",

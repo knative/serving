@@ -712,7 +712,11 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
-			),
+				simpleRollout("config", []traffic.RevisionRollout{{
+					RevisionName: "config-00001", Percent: 99,
+				}, {
+					RevisionName: "config-00002", Percent: 1,
+				}})),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "new-latest-ready", WithConfigTarget("config"),
@@ -912,7 +916,11 @@ func TestReconcile(t *testing.T) {
 						}},
 					},
 				},
-			),
+				simpleRollout("config", []traffic.RevisionRollout{{
+					RevisionName: "config-00001", Percent: 99,
+				}, {
+					RevisionName: "config-00002", Percent: 1,
+				}})),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "update-ci-failure", WithConfigTarget("config"),
@@ -2448,6 +2456,12 @@ func ingressWithClass(r *v1.Route, tc *traffic.Config, class string, io ...Ingre
 func baseIngressWithClass(r *v1.Route, tc *traffic.Config, class string, io ...IngressOption) *netv1alpha1.Ingress {
 	ingress, _ := resources.MakeIngress(getContext(), r, tc, nil, class)
 
+	// By default attach current rollout.
+	ro := tc.BuildRollout()
+	ingress.Annotations = kmeta.UnionMaps(ingress.Annotations, map[string]string{
+		networking.RolloutAnnotationKey: serializeRollout(context.Background(), ro),
+	})
+
 	for _, opt := range io {
 		opt(ingress)
 	}
@@ -2461,6 +2475,12 @@ func ingressWithTLS(r *v1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTL
 
 func baseIngressWithTLS(r *v1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, challenges []netv1alpha1.HTTP01Challenge, io ...IngressOption) *netv1alpha1.Ingress {
 	ingress, _ := resources.MakeIngress(getContext(), r, tc, tls, TestIngressClass, challenges...)
+
+	// By default attach current rollout.
+	ro := tc.BuildRollout()
+	ingress.Annotations = kmeta.UnionMaps(ingress.Annotations, map[string]string{
+		networking.RolloutAnnotationKey: serializeRollout(context.Background(), ro),
+	})
 
 	for _, opt := range io {
 		opt(ingress)

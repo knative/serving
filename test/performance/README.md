@@ -1,9 +1,9 @@
 # Performance tests
 
 Knative performance tests are tests geared towards producing useful performance
-metrics of the knative system. As such they can choose to take a blackbox
+metrics of the knative system. As such they can choose to take a closed-box
 point-of-view of the system and use it just like an end-user might see it. They
-can also go more whiteboxy to narrow down the components under test.
+can also go more open-boxy to narrow down the components under test.
 
 ## Load Generator
 

@@ -20,8 +20,14 @@ function install_istio() {
   fi
 
   if [[ -z "${NET_ISTIO_COMMIT}" ]]; then
-    # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
-    readonly NET_ISTIO_COMMIT="8102cd3d32f05be1c58260a9717d532a4a6d2f60"
+    NET_ISTIO_COMMIT=$(head -n 1 ${1} | grep "# Generated when HEAD was" | sed 's/^.* //')
+    echo "Got NET_ISTIO_COMMIT from ${1}: ${NET_ISTIO_COMMIT}"
+  fi
+
+  # TODO: remove this when all the net-istio.yaml in use contain a commit ID
+  if [[ -z "${NET_ISTIO_COMMIT}" ]]; then
+    NET_ISTIO_COMMIT="8102cd3d32f05be1c58260a9717d532a4a6d2f60"
+    echo "Hard coded NET_ISTIO_COMMIT: ${NET_ISTIO_COMMIT}"
   fi
 
   # And checkout the setup script based on that commit.
@@ -157,7 +163,7 @@ function install_contour() {
 function wait_until_ingress_running() {
   if [[ -n "${ISTIO_VERSION}" ]]; then
     wait_until_pods_running istio-system || return 1
-    wait_until_service_has_external_http_address istio-system istio-ingressgateway
+    wait_until_service_has_external_http_address istio-system istio-ingressgateway || return 1
   fi
   if [[ -n "${GLOO_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Gloo

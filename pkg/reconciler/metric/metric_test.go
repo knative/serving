@@ -267,7 +267,6 @@ type testCollector struct {
 	createOrUpdateError error
 
 	deleteCalls atomic.Int32
-	deleteError error
 }
 
 func (c *testCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
@@ -275,9 +274,8 @@ func (c *testCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 	return c.createOrUpdateError
 }
 
-func (c *testCollector) Delete(namespace, name string) error {
+func (c *testCollector) Delete(namespace, name string) {
 	c.deleteCalls.Inc()
-	return c.deleteError
 }
 
 func (c *testCollector) Watch(func(types.NamespacedName)) {}

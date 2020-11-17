@@ -127,12 +127,11 @@ func newAutoscaler(
 }
 
 // Update reconfigures the UniScaler according to the DeciderSpec.
-func (a *autoscaler) Update(deciderSpec *DeciderSpec) error {
+func (a *autoscaler) Update(deciderSpec *DeciderSpec) {
 	a.specMux.Lock()
 	defer a.specMux.Unlock()
 
 	a.deciderSpec = deciderSpec
-	return nil
 }
 
 // Scale calculates the desired scale based on current statistics given the current time.

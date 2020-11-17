@@ -45,9 +45,9 @@ func TestReconcileIngressInsert(t *testing.T) {
 	defer cancel()
 
 	r := Route("test-ns", "test-route")
-	ci := newTestIngress(t, r)
+	ci, tc := newTestIngress(t, r)
 
-	if _, err := reconciler.reconcileIngress(ctx, r, ci); err != nil {
+	if _, err := reconciler.reconcileIngress(ctx, r, ci, tc); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 }
@@ -61,15 +61,15 @@ func TestReconcileIngressUpdate(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 
-	ci := newTestIngress(t, r)
-	if _, err := reconciler.reconcileIngress(ctx, r, ci); err != nil {
+	ci, tc := newTestIngress(t, r)
+	if _, err := reconciler.reconcileIngress(ctx, r, ci, tc); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
 	updated := getRouteIngressFromClient(ctx, t, r)
 	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(updated)
 
-	ci2 := newTestIngress(t, r, func(tc *traffic.Config) {
+	ci2, tc := newTestIngress(t, r, func(tc *traffic.Config) {
 		tc.Targets[traffic.DefaultTarget][0].TrafficTarget.Percent = ptr.Int64(50)
 		tc.Targets[traffic.DefaultTarget] = append(tc.Targets[traffic.DefaultTarget], traffic.RevisionTarget{
 			TrafficTarget: v1.TrafficTarget{
@@ -78,13 +78,13 @@ func TestReconcileIngressUpdate(t *testing.T) {
 			},
 		})
 	})
-	if _, err := reconciler.reconcileIngress(ctx, r, ci2); err != nil {
+	if _, err := reconciler.reconcileIngress(ctx, r, ci2, tc); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
 	updated = getRouteIngressFromClient(ctx, t, r)
 	if diff := cmp.Diff(ci2, updated); diff != "" {
-		t.Error("Unexpected diff (-want +got):", diff)
+		t.Errorf("Unexpected diff (-want +got):\n%s", diff)
 	}
 	if diff := cmp.Diff(ci, updated); diff == "" {
 		t.Error("Expected difference, but found none")
@@ -111,7 +111,7 @@ func newTestRevision(namespace, name string) *v1.Revision {
 	}
 }
 
-func newTestIngress(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.Config)) *netv1alpha1.Ingress {
+func newTestIngress(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.Config)) (*netv1alpha1.Ingress, *traffic.Config) {
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{
@@ -133,7 +133,7 @@ func newTestIngress(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.C
 	if err != nil {
 		t.Error("Unexpected error:", err)
 	}
-	return ingress
+	return ingress, tc
 }
 
 func TestReconcileIngressClassAnnotation(t *testing.T) {
@@ -146,19 +146,19 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 	const expClass = "foo.ingress.networking.knative.dev"
 
 	r := Route("test-ns", "test-route")
-	ci := newTestIngress(t, r)
-	if _, err := reconciler.reconcileIngress(ctx, r, ci); err != nil {
+	ci, tc := newTestIngress(t, r)
+	if _, err := reconciler.reconcileIngress(ctx, r, ci, tc); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
 	updated := getRouteIngressFromClient(ctx, t, r)
 	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(updated)
 
-	ci2 := newTestIngress(t, r)
+	ci2, tc := newTestIngress(t, r)
 	// Add ingress.class annotation.
 	ci2.Annotations[networking.IngressClassAnnotationKey] = expClass
 
-	if _, err := reconciler.reconcileIngress(ctx, r, ci2); err != nil {
+	if _, err := reconciler.reconcileIngress(ctx, r, ci2, tc); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
