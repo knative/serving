@@ -27,10 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/clock"
 
 	"knative.dev/pkg/ptr"
-	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/reconciler/configuration/config"
 )
 
 var fakeCurTime = time.Unix(1e9, 0)
@@ -121,9 +119,11 @@ func TestMakeRevisions(t *testing.T) {
 		},
 		want: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   "with",
-				Name:        "labels-00100",
-				Annotations: map[string]string{},
+				Namespace: "with",
+				Name:      "labels-00100",
+				Annotations: map[string]string{
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
+				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -135,6 +135,7 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "labels",
 					serving.ConfigurationGenerationLabelKey: "100",
 					serving.ServiceLabelKey:                 "",
+					serving.RoutingStateLabelKey:            "pending",
 					"foo":                                   "bar",
 					"baz":                                   "blah",
 				},
@@ -188,10 +189,12 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "annotations",
 					serving.ConfigurationGenerationLabelKey: "100",
 					serving.ServiceLabelKey:                 "",
+					serving.RoutingStateLabelKey:            "pending",
 				},
 				Annotations: map[string]string{
 					"foo": "bar",
 					"baz": "blah",
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
 				},
 			},
 			Spec: v1.RevisionSpec{
@@ -297,6 +300,7 @@ func TestMakeRevisions(t *testing.T) {
 					"serving.knative.dev/creator": "someone",
 					"foo":                         "bar",
 					"baz":                         "blah",
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
@@ -309,6 +313,7 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "config",
 					serving.ConfigurationGenerationLabelKey: "10",
 					serving.ServiceLabelKey:                 "",
+					serving.RoutingStateLabelKey:            "pending",
 				},
 			},
 			Spec: v1.RevisionSpec{
@@ -323,29 +328,10 @@ func TestMakeRevisions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
-			ctx = enableResponsiveGC(ctx, test.responsiveGC)
-
-			got := MakeRevision(ctx, test.configuration, clock)
+			got := MakeRevision(context.Background(), test.configuration, clock)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Error("MakeRevision (-want, +got) =", diff)
 			}
 		})
 	}
-}
-
-func enableResponsiveGC(ctx context.Context, enabled bool) context.Context {
-	flag := cfgmap.Disabled
-	if enabled {
-		flag = cfgmap.Enabled
-	}
-
-	defaultDefaults, _ := cfgmap.NewDefaultsConfigFromMap(map[string]string{})
-	c := &config.Config{
-		Features: &cfgmap.Features{
-			ResponsiveRevisionGC: flag,
-		},
-		Defaults: defaultDefaults,
-	}
-	return config.ToContext(ctx, c)
 }

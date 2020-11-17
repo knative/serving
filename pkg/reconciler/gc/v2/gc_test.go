@@ -18,7 +18,6 @@ package v2
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -486,30 +485,6 @@ func TestIsRevisionStale(t *testing.T) {
 						Type:   v1.RevisionConditionReady,
 						Status: "Unknown",
 					}},
-				},
-			},
-		},
-		want: false,
-	}, {
-		name: "stale pinned time",
-		rev: &v1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:              "myrev",
-				CreationTimestamp: metav1.NewTime(staleTime),
-				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned": fmt.Sprint(staleTime.Unix()),
-				},
-			},
-		},
-		want: true,
-	}, {
-		name: "fresh pinned time",
-		rev: &v1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:              "myrev",
-				CreationTimestamp: metav1.NewTime(staleTime),
-				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned": fmt.Sprint(curTime.Unix()),
 				},
 			},
 		},

@@ -19,7 +19,6 @@ package domains
 import (
 	"context"
 	"testing"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -30,7 +29,6 @@ import (
 	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
@@ -47,9 +45,6 @@ func testConfig() *config.Config {
 		Network: &network.Config{
 			DefaultIngressClass: "ingress-class-foo",
 			DomainTemplate:      network.DefaultDomainTemplate,
-		},
-		GC: &gc.Config{
-			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
 		},
 	}
 }

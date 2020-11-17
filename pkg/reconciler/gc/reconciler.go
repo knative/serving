@@ -20,13 +20,10 @@ import (
 	"context"
 
 	pkgreconciler "knative.dev/pkg/reconciler"
-	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
-	configns "knative.dev/serving/pkg/reconciler/gc/config"
-	gcv1 "knative.dev/serving/pkg/reconciler/gc/v1"
 	gcv2 "knative.dev/serving/pkg/reconciler/gc/v2"
 )
 
@@ -43,12 +40,5 @@ var _ configreconciler.Interface = (*reconciler)(nil)
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
-	switch configns.FromContext(ctx).Features.ResponsiveRevisionGC {
-
-	case cfgmap.Disabled: // v1 logic
-		return gcv1.Collect(ctx, c.client, c.revisionLister, config)
-
-	default: // v2 logic
-		return gcv2.Collect(ctx, c.client, c.revisionLister, config)
-	}
+	return gcv2.Collect(ctx, c.client, c.revisionLister, config)
 }

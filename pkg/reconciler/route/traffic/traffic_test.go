@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
@@ -38,7 +37,6 @@ import (
 	fakeclientset "knative.dev/serving/pkg/client/clientset/versioned/fake"
 	informers "knative.dev/serving/pkg/client/informers/externalversions"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
-	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	. "knative.dev/serving/pkg/testing/v1"
@@ -1510,9 +1508,6 @@ func testNetworkConfig() *config.Config {
 			DefaultIngressClass: "test-ingress-class",
 			DomainTemplate:      network.DefaultDomainTemplate,
 			TagTemplate:         network.DefaultTagTemplate,
-		},
-		GC: &gc.Config{
-			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
 		},
 	}
 }

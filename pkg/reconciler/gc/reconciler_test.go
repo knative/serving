@@ -32,7 +32,6 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	pkgrec "knative.dev/pkg/reconciler"
-	apiconfig "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
@@ -59,7 +58,6 @@ var revisionSpec = v1.RevisionSpec{
 
 func TestGCReconcile(t *testing.T) {
 	now := time.Now()
-	tenMinutesAgo := now.Add(-10 * time.Minute)
 
 	old := now.Add(-11 * time.Minute)
 	older := now.Add(-12 * time.Minute)
@@ -69,89 +67,10 @@ func TestGCReconcile(t *testing.T) {
 		ConfigStore: &testConfigStore{
 			config: &config.Config{
 				RevisionGC: &gc.Config{
-					// v1 settings
-					StaleRevisionCreateDelay:        5 * time.Minute,
-					StaleRevisionTimeout:            5 * time.Minute,
-					StaleRevisionMinimumGenerations: 2,
-
-					// v2 settings
 					RetainSinceCreateTime:     5 * time.Minute,
 					RetainSinceLastActiveTime: 5 * time.Minute,
 					MinNonActiveRevisions:     1,
 					MaxNonActiveRevisions:     gc.Disabled,
-				},
-				Features: &apiconfig.Features{
-					ResponsiveRevisionGC: apiconfig.Disabled,
-				},
-			},
-		}}
-
-	table := TableTest{{
-		Name: "delete oldest, keep two V1",
-		Objects: []runtime.Object{
-			cfg("keep-two", "foo", 5556,
-				WithLatestCreated("5556"),
-				WithLatestReady("5556"),
-				WithConfigObservedGen),
-			rev("keep-two", "foo", 5554, MarkRevisionReady,
-				WithRevName("5554"),
-				WithCreationTimestamp(oldest),
-				WithLastPinned(tenMinutesAgo)),
-			rev("keep-two", "foo", 5555, MarkRevisionReady,
-				WithRevName("5555"),
-				WithCreationTimestamp(older),
-				WithLastPinned(tenMinutesAgo)),
-			rev("keep-two", "foo", 5556, MarkRevisionReady,
-				WithRevName("5556"),
-				WithCreationTimestamp(old),
-				WithLastPinned(tenMinutesAgo)),
-		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			ActionImpl: clientgotesting.ActionImpl{
-				Namespace: "foo",
-				Verb:      "delete",
-				Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
-			},
-			Name: "5554",
-		}},
-		Key: "foo/keep-two",
-	}}
-
-	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		r := &reconciler{
-			client:         servingclient.Get(ctx),
-			revisionLister: listers.GetRevisionLister(),
-		}
-		return configreconciler.NewReconciler(ctx, logging.FromContext(ctx),
-			servingclient.Get(ctx), listers.GetConfigurationLister(),
-			controller.GetEventRecorder(ctx), r, controllerOpts)
-	}))
-}
-
-func TestGCReconcileV2(t *testing.T) {
-	now := time.Now()
-
-	old := now.Add(-11 * time.Minute)
-	older := now.Add(-12 * time.Minute)
-	oldest := now.Add(-13 * time.Minute)
-
-	controllerOpts := controller.Options{
-		ConfigStore: &testConfigStore{
-			config: &config.Config{
-				RevisionGC: &gc.Config{
-					// v1 settings
-					StaleRevisionCreateDelay:        5 * time.Minute,
-					StaleRevisionTimeout:            5 * time.Minute,
-					StaleRevisionMinimumGenerations: 2,
-
-					// v2 settings
-					RetainSinceCreateTime:     5 * time.Minute,
-					RetainSinceLastActiveTime: 5 * time.Minute,
-					MinNonActiveRevisions:     1,
-					MaxNonActiveRevisions:     gc.Disabled,
-				},
-				Features: &apiconfig.Features{
-					ResponsiveRevisionGC: apiconfig.Enabled,
 				},
 			},
 		}}
