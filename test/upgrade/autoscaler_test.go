@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	target            = 1
-	targetUtilization = 0.7
+	containerConcurrency = 6
+	targetUtilization    = 0.7
 
 	autoscalingPipe    = "/tmp/autoscaling-signal"
 	autoscalingTBCPipe = "/tmp/autoscaling-tbc-signal"
@@ -44,7 +44,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// to signal that we should stop testing.
 	createPipe(t, autoscalingPipe)
 
-	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization,
+	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
 		}))
@@ -57,7 +57,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 		close(stopCh)
 	}()
 
-	e2e.AssertAutoscaleUpToNumPods(ctx, 1, 5, stopCh, false /* quick */)
+	e2e.AssertAutoscaleUpToNumPods(ctx, 1, 10, stopCh, false /* quick */)
 }
 
 func TestAutoscaleSustainingWithTBC(t *testing.T) {
@@ -66,7 +66,7 @@ func TestAutoscaleSustainingWithTBC(t *testing.T) {
 	// to signal that we should stop testing.
 	createPipe(t, autoscalingTBCPipe)
 
-	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization,
+	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
 		}))
@@ -79,5 +79,5 @@ func TestAutoscaleSustainingWithTBC(t *testing.T) {
 		close(stopCh)
 	}()
 
-	e2e.AssertAutoscaleUpToNumPods(ctx, 1, 5, stopCh, false /* quick */)
+	e2e.AssertAutoscaleUpToNumPods(ctx, 1, 10, stopCh, false /* quick */)
 }
