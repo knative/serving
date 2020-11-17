@@ -406,6 +406,7 @@ function test_setup() {
   if (( MESH )); then
     kubectl label namespace serving-tests istio-injection=enabled
     kubectl label namespace serving-tests-alt istio-injection=enabled
+    ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/security/ --selector=test.knative.dev/dependency=istio-sidecar || return 1
   fi
 
   echo ">> Uploading test images..."
@@ -429,7 +430,9 @@ function test_teardown() {
   local TEST_CONFIG_DIR=${TMP_DIR}/test/config
   echo ">> Removing test resources (${TEST_CONFIG_DIR}/)"
   ko delete --ignore-not-found=true --now -f ${TEST_CONFIG_DIR}/
-
+  if (( MESH )); then
+    ko delete --ignore-not-found=true --now -f ${TEST_CONFIG_DIR}/security/
+  fi
   echo ">> Ensuring test namespaces are clean"
   kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests
   kubectl delete --ignore-not-found --now --timeout 60s namespace serving-tests
