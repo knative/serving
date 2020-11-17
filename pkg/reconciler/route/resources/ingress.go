@@ -18,8 +18,11 @@ package resources
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 
+	"github.com/davecgh/go-spew/spew"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -30,6 +33,7 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	ingress "knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/activator"
 	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
@@ -60,6 +64,23 @@ func MakeIngress(
 	ingressClass string,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (*netv1alpha1.Ingress, error) {
+	return MakeIngressWithRollout(
+		// If no rollout is specified, we just build the default one.
+		ctx, r, tc, tc.BuildRollout(), tls, ingressClass, acmeChallenges...)
+}
+
+// MakeIngressWithRollout builds a KIngress object from the given parameters.
+// When building the ingress the builder will take into the account
+// the desired rollout state to split the traffic.
+func MakeIngressWithRollout(
+	ctx context.Context,
+	r *servingv1.Route,
+	tc *traffic.Config,
+	ro *traffic.Rollout,
+	tls []netv1alpha1.IngressTLS,
+	ingressClass string,
+	acmeChallenges ...netv1alpha1.HTTP01Challenge,
+) (*netv1alpha1.Ingress, error) {
 	spec, err := makeIngressSpec(ctx, r, tls, tc, acmeChallenges...)
 	if err != nil {
 		return nil, err
@@ -74,6 +95,7 @@ func MakeIngress(
 			}),
 			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
+				networking.RolloutAnnotationKey:      serializeRollout(ctx, ro),
 			}, r.GetAnnotations()), func(key string) bool {
 				return key == corev1.LastAppliedConfigAnnotation
 			}),
@@ -81,6 +103,17 @@ func MakeIngress(
 		},
 		Spec: spec,
 	}, nil
+}
+
+func serializeRollout(ctx context.Context, r *traffic.Rollout) string {
+	sr, err := json.Marshal(r)
+	if err != nil {
+		// This must never happen in the normal course of things.
+		logging.FromContext(ctx).Warnw("Error serializing Rollout: "+spew.Sprint(r),
+			zap.Error(err))
+		return ""
+	}
+	return string(sr)
 }
 
 // makeIngressSpec builds a new IngressSpec from inputs.
