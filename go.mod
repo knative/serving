@@ -1,6 +1,6 @@
 module knative.dev/serving
 
-go 1.14
+go 1.15
 
 require (
 	github.com/davecgh/go-spew v1.1.1
@@ -34,10 +34,10 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20201104174804-1a305923cfbe
-	knative.dev/hack v0.0.0-20201103151104-3d5abc3a0075
-	knative.dev/networking v0.0.0-20201103163404-b9f80f4537af
-	knative.dev/pkg v0.0.0-20201103163404-5514ab0c1fdf
+	knative.dev/caching v0.0.0-20201113182901-ee88f744543c
+	knative.dev/hack v0.0.0-20201112185459-01a34c573bd8
+	knative.dev/networking v0.0.0-20201117050651-847f7830cf46
+	knative.dev/pkg v0.0.0-20201117020252-ab1a398f669c
 )
 
 replace (

@@ -220,7 +220,7 @@ benchmarking jobs for each repo. To use it:
    - `SERVICE_ACCOUNT_NAME`: Service account name for controlling GKE clusters
      and interacting with [Mako](https://github.com/google/mako) server. It MUST
      have `Kubernetes Engine Admin` and `Storage Admin` role, and be
-     [whitelisted](https://github.com/google/mako/blob/master/docs/ACCESS.md) by
+     [allowed](https://github.com/google/mako/blob/master/docs/ACCESS.md) by
      Mako admin. Defaults to `mako-job`.
 
 1. [optional] Customize root path of the benchmarks. This root folder should

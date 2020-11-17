@@ -47,7 +47,7 @@ type Deciders interface {
 // MakeDecider constructs a Decider resource from a PodAutoscaler taking
 // into account the PA's ContainerConcurrency and the relevant
 // autoscaling annotation.
-func MakeDecider(ctx context.Context, pa *asv1a1.PodAutoscaler, config *autoscalerconfig.Config) *scaling.Decider {
+func MakeDecider(_ context.Context, pa *asv1a1.PodAutoscaler, config *autoscalerconfig.Config) *scaling.Decider {
 	panicThresholdPercentage := config.PanicThresholdPercentage
 	if x, ok := pa.PanicThresholdPercentage(); ok {
 		panicThresholdPercentage = x

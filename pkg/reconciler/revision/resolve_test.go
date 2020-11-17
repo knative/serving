@@ -513,11 +513,7 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 		wantErr:            true,
 	}}
 
-	tmpDir, err := ioutil.TempDir("", "TestNewResolverTransport-")
-	if err != nil {
-		t.Fatal("Failed to create tempdir for certs:", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	for i, tc := range cases {
 		i, tc := i, tc

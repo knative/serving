@@ -141,7 +141,7 @@ func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[str
 }
 
 // list implements Accessor
-func (r *Revision) list(ctx context.Context, ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
+func (r *Revision) list(_ context.Context, ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
 	kl := make([]kmeta.Accessor, 0, 1)
 	filter := func(m interface{}) {
 		r := m.(*v1.Revision)
@@ -202,7 +202,7 @@ func NewConfigurationAccessor(
 }
 
 // list implements Accessor
-func (c *Configuration) list(ctx context.Context, ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
+func (c *Configuration) list(_ context.Context, ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
 	kl := make([]kmeta.Accessor, 0, 1)
 	filter := func(m interface{}) {
 		c := m.(*v1.Configuration)
