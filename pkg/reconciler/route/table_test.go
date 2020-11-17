@@ -2613,3 +2613,17 @@ func url(s string) *apis.URL {
 
 	return url
 }
+
+func simpleRollout(cfg string, revs []traffic.RevisionRollout) IngressOption {
+	return func(i *netv1alpha1.Ingress) {
+		r := &traffic.Rollout{
+			Configurations: []traffic.ConfigurationRollout{{
+				ConfigurationName: cfg,
+				Percent:           100,
+				Revisions:         revs,
+			}},
+		}
+		ro := serializeRollout(context.Background(), r)
+		i.Annotations[networking.RolloutAnnotationKey] = ro
+	}
+}
