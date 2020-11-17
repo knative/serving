@@ -184,7 +184,7 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 	}
 	// goal will always have just one revision in the list – the current desired revision.
 	// If it matches the last revision of the previous rollout state (or there were no revisions)
-	// then no new rollout hast begun for this configuration.
+	// then no new rollout has begun for this configuration.
 	if len(prev.Revisions) == 0 || goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
 		// TODO(vagababov): here would go the logic to compute new percentages for the rollout,
 		// i.e step function, so return value will change, depending on that.
