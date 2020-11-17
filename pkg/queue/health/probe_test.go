@@ -208,6 +208,8 @@ func newTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 }
 
 func newHTTPGetAction(t *testing.T, serverURL string) *corev1.HTTPGetAction {
+	t.Helper()
+
 	u, err := url.Parse(serverURL)
 	if err != nil {
 		t.Fatalf("Error parsing URL")

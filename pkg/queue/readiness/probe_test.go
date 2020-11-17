@@ -608,6 +608,8 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 }
 
 func newTestServer(t *testing.T, h http.HandlerFunc) *url.URL {
+	t.Helper()
+
 	s := httptest.NewServer(h)
 	t.Cleanup(s.Close)
 
