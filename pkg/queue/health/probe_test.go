@@ -199,6 +199,7 @@ func TestIsHTTPProbeShuttingDown(t *testing.T) {
 }
 
 func newTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
+	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handler(w, r)
 	}))
