@@ -278,8 +278,7 @@ You can delete all of the service components with:
 ko delete --ignore-not-found=true \
   -Rf config/core/ \
   -f https://github.com/knative/net-kourier/releases/download/v0.18.0/kourier.yaml \
-  -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml \
-  -f ./third_party/cert-manager-0.12.0/cert-manager.yaml
+  -f ./third_party/cert-manager-latest/cert-manager.yaml
 ```
 
 ## Telemetry
