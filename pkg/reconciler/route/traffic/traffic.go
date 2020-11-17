@@ -194,12 +194,12 @@ func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
 		r.Configurations = append(r.Configurations, ConfigurationRollout{
 			ConfigurationName: rt.ConfigurationName,
 			Tag:               tag,
-			Percent:           int(zeroIfNil(rt.Percent)),
+			Percent:           int(*rt.Percent),
 			Revisions: []RevisionRollout{{
 				RevisionName: rt.RevisionName,
 				// Note: this will match config value in steady state, but
 				// during rollout it will be overridden by the rollout logic.
-				Percent: int(zeroIfNil(rt.Percent)),
+				Percent: int(*rt.Percent),
 			}},
 		})
 	}
@@ -335,21 +335,13 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	return nil
 }
 
-// zeroIfNil returns `0` if `ptr==nil`, or `*ptr` otherwise.
-func zeroIfNil(ptr *int64) int64 {
-	if ptr == nil {
-		return 0
-	}
-	return *ptr
-}
-
 // This find the exact revision+tag pair and if so, just adds the percentages.
 // This expects single digit lists, so just does an O(N) search.
 func mergeIfNecessary(rts RevisionTargets, rt RevisionTarget) RevisionTargets {
 	for i := range rts {
 		if rts[i].Tag == rt.Tag && rts[i].RevisionName == rt.RevisionName &&
 			*rt.LatestRevision == *rts[i].LatestRevision {
-			rts[i].Percent = ptr.Int64(zeroIfNil(rts[i].Percent) + zeroIfNil(rt.Percent))
+			rts[i].Percent = ptr.Int64(*rts[i].Percent + *rt.Percent)
 			return rts
 		}
 	}
