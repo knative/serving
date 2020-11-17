@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/client-go/tools/cache"
 
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -84,19 +83,8 @@ func newControllerWithClock(
 		DeleteFunc: tracker.OnDeletedObserver,
 	})
 
-	configInformer.Informer().AddEventHandler(controller.HandleAll(
-		controller.EnsureTypeMeta(
-			tracker.OnChanged,
-			v1.SchemeGroupVersion.WithKind("Configuration"),
-		),
-	))
-
-	revisionInformer.Informer().AddEventHandler(controller.HandleAll(
-		controller.EnsureTypeMeta(
-			tracker.OnChanged,
-			v1.SchemeGroupVersion.WithKind("Revision"),
-		),
-	))
+	configInformer.Informer().AddEventHandler(controller.HandleAll(tracker.OnChanged))
+	revisionInformer.Informer().AddEventHandler(controller.HandleAll(tracker.OnChanged))
 
 	client := servingclient.Get(ctx)
 

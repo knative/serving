@@ -112,25 +112,8 @@ func newControllerWithClock(
 		DeleteFunc: c.tracker.OnDeletedObserver,
 	})
 
-	configInformer.Informer().AddEventHandler(controller.HandleAll(
-		// Call the tracker's OnChanged method, but we've seen the objects
-		// coming through this path missing TypeMeta, so ensure it is properly
-		// populated.
-		controller.EnsureTypeMeta(
-			c.tracker.OnChanged,
-			v1.SchemeGroupVersion.WithKind("Configuration"),
-		),
-	))
-
-	revisionInformer.Informer().AddEventHandler(controller.HandleAll(
-		// Call the tracker's OnChanged method, but we've seen the objects
-		// coming through this path missing TypeMeta, so ensure it is properly
-		// populated.
-		controller.EnsureTypeMeta(
-			c.tracker.OnChanged,
-			v1.SchemeGroupVersion.WithKind("Revision"),
-		),
-	))
+	configInformer.Informer().AddEventHandler(controller.HandleAll(c.tracker.OnChanged))
+	revisionInformer.Informer().AddEventHandler(controller.HandleAll(c.tracker.OnChanged))
 
 	for _, opt := range opts {
 		opt(c)
