@@ -48,6 +48,8 @@ import (
 const (
 	ns = "test-ns"
 
+	emptyRollout = "{}"
+
 	testRouteName       = "test-route"
 	testAnnotationValue = "test-annotation-value"
 	testIngressClass    = "test-ingress"
@@ -78,6 +80,7 @@ func TestMakeIngressCorrectMetadata(t *testing.T) {
 		Annotations: map[string]string{
 			// Make sure to get passdownIngressClass instead of ingressClass
 			networking.IngressClassAnnotationKey: passdownIngressClass,
+			networking.RolloutAnnotationKey:      emptyRollout,
 			"test-annotation":                    "bar",
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
@@ -99,6 +102,15 @@ func TestMakeIngressWithRollout(t *testing.T) {
 	)
 	cfg := &traffic.Config{
 		Targets: map[string]traffic.RevisionTargets{
+			"tagged": {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "thor",
+					LatestRevision:    ptr.Bool(true),
+					Percent:           ptr.Int64(100),
+					RevisionName:      "thor-02020",
+				},
+				ServiceName: "hammer",
+			}},
 			traffic.DefaultTarget: {{
 				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: "valhalla",
@@ -129,6 +141,7 @@ func TestMakeIngressWithRollout(t *testing.T) {
 		Annotations: map[string]string{
 			// Make sure to get passdownIngressClass instead of ingressClass
 			networking.IngressClassAnnotationKey: passdownIngressClass,
+			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"valhalla","percent":100,"revisions":[{"revisionName":"valhalla-01982","percent":100}]},{"configurationName":"thor","tag":"tagged","percent":100,"revisions":[{"revisionName":"thor-02020","percent":100}]}]}`,
 			"test-annotation":                    "bar",
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
@@ -919,6 +932,7 @@ func TestMakeIngressWithTLS(t *testing.T) {
 			Namespace: ns,
 			Annotations: map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
+				networking.RolloutAnnotationKey:      emptyRollout,
 			},
 			Labels: map[string]string{
 				serving.RouteLabelKey:          "test-route",

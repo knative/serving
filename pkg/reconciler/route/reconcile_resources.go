@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +32,6 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/resources"
@@ -49,19 +47,12 @@ func (c *Reconciler) reconcileIngress(
 ) (*netv1alpha1.Ingress, error) {
 	recorder := controller.GetEventRecorder(ctx)
 
-	desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, acmeChallenges...)
-	if err != nil {
-		return nil, err
-	}
-	// Get the current rollout state as described by the traffic.
-	curRO := tc.BuildRollout()
-
 	ingress, err := c.ingressLister.Ingresses(r.Namespace).Get(names.Ingress(r))
 	if apierrs.IsNotFound(err) {
-		// If there is no exisiting Ingress, then current rollout is _the_ rollout.
-		desired.Annotations = kmeta.UnionMaps(desired.Annotations, map[string]string{
-			networking.RolloutAnnotationKey: serializeRollout(ctx, curRO),
-		})
+		desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, acmeChallenges...)
+		if err != nil {
+			return nil, err
+		}
 		ingress, err = c.netclient.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
 		if err != nil {
 			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
@@ -74,11 +65,23 @@ func (c *Reconciler) reconcileIngress(
 		return nil, err
 	} else {
 		// Ingress exists. We need to compute the rollout spec diff.
-		prevRO := deserializeRollout(ctx, ingress.Annotations[networking.RolloutAnnotationKey])
+		// Get the current rollout state as described by the traffic.
+		curRO := tc.BuildRollout()
+
+		// Get the previous rollout state from the annotation.
+		// If it's corrupt, inexistent, or otherwise incorrect,
+		// the prevRO will be just nil rollout.
+		prevRO := deserializeRollout(ctx,
+			ingress.Annotations[networking.RolloutAnnotationKey])
+
+		// And recompute the rollout state.
 		effectiveRO := curRO.Step(prevRO)
-		// Update the annotation.
-		desired.Annotations[networking.RolloutAnnotationKey] = serializeRollout(ctx, effectiveRO)
-		// TODO(vagababov): apply the Rollout to the ingress spec here.
+		desired, err := resources.MakeIngressWithRollout(ctx, r, tc, effectiveRO,
+			tls, ingressClass, acmeChallenges...)
+		if err != nil {
+			return nil, err
+		}
+
 		if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
 			!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) ||
 			!equality.Semantic.DeepEqual(ingress.Labels, desired.Labels) {
@@ -204,17 +207,6 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 	// TODO(mattmoor): This is where we'd look at the state of the Service and
 	// reflect any necessary state into the Route.
 	return eg.Wait()
-}
-
-func serializeRollout(ctx context.Context, r *traffic.Rollout) string {
-	sr, err := json.Marshal(r)
-	if err != nil {
-		// This must never happen in the normal course of things.
-		logging.FromContext(ctx).Warnw("Error serializing Rollout: "+spew.Sprint(r),
-			zap.Error(err))
-		return ""
-	}
-	return string(sr)
 }
 
 func deserializeRollout(ctx context.Context, ro string) *traffic.Rollout {
