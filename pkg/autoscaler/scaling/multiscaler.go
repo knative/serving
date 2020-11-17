@@ -122,7 +122,7 @@ type UniScaler interface {
 	Scale(context.Context, time.Time) ScaleResult
 
 	// Update reconfigures the UniScaler according to the DeciderSpec.
-	Update(*DeciderSpec) error
+	Update(*DeciderSpec)
 }
 
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
@@ -256,7 +256,7 @@ func (m *MultiScaler) Update(_ context.Context, decider *Decider) (*Decider, err
 }
 
 // Delete stops and removes a Decider.
-func (m *MultiScaler) Delete(_ context.Context, namespace, name string) error {
+func (m *MultiScaler) Delete(_ context.Context, namespace, name string) {
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
@@ -264,7 +264,6 @@ func (m *MultiScaler) Delete(_ context.Context, namespace, name string) error {
 		close(scaler.stopCh)
 		delete(m.scalers, key)
 	}
-	return nil
 }
 
 // Watch registers a singleton function to call when DeciderStatus is updated.

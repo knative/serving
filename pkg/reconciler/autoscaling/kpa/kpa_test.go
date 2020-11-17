@@ -1671,7 +1671,7 @@ func (km *testDeciders) Create(ctx context.Context, decider *scaling.Decider) (*
 	return decider, nil
 }
 
-func (km *testDeciders) Delete(ctx context.Context, namespace, name string) error {
+func (km *testDeciders) Delete(ctx context.Context, namespace, name string) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
@@ -1681,7 +1681,6 @@ func (km *testDeciders) Delete(ctx context.Context, namespace, name string) erro
 		km.deleteBeforeCreate.Store(true)
 	}
 	km.deleteCall <- struct{}{}
-	return nil
 }
 
 func (km *testDeciders) Update(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
@@ -1699,7 +1698,6 @@ func (km *testDeciders) Watch(fn func(types.NamespacedName)) {}
 type failingDeciders struct {
 	getErr    error
 	createErr error
-	deleteErr error
 }
 
 func (km *failingDeciders) Get(ctx context.Context, namespace, name string) (*scaling.Decider, error) {
@@ -1710,9 +1708,7 @@ func (km *failingDeciders) Create(ctx context.Context, decider *scaling.Decider)
 	return nil, km.createErr
 }
 
-func (km *failingDeciders) Delete(ctx context.Context, namespace, name string) error {
-	return km.deleteErr
-}
+func (km *failingDeciders) Delete(ctx context.Context, namespace, name string) {}
 
 func (km *failingDeciders) Watch(fn func(types.NamespacedName)) {
 }

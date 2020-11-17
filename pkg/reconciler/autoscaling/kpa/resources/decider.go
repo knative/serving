@@ -35,7 +35,7 @@ type Deciders interface {
 	Create(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error)
 
 	// Delete removes the Decider resource for a given key, returning any errors.
-	Delete(ctx context.Context, namespace, name string) error
+	Delete(ctx context.Context, namespace, name string)
 
 	// Watch registers a function to call when Decider change.
 	Watch(watcher func(types.NamespacedName))
