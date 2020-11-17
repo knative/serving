@@ -157,7 +157,7 @@ function install_contour() {
 function wait_until_ingress_running() {
   if [[ -n "${ISTIO_VERSION}" ]]; then
     wait_until_pods_running istio-system || return 1
-    wait_until_service_has_external_http_address istio-system istio-ingressgateway
+    wait_until_service_has_external_http_address istio-system istio-ingressgateway || return 1
   fi
   if [[ -n "${GLOO_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Gloo
