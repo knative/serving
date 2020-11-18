@@ -18,24 +18,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export GO111MODULE=on
-export K8S_VERSION="$1"
+source $(dirname "$0")/../vendor/knative.dev/hack/library.sh
 
-K8S_DEPS=(
-  "k8s.io/api"
-  "k8s.io/apiextensions-apiserver"
-  "k8s.io/apimachinery"
-  "k8s.io/code-generator"
-  "k8s.io/client-go"
-)
-
-
-for dep in "${K8S_DEPS[@]}"
-do
-  go mod edit \
-    -require="${dep}@${K8S_VERSION}" \
-    -replace="${dep}=${dep}@${K8S_VERSION}"
-done
+run_go_tool knative.dev/test-infra/buoy \
+  buoy float ${REPO_ROOT_DIR}/go.mod \
+    --release "$1" --domain k8s.io --ruleset=Release \
+    | xargs -n1 -t go get -d
 
 ./hack/update-deps.sh
 
