@@ -29,15 +29,15 @@ require (
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	google.golang.org/api v0.34.0
 	google.golang.org/grpc v1.33.1
-	k8s.io/api v0.18.8
-	k8s.io/apimachinery v0.18.8
+	k8s.io/api v0.18.12
+	k8s.io/apimachinery v0.18.12
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
-	k8s.io/code-generator v0.18.8
+	k8s.io/code-generator v0.18.12
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20201113182901-ee88f744543c
+	knative.dev/caching v0.0.0-20201117222852-cfd1b9372de6
 	knative.dev/hack v0.0.0-20201112185459-01a34c573bd8
-	knative.dev/networking v0.0.0-20201117050651-847f7830cf46
-	knative.dev/pkg v0.0.0-20201117020252-ab1a398f669c
+	knative.dev/networking v0.0.0-20201117214051-8e7d4b6f6175
+	knative.dev/pkg v0.0.0-20201117221452-0fccc54273ed
 )
 
 replace (

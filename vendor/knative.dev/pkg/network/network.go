@@ -24,19 +24,6 @@ import (
 )
 
 const (
-	// DefaultConnTimeout specifies a short default connection timeout
-	// to avoid hitting the issue fixed in
-	// https://github.com/kubernetes/kubernetes/pull/72534 but only
-	// available after Kubernetes 1.14.
-	//
-	// Our connections are usually between pods in the same cluster
-	// like activator <-> queue-proxy, or even between containers
-	// within the same pod queue-proxy <-> user-container, so a
-	// smaller connect timeout would be justifiable.
-	//
-	// We should consider exposing this as a configuration.
-	DefaultConnTimeout = 200 * time.Millisecond
-
 	// DefaultDrainTimeout is the time that Knative components on the data
 	// path will wait before shutting down server, but after starting to fail
 	// readiness probes to ensure network layer propagation and so that no requests
