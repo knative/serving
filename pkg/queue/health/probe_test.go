@@ -31,10 +31,9 @@ import (
 )
 
 func TestTCPProbe(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 	config := TCPProbeConfigOptions{
 		Address:       server.Listener.Addr().String(),
 		SocketTimeout: time.Second,
@@ -60,7 +59,7 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	}
 	var gotPath string
 	expectedPath := "/health"
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		for headerKey, headerValue := range r.Header {
 			// Filtering for expectedHeader.TestKey to avoid other HTTP probe headers
 			if expectedHeader.Name == headerKey {
@@ -74,15 +73,15 @@ func TestHTTPProbeSuccess(t *testing.T) {
 
 		gotPath = r.URL.Path
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-	httpGetAction := newHTTPGetAction(t, server.URL)
-	httpGetAction.Path = expectedPath
-	httpGetAction.HTTPHeaders = []corev1.HTTPHeader{expectedHeader}
+	})
+
+	action := newHTTPGetAction(t, server.URL)
+	action.Path = expectedPath
+	action.HTTPHeaders = []corev1.HTTPHeader{expectedHeader}
 
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
-		HTTPGetAction: httpGetAction,
+		HTTPGetAction: action,
 	}
 	// Connecting to the server should work
 	if err := HTTPProbe(config); err != nil {
@@ -104,16 +103,16 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	}
 }
 
-func TestHTTPsSchemeProbeSuccess(t *testing.T) {
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestHTTPSchemeProbeSuccess(t *testing.T) {
+	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
 		HTTPGetAction: newHTTPGetAction(t, server.URL),
 	}
+
 	// Connecting to the server should work
 	if err := HTTPProbe(config); err != nil {
 		t.Error("Expected probe to succeed but failed with error", err)
@@ -127,11 +126,10 @@ func TestHTTPsSchemeProbeSuccess(t *testing.T) {
 }
 
 func TestHTTPProbeTimeoutFailure(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
@@ -143,10 +141,9 @@ func TestHTTPProbeTimeoutFailure(t *testing.T) {
 }
 
 func TestHTTPProbeResponseStatusCodeFailure(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
-	}))
-	defer server.Close()
+	})
 
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
@@ -201,26 +198,28 @@ func TestIsHTTPProbeShuttingDown(t *testing.T) {
 	}
 }
 
+func newTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler(w, r)
+	}))
+	t.Cleanup(server.Close)
+
+	return server
+}
+
 func newHTTPGetAction(t *testing.T, serverURL string) *corev1.HTTPGetAction {
-	urlParsed, err := url.Parse(serverURL)
+	t.Helper()
+
+	u, err := url.Parse(serverURL)
 	if err != nil {
 		t.Fatalf("Error parsing URL")
 	}
-	port := intstr.FromString(urlParsed.Port())
-
-	var uriScheme corev1.URIScheme
-	switch urlParsed.Scheme {
-	case "http":
-		uriScheme = corev1.URISchemeHTTP
-	case "https":
-		uriScheme = corev1.URISchemeHTTPS
-	default:
-		t.Fatal("Unsupported scheme", urlParsed.Scheme)
-	}
 
 	return &corev1.HTTPGetAction{
-		Host:   urlParsed.Hostname(),
-		Port:   port,
-		Scheme: uriScheme,
+		Host: u.Hostname(),
+		Port: intstr.FromString(u.Port()),
+		// We only ever use httptest.NewServer which is http.
+		Scheme: corev1.URISchemeHTTP,
 	}
 }
