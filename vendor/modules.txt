@@ -114,7 +114,7 @@ github.com/docker/docker-credential-helpers/credentials
 # github.com/emicklei/go-restful v2.9.5+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
-# github.com/evanphx/json-patch v4.5.0+incompatible
+# github.com/evanphx/json-patch v4.9.0+incompatible
 github.com/evanphx/json-patch
 # github.com/form3tech-oss/jwt-go v3.2.2+incompatible
 ## explicit
@@ -566,7 +566,7 @@ gopkg.in/inf.v0
 gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.0-20190709130402-674ba3eaed22
 gopkg.in/yaml.v3
-# k8s.io/api v0.18.8 => k8s.io/api v0.18.8
+# k8s.io/api v0.18.12
 ## explicit
 k8s.io/api/admission/v1
 k8s.io/api/admissionregistration/v1
@@ -609,7 +609,7 @@ k8s.io/api/settings/v1alpha1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.18.8 => k8s.io/apiextensions-apiserver v0.18.8
+# k8s.io/apiextensions-apiserver v0.18.12
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
@@ -617,7 +617,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
-# k8s.io/apimachinery v0.18.8 => k8s.io/apimachinery v0.18.8
+# k8s.io/apimachinery v0.18.12
 ## explicit
 k8s.io/apimachinery/pkg/api/apitesting
 k8s.io/apimachinery/pkg/api/apitesting/fuzzer
@@ -669,7 +669,7 @@ k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible => k8s.io/client-go v0.18.8
+# k8s.io/client-go v0.18.12
 ## explicit
 k8s.io/client-go/discovery
 k8s.io/client-go/discovery/fake
@@ -884,7 +884,7 @@ k8s.io/client-go/util/jsonpath
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
-# k8s.io/code-generator v0.18.8 => k8s.io/code-generator v0.18.8
+# k8s.io/code-generator v0.18.12
 ## explicit
 k8s.io/code-generator
 k8s.io/code-generator/cmd/client-gen
@@ -919,7 +919,7 @@ k8s.io/code-generator/cmd/set-gen
 k8s.io/code-generator/pkg/namer
 k8s.io/code-generator/pkg/util
 k8s.io/code-generator/third_party/forked/golang/reflect
-# k8s.io/component-base v0.18.8
+# k8s.io/component-base v0.18.12
 k8s.io/component-base/version
 # k8s.io/gengo v0.0.0-20200205140755-e0e292d8aa12
 k8s.io/gengo/args
@@ -936,7 +936,7 @@ k8s.io/gengo/types
 k8s.io/klog
 # k8s.io/klog/v2 v2.0.0
 k8s.io/klog/v2
-# k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29 => k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
+# k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 ## explicit
 k8s.io/kube-openapi/cmd/openapi-gen
 k8s.io/kube-openapi/cmd/openapi-gen/args
@@ -952,7 +952,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20201113182901-ee88f744543c
+# knative.dev/caching v0.0.0-20201117222852-cfd1b9372de6
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -976,7 +976,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20201112185459-01a34c573bd8
 ## explicit
 knative.dev/hack
-# knative.dev/networking v0.0.0-20201117050651-847f7830cf46
+# knative.dev/networking v0.0.0-20201117214051-8e7d4b6f6175
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1009,7 +1009,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20201117020252-ab1a398f669c
+# knative.dev/pkg v0.0.0-20201117221452-0fccc54273ed
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1123,9 +1123,3 @@ knative.dev/pkg/websocket
 sigs.k8s.io/structured-merge-diff/v3/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# k8s.io/api => k8s.io/api v0.18.8
-# k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.8
-# k8s.io/apimachinery => k8s.io/apimachinery v0.18.8
-# k8s.io/client-go => k8s.io/client-go v0.18.8
-# k8s.io/code-generator => k8s.io/code-generator v0.18.8
-# k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
