@@ -117,7 +117,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: docker.io/markusthoemmes/kourier-b74c3918b7eee585f87df62ccd297dc8:newkourier@sha256:f9d091a39ab8add187e1d67fed59bb4841393acb52bb5a40940886c97e67cf24
+        - image: docker.io/markusthoemmes/kourier-b74c3918b7eee585f87df62ccd297dc8:newkourier@sha256:12991c4d0b95012a049374c6095fc9dafece9c71af13f0c64088f8b1054be0d9
           name: kourier-control
           env:
             - name: CERTS_SECRET_NAMESPACE
@@ -201,7 +201,7 @@ spec:
             - --log-level info
           command:
             - /usr/local/bin/envoy
-          image: docker.io/maistra/proxyv2-ubi8:2.0.0
+          image: docker.io/maistra/proxyv2-ubi8:1.1.5
           name: kourier-gateway
           ports:
             - name: http2-external
@@ -312,12 +312,9 @@ data:
               port_value: 9000
           filter_chains:
             - filters:
-                - name: envoy.filters.network.http_connection_manager
-                  typed_config:
-                    "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                - name: envoy.http_connection_manager
+                  config:
                     stat_prefix: stats_server
-                    http_filters:
-                      - name: envoy.filters.http.router
                     route_config:
                       virtual_hosts:
                         - name: admin_interface
@@ -325,14 +322,15 @@ data:
                             - "*"
                           routes:
                             - match:
-                                safe_regex:
-                                  google_re2: {}
-                                  regex: '/(certs|stats(/prometheus)?|server_info|clusters|listeners|ready)?'
+                                regex: '/(certs|stats(/prometheus)?|server_info|clusters|listeners|ready)?'
                                 headers:
                                   - name: ':method'
                                     exact_match: GET
                               route:
                                 cluster: service_stats
+                    http_filters:
+                      - name: envoy.router
+                        config: {}
       clusters:
         - name: service_stats
           connect_timeout: 0.250s
@@ -347,16 +345,10 @@ data:
                       path: /tmp/envoy.admin
         - name: xds_cluster
           connect_timeout: 1s
-          type: strict_dns
-          load_assignment:
-            cluster_name: xds_cluster
-            endpoints:
-              lb_endpoints:
-                endpoint:
-                  address:
-                    socket_address:
-                      address: "kourier-control.knative-serving"
-                      port_value: 18000
+          hosts:
+            - socket_address:
+                address: "kourier-control.knative-serving"
+                port_value: 18000
           http2_protocol_options: {}
           type: STRICT_DNS
     admin:
