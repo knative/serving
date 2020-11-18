@@ -80,6 +80,27 @@ type RevisionRollout struct {
 	Percent int `json:"percent"`
 }
 
+// Validate validates current rollout for inconsistencies.
+// This is expected to be invoked after annotation deserialization.
+// If it returns false — the deserialized object should be discarded.
+func (cur *Rollout) Validate() bool {
+	for _, c := range cur.Configurations {
+		// Cannot be over 100% in our system.
+		if c.Percent > 100 {
+			return false
+		}
+		// If total % values in the revision do not add up — discard.
+		tot := 0
+		for _, r := range c.Revisions {
+			tot += r.Percent
+		}
+		if tot != c.Percent {
+			return false
+		}
+	}
+	return true
+}
+
 // Step merges this rollout object with the previous state and
 // returns a new Rollout object representing the merged state.
 // At the end of the call the returned object will contain the

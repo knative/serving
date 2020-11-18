@@ -222,5 +222,9 @@ func deserializeRollout(ctx context.Context, ro string) *traffic.Rollout {
 			zap.Error(err))
 		return nil
 	}
+	if !r.Validate() {
+		logging.FromContext(ctx).Warnw("Deserializing Rollout is invalid: " + ro)
+		return nil
+	}
 	return r
 }

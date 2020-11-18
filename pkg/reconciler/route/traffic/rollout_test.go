@@ -604,8 +604,12 @@ func TestStep(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.cur.Step(tc.prev), tc.want; !cmp.Equal(got, want) {
+			got := tc.cur.Step(tc.prev)
+			if want := tc.want; !cmp.Equal(got, want) {
 				t.Errorf("Wrong rolled rollout, diff(-want,+got):\n%s", cmp.Diff(want, got))
+			}
+			if !got.Validate() {
+				t.Errorf("Step returned an invalid config:\n%#v", got)
 			}
 		})
 	}
@@ -736,4 +740,79 @@ func TestAdjustPercentage(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateFailures(t *testing.T) {
+	tests := []struct {
+		name string
+		r    *Rollout
+	}{{
+		name: "config > 100%",
+		r: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           101,
+				Revisions: []RevisionRollout{{
+					RevisionName: "black-on-blue",
+					Percent:      101,
+				}},
+			}},
+		},
+	}, {
+		name: "rev more than config",
+		r: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           42,
+				Revisions: []RevisionRollout{{
+					RevisionName: "black-on-blue",
+					Percent:      43,
+				}},
+			}},
+		},
+	}, {
+		name: "revs more than config",
+		r: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           42,
+				Revisions: []RevisionRollout{{
+					RevisionName: "black-on-blue",
+					Percent:      41,
+				}, {
+					RevisionName: "smith",
+					Percent:      3,
+				}},
+			}},
+		},
+	}, {
+		name: "2nd config > 100%",
+		r: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "rob",
+				Percent:           10,
+				Revisions: []RevisionRollout{{
+					RevisionName: "roy",
+					Percent:      10,
+				}},
+			}, {
+				ConfigurationName: "keith",
+				Tag:               "richards",
+				Percent:           101,
+				Revisions: []RevisionRollout{{
+					RevisionName: "black-on-blue",
+					Percent:      101,
+				}},
+			}},
+		},
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.r.Validate() {
+				t.Errorf("Validate succeeded for\n%#v", tc.r)
+			}
+		})
+	}
+
 }

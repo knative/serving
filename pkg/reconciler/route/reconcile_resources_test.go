@@ -18,6 +18,7 @@ package route
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -25,12 +26,14 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakeingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	"knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 
 	. "knative.dev/serving/pkg/testing/v1"
@@ -86,6 +89,82 @@ func TestReconcileIngressUpdate(t *testing.T) {
 	}
 }
 
+func TestReconcileIngressBadRollout(t *testing.T) {
+	var reconciler *Reconciler
+	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
+		reconciler = r
+	})
+	defer cancel()
+	ctx = updateContext(ctx)
+
+	r := Route("test-ns", "test-route")
+
+	tc, tls := testIngressParams(t, r)
+	ing, err := resources.MakeIngressWithRollout(ctx, r, tc, &traffic.Rollout{
+		Configurations: []traffic.ConfigurationRollout{{
+			ConfigurationName: "configuration",
+			Percent:           202, // <- this is not right!
+		}},
+	}, tls, "foo-ingress")
+	if err != nil {
+		t.Fatal("Error creating ingress:", err)
+	}
+	ingClient := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Ingresses(ing.Namespace)
+	ingClient.Create(ctx, ing, metav1.CreateOptions{})
+	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ing)
+	if _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
+		t.Error("Unexpected error:", err)
+	}
+	ing, err = ingClient.Get(ctx, ing.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Could not get the ingress:", err)
+	}
+	// We want to ignore the previous one, since it's bogus.
+	want := func() string {
+		d, _ := json.Marshal(tc.BuildRollout())
+		return string(d)
+	}()
+	if got := ing.Annotations[networking.RolloutAnnotationKey]; got != want {
+		t.Errorf("Incorrect Rollout Annotation; diff(-want,+got):\n%s", cmp.Diff(want, got))
+	}
+}
+
+func TestReconcileIngressUnparseableRollout(t *testing.T) {
+	var reconciler *Reconciler
+	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
+		reconciler = r
+	})
+	defer cancel()
+	ctx = updateContext(ctx)
+
+	r := Route("test-ns", "test-route")
+
+	tc, tls := testIngressParams(t, r)
+	ing, err := resources.MakeIngress(ctx, r, tc, tls, "foo-ingress")
+	if err != nil {
+		t.Fatal("Error creating ingress:", err)
+	}
+	ing.Annotations[networking.RolloutAnnotationKey] = `<?xml version="1.0" encoding="utf-8"?><rollout name="from-the-wrong-universe"/>`
+	ingClient := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Ingresses(ing.Namespace)
+	ingClient.Create(ctx, ing, metav1.CreateOptions{})
+	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ing)
+	if _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
+		t.Error("Unexpected error:", err)
+	}
+	ing, err = ingClient.Get(ctx, ing.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Could not get the ingress:", err)
+	}
+	// We want to ignore the previous one, since it's bogus.
+	want := func() string {
+		d, _ := json.Marshal(tc.BuildRollout())
+		return string(d)
+	}()
+	if got := ing.Annotations[networking.RolloutAnnotationKey]; got != want {
+		t.Errorf("Incorrect Rollout Annotation; diff(-want,+got):\n%s", cmp.Diff(want, got))
+	}
+}
+
 func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
 	ctx, _, _, _, cancel := newTestSetup(t)
 	defer cancel()
@@ -111,8 +190,10 @@ func testIngressParams(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffi
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{
-				RevisionName: "revision",
-				Percent:      ptr.Int64(100),
+				ConfigurationName: "config",
+				RevisionName:      "revision",
+				Percent:           ptr.Int64(100),
+				LatestRevision:    ptr.Bool(true),
 			},
 		}}}}
 
