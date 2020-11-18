@@ -56,9 +56,6 @@ type ConfigurationRollout struct {
 	// Note: that it is not 100% of the route traffic, in more complex cases.
 	Revisions []RevisionRollout `json:"revisions,omitempty"`
 
-	// TODO(vagababov): more rollout fields here, e.g. duration
-	// next step time, etc.
-
 	// Deadline is the Unix timestamp by when (+/- reconcile precision)
 	// the Rollout shoud be complete.
 	Deadline int `json:"deadline,omitempty"`
