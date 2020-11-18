@@ -90,7 +90,7 @@ spec:
         - name: https-webhook
           containerPort: 8443
 
-        readinessProbe:
+        readinessProbe: &probe
           periodSeconds: 1
           httpGet:
             scheme: HTTPS
@@ -99,14 +99,9 @@ spec:
             - name: k-kubelet-probe
               value: "webhook"
         livenessProbe:
-          periodSeconds: 1
-          httpGet:
-            scheme: HTTPS
-            port: 8443
-            httpHeaders:
-            - name: k-kubelet-probe
-              value: "webhook"
+          <<: *probe
           failureThreshold: 6
+          initialDelaySeconds: 20
 
       # Our webhook should gracefully terminate by lame ducking first, set this to a sufficiently
       # high value that we respect whatever value it has configured for the lame duck grace period.
