@@ -15,8 +15,6 @@
 # limitations under the License.
 
 function install_istio() {
-  export ISTIO_VERSION="latest"
-
   # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
   local NET_ISTIO_COMMIT=0aab2b296f1347785ab5ebec82c27e6f90e1fce5
 
@@ -37,9 +35,9 @@ function install_istio() {
   fi
 
   echo ">> Installing Istio"
-  echo "Istio version: ${ISTIO_VERSION}"
+  echo "Istio version: latest"
   echo "Istio profile: ${ISTIO_PROFILE}"
-  ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
+  ${NET_ISTIO_DIR}/third_party/istio-latest/install-istio.sh ${ISTIO_PROFILE}
 
   if [[ -n "$1" ]]; then
     echo ">> Installing net-istio"
