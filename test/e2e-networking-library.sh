@@ -42,13 +42,17 @@ function install_istio() {
   echo "Istio version: ${ISTIO_VERSION}"
   echo "Istio profile: ${ISTIO_PROFILE}"
   ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
+  
+  # This is a temporary workaound for allowing installing PeerAuthentication
+  # in order to let upgrading test pass.
+  kubectl apply -f ./test/config/security/peerauthentication_crd.yaml | return 1
 
   if [[ -n "$1" ]]; then
     echo ">> Installing net-istio"
     echo "net-istio original YAML: ${1}"
     # Create temp copy in which we replace knative-serving by the test's system namespace.
     local YAML_NAME=$(mktemp -p $TMP_DIR --suffix=.$(basename "$1"))
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
+    sed -E "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}|namespace: \"${KNATIVE_DEFAULT_NAMESPACE}\"/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
     echo "net-istio patched YAML: $YAML_NAME"
     ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider=istio || return 1
     UNINSTALL_LIST+=( "${YAML_NAME}" )
