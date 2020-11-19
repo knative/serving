@@ -16,7 +16,7 @@
 
 function install_istio() {
   if [[ -z "${ISTIO_VERSION}" ]]; then
-    readonly ISTIO_VERSION="stable"
+    readonly ISTIO_VERSION="latest"
   fi
 
   # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
