@@ -17,6 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"sort"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -43,6 +45,29 @@ func TestConfigurationSpec(t *testing.T) {
 	}
 	if got, want := c.Labels[serving.ServiceLabelKey], testServiceName; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
+	}
+	if got, want := c.Annotations[serving.RoutesAnnotationKey], testServiceName; got != want {
+		t.Errorf("expected %q annotations got %q", want, got)
+	}
+
+	// Create the configuration based on the same existing configuration.
+	c, _ = MakeConfigurationFromExisting(s, c)
+	if got, want := c.Annotations[serving.RoutesAnnotationKey], testServiceName; got != want {
+		t.Errorf("expected %q annotations got %q", want, got)
+	}
+
+	// Create the configuration based on the configuration with a different value for the
+	// annotation key serving.RoutesAnnotationKey.
+	secTestServiceName := "second-test-service"
+	secondSer := createServiceWithName(secTestServiceName)
+	secondConfig, _ := MakeConfigurationFromExisting(secondSer, c)
+	annoValue := secondConfig.Annotations[serving.RoutesAnnotationKey]
+	annoArray := strings.Split(annoValue, ",")
+	sort.Strings(annoArray)
+	expectedAnnoArray := []string{secTestServiceName, testServiceName}
+	sort.Strings(expectedAnnoArray)
+	if got, want := strings.Join(annoArray, ","), strings.Join(expectedAnnoArray, ","); got != want {
+		t.Errorf("expected %q annotations got %q", want, got)
 	}
 }
 

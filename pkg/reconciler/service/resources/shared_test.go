@@ -69,7 +69,11 @@ func createConfiguration(containerName string) *v1.ConfigurationSpec {
 }
 
 func createService() *v1.Service {
-	return DefaultService(testServiceName, testServiceNamespace,
+	return createServiceWithName(testServiceName)
+}
+
+func createServiceWithName(name string) *v1.Service {
+	return DefaultService(name, testServiceNamespace,
 		WithConfigSpec(createConfiguration(testContainerName)),
 		WithRouteSpec(v1.RouteSpec{
 			Traffic: []v1.TrafficTarget{{
