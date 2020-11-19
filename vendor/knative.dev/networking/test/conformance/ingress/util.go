@@ -662,8 +662,8 @@ func OverrideIngressAnnotation(annotations map[string]string) Option {
 	}
 }
 
-// createIngress creates a Knative Ingress resource
-func createIngress(ctx context.Context, t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec, io ...Option) (*v1alpha1.Ingress, context.CancelFunc) {
+// CreateIngress creates a Knative Ingress resource
+func CreateIngress(ctx context.Context, t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec, io ...Option) (*v1alpha1.Ingress, context.CancelFunc) {
 	t.Helper()
 
 	name := test.ObjectNameForTest(t)
@@ -716,7 +716,7 @@ func createIngress(ctx context.Context, t *testing.T, clients *test.Clients, spe
 func createIngressReadyDialContext(ctx context.Context, t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (*v1alpha1.Ingress, func(context.Context, string, string) (net.Conn, error), context.CancelFunc) {
 	t.Helper()
 
-	ing, cancel := createIngress(ctx, t, clients, spec)
+	ing, cancel := CreateIngress(ctx, t, clients, spec)
 	ingName := ktypes.NamespacedName{Name: ing.Name, Namespace: ing.Namespace}
 
 	if err := WaitForIngressState(ctx, clients.NetworkingClient, ing.Name, IsIngressReady, t.Name()); err != nil {

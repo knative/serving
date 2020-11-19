@@ -75,7 +75,7 @@ func verifyIngressWithAnnotations(ctx context.Context, t *testing.T, clients *te
 
 	// createIngress internally sets hooks to delete the ingress,
 	// so we can ignore `cancel` here.
-	original, _ := createIngress(ctx, t, clients,
+	original, _ := CreateIngress(ctx, t, clients,
 		v1alpha1.IngressSpec{
 			Rules: []v1alpha1.IngressRule{{
 				Hosts:      []string{backend.ServiceName + ".example.com"},
