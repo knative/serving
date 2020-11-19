@@ -82,6 +82,7 @@ func TestDomainClaimConditions(t *testing.T) {
 	apistest.CheckConditionSucceeded(dms, DomainMappingConditionDomainClaimed, t)
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
 
+	dms.MarkReferenceResolved()
 	dms.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
@@ -94,6 +95,37 @@ func TestDomainClaimConditions(t *testing.T) {
 
 	dms.MarkDomainClaimNotOwned()
 	apistest.CheckConditionFailed(dms, DomainMappingConditionDomainClaimed, t)
+	apistest.CheckConditionFailed(dms, DomainMappingConditionReady, t)
+}
+
+func TestReferenceResolvedCondition(t *testing.T) {
+	dms := &DomainMappingStatus{}
+
+	dms.InitializeConditions()
+	apistest.CheckConditionOngoing(dms, DomainMappingConditionReferenceResolved, t)
+	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
+
+	dms.MarkReferenceNotResolved("can't get no resolution")
+	apistest.CheckConditionFailed(dms, DomainMappingConditionReferenceResolved, t)
+	apistest.CheckConditionFailed(dms, DomainMappingConditionReady, t)
+
+	dms.MarkReferenceResolved()
+	apistest.CheckConditionSucceeded(dms, DomainMappingConditionReferenceResolved, t)
+	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
+
+	dms.MarkDomainClaimed()
+	dms.PropagateIngressStatus(netv1alpha1.IngressStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   netv1alpha1.IngressConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	})
+	apistest.CheckConditionSucceeded(dms, DomainMappingConditionReady, t)
+
+	dms.MarkReferenceNotResolved("still can't get no resolution")
+	apistest.CheckConditionFailed(dms, DomainMappingConditionReferenceResolved, t)
 	apistest.CheckConditionFailed(dms, DomainMappingConditionReady, t)
 }
 
@@ -129,6 +161,7 @@ func TestPropagateIngressStatus(t *testing.T) {
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
 
 	dms.MarkDomainClaimed()
+	dms.MarkReferenceResolved()
 	apistest.CheckConditionSucceeded(dms, DomainMappingConditionReady, t)
 
 	dms.PropagateIngressStatus(netv1alpha1.IngressStatus{

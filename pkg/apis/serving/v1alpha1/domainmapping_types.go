@@ -95,6 +95,10 @@ const (
 	// and the Ingress is ready.
 	DomainMappingConditionReady = apis.ConditionReady
 
+	// DomainMappingConditionReferenceResolved reflects whether the Ref
+	// has been successfully resolved to an existing object.
+	DomainMappingConditionReferenceResolved apis.ConditionType = "ReferenceResolved"
+
 	// DomainMappingConditionIngressReady reflects the readiness of the
 	// underlying Ingress resource.
 	DomainMappingConditionIngressReady apis.ConditionType = "IngressReady"

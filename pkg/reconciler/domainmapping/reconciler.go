@@ -79,6 +79,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 		return err
 	}
 
+	// Since we currently assume all DomainMapping References are KServices we
+	// don't do any resolution yet, so we'll just immediately mark the condition.
+	dm.Status.MarkReferenceResolved()
+
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
 	logger.Debugf("Mapping %s to %s/%s", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name)
 	desired := resources.MakeIngress(dm, ingressClass)

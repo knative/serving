@@ -25,6 +25,7 @@ import (
 
 var domainMappingCondSet = apis.NewLivingConditionSet(
 	DomainMappingConditionDomainClaimed,
+	DomainMappingConditionReferenceResolved,
 	DomainMappingConditionIngressReady,
 )
 
@@ -81,6 +82,18 @@ func (dms *DomainMappingStatus) MarkDomainClaimNotOwned() {
 // condition to indicate that creating the ClusterDomainClaim failed.
 func (dms *DomainMappingStatus) MarkDomainClaimFailed(reason string) {
 	domainMappingCondSet.Manage(dms).MarkFalse(DomainMappingConditionDomainClaimed, "DomainClaimFailed", reason)
+}
+
+// MarkReferenceResolved sets the DomainMappingConditionReferenceResolved
+// condition to true.
+func (dms *DomainMappingStatus) MarkReferenceResolved() {
+	domainMappingCondSet.Manage(dms).MarkTrue(DomainMappingConditionReferenceResolved)
+}
+
+// MarkReferenceNotResolved sets the DomainMappingConditionReferenceResolved
+// condition to false.
+func (dms *DomainMappingStatus) MarkReferenceNotResolved(reason string) {
+	domainMappingCondSet.Manage(dms).MarkFalse(DomainMappingConditionReferenceResolved, "ResolveFailed", reason)
 }
 
 // PropagateIngressStatus updates the DomainMappingConditionIngressReady
