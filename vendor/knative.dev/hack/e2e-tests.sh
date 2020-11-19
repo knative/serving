@@ -69,8 +69,12 @@ function setup_test_cluster() {
   # Acquire cluster admin role for the current user.
   acquire_cluster_admin_role "${k8s_cluster}"
 
-  # Setup KO_DOCKER_REPO if it is a GKE cluster. Incorporate an element of randomness to ensure that each run properly publishes images.
-  [[ "${k8s_cluster}" =~ ^gke_.* ]] && export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${REPO_NAME}-e2e-img/${RANDOM}
+  # Setup KO_DOCKER_REPO if it is a GKE cluster. Incorporate an element of 
+  # randomness to ensure that each run properly publishes images. Don't 
+  # owerwrite KO_DOCKER_REPO if already set.
+  [ -z "${KO_DOCKER_REPO}" ] && \
+    [[ "${k8s_cluster}" =~ ^gke_.* ]] && \
+    export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${REPO_NAME}-e2e-img/${RANDOM}
 
   # Safety checks
   is_protected_gcr "${KO_DOCKER_REPO}" && \
