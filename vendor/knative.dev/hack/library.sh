@@ -553,8 +553,11 @@ function go_update_deps() {
   echo "--- Go mod tidy and vendor"
 
   # Prune modules.
-  go mod tidy
-  go mod vendor
+  local orig_pipefail_opt=$(shopt -p -o pipefail)
+  set -o pipefail
+  go mod tidy 2>&1 | grep -v "ignoring symlink" || true
+  go mod vendor 2>&1 |  grep -v "ignoring symlink" || true
+  eval "$orig_pipefail_opt"
 
   echo "--- Removing unwanted vendor files"
 
@@ -741,6 +744,14 @@ function shellcheck_new_files() {
   if [[ ${failed} -eq 1 ]]; then
     fail_script "shellcheck failures"
   fi
+}
+
+function latest_version() {
+  local semver=$(git describe --match "v[0-9]*" --abbrev=0)
+  local major_minor=$(echo "$semver" | cut -d. -f1-2)
+
+  # Get the latest patch release for the major minor
+  git tag -l "${major_minor}*" | sort -r --version-sort | head -n1
 }
 
 # Initializations that depend on previous functions.
