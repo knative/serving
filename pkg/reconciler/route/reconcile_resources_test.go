@@ -89,7 +89,30 @@ func TestReconcileIngressUpdate(t *testing.T) {
 	}
 }
 
-func TestReconcileIngressBadRollout(t *testing.T) {
+func TestReconcileIngressRolloutDeserializeFail(t *testing.T) {
+	// Test cases where previous rollout is invalid or missing.
+	tests := []struct {
+		name string
+		val  string
+	}{{
+		name: "missing",
+	}, {
+		name: "invalid",
+		val: func() string {
+			ro := &traffic.Rollout{
+				Configurations: []traffic.ConfigurationRollout{{
+					ConfigurationName: "configuration",
+					Percent:           202, // <- this is not right!
+				}},
+			}
+			d, _ := json.Marshal(ro)
+			return string(d)
+		}(),
+	}, {
+		name: "nonparseable",
+		val:  `<?xml version="1.0" encoding="utf-8"?><rollout name="from-the-wrong-universe"/>`,
+	}}
+
 	var reconciler *Reconciler
 	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
 		reconciler = r
@@ -97,71 +120,35 @@ func TestReconcileIngressBadRollout(t *testing.T) {
 	defer cancel()
 	ctx = updateContext(ctx)
 
-	r := Route("test-ns", "test-route")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := Route("test-ns", "test-route-"+tc.name)
 
-	tc, tls := testIngressParams(t, r)
-	ing, err := resources.MakeIngressWithRollout(ctx, r, tc, &traffic.Rollout{
-		Configurations: []traffic.ConfigurationRollout{{
-			ConfigurationName: "configuration",
-			Percent:           202, // <- this is not right!
-		}},
-	}, tls, "foo-ingress")
-	if err != nil {
-		t.Fatal("Error creating ingress:", err)
-	}
-	ingClient := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Ingresses(ing.Namespace)
-	ingClient.Create(ctx, ing, metav1.CreateOptions{})
-	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ing)
-	if _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
-		t.Error("Unexpected error:", err)
-	}
-	ing, err = ingClient.Get(ctx, ing.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatal("Could not get the ingress:", err)
-	}
-	// We want to ignore the previous one, since it's bogus.
-	want := func() string {
-		d, _ := json.Marshal(tc.BuildRollout())
-		return string(d)
-	}()
-	if got := ing.Annotations[networking.RolloutAnnotationKey]; got != want {
-		t.Errorf("Incorrect Rollout Annotation; diff(-want,+got):\n%s", cmp.Diff(want, got))
-	}
-}
-
-func TestReconcileIngressUnparseableRollout(t *testing.T) {
-	var reconciler *Reconciler
-	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
-		reconciler = r
-	})
-	defer cancel()
-	ctx = updateContext(ctx)
-
-	r := Route("test-ns", "test-route")
-
-	tc, tls := testIngressParams(t, r)
-	ing, err := resources.MakeIngress(ctx, r, tc, tls, "foo-ingress")
-	if err != nil {
-		t.Fatal("Error creating ingress:", err)
-	}
-	ing.Annotations[networking.RolloutAnnotationKey] = `<?xml version="1.0" encoding="utf-8"?><rollout name="from-the-wrong-universe"/>`
-	ingClient := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Ingresses(ing.Namespace)
-	ingClient.Create(ctx, ing, metav1.CreateOptions{})
-	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ing)
-	if _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
-		t.Error("Unexpected error:", err)
-	}
-	ing, err = ingClient.Get(ctx, ing.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatal("Could not get the ingress:", err)
-	}
-	// We want to ignore the previous one, since it's bogus.
-	want := func() string {
-		d, _ := json.Marshal(tc.BuildRollout())
-		return string(d)
-	}()
-	if got := ing.Annotations[networking.RolloutAnnotationKey]; got != want {
-		t.Errorf("Incorrect Rollout Annotation; diff(-want,+got):\n%s", cmp.Diff(want, got))
+			traffic, tls := testIngressParams(t, r)
+			ing, err := resources.MakeIngress(ctx, r, traffic, tls, "foo-ingress")
+			if err != nil {
+				t.Fatal("Error creating ingress:", err)
+			}
+			ing.Annotations[networking.RolloutAnnotationKey] = tc.val
+			ingClient := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Ingresses(ing.Namespace)
+			ingClient.Create(ctx, ing, metav1.CreateOptions{})
+			fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ing)
+			if _, err := reconciler.reconcileIngress(ctx, r, traffic, tls, "foo-ingress"); err != nil {
+				t.Error("Unexpected error:", err)
+			}
+			ing, err = ingClient.Get(ctx, ing.Name, metav1.GetOptions{})
+			if err != nil {
+				t.Fatal("Could not get the ingress:", err)
+			}
+			// In all cases we want to ignore the previous one, since it's bogus.
+			want := func() string {
+				d, _ := json.Marshal(traffic.BuildRollout())
+				return string(d)
+			}()
+			if got := ing.Annotations[networking.RolloutAnnotationKey]; got != want {
+				t.Errorf("Incorrect Rollout Annotation; diff(-want,+got):\n%s", cmp.Diff(want, got))
+			}
+		})
 	}
 }
 
@@ -187,15 +174,26 @@ func newTestRevision(namespace, name string) *v1.Revision {
 
 func testIngressParams(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.Config)) (*traffic.Config,
 	[]netv1alpha1.IngressTLS) {
-	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
-		traffic.DefaultTarget: {{
-			TrafficTarget: v1.TrafficTarget{
-				ConfigurationName: "config",
-				RevisionName:      "revision",
-				Percent:           ptr.Int64(100),
-				LatestRevision:    ptr.Bool(true),
-			},
-		}}}}
+	tc := &traffic.Config{
+		Targets: map[string]traffic.RevisionTargets{
+			traffic.DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "config",
+					RevisionName:      "revision",
+					Percent:           ptr.Int64(65),
+					LatestRevision:    ptr.Bool(true),
+				},
+			}},
+			"a-good-tag": {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "config2",
+					RevisionName:      "revision2",
+					Percent:           ptr.Int64(100),
+					LatestRevision:    ptr.Bool(true),
+				},
+			}},
+		},
+	}
 
 	for _, opt := range trafficOpts {
 		opt(tc)
