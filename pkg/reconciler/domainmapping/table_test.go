@@ -37,12 +37,16 @@ import (
 	"knative.dev/pkg/logging"
 	pkgnetwork "knative.dev/pkg/network"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/pkg/resolver"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
 
+	"knative.dev/pkg/client/injection/ducks/duck/v1/addressable"
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing"
@@ -61,6 +65,7 @@ func TestReconcile(t *testing.T) {
 		Name: "first reconcile",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
+			ksvc("default", "target", "the-target-svc.url"),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -77,15 +82,40 @@ func TestReconcile(t *testing.T) {
 		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
 		WantCreates: []runtime.Object{
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
-			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-ingress-class"),
+			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc.url", "the-ingress-class"),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
 		},
 	}, {
+		Name: "first reconcile, ref does not exist",
+		Key:  "default/first-reconcile.com",
+		Objects: []runtime.Object{
+			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
+		},
+		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "first-reconcile.com",
+				withRef("default", "target"),
+				withURL("http", "first-reconcile.com"),
+				withAddress("http", "first-reconcile.com"),
+				withInitDomainMappingConditions,
+				withDomainClaimed,
+				withReferenceNotResolved(`services.serving.knative.dev "target" not found`),
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `resolving reference: services.serving.knative.dev "target" not found`),
+		},
+	}, {
 		Name: "first reconcile, pre-owned domain claim",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
+			ksvc("default", "target", "the-target-svc.url"),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 		},
@@ -101,7 +131,7 @@ func TestReconcile(t *testing.T) {
 			),
 		}},
 		WantCreates: []runtime.Object{
-			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-ingress-class"),
+			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc.url", "the-ingress-class"),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
@@ -160,6 +190,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile with ingressClass annotation",
 		Key:  "default/ingressclass.first-reconcile.com",
 		Objects: []runtime.Object{
+			ksvc("default", "target", "the-target-svc.url"),
 			domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"),
 				withAnnotations(map[string]string{
 					networking.IngressClassAnnotationKey: "overridden-ingress-class",
@@ -184,7 +215,7 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			resources.MakeDomainClaim(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"))),
 			resources.MakeIngress(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target")),
-				"overridden-ingress-class"),
+				"the-target-svc.url", "overridden-ingress-class"),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "ingressclass.first-reconcile.com"),
@@ -193,8 +224,9 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile changed ref",
 		Key:  "default/ingress-exists.org",
 		Objects: []runtime.Object{
+			ksvc("default", "changed", "the-target-svc.url"),
 			domainMapping("default", "ingress-exists.org", withRef("default", "changed")),
-			resources.MakeIngress(domainMapping("default", "ingress-exists.org", withRef("default", "target")), "the-ingress-class"),
+			resources.MakeIngress(domainMapping("default", "ingress-exists.org", withRef("default", "target")), "the-target-svc.url", "the-ingress-class"),
 			resources.MakeDomainClaim(domainMapping("default", "ingress-exists.org", withRef("default", "target"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -215,6 +247,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile failed ingress",
 		Key:  "default/ingress-failed.me",
 		Objects: []runtime.Object{
+			ksvc("default", "failed", "the-target-svc.url"),
 			domainMapping("default", "ingress-failed.me",
 				withRef("default", "failed"),
 				withURL("http", "ingress-failed.me"),
@@ -240,6 +273,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile unknown ingress",
 		Key:  "default/ingress-unknown.me",
 		Objects: []runtime.Object{
+			ksvc("default", "unknown", "the-target-svc.url"),
 			domainMapping("default", "ingress-unknown.me", withRef("default", "unknown"),
 				withRef("default", "unknown"),
 				withURL("http", "ingress-unknown.me"),
@@ -265,6 +299,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile ready ingress",
 		Key:  "default/ingress-ready.me",
 		Objects: []runtime.Object{
+			ksvc("default", "ready", "the-target-svc.url"),
 			domainMapping("default", "ingress-ready.me",
 				withRef("default", "ready"),
 				withURL("http", "ingress-ready.me"),
@@ -293,6 +328,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "ingresses"),
 		},
 		Objects: []runtime.Object{
+			ksvc("default", "cantcreate", "the-target-svc.url"),
 			domainMapping("default", "cantcreate.this",
 				withRef("default", "cantcreate"),
 				withURL("http", "cantcreate.this"),
@@ -333,6 +369,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "ingresses"),
 		},
 		Objects: []runtime.Object{
+			ksvc("default", "cantupdate", "the-target-svc.url"),
 			domainMapping("default", "cantupdate.this",
 				withRef("default", "cantupdate"),
 				withURL("http", "cantupdate.this"),
@@ -369,9 +406,11 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		ctx = addressable.WithDuck(ctx)
 		r := &Reconciler{
 			netclient:     networkingclient.Get(ctx),
 			ingressLister: listers.GetIngressLister(),
+			resolver:      resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
 		}
 
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
@@ -464,6 +503,12 @@ func withReferenceResolved(dm *v1alpha1.DomainMapping) {
 	dm.Status.MarkReferenceResolved()
 }
 
+func withReferenceNotResolved(message string) domainMappingOption {
+	return func(dm *v1alpha1.DomainMapping) {
+		dm.Status.MarkReferenceNotResolved(message)
+	}
+}
+
 func withGeneration(generation int64) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Generation = generation
@@ -475,7 +520,7 @@ func withObservedGeneration(dm *v1alpha1.DomainMapping) {
 }
 
 func ingress(dm *v1alpha1.DomainMapping, ingressClass string, opt ...IngressOption) *netv1alpha1.Ingress {
-	ing := resources.MakeIngress(dm, ingressClass)
+	ing := resources.MakeIngress(dm, "the-target-svc.url", ingressClass)
 	for _, o := range opt {
 		o(ing)
 	}
@@ -497,6 +542,24 @@ func withIngressReady(ing *netv1alpha1.Ingress) {
 	)
 
 	ing.Status = status
+}
+
+func ksvc(ns, name, address string) *servingv1.Service {
+	return &servingv1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Status: servingv1.ServiceStatus{
+			RouteStatusFields: v1.RouteStatusFields{
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Host: address,
+					},
+				},
+			},
+		},
+	}
 }
 
 func withIngressNotReady(ing *netv1alpha1.Ingress) {

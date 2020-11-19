@@ -34,6 +34,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
+	"knative.dev/pkg/resolver"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
@@ -44,6 +45,7 @@ import (
 type Reconciler struct {
 	ingressLister networkinglisters.IngressLister
 	netclient     netclientset.Interface
+	resolver      *resolver.URIResolver
 }
 
 // Check that our Reconciler implements Interface
@@ -79,13 +81,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 		return err
 	}
 
-	// Since we currently assume all DomainMapping References are KServices we
-	// don't do any resolution yet, so we'll just immediately mark the condition.
-	dm.Status.MarkReferenceResolved()
+	// Resolve the spec.Ref to a URI following the Addressable contract.
+	target, err := r.resolveRef(ctx, dm)
+	if err != nil {
+		return err
+	}
 
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
 	logger.Debugf("Mapping %s to %s/%s", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name)
-	desired := resources.MakeIngress(dm, ingressClass)
+	desired := resources.MakeIngress(dm, target.Host, ingressClass)
 	ingress, err := r.reconcileIngress(ctx, dm, desired)
 	if err != nil {
 		return err
@@ -130,6 +134,17 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMa
 	}
 
 	return ingress, err
+}
+
+func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping) (*apis.URL, error) {
+	resolved, err := r.resolver.URIFromKReference(ctx, &dm.Spec.Ref, dm)
+	if err != nil {
+		dm.Status.MarkReferenceNotResolved(err.Error())
+		return nil, fmt.Errorf("resolving reference: %w", err)
+	}
+
+	dm.Status.MarkReferenceResolved()
+	return resolved, nil
 }
 
 func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {

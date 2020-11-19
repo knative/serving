@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/resolver"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/domainmapping"
 	kindreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
@@ -63,6 +64,8 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	}
 	ingressInformer.Informer().AddEventHandler(handleControllerOf)
+
+	r.resolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
 
 	return impl
 }

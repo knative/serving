@@ -1017,10 +1017,12 @@ knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
 knative.dev/pkg/apis/duck/ducktypes
 knative.dev/pkg/apis/duck/v1
+knative.dev/pkg/apis/duck/v1beta1
 knative.dev/pkg/apis/testing
 knative.dev/pkg/apis/testing/fuzzer
 knative.dev/pkg/apis/testing/roundtrip
 knative.dev/pkg/changeset
+knative.dev/pkg/client/injection/ducks/duck/v1/addressable
 knative.dev/pkg/client/injection/kube/client
 knative.dev/pkg/client/injection/kube/client/fake
 knative.dev/pkg/client/injection/kube/informers/admissionregistration/v1/mutatingwebhookconfiguration
@@ -1082,6 +1084,7 @@ knative.dev/pkg/profiling
 knative.dev/pkg/ptr
 knative.dev/pkg/reconciler
 knative.dev/pkg/reconciler/testing
+knative.dev/pkg/resolver
 knative.dev/pkg/signals
 knative.dev/pkg/system
 knative.dev/pkg/system/testing
