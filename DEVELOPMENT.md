@@ -214,7 +214,7 @@ Knative supports a variety of Ingress solutions.
 For simplicity, you can just run the following command to install Kourier.
 
 ```
-kubectl apply -f https://github.com/knative/net-kourier/releases/download/v0.18.0/kourier.yaml
+kubectl apply -f ./third_party/kourier-latest/kourier.yaml
 
 kubectl patch configmap/config-network \
   -n knative-serving \
@@ -277,7 +277,7 @@ You can delete all of the service components with:
 ```shell
 ko delete --ignore-not-found=true \
   -Rf config/core/ \
-  -f https://github.com/knative/net-kourier/releases/download/v0.18.0/kourier.yaml \
+  -f ./third_party/kourier-latest/kourier.yaml \
   -f ./third_party/cert-manager-latest/cert-manager.yaml
 ```
 
