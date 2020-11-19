@@ -42,6 +42,8 @@ function install_istio() {
   echo "Istio version: ${ISTIO_VERSION}"
   echo "Istio profile: ${ISTIO_PROFILE}"
   ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
+  
+  kubectl apply -f ./test/config/security/peerauthentication_crd.yaml | return 1
 
   if [[ -n "$1" ]]; then
     echo ">> Installing net-istio"
