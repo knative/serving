@@ -150,7 +150,7 @@ ServerlessServices are created from PodAutoscalers.
 ![scale-up-down](images/scale-up-down.png)
 
 At steady state, the autoscaler is constantly scraping the currently active
-revision pods to adjust the scale of the revision constantly. As requests flow
+revision's pods to adjust the scale of the revision constantly. As requests flow
 into the system, the scraped values will change and the autoscaler will instruct
 the revision's deployment to adhere to a given scale.
 
@@ -162,11 +162,11 @@ service. It updates the public service accordingly.
 ![scale-to-0](images/scale-to-0.png)
 
 A revision scales to zero once there are no more requests in the system anymore.
-All scrapes from the autoscaler to revision pods return 0 concurrency and the
+All scrapes from the autoscaler to revision's pods return 0 concurrency and the
 activator reports the same (1).
 
 Before actually removing the last pod of the revision the system makes sure that
-the activator is in the path and routable. The autoscaler, who decided to
+the activator is in the data-path and routable. The autoscaler, who decided to
 scale-to-zero in the first place, instructs the SKS to use **`Proxy`** mode, so
 all traffic is directed at the activators (4.1). The SKS's public service is now
 probed until it has been ensured to return responses from the activator. Once
@@ -182,7 +182,7 @@ If a revision is scaled to zero and a request comes into the system trying to
 reach this revision, the system needs to scale it up. As the SKS is in
 **`Proxy`** mode, the request will reach the activator (1), which will count it
 and report its appearance to the autoscaler (2.1). The activator will then
-buffer the request and watch the SKS's private service for endpoints to appear
+buffer the requests and watch the SKS's private service for endpoints to appear
 (2.2).
 
 The autoscaler gets the metric from the activator and immediately runs an
