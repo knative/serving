@@ -43,6 +43,8 @@ function install_istio() {
   echo "Istio profile: ${ISTIO_PROFILE}"
   ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
   
+  # This is a temporary workaound for allowing installing PeerAuthentication
+  # in order to let upgrading test pass.
   kubectl apply -f ./test/config/security/peerauthentication_crd.yaml | return 1
 
   if [[ -n "$1" ]]; then
