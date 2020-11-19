@@ -311,7 +311,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 	}, {
-		name: "roll with two existing, no deletes",
+		name: "roll with two existing revisions, no deletes",
 		cur: &Rollout{
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
@@ -505,6 +505,62 @@ func TestStep(t *testing.T) {
 				Revisions: []RevisionRollout{{
 					RevisionName: "it's-only-rock-n-roll",
 					Percent:      100,
+				}},
+			}},
+		},
+	}, {
+		name: "a/b config, roll both",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           99,
+				Revisions: []RevisionRollout{{
+					RevisionName: "black-on-blue",
+					Percent:      99,
+				}},
+			}, {
+				ConfigurationName: "mick",
+				Percent:           1,
+				Revisions: []RevisionRollout{{
+					RevisionName: "it's-only-rock-n-roll",
+					Percent:      1,
+				}},
+			}},
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           99,
+				Revisions: []RevisionRollout{{
+					RevisionName: "can't-get-no-satisfaction",
+					Percent:      99,
+				}},
+			}, {
+				ConfigurationName: "mick",
+				Percent:           1,
+				Revisions: []RevisionRollout{{
+					RevisionName: "get-off-my-cloud",
+					Percent:      1,
+				}},
+			}},
+		},
+		want: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           99,
+				Revisions: []RevisionRollout{{ // <-- note this one actually rolls.
+					RevisionName: "can't-get-no-satisfaction",
+					Percent:      98,
+				}, {
+					RevisionName: "black-on-blue",
+					Percent:      1,
+				}},
+			}, {
+				ConfigurationName: "mick",
+				Percent:           1,
+				Revisions: []RevisionRollout{{
+					RevisionName: "it's-only-rock-n-roll",
+					Percent:      1,
 				}},
 			}},
 		},
