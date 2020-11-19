@@ -29,7 +29,7 @@ source $(dirname $0)/../e2e-networking-library.sh
 export MESH=0
 export KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 export SYSTEM_NAMESPACE="knative-serving"
-export ISTIO_VERSION="stable"
+export ISTIO_VERSION="latest"
 export UNINSTALL_LIST=()
 export TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
 

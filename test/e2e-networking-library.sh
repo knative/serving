@@ -15,9 +15,7 @@
 # limitations under the License.
 
 function install_istio() {
-  if [[ -z "${ISTIO_VERSION}" ]]; then
-    readonly ISTIO_VERSION="latest"
-  fi
+  export ISTIO_VERSION="latest"
 
   # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
   local NET_ISTIO_COMMIT=0aab2b296f1347785ab5ebec82c27e6f90e1fce5
