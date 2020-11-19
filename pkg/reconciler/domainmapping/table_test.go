@@ -71,7 +71,7 @@ func TestReconcile(t *testing.T) {
 				withInitDomainMappingConditions,
 				withDomainClaimed,
 				withIngressNotConfigured,
-				withDomainClaimed,
+				withReferenceResolved,
 			),
 		}},
 		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
@@ -97,6 +97,7 @@ func TestReconcile(t *testing.T) {
 				withInitDomainMappingConditions,
 				withIngressNotConfigured,
 				withDomainClaimed,
+				withReferenceResolved,
 			),
 		}},
 		WantCreates: []runtime.Object{
@@ -173,7 +174,7 @@ func TestReconcile(t *testing.T) {
 				withInitDomainMappingConditions,
 				withDomainClaimed,
 				withIngressNotConfigured,
-				withDomainClaimed,
+				withReferenceResolved,
 				withAnnotations(map[string]string{
 					networking.IngressClassAnnotationKey: "overridden-ingress-class",
 				}),
@@ -204,7 +205,7 @@ func TestReconcile(t *testing.T) {
 				withInitDomainMappingConditions,
 				withDomainClaimed,
 				withIngressNotConfigured,
-				withDomainClaimed,
+				withReferenceResolved,
 			),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -231,6 +232,7 @@ func TestReconcile(t *testing.T) {
 				withAddress("http", "ingress-failed.me"),
 				withInitDomainMappingConditions,
 				withDomainClaimed,
+				withReferenceResolved,
 				withPropagatedStatus(ingress(domainMapping("default", "ingress-failed.me"), "", WithLoadbalancerFailed("fell over", "hurt myself")).Status),
 			),
 		}},
@@ -255,6 +257,7 @@ func TestReconcile(t *testing.T) {
 				withAddress("http", "ingress-unknown.me"),
 				withInitDomainMappingConditions,
 				withDomainClaimed,
+				withReferenceResolved,
 				withPropagatedStatus(ingress(domainMapping("default", "ingress-unknown.me"), "", withIngressNotReady).Status),
 			),
 		}},
@@ -279,6 +282,7 @@ func TestReconcile(t *testing.T) {
 				withAddress("http", "ingress-ready.me"),
 				withInitDomainMappingConditions,
 				withDomainClaimed,
+				withReferenceResolved,
 				withPropagatedStatus(ingress(domainMapping("default", "ingress-ready.me"), "", withIngressReady).Status),
 			),
 		}},
@@ -295,6 +299,7 @@ func TestReconcile(t *testing.T) {
 				withAddress("http", "cantcreate.this"),
 				withInitDomainMappingConditions,
 				withDomainClaimed,
+				withReferenceResolved,
 				withGeneration(1),
 			),
 			resources.MakeDomainClaim(domainMapping("default", "cantcreate.this", withRef("default", "target"))),
@@ -311,6 +316,7 @@ func TestReconcile(t *testing.T) {
 				withAddress("http", "cantcreate.this"),
 				withInitDomainMappingConditions,
 				withDomainClaimed,
+				withReferenceResolved,
 				withIngressNotConfigured,
 				withGeneration(1),
 				withObservedGeneration,
@@ -333,6 +339,7 @@ func TestReconcile(t *testing.T) {
 				withAddress("http", "cantupdate.this"),
 				withInitDomainMappingConditions,
 				withDomainClaimed,
+				withReferenceResolved,
 				withGeneration(1),
 			),
 			ingress(domainMapping("default", "cantupdate.this", withRef("default", "previous-value")), "the-ingress-class"),
@@ -350,6 +357,7 @@ func TestReconcile(t *testing.T) {
 				withAddress("http", "cantupdate.this"),
 				withInitDomainMappingConditions,
 				withDomainClaimed,
+				withReferenceResolved,
 				withIngressNotConfigured,
 				withGeneration(1),
 				withObservedGeneration,
@@ -450,6 +458,10 @@ func withDomainClaimNotOwned(dm *v1alpha1.DomainMapping) {
 
 func withDomainClaimed(dm *v1alpha1.DomainMapping) {
 	dm.Status.MarkDomainClaimed()
+}
+
+func withReferenceResolved(dm *v1alpha1.DomainMapping) {
+	dm.Status.MarkReferenceResolved()
 }
 
 func withGeneration(generation int64) domainMappingOption {
