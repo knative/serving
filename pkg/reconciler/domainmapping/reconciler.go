@@ -143,6 +143,11 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping)
 		return nil, fmt.Errorf("resolving reference: %w", err)
 	}
 
+	if resolved.Path != "" {
+		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q contains a path", resolved))
+		return nil, fmt.Errorf("resolved URI %q contains a path", resolved)
+	}
+
 	dm.Status.MarkReferenceResolved()
 	return resolved, nil
 }
