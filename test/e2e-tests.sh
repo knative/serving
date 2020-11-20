@@ -45,7 +45,7 @@ header "Running tests"
 
 failed=0
 
-# Run tests serially in the mesh and https scenarios
+# Run tests serially in the mesh and https scenarios.
 parallelism=""
 use_https=""
 if (( MESH )); then
@@ -59,7 +59,7 @@ if (( HTTPS )); then
   add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
 
-# Keep the bucket count in sync with test/ha/ha.go
+# Keep the bucket count in sync with test/ha/ha.go.
 kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
   --patch='{"data":{"buckets": "'${BUCKETS}'"}}' || fail_test
 
@@ -74,7 +74,7 @@ scale_controlplane "${HA_COMPONENTS[@]}"
 # lease resources at the old sharding factor, so clean these up.
 kubectl -n ${SYSTEM_NAMESPACE} delete leases --all
 
-# Wait for a new leader Controller to prevent race conditions during service reconciliation
+# Wait for a new leader Controller to prevent race conditions during service reconciliation.
 wait_for_leader_controller || fail_test
 
 # Dump the leases post-setup.
@@ -114,7 +114,7 @@ toggle_feature multi-container Enabled
 go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
 toggle_feature multi-container Disabled
 
-# Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
+# Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go).
 toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
 go_test_e2e -timeout=2m ./test/e2e/initscale || failed=1
 toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
@@ -129,14 +129,12 @@ toggle_feature responsive-revision-gc Disabled
 
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
-# sub-test.  If this is not larger than the maximum scale tested then the test
+# sub-test. If this is not larger than the maximum scale tested then the test
 # simply cannot pass.
 go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
 
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
-# In HA tests, all leading pods are deleted explicitly instead of depending on
-# the Chaosduck. And we wait for all the new leading pods to become ready.
 go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
 	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
 
