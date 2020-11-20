@@ -150,8 +150,10 @@ func (cur *Rollout) Step(prev *Rollout) *Rollout {
 				switch p := ccfgs[i].Percent; {
 				case p > 1:
 					ret = append(ret, *stepConfig(ccfgs[i], pcfgs[j]))
-				case p == 0:
-					ret = append(ret, ccfgs[i])
+				case p == 1:
+					// Skip all the work if it's a common A/B scenario where the test config
+					// receives just 1% of traffic.
+					ret = append(ret, *ccfgs[i])
 				}
 				i++
 				j++
@@ -211,12 +213,6 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 		Tag:               goal.Tag,
 		Percent:           goal.Percent,
 		Revisions:         goal.Revisions,
-	}
-
-	// Skip all the work if it's a common A/B scenario where the test config
-	// receives just 1% of traffic.
-	if goal.Percent == 1 {
-		return ret
 	}
 
 	if len(prev.Revisions) > 0 {
