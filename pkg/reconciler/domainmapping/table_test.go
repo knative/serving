@@ -39,7 +39,6 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
@@ -551,7 +550,7 @@ func ksvc(ns, name, address string) *servingv1.Service {
 			Namespace: ns,
 		},
 		Status: servingv1.ServiceStatus{
-			RouteStatusFields: v1.RouteStatusFields{
+			RouteStatusFields: servingv1.RouteStatusFields{
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
 						Host: address,
