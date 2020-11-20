@@ -19,6 +19,7 @@ package domainmapping
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -33,6 +34,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -146,6 +148,12 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping)
 	if resolved.Path != "" {
 		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q contains a path", resolved))
 		return nil, fmt.Errorf("resolved URI %q contains a path", resolved)
+	}
+
+	suffix := "svc." + network.GetClusterDomainName()
+	if !strings.HasSuffix(resolved.Host, suffix) {
+		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q must end in %q", resolved, suffix))
+		return nil, fmt.Errorf("resolved URI %q must end in %q", resolved, suffix)
 	}
 
 	dm.Status.MarkReferenceResolved()
