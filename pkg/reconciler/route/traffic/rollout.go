@@ -147,8 +147,13 @@ func (cur *Rollout) Step(prev *Rollout) *Rollout {
 				// Config might have 0% traffic assigned, if it is a tag only route (i.e.
 				// receives no traffic via default tag). So just skip it from the rollout
 				// altogether.
-				if ccfgs[i].Percent != 0 {
+				switch p := ccfgs[i].Percent; {
+				case p > 1:
 					ret = append(ret, *stepConfig(ccfgs[i], pcfgs[j]))
+				case p == 1:
+					// Skip all the work if it's a common A/B scenario where the test config
+					// receives just 1% of traffic.
+					ret = append(ret, *ccfgs[i])
 				}
 				i++
 				j++
