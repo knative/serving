@@ -27,7 +27,6 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
-	pkgnetwork "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -49,7 +48,7 @@ func TestMakeIngress(t *testing.T) {
 		},
 	}
 
-	got := MakeIngress(dm, "the-ingress-class")
+	got := MakeIngress(dm, "the-rewrite-host", "the-ingress-class")
 
 	want := &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -67,7 +66,7 @@ func TestMakeIngress(t *testing.T) {
 				Visibility: netv1alpha1.IngressVisibilityExternalIP,
 				HTTP: &netv1alpha1.HTTPIngressRuleValue{
 					Paths: []netv1alpha1.HTTPIngressPath{{
-						RewriteHost: pkgnetwork.GetServiceHostname("the-name", "the-namespace"),
+						RewriteHost: "the-rewrite-host",
 						Splits: []netv1alpha1.IngressBackendSplit{{
 							Percent: 100,
 							AppendHeaders: map[string]string{
