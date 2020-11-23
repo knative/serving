@@ -410,28 +410,26 @@ function start_latest_knative_serving() {
 }
 
 # Install Knative Eventing in the current cluster.
-# Parameters: $1 - Knative Eventing crds manifest.
-#             $2 - Knative Eventing core manifest.
+# Parameters: $1 - Knative Eventing manifest.
 function start_knative_eventing() {
   header "Starting Knative Eventing"
   subheader "Installing Knative Eventing"
   echo "Installing Eventing CRDs from $1"
+  kubectl apply --selector knative.dev/crd-install=true -f "$1"
+  echo "Installing the rest of eventing components from $1"
   kubectl apply -f "$1"
-  echo "Installing Eventing core components from $2"
-  kubectl apply -f "$2"
   wait_until_pods_running knative-eventing || return 1
 }
 
 # Install the stable release Knative/eventing in the current cluster.
 # Parameters: $1 - Knative Eventing version number, e.g. 0.6.0.
 function start_release_knative_eventing() {
-  start_knative_eventing "https://storage.googleapis.com/knative-releases/eventing/previous/v$1/eventing-crds.yaml" \
-    "https://storage.googleapis.com/knative-releases/eventing/previous/v$1/eventing-core.yaml"
+  start_knative_eventing "https://storage.googleapis.com/knative-releases/eventing/previous/v$1/eventing.yaml"
 }
 
 # Install the latest stable Knative Eventing in the current cluster.
 function start_latest_knative_eventing() {
-  start_knative_eventing "${KNATIVE_EVENTING_RELEASE_CRDS}" "${KNATIVE_EVENTING_RELEASE_CORE}"
+  start_knative_eventing "${KNATIVE_EVENTING_RELEASE}"
 }
 
 # Install Knative Eventing extension in the current cluster.
@@ -764,6 +762,5 @@ readonly REPO_NAME_FORMATTED="Knative $(capitalize "${REPO_NAME//-/ }")"
 readonly KNATIVE_SERVING_RELEASE_CRDS="$(get_latest_knative_yaml_source "serving" "serving-crds")"
 readonly KNATIVE_SERVING_RELEASE_CORE="$(get_latest_knative_yaml_source "serving" "serving-core")"
 readonly KNATIVE_NET_ISTIO_RELEASE="$(get_latest_knative_yaml_source "net-istio" "net-istio")"
-readonly KNATIVE_EVENTING_RELEASE_CRDS="$(get_latest_knative_yaml_source "eventing" "eventing-crds")"
-readonly KNATIVE_EVENTING_RELEASE_CORE="$(get_latest_knative_yaml_source "eventing" "eventing-core")"
+readonly KNATIVE_EVENTING_RELEASE="$(get_latest_knative_yaml_source "eventing" "eventing")"
 readonly KNATIVE_EVENTING_SUGAR_CONTROLLER_RELEASE="$(get_latest_knative_yaml_source "eventing" "eventing-sugar-controller")"
