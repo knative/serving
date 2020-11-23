@@ -150,7 +150,7 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping)
 		return nil, fmt.Errorf("resolved URI %q contains a path", resolved)
 	}
 
-	suffix := "svc." + network.GetClusterDomainName()
+	suffix := ".svc." + network.GetClusterDomainName()
 	if !strings.HasSuffix(resolved.Host, suffix) {
 		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q must end in %q", resolved, suffix))
 		return nil, fmt.Errorf("resolved URI %q must end in %q", resolved, suffix)

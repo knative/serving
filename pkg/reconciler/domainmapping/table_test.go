@@ -139,7 +139,7 @@ func TestReconcile(t *testing.T) {
 		Name: "first reconcile, ref doesn't end in cluster suffix",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
-			ksvc("default", "target", "not-cluster.local", ""),
+			ksvc("default", "target", "notasvc.cluster.local", ""),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 		},
 		WantErr: true,
@@ -150,7 +150,7 @@ func TestReconcile(t *testing.T) {
 				withAddress("http", "first-reconcile.com"),
 				withInitDomainMappingConditions,
 				withDomainClaimed,
-				withReferenceNotResolved(`resolved URI "http://not-cluster.local" must end in "svc.cluster.local"`),
+				withReferenceNotResolved(`resolved URI "http://notasvc.cluster.local" must end in ".svc.cluster.local"`),
 			),
 		}},
 		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
@@ -158,7 +158,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `resolved URI "http://not-cluster.local" must end in "svc.cluster.local"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `resolved URI "http://notasvc.cluster.local" must end in ".svc.cluster.local"`),
 		},
 	}, {
 		Name: "first reconcile, pre-owned domain claim",
