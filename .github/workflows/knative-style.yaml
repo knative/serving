@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: |
           goimports -w $(find -path './vendor' -prune -o -path './third_party' -prune -o -name '*.pb.go' -prune -o -type f -name '*.go' -print)
-          echo "::set-env name=FMT_TOOL::goimports"
+          echo "FMT_TOOL=goimports" >> $GITHUB_ENV
       - name: Verify goimport
         shell: bash
         run: |
@@ -65,7 +65,7 @@ jobs:
         shell: bash
         run: |
           gofmt -s -w $(find -path './vendor' -prune -o -path './third_party' -prune -o -name '*.pb.go' -prune -o -type f -name '*.go' -print)
-          echo "::set-env name=FMT_TOOL::gofmt"
+          echo "FMT_TOOL=gofmt" >> $GITHUB_ENV
       - name: Verify gofmt
         shell: bash
         # TODO(mattmoor): combine with above via anchors when actions support it.
@@ -109,7 +109,7 @@ jobs:
           curl -sfL https://raw.githubusercontent.com/get-woke/woke/main/install.sh | sh -s -- -b "${TEMP_PATH}" "${WOKE_VERSION}" 2>&1
           echo '::endgroup::'
 
-          echo "::add-path::${TEMP_PATH}"
+          echo "${TEMP_PATH}" >> $GITHUB_PATH
 
       - id: golangci_configuration
         uses: andstor/file-existence-action@v1

@@ -151,8 +151,8 @@ jobs:
           kubectl apply -f -
 
         # This tells the tests what namespace to look in for our kingress LB.
-        echo "::set-env name=GATEWAY_OVERRIDE::envoy"
-        echo "::set-env name=GATEWAY_NAMESPACE_OVERRIDE::contour-external"
+        echo "GATEWAY_OVERRIDE=envoy" >> $GITHUB_ENV
+        echo "GATEWAY_NAMESPACE_OVERRIDE=contour-external" >> $GITHUB_ENV
 
     - name: Install kingress provider (Kourier)
       if: matrix.kingress == 'kourier'
@@ -166,8 +166,8 @@ jobs:
           kubectl apply -f -
 
         # This tells the tests what namespace to look in for our kingress LB.
-        echo "::set-env name=GATEWAY_OVERRIDE::kourier"
-        echo "::set-env name=GATEWAY_NAMESPACE_OVERRIDE::kourier-system"
+        echo "GATEWAY_OVERRIDE=kourier" >> $GITHUB_ENV
+        echo "GATEWAY_NAMESPACE_OVERRIDE=kourier-system" >> $GITHUB_ENV
 
     - name: Install kingress provider (Istio)
       if: matrix.kingress == 'istio'
