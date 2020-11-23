@@ -468,7 +468,6 @@ function parse_flags() {
   readonly RELEASE_BRANCH
   readonly RELEASE_GCS_BUCKET
   readonly RELEASE_DIR
-  readonly KO_DOCKER_REPO
   readonly VALIDATION_TESTS
   readonly FROM_NIGHTLY_RELEASE
 }
@@ -478,11 +477,16 @@ function parse_flags() {
 function run_validation_tests() {
   (( SKIP_TESTS )) && return
   banner "Running release validation tests"
+  # Unset KO_DOCKER_REPO and restore it after the tests are finished.
+  # This will allow the tests to define their own KO_DOCKER_REPO.
+  local old_docker_repo="${KO_DOCKER_REPO}"
+  unset KO_DOCKER_REPO
   # Run tests.
   if ! $1; then
     banner "Release validation tests failed, aborting"
     abort "release validation tests failed"
   fi
+  export KO_DOCKER_REPO="${old_docker_repo}"
 }
 
 # Publishes the generated artifacts to directory, GCS, GitHub, etc.

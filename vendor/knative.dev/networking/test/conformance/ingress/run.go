@@ -34,6 +34,7 @@ var stableTests = map[string]func(t *testing.T){
 	"dispatch/path":                TestPath,
 	"dispatch/percentage":          TestPercentage,
 	"dispatch/path_and_percentage": TestPathAndPercentageSplit,
+	"dispatch/rule":                TestRule,
 	"timeout":                      TestTimeout,
 	"tls":                          TestIngressTLS,
 	"update":                       TestUpdate,
