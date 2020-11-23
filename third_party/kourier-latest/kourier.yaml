@@ -117,7 +117,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:345af26968f1bb542130a93d7ad672e8cfbd52dcebf9a4f6c8ec67a23af14e72
+        - image: docker.io/markusthoemmes/kourier-b74c3918b7eee585f87df62ccd297dc8:back-0.19@sha256:14a611ed4f5cd5147206b4aae9ca247a597c1fa350a245fb84ec892ed24fa82b
           name: kourier-control
           env:
             - name: CERTS_SECRET_NAMESPACE
@@ -201,7 +201,7 @@ spec:
             - --log-level info
           command:
             - /usr/local/bin/envoy
-          image: docker.io/maistra/proxyv2-ubi8:1.1.5
+          image: docker.io/maistra/proxyv2-ubi8:2.0.0
           name: kourier-gateway
           ports:
             - name: http2-external
@@ -322,7 +322,9 @@ data:
                             - "*"
                           routes:
                             - match:
-                                regex: '/(certs|stats(/prometheus)?|server_info|clusters|listeners|ready)?'
+                                safe_regex:
+                                  google_re2: {}
+                                  regex: '/(certs|stats(/prometheus)?|server_info|clusters|listeners|ready)?'
                                 headers:
                                   - name: ':method'
                                     exact_match: GET
