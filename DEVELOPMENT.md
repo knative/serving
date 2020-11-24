@@ -45,6 +45,7 @@ If you're working on and changing `.proto` files:
 ### Create a cluster and a repo
 
 1. [Set up a Kubernetes cluster](https://kubernetes.io/docs/setup/)
+   - Minimum supported version is 1.17.0
    - Follow the instructions in the Kubernetes doc.
 1. Set up a docker repository for pushing images. You can use any container
    image registry by adjusting the authentication methods and repository paths
@@ -87,10 +88,6 @@ export KO_DOCKER_REPO='gcr.io/my-gcloud-project-id'
 
 ### Check out your fork
 
-The Go tools require that you clone the repository to the
-`src/knative.dev/serving` directory in your
-[`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
-
 To check out this repository:
 
 1. Create your own
@@ -98,8 +95,6 @@ To check out this repository:
 1. Clone it to your machine:
 
 ```shell
-mkdir -p ${GOPATH}/src/knative.dev
-cd ${GOPATH}/src/knative.dev
 git clone git@github.com:${YOUR_GITHUB_USERNAME}/serving.git
 cd serving
 git remote add upstream https://github.com/knative/serving.git
