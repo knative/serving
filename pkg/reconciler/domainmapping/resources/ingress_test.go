@@ -48,7 +48,7 @@ func TestMakeIngress(t *testing.T) {
 		},
 	}
 
-	got := MakeIngress(dm, "the-rewrite-host", "the-ingress-class")
+	got := MakeIngress(dm, "the-target-svc", "the-rewrite-host", "the-ingress-class")
 
 	want := &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -73,7 +73,7 @@ func TestMakeIngress(t *testing.T) {
 								network.OriginalHostHeader: "mapping.com",
 							},
 							IngressBackend: netv1alpha1.IngressBackend{
-								ServiceName:      "the-name",
+								ServiceName:      "the-target-svc",
 								ServiceNamespace: "the-namespace",
 								ServicePort:      intstr.FromInt(80),
 							},

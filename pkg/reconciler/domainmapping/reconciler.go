@@ -84,14 +84,14 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	}
 
 	// Resolve the spec.Ref to a URI following the Addressable contract.
-	target, err := r.resolveRef(ctx, dm)
+	targetHost, targetBackendSvc, err := r.resolveRef(ctx, dm)
 	if err != nil {
 		return err
 	}
 
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
-	logger.Debugf("Mapping %s to %s/%s", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name)
-	desired := resources.MakeIngress(dm, target.Host, ingressClass)
+	logger.Debugf("Mapping %s to ref %s/%s (host: %q, svc: %q)", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name, targetHost, targetBackendSvc)
+	desired := resources.MakeIngress(dm, targetBackendSvc, targetHost, ingressClass)
 	ingress, err := r.reconcileIngress(ctx, dm, desired)
 	if err != nil {
 		return err
@@ -138,26 +138,43 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMa
 	return ingress, err
 }
 
-func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping) (*apis.URL, error) {
+func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping) (host string, backendSvc string, err error) {
 	resolved, err := r.resolver.URIFromKReference(ctx, &dm.Spec.Ref, dm)
 	if err != nil {
 		dm.Status.MarkReferenceNotResolved(err.Error())
-		return nil, fmt.Errorf("resolving reference: %w", err)
+		return "", "", fmt.Errorf("resolving reference: %w", err)
 	}
 
+	// Since we do not support path-based routing in domain mappings, we cannot
+	// support target references that contain a path.
 	if resolved.Path != "" {
 		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q contains a path", resolved))
-		return nil, fmt.Errorf("resolved URI %q contains a path", resolved)
+		return "", "", fmt.Errorf("resolved URI %q contains a path", resolved)
 	}
 
-	suffix := ".svc." + network.GetClusterDomainName()
-	if !strings.HasSuffix(resolved.Host, suffix) {
-		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q must end in %q", resolved, suffix))
-		return nil, fmt.Errorf("resolved URI %q must end in %q", resolved, suffix)
+	// The resolved hostname must be of the form {name}.{namespace}.svc.{suffix},
+	// which is the standard DNS address given by kubernetes to services. We will
+	// use `name` from this resolved hostname to determine the backend service
+	// name for the KIngress.
+	// TODO(julz) in the future we may support addressables that are not created
+	// from Services, in which case we would need to dynamically create the
+	// an ExternalName Service for the KIngress to use.
+	requiredSuffix := ".svc." + network.GetClusterDomainName()
+	parts := strings.Split(strings.TrimSuffix(resolved.Host, requiredSuffix), ".")
+	if !strings.HasSuffix(resolved.Host, requiredSuffix) || len(parts) != 2 {
+		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q must be of the form {name}.{namespace}%s", resolved, requiredSuffix))
+		return "", "", fmt.Errorf("resolved URI %q must be of the form {name}.{namespace}%s", resolved, requiredSuffix)
+	}
+
+	// If the namespace part of the target isn't the same as the DomainMapping
+	// we'd need to create a cross-namespace KIngress, which isn't supported.
+	if parts[1] != dm.Namespace {
+		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q must be in same namespace as DomainMapping", resolved))
+		return "", "", fmt.Errorf("resolved URI %q must be in same namespace as DomainMapping", resolved)
 	}
 
 	dm.Status.MarkReferenceResolved()
-	return resolved, nil
+	return resolved.Host, parts[0], nil
 }
 
 func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
