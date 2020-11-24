@@ -28,7 +28,7 @@ import (
 
 func TestConfigurationSpec(t *testing.T) {
 	s := createService()
-	c, _ := MakeConfiguration(s)
+	c := MakeConfiguration(s)
 	if got, want := c.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}
@@ -51,7 +51,7 @@ func TestConfigurationSpec(t *testing.T) {
 	}
 
 	// Create the configuration based on the same existing configuration.
-	c, _ = MakeConfigurationFromExisting(s, c)
+	c = MakeConfigurationFromExisting(s, c)
 	if got, want := c.Annotations[serving.RoutesAnnotationKey], testServiceName; got != want {
 		t.Errorf("expected %q annotations got %q", want, got)
 	}
@@ -60,7 +60,7 @@ func TestConfigurationSpec(t *testing.T) {
 	// annotation key serving.RoutesAnnotationKey.
 	secTestServiceName := "second-test-service"
 	secondSer := createServiceWithName(secTestServiceName)
-	secondConfig, _ := MakeConfigurationFromExisting(secondSer, c)
+	secondConfig := MakeConfigurationFromExisting(secondSer, c)
 	annoValue := secondConfig.Annotations[serving.RoutesAnnotationKey]
 	annoArray := strings.Split(annoValue, ",")
 	sort.Strings(annoArray)
@@ -73,11 +73,8 @@ func TestConfigurationSpec(t *testing.T) {
 
 func TestConfigurationHasNoKubectlAnnotation(t *testing.T) {
 	s := createServiceWithKubectlAnnotation()
-	c, err := MakeConfiguration(s)
-	if err != nil {
-		t.Fatal("Unexpected error:", err)
-	}
+	c := MakeConfiguration(s)
 	if v, ok := c.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
-		t.Errorf("Annotation %s = %q, want empty", corev1.LastAppliedConfigAnnotation, v)
+		t.Errorf(`Annotation[%s] = %q, want ""`, corev1.LastAppliedConfigAnnotation, v)
 	}
 }
