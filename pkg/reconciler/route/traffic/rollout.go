@@ -213,6 +213,9 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 		Tag:               goal.Tag,
 		Percent:           goal.Percent,
 		Revisions:         goal.Revisions,
+
+		// If there is a new revision, then timing information should be reset.
+		// So leave them empty here and populate below, if necessary.
 	}
 
 	if len(prev.Revisions) > 0 {
@@ -222,10 +225,16 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 	// If it matches the last revision of the previous rollout state (or there were no revisions)
 	// then no new rollout has begun for this configuration.
 	if len(prev.Revisions) == 0 || goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
-		// TODO(vagababov): here would go the logic to compute new percentages for the rollout,
-		// i.e step function, so return value will change, depending on that.
 		if len(prev.Revisions) > 0 {
 			ret.Revisions = prev.Revisions
+
+			// TODO(vagababov): here would go the logic to compute new percentages for the rollout,
+			// i.e step function, so return value will change, depending on that.
+			// Copy the duration info from the previous when no new revision
+			// has been created.
+			ret.Deadline = prev.Deadline
+			ret.LastStepTime = prev.LastStepTime
+			ret.StepDuration = prev.StepDuration
 		}
 		return ret
 	}

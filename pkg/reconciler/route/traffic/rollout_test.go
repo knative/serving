@@ -74,6 +74,9 @@ func TestStep(t *testing.T) {
 					RevisionName: "let-it-bleed",
 					Percent:      100,
 				}},
+				Deadline:     2006, // <- Those should be ignored.
+				LastStepTime: 2009,
+				StepDuration: 2020,
 			}},
 		},
 		prev: &Rollout{
@@ -84,6 +87,9 @@ func TestStep(t *testing.T) {
 					RevisionName: "let-it-bleed",
 					Percent:      100,
 				}},
+				Deadline:     1982, // <- Those should be copied.
+				LastStepTime: 1984,
+				StepDuration: 1988,
 			}},
 		},
 		want: &Rollout{
@@ -94,6 +100,9 @@ func TestStep(t *testing.T) {
 					RevisionName: "let-it-bleed",
 					Percent:      100,
 				}},
+				Deadline:     1982,
+				LastStepTime: 1984,
+				StepDuration: 1988,
 			}},
 		},
 	}, {
@@ -178,6 +187,9 @@ func TestStep(t *testing.T) {
 					RevisionName: "goat-head-soup",
 					Percent:      100,
 				}},
+				Deadline:     1982, // <- Those should be thrown out.
+				LastStepTime: 1984,
+				StepDuration: 1988,
 			}},
 		},
 		want: &Rollout{
