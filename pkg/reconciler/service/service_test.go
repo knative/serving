@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
 	// Install our fake informers
@@ -821,10 +820,7 @@ func TestNew(t *testing.T) {
 func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1.Configuration {
 	s := DefaultService(name, namespace, so)
 	s.SetDefaults(context.Background())
-	cfg, err := resources.MakeConfiguration(s)
-	if err != nil {
-		panic(fmt.Sprint("MakeConfiguration() = ", err))
-	}
+	cfg := resources.MakeConfiguration(s)
 	for _, opt := range co {
 		opt(cfg)
 	}
@@ -834,10 +830,7 @@ func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1.Co
 func route(name, namespace string, so ServiceOption, ro ...RouteOption) *v1.Route {
 	s := DefaultService(name, namespace, so)
 	s.SetDefaults(context.Background())
-	route, err := resources.MakeRoute(s)
-	if err != nil {
-		panic(fmt.Sprint("MakeRoute() = ", err))
-	}
+	route := resources.MakeRoute(s)
 	for _, opt := range ro {
 		opt(route)
 	}

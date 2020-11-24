@@ -184,18 +184,15 @@ func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.S
 }
 
 func (c *Reconciler) createConfiguration(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
-	cfg, err := resources.MakeConfiguration(service)
-	if err != nil {
-		return nil, err
-	}
-	return c.client.ServingV1().Configurations(service.Namespace).Create(ctx, cfg, metav1.CreateOptions{})
+	return c.client.ServingV1().Configurations(service.Namespace).Create(
+		ctx, resources.MakeConfiguration(service), metav1.CreateOptions{})
 }
 
 func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configuration) (bool, error) {
 	logger := logging.FromContext(ctx)
 	specDiff, err := kmp.SafeDiff(desiredConfig.Spec, config.Spec)
 	if err != nil {
-		logger.Errorw("Error diffing config spec", zap.Error(err))
+		logger.Warnw("Error diffing config spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Configuration: %w", err)
 	} else if specDiff != "" {
 		logger.Info("Reconciling configuration diff (-desired, +observed):\n", specDiff)
@@ -212,14 +209,13 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 	// We are setting the up-to-date default values here so an update won't be triggered if the only
 	// diff is the new default values.
 	existing.SetDefaults(ctx)
-	desiredConfig, err := resources.MakeConfigurationFromExisting(service, existing)
+
+	desiredConfig := resources.MakeConfigurationFromExisting(service, existing)
+	equals, err := configSemanticEquals(ctx, desiredConfig, existing)
 	if err != nil {
 		return nil, err
 	}
-
-	if equals, err := configSemanticEquals(ctx, desiredConfig, existing); err != nil {
-		return nil, err
-	} else if equals {
+	if equals {
 		return config, nil
 	}
 
@@ -234,14 +230,8 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 }
 
 func (c *Reconciler) createRoute(ctx context.Context, service *v1.Service) (*v1.Route, error) {
-	route, err := resources.MakeRoute(service)
-	if err != nil {
-		// This should be unreachable as configuration creation
-		// happens first in `reconcile()` and it verifies the edge cases
-		// that would make `MakeRoute` fail as well.
-		return nil, err
-	}
-	return c.client.ServingV1().Routes(service.Namespace).Create(ctx, route, metav1.CreateOptions{})
+	return c.client.ServingV1().Routes(service.Namespace).Create(
+		ctx, resources.MakeRoute(service), metav1.CreateOptions{})
 }
 
 func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1.Route) (bool, error) {
@@ -265,17 +255,12 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1.Service, ro
 	// We are setting the up-to-date default values here so an update won't be triggered if the only
 	// diff is the new default values.
 	existing.SetDefaults(ctx)
-	desiredRoute, err := resources.MakeRoute(service)
+	desiredRoute := resources.MakeRoute(service)
+	equals, err := routeSemanticEquals(ctx, desiredRoute, existing)
 	if err != nil {
-		// This should be unreachable as configuration creation
-		// happens first in `reconcile()` and it verifies the edge cases
-		// that would make `MakeRoute` fail as well.
 		return nil, err
 	}
-
-	if equals, err := routeSemanticEquals(ctx, desiredRoute, existing); err != nil {
-		return nil, err
-	} else if equals {
+	if equals {
 		return route, nil
 	}
 

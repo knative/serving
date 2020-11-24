@@ -27,7 +27,7 @@ import (
 )
 
 // MakeRoute creates a Route from a Service object.
-func MakeRoute(service *v1.Service) (*v1.Route, error) {
+func MakeRoute(service *v1.Service) *v1.Route {
 	c := &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Route(service),
@@ -54,5 +54,5 @@ func MakeRoute(service *v1.Service) (*v1.Route, error) {
 		}
 	}
 
-	return c, nil
+	return c
 }

@@ -30,12 +30,12 @@ import (
 )
 
 // MakeConfiguration creates a Configuration from a Service object.
-func MakeConfiguration(service *v1.Service) (*v1.Configuration, error) {
+func MakeConfiguration(service *v1.Service) *v1.Configuration {
 	return MakeConfigurationFromExisting(service, &v1.Configuration{})
 }
 
 // MakeConfigurationFromExisting creates a Configuration from a Service object given an existing Configuration.
-func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configuration) (*v1.Configuration, error) {
+func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configuration) *v1.Configuration {
 	labels := map[string]string{serving.ServiceLabelKey: service.Name}
 	anns := kmeta.FilterMap(service.GetAnnotations(), func(key string) bool {
 		return key == corev1.LastAppliedConfigAnnotation
@@ -59,5 +59,5 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 			Annotations: anns,
 		},
 		Spec: service.Spec.ConfigurationSpec,
-	}, nil
+	}
 }
