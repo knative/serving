@@ -17,8 +17,6 @@ limitations under the License.
 package statserver
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -106,10 +104,6 @@ func TestStatsReceived(t *testing.T) {
 
 	// protobuf
 	assertReceivedProto(t, both, statSink, statsCh)
-
-	// json encoding
-	assertReceivedJSON(t, msg1, statSink, statsCh)
-	assertReceivedJSON(t, msg2, statSink, statsCh)
 
 	closeSink(t, statSink)
 }
@@ -242,20 +236,6 @@ func BenchmarkStatServer(b *testing.B) {
 			msgs = append(msgs, msg1)
 		}
 
-		b.Run(fmt.Sprintf("json-encoding-%d-msgs", len(msgs)), func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				for _, msg := range msgs {
-					if err := sendJSON(statSink, msg); err != nil {
-						b.Fatal("Expected send to succeed, but got:", err)
-					}
-				}
-
-				for range msgs {
-					<-statsCh
-				}
-			}
-		})
-
 		b.Run(fmt.Sprintf("proto-encoding-%d-msgs", len(msgs)), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				if err := sendProto(statSink, msgs); err != nil {
@@ -267,19 +247,6 @@ func BenchmarkStatServer(b *testing.B) {
 				}
 			}
 		})
-	}
-}
-
-func assertReceivedJSON(t *testing.T, sm metrics.StatMessage, statSink *websocket.Conn, statsCh <-chan metrics.StatMessage) {
-	t.Helper()
-
-	if err := sendJSON(statSink, sm); err != nil {
-		t.Fatal("Expected send to succeed, got:", err)
-	}
-
-	recv := <-statsCh
-	if !cmp.Equal(sm, recv) {
-		t.Fatal("StatMessage mismatch: diff (-got, +want)", cmp.Diff(recv, sm))
 	}
 }
 
@@ -321,19 +288,6 @@ func dial(serverURL string) (*websocket.Conn, error) {
 	}
 	statSink, _, err := dialer.Dial(u.String(), nil)
 	return statSink, err
-}
-
-func sendJSON(statSink *websocket.Conn, sm metrics.StatMessage) error {
-	var b bytes.Buffer
-	enc := json.NewEncoder(&b)
-	if err := enc.Encode(sm); err != nil {
-		return fmt.Errorf("failed to encode StatMessage: %w", err)
-	}
-
-	if err := statSink.WriteMessage(websocket.TextMessage, b.Bytes()); err != nil {
-		return fmt.Errorf("failed to write to stat sink: %w", err)
-	}
-	return nil
 }
 
 func sendProto(statSink *websocket.Conn, sms []metrics.StatMessage) error {
