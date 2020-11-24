@@ -61,10 +61,12 @@ func TestMinScale(t *testing.T) {
 
 	t.Log("Creating configuration")
 	cfg, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale),
+		// Make sure we scale down quickly after panic, before the autoscaler get killed by chaosduck.
+		withWindow(autoscaling.WindowMin),
 		// Pass low resource requirements to avoid Pod scheduling problems
 		// on busy clusters.  This is adapted from ./test/e2e/scale.go
-		func(svc *v1.Configuration) {
-			svc.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+		func(cfg *v1.Configuration) {
+			cfg.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("50m"),
 					corev1.ResourceMemory: resource.MustParse("50Mi"),
@@ -158,6 +160,15 @@ func withMinScale(minScale int) func(cfg *v1.Configuration) {
 			cfg.Spec.Template.Annotations = make(map[string]string, 1)
 		}
 		cfg.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(minScale)
+	}
+}
+
+func withWindow(t time.Duration) func(cfg *v1.Configuration) {
+	return func(cfg *v1.Configuration) {
+		if cfg.Spec.Template.Annotations == nil {
+			cfg.Spec.Template.Annotations = make(map[string]string, 1)
+		}
+		cfg.Spec.Template.Annotations[autoscaling.WindowAnnotationKey] = t.String()
 	}
 }
 
