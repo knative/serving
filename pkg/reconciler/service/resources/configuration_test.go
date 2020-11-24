@@ -80,6 +80,6 @@ func TestConfigurationHasNoKubectlAnnotation(t *testing.T) {
 	s := createServiceWithKubectlAnnotation()
 	c := MakeConfiguration(s)
 	if v, ok := c.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
-		t.Errorf("Annotation %s = %q, want empty", corev1.LastAppliedConfigAnnotation, v)
+		t.Errorf(`Annotation[%s] = %q, want: ""`, corev1.LastAppliedConfigAnnotation, v)
 	}
 }
