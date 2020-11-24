@@ -215,6 +215,7 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 		Revisions:         goal.Revisions,
 
 		// If there is a new revision, then timing information should be reset.
+		// So leave them empty here and populate below, if necessary.
 	}
 
 	if len(prev.Revisions) > 0 {
