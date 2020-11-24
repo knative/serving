@@ -40,7 +40,7 @@ const (
 func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerReference) {
 	t.Helper()
 	if got, want := len(ownerRefs), 1; got != want {
-		t.Errorf("expected %d owner refs got %d", want, got)
+		t.Errorf("|Owner refs| = %d, want: %d", got, want)
 		return
 	}
 
