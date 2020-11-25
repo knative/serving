@@ -138,7 +138,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMa
 	return ingress, err
 }
 
-func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping) (host string, backendSvc string, err error) {
+func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping) (host, backendSvc string, err error) {
 	resolved, err := r.resolver.URIFromKReference(ctx, &dm.Spec.Ref, dm)
 	if err != nil {
 		dm.Status.MarkReferenceNotResolved(err.Error())
