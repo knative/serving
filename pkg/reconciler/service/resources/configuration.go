@@ -43,9 +43,7 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 
 	routeName := names.Route(service)
 	set := labelerv2.GetListAnnValue(existing.Annotations, serving.RoutesAnnotationKey)
-	if !set.Has(routeName) {
-		set.Insert(routeName)
-	}
+	set.Insert(routeName)
 	anns[serving.RoutesAnnotationKey] = strings.Join(set.UnsortedList(), ",")
 
 	return &v1.Configuration{
