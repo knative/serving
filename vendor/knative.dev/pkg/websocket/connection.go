@@ -137,7 +137,7 @@ func NewDurableConnection(target string, messageChan chan []byte, logger *zap.Su
 		conn, resp, err := dialer.Dial(target, nil)
 		if err != nil {
 			if resp != nil {
-				dresp, _ := httputil.DumpResponse(resp, false /*body*/) // This is for logging so don't care if it fails.
+				dresp, _ := httputil.DumpResponse(resp, true /*body*/) // This is for logging so don't care if it fails.
 				logger.Errorw("Websocket connection could not be established", zap.Error(err),
 					zap.String("request", string(dresp)))
 			} else {

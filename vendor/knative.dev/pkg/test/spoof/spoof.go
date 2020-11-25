@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -244,4 +245,29 @@ func (sc *SpoofingClient) logZipkinTrace(spoofResp *Response) {
 	}
 
 	sc.Logf("%s", json)
+}
+
+func (sc *SpoofingClient) WaitForEndpointState(
+	ctx context.Context,
+	url *url.URL,
+	inState ResponseChecker,
+	desc string,
+	opts ...RequestOption) (*Response, error) {
+
+	defer logging.GetEmitableSpan(ctx, "WaitForEndpointState/"+desc).End()
+
+	if url.Scheme == "" || url.Host == "" {
+		return nil, fmt.Errorf("invalid URL: %q", url.String())
+	}
+
+	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	return sc.Poll(req, inState)
 }

@@ -1218,12 +1218,12 @@ knative.dev/caching v0.0.0-20201124023036-dfa63c15d12a h1:6eZ3Bn9nTKpXjIFGGxeWJ7
 knative.dev/caching v0.0.0-20201124023036-dfa63c15d12a/go.mod h1:M2M5CzZ03W+aXjvz9XANACo8QCoCfT0Khsd6imqvw3g=
 knative.dev/hack v0.0.0-20201120192952-353db687ec5b h1:Lc+AKgwhAZUD98mN++qTHeeaP6FRmS8fcwc/rXkP8G0=
 knative.dev/hack v0.0.0-20201120192952-353db687ec5b/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
-knative.dev/networking v0.0.0-20201124014134-a79c9d045b05 h1:7syeoKRw7l0il7kVpl/DEugBM8ndDDeK03yrqDAolGg=
-knative.dev/networking v0.0.0-20201124014134-a79c9d045b05/go.mod h1:9jAy7B2mMH/nEqBH79ucIxnWHXK4HF3K3PgyalkVCss=
+knative.dev/networking v0.0.0-20201124164935-12d9fe9f87ae h1:FRzTAHTqyck+WieVkIQkmC0qxlkVwd2TtqNDalBSIl0=
+knative.dev/networking v0.0.0-20201124164935-12d9fe9f87ae/go.mod h1:9jAy7B2mMH/nEqBH79ucIxnWHXK4HF3K3PgyalkVCss=
 knative.dev/pkg v0.0.0-20201123172958-fea72c1c8e2f h1:zQEnqguiWwewcE2munQYL38S8VuV/hAuZCCk/6UMvhI=
 knative.dev/pkg v0.0.0-20201123172958-fea72c1c8e2f/go.mod h1:wXZqP8MXCxb51yNFlecA13BwG7Hk370SWDFWV4dx4ug=
-knative.dev/pkg v0.0.0-20201124023135-49e55c9eb816 h1:twVZmgBLLBaUUAVxxdPKZJzPief+izcV3boMc5P1xDY=
-knative.dev/pkg v0.0.0-20201124023135-49e55c9eb816/go.mod h1:wXZqP8MXCxb51yNFlecA13BwG7Hk370SWDFWV4dx4ug=
+knative.dev/pkg v0.0.0-20201124204235-3154117dcfaf h1:H5um6wZSd1Qmqqozr+/nHF2HyaMde6GNXM3+KbaYlJc=
+knative.dev/pkg v0.0.0-20201124204235-3154117dcfaf/go.mod h1:wXZqP8MXCxb51yNFlecA13BwG7Hk370SWDFWV4dx4ug=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=
