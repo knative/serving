@@ -28,13 +28,12 @@ import (
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
-// MakeIngress creates an Ingress object for a DomainMapping.
-func MakeIngress(dm *servingv1alpha1.DomainMapping, hostName, ingressClass string) *netv1alpha1.Ingress {
-	var (
-		targetServiceName      = dm.Spec.Ref.Name
-		targetServiceNamespace = dm.Spec.Ref.Namespace
-	)
-
+// MakeIngress creates an Ingress object for a DomainMapping.  The Ingress is
+// always created in the same namespace as the DomainMapping, and the ingress
+// backend is always in the same namespace also (as this is required by
+// KIngress).  The created ingress will contain a RewriteHost rule to cause the
+// given hostName to be used as the host.
+func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName, ingressClass string) *netv1alpha1.Ingress {
 	return &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(dm.GetName(), ""),
@@ -59,8 +58,8 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, hostName, ingressClass strin
 								network.OriginalHostHeader: dm.Name,
 							},
 							IngressBackend: netv1alpha1.IngressBackend{
-								ServiceName:      targetServiceName,
-								ServiceNamespace: targetServiceNamespace,
+								ServiceNamespace: dm.Namespace,
+								ServiceName:      backendServiceName,
 								ServicePort:      intstr.FromInt(80),
 							},
 						}},
