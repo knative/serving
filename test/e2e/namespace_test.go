@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -38,7 +39,7 @@ func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
-		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
+		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),

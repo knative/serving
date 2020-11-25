@@ -68,7 +68,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		endpoint,
-		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
+		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK)),
 		"ResourceTestServesText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))

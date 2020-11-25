@@ -26,6 +26,7 @@ import (
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -118,7 +119,7 @@ func TestTagHeaderBasedRouting(t *testing.T) {
 				clients.KubeClient,
 				t.Logf,
 				objects.Service.Status.URL.URL(),
-				v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(tt.wantResponse))),
+				v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(tt.wantResponse))),
 				"WaitForSuccessfulResponse",
 				test.ServingFlags.ResolvableDomain,
 				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),

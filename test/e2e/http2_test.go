@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -58,7 +59,7 @@ func TestHelloHTTP2WithPortNameH2C(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloHTTP2Text))),
+		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloHTTP2Text))),
 		"HelloHTTP2ServesTextOnH2C",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
@@ -98,7 +99,7 @@ func TestHelloHTTP2WithEmptyPortName(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsOneOfStatusCodes(http.StatusUpgradeRequired))),
+		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsOneOfStatusCodes(http.StatusUpgradeRequired))),
 		"HelloHTTP2ServesTextWithEmptyPort",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
