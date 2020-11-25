@@ -63,7 +63,7 @@ type ConfigurationRollout struct {
 	// StartTime is the Unix timestamp by when (+/- reconcile precision)
 	// the Rollout has started.
 	// This is required to compute step time and deadline.
-	StartTime int `json:"deadline,omitempty"`
+	StartTime int `json:"starttime,omitempty"`
 
 	// LastStepTimeStamp is the Unix timestamp when the last
 	// rollout step was performed.
