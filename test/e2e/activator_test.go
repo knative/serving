@@ -27,6 +27,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
@@ -71,7 +72,7 @@ func TestActivatorOverload(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		resources.Route.Status.URL.URL(),
-		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),

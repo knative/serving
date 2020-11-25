@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 	"knative.dev/pkg/test/mako"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test/performance"
 
@@ -207,7 +208,7 @@ func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v
 			clients.KubeClient,
 			log.Printf,
 			url,
-			pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),
+			spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(helloWorldExpectedOutput)),
 			"HelloWorldServesText",
 			test.ServingFlags.ResolvableDomain, waitToServe,
 		)

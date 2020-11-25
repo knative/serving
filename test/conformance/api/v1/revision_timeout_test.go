@@ -27,6 +27,7 @@ import (
 	"time"
 
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/conformance/api/shared"
@@ -130,7 +131,7 @@ func TestRevisionTimeout(t *testing.T) {
 					clients.KubeClient,
 					t.Logf,
 					serviceURL,
-					v1test.RetryingRouteInconsistency(pkgTest.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout)),
+					v1test.RetryingRouteInconsistency(spoof.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout)),
 					"WaitForSuccessfulResponse",
 					test.ServingFlags.ResolvableDomain,
 					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
