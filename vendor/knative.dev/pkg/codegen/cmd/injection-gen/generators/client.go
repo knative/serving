@@ -98,8 +98,13 @@ func withClient(ctx {{.contextContext|raw}}, cfg *{{.restConfig|raw}}) context.C
 func Get(ctx {{.contextContext|raw}}) {{.clientSetInterface|raw}} {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		{{.loggingFromContext|raw}}(ctx).Panic(
-			"Unable to fetch {{.clientSetInterface}} from context.")
+		if injection.GetConfig(ctx) == nil {
+		    {{.loggingFromContext|raw}}(ctx).Panic(
+		    	    "Unable to fetch {{.clientSetInterface}} from context. This context is not the application context (which is typically given to constructors via sharedmain).")
+		} else {
+		    {{.loggingFromContext|raw}}(ctx).Panic(
+		    	    "Unable to fetch {{.clientSetInterface}} from context.")
+		}
 	}
 	return untyped.({{.clientSetInterface|raw}})
 }
