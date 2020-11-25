@@ -275,11 +275,11 @@ func TestSemaphoreRelease(t *testing.T) {
 	sem := newSemaphore(1, 1)
 	sem.acquire(context.Background())
 	func() {
-		sem.release()
 		defer func() {
 			if e := recover(); e != nil {
 				t.Error("Expected no panic, got message:", e)
 			}
+			sem.release()
 		}()
 	}()
 	func() {
