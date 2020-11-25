@@ -60,6 +60,11 @@ type ConfigurationRollout struct {
 	// the Rollout shoud be complete.
 	Deadline int `json:"deadline,omitempty"`
 
+	// StartTime is the Unix timestamp by when (+/- reconcile precision)
+	// the Rollout has started.
+	// This is required to compute step time and deadline.
+	StartTime int `json:"deadline,omitempty"`
+
 	// LastStepTimeStamp is the Unix timestamp when the last
 	// rollout step was performed.
 	LastStepTime int `json:"lastStep,omitempty"`
@@ -78,6 +83,13 @@ type RevisionRollout struct {
 	// of total Route traffic, not the relative share of configuration
 	// target percentage.
 	Percent int `json:"percent"`
+}
+
+// Done returns true if there is no active rollout going on
+// for the configuration.
+func (cr *ConfigurationRollout) Done() bool {
+	// Zero or just one revision.
+	return len(cr.Revisions) < 2
 }
 
 // Validate validates current rollout for inconsistencies.
@@ -185,6 +197,8 @@ func (cur *Rollout) Step(prev *Rollout) *Rollout {
 // the older revisions.
 func adjustPercentage(goal int, cr *ConfigurationRollout) {
 	switch diff := goal - cr.Percent; {
+	case goal == 0:
+		cr.Revisions = nil // No traffic, no rollout.
 	case diff > 0:
 		cr.Revisions[len(cr.Revisions)-1].Percent += diff
 	case diff < 0:
@@ -235,6 +249,7 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 			ret.Deadline = prev.Deadline
 			ret.LastStepTime = prev.LastStepTime
 			ret.StepDuration = prev.StepDuration
+			ret.StartTime = prev.StartTime
 		}
 		return ret
 	}
