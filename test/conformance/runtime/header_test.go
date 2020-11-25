@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 )
 
@@ -95,7 +95,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		// required for tracing so we do not validate them.
 	}
 
-	_, ri, err := fetchRuntimeInfo(t, clients, pkgTest.WithHeader(userHeaders))
+	_, ri, err := fetchRuntimeInfo(t, clients, spoof.WithHeader(userHeaders))
 	if err != nil {
 		t.Fatal("Error fetching runtime info:", err)
 	}

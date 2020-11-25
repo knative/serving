@@ -30,6 +30,7 @@ import (
 
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -134,7 +135,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		greenURL,
-		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {

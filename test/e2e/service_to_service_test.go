@@ -132,7 +132,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1test.RetryingRouteInconsistency(pkgTest.Retrying(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(helloworldResponse)), http.StatusBadGateway)),
+		v1test.RetryingRouteInconsistency(spoof.Retrying(spoof.MatchesAllOf(spoof.IsStatusOK, pkgTest.EventuallyMatchesBody(helloworldResponse)), http.StatusBadGateway)),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),

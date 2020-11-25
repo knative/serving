@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/types"
 
@@ -59,7 +60,7 @@ func fetchRuntimeInfo(
 		clients.KubeClient,
 		t.Logf,
 		objects.Service.Status.URL.URL(),
-		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain,
 		append(reqOpts, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))...)

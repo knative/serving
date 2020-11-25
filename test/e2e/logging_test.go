@@ -37,6 +37,7 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
 	pkgtest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -89,7 +90,7 @@ func TestRequestLogs(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		resources.Route.Status.URL.URL(),
-		v1test.RetryingRouteInconsistency(pkgtest.MatchesAllOf(pkgtest.IsStatusOK, pkgtest.MatchesBody(test.HelloWorldText))),
+		v1test.RetryingRouteInconsistency(pkgtest.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
