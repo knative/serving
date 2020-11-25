@@ -20,10 +20,10 @@ import "knative.dev/networking/pkg/apis/networking"
 
 // The ports we setup on our services.
 const (
-	// BackendHTTPPort is the backend, i.e. `targetPort` that we setup for HTTP services.
+	// BackendHTTPPort is the backend, i.e. `targetPort` that we setup for HTTP/1 services.
 	BackendHTTPPort = 8012
 
-	// BackendHTTP2Port is the backend, i.e. `targetPort` that we setup for HTTP services.
+	// BackendHTTP2Port is the backend, i.e. `targetPort` that we setup for HTTP/2 services.
 	BackendHTTP2Port = 8013
 
 	// QueueAdminPort specifies the port number for

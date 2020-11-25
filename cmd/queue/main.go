@@ -70,8 +70,8 @@ var (
 
 type config struct {
 	ContainerConcurrency   int    `split_words:"true" required:"true"`
-	QueueServingPort       int    `split_words:"true" required:"true"`
-	UserPort               int    `split_words:"true" required:"true"`
+	QueueServingPort       string `split_words:"true" required:"true"`
+	UserPort               string `split_words:"true" required:"true"`
 	RevisionTimeoutSeconds int    `split_words:"true" required:"true"`
 	ServingReadinessProbe  string `split_words:"true" required:"true"`
 	EnableProfiling        bool   `split_words:"true"` // optional
@@ -268,7 +268,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	logger *zap.SugaredLogger) *http.Server {
 	target := &url.URL{
 		Scheme: "http",
-		Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(env.UserPort)),
+		Host:   net.JoinHostPort("127.0.0.1", env.UserPort),
 	}
 
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
@@ -309,7 +309,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	// logs. Hence we need to have RequestLogHandler to be the first one.
 	composedHandler = pushRequestLogHandler(logger, composedHandler, env)
 
-	return pkgnet.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)
+	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler)
 }
 
 func buildTransport(env config, logger *zap.SugaredLogger, maxConns int) http.RoundTripper {
@@ -342,10 +342,13 @@ func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
 
 	// We set the queue depth to be equal to the container concurrency * 10 to
 	// allow the autoscaler time to react.
-	queueDepth := env.ContainerConcurrency * 10
-	params := queue.BreakerParams{QueueDepth: queueDepth, MaxConcurrency: env.ContainerConcurrency, InitialCapacity: env.ContainerConcurrency}
-	logger.Infof("Queue container is starting with %#v", params)
-
+	queueDepth := 10 * env.ContainerConcurrency
+	params := queue.BreakerParams{
+		QueueDepth:      queueDepth,
+		MaxConcurrency:  env.ContainerConcurrency,
+		InitialCapacity: env.ContainerConcurrency,
+	}
+	logger.Infof("Queue container is starting with BreakerParams = %#v", params)
 	return queue.NewBreaker(params)
 }
 
