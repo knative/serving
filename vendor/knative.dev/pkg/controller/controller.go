@@ -493,7 +493,7 @@ func (c *Impl) processNextWorkItem() bool {
 		if err != nil {
 			status = falseString
 		}
-		c.statsReporter.ReportReconcile(time.Since(startTime), status)
+		c.statsReporter.ReportReconcile(time.Since(startTime), status, key)
 
 		// We call Done here so the workqueue knows we have finished
 		// processing this item. We also must remember to call Forget if

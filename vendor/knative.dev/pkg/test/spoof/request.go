@@ -14,13 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// All test-affecting constants should be placed in this file
-// At some point it may make sense to be able to modify them
-// via a configuration mechanism (see https://github.com/knative/serving/issues/6109)
+package spoof
 
-package test
+import "net/http"
 
-const (
-	// ServingNamespace is the default namespace for serving e2e tests
-	ServingNamespace = "serving-tests"
-)
+// RequestOption enables configuration of requests
+// when polling for endpoint states.
+type RequestOption func(*http.Request)
+
+// WithHeader will add the provided headers to the request.
+func WithHeader(header http.Header) RequestOption {
+	return func(r *http.Request) {
+		if r.Header == nil {
+			r.Header = header
+			return
+		}
+		for key, values := range header {
+			for _, value := range values {
+				r.Header.Add(key, value)
+			}
+		}
+	}
+}

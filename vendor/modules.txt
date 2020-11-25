@@ -976,7 +976,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20201120192952-353db687ec5b
 ## explicit
 knative.dev/hack
-# knative.dev/networking v0.0.0-20201124014134-a79c9d045b05
+# knative.dev/networking v0.0.0-20201124164935-12d9fe9f87ae
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1009,7 +1009,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20201124023135-49e55c9eb816
+# knative.dev/pkg v0.0.0-20201124204235-3154117dcfaf
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
