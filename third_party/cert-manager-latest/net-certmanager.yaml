@@ -18,7 +18,7 @@ metadata:
   # These are the permissions needed by the `cert-manager` `Certificate` implementation.
   name: knative-serving-certmanager
   labels:
-    serving.knative.dev/release: "v20201123-e9883b4"
+    serving.knative.dev/release: "v20201125-ee5fc18"
     serving.knative.dev/controller: "true"
     networking.knative.dev/certificate-provider: cert-manager
 rules:
@@ -49,7 +49,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.net-certmanager.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20201123-e9883b4"
+    serving.knative.dev/release: "v20201125-ee5fc18"
 webhooks:
   - admissionReviewVersions:
       - v1beta1
@@ -86,7 +86,7 @@ metadata:
   name: net-certmanager-webhook-certs
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201123-e9883b4"
+    serving.knative.dev/release: "v20201125-ee5fc18"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -109,7 +109,7 @@ metadata:
   name: config-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201123-e9883b4"
+    serving.knative.dev/release: "v20201125-ee5fc18"
     networking.knative.dev/certificate-provider: cert-manager
 data:
   _example: |
@@ -156,7 +156,7 @@ metadata:
   name: networking-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201123-e9883b4"
+    serving.knative.dev/release: "v20201125-ee5fc18"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   selector:
@@ -168,14 +168,14 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: networking-certmanager
-        serving.knative.dev/release: "v20201123-e9883b4"
+        serving.knative.dev/release: "v20201125-ee5fc18"
     spec:
       serviceAccountName: controller
       containers:
         - name: networking-certmanager
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:6d41cdcc90749699a1290a15cba33fb5589a9ab0e689e1e1e44533958dd9f1fc
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:4ac5f96218fe6f9ae768d5986320be888657ae9410a0f5ca4d6078ba483187eb
           resources:
             requests:
               cpu: 30m
@@ -213,7 +213,7 @@ kind: Service
 metadata:
   labels:
     app: networking-certmanager
-    serving.knative.dev/release: "v20201123-e9883b4"
+    serving.knative.dev/release: "v20201125-ee5fc18"
     networking.knative.dev/certificate-provider: cert-manager
   name: networking-certmanager
   namespace: knative-serving
@@ -250,7 +250,7 @@ metadata:
   name: net-certmanager-webhook
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20201123-e9883b4"
+    serving.knative.dev/release: "v20201125-ee5fc18"
 spec:
   selector:
     matchLabels:
@@ -263,14 +263,14 @@ spec:
       labels:
         app: net-certmanager-webhook
         role: net-certmanager-webhook
-        serving.knative.dev/release: "v20201123-e9883b4"
+        serving.knative.dev/release: "v20201125-ee5fc18"
     spec:
       serviceAccountName: controller
       containers:
         - name: webhook
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:2b7c3b36d98d2cfa9b5c4a9fe4ccc726755f08b33b4f415d7e997d760a6d0590
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:60a35390498ecc84c7dc5a612c48cbe3ef3fa9f19c191b4f6068a4da23d5b5d1
           resources:
             requests:
               cpu: 20m
@@ -329,7 +329,7 @@ metadata:
   namespace: knative-serving
   labels:
     role: net-certmanager-webhook
-    serving.knative.dev/release: "v20201123-e9883b4"
+    serving.knative.dev/release: "v20201125-ee5fc18"
 spec:
   ports:
     # Define metrics and profiling for them to be accessible within service meshes.
