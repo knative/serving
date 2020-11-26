@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestStep(t *testing.T) {
@@ -77,6 +78,7 @@ func TestStep(t *testing.T) {
 				Deadline:     2006, // <- Those should be ignored.
 				LastStepTime: 2009,
 				StepDuration: 2020,
+				StartTime:    2004,
 			}},
 		},
 		prev: &Rollout{
@@ -90,6 +92,7 @@ func TestStep(t *testing.T) {
 				Deadline:     1982, // <- Those should be copied.
 				LastStepTime: 1984,
 				StepDuration: 1988,
+				StartTime:    1955,
 			}},
 		},
 		want: &Rollout{
@@ -103,6 +106,7 @@ func TestStep(t *testing.T) {
 				Deadline:     1982,
 				LastStepTime: 1984,
 				StepDuration: 1988,
+				StartTime:    1955,
 			}},
 		},
 	}, {
@@ -673,7 +677,7 @@ func TestStep(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.cur.Step(tc.prev)
-			if want := tc.want; !cmp.Equal(got, want) {
+			if want := tc.want; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
 				t.Errorf("Wrong rolled rollout, diff(-want,+got):\n%s", cmp.Diff(want, got))
 			}
 			if !got.Validate() {
@@ -798,12 +802,11 @@ func TestAdjustPercentage(t *testing.T) {
 				Percent: 60,
 			}},
 		},
-		want: []RevisionRollout{},
 	}}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			adjustPercentage(tc.goal, tc.prev)
-			if got, want := tc.prev.Revisions, tc.want; !cmp.Equal(got, want) {
+			if got, want := tc.prev.Revisions, tc.want; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
 				t.Errorf("Rollout Mistmatch(-want,+got):\n%s", cmp.Diff(want, got))
 			}
 		})
@@ -883,4 +886,40 @@ func TestValidateFailures(t *testing.T) {
 		})
 	}
 
+}
+
+func TestConfigDone(t *testing.T) {
+	r := &Rollout{
+		Configurations: []ConfigurationRollout{{
+			ConfigurationName: "one",
+			Percent:           100,
+			Revisions: []RevisionRollout{{
+				RevisionName: "roy",
+				Percent:      100,
+			}},
+		}, {
+			ConfigurationName: "no",
+			Percent:           0,
+			Revisions:         []RevisionRollout{},
+		}, {
+			ConfigurationName: "many",
+			Percent:           100,
+			Revisions: []RevisionRollout{{
+				RevisionName: "black-on-blue",
+				Percent:      83,
+			}, {
+				RevisionName: "flowers",
+				Percent:      17,
+			}},
+		}},
+	}
+	if !r.Configurations[0].Done() {
+		t.Error("Single revision rollout is not `Done`")
+	}
+	if !r.Configurations[1].Done() {
+		t.Error("Zero revisions rollout is not `Done`")
+	}
+	if r.Configurations[2].Done() {
+		t.Error("Many revisions rollout is `Done`")
+	}
 }
