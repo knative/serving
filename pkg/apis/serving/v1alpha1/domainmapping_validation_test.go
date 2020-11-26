@@ -71,8 +71,8 @@ func TestDomainMappingValidation(t *testing.T) {
 			},
 		},
 	}, {
-		name: "ref wrong Kind",
-		want: apis.ErrGeneric(`must be "Service"`, "spec.ref.kind"),
+		name: "ref missing Kind",
+		want: apis.ErrMissingField("spec.ref.kind"),
 		dm: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "wrong-kind",
@@ -83,13 +83,12 @@ func TestDomainMappingValidation(t *testing.T) {
 					Name:       "some-name",
 					Namespace:  "ns",
 					APIVersion: "serving.knative.dev/v1",
-					Kind:       "BadService",
 				},
 			},
 		},
 	}, {
-		name: "ref wrong ApiVersion",
-		want: apis.ErrGeneric(`must be "serving.knative.dev/v1"`, "spec.ref.apiVersion"),
+		name: "ref missing ApiVersion",
+		want: apis.ErrMissingField("spec.ref.apiVersion"),
 		dm: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "wrong-version",
@@ -97,46 +96,9 @@ func TestDomainMappingValidation(t *testing.T) {
 			},
 			Spec: DomainMappingSpec{
 				Ref: duckv1.KReference{
-					Name:       "some-name",
-					Namespace:  "ns",
-					APIVersion: "bad.version/v1",
-					Kind:       "Service",
-				},
-			},
-		},
-	}, {
-		name: "ref name not valid DNS subdomain",
-		want: apis.ErrInvalidValue(
-			"not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
-			"spec.ref.name"),
-		dm: &DomainMapping{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "wrong-version",
-				Namespace: "ns",
-			},
-			Spec: DomainMappingSpec{
-				Ref: duckv1.KReference{
-					Name:       "this is not valid",
-					Namespace:  "ns",
-					APIVersion: "serving.knative.dev/v1",
-					Kind:       "Service",
-				},
-			},
-		},
-	}, {
-		name: "ref namespace not valid",
-		want: apis.ErrInvalidValue("not a valid namespace: [a DNS-1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')]", "spec.ref.namespace"),
-		dm: &DomainMapping{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "wrong-version",
-				Namespace: "dots.not.allowed",
-			},
-			Spec: DomainMappingSpec{
-				Ref: duckv1.KReference{
-					Name:       "name",
-					APIVersion: "serving.knative.dev/v1",
-					Namespace:  "dots.not.allowed",
-					Kind:       "Service",
+					Name:      "some-name",
+					Namespace: "ns",
+					Kind:      "Service",
 				},
 			},
 		},

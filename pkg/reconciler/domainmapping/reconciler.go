@@ -147,7 +147,7 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping)
 
 	// Since we do not support path-based routing in domain mappings, we cannot
 	// support target references that contain a path.
-	if resolved.Path != "" {
+	if strings.TrimSuffix(resolved.Path, "/") != "" {
 		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q contains a path", resolved))
 		return "", "", fmt.Errorf("resolved URI %q contains a path", resolved)
 	}
