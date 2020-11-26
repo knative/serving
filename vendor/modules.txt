@@ -952,7 +952,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20201125015134-cc50055c16dc
+# knative.dev/caching v0.0.0-20201125150135-91fb5833c3c6
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -973,10 +973,10 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20201120192952-353db687ec5b
+# knative.dev/hack v0.0.0-20201125230335-c46a6498e9ed
 ## explicit
 knative.dev/hack
-# knative.dev/networking v0.0.0-20201125013535-28c37e3cbe53
+# knative.dev/networking v0.0.0-20201125133435-4b21f11ccfa7
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
