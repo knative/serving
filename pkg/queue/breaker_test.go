@@ -18,7 +18,6 @@ package queue
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -275,12 +274,22 @@ func TestSemaphoreAcquireHasCapacity(t *testing.T) {
 func TestSemaphoreRelease(t *testing.T) {
 	sem := newSemaphore(1, 1)
 	sem.acquire(context.Background())
-	if err := sem.release(); err != nil {
-		t.Errorf("release = %v; want: %v", err, nil)
-	}
-	if err := sem.release(); !errors.Is(err, ErrRelease) {
-		t.Errorf("release = %v; want: %v", err, ErrRelease)
-	}
+	func() {
+		defer func() {
+			if e := recover(); e != nil {
+				t.Error("Expected no panic, got message:", e)
+			}
+			sem.release()
+		}()
+	}()
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Error("Expected panic, but got none")
+			}
+		}()
+		sem.release()
+	}()
 }
 
 func TestSemaphoreUpdateCapacity(t *testing.T) {

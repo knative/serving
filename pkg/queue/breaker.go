@@ -238,13 +238,13 @@ func (s *semaphore) acquire(ctx context.Context) error {
 // release releases capacity in the semaphore.
 // If the semaphore capacity was reduced in between and as a result inFlight is greater
 // than capacity, we don't wake up goroutines as they'd not get any capacity anyway.
-func (s *semaphore) release() error {
+func (s *semaphore) release() {
 	for {
 		old := s.state.Load()
 		capacity, in := unpack(old)
 
 		if in == 0 {
-			return ErrRelease
+			panic("release and acquire are not paired")
 		}
 
 		in--
@@ -260,7 +260,7 @@ func (s *semaphore) release() error {
 					// can take, which is guaranteed to be enough.
 				}
 			}
-			return nil
+			return
 		}
 	}
 }
