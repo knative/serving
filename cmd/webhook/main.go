@@ -154,7 +154,7 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 func main() {
 	// Set up a signal context with our webhook options
 	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
-		ServiceName: "webhook",
+		ServiceName: webhook.NameFromEnv(),
 		Port:        webhook.PortFromEnv(8443),
 		SecretName:  "webhook-certs",
 	})

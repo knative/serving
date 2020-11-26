@@ -72,6 +72,8 @@ spec:
           value: config-logging
         - name: CONFIG_OBSERVABILITY_NAME
           value: config-observability
+        - name: WEBHOOK_NAME
+          value: webhook
         - name: WEBHOOK_PORT
           value: "8443"
 
