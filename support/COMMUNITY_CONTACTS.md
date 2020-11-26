@@ -82,5 +82,5 @@ rotation, feel free to send a PR to remove yourself.
 | 2020-11-30 | [JRBANCEL](https://github.com/JRBANCEL)             |
 | 2020-12-07 | [nak3](https://github.com/nak3)                     |
 | 2020-12-14 | [tcnghia](https://github.com/tcnghia)               |
-| 2020-12-21 | [dprotaso](https://github.com/dprotaso)             |
+| 2020-12-21 | (looking for a volunteer)                           |
 | 2020-12-28 | [vagababov](https://github.com/vagababov)           |
