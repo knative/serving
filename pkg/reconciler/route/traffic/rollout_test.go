@@ -22,6 +22,7 @@ limitations under the License.
 package traffic
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -921,5 +922,50 @@ func TestConfigDone(t *testing.T) {
 	}
 	if r.Configurations[2].Done() {
 		t.Error("Many revisions rollout is `Done`")
+	}
+}
+
+func TestJSONRoundtrip(t *testing.T) {
+	orig := &Rollout{
+		Configurations: []ConfigurationRollout{{
+			ConfigurationName: "one",
+			Percent:           100,
+			Revisions: []RevisionRollout{{
+				RevisionName: "roy",
+				Percent:      100,
+			}},
+			StartTime:    1955,
+			Deadline:     2006,
+			LastStepTime: 1988,
+			StepDuration: 1984,
+		}, {
+			ConfigurationName: "no",
+			Percent:           0,
+			Revisions:         []RevisionRollout{},
+		}, {
+			ConfigurationName: "many",
+			Percent:           100,
+			Revisions: []RevisionRollout{{
+				RevisionName: "black-on-blue",
+				Percent:      83,
+			}, {
+				RevisionName: "flowers",
+				Percent:      17,
+			}},
+		}},
+	}
+
+	ss, err := json.Marshal(orig)
+	if err != nil {
+		t.Fatal("Error serializing the rollout:", err)
+	}
+	deserialized := &Rollout{}
+	err = json.Unmarshal(ss, deserialized)
+	if err != nil {
+		t.Fatal("Error deserializing proper JSON:", err)
+	}
+	if !cmp.Equal(deserialized, orig, cmpopts.EquateEmpty()) {
+		t.Errorf("JSON roundtrip mismatch:(-want,+got)\n%s",
+			cmp.Diff(orig, deserialized, cmpopts.EquateEmpty()))
 	}
 }
