@@ -15,8 +15,9 @@
 # limitations under the License.
 
 # This script provides helper methods to perform cluster actions.
-source $(dirname $0)/../vendor/knative.dev/hack/e2e-tests.sh
-source $(dirname $0)/e2e-networking-library.sh
+# shellcheck disable=SC1090
+source "$(dirname "${BASH_SOURCE[0]}")/../vendor/knative.dev/hack/e2e-tests.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/e2e-networking-library.sh"
 
 CERT_MANAGER_VERSION="latest"
 # Since default is istio, make default ingress as istio
@@ -39,12 +40,12 @@ MESH=0
 INSTALL_CUSTOM_YAMLS=""
 
 UNINSTALL_LIST=()
-TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
-readonly TMP_DIR
+export TMP_DIR
+TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)}"
 readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
 export SYSTEM_NAMESPACE
-SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
+SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
 
 
 # Keep this in sync with test/ha/ha.go
@@ -52,6 +53,14 @@ readonly REPLICAS=3
 readonly BUCKETS=10
 HA_COMPONENTS=()
 
+# Latest serving release. If user does not supply this as a flag, the latest
+# tagged release on the current branch will be used.
+LATEST_SERVING_RELEASE_VERSION=$(latest_version)
+
+# Latest net-istio release.
+LATEST_NET_ISTIO_RELEASE_VERSION=$(
+  curl -L --silent "https://api.github.com/repos/knative/net-istio/releases" | grep '"tag_name"' \
+    | cut -f2 -d: | sed "s/[^v0-9.]//g" | sort | tail -n1)
 
 # Parse our custom flags.
 function parse_flags() {
@@ -141,14 +150,15 @@ function parse_flags() {
 # All generated YAMLs will be available and pointed by the corresponding
 # environment variables as set in /hack/generate-yamls.sh.
 function build_knative_from_source() {
-  local YAML_LIST="$(mktemp)"
+  local FULL_OUTPUT YAML_LIST LOG_OUTPUT ENV_OUTPUT
+  YAML_LIST="$(mktemp)"
 
   # Generate manifests, capture environment variables pointing to the YAML files.
-  local FULL_OUTPUT="$( \
-      source $(dirname $0)/../hack/generate-yamls.sh ${REPO_ROOT_DIR} ${YAML_LIST} ; \
+  FULL_OUTPUT="$( \
+      source "$(dirname "${BASH_SOURCE[0]}")/../hack/generate-yamls.sh" "${REPO_ROOT_DIR}" "${YAML_LIST}" ; \
       set | grep _YAML=/)"
-  local LOG_OUTPUT="$(echo "${FULL_OUTPUT}" | grep -v _YAML=/)"
-  local ENV_OUTPUT="$(echo "${FULL_OUTPUT}" | grep '^[_0-9A-Z]\+_YAML=/')"
+  LOG_OUTPUT="$(echo "${FULL_OUTPUT}" | grep -v _YAML=/)"
+  ENV_OUTPUT="$(echo "${FULL_OUTPUT}" | grep '^[_0-9A-Z]\+_YAML=/')"
   [[ -z "${LOG_OUTPUT}" || -z "${ENV_OUTPUT}" ]] && fail_test "Error generating manifests"
   # Only import the environment variables pointing to the YAML files.
   echo "${LOG_OUTPUT}"
@@ -164,7 +174,7 @@ function build_knative_from_source() {
 function install_knative_serving() {
   local version=${1:-"HEAD"}
   if [[ -z "${INSTALL_CUSTOM_YAMLS}" ]]; then
-    install_knative_serving_standard "$version" "$2"
+    install_knative_serving_standard "$version" "${2:-}"
     return
   fi
   echo ">> Installing Knative serving from custom YAMLs"
@@ -228,15 +238,15 @@ function install_knative_serving_standard() {
   fi
 
   echo ">> Installing Ingress"
-  if [[ -n "${GLOO_VERSION}" ]]; then
+  if [[ -n "${GLOO_VERSION:-}" ]]; then
     install_gloo || return 1
-  elif [[ -n "${KOURIER_VERSION}" ]]; then
+  elif [[ -n "${KOURIER_VERSION:-}" ]]; then
     install_kourier || return 1
-  elif [[ -n "${AMBASSADOR_VERSION}" ]]; then
+  elif [[ -n "${AMBASSADOR_VERSION:-}" ]]; then
     install_ambassador || return 1
-  elif [[ -n "${CONTOUR_VERSION}" ]]; then
+  elif [[ -n "${CONTOUR_VERSION:-}" ]]; then
     install_contour || return 1
-  elif [[ -n "${KONG_VERSION}" ]]; then
+  elif [[ -n "${KONG_VERSION:-}" ]]; then
     install_kong || return 1
   else
     if [[ "$1" == "HEAD" ]]; then
@@ -510,4 +520,26 @@ function disable_chaosduck() {
 
 function enable_chaosduck() {
   kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=1 || fail_test
+}
+
+function install_latest_release() {
+  header "Installing Knative latest public release"
+
+  install_knative_serving latest-release \
+      || fail_test "Knative latest release installation failed"
+  test_logging_config_setup
+  wait_until_pods_running ${SYSTEM_NAMESPACE}
+  wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
+}
+
+function install_head() {
+  header "Installing Knative head release"
+  install_knative_serving || fail_test "Knative head release installation failed"
+  test_logging_config_setup
+  wait_until_pods_running ${SYSTEM_NAMESPACE}
+  wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
+}
+
+function knative_setup() {
+  install_latest_release
 }

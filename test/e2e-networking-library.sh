@@ -15,17 +15,17 @@
 # limitations under the License.
 
 function install_istio() {
-  if [[ -z "${ISTIO_VERSION}" ]]; then
+  if [[ -z "${ISTIO_VERSION:-}" ]]; then
     readonly ISTIO_VERSION="stable"
   fi
 
-  if [[ -z "${NET_ISTIO_COMMIT}" ]]; then
+  if [[ -z "${NET_ISTIO_COMMIT:-}" ]]; then
     NET_ISTIO_COMMIT=$(head -n 1 ${1} | grep "# Generated when HEAD was" | sed 's/^.* //')
     echo "Got NET_ISTIO_COMMIT from ${1}: ${NET_ISTIO_COMMIT}"
   fi
 
   # TODO: remove this when all the net-istio.yaml in use contain a commit ID
-  if [[ -z "${NET_ISTIO_COMMIT}" ]]; then
+  if [[ -z "${NET_ISTIO_COMMIT:-}" ]]; then
     NET_ISTIO_COMMIT="8102cd3d32f05be1c58260a9717d532a4a6d2f60"
     echo "Hard coded NET_ISTIO_COMMIT: ${NET_ISTIO_COMMIT}"
   fi
@@ -41,7 +41,7 @@ function install_istio() {
   )
 
   ISTIO_PROFILE="istio"
-  if [[ -n "$KIND" ]]; then
+  if [[ -n "${KIND:-}" ]]; then
     ISTIO_PROFILE+="-kind"
   else
     ISTIO_PROFILE+="-ci"
@@ -52,7 +52,7 @@ function install_istio() {
   ISTIO_PROFILE+="-mesh"
   ISTIO_PROFILE+=".yaml"
 
-  if [[ -n "$CLUSTER_DOMAIN" ]]; then
+  if [[ -n "${CLUSTER_DOMAIN:-}" ]]; then
     sed -ie "s/cluster\.local/${CLUSTER_DOMAIN}/g" ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/${ISTIO_PROFILE}
   fi
 
@@ -61,7 +61,7 @@ function install_istio() {
   echo "Istio profile: ${ISTIO_PROFILE}"
   ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
 
-  if [[ -n "$1" ]]; then
+  if [[ -n "${1:-}" ]]; then
     echo ">> Installing net-istio"
     echo "net-istio original YAML: ${1}"
     # Create temp copy in which we replace knative-serving by the test's system namespace.
@@ -161,11 +161,11 @@ function install_contour() {
 }
 
 function wait_until_ingress_running() {
-  if [[ -n "${ISTIO_VERSION}" ]]; then
+  if [[ -n "${ISTIO_VERSION:-}" ]]; then
     wait_until_pods_running istio-system || return 1
     wait_until_service_has_external_http_address istio-system istio-ingressgateway || return 1
   fi
-  if [[ -n "${GLOO_VERSION}" ]]; then
+  if [[ -n "${GLOO_VERSION:-}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Gloo
     # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
     export GATEWAY_OVERRIDE=knative-external-proxy
@@ -173,7 +173,7 @@ function wait_until_ingress_running() {
     wait_until_pods_running gloo-system || return 1
     wait_until_service_has_external_ip gloo-system knative-external-proxy
   fi
-  if [[ -n "${KOURIER_VERSION}" ]]; then
+  if [[ -n "${KOURIER_VERSION:-}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Kourier
     # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
     export GATEWAY_OVERRIDE=kourier
@@ -181,7 +181,7 @@ function wait_until_ingress_running() {
     wait_until_pods_running kourier-system || return 1
     wait_until_service_has_external_http_address kourier-system kourier
   fi
-  if [[ -n "${AMBASSADOR_VERSION}" ]]; then
+  if [[ -n "${AMBASSADOR_VERSION:-}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Ambassador
     # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
     export GATEWAY_OVERRIDE=ambassador
@@ -189,7 +189,7 @@ function wait_until_ingress_running() {
     wait_until_pods_running ambassador || return 1
     wait_until_service_has_external_http_address ambassador ambassador
   fi
-  if [[ -n "${CONTOUR_VERSION}" ]]; then
+  if [[ -n "${CONTOUR_VERSION:-}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Contour
     # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
     export GATEWAY_OVERRIDE=envoy
@@ -198,7 +198,7 @@ function wait_until_ingress_running() {
     wait_until_pods_running contour-internal || return 1
     wait_until_service_has_external_ip "${GATEWAY_NAMESPACE_OVERRIDE}" "${GATEWAY_OVERRIDE}"
   fi
-  if [[ -n "${KONG_VERSION}" ]]; then
+  if [[ -n "${KONG_VERSION:-}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Kong
     # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
     export GATEWAY_OVERRIDE=kong-proxy

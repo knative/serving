@@ -55,7 +55,7 @@ func TestAutoscalerHA(t *testing.T) {
 	resources := ctx.Resources()
 	clients := ctx.Clients()
 
-	test.EnsureTearDown(t, clients, &names)
+	test.EnsureTearDown(t, clients, names)
 
 	t.Log("Expected replicas = ", test.ServingFlags.Replicas)
 	if err := pkgTest.WaitForDeploymentScale(context.Background(), clients.KubeClient, autoscalerDeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
@@ -90,7 +90,9 @@ func TestAutoscalerHA(t *testing.T) {
 	}
 
 	t.Log("Verifying the old revision can still be scaled from 0 to some number after leader change")
-	e2e.AssertAutoscaleUpToNumPods(ctx, 0, 3, time.After(60*time.Second), true /* quick */)
+	if err := e2e.AssertAutoscaleUpToNumPods(ctx, t.Logf, 0, 3, time.After(60*time.Second), true /* quick */); err != nil {
+		t.Fatal(err)
+	}
 
 	t.Log("Updating the Service after selecting new leader controller in order to generate a new revision")
 	names.Image = test.PizzaPlanet2
@@ -100,7 +102,7 @@ func TestAutoscalerHA(t *testing.T) {
 	}
 
 	t.Log("Service should be able to generate a new revision after changing the leader controller")
-	names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
+	names.Revision, err = v1test.WaitForServiceLatestRevision(clients, *names)
 	if err != nil {
 		t.Fatal("New image not reflected in Service:", err)
 	}
@@ -109,5 +111,7 @@ func TestAutoscalerHA(t *testing.T) {
 	t.Log("Verifying the new revision can be scaled up")
 	ctx.SetNames(names)
 	ctx.SetResources(resources)
-	e2e.AssertAutoscaleUpToNumPods(ctx, 1, 3, time.After(60*time.Second), true /* quick */)
+	if err := e2e.AssertAutoscaleUpToNumPods(ctx, t.Logf, 1, 3, time.After(60*time.Second), true /* quick */); err != nil {
+		t.Fatal(err)
+	}
 }

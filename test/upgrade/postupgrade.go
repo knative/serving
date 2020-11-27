@@ -1,5 +1,3 @@
-// +build postupgrade
-
 /*
 Copyright 2018 The Knative Authors
 
@@ -25,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 	ptest "knative.dev/pkg/test"
+	pkgupgrade "knative.dev/pkg/test/upgrade"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -33,9 +32,15 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-func TestServicePostUpgrade(t *testing.T) {
-	t.Parallel()
+// ServicePostUpgradeTest verifies an existing service after upgrade.
+func ServicePostUpgradeTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("ServicePostUpgradeTest", func(c pkgupgrade.Context) {
+		servicePostUpgrade(c.T)
+	})
+}
 
+func servicePostUpgrade(t *testing.T) {
+	t.Parallel()
 	clients := e2e.Setup(t)
 
 	// Before updating the service, the route and configuration objects should
@@ -70,14 +75,22 @@ func routeHasGeneration(clients *test.Clients, serviceName string, generation in
 	return routeObj.Generation == int64(generation), nil
 }
 
-func TestServicePostUpgradeFromScaleToZero(t *testing.T) {
-	t.Parallel()
-	updateService(scaleToZeroServiceName, t)
+// ServicePostUpgradeFromScaleToZeroTest verifies a scaled-to-zero service after upgrade.
+func ServicePostUpgradeFromScaleToZeroTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("PostUpgradeFromScaleToZeroTest", func(c pkgupgrade.Context) {
+		updateService(scaleToZeroServiceName, c.T)
+	})
 }
 
-// TestBYORevisionPostUpgrade attempts to update the RouteSpec of a Service using BYO Revision name. This
+// BYORevisionPostUpgradeTest attempts to update the RouteSpec of a Service using BYO Revision name. This
 // test is meant to catch new defaults that break the immutability of BYO Revision name.
-func TestBYORevisionPostUpgrade(t *testing.T) {
+func BYORevisionPostUpgradeTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("BYORevisionPostUpgradeTest", func(c pkgupgrade.Context) {
+		bYORevisionPostUpgrade(c.T)
+	})
+}
+
+func bYORevisionPostUpgrade(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
@@ -136,12 +149,22 @@ func updateService(serviceName string, t *testing.T) {
 	assertServiceResourcesUpdated(t, clients, names, routeURL, test.PizzaPlanetText2)
 }
 
-func TestCreateNewServicePostUpgrade(t *testing.T) {
-	t.Parallel()
-	createNewService(postUpgradeServiceName, t)
+// CreateNewServicePostUpgradeTest verifies creating a new service after upgrade.
+func CreateNewServicePostUpgradeTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("CreateNewServicePostUpgradeTest", func(c pkgupgrade.Context) {
+		createNewService(postUpgradeServiceName, c.T)
+	})
 }
 
-func TestInitialScalePostUpgrade(t *testing.T) {
+// InitialScalePostUpgradeTest verifies that the service is ready after upgrade
+// despite the fact that it does not receive any requests.
+func InitialScalePostUpgradeTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("InitialScalePostUpgradeTest", func(c pkgupgrade.Context) {
+		initialScalePostUpgrade(c.T)
+	})
+}
+
+func initialScalePostUpgrade(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
 

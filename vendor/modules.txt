@@ -1117,6 +1117,7 @@ knative.dev/pkg/test/mako/config
 knative.dev/pkg/test/monitoring
 knative.dev/pkg/test/slackutil
 knative.dev/pkg/test/spoof
+knative.dev/pkg/test/upgrade
 knative.dev/pkg/test/vegeta/pacers
 knative.dev/pkg/test/zipkin
 knative.dev/pkg/tracing

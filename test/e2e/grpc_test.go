@@ -111,7 +111,7 @@ func autoscaleTest(ctx *TestContext, host, domain string) {
 
 	ctx.targetUtilization = targetUtilization
 	assertGRPCAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, host, domain)
-	assertScaleDown(ctx)
+	assertScaleDown(ctx, ctx.t.Logf)
 	assertGRPCAutoscaleUpToNumPods(ctx, 0, 2, 60*time.Second, host, domain)
 }
 
@@ -256,7 +256,7 @@ func assertGRPCAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float6
 
 	grp.Go(func() error {
 		defer close(stopChan)
-		return checkPodScale(ctx, targetPods, minPods, maxPods, time.After(duration), true /* quick */)
+		return checkPodScale(ctx, ctx.t.Logf, targetPods, minPods, maxPods, time.After(duration), true /* quick */)
 	})
 
 	if err := grp.Wait(); err != nil {
@@ -324,15 +324,15 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 
 	t.Log("Creating service for grpc-ping")
 
-	names := test.ResourceNames{
+	names := &test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "grpc-ping",
 	}
 
 	fopts = append(fopts, rtesting.WithNamedPort("h2c"))
 
-	test.EnsureTearDown(t, clients, &names)
-	resources, err := v1test.CreateServiceReady(t, clients, &names, fopts...)
+	test.EnsureTearDown(t, clients, names)
+	resources, err := v1test.CreateServiceReady(t, clients, names, fopts...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

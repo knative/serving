@@ -1,5 +1,3 @@
-// +build preupgrade
-
 /*
 Copyright 2018 The Knative Authors
 
@@ -21,6 +19,7 @@ package upgrade
 import (
 	"testing"
 
+	pkgupgrade "knative.dev/pkg/test/upgrade"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -29,7 +28,14 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-func TestServicePreUpgrade(t *testing.T) {
+// ServicePreUpgradeTest creates a service before upgrade.
+func ServicePreUpgradeTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("ServicePreUpgradeTest", func(c pkgupgrade.Context) {
+		servicePreUpgrade(c.T)
+	})
+}
+
+func servicePreUpgrade(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
 
@@ -50,7 +56,15 @@ func TestServicePreUpgrade(t *testing.T) {
 	assertServiceResourcesUpdated(t, clients, names, url, test.PizzaPlanetText1)
 }
 
-func TestServicePreUpgradeAndScaleToZero(t *testing.T) {
+// ServicePreUpgradeAndScaleToZeroTest creates a new service before
+// upgrade and wait for it to scale to zero.
+func ServicePreUpgradeAndScaleToZeroTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("ServicePreUpgradeAndScaleToZeroTest", func(c pkgupgrade.Context) {
+		servicePreUpgradeAndScaleToZero(c.T)
+	})
+}
+
+func servicePreUpgradeAndScaleToZero(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
 
@@ -75,9 +89,15 @@ func TestServicePreUpgradeAndScaleToZero(t *testing.T) {
 	}
 }
 
-// TestBYORevisionUpgrade creates a Service that uses the BYO Revision name functionality. This test
+// BYORevisionPreUpgradeTest creates a Service that uses the BYO Revision name functionality. This test
 // is meant to catch new defaults that break bring your own revision name immutability.
-func TestBYORevisionPreUpgrade(t *testing.T) {
+func BYORevisionPreUpgradeTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("BYORevisionPreUpgradeTest", func(c pkgupgrade.Context) {
+		bYORevisionPreUpgrade(c.T)
+	})
+}
+
+func bYORevisionPreUpgrade(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
@@ -91,7 +111,15 @@ func TestBYORevisionPreUpgrade(t *testing.T) {
 	}
 }
 
-func TestInitialScalePreUpgrade(t *testing.T) {
+// InitialScalePreUpgradeTest creates a service and lets it scale down to zero without
+// sending any requests to it.
+func InitialScalePreUpgradeTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("InitialScalePreUpgradeTest", func(c pkgupgrade.Context) {
+		initialScalePreUpgrade(c.T)
+	})
+}
+
+func initialScalePreUpgrade(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{

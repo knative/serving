@@ -1,5 +1,3 @@
-// +build postdowngrade
-
 /*
 Copyright 2018 The Knative Authors
 
@@ -23,9 +21,9 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	_ "knative.dev/pkg/system/testing"
 	ptest "knative.dev/pkg/test"
 
+	pkgupgrade "knative.dev/pkg/test/upgrade"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -33,7 +31,15 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-func TestServicePostDowngrade(t *testing.T) {
+// ServicePostDowngradeTest verifies an existing service after downgrade.
+func ServicePostDowngradeTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("ServicePostDowngradeTest", func(c pkgupgrade.Context) {
+		servicePostDowngrade(c.T)
+	})
+}
+
+func servicePostDowngrade(t *testing.T) {
+	t.Parallel()
 	clients := e2e.Setup(t)
 
 	names := test.ResourceNames{
@@ -74,7 +80,9 @@ func TestServicePostDowngrade(t *testing.T) {
 	assertServiceResourcesUpdated(t, clients, names, url.URL(), test.PizzaPlanetText1)
 }
 
-func TestCreateNewServicePostDowngrade(t *testing.T) {
-	t.Parallel()
-	createNewService(postDowngradeServiceName, t)
+// CreateNewServicePostDowngradeTest verifies creating a new service after downgrade.
+func CreateNewServicePostDowngradeTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("CreateNewServicePostDowngradeTest", func(c pkgupgrade.Context) {
+		createNewService(postDowngradeServiceName, c.T)
+	})
 }
