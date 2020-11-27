@@ -27,6 +27,8 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/pkg/test/logging"
+
 	vegeta "github.com/tsenart/vegeta/v12/lib"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -61,7 +63,7 @@ const (
 type TestContext struct {
 	t                 *testing.T
 	clients           *test.Clients
-	names             test.ResourceNames
+	names             *test.ResourceNames
 	resources         *v1test.ResourceObjects
 	targetUtilization float64
 	targetValue       int
@@ -84,12 +86,12 @@ func (ctx *TestContext) SetResources(resources *v1test.ResourceObjects) {
 }
 
 // Names returns the resource names of the TestContext.
-func (ctx *TestContext) Names() test.ResourceNames {
+func (ctx *TestContext) Names() *test.ResourceNames {
 	return ctx.names
 }
 
 // SetNames set the resource names of the TestContext to the given values.
-func (ctx *TestContext) SetNames(names test.ResourceNames) {
+func (ctx *TestContext) SetNames(names *test.ResourceNames) {
 	ctx.names = names
 }
 
@@ -120,6 +122,7 @@ func getVegetaTarget(kubeClientset kubernetes.Interface, domain, endpointOverrid
 
 func generateTraffic(
 	ctx *TestContext,
+	logf logging.FormatLogger,
 	attacker *vegeta.Attacker,
 	pacer vegeta.Pacer,
 	stopChan chan struct{}) error {
@@ -141,7 +144,7 @@ func generateTraffic(
 	for {
 		select {
 		case <-stopChan:
-			ctx.t.Log("Stopping generateTraffic")
+			logf("Stopping generateTraffic")
 			successRate := float64(1)
 			if totalRequests > 0 {
 				successRate = float64(successfulRequests) / float64(totalRequests)
@@ -153,14 +156,14 @@ func generateTraffic(
 			return nil
 		case res, ok := <-results:
 			if !ok {
-				ctx.t.Log("Time is up; done")
+				logf("Time is up; done")
 				return nil
 			}
 
 			totalRequests++
 			if res.Code != http.StatusOK {
-				ctx.t.Logf("Status = %d, want: 200", res.Code)
-				ctx.t.Logf("URL: %s Duration: %v Error: %s Body:\n%s", res.URL, res.Latency, res.Error, string(res.Body))
+				logf("Status = %d, want: 200", res.Code)
+				logf("URL: %s Duration: %v Error: %s Body:\n%s", res.URL, res.Latency, res.Error, string(res.Body))
 				continue
 			}
 			successfulRequests++
@@ -168,23 +171,23 @@ func generateTraffic(
 	}
 }
 
-func generateTrafficAtFixedConcurrency(ctx *TestContext, concurrency int, stopChan chan struct{}) error {
+func generateTrafficAtFixedConcurrency(ctx *TestContext, logf logging.FormatLogger, concurrency int, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{} // Sends requests as quickly as possible, capped by MaxWorkers below.
 	attacker := vegeta.NewAttacker(
 		vegeta.Timeout(0), // No timeout is enforced at all.
 		vegeta.Workers(uint64(concurrency)),
 		vegeta.MaxWorkers(uint64(concurrency)))
 
-	ctx.t.Logf("Maintaining %d concurrent requests.", concurrency)
-	return generateTraffic(ctx, attacker, pacer, stopChan)
+	logf("Maintaining %d concurrent requests.", concurrency)
+	return generateTraffic(ctx, logf, attacker, pacer, stopChan)
 }
 
-func generateTrafficAtFixedRPS(ctx *TestContext, rps int, stopChan chan struct{}) error {
+func generateTrafficAtFixedRPS(ctx *TestContext, logf logging.FormatLogger, rps int, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{Freq: rps, Per: time.Second}
 	attacker := vegeta.NewAttacker(vegeta.Timeout(0)) // No timeout is enforced at all.
 
-	ctx.t.Logf("Maintaining %v RPS.", rps)
-	return generateTraffic(ctx, attacker, pacer, stopChan)
+	logf("Maintaining %v RPS.", rps)
+	return generateTraffic(ctx, logf, attacker, pacer, stopChan)
 }
 
 func toPercentageString(f float64) string {
@@ -201,12 +204,11 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 	clients := Setup(t)
 
 	t.Log("Creating a new Route and Configuration")
-	names := test.ResourceNames{
+	names := &test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   autoscaleTestImageName,
 	}
-	test.EnsureTearDown(t, clients, &names)
-	resources, err := v1test.CreateServiceReady(t, clients, &names,
+	resources, err := v1test.CreateServiceReady(t, clients, names,
 		append([]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
 				autoscaling.ClassAnnotationKey:             class,
@@ -255,14 +257,14 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 	}
 }
 
-func assertScaleDown(ctx *TestContext) {
+func assertScaleDown(ctx *TestContext, logf logging.FormatLogger) error {
 	deploymentName := resourcenames.Deployment(ctx.resources.Revision)
 	if err := WaitForScaleToZero(ctx.t, deploymentName, ctx.clients); err != nil {
-		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
+		return fmt.Errorf("unable to observe the Deployment named %s scaling down: %w", deploymentName, err)
 	}
 
 	// Account for the case where scaling up uses all available pods.
-	ctx.t.Log("Wait for all pods to terminate.")
+	logf("Wait for all pods to terminate.")
 
 	if err := pkgTest.WaitForPodListState(
 		context.Background(),
@@ -278,27 +280,29 @@ func assertScaleDown(ctx *TestContext) {
 			return true, nil
 		},
 		"WaitForAvailablePods", test.ServingNamespace); err != nil {
-		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", deploymentName, err)
+		return fmt.Errorf("waiting for Pod.List to have no non-Evicted pods of %q: %w", deploymentName, err)
 	}
 
-	ctx.t.Log("The Revision should remain ready after scaling to zero.")
+	logf("The Revision should remain ready after scaling to zero.")
 	if err := v1test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, v1test.IsRevisionReady); err != nil {
-		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
+		return fmt.Errorf("the Revision %s did not stay Ready after scaling down to zero: %w", ctx.names.Revision, err)
 	}
 
-	ctx.t.Log("Scaled down.")
+	logf("Scaled down.")
+
+	return nil
 }
 
-func numberOfReadyPods(ctx *TestContext) (float64, error) {
+func numberOfReadyPods(ctx *TestContext, logf logging.FormatLogger) (float64, error) {
 	// SKS name matches that of revision.
 	n := ctx.resources.Revision.Name
 	sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(context.Background(), n, metav1.GetOptions{})
 	if err != nil {
-		ctx.t.Logf("Error getting SKS %q: %v", n, err)
+		logf("Error getting SKS %q: %v", n, err)
 		return 0, fmt.Errorf("error retrieving sks %q: %w", n, err)
 	}
 	if sks.Status.PrivateServiceName == "" {
-		ctx.t.Logf("SKS %s has not yet reconciled", n)
+		logf("SKS %s has not yet reconciled", n)
 		// Not an error, but no pods either.
 		return 0, nil
 	}
@@ -310,7 +314,7 @@ func numberOfReadyPods(ctx *TestContext) (float64, error) {
 	return float64(resources.ReadyAddressCount(eps)), nil
 }
 
-func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done <-chan time.Time, quick bool) error {
+func checkPodScale(ctx *TestContext, logf logging.FormatLogger, targetPods, minPods, maxPods float64, done <-chan time.Time, quick bool) error {
 	// Short-circuit traffic generation once we exit from the check logic.
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
@@ -320,12 +324,12 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 		case <-ticker.C:
 			// Each 2 second, check that the number of pods is at least `minPods`. `minPods` is increasing
 			// to verify that the number of pods doesn't go down while we are scaling up.
-			got, err := numberOfReadyPods(ctx)
+			got, err := numberOfReadyPods(ctx, logf)
 			if err != nil {
 				return err
 			}
 			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v", ctx.resources.Revision.Name, got, minPods)
-			ctx.t.Log(mes)
+			logf(mes)
 			// verify that the number of pods doesn't go down while we are scaling up.
 			if got < minPods {
 				return errors.New("interim scale didn't fulfill constraints: " + mes)
@@ -333,7 +337,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			// A quick test succeeds when the number of pods scales up to `targetPods`
 			// (and, as an extra check, no more than `maxPods`).
 			if quick && got >= targetPods && got <= maxPods {
-				ctx.t.Logf("Quick Mode: got %v >= %v", got, targetPods)
+				logf("Quick Mode: got %v >= %v", got, targetPods)
 				return nil
 			}
 			if minPods < targetPods-1 {
@@ -344,13 +348,13 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 		case <-done:
 			// The test duration is over. Do a last check to verify that the number of pods is at `targetPods`
 			// (with a little room for de-flakiness).
-			got, err := numberOfReadyPods(ctx)
+			got, err := numberOfReadyPods(ctx, logf)
 			if err != nil {
 				return fmt.Errorf("failed to fetch number of ready pods: %w", err)
 			}
 			mes := fmt.Sprintf("got %v replicas, expected between [%v, %v] replicas for revision %s",
 				got, targetPods-1, maxPods, ctx.resources.Revision.Name)
-			ctx.t.Log(mes)
+			logf(mes)
 			if got < targetPods-1 || got > maxPods {
 				return errors.New("final scale didn't fulfill constraints: " + mes)
 			}
@@ -366,9 +370,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 //    sustains there until the `done` channel sends a signal.
 // The given `duration` is how long the traffic will be generated. You must make sure that the signal
 // from the given `done` channel will be sent within the `duration`.
-func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
-	ctx.t.Helper()
-
+func AssertAutoscaleUpToNumPods(ctx *TestContext, logf logging.FormatLogger, curPods, targetPods float64, done <-chan time.Time, quick bool) error {
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
 	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
@@ -379,18 +381,20 @@ func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, d
 	grp.Go(func() error {
 		switch ctx.metric {
 		case autoscaling.RPS:
-			return generateTrafficAtFixedRPS(ctx, int(targetPods*float64(ctx.targetValue)), stopChan)
+			return generateTrafficAtFixedRPS(ctx, logf, int(targetPods*float64(ctx.targetValue)), stopChan)
 		default:
-			return generateTrafficAtFixedConcurrency(ctx, int(targetPods*float64(ctx.targetValue)), stopChan)
+			return generateTrafficAtFixedConcurrency(ctx, logf, int(targetPods*float64(ctx.targetValue)), stopChan)
 		}
 	})
 
 	grp.Go(func() error {
 		defer close(stopChan)
-		return checkPodScale(ctx, targetPods, minPods, maxPods, done, quick)
+		return checkPodScale(ctx, logf, targetPods, minPods, maxPods, done, quick)
 	})
 
 	if err := grp.Wait(); err != nil {
-		ctx.t.Fatal("Error: ", err)
+		return err
 	}
+
+	return nil
 }

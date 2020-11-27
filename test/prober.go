@@ -233,12 +233,18 @@ func RunRouteProber(logf logging.FormatLogger, clients *Clients, url *url.URL, o
 // against the default SLO, which requires perfect responses.
 // This takes `testing.T` so that it may be used in `defer`.
 func AssertProberDefault(t testing.TB, p Prober) {
+	AssertProberSLO(t, p, 1.0)
+}
+
+// AssertProberSLO is a helper for stopping the Prober and checking its SLI
+// against the given SLO.
+func AssertProberSLO(t testing.TB, p Prober, slo float64) {
 	t.Helper()
 	if err := p.Stop(); err != nil {
 		t.Error("Stop()", "error", err.Error())
 	}
 	// Default to 100% correct (typically used in conjunction with the low probe count above)
-	if err := CheckSLO(1.0, t.Name(), p); err != nil {
+	if err := CheckSLO(slo, t.Name(), p); err != nil {
 		t.Error("CheckSLO()", "error", err.Error())
 	}
 }

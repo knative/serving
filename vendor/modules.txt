@@ -976,6 +976,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20201201234937-fddbf732e450
 ## explicit
 knative.dev/hack
+knative.dev/hack/shell
 # knative.dev/networking v0.0.0-20201203005409-47ea2396c447
 ## explicit
 knative.dev/networking/config
@@ -1105,6 +1106,7 @@ knative.dev/pkg/test/mako/config
 knative.dev/pkg/test/monitoring
 knative.dev/pkg/test/slackutil
 knative.dev/pkg/test/spoof
+knative.dev/pkg/test/upgrade
 knative.dev/pkg/test/vegeta/pacers
 knative.dev/pkg/test/zipkin
 knative.dev/pkg/tracing
