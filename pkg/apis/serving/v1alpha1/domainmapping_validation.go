@@ -18,12 +18,9 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
-	"k8s.io/apimachinery/pkg/api/validation"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // Validate makes sure that DomainMapping is properly configured.
@@ -55,23 +52,5 @@ func (dm *DomainMapping) validateMetadata(ctx context.Context) (errs *apis.Field
 
 // Validate makes sure the DomainMappingSpec is properly configured.
 func (spec *DomainMappingSpec) Validate(ctx context.Context) *apis.FieldError {
-	errs := spec.Ref.Validate(ctx).ViaField("ref")
-
-	// For now, ref must be a serving.knative.dev/v1 Service.
-	if spec.Ref.Kind != "Service" {
-		errs = errs.Also(apis.ErrGeneric(`must be "Service"`, "ref.kind"))
-	}
-	if spec.Ref.APIVersion != v1.SchemeGroupVersion.Identifier() {
-		errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("must be %q", v1.SchemeGroupVersion.Identifier()), "ref.apiVersion"))
-	}
-
-	// Since we currently construct the rewritten host from the name/namespace, make sure they're valid.
-	if msgs := validation.NameIsDNS1035Label(spec.Ref.Name, false); len(msgs) > 0 {
-		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprint("not a DNS 1035 label prefix: ", msgs), "ref.name"))
-	}
-	if msgs := validation.ValidateNamespaceName(spec.Ref.Namespace, false); len(msgs) > 0 {
-		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprint("not a valid namespace: ", msgs), "ref.namespace"))
-	}
-
-	return errs
+	return spec.Ref.Validate(ctx).ViaField("ref")
 }

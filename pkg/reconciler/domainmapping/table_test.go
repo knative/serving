@@ -87,6 +87,34 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
 		},
 	}, {
+		Name: "first reconcile, corev1 service",
+		Key:  "default/first-reconcile.com",
+		Objects: []runtime.Object{
+			service("default", "target"),
+			domainMapping("default", "first-reconcile.com", withRef("default", "target", withAPIVersionKind("v1", "Service"))),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "first-reconcile.com",
+				withRef("default", "target", withAPIVersionKind("v1", "Service")),
+				withURL("http", "first-reconcile.com"),
+				withAddress("http", "first-reconcile.com"),
+				withInitDomainMappingConditions,
+				withDomainClaimed,
+				withIngressNotConfigured,
+				withReferenceResolved,
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target", withAPIVersionKind("v1", "Service")))),
+			resources.MakeIngress(
+				domainMapping("default", "first-reconcile.com", withRef("default", "target", withAPIVersionKind("v1", "Service"))),
+				"target", "target.default.svc.cluster.local", "the-ingress-class"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
+		},
+	}, {
 		Name: "first reconcile, ref does not exist",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
@@ -527,12 +555,25 @@ func withUID(uid types.UID) domainMappingOption {
 	}
 }
 
-func withRef(namespace, name string) domainMappingOption {
+type refOption func(*duckv1.KReference)
+
+func withRef(namespace, name string, opt ...refOption) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Spec.Ref.Namespace = namespace
 		dm.Spec.Ref.Name = name
 		dm.Spec.Ref.APIVersion = "serving.knative.dev/v1"
 		dm.Spec.Ref.Kind = "Service"
+
+		for _, o := range opt {
+			o(&dm.Spec.Ref)
+		}
+	}
+}
+
+func withAPIVersionKind(apiVersion, kind string) refOption {
+	return func(ref *duckv1.KReference) {
+		ref.APIVersion = apiVersion
+		ref.Kind = kind
 	}
 }
 
@@ -634,6 +675,15 @@ func ksvc(ns, name, host, path string) *servingv1.Service {
 					},
 				},
 			},
+		},
+	}
+}
+
+func service(ns, name string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
 		},
 	}
 }
