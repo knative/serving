@@ -49,6 +49,7 @@ const (
 	// Concurrency must be high enough to avoid the problems with sampling
 	// but not high enough to generate scheduling problems.
 	containerConcurrency = 6
+	rpsTarget            = 10
 	targetUtilization    = 0.7
 	successRateSLO       = 0.999
 	autoscaleSleep       = 500
