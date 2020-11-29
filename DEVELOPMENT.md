@@ -272,7 +272,7 @@ To update existing dependencies execute
 
 ## Clean up
 
-You can delete all of the service components with:
+You can delete all of the serving components with:
 
 ```shell
 ko delete --ignore-not-found=true \
