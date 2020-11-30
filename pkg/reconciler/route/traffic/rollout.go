@@ -24,7 +24,7 @@ package traffic
 import (
 	"sort"
 
-	"k8s.io/apimachinery/pkg/util/clock"
+	"knative.dev/pkg/system"
 )
 
 // Rollout encapsulates the current rollout state of the system.
@@ -120,7 +120,7 @@ func (cur *Rollout) Validate() bool {
 // At the end of the call the returned object will contain the
 // desired traffic shape.
 // Step will return cur if no previous state was available.
-func (cur *Rollout) Step(prev *Rollout, clk clock.Clock) *Rollout {
+func (cur *Rollout) Step(prev *Rollout, clk system.Clock) *Rollout {
 	if prev == nil || len(prev.Configurations) == 0 {
 		return cur
 	}
@@ -223,7 +223,7 @@ func adjustPercentage(goal int, cr *ConfigurationRollout) {
 
 // stepConfig takes previous and goal configuration shapes and returns a new
 // config rollout, after computing the percetage allocations.
-func stepConfig(goal, prev *ConfigurationRollout, clk clock.Clock) *ConfigurationRollout {
+func stepConfig(goal, prev *ConfigurationRollout, clk system.Clock) *ConfigurationRollout {
 	pc := len(prev.Revisions)
 	ret := &ConfigurationRollout{
 		ConfigurationName: goal.ConfigurationName,

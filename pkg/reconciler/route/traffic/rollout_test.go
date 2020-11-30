@@ -28,12 +28,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"k8s.io/apimachinery/pkg/util/clock"
+	ptest "knative.dev/pkg/reconciler/testing"
 )
 
 func TestStep(t *testing.T) {
 	now := time.Now()
-	clk := clock.NewFakeClock(now)
+	clk := ptest.FakeClock{
+		Time: now,
+	}
 	tests := []struct {
 		name            string
 		prev, cur, want *Rollout

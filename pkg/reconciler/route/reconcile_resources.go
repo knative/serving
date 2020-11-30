@@ -39,9 +39,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
 
-// For mocking in tests.
-var rolloutClock rolloutClock.RealClock
-
 func (c *Reconciler) reconcileIngress(
 	ctx context.Context, r *v1.Route, tc *traffic.Config,
 	tls []netv1alpha1.IngressTLS,
@@ -78,7 +75,7 @@ func (c *Reconciler) reconcileIngress(
 			ingress.Annotations[networking.RolloutAnnotationKey])
 
 		// And recompute the rollout state.
-		effectiveRO := curRO.Step(prevRO, rolloutClock)
+		effectiveRO := curRO.Step(prevRO, c.clock)
 		desired, err := resources.MakeIngressWithRollout(ctx, r, tc, effectiveRO,
 			tls, ingressClass, acmeChallenges...)
 		if err != nil {
