@@ -132,9 +132,17 @@ func main() {
 
 	logger.Info("Starting the knative activator")
 
+	// Create the transport used by both the activator->QP probe and the proxy.
+	// It's important that the throttler and the activatorhandler share this
+	// transport so that throttler probe connections can be reused after probing
+	// (via keep-alive) to send real requests, avoiding needing an extra
+	// reconnect for the first request after the probe succeeds.
+	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d", env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
+	transport := pkgnet.NewAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
+
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
-	go throttler.Run(ctx)
+	go throttler.Run(ctx, transport)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(networking.ActivatorServiceName, env.PodIP, logger))
 
@@ -165,12 +173,9 @@ func main() {
 	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh)
 	go concurrencyReporter.Run(ctx.Done())
 
-	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d", env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
-	proxyTransport := pkgnet.NewAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
-
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	var ah http.Handler = activatorhandler.New(ctx, throttler, proxyTransport)
+	var ah http.Handler = activatorhandler.New(ctx, throttler, transport)
 	ah = concurrencyReporter.Handler(ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
