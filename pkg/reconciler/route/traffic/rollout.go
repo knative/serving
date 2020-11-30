@@ -23,6 +23,8 @@ package traffic
 
 import (
 	"sort"
+
+	"k8s.io/apimachinery/pkg/util/clock"
 )
 
 // Rollout encapsulates the current rollout state of the system.
@@ -118,7 +120,7 @@ func (cur *Rollout) Validate() bool {
 // At the end of the call the returned object will contain the
 // desired traffic shape.
 // Step will return cur if no previous state was available.
-func (cur *Rollout) Step(prev *Rollout) *Rollout {
+func (cur *Rollout) Step(prev *Rollout, clk clock.Clock) *Rollout {
 	if prev == nil || len(prev.Configurations) == 0 {
 		return cur
 	}
@@ -161,11 +163,12 @@ func (cur *Rollout) Step(prev *Rollout) *Rollout {
 				// altogether.
 				switch p := ccfgs[i].Percent; {
 				case p > 1:
-					ret = append(ret, *stepConfig(ccfgs[i], pcfgs[j]))
+					ret = append(ret, *stepConfig(ccfgs[i], pcfgs[j], clk))
 				case p == 1:
 					// Skip all the work if it's a common A/B scenario where the test config
 					// receives just 1% of traffic.
 					ret = append(ret, *ccfgs[i])
+					// default p == 0 => just ignore for rollout.
 				}
 				i++
 				j++
@@ -220,7 +223,7 @@ func adjustPercentage(goal int, cr *ConfigurationRollout) {
 
 // stepConfig takes previous and goal configuration shapes and returns a new
 // config rollout, after computing the percetage allocations.
-func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
+func stepConfig(goal, prev *ConfigurationRollout, clk clock.Clock) *ConfigurationRollout {
 	pc := len(prev.Revisions)
 	ret := &ConfigurationRollout{
 		ConfigurationName: goal.ConfigurationName,
@@ -253,6 +256,9 @@ func stepConfig(goal, prev *ConfigurationRollout) *ConfigurationRollout {
 		}
 		return ret
 	}
+
+	// Otherwise we start a rollout, which means we need to stamp the starttime.
+	ret.StartTime = int(clk.Now().Unix())
 
 	// Go backwards and find first revision with traffic assignment > 0.
 	// Reduce it by one, so we can give that 1% to the new revision.
