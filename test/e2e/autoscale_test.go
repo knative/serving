@@ -69,7 +69,7 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
 	// Note: without the warm-up / gradual increase of load the test is
-	// receving 503 responses (overload) from the envoy.
+	// receiving 503 responses (overload) from the envoy.
 
 	// Increase workload for 2 replicas for 90s. It takes longer on a weak
 	// boskos cluster to propagate the state. See #10218.
