@@ -75,7 +75,7 @@ func (c *Reconciler) reconcileIngress(
 			ingress.Annotations[networking.RolloutAnnotationKey])
 
 		// And recompute the rollout state.
-		effectiveRO := curRO.Step(prevRO)
+		effectiveRO := curRO.Step(prevRO, c.clock)
 		desired, err := resources.MakeIngressWithRollout(ctx, r, tc, effectiveRO,
 			tls, ingressClass, acmeChallenges...)
 		if err != nil {

@@ -24,12 +24,18 @@ package traffic
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	ptest "knative.dev/pkg/reconciler/testing"
 )
 
 func TestStep(t *testing.T) {
+	now := time.Now()
+	clk := ptest.FakeClock{
+		Time: now,
+	}
 	tests := []struct {
 		name            string
 		prev, cur, want *Rollout
@@ -201,6 +207,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
+				StartTime:         int(now.Unix()),
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
 					Percent:      99,
@@ -239,6 +246,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           33,
+				StartTime:         int(now.Unix()),
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
 					Percent:      2,
@@ -279,6 +287,7 @@ func TestStep(t *testing.T) {
 		want: &Rollout{
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
+				StartTime:         int(now.Unix()),
 				Percent:           75,
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
@@ -318,6 +327,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "brian",
 				Percent:           70,
+				StartTime:         int(now.Unix()),
 				Revisions: []RevisionRollout{{
 					RevisionName: "exile-on-main-st",
 					Percent:      69,
@@ -343,6 +353,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
+				StartTime:         int(now.Unix()) - 1982, // A rollout in progress, this would be set.
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
 					Percent:      95,
@@ -356,6 +367,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
+				StartTime:         int(now.Unix()),
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
 					Percent:      95,
@@ -384,6 +396,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
+				StartTime:         int(now.Unix()) - 1984, // A rollout in progress, this would be set.
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
 					Percent:      99,
@@ -396,6 +409,7 @@ func TestStep(t *testing.T) {
 		want: &Rollout{
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
+				StartTime:         int(now.Unix()),
 				Percent:           100,
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
@@ -565,6 +579,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           99,
+				StartTime:         int(now.Unix()),
 				Revisions: []RevisionRollout{{ // <-- note this one actually rolls.
 					RevisionName: "can't-get-no-satisfaction",
 					Percent:      98,
@@ -677,7 +692,7 @@ func TestStep(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.cur.Step(tc.prev)
+			got := tc.cur.Step(tc.prev, clk)
 			if want := tc.want; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
 				t.Errorf("Wrong rolled rollout, diff(-want,+got):\n%s", cmp.Diff(want, got))
 			}

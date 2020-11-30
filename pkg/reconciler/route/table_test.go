@@ -717,7 +717,7 @@ func TestReconcile(t *testing.T) {
 					RevisionName: "config-00001", Percent: 99,
 				}, {
 					RevisionName: "config-00002", Percent: 1,
-				}})),
+				}}, fakeCurTime)),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "new-latest-ready", WithConfigTarget("config"),
@@ -921,7 +921,7 @@ func TestReconcile(t *testing.T) {
 					RevisionName: "config-00001", Percent: 99,
 				}, {
 					RevisionName: "config-00002", Percent: 1,
-				}})),
+				}}, fakeCurTime)),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "update-ci-failure", WithConfigTarget("config"),
@@ -2603,11 +2603,12 @@ func url(s string) *apis.URL {
 	return url
 }
 
-func simpleRollout(cfg string, revs []traffic.RevisionRollout) IngressOption {
+func simpleRollout(cfg string, revs []traffic.RevisionRollout, now time.Time) IngressOption {
 	return func(i *netv1alpha1.Ingress) {
 		r := &traffic.Rollout{
 			Configurations: []traffic.ConfigurationRollout{{
 				ConfigurationName: cfg,
+				StartTime:         int(now.Unix()),
 				Percent:           100,
 				Revisions:         revs,
 			}},
