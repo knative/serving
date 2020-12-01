@@ -31,6 +31,13 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+func ServingPostDowngradeTests() []pkgupgrade.Operation {
+	return []pkgupgrade.Operation{
+		ServicePostDowngradeTest(),
+		CreateNewServicePostDowngradeTest(),
+	}
+}
+
 // ServicePostDowngradeTest verifies an existing service after downgrade.
 func ServicePostDowngradeTest() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("ServicePostDowngradeTest", func(c pkgupgrade.Context) {

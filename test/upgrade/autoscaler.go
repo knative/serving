@@ -19,8 +19,6 @@ package upgrade
 import (
 	"time"
 
-	"go.uber.org/zap"
-
 	"golang.org/x/sync/errgroup"
 	"knative.dev/serving/test"
 
@@ -39,7 +37,7 @@ const (
 // AutoscaleSustainingTest checks that when traffic increases a knative app
 // scales up and sustains the scale as long as the traffic sustains, despite whether
 // it is switching modes between normal and panic.
-func AutoscaleSustainingTest(logger *zap.Logger) pkgupgrade.BackgroundOperation {
+func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 	var ctx *e2e.TestContext
 	var grp errgroup.Group
 	stopCh := make(chan time.Time)
@@ -51,7 +49,7 @@ func AutoscaleSustainingTest(logger *zap.Logger) pkgupgrade.BackgroundOperation 
 					autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
 				}))
 			grp.Go(func() error {
-				return e2e.AssertAutoscaleUpToNumPods(ctx, logger.Sugar().Infof, 1, 10, stopCh, false /* quick */)
+				return e2e.AssertAutoscaleUpToNumPods(ctx, c.Log.Infof, 1, 10, stopCh, false /* quick */)
 			})
 		},
 		func(c pkgupgrade.Context) {
@@ -68,7 +66,7 @@ func AutoscaleSustainingTest(logger *zap.Logger) pkgupgrade.BackgroundOperation 
 
 // AutoscaleSustainingWithTBCTest checks that when traffic increases and the activator is
 // in the path a knative app scales up and sustains the scale.
-func AutoscaleSustainingWithTBCTest(logger *zap.Logger) pkgupgrade.BackgroundOperation {
+func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 	var ctx *e2e.TestContext
 	var grp errgroup.Group
 	stopCh := make(chan time.Time)
@@ -80,7 +78,7 @@ func AutoscaleSustainingWithTBCTest(logger *zap.Logger) pkgupgrade.BackgroundOpe
 					autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
 				}))
 			grp.Go(func() error {
-				return e2e.AssertAutoscaleUpToNumPods(ctx, logger.Sugar().Infof, 1, 10, stopCh, false /* quick */)
+				return e2e.AssertAutoscaleUpToNumPods(ctx, c.Log.Infof, 1, 10, stopCh, false /* quick */)
 			})
 		},
 		func(c pkgupgrade.Context) {
