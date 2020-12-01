@@ -28,14 +28,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	ptest "knative.dev/pkg/reconciler/testing"
 )
 
 func TestStep(t *testing.T) {
-	now := time.Now()
-	clk := ptest.FakeClock{
-		Time: now,
-	}
+	now := int(time.Now().UnixNano())
 	tests := []struct {
 		name            string
 		prev, cur, want *Rollout
@@ -207,7 +203,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
-				StartTime:         int(now.Unix()),
+				StartTime:         now,
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
 					Percent:      99,
@@ -246,7 +242,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           33,
-				StartTime:         int(now.Unix()),
+				StartTime:         now,
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
 					Percent:      2,
@@ -287,7 +283,7 @@ func TestStep(t *testing.T) {
 		want: &Rollout{
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
-				StartTime:         int(now.Unix()),
+				StartTime:         now,
 				Percent:           75,
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
@@ -327,7 +323,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "brian",
 				Percent:           70,
-				StartTime:         int(now.Unix()),
+				StartTime:         now,
 				Revisions: []RevisionRollout{{
 					RevisionName: "exile-on-main-st",
 					Percent:      69,
@@ -353,7 +349,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
-				StartTime:         int(now.Unix()) - 1982, // A rollout in progress, this would be set.
+				StartTime:         now - 1982, // A rollout in progress, this would be set.
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
 					Percent:      95,
@@ -367,7 +363,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
-				StartTime:         int(now.Unix()),
+				StartTime:         now,
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
 					Percent:      95,
@@ -396,7 +392,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
-				StartTime:         int(now.Unix()) - 1984, // A rollout in progress, this would be set.
+				StartTime:         now - 1984, // A rollout in progress, this would be set.
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
 					Percent:      99,
@@ -409,7 +405,7 @@ func TestStep(t *testing.T) {
 		want: &Rollout{
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
-				StartTime:         int(now.Unix()),
+				StartTime:         now,
 				Percent:           100,
 				Revisions: []RevisionRollout{{
 					RevisionName: "goat-head-soup",
@@ -579,7 +575,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           99,
-				StartTime:         int(now.Unix()),
+				StartTime:         now,
 				Revisions: []RevisionRollout{{ // <-- note this one actually rolls.
 					RevisionName: "can't-get-no-satisfaction",
 					Percent:      98,
@@ -692,7 +688,7 @@ func TestStep(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.cur.Step(tc.prev, clk)
+			got := tc.cur.Step(tc.prev, now)
 			if want := tc.want; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
 				t.Errorf("Wrong rolled rollout, diff(-want,+got):\n%s", cmp.Diff(want, got))
 			}
@@ -701,6 +697,40 @@ func TestStep(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestObserveReady(t *testing.T) {
+	const (
+		now       = 200620092020 + 1982
+		oldenDays = 198219841988
+	)
+	ro := Rollout{
+		Configurations: []ConfigurationRollout{{
+			ConfigurationName: "has-step",
+			StepDuration:      11,
+		}, {
+			ConfigurationName: "no-step-no-begin",
+		}, {
+			ConfigurationName: "step-begin < 1s",
+			StartTime:         200620092020,
+		}, {
+			ConfigurationName: "step-begin > 1s",
+			StartTime:         oldenDays,
+		}},
+	}
+
+	want := ro
+	want.Configurations[2].StepDuration = 1
+	want.Configurations[3].StepDuration = 3 // 2.4 rounded up.
+
+	// This works in place.
+	ro.ObserveReady(now)
+
+	if !cmp.Equal(ro, want) {
+		t.Errorf("ObserveReady generated mismatched config: diff(-want,+got):\n%s",
+			cmp.Diff(want, ro))
+	}
+
 }
 
 func TestAdjustPercentage(t *testing.T) {

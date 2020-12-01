@@ -22,9 +22,9 @@ limitations under the License.
 package traffic
 
 import (
+	"math"
 	"sort"
-
-	"knative.dev/pkg/system"
+	"time"
 )
 
 // Rollout encapsulates the current rollout state of the system.
@@ -115,12 +115,24 @@ func (cur *Rollout) Validate() bool {
 	return true
 }
 
+// ObserveReady traverses the configs and the ones that are in rollout
+// but have not observed step time yet, will have it set, to
+// max(1, nowTS-cfg.StartTime).
+func (cur *Rollout) ObserveReady(nowTS int) {
+	for i := range cur.Configurations {
+		c := &cur.Configurations[i]
+		if c.StepDuration == 0 && c.StartTime > 0 {
+			c.StepDuration = int(math.Max(1, math.Ceil(time.Duration(nowTS-c.StartTime).Seconds())))
+		}
+	}
+}
+
 // Step merges this rollout object with the previous state and
 // returns a new Rollout object representing the merged state.
 // At the end of the call the returned object will contain the
 // desired traffic shape.
 // Step will return cur if no previous state was available.
-func (cur *Rollout) Step(prev *Rollout, clk system.Clock) *Rollout {
+func (cur *Rollout) Step(prev *Rollout, nowTS int) *Rollout {
 	if prev == nil || len(prev.Configurations) == 0 {
 		return cur
 	}
@@ -163,7 +175,7 @@ func (cur *Rollout) Step(prev *Rollout, clk system.Clock) *Rollout {
 				// altogether.
 				switch p := ccfgs[i].Percent; {
 				case p > 1:
-					ret = append(ret, *stepConfig(ccfgs[i], pcfgs[j], clk))
+					ret = append(ret, *stepConfig(ccfgs[i], pcfgs[j], nowTS))
 				case p == 1:
 					// Skip all the work if it's a common A/B scenario where the test config
 					// receives just 1% of traffic.
@@ -223,7 +235,7 @@ func adjustPercentage(goal int, cr *ConfigurationRollout) {
 
 // stepConfig takes previous and goal configuration shapes and returns a new
 // config rollout, after computing the percetage allocations.
-func stepConfig(goal, prev *ConfigurationRollout, clk system.Clock) *ConfigurationRollout {
+func stepConfig(goal, prev *ConfigurationRollout, nowTS int) *ConfigurationRollout {
 	pc := len(prev.Revisions)
 	ret := &ConfigurationRollout{
 		ConfigurationName: goal.ConfigurationName,
@@ -258,7 +270,7 @@ func stepConfig(goal, prev *ConfigurationRollout, clk system.Clock) *Configurati
 	}
 
 	// Otherwise we start a rollout, which means we need to stamp the starttime.
-	ret.StartTime = int(clk.Now().Unix())
+	ret.StartTime = nowTS
 
 	// Go backwards and find first revision with traffic assignment > 0.
 	// Reduce it by one, so we can give that 1% to the new revision.

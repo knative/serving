@@ -75,7 +75,14 @@ func (c *Reconciler) reconcileIngress(
 			ingress.Annotations[networking.RolloutAnnotationKey])
 
 		// And recompute the rollout state.
-		effectiveRO := curRO.Step(prevRO, c.clock)
+		effectiveRO := curRO.Step(prevRO, int(c.clock.Now().UnixNano()))
+
+		// Now check if the ingress status changed from not ready to ready.
+		rtView := r.Status.GetCondition(v1.RouteConditionIngressReady)
+		if ingress.IsReady() && !rtView.IsTrue() {
+			effectiveRO.ObserveReady(int(c.clock.Now().UnixNano()))
+		}
+
 		desired, err := resources.MakeIngressWithRollout(ctx, r, tc, effectiveRO,
 			tls, ingressClass, acmeChallenges...)
 		if err != nil {
