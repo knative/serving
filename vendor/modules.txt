@@ -1009,7 +1009,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20201125095035-9bf616d2f46a
+# knative.dev/pkg v0.0.0-20201130192436-e5346d90e980
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
