@@ -190,6 +190,11 @@ func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
 			continue
 		}
 
+		// Ignore the rollouts with 0 percent target traffic.
+		// This can happen only for the default tag.
+		if *rt.Percent == 0 {
+			continue
+		}
 		// The targets with the same revision are already joined together.
 		r.Configurations = append(r.Configurations, ConfigurationRollout{
 			ConfigurationName: rt.ConfigurationName,

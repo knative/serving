@@ -117,12 +117,13 @@ func (cur *Rollout) Validate() bool {
 
 // ObserveReady traverses the configs and the ones that are in rollout
 // but have not observed step time yet, will have it set, to
-// max(1, nowTS-cfg.StartTime).
+// max(1, nowTS-cfg.StartTime). nowTS is unix timestamp in ns.
 func (cur *Rollout) ObserveReady(nowTS int) {
 	for i := range cur.Configurations {
 		c := &cur.Configurations[i]
 		if c.StepDuration == 0 && c.StartTime > 0 {
-			c.StepDuration = int(math.Max(1, math.Ceil(time.Duration(nowTS-c.StartTime).Seconds())))
+			c.StepDuration = int(math.Max(1,
+				math.Ceil(time.Duration(nowTS-c.StartTime).Seconds())))
 		}
 	}
 }
@@ -132,6 +133,7 @@ func (cur *Rollout) ObserveReady(nowTS int) {
 // At the end of the call the returned object will contain the
 // desired traffic shape.
 // Step will return cur if no previous state was available.
+// nowTS is unix timestamp in ns.
 func (cur *Rollout) Step(prev *Rollout, nowTS int) *Rollout {
 	if prev == nil || len(prev.Configurations) == 0 {
 		return cur
@@ -212,8 +214,6 @@ func (cur *Rollout) Step(prev *Rollout, nowTS int) *Rollout {
 // the older revisions.
 func adjustPercentage(goal int, cr *ConfigurationRollout) {
 	switch diff := goal - cr.Percent; {
-	case goal == 0:
-		cr.Revisions = nil // No traffic, no rollout.
 	case diff > 0:
 		cr.Revisions[len(cr.Revisions)-1].Percent += diff
 	case diff < 0:
