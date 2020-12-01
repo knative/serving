@@ -12,7 +12,6 @@ rules:
     resources: ["httpproxies"]
     verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch", "watch"]
 
----
 # Copyright 2019 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +25,7 @@ rules:
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -34,7 +33,7 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: contour
-    serving.knative.dev/release: "v20201130-da9cc261"
+    serving.knative.dev/release: "v20201201-5716387a"
 data:
   _example: |
     ################################
@@ -68,7 +67,6 @@ data:
         class: contour-internal
         service: contour-internal/envoy
 
----
 # Copyright 2020 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -82,7 +80,7 @@ data:
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -105,7 +103,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:96f0b184ab89468bf7451e04ee84a55d57e26311aea09e4eb068228401cc866a
+          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:a79af5fd8c0089cafde29110bcd51ce38a153ec55cea39f0470e4cb61d924a32
           resources:
             requests:
               cpu: 40m
@@ -136,5 +134,5 @@ spec:
             capabilities:
               drop:
                 - all
-
 ---
+
