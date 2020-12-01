@@ -18,6 +18,7 @@ package upgrade
 
 import pkgupgrade "knative.dev/pkg/test/upgrade"
 
+// ContinualTests is an umbrella function for grouping all Serving continual/background tests.
 func ContinualTests() []pkgupgrade.BackgroundOperation {
 	return []pkgupgrade.BackgroundOperation{
 		ProbeTest(),

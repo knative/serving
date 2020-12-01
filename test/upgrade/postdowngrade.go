@@ -31,6 +31,7 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+// ServingPostDowngradeTests is an umbrella function for grouping all Serving post-downgrade tests.
 func ServingPostDowngradeTests() []pkgupgrade.Operation {
 	return []pkgupgrade.Operation{
 		ServicePostDowngradeTest(),
