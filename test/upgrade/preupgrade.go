@@ -28,6 +28,7 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+// ServingPreUpgradeTests is an umbrella function for grouping all Serving pre-upgrade tests.
 func ServingPreUpgradeTests() []pkgupgrade.Operation {
 	return []pkgupgrade.Operation{
 		ServicePreUpgradeTest(),

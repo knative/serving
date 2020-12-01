@@ -32,6 +32,7 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+// ServingPostUpgradeTests is an umbrella function for grouping all Serving post-upgrade tests.
 func ServingPostUpgradeTests() []pkgupgrade.Operation {
 	return []pkgupgrade.Operation{
 		ServicePostUpgradeTest(),
