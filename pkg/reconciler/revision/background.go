@@ -42,7 +42,7 @@ type backgroundResolver struct {
 	resolver imageResolver
 	enqueue  func(types.NamespacedName)
 
-	queue workqueue.Interface
+	queue workqueue.RateLimitingInterface
 
 	mu      sync.Mutex
 	results map[types.NamespacedName]*resolveResult
@@ -82,7 +82,9 @@ func newBackgroundResolver(logger *zap.SugaredLogger, resolver imageResolver, en
 		enqueue:  enqueue,
 
 		results: make(map[types.NamespacedName]*resolveResult),
-		queue:   workqueue.NewNamed("digests"),
+		queue: workqueue.NewNamedRateLimitingQueue(
+			workqueue.DefaultControllerRateLimiter(),
+			"digests"),
 	}
 
 	return r
@@ -192,7 +194,13 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 // in the resolveResult. If this completes the work for the revision, the
 // completionCallback is called.
 func (r *backgroundResolver) processWorkItem(item *workItem) {
-	defer r.queue.Done(item)
+	defer func() {
+		// NOTE: right now we do not retry failing items, but if we were
+		// `Forget` should be called only in case of a success
+		// (or if we abandon the item).
+		r.queue.Forget(item)
+		r.queue.Done(item)
+	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), item.timeout)
 	defer cancel()
