@@ -32,6 +32,8 @@ import (
 const (
 	containerConcurrency = 6
 	targetUtilization    = 0.7
+	curPods              = 1
+	targetPods           = 10
 )
 
 // AutoscaleSustainingTest checks that when traffic increases a knative app
@@ -49,7 +51,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 					autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
 				}))
 			grp.Go(func() error {
-				return e2e.AssertAutoscaleUpToNumPods(ctx, c.Log.Infof, 1, 10, stopCh, false /* quick */)
+				return e2e.AssertAutoscaleUpToNumPods(ctx, c.Log.Infof, curPods, targetPods, stopCh, false /* quick */)
 			})
 		},
 		func(c pkgupgrade.Context) {
@@ -78,7 +80,7 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 					autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
 				}))
 			grp.Go(func() error {
-				return e2e.AssertAutoscaleUpToNumPods(ctx, c.Log.Infof, 1, 10, stopCh, false /* quick */)
+				return e2e.AssertAutoscaleUpToNumPods(ctx, c.Log.Infof, curPods, targetPods, stopCh, false /* quick */)
 			})
 		},
 		func(c pkgupgrade.Context) {
