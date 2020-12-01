@@ -2608,7 +2608,7 @@ func simpleRollout(cfg string, revs []traffic.RevisionRollout, now time.Time) In
 		r := &traffic.Rollout{
 			Configurations: []traffic.ConfigurationRollout{{
 				ConfigurationName: cfg,
-				StartTime:         int(now.Unix()),
+				StartTime:         int(now.UnixNano()),
 				Percent:           100,
 				Revisions:         revs,
 			}},
