@@ -31,28 +31,10 @@ func TestServingUpgrades(t *testing.T) {
 	c := newUpgradeConfig(t)
 	suite := pkgupgrade.Suite{
 		Tests: pkgupgrade.Tests{
-			PreUpgrade: []pkgupgrade.Operation{
-				ServicePreUpgradeTest(),
-				ServicePreUpgradeAndScaleToZeroTest(),
-				BYORevisionPreUpgradeTest(),
-				InitialScalePreUpgradeTest(),
-			},
-			PostUpgrade: []pkgupgrade.Operation{
-				ServicePostUpgradeTest(),
-				ServicePostUpgradeFromScaleToZeroTest(),
-				BYORevisionPostUpgradeTest(),
-				CreateNewServicePostUpgradeTest(),
-				InitialScalePostUpgradeTest(),
-			},
-			PostDowngrade: []pkgupgrade.Operation{
-				ServicePostDowngradeTest(),
-				CreateNewServicePostDowngradeTest(),
-			},
-			Continual: []pkgupgrade.BackgroundOperation{
-				ProbeTest(),
-				AutoscaleSustainingTest(c.Log),
-				AutoscaleSustainingWithTBCTest(c.Log),
-			},
+			PreUpgrade:    ServingPreUpgradeTests(),
+			PostUpgrade:   ServingPostUpgradeTests(),
+			PostDowngrade: ServingPostDowngradeTests(),
+			Continual:     ContinualTests(),
 		},
 		Installations: pkgupgrade.Installations{
 			Base: []pkgupgrade.Operation{

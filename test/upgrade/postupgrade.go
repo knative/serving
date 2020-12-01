@@ -32,6 +32,16 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+func ServingPostUpgradeTests() []pkgupgrade.Operation {
+	return []pkgupgrade.Operation{
+		ServicePostUpgradeTest(),
+		ServicePostUpgradeFromScaleToZeroTest(),
+		BYORevisionPostUpgradeTest(),
+		CreateNewServicePostUpgradeTest(),
+		InitialScalePostUpgradeTest(),
+	}
+}
+
 // ServicePostUpgradeTest verifies an existing service after upgrade.
 func ServicePostUpgradeTest() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("ServicePostUpgradeTest", func(c pkgupgrade.Context) {

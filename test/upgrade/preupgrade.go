@@ -17,8 +17,6 @@ limitations under the License.
 package upgrade
 
 import (
-	"testing"
-
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -26,7 +24,17 @@ import (
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
+	"testing"
 )
+
+func ServingPreUpgradeTests() []pkgupgrade.Operation {
+	return []pkgupgrade.Operation{
+		ServicePreUpgradeTest(),
+		ServicePreUpgradeAndScaleToZeroTest(),
+		BYORevisionPreUpgradeTest(),
+		InitialScalePreUpgradeTest(),
+	}
+}
 
 // ServicePreUpgradeTest creates a service before upgrade.
 func ServicePreUpgradeTest() pkgupgrade.Operation {
