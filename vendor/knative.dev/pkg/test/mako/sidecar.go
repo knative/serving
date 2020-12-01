@@ -93,7 +93,7 @@ func SetupHelper(ctx context.Context, benchmarkKey *string, benchmarkName *strin
 	// Get the commit of the benchmarks
 	commitID, err := changeset.Get()
 	if err != nil {
-		return nil, err
+		log.Println("Cannot find commit ID")
 	}
 
 	// Setup a deployment informer, so that we can use the lister to track
