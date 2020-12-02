@@ -43,17 +43,10 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
-	if err := AssertAutoscaleUpToNumPods(ctx, t.Logf, 1, 2, time.After(60*time.Second), true /* quick */); err != nil {
-		t.Fatal(err)
-	}
-	if err := assertScaleDown(ctx, t.Logf); err != nil {
-		t.Fatal(err)
-	}
-	if err := AssertAutoscaleUpToNumPods(ctx, t.Logf, 0, 2, time.After(60*time.Second), true /* quick */); err != nil {
-		t.Fatal(err)
-	}
+	AssertAutoscaleUpToNumPods(ctx, 1, 2, time.After(60*time.Second), true /* quick */)
+	assertScaleDown(ctx)
+	AssertAutoscaleUpToNumPods(ctx, 0, 2, time.After(60*time.Second), true /* quick */)
 }
-
 func TestAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
 	runAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.Concurrency)
@@ -83,17 +76,11 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 	// boskos cluster to propagate the state. See #10218.
 	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
 	// Assert the number of expected replicas is n and n+1 at the end of 90s, where n is the # of desired replicas.
-	if err := AssertAutoscaleUpToNumPods(ctx, t.Logf, 1, 2, time.After(90*time.Second), true /* quick */); err != nil {
-		t.Fatal(err)
-	}
+	AssertAutoscaleUpToNumPods(ctx, 1, 2, time.After(90*time.Second), true /* quick */)
 	// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	if err := AssertAutoscaleUpToNumPods(ctx, t.Logf, 2, 3, time.After(90*time.Second), true /* quick */); err != nil {
-		t.Fatal(err)
-	}
+	AssertAutoscaleUpToNumPods(ctx, 2, 3, time.After(90*time.Second), true /* quick */)
 	// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	if err := AssertAutoscaleUpToNumPods(ctx, t.Logf, 3, 4, time.After(90*time.Second), true /* quick */); err != nil {
-		t.Fatal(err)
-	}
+	AssertAutoscaleUpToNumPods(ctx, 3, 4, time.After(90*time.Second), true /* quick */)
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
@@ -105,9 +92,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
-	if err := AssertAutoscaleUpToNumPods(ctx, t.Logf, 1, 10, time.After(2*time.Minute), false /* quick */); err != nil {
-		t.Fatal(err)
-	}
+	AssertAutoscaleUpToNumPods(ctx, 1, 10, time.After(2*time.Minute), false /* quick */)
 }
 
 func TestTargetBurstCapacity(t *testing.T) {

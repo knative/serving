@@ -111,7 +111,7 @@ func autoscaleTest(ctx *TestContext, host, domain string) {
 
 	ctx.targetUtilization = targetUtilization
 	assertGRPCAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, host, domain)
-	assertScaleDown(ctx, ctx.t.Logf)
+	assertScaleDown(ctx)
 	assertGRPCAutoscaleUpToNumPods(ctx, 0, 2, 60*time.Second, host, domain)
 }
 
