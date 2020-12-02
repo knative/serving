@@ -18,12 +18,21 @@ package shell
 
 import (
 	"errors"
+	"fmt"
 	"path"
+	"regexp"
 	"runtime"
 )
 
-// ErrCantGetCaller is raised when we can't calculate a caller of NewProjectLocation.
-var ErrCantGetCaller = errors.New("can't get caller")
+var (
+	// ErrCantGetCaller is raised when we can't calculate a caller of NewProjectLocation.
+	ErrCantGetCaller = errors.New("can't get caller")
+
+	// ErrCallerNotAllowed is raised when user tries to use this shell-out package
+	// outside of allowed places. This package is deprecated from start and was
+	// introduced to allow rewriting of shell code to Golang in small chunks.
+	ErrCallerNotAllowed = errors.New("don't try use knative.dev/hack/shell package outside of allowed places")
+)
 
 // NewProjectLocation creates a ProjectLocation that is used to calculate
 // relative paths within the project.
@@ -31,6 +40,10 @@ func NewProjectLocation(pathToRoot string) (ProjectLocation, error) {
 	_, filename, _, ok := runtime.Caller(1)
 	if !ok {
 		return nil, ErrCantGetCaller
+	}
+	err := ensureIsValid(filename)
+	if err != nil {
+		return nil, err
 	}
 	return &callerLocation{
 		caller:     filename,
@@ -49,4 +62,19 @@ func (c *callerLocation) RootPath() string {
 type callerLocation struct {
 	caller     string
 	pathToRoot string
+}
+
+func ensureIsValid(filename string) error {
+	validPaths := []string{
+		"knative.+/test/upgrade/",
+		"knative(:?\\.dev/|-)hack/shell/",
+	}
+	for _, validPath := range validPaths {
+		r := regexp.MustCompile(validPath)
+		if loc := r.FindStringIndex(filename); loc != nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w, tried using from: %s",
+		ErrCallerNotAllowed, filename)
 }
