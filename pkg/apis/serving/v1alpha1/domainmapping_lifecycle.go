@@ -27,6 +27,7 @@ var domainMappingCondSet = apis.NewLivingConditionSet(
 	DomainMappingConditionDomainClaimed,
 	DomainMappingConditionReferenceResolved,
 	DomainMappingConditionIngressReady,
+	DomainMappingConditionCertificateProvisioned,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -55,6 +56,60 @@ func (dm *DomainMapping) IsReady() bool {
 // InitializeConditions sets the initial values to the conditions.
 func (dms *DomainMappingStatus) InitializeConditions() {
 	domainMappingCondSet.Manage(dms).InitializeConditions()
+}
+
+const (
+	// AutoTLSNotEnabledMessage is the message which is set on the
+	// DomainMappingConditionCertificateProvisioned condition when it is set to True
+	// because AutoTLS was not enabled.
+	AutoTLSNotEnabledMessage = "autoTLS is not enabled"
+)
+
+// MarkTLSNotEnabled sets DomainMappingConditionCertificateProvisioned to true when
+// certificate config such as autoTLS is not enabled.
+func (dms *DomainMappingStatus) MarkTLSNotEnabled(msg string) {
+	domainMappingCondSet.Manage(dms).MarkTrueWithReason(DomainMappingConditionCertificateProvisioned,
+		"TLSNotEnabled", msg)
+}
+
+// MarkCertificateReady marks the DomainMappingConditionCertificateProvisioned
+// condition to indicate that the Certificate is ready.
+func (dms *DomainMappingStatus) MarkCertificateReady(name string) {
+	domainMappingCondSet.Manage(dms).MarkTrue(DomainMappingConditionCertificateProvisioned)
+}
+
+// MarkCertificateNotReady marks the DomainMappingConditionCertificateProvisioned
+// condition to indicate that the Certificate is not ready.
+func (dms *DomainMappingStatus) MarkCertificateNotReady(name string) {
+	domainMappingCondSet.Manage(dms).MarkUnknown(DomainMappingConditionCertificateProvisioned,
+		"CertificateNotReady",
+		"Certificate %s is not ready.", name)
+}
+
+// MarkCertificateNotOwned changes the DomainMappingConditionCertificateProvisioned
+// status to be false with the reason being that there is an existing
+// certificate with the name we wanted to use.
+func (dms *DomainMappingStatus) MarkCertificateNotOwned(name string) {
+	domainMappingCondSet.Manage(dms).MarkFalse(DomainMappingConditionCertificateProvisioned,
+		"CertificateNotOwned",
+		"There is an existing certificate %s that we don't own.", name)
+}
+
+// MarkCertificateProvisionFailed marks the
+// DomainMappingConditionCertificateProvisioned condition to indicate that the
+// Certificate provisioning failed.
+func (dms *DomainMappingStatus) MarkCertificateProvisionFailed(name string) {
+	domainMappingCondSet.Manage(dms).MarkFalse(DomainMappingConditionCertificateProvisioned,
+		"CertificateProvisionFailed",
+		"Certificate %s fails to be provisioned.", name)
+}
+
+// MarkHTTPDowngrade sets DomainMappingConditionCertificateProvisioned to true when plain
+// HTTP is enabled even when Certificated is not ready.
+func (dms *DomainMappingStatus) MarkHTTPDowngrade(name string) {
+	domainMappingCondSet.Manage(dms).MarkTrueWithReason(DomainMappingConditionCertificateProvisioned,
+		"HTTPDowngrade",
+		"Certificate %s is not ready downgrade HTTP.", name)
 }
 
 // MarkIngressNotConfigured changes the IngressReady condition to be unknown to reflect
