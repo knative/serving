@@ -973,7 +973,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20201125230335-c46a6498e9ed
+# knative.dev/hack v0.0.0-20201201234937-fddbf732e450
 ## explicit
 knative.dev/hack
 # knative.dev/networking v0.0.0-20201125133435-4b21f11ccfa7
