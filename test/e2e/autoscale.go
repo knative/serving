@@ -260,14 +260,14 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 	}
 }
 
-func assertScaleDown(ctx *TestContext, logf logging.FormatLogger) error {
+func assertScaleDown(ctx *TestContext) {
 	deploymentName := resourcenames.Deployment(ctx.resources.Revision)
 	if err := WaitForScaleToZero(ctx.t, deploymentName, ctx.clients); err != nil {
-		return fmt.Errorf("unable to observe the Deployment named %s scaling down: %w", deploymentName, err)
+		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
 
 	// Account for the case where scaling up uses all available pods.
-	logf("Wait for all pods to terminate.")
+	ctx.t.Logf("Wait for all pods to terminate.")
 
 	if err := pkgTest.WaitForPodListState(
 		context.Background(),
@@ -283,17 +283,15 @@ func assertScaleDown(ctx *TestContext, logf logging.FormatLogger) error {
 			return true, nil
 		},
 		"WaitForAvailablePods", test.ServingNamespace); err != nil {
-		return fmt.Errorf("waiting for Pod.List to have no non-Evicted pods of %q: %w", deploymentName, err)
+		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", deploymentName, err)
 	}
 
-	logf("The Revision should remain ready after scaling to zero.")
+	ctx.t.Logf("The Revision should remain ready after scaling to zero.")
 	if err := v1test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, v1test.IsRevisionReady); err != nil {
-		return fmt.Errorf("the Revision %s did not stay Ready after scaling down to zero: %w", ctx.names.Revision, err)
+		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
 	}
 
-	logf("Scaled down.")
-
-	return nil
+	ctx.t.Logf("Scaled down.")
 }
 
 func numberOfReadyPods(ctx *TestContext, logf logging.FormatLogger) (float64, error) {
@@ -373,14 +371,24 @@ func checkPodScale(ctx *TestContext, logf logging.FormatLogger, targetPods, minP
 //    sustains there until the `done` channel sends a signal.
 // The given `duration` is how long the traffic will be generated. You must make sure that the signal
 // from the given `done` channel will be sent within the `duration`.
-func AssertAutoscaleUpToNumPods(ctx *TestContext, logf logging.FormatLogger, curPods, targetPods float64, done <-chan time.Time, quick bool) error {
+func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
+	var grp errgroup.Group
+	AutoscaleUpToNumPods(ctx, ctx.t.Logf, curPods, targetPods, grp, done, quick)
+	if err := grp.Wait(); err != nil {
+		ctx.t.Fatal(err)
+	}
+}
+
+// AutoscaleUpToNumPods starts the traffic for AssertAutoscaleUpToNumPods and returns
+// an error group to wait for. Starting the routines is separated from waiting for
+// easy re-use in other places (e.g. upgrade tests).
+func AutoscaleUpToNumPods(ctx *TestContext, logf logging.FormatLogger, curPods, targetPods float64, grp errgroup.Group, done <-chan time.Time, quick bool) {
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
 	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
 	maxPods := math.Ceil(math.Ceil(targetPods/ctx.targetUtilization) * 1.1)
 
 	stopChan := make(chan struct{})
-	var grp errgroup.Group
 	grp.Go(func() error {
 		switch ctx.metric {
 		case autoscaling.RPS:
@@ -394,10 +402,4 @@ func AssertAutoscaleUpToNumPods(ctx *TestContext, logf logging.FormatLogger, cur
 		defer close(stopChan)
 		return checkPodScale(ctx, logf, targetPods, minPods, maxPods, done, quick)
 	})
-
-	if err := grp.Wait(); err != nil {
-		return err
-	}
-
-	return nil
 }

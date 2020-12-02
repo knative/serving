@@ -90,9 +90,7 @@ func TestAutoscalerHA(t *testing.T) {
 	}
 
 	t.Log("Verifying the old revision can still be scaled from 0 to some number after leader change")
-	if err := e2e.AssertAutoscaleUpToNumPods(ctx, t.Logf, 0, 3, time.After(60*time.Second), true /* quick */); err != nil {
-		t.Fatal(err)
-	}
+	e2e.AssertAutoscaleUpToNumPods(ctx, 0, 3, time.After(60*time.Second), true /* quick */)
 
 	t.Log("Updating the Service after selecting new leader controller in order to generate a new revision")
 	names.Image = test.PizzaPlanet2
@@ -111,7 +109,5 @@ func TestAutoscalerHA(t *testing.T) {
 	t.Log("Verifying the new revision can be scaled up")
 	ctx.SetNames(names)
 	ctx.SetResources(resources)
-	if err := e2e.AssertAutoscaleUpToNumPods(ctx, t.Logf, 1, 3, time.After(60*time.Second), true /* quick */); err != nil {
-		t.Fatal(err)
-	}
+	e2e.AssertAutoscaleUpToNumPods(ctx, 1, 3, time.After(60*time.Second), true /* quick */)
 }
