@@ -152,7 +152,7 @@ func TestCertificateProvisionFailed(t *testing.T) {
 func TestDomainMappingNotOwnCertificate(t *testing.T) {
 	dms := &DomainMappingStatus{}
 	dms.InitializeConditions()
-	dms.MarkCertificateNotOwned("cert")
+	dms.MarkCertificateNotOwned("cert not owned")
 
 	apistest.CheckConditionFailed(dms, DomainMappingConditionCertificateProvisioned, t)
 }
@@ -168,7 +168,7 @@ func TestDomainMappingAutoTLSNotEnabled(t *testing.T) {
 func TestDomainMappingHTTPDowngrade(t *testing.T) {
 	dms := &DomainMappingStatus{}
 	dms.InitializeConditions()
-	dms.MarkHTTPDowngrade("cert")
+	dms.MarkHTTPDowngrade("downgraded to HTTP because we can't obtain cert")
 
 	apistest.CheckConditionSucceeded(dms, DomainMappingConditionCertificateProvisioned, t)
 }
