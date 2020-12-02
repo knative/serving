@@ -41,7 +41,7 @@ const (
 // it is switching modes between normal and panic.
 func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 	var ctx *e2e.TestContext
-	var grp errgroup.Group
+	var grp *errgroup.Group
 	stopCh := make(chan time.Time)
 	return pkgupgrade.NewBackgroundVerification("AutoscaleSustainingTest",
 		func(c pkgupgrade.Context) {
@@ -50,7 +50,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
 				}))
-			e2e.AutoscaleUpToNumPods(ctx, c.Log.Infof, curPods, targetPods, grp, stopCh, false /* quick */)
+			grp = e2e.AutoscaleUpToNumPods(ctx, c.Log.Infof, curPods, targetPods, stopCh, false /* quick */)
 		},
 		func(c pkgupgrade.Context) {
 			test.EnsureTearDown(c.T, ctx.Clients(), ctx.Names())
@@ -68,7 +68,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 // in the path a knative app scales up and sustains the scale.
 func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 	var ctx *e2e.TestContext
-	var grp errgroup.Group
+	var grp *errgroup.Group
 	stopCh := make(chan time.Time)
 	return pkgupgrade.NewBackgroundVerification("AutoscaleSustainingWithTBCTest",
 		func(c pkgupgrade.Context) {
@@ -77,7 +77,7 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
 				}))
-			e2e.AutoscaleUpToNumPods(ctx, c.Log.Infof, curPods, targetPods, grp, stopCh, false /* quick */)
+			grp = e2e.AutoscaleUpToNumPods(ctx, c.Log.Infof, curPods, targetPods, stopCh, false /* quick */)
 		},
 		func(c pkgupgrade.Context) {
 			test.EnsureTearDown(c.T, ctx.Clients(), ctx.Names())
