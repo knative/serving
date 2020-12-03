@@ -254,10 +254,14 @@ func assertGRPCAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float6
 		return generateGRPCTraffic(int(targetPods*grpcContainerConcurrency), host, domain, stopChan)
 	})
 
+	doneCh := make(chan struct{})
 	grp.Go(func() error {
 		defer close(stopChan)
-		return checkPodScale(ctx, ctx.t.Logf, targetPods, minPods, maxPods, time.After(duration), true /* quick */)
+		return checkPodScale(ctx, targetPods, minPods, maxPods, doneCh, true /* quick */)
 	})
+	elapsedCh := time.After(duration)
+	<-elapsedCh
+	close(doneCh)
 
 	if err := grp.Wait(); err != nil {
 		ctx.t.Errorf("Error : %v", err)

@@ -318,7 +318,7 @@ func numberOfReadyPods(ctx *TestContext) (float64, error) {
 	return float64(resources.ReadyAddressCount(eps)), nil
 }
 
-func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done <-chan time.Time, quick bool) error {
+func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done <-chan struct{}, quick bool) error {
 	// Short-circuit traffic generation once we exit from the check logic.
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
@@ -367,6 +367,32 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 	}
 }
 
+// Autoscaler is the interface for autoscaler, which checks the result when stopped.
+type Autoscaler interface {
+	// Stop terminates the autoscaler, returning any observed errors.
+	Stop() error
+}
+
+type autoscaler struct {
+	grp    *errgroup.Group
+	stopCh chan struct{}
+}
+
+// autoscaler implements Autoscaler.
+var _ Autoscaler = (*autoscaler)(nil)
+
+func (a *autoscaler) Stop() error {
+	close(a.stopCh)
+	return a.grp.Wait()
+}
+
+// AssertAutoscaleNoError stops the autoscaler and verifies there's no error.
+func AssertAutoscaleNoError(t *testing.T, a Autoscaler) {
+	if err := a.Stop(); err != nil {
+		t.Error(err)
+	}
+}
+
 // AssertAutoscaleUpToNumPods asserts the number of pods gets scaled to targetPods.
 // It supports two test modes: quick, and not quick.
 // 1) Quick mode: succeeds when the number of pods meets targetPods.
@@ -375,16 +401,15 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 // The given `duration` is how long the traffic will be generated. You must make sure that the signal
 // from the given `done` channel will be sent within the `duration`.
 func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
-	grp := AutoscaleUpToNumPods(ctx, curPods, targetPods, done, quick)
-	if err := grp.Wait(); err != nil {
-		ctx.t.Fatal(err)
-	}
+	autoscaler := AutoscaleUpToNumPods(ctx, curPods, targetPods, quick)
+	<-done
+	AssertAutoscaleNoError(ctx.t, autoscaler)
 }
 
 // AutoscaleUpToNumPods starts the traffic for AssertAutoscaleUpToNumPods and returns
 // an error group to wait for. Starting the routines is separated from waiting for
 // easy re-use in other places (e.g. upgrade tests).
-func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) *errgroup.Group {
+func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, quick bool) Autoscaler {
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
 	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
@@ -401,10 +426,14 @@ func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-
 		}
 	})
 
+	done := make(chan struct{})
 	grp.Go(func() error {
 		defer close(stopChan)
 		return checkPodScale(ctx, targetPods, minPods, maxPods, done, quick)
 	})
 
-	return grp
+	return &autoscaler{
+		grp:    grp,
+		stopCh: done,
+	}
 }
