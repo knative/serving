@@ -382,7 +382,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/becomes-ready",
 	}, {
-		Name: "### simple route when ingress becomes ready",
+		Name: "simple route rollout when ingress becomes ready",
 		Objects: []runtime.Object{
 			Route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteGeneration(2009), MarkIngressNotConfigured),
