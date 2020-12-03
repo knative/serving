@@ -382,6 +382,89 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/becomes-ready",
 	}, {
+		Name: "simple route rollout when ingress becomes ready",
+		Objects: []runtime.Object{
+			Route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteGeneration(2009), MarkIngressNotConfigured),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			simpleReadyIngress(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
+							},
+						}},
+					},
+				},
+				simpleRollout("config", []traffic.RevisionRollout{{
+					RevisionName: "config-00000", Percent: 99,
+				}, {
+					RevisionName: "config-00001", Percent: 1,
+				}}, fakeCurTime.Add(-3*time.Second)),
+			),
+		},
+		WantCreates: []runtime.Object{
+			simplePlaceholderK8sService(getContext(), Route("default", "becomes-ready", WithConfigTarget("config")), ""),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// ingress should be updated with the new rollout data.
+			Object: simpleReadyIngress(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
+							},
+						}},
+					},
+				},
+				simpleRollout("config", []traffic.RevisionRollout{{
+					RevisionName: "config-00000", Percent: 99,
+				}, {
+					RevisionName: "config-00001", Percent: 1,
+				}}, fakeCurTime.Add(-3*time.Second),
+					func(r *traffic.Rollout) {
+						// Step duration is 3s (now - (now-3s)).
+						r.Configurations[0].StepDuration = 3
+						// 120 / 3 = 40 steps. floor(100/40) = 2.
+						r.Configurations[0].StepSize = 2
+						// StepDuration is 3, and so next step is `now` + 3.
+						r.Configurations[0].NextStepTime = int(fakeCurTime.Add(3 * time.Second).UnixNano())
+					},
+				)),
+		}, {
+			Object: simpleK8sService(
+				Route("default", "becomes-ready", WithConfigTarget("config")),
+			),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
+				// Populated by reconciliation when the route becomes ready.
+				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithRouteGeneration(2009), WithRouteObservedGeneration,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
+		},
+		Key: "default/becomes-ready",
+	}, {
 		Name: "failure creating k8s placeholder service",
 		// We induce a failure creating the placeholder service.
 		WantErr: true,
@@ -2603,7 +2686,10 @@ func url(s string) *apis.URL {
 	return url
 }
 
-func simpleRollout(cfg string, revs []traffic.RevisionRollout, now time.Time) IngressOption {
+type rolloutOption func(*traffic.Rollout)
+
+func simpleRollout(cfg string, revs []traffic.RevisionRollout,
+	now time.Time, ros ...rolloutOption) IngressOption {
 	return func(i *netv1alpha1.Ingress) {
 		r := &traffic.Rollout{
 			Configurations: []traffic.ConfigurationRollout{{
@@ -2612,6 +2698,9 @@ func simpleRollout(cfg string, revs []traffic.RevisionRollout, now time.Time) In
 				Percent:           100,
 				Revisions:         revs,
 			}},
+		}
+		for _, ro := range ros {
+			ro(r)
 		}
 		i.Annotations[networking.RolloutAnnotationKey] = func() string {
 			d, _ := json.Marshal(r)

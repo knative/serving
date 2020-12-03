@@ -69,7 +69,7 @@ type ConfigurationRollout struct {
 
 	// NextStepTime is the Unix timestamp when the next
 	// rollout step should performed.
-	NextStepTime int `json:"lastStep,omitempty"`
+	NextStepTime int `json:"nextStepTime,omitempty"`
 
 	// StepDuration is a rounded up number of seconds how long it took
 	// for ingress to successfully move first 1% of traffic to the new revision.
