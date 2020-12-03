@@ -67,14 +67,17 @@ type ConfigurationRollout struct {
 	// This is required to compute step time and deadline.
 	StartTime int `json:"starttime,omitempty"`
 
-	// LastStepTimeStamp is the Unix timestamp when the last
-	// rollout step was performed.
-	LastStepTime int `json:"lastStep,omitempty"`
+	// NextStepTime is the Unix timestamp when the next
+	// rollout step should performed.
+	NextStepTime int `json:"lastStep,omitempty"`
 
 	// StepDuration is a rounded up number of seconds how long it took
 	// for ingress to successfully move first 1% of traffic to the new revision.
 	// Note, that his number does not include any coldstart, etc timing.
 	StepDuration int `json:"stepDuration,omitempty"`
+
+	// How much traffic to move in a single step.
+	StepSize int `json:"stepSize,omitempty"`
 }
 
 // RevisionRollout describes the revision in the config rollout.
@@ -115,15 +118,21 @@ func (cur *Rollout) Validate() bool {
 	return true
 }
 
+// TODO(vagababov): default dummy rollout duration in use, while we
+// only modify the annotation and do not actually modify the traffic.
+const durationSecs = 120.0
+
 // ObserveReady traverses the configs and the ones that are in rollout
 // but have not observed step time yet, will have it set, to
-// max(1, nowTS-cfg.StartTime). nowTS is unix timestamp in ns.
+// max(1, nowTS-cfg.StartTime).
 func (cur *Rollout) ObserveReady(nowTS int) {
 	for i := range cur.Configurations {
 		c := &cur.Configurations[i]
 		if c.StepDuration == 0 && c.StartTime > 0 {
-			c.StepDuration = int(math.Max(1,
-				math.Ceil(time.Duration(nowTS-c.StartTime).Seconds())))
+			// In realy ceil(nowTS-c.StartTime) should always give 1s, but
+			// given possible time drift, we'll ensure that at least 1s is returned.
+			minStep := math.Max(1, math.Ceil(time.Duration(nowTS-c.StartTime).Seconds()))
+			c.computeProperties(float64(nowTS), minStep, durationSecs)
 		}
 	}
 }
@@ -133,7 +142,6 @@ func (cur *Rollout) ObserveReady(nowTS int) {
 // At the end of the call the returned object will contain the
 // desired traffic shape.
 // Step will return cur if no previous state was available.
-// nowTS is unix timestamp in ns.
 func (cur *Rollout) Step(prev *Rollout, nowTS int) *Rollout {
 	if prev == nil || len(prev.Configurations) == 0 {
 		return cur
@@ -214,6 +222,8 @@ func (cur *Rollout) Step(prev *Rollout, nowTS int) *Rollout {
 // the older revisions.
 func adjustPercentage(goal int, cr *ConfigurationRollout) {
 	switch diff := goal - cr.Percent; {
+	case goal == 0:
+		cr.Revisions = nil // No traffic, no rollout.
 	case diff > 0:
 		cr.Revisions[len(cr.Revisions)-1].Percent += diff
 	case diff < 0:
@@ -262,7 +272,7 @@ func stepConfig(goal, prev *ConfigurationRollout, nowTS int) *ConfigurationRollo
 			// Copy the duration info from the previous when no new revision
 			// has been created.
 			ret.Deadline = prev.Deadline
-			ret.LastStepTime = prev.LastStepTime
+			ret.NextStepTime = prev.NextStepTime
 			ret.StepDuration = prev.StepDuration
 			ret.StartTime = prev.StartTime
 		}
@@ -302,6 +312,40 @@ func stepConfig(goal, prev *ConfigurationRollout, nowTS int) *ConfigurationRollo
 	goalRev.Percent = 1
 	ret.Revisions = append(out, goalRev)
 	return ret
+}
+
+// computeProperties computes the time between steps, each step size
+// and next reconcile time. This is invoked when the rollout just starts.
+// nowTS current unix timestmap in ns.
+// Pre: minStep >= 1, in seconds.
+// Pre: durationSecs > 1, in seconds.
+func (c *ConfigurationRollout) computeProperties(nowTS, minStep, durationSecs float64) {
+	// First compute number of steps.
+	numSteps := durationSecs / minStep
+	pf := float64(c.Percent)
+
+	// The smallest step is 1%, so if we can fit more steps
+	// than we have percents, we'll make c.Percent-1 steps
+	// each equal to 1%. -1, since we already moved 1% of the traffic.
+	if pf < numSteps {
+		numSteps = pf - 1
+	}
+
+	// We're moving traffic in equal steps.
+	// The last step can be larger, since it's more likely to
+	// easily accommodate the traffic jump, due to built in
+	// spare capacity.
+	// E.g. 100% in 4 steps. 1% -> 25% -> 49% -> 74% -> 100%, last jump being 26%.
+	stepSize := math.Floor((pf - 1) / numSteps)
+
+	// The time we sleep between the steps.
+	// We round up here since it's better to roll slightly longer,
+	// than slightly shorter.
+	stepDuration := math.Ceil(durationSecs / numSteps)
+
+	c.StepDuration = int(stepDuration)
+	c.StepSize = int(stepSize)
+	c.NextStepTime = int(nowTS + stepDuration*float64(time.Second))
 }
 
 // sortRollout sorts the rollout based on tag so it's consistent

@@ -79,7 +79,7 @@ func TestStep(t *testing.T) {
 					Percent:      100,
 				}},
 				Deadline:     2006, // <- Those should be ignored.
-				LastStepTime: 2009,
+				NextStepTime: 2009,
 				StepDuration: 2020,
 				StartTime:    2004,
 			}},
@@ -93,7 +93,7 @@ func TestStep(t *testing.T) {
 					Percent:      100,
 				}},
 				Deadline:     1982, // <- Those should be copied.
-				LastStepTime: 1984,
+				NextStepTime: 1984,
 				StepDuration: 1988,
 				StartTime:    1955,
 			}},
@@ -107,7 +107,7 @@ func TestStep(t *testing.T) {
 					Percent:      100,
 				}},
 				Deadline:     1982,
-				LastStepTime: 1984,
+				NextStepTime: 1984,
 				StepDuration: 1988,
 				StartTime:    1955,
 			}},
@@ -195,7 +195,7 @@ func TestStep(t *testing.T) {
 					Percent:      100,
 				}},
 				Deadline:     1982, // <- Those should be thrown out.
-				LastStepTime: 1984,
+				NextStepTime: 1984,
 				StepDuration: 1988,
 			}},
 		},
@@ -706,22 +706,58 @@ func TestObserveReady(t *testing.T) {
 	)
 	ro := Rollout{
 		Configurations: []ConfigurationRollout{{
+			Percent:           100,
 			ConfigurationName: "has-step",
 			StepDuration:      11,
 		}, {
 			ConfigurationName: "no-step-no-begin",
+			Percent:           100,
 		}, {
 			ConfigurationName: "step-begin < 1s",
 			StartTime:         200620092020,
+			Percent:           100,
 		}, {
 			ConfigurationName: "step-begin > 1s",
 			StartTime:         oldenDays,
+			Percent:           100,
+		}, {
+			ConfigurationName: "Percent not 100%",
+			StartTime:         oldenDays,
+			Percent:           50,
 		}},
 	}
 
-	want := ro
-	want.Configurations[2].StepDuration = 1
-	want.Configurations[3].StepDuration = 3 // 2.4 rounded up.
+	want := Rollout{
+		Configurations: []ConfigurationRollout{{
+			Percent:           100,
+			ConfigurationName: "has-step",
+			StepDuration:      11,
+		}, {
+			ConfigurationName: "no-step-no-begin",
+			Percent:           100,
+		}, {
+			ConfigurationName: "step-begin < 1s",
+			Percent:           100,
+			StartTime:         200620092020,
+			StepDuration:      2,
+			StepSize:          1,
+			NextStepTime:      now + int(2*time.Second),
+		}, {
+			ConfigurationName: "step-begin > 1s",
+			Percent:           100,
+			StartTime:         oldenDays,
+			StepDuration:      3,
+			StepSize:          100 / 40,
+			NextStepTime:      now + 3*int(time.Second),
+		}, {
+			ConfigurationName: "Percent not 100%",
+			Percent:           50,
+			StartTime:         oldenDays,
+			StepDuration:      3,
+			StepSize:          50 / 40,
+			NextStepTime:      now + 3*int(time.Second),
+		}},
+	}
 
 	// This works in place.
 	ro.ObserveReady(now)
@@ -981,7 +1017,7 @@ func TestJSONRoundtrip(t *testing.T) {
 			}},
 			StartTime:    1955,
 			Deadline:     2006,
-			LastStepTime: 1988,
+			NextStepTime: 1988,
 			StepDuration: 1984,
 		}, {
 			ConfigurationName: "no",
