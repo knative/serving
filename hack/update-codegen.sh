@@ -18,17 +18,14 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export GO111MODULE=on
+source $(dirname $0)/../vendor/knative.dev/hack/codegen-library.sh
+
 # If we run with -mod=vendor here, then generate-groups.sh looks for vendor files in the wrong place.
 export GOFLAGS=-mod=
 
-if [ -z "${GOPATH:-}" ]; then
-  export GOPATH=$(go env GOPATH)
-fi
-
-source $(dirname $0)/../vendor/knative.dev/hack/library.sh
-
 boilerplate="${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt"
+
+echo "=== Update Codegen for $MODULE_NAME"
 
 # Parse flags to determine if we should generate protobufs.
 generate_protobufs=0
@@ -43,7 +40,7 @@ done
 readonly generate_protobufs
 
 if (( generate_protobufs )); then
-  echo "Generating protocol buffer code"
+  group "Generating protocol buffer code"
   protos=$(find "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/test" -name '*.proto')
   for proto in $protos
   do
@@ -57,14 +54,11 @@ if (( generate_protobufs )); then
   done
 fi
 
-echo "Generating checksums for configmap _example keys"
+group "Generating checksums for configmap _example keys"
+
 ${REPO_ROOT_DIR}/hack/update-checksums.sh
 
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
-KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/knative.dev/pkg 2>/dev/null || echo ../pkg)}
-
-chmod +x ${CODEGEN_PKG}/generate-groups.sh
-chmod +x ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh
+group "Kubernetes Codegen"
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
@@ -75,11 +69,15 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   "serving:v1 serving:v1alpha1 autoscaling:v1alpha1" \
   --go-header-file "${boilerplate}"
 
+group "Knative Codegen"
+
 # Knative Injection
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   knative.dev/serving/pkg/client knative.dev/serving/pkg/apis \
   "serving:v1 serving:v1alpha1 autoscaling:v1alpha1" \
   --go-header-file "${boilerplate}"
+
+group "Deepcopy Gen"
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen
 ${GOPATH}/bin/deepcopy-gen \
@@ -97,6 +95,8 @@ ${GOPATH}/bin/deepcopy-gen \
   -i knative.dev/serving/pkg/gc \
   -i knative.dev/serving/pkg/logging \
   -i knative.dev/serving/pkg/metrics
+
+group "Update deps post-codegen"
 
 # Make sure our dependencies are up-to-date
 ${REPO_ROOT_DIR}/hack/update-deps.sh
