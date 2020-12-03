@@ -92,9 +92,9 @@ type RevisionRollout struct {
 
 // Done returns true if there is no active rollout going on
 // for the configuration.
-func (cr *ConfigurationRollout) Done() bool {
+func (cur *ConfigurationRollout) Done() bool {
 	// Zero or just one revision.
-	return len(cr.Revisions) < 2
+	return len(cur.Revisions) < 2
 }
 
 // Validate validates current rollout for inconsistencies.
@@ -118,7 +118,7 @@ func (cur *Rollout) Validate() bool {
 	return true
 }
 
-// TODO(vagababov): default dummy rollout duration in use, while we
+// TODO(vagababov): default fake rollout duration in use, while we
 // only modify the annotation and do not actually modify the traffic.
 const durationSecs = 120.0
 
@@ -129,7 +129,7 @@ func (cur *Rollout) ObserveReady(nowTS int) {
 	for i := range cur.Configurations {
 		c := &cur.Configurations[i]
 		if c.StepDuration == 0 && c.StartTime > 0 {
-			// In realy ceil(nowTS-c.StartTime) should always give 1s, but
+			// In really ceil(nowTS-c.StartTime) should always give 1s, but
 			// given possible time drift, we'll ensure that at least 1s is returned.
 			minStep := math.Max(1, math.Ceil(time.Duration(nowTS-c.StartTime).Seconds()))
 			c.computeProperties(float64(nowTS), minStep, durationSecs)
@@ -316,13 +316,13 @@ func stepConfig(goal, prev *ConfigurationRollout, nowTS int) *ConfigurationRollo
 
 // computeProperties computes the time between steps, each step size
 // and next reconcile time. This is invoked when the rollout just starts.
-// nowTS current unix timestmap in ns.
+// nowTS current unix timestamp in ns.
 // Pre: minStep >= 1, in seconds.
 // Pre: durationSecs > 1, in seconds.
-func (c *ConfigurationRollout) computeProperties(nowTS, minStep, durationSecs float64) {
+func (cur *ConfigurationRollout) computeProperties(nowTS, minStep, durationSecs float64) {
 	// First compute number of steps.
 	numSteps := durationSecs / minStep
-	pf := float64(c.Percent)
+	pf := float64(cur.Percent)
 
 	// The smallest step is 1%, so if we can fit more steps
 	// than we have percents, we'll make c.Percent-1 steps
@@ -343,9 +343,9 @@ func (c *ConfigurationRollout) computeProperties(nowTS, minStep, durationSecs fl
 	// than slightly shorter.
 	stepDuration := math.Ceil(durationSecs / numSteps)
 
-	c.StepDuration = int(stepDuration)
-	c.StepSize = int(stepSize)
-	c.NextStepTime = int(nowTS + stepDuration*float64(time.Second))
+	cur.StepDuration = int(stepDuration)
+	cur.StepSize = int(stepSize)
+	cur.NextStepTime = int(nowTS + stepDuration*float64(time.Second))
 }
 
 // sortRollout sorts the rollout based on tag so it's consistent
