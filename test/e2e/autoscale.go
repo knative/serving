@@ -386,13 +386,6 @@ func (a *autoscaler) Stop() error {
 	return a.grp.Wait()
 }
 
-// AssertAutoscaleNoError stops the autoscaler and verifies there's no error.
-func AssertAutoscaleNoError(t *testing.T, a Autoscaler) {
-	if err := a.Stop(); err != nil {
-		t.Error(err)
-	}
-}
-
 // AssertAutoscaleUpToNumPods asserts the number of pods gets scaled to targetPods.
 // It supports two test modes: quick, and not quick.
 // 1) Quick mode: succeeds when the number of pods meets targetPods.
@@ -403,7 +396,9 @@ func AssertAutoscaleNoError(t *testing.T, a Autoscaler) {
 func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
 	autoscaler := AutoscaleUpToNumPods(ctx, curPods, targetPods, quick)
 	<-done
-	AssertAutoscaleNoError(ctx.t, autoscaler)
+	if err := autoscaler.Stop(); err != nil {
+		ctx.t.Fatal("Error: ", err)
+	}
 }
 
 // AutoscaleUpToNumPods starts the traffic for AssertAutoscaleUpToNumPods and returns

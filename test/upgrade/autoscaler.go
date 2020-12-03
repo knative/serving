@@ -51,7 +51,9 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 		},
 		func(c pkgupgrade.Context) {
 			test.EnsureTearDown(c.T, ctx.Clients(), ctx.Names())
-			e2e.AssertAutoscaleNoError(c.T, autoscaler)
+			if err := autoscaler.Stop(); err != nil {
+				c.T.Error(err)
+			}
 		},
 	)
 }
@@ -73,7 +75,9 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 		},
 		func(c pkgupgrade.Context) {
 			test.EnsureTearDown(c.T, ctx.Clients(), ctx.Names())
-			e2e.AssertAutoscaleNoError(c.T, autoscaler)
+			if err := autoscaler.Stop(); err != nil {
+				c.T.Error(err)
+			}
 		},
 	)
 }
