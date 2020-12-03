@@ -42,10 +42,11 @@ aliases:
   - vagababov       # Scaling
 
   autoscaling-approvers:
+  - julz
   - markusthoemmes
   - mdemirhan
   - vagababov
-  - julz
+  - yanweiguo
   autoscaling-reviewers:
   - julz
   - markusthoemmes
