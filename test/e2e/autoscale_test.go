@@ -122,7 +122,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	defer close(stopCh)
 
 	grp.Go(func() error {
-		return generateTrafficAtFixedConcurrency(ctx, t.Logf, 7, stopCh)
+		return generateTrafficAtFixedConcurrency(ctx, 7, stopCh)
 	})
 
 	// Wait for the activator endpoints to equalize.
@@ -132,13 +132,13 @@ func TestTargetBurstCapacity(t *testing.T) {
 
 	// Start second load generator.
 	grp.Go(func() error {
-		return generateTrafficAtFixedConcurrency(ctx, t.Logf, 5, stopCh)
+		return generateTrafficAtFixedConcurrency(ctx, 5, stopCh)
 	})
 
 	// Wait for two stable pods.
 	obsScale := 0.0
 	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
-		obsScale, err = numberOfReadyPods(ctx, t.Logf)
+		obsScale, err = numberOfReadyPods(ctx)
 		if err != nil {
 			return false, err
 		}

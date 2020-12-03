@@ -256,7 +256,7 @@ func assertGRPCAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float6
 
 	grp.Go(func() error {
 		defer close(stopChan)
-		return checkPodScale(ctx, ctx.t.Logf, targetPods, minPods, maxPods, time.After(duration), true /* quick */)
+		return checkPodScale(ctx, targetPods, minPods, maxPods, time.After(duration), true /* quick */)
 	})
 
 	if err := grp.Wait(); err != nil {
