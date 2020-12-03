@@ -50,7 +50,8 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
 				}))
-			grp = e2e.AutoscaleUpToNumPods(ctx, c.Log.Infof, curPods, targetPods, stopCh, false /* quick */)
+			ctx.SetLogger(c.Log.Infof)
+			grp = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
 		},
 		func(c pkgupgrade.Context) {
 			test.EnsureTearDown(c.T, ctx.Clients(), ctx.Names())
@@ -77,7 +78,8 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
 				}))
-			grp = e2e.AutoscaleUpToNumPods(ctx, c.Log.Infof, curPods, targetPods, stopCh, false /* quick */)
+			ctx.SetLogger(c.Log.Infof)
+			grp = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
 		},
 		func(c pkgupgrade.Context) {
 			test.EnsureTearDown(c.T, ctx.Clients(), ctx.Names())

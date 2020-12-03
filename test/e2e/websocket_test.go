@@ -170,6 +170,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(&TestContext{
 		t:         t,
+		logf:      t.Logf,
 		resources: resources,
 		clients:   clients,
 	}); err != nil {
