@@ -24,7 +24,6 @@ aliases:
   - dprotaso        # API
   - markusthoemmes  # Scaling
   - mattmoor        # API
-  - mdemirhan       # Network
   - tcnghia         # Network
   - vagababov       # Scaling
 
@@ -35,7 +34,6 @@ aliases:
   - grantr          # TOC
   - markusthoemmes  # Scaling/TOC
   - mattmoor        # API/TOC
-  - mdemirhan       # Network
   - nak3            # Network
   - tcnghia         # Network/TOC
   - ZhiminXiang     # Network
@@ -43,13 +41,11 @@ aliases:
 
   autoscaling-approvers:
   - markusthoemmes
-  - mdemirhan
   - vagababov
   - julz
   autoscaling-reviewers:
   - julz
   - markusthoemmes
-  - mdemirhan
   - taragu
   - vagababov
   - yanweiguo
@@ -74,7 +70,6 @@ aliases:
   networking-approvers:
   - JRBANCEL
   - markusthoemmes
-  - mdemirhan
   - nak3
   - tcnghia
   - vagababov
@@ -83,7 +78,6 @@ aliases:
   - andrew-su
   - JRBANCEL
   - markusthoemmes
-  - mdemirhan
   - nak3
   - shashwathi
   - tcnghia
