@@ -413,44 +413,41 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			simplePlaceholderK8sService(getContext(), Route("default", "becomes-ready", WithConfigTarget("config")), ""),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{
-			{
-				// ingress should be updated with the new rollout data.
-				Object: simpleReadyIngress(
-					Route("default", "becomes-ready", WithConfigTarget("config"), WithURL),
-					&traffic.Config{
-						Targets: map[string]traffic.RevisionTargets{
-							traffic.DefaultTarget: {{
-								TrafficTarget: v1.TrafficTarget{
-									ConfigurationName: "config",
-									RevisionName:      "config-00001",
-									Percent:           ptr.Int64(100),
-									LatestRevision:    ptr.Bool(true),
-								},
-							}},
-						},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// ingress should be updated with the new rollout data.
+			Object: simpleReadyIngress(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
+							},
+						}},
 					},
-					simpleRollout("config", []traffic.RevisionRollout{{
-						RevisionName: "config-00000", Percent: 99,
-					}, {
-						RevisionName: "config-00001", Percent: 1,
-					}}, fakeCurTime.Add(-3*time.Second),
-						func(r *traffic.Rollout) {
-							// Step duration is 3s (now - (now-3s)).
-							r.Configurations[0].StepDuration = 3
-							// 120 / 3 = 40 steps. floor(100/40) = 2.
-							r.Configurations[0].StepSize = 2
-							// StepDuration is 3, and so next step is `now` + 3.
-							r.Configurations[0].NextStepTime = int(fakeCurTime.Add(3 * time.Second).UnixNano())
-						},
-					)),
-			},
-			{
-				Object: simpleK8sService(
-					Route("default", "becomes-ready", WithConfigTarget("config")),
-				),
-			},
-		},
+				},
+				simpleRollout("config", []traffic.RevisionRollout{{
+					RevisionName: "config-00000", Percent: 99,
+				}, {
+					RevisionName: "config-00001", Percent: 1,
+				}}, fakeCurTime.Add(-3*time.Second),
+					func(r *traffic.Rollout) {
+						// Step duration is 3s (now - (now-3s)).
+						r.Configurations[0].StepDuration = 3
+						// 120 / 3 = 40 steps. floor(100/40) = 2.
+						r.Configurations[0].StepSize = 2
+						// StepDuration is 3, and so next step is `now` + 3.
+						r.Configurations[0].NextStepTime = int(fakeCurTime.Add(3 * time.Second).UnixNano())
+					},
+				)),
+		}, {
+			Object: simpleK8sService(
+				Route("default", "becomes-ready", WithConfigTarget("config")),
+			),
+		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				// Populated by reconciliation when the route becomes ready.
