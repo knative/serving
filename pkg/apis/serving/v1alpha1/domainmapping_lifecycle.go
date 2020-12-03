@@ -66,7 +66,7 @@ const (
 )
 
 // MarkTLSNotEnabled sets DomainMappingConditionCertificateProvisioned to true when
-// certificate config such as autoTLS is not enabled.
+// certificate provisioning was skipped because TLS was not enabled.
 func (dms *DomainMappingStatus) MarkTLSNotEnabled(msg string) {
 	domainMappingCondSet.Manage(dms).MarkTrueWithReason(DomainMappingConditionCertificateProvisioned,
 		"TLSNotEnabled", msg)
@@ -101,11 +101,11 @@ func (dms *DomainMappingStatus) MarkCertificateNotOwned(name string) {
 func (dms *DomainMappingStatus) MarkCertificateProvisionFailed(name string) {
 	domainMappingCondSet.Manage(dms).MarkFalse(DomainMappingConditionCertificateProvisioned,
 		"CertificateProvisionFailed",
-		"Certificate %s fails to be provisioned.", name)
+		"Certificate %s failed to be provisioned.", name)
 }
 
 // MarkHTTPDowngrade sets DomainMappingConditionCertificateProvisioned to true when plain
-// HTTP is enabled even when Certificated is not ready.
+// HTTP is enabled even when Certificate is not ready.
 func (dms *DomainMappingStatus) MarkHTTPDowngrade(name string) {
 	domainMappingCondSet.Manage(dms).MarkTrueWithReason(DomainMappingConditionCertificateProvisioned,
 		"HTTPDowngrade",
