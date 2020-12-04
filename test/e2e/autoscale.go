@@ -367,22 +367,14 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 	}
 }
 
-// Autoscaler is the interface for autoscaler, which checks the result when stopped.
-type Autoscaler interface {
-	// Stop terminates the autoscaler, returning any observed errors.
-	Stop() error
-}
-
-type autoscaler struct {
+// Autoscaler is a controller for autoscale tests which checks the result when stopped.
+type Autoscaler struct {
 	grp    *errgroup.Group
 	stopCh chan struct{}
 }
 
-// autoscaler implements Autoscaler.
-var _ Autoscaler = (*autoscaler)(nil)
-
-func (a *autoscaler) Stop() error {
-	close(a.stopCh)
+func (a *Autoscaler) Stop() error {
+	a.stopCh <- struct{}{}
 	return a.grp.Wait()
 }
 
@@ -427,7 +419,7 @@ func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, quick b
 		return checkPodScale(ctx, targetPods, minPods, maxPods, done, quick)
 	})
 
-	return &autoscaler{
+	return Autoscaler{
 		grp:    grp,
 		stopCh: done,
 	}
