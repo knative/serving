@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/blendle/zapdriver"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
@@ -54,14 +55,14 @@ func NewLogger(configJSON string, levelOverride string, opts ...zap.Option) (*za
 		return enrichLoggerWithCommitID(logger), atomicLevel
 	}
 
-	loggingCfg := zap.NewProductionConfig()
+	loggingCfg := zapdriver.NewProductionConfig()
 	if levelOverride != "" {
 		if level, err := levelFromString(levelOverride); err == nil {
 			loggingCfg.Level = zap.NewAtomicLevelAt(*level)
 		}
 	}
 
-	logger, err2 := loggingCfg.Build(opts...)
+	logger, err2 := loggingCfg.Build(append(opts, zapdriver.WrapCore())...)
 	if err2 != nil {
 		panic(err2)
 	}
@@ -105,7 +106,7 @@ func newLoggerFromConfig(configJSON string, levelOverride string, opts []zap.Opt
 		}
 	}
 
-	logger, err := loggingCfg.Build(opts...)
+	logger, err := loggingCfg.Build(append(opts, zapdriver.WrapCore())...)
 	if err != nil {
 		return nil, zap.AtomicLevel{}, err
 	}
@@ -116,15 +117,13 @@ func newLoggerFromConfig(configJSON string, levelOverride string, opts []zap.Opt
 }
 
 func zapConfigFromJSON(configJSON string) (*zap.Config, error) {
-	if configJSON == "" {
-		return nil, errEmptyLoggerConfig
+	loggingCfg := zapdriver.NewProductionConfig()
+	if configJSON != "" {
+		if err := json.Unmarshal([]byte(configJSON), &loggingCfg); err != nil {
+			return nil, err
+		}
 	}
-
-	loggingCfg := &zap.Config{}
-	if err := json.Unmarshal([]byte(configJSON), loggingCfg); err != nil {
-		return nil, err
-	}
-	return loggingCfg, nil
+	return &loggingCfg, nil
 }
 
 // Config contains the configuration defined in the logging ConfigMap.
@@ -134,31 +133,9 @@ type Config struct {
 	LoggingLevel  map[string]zapcore.Level
 }
 
-const defaultZLC = `{
-  "level": "info",
-  "development": false,
-  "outputPaths": ["stdout"],
-  "errorOutputPaths": ["stderr"],
-  "encoding": "json",
-  "encoderConfig": {
-    "timeKey": "ts",
-    "levelKey": "level",
-    "nameKey": "logger",
-    "callerKey": "caller",
-    "messageKey": "msg",
-    "stacktraceKey": "stacktrace",
-    "lineEnding": "",
-    "levelEncoder": "",
-    "timeEncoder": "iso8601",
-    "durationEncoder": "",
-    "callerEncoder": ""
-  }
-}`
-
 func defaultConfig() *Config {
 	return &Config{
-		LoggingConfig: defaultZLC,
-		LoggingLevel:  make(map[string]zapcore.Level),
+		LoggingLevel: make(map[string]zapcore.Level),
 	}
 }
 
