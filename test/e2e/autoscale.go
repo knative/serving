@@ -202,8 +202,6 @@ func toPercentageString(f float64) string {
 // SetupSvc creates a new service, with given service options.
 // It returns a TestContext that has resources, K8s clients and other needed
 // data points.
-// It sets up EnsureTearDown to ensure that resources are cleaned up when the
-// test terminates.
 func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization float64, fopts ...rtesting.ServiceOption) *TestContext {
 	t.Helper()
 	clients := Setup(t)

@@ -20,12 +20,10 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	"knative.dev/serving/test"
-
 	pkgupgrade "knative.dev/pkg/test/upgrade"
-
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
+	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 )
 
