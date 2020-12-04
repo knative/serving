@@ -172,12 +172,12 @@ const (
 func (s *namespaceSource) handleLine(l []byte, pod string) {
 	// This holds the standard structure of our logs.
 	var line struct {
-		Level      string    `json:"level"`
-		Timestamp  time.Time `json:"ts"`
+		Level      string    `json:"severity"`
+		Timestamp  time.Time `json:"timestamp"`
 		Controller string    `json:"knative.dev/controller"`
 		Caller     string    `json:"caller"`
 		Key        string    `json:"knative.dev/key"`
-		Message    string    `json:"msg"`
+		Message    string    `json:"message"`
 		Error      string    `json:"error"`
 
 		// TODO(mattmoor): Parse out more context.
@@ -205,20 +205,27 @@ func (s *namespaceSource) handleLine(l []byte, pod string) {
 		if site == "" {
 			site = line.Caller
 		}
-		// E 15:04:05.000 webhook-699b7b668d-9smk2 [route-controller] [default/testroute-xyz] this is my message
-		msg := fmt.Sprintf("%s %s %s [%s] [%s] %s",
-			strings.ToUpper(string(line.Level[0])),
-			line.Timestamp.Format(timeFormat),
-			pod,
-			site,
-			line.Key,
-			line.Message)
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+					logf("Invalid log format for pod %s: %s", pod, string(l))
+				}
+			}()
+			// E 15:04:05.000 webhook-699b7b668d-9smk2 [route-controller] [default/testroute-xyz] this is my message
+			msg := fmt.Sprintf("%s %s %s [%s] [%s] %s",
+				strings.ToUpper(string(line.Level[0])),
+				line.Timestamp.Format(timeFormat),
+				pod,
+				site,
+				line.Key,
+				line.Message)
 
-		if line.Error != "" {
-			msg += " err=" + line.Error
-		}
+			if line.Error != "" {
+				msg += " err=" + line.Error
+			}
 
-		logf(msg)
+			logf(msg)
+		}()
 	}
 }
 
