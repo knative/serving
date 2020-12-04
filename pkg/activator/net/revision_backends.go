@@ -40,12 +40,12 @@ import (
 
 	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/networking/pkg/apis/networking"
+	"knative.dev/networking/pkg/prober"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/network/prober"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
