@@ -172,12 +172,12 @@ const (
 func (s *namespaceSource) handleLine(l []byte, pod string) {
 	// This holds the standard structure of our logs.
 	var line struct {
-		Level      string    `json:"level"`
-		Timestamp  time.Time `json:"ts"`
+		Level      string    `json:"severity"`
+		Timestamp  time.Time `json:"timestamp"`
 		Controller string    `json:"knative.dev/controller"`
 		Caller     string    `json:"caller"`
 		Key        string    `json:"knative.dev/key"`
-		Message    string    `json:"msg"`
+		Message    string    `json:"message"`
 		Error      string    `json:"error"`
 
 		// TODO(mattmoor): Parse out more context.

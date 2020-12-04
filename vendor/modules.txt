@@ -85,6 +85,8 @@ github.com/aws/aws-sdk-go/service/sts/stsiface
 github.com/beorn7/perks/quantile
 # github.com/blang/semver/v4 v4.0.0
 github.com/blang/semver/v4
+# github.com/blendle/zapdriver v1.3.1
+github.com/blendle/zapdriver
 # github.com/c2h5oh/datasize v0.0.0-20200112174442-28bbd4740fee
 github.com/c2h5oh/datasize
 # github.com/census-instrumentation/opencensus-proto v0.3.0
@@ -952,7 +954,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20201202014037-fc10335afb00
+# knative.dev/caching v0.0.0-20201203145509-a7523801f5c1
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -976,7 +978,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20201201234937-fddbf732e450
 ## explicit
 knative.dev/hack
-# knative.dev/networking v0.0.0-20201203005409-47ea2396c447
+# knative.dev/networking v0.0.0-20201203234509-4cd0793eed11
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1009,7 +1011,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20201203005309-e45bbefd1d63
+# knative.dev/pkg v0.0.0-20201204013209-b89ac2a63293
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
