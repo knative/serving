@@ -273,7 +273,7 @@ func assertScaleDown(ctx *TestContext) {
 	}
 
 	// Account for the case where scaling up uses all available pods.
-	ctx.t.Logf("Wait for all pods to terminate.")
+	ctx.logf("Wait for all pods to terminate.")
 
 	if err := pkgTest.WaitForPodListState(
 		context.Background(),
@@ -292,12 +292,12 @@ func assertScaleDown(ctx *TestContext) {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", deploymentName, err)
 	}
 
-	ctx.t.Logf("The Revision should remain ready after scaling to zero.")
+	ctx.logf("The Revision should remain ready after scaling to zero.")
 	if err := v1test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, v1test.IsRevisionReady); err != nil {
 		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
 	}
 
-	ctx.t.Logf("Scaled down.")
+	ctx.logf("Scaled down.")
 }
 
 func numberOfReadyPods(ctx *TestContext) (float64, error) {
