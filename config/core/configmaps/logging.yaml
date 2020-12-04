@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "23eed3d8"
+    knative.dev/example-checksum: "56c59cba"
 data:
   _example: |
     ################################
@@ -47,11 +47,11 @@ data:
         "errorOutputPaths": ["stderr"],
         "encoding": "json",
         "encoderConfig": {
-          "timeKey": "ts",
-          "levelKey": "level",
+          "timeKey": "timestamp",
+          "levelKey": "severity",
           "nameKey": "logger",
           "callerKey": "caller",
-          "messageKey": "msg",
+          "messageKey": "message",
           "stacktraceKey": "stacktrace",
           "lineEnding": "",
           "levelEncoder": "",
