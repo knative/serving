@@ -1050,3 +1050,144 @@ func TestJSONRoundtrip(t *testing.T) {
 			cmp.Diff(orig, deserialized, cmpopts.EquateEmpty()))
 	}
 }
+
+func TestStepRevisions(t *testing.T) {
+	tests := []struct {
+		name string
+		now  int
+		cfg  *ConfigurationRollout
+		want *ConfigurationRollout
+	}{{
+		name: "noop (1): too soon",
+		now:  1982,
+		cfg: &ConfigurationRollout{
+			NextStepTime: 1984,
+			StepSize:     10,
+			Revisions: []RevisionRollout{{
+				Percent: 10,
+			}, {
+				Percent: 5,
+			}, {
+				Percent: 60,
+			}},
+		},
+		want: &ConfigurationRollout{
+			NextStepTime: 1984,
+			StepSize:     10,
+			Revisions: []RevisionRollout{{
+				Percent: 10,
+			}, {
+				Percent: 5,
+			}, {
+				Percent: 60,
+			}},
+		},
+	}, {
+		name: "noop (2): done",
+		now:  1982,
+		cfg: &ConfigurationRollout{
+			NextStepTime: 1984,
+			StepSize:     10,
+			Revisions: []RevisionRollout{{
+				Percent: 10,
+			}},
+		},
+		want: &ConfigurationRollout{
+			NextStepTime: 1984,
+			StepSize:     10,
+			Revisions: []RevisionRollout{{
+				Percent: 10,
+			}},
+		},
+	}, {
+		name: "step last, exact time",
+		now:  1984,
+		cfg: &ConfigurationRollout{
+			NextStepTime: 1984,
+			StepSize:     10,
+			StepDuration: 55,
+			Percent:      90,
+			Revisions: []RevisionRollout{{
+				Percent: 30,
+			}, {
+				Percent: 60,
+			}},
+		},
+		want: &ConfigurationRollout{
+			Percent:      90,
+			NextStepTime: 1984 + 55,
+			StepDuration: 55,
+			StepSize:     10,
+			Revisions: []RevisionRollout{{
+				Percent: 20,
+			}, {
+				Percent: 70,
+			}},
+		},
+	}, {
+		name: "step last, delete some",
+		now:  1988,
+		cfg: &ConfigurationRollout{
+			Percent:      90,
+			NextStepTime: 1984,
+			StepSize:     10,
+			StepDuration: 55,
+			Revisions: []RevisionRollout{{
+				Percent: 22,
+			}, {
+				Percent: 5,
+			}, {
+				Percent: 3,
+			}, {
+				Percent: 60,
+			}},
+		},
+		want: &ConfigurationRollout{
+			Percent:      90,
+			NextStepTime: 1988 + 55,
+			StepDuration: 55,
+			StepSize:     10,
+			Revisions: []RevisionRollout{{
+				Percent: 20,
+			}, {
+				Percent: 70,
+			}},
+		},
+	}, {
+		name: "over target now",
+		now:  1988,
+		cfg: &ConfigurationRollout{
+			Percent:      15,
+			NextStepTime: 1984,
+			StepSize:     10,
+			StepDuration: 77,
+			Revisions: []RevisionRollout{{
+				Percent: 5,
+			}, {
+				Percent: 1,
+			}, {
+				Percent: 1,
+			}, {
+				Percent: 8,
+			}},
+		},
+		want: &ConfigurationRollout{
+			Percent:      15,
+			NextStepTime: 1988 + 77,
+			StepDuration: 77,
+			StepSize:     10,
+			Revisions: []RevisionRollout{{
+				Percent: 15,
+			}},
+		},
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			stepRevisions(tc.cfg, tc.now)
+			if got, want := tc.cfg, tc.want; !cmp.Equal(got, want) {
+				t.Errorf("Incorrect revision stepping: diff(-want,+got):\n%s", cmp.Diff(want, got))
+			}
+		})
+	}
+}
