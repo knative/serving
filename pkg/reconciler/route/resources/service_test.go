@@ -383,6 +383,7 @@ func testConfig() *config.Config {
 			PodSpecAffinity:       apiConfig.Disabled,
 			PodSpecFieldRef:       apiConfig.Disabled,
 			PodSpecDryRun:         apiConfig.Enabled,
+			PodSpecHostAliases:    apiConfig.Disabled,
 			PodSpecNodeSelector:   apiConfig.Disabled,
 			PodSpecTolerations:    apiConfig.Disabled,
 			TagHeaderBasedRouting: apiConfig.Disabled,
