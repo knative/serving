@@ -323,7 +323,7 @@ func stepConfig(goal, prev *ConfigurationRollout, nowTS int) *ConfigurationRollo
 	// If it matches the last revision of the previous rollout state (or there were no revisions)
 	// then no new rollout has begun for this configuration.
 	if len(prev.Revisions) == 0 || goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
-		// So if |prev.revisions| == 0 => then there was no rolloutm —
+		// So if |prev.revisions| == 0 => then there was no rollout —
 		// nothing is required to step.
 		// If |prev.revisions| == 1 and it matches current revision then
 		// we're done.
