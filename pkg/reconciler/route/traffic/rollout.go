@@ -243,59 +243,6 @@ func adjustPercentage(goal int, cr *ConfigurationRollout) {
 	}
 }
 
-// stepRevisions performs re-adjustment of percentages on the revisions
-// to rollout more traffic to the last one.
-func stepRevisions(goal *ConfigurationRollout, nowTS int) {
-	// Not yet ready to adjust the steps or we're done
-	// (shouldn't really be here, but better be defensive).
-	if nowTS < goal.NextStepTime || len(goal.Revisions) < 2 {
-		return
-	}
-
-	revLen := len(goal.Revisions)
-	remaining := goal.StepSize
-	writePos := revLen - 1
-	// readPos is guaranteed to be >= 0, due to the check above.
-	readPos := revLen - 2
-
-	// If step > totalPercent then remaining will always be > 0
-	// even after readPos == -1.
-	// This is the case when config's target is reduced below step size.
-	// E.g. was: R1 = 40 R2 = 10 Step = 10 Total=60
-	// Now = Total = 15;
-	// After adjust percentage: R1 = 5 R2 = 10
-	// Then after first iteration R1 = 0, remaining = 5.
-	// We'll handle this situation below.
-	for remaining > 0 && readPos >= 0 {
-		// If this revision's allocation is strictly larger than the goal,
-		// just subtract the different and we're done.
-		if goal.Revisions[readPos].Percent > remaining {
-			goal.Revisions[readPos].Percent -= remaining
-			break
-		}
-		// Otherwise subtract what is possible and update
-		// write position since this revision will no longer
-		// receive traffic.
-		remaining -= goal.Revisions[readPos].Percent
-		writePos--
-		readPos--
-	}
-	// Copy the last one to the write pos
-	goal.Revisions[writePos] = goal.Revisions[revLen-1]
-
-	goal.Revisions[writePos].Percent += goal.StepSize
-	// This can happen if step is now larger than total allocation, see the
-	// note above.
-	// E.g. with example above R2 = 20, and ro we have to cap it at 15.
-	if goal.Revisions[writePos].Percent > goal.Percent {
-		goal.Revisions[writePos].Percent = goal.Percent
-	}
-	// And cull the tail portion of it.
-	goal.Revisions = goal.Revisions[:writePos+1]
-	// Also set the next time.
-	goal.NextStepTime = nowTS + goal.StepDuration
-}
-
 // stepConfig takes previous and goal configuration shapes and returns a new
 // config rollout, after computing the percetage allocations.
 func stepConfig(goal, prev *ConfigurationRollout, nowTS int) *ConfigurationRollout {
@@ -328,10 +275,6 @@ func stepConfig(goal, prev *ConfigurationRollout, nowTS int) *ConfigurationRollo
 			ret.NextStepTime = prev.NextStepTime
 			ret.StepDuration = prev.StepDuration
 			ret.StartTime = prev.StartTime
-			// adjustPercentage above would've already accounted if target for the
-			// whole Configuration changed up or down. So here we should just redistribute
-			// the existing values.
-			stepRevisions(ret, nowTS)
 		}
 		return ret
 	}
