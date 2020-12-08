@@ -328,7 +328,6 @@ func stepConfig(goal, prev *ConfigurationRollout, nowTS int) *ConfigurationRollo
 			ret.NextStepTime = prev.NextStepTime
 			ret.StepDuration = prev.StepDuration
 			ret.StartTime = prev.StartTime
-			ret.StepSize = prev.StepSize
 			// adjustPercentage above would've already accounted if target for the
 			// whole Configuration changed up or down. So here we should just redistribute
 			// the existing values.
