@@ -19,7 +19,6 @@ package upgrade
 import (
 	"time"
 
-	"golang.org/x/sync/errgroup"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -39,7 +38,7 @@ const (
 // it is switching modes between normal and panic.
 func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 	var ctx *e2e.TestContext
-	var grp *errgroup.Group
+	var wait func() error
 	stopCh := make(chan time.Time)
 	return pkgupgrade.NewBackgroundVerification("AutoscaleSustainingTest",
 		func(c pkgupgrade.Context) {
@@ -49,14 +48,14 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 					autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
 				}))
 			ctx.SetLogger(c.Log.Infof)
-			grp = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
+			wait = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
 		},
 		func(c pkgupgrade.Context) {
 			test.EnsureTearDown(c.T, ctx.Clients(), ctx.Names())
 			// Verification is done inside e2e.AssertAutoscaleUpToNumPods.
 			// We're just giving it a signal.
 			close(stopCh)
-			if err := grp.Wait(); err != nil {
+			if err := wait(); err != nil {
 				c.T.Error("Error: ", err)
 			}
 		},
@@ -67,7 +66,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 // in the path a knative app scales up and sustains the scale.
 func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 	var ctx *e2e.TestContext
-	var grp *errgroup.Group
+	var wait func() error
 	stopCh := make(chan time.Time)
 	return pkgupgrade.NewBackgroundVerification("AutoscaleSustainingWithTBCTest",
 		func(c pkgupgrade.Context) {
@@ -77,14 +76,14 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 					autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
 				}))
 			ctx.SetLogger(c.Log.Infof)
-			grp = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
+			wait = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
 		},
 		func(c pkgupgrade.Context) {
 			test.EnsureTearDown(c.T, ctx.Clients(), ctx.Names())
 			// Verification is done inside e2e.AssertAutoscaleUpToNumPods.
 			// We're just giving it a signal.
 			close(stopCh)
-			if err := grp.Wait(); err != nil {
+			if err := wait(); err != nil {
 				c.T.Error("Error: ", err)
 			}
 		},

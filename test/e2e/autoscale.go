@@ -376,23 +376,24 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 // The given `duration` is how long the traffic will be generated. You must make sure that the signal
 // from the given `done` channel will be sent within the `duration`.
 func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
-	grp := AutoscaleUpToNumPods(ctx, curPods, targetPods, done, quick)
-	if err := grp.Wait(); err != nil {
+	wait := AutoscaleUpToNumPods(ctx, curPods, targetPods, done, quick)
+	if err := wait(); err != nil {
 		ctx.t.Fatal(err)
 	}
 }
 
 // AutoscaleUpToNumPods starts the traffic for AssertAutoscaleUpToNumPods and returns
-// an error group to wait for. Starting the routines is separated from waiting for
-// easy re-use in other places (e.g. upgrade tests).
-func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) *errgroup.Group {
+// a function to wait for which will return any error from test execution.
+// Starting the routines is separated from waiting for easy re-use in other
+// places (e.g. upgrade tests).
+func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) func() error {
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
 	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
 	maxPods := math.Ceil(math.Ceil(targetPods/ctx.targetUtilization) * 1.1)
 
 	stopChan := make(chan struct{})
-	grp := &errgroup.Group{}
+	var grp errgroup.Group
 	grp.Go(func() error {
 		switch ctx.metric {
 		case autoscaling.RPS:
@@ -407,5 +408,5 @@ func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-
 		return checkPodScale(ctx, targetPods, minPods, maxPods, done, quick)
 	})
 
-	return grp
+	return grp.Wait
 }
