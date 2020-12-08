@@ -80,7 +80,7 @@ func (c *Reconciler) reconcileIngress(
 		effectiveRO := curRO.Step(prevRO, int(c.clock.Now().UnixNano()))
 
 		// Comparing and diffing isn't cheap so do it only if we're going
-		// to actually log the messagd.
+		// to actually log the message.
 		// Those are well known types, cmp won't panic.
 		logger := logging.FromContext(ctx).Desugar()
 		if logger.Core().Enabled(zapcore.DebugLevel) && !cmp.Equal(prevRO, effectiveRO) {
