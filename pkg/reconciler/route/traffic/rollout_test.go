@@ -1090,7 +1090,6 @@ func TestStepRevisions(t *testing.T) {
 		now:  1982,
 		cfg: &ConfigurationRollout{
 			NextStepTime: 1984,
-			StepDuration: 10,
 			StepSize:     10,
 			Revisions: []RevisionRollout{{
 				Percent: 10,
@@ -1098,7 +1097,6 @@ func TestStepRevisions(t *testing.T) {
 		},
 		want: &ConfigurationRollout{
 			NextStepTime: 1984,
-			StepDuration: 10,
 			StepSize:     10,
 			Revisions: []RevisionRollout{{
 				Percent: 10,
@@ -1178,38 +1176,9 @@ func TestStepRevisions(t *testing.T) {
 		},
 		want: &ConfigurationRollout{
 			Percent:      15,
-			NextStepTime: 0,
+			NextStepTime: 1988 + 77,
 			StepDuration: 77,
 			StepSize:     10,
-			Revisions: []RevisionRollout{{
-				Percent: 15,
-			}},
-		},
-	}, {
-		name: "the very last step",
-		now:  2006,
-		cfg: &ConfigurationRollout{
-			NextStepTime: 1984,
-			Percent:      15,
-			StartTime:    1977,
-			StepDuration: 77,
-			StepSize:     8,
-			Revisions: []RevisionRollout{{
-				Percent: 5,
-			}, {
-				Percent: 1,
-			}, {
-				Percent: 1,
-			}, {
-				Percent: 8,
-			}},
-		},
-		want: &ConfigurationRollout{
-			NextStepTime: 0,
-			Percent:      15,
-			StartTime:    0,
-			StepDuration: 77,
-			StepSize:     8,
 			Revisions: []RevisionRollout{{
 				Percent: 15,
 			}},
