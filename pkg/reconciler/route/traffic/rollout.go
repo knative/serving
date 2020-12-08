@@ -293,7 +293,13 @@ func stepRevisions(goal *ConfigurationRollout, nowTS int) {
 	// And cull the tail portion of it.
 	goal.Revisions = goal.Revisions[:writePos+1]
 	// Also set the next time.
-	goal.NextStepTime = nowTS + goal.StepDuration
+	if len(goal.Revisions) > 1 {
+		goal.NextStepTime = nowTS + goal.StepDuration
+	} else {
+		// This is the last step, we're done!
+		goal.NextStepTime = 0
+		goal.StartTime = 0
+	}
 }
 
 // stepConfig takes previous and goal configuration shapes and returns a new
