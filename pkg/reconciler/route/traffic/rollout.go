@@ -196,7 +196,7 @@ func (cur *Rollout) Step(prev *Rollout, nowTS int) *Rollout {
 				j++
 			case ccfgs[i].ConfigurationName < pcfgs[j].ConfigurationName:
 				// A new config, has been added. No action for rollout though.
-				// Keep it if it will receive traffic.
+				// Keep it for future rollout actions.
 				if ccfgs[i].Percent != 0 {
 					ret = append(ret, *ccfgs[i])
 				}
@@ -323,27 +323,37 @@ func stepConfig(goal, prev *ConfigurationRollout, nowTS int) *ConfigurationRollo
 	// If it matches the last revision of the previous rollout state (or there were no revisions)
 	// then no new rollout has begun for this configuration.
 	if len(prev.Revisions) == 0 || goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
-		if len(prev.Revisions) > 0 {
+		// So if |prev.revisions| == 0 => then there was no rolloutm —
+		// nothing is required to step.
+		// If |prev.revisions| == 1 and it matches current revision then
+		// we're done.
+		// Thus we need to perform work only if there is more than one
+		// revision in the previous state.
+		if len(prev.Revisions) > 1 {
 			ret.Revisions = prev.Revisions
 
-			// TODO(vagababov): here would go the logic to compute new percentages for the rollout,
-			// i.e step function, so return value will change, depending on that.
-			// Copy the duration info from the previous when no new revision
+			// Copy various rollout stats from the previous when no new revision
 			// has been created.
+			ret.StartTime = prev.StartTime
 			ret.Deadline = prev.Deadline
 			ret.NextStepTime = prev.NextStepTime
 			ret.StepDuration = prev.StepDuration
-			ret.StartTime = prev.StartTime
 			ret.StepSize = prev.StepSize
-			// adjustPercentage above would've already accounted if target for the
-			// whole Configuration changed up or down. So here we should just redistribute
-			// the existing values.
-			stepRevisions(ret, nowTS)
+			// We might end up here before `ObserveReady` is called.
+			// In that case don't step individual revisions just yet.
+			if ret.StepSize > 0 {
+				// adjustPercentage above would've already accounted if target for the
+				// whole Configuration changed up or down. So here we should just redistribute
+				// the existing values.
+				stepRevisions(ret, nowTS)
+			}
 		}
 		return ret
 	}
 
-	// Otherwise we start a rollout, which means we need to stamp the starttime.
+	// Otherwise we start a rollout, which means we need to stamp the starttime,
+	// the rest of the fields will remain unset and `ObserveReady` will
+	// compute them when the ingress becomes ready.
 	ret.StartTime = nowTS
 
 	// Go backwards and find first revision with traffic assignment > 0.

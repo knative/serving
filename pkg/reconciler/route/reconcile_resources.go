@@ -21,7 +21,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -77,9 +79,19 @@ func (c *Reconciler) reconcileIngress(
 		// And recompute the rollout state.
 		effectiveRO := curRO.Step(prevRO, int(c.clock.Now().UnixNano()))
 
+		// Comparing and diffing isn't cheap so do it only if we're going
+		// to actually log the messagd.
+		// Those are well known types, cmp won't panic.
+		logger := logging.FromContext(ctx).Desugar()
+		if logger.Core().Enabled(zapcore.DebugLevel) && !cmp.Equal(prevRO, effectiveRO) {
+			logger.Debug("Rollout diff:(-was,+now)",
+				zap.String("diff", cmp.Diff(prevRO, effectiveRO)))
+		}
+
 		// Now check if the ingress status changed from not ready to ready.
 		rtView := r.Status.GetCondition(v1.RouteConditionIngressReady)
 		if ingress.IsReady() && !rtView.IsTrue() {
+			logger.Debug("Observing Ingress not-ready to ready switch condition for rollout")
 			effectiveRO.ObserveReady(int(c.clock.Now().UnixNano()))
 		}
 
@@ -92,13 +104,14 @@ func (c *Reconciler) reconcileIngress(
 		if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
 			!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) ||
 			!equality.Semantic.DeepEqual(ingress.Labels, desired.Labels) {
+
 			// It is notable that one reason for differences here may be defaulting.
 			// When that is the case, the Update will end up being a nop because the
 			// webhook will bring them into alignment and no new reconciliation will occur.
 			// Also, compare annotation and label in case ingress.Class or parent route's labels
 			// is updated.
 
-			// Don't modify the informers copy
+			// Don't modify the informers copy.
 			origin := ingress.DeepCopy()
 			origin.Spec = desired.Spec
 			origin.Annotations = desired.Annotations

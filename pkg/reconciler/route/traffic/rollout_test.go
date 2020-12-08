@@ -31,7 +31,7 @@ import (
 )
 
 func TestStep(t *testing.T) {
-	now := int(time.Now().UnixNano())
+	const now = 2020
 	tests := []struct {
 		name            string
 		prev, cur, want *Rollout
@@ -78,7 +78,7 @@ func TestStep(t *testing.T) {
 					RevisionName: "let-it-bleed",
 					Percent:      100,
 				}},
-				Deadline:     2006, // <- Those should be ignored.
+				Deadline:     2006, // <- Those should be kept.
 				NextStepTime: 2009,
 				StepDuration: 2020,
 				StartTime:    2004,
@@ -93,11 +93,6 @@ func TestStep(t *testing.T) {
 					RevisionName: "let-it-bleed",
 					Percent:      100,
 				}},
-				Deadline:     1982, // <- Those should be copied.
-				NextStepTime: 1984,
-				StepDuration: 1988,
-				StartTime:    1955,
-				StepSize:     15,
 			}},
 		},
 		want: &Rollout{
@@ -108,11 +103,107 @@ func TestStep(t *testing.T) {
 					RevisionName: "let-it-bleed",
 					Percent:      100,
 				}},
-				Deadline:     1982,
-				NextStepTime: 1984,
-				StepDuration: 1988,
-				StartTime:    1955,
-				StepSize:     15,
+			}},
+		},
+	}, {
+		name: "simplest, step",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           100,
+				Revisions: []RevisionRollout{{
+					RevisionName: "let-it-bleed",
+					Percent:      100,
+				}},
+				NextStepTime: 2009,
+				StepDuration: 2020,
+				StartTime:    2004,
+				StepSize:     14,
+			}},
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           100,
+				NextStepTime:      2019,
+				StepDuration:      5,
+				StartTime:         2004,
+				StepSize:          3,
+				Revisions: []RevisionRollout{{
+					RevisionName: "their-satanic-majesties-request",
+					Percent:      95,
+				}, {
+					RevisionName: "let-it-bleed",
+					Percent:      5,
+				}},
+			}},
+		},
+		want: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           100,
+				Revisions: []RevisionRollout{{
+					RevisionName: "their-satanic-majesties-request",
+					Percent:      92, // -3
+				}, {
+					RevisionName: "let-it-bleed",
+					Percent:      8, // +3
+				}},
+				NextStepTime: 2020 + 5, // now + duration.
+				StepDuration: 5,
+				StartTime:    2004,
+				StepSize:     3,
+			}},
+		},
+	}, {
+		name: "simplest, step, when stepsize=0",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           100,
+				Revisions: []RevisionRollout{{
+					RevisionName: "let-it-bleed",
+					Percent:      100,
+				}},
+				Deadline:     2006,
+				NextStepTime: 2009,
+				StepDuration: 2020,
+				StartTime:    2004,
+				StepSize:     14,
+			}},
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           100,
+				NextStepTime:      2019, // <- Those should be reset and/or updated.
+				StartTime:         2004,
+				StepDuration:      5,
+				StepSize:          0,
+				Revisions: []RevisionRollout{{
+					RevisionName: "their-satanic-majesties-request",
+					Percent:      95,
+				}, {
+					RevisionName: "let-it-bleed",
+					Percent:      5,
+				}},
+			}},
+		},
+		want: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           100,
+				Revisions: []RevisionRollout{{
+					RevisionName: "their-satanic-majesties-request",
+					Percent:      95,
+				}, {
+					RevisionName: "let-it-bleed",
+					Percent:      5,
+				}},
+				NextStepTime: 2019,
+				StartTime:    2004,
+				StepDuration: 5,
+				StepSize:     0,
 			}},
 		},
 	}, {
@@ -200,6 +291,7 @@ func TestStep(t *testing.T) {
 				Deadline:     1982, // <- Those should be thrown out.
 				NextStepTime: 1984,
 				StepDuration: 1988,
+				StepSize:     11,
 			}},
 		},
 		want: &Rollout{
