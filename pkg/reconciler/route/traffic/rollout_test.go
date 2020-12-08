@@ -82,6 +82,7 @@ func TestStep(t *testing.T) {
 				NextStepTime: 2009,
 				StepDuration: 2020,
 				StartTime:    2004,
+				StepSize:     14,
 			}},
 		},
 		prev: &Rollout{
@@ -96,6 +97,7 @@ func TestStep(t *testing.T) {
 				NextStepTime: 1984,
 				StepDuration: 1988,
 				StartTime:    1955,
+				StepSize:     15,
 			}},
 		},
 		want: &Rollout{
@@ -110,6 +112,7 @@ func TestStep(t *testing.T) {
 				NextStepTime: 1984,
 				StepDuration: 1988,
 				StartTime:    1955,
+				StepSize:     15,
 			}},
 		},
 	}, {
