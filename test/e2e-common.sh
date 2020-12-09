@@ -237,29 +237,31 @@ function install_knative_serving_standard() {
     ko apply -f "${SERVING_RELEASE_YAML}" --selector=knative.dev/crd-install=true || return 1
   fi
 
-  echo ">> Installing Ingress"
-  if [[ -n "${GLOO_VERSION:-}" ]]; then
-    install_gloo || return 1
-  elif [[ -n "${KOURIER_VERSION:-}" ]]; then
-    install_kourier || return 1
-  elif [[ -n "${AMBASSADOR_VERSION:-}" ]]; then
-    install_ambassador || return 1
-  elif [[ -n "${CONTOUR_VERSION:-}" ]]; then
-    install_contour || return 1
-  elif [[ -n "${KONG_VERSION:-}" ]]; then
-    install_kong || return 1
-  else
-    if [[ "$1" == "HEAD" ]]; then
-      install_istio "./third_party/istio-latest/net-istio.yaml" || return 1
+  if [[ -z "${REUSE_INGRESS:-}" ]]; then
+    echo ">> Installing Ingress"
+    if [[ -n "${GLOO_VERSION:-}" ]]; then
+      install_gloo || return 1
+    elif [[ -n "${KOURIER_VERSION:-}" ]]; then
+      install_kourier || return 1
+    elif [[ -n "${AMBASSADOR_VERSION:-}" ]]; then
+      install_ambassador || return 1
+    elif [[ -n "${CONTOUR_VERSION:-}" ]]; then
+      install_contour || return 1
+    elif [[ -n "${KONG_VERSION:-}" ]]; then
+      install_kong || return 1
     else
-      # Download the latest release of net-istio.
-      local url="https://github.com/knative/net-istio/releases/download/${LATEST_NET_ISTIO_RELEASE_VERSION}"
-      local yaml="net-istio.yaml"
-      local YAML_NAME=${TMP_DIR}/"net-istio-${LATEST_NET_ISTIO_RELEASE_VERSION}.yaml"
-      wget "${url}/${yaml}" -O "${YAML_NAME}" \
-        || fail_test "Unable to download latest knative/net-istio release."
-      echo "net-istio YAML: ${YAML_NAME}"
-      install_istio $YAML_NAME || return 1
+      if [[ "$1" == "HEAD" ]]; then
+        install_istio "./third_party/istio-latest/net-istio.yaml" || return 1
+      else
+        # Download the latest release of net-istio.
+        local url="https://github.com/knative/net-istio/releases/download/${LATEST_NET_ISTIO_RELEASE_VERSION}"
+        local yaml="net-istio.yaml"
+        local YAML_NAME=${TMP_DIR}/"net-istio-${LATEST_NET_ISTIO_RELEASE_VERSION}.yaml"
+        wget "${url}/${yaml}" -O "${YAML_NAME}" \
+          || fail_test "Unable to download latest knative/net-istio release."
+        echo "net-istio YAML: ${YAML_NAME}"
+        install_istio $YAML_NAME || return 1
+      fi
     fi
   fi
 
@@ -532,9 +534,11 @@ function install_latest_release() {
   wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
 }
 
-function install_head() {
-  header "Installing Knative head release"
-  install_knative_serving || fail_test "Knative head release installation failed"
+function install_head_reuse_ingress() {
+  header "Installing Knative head release and reusing ingress"
+  # Keep the existing ingress and do not upgrade it. The ingress upgrade
+  # makes ongoing requests fail.
+  REUSE_INGRESS=true install_knative_serving || fail_test "Knative head release installation failed"
   test_logging_config_setup
   wait_until_pods_running ${SYSTEM_NAMESPACE}
   wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
