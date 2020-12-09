@@ -429,9 +429,7 @@ function test_teardown() {
   local TEST_CONFIG_DIR=${TMP_DIR}/test/config
   echo ">> Removing test resources (${TEST_CONFIG_DIR}/)"
   ko delete --ignore-not-found=true --now -f ${TEST_CONFIG_DIR}/
-  if (( MESH )); then
-    ko delete --ignore-not-found=true --now -f ${TEST_CONFIG_DIR}/security/
-  fi
+
   echo ">> Ensuring test namespaces are clean"
   kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests
   kubectl delete --ignore-not-found --now --timeout 60s namespace serving-tests
