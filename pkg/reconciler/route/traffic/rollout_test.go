@@ -876,16 +876,16 @@ func TestObserveReady(t *testing.T) {
 			Percent:           100,
 			StepParams: RolloutParams{
 				StartTime:    200620092020,
-				StepDuration: 2,
+				StepDuration: 1212121212, // 120/99
 				StepSize:     1,
-				NextStepTime: now + int(2*time.Second),
+				NextStepTime: now + 1212121212,
 			},
 		}, {
 			ConfigurationName: "step-begin > 1s",
 			Percent:           100,
 			StepParams: RolloutParams{
 				StartTime:    oldenDays,
-				StepDuration: 3,
+				StepDuration: 3 * int(time.Second),
 				StepSize:     100 / 40,
 				NextStepTime: now + 3*int(time.Second),
 			},
@@ -894,7 +894,7 @@ func TestObserveReady(t *testing.T) {
 			Percent:           50,
 			StepParams: RolloutParams{
 				StartTime:    oldenDays,
-				StepDuration: 3,
+				StepDuration: 3 * int(time.Second),
 				StepSize:     50 / 40,
 				NextStepTime: now + 3*int(time.Second),
 			},
