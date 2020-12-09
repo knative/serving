@@ -62,9 +62,9 @@ func NewLogger(configJSON string, levelOverride string, opts ...zap.Option) (*za
 		}
 	}
 
-	logger, err2 := loggingCfg.Build(append(opts, zapdriver.WrapCore())...)
-	if err2 != nil {
-		panic(err2)
+	logger, err = loggingCfg.Build(append(opts, zapdriver.WrapCore())...)
+	if err != nil {
+		panic(err)
 	}
 
 	slogger := enrichLoggerWithCommitID(logger.Named(fallbackLoggerName))
@@ -74,13 +74,14 @@ func NewLogger(configJSON string, levelOverride string, opts ...zap.Option) (*za
 
 func enrichLoggerWithCommitID(logger *zap.Logger) *zap.SugaredLogger {
 	commitID, err := changeset.Get()
-	if err == nil {
-		// Enrich logs with GitHub commit ID.
-		return logger.With(zap.String(logkey.GitHubCommitID, commitID)).Sugar()
+	if err != nil {
+		logger.Info("Fetch GitHub commit ID from kodata failed", zap.Error(err))
+		return logger.Sugar()
 	}
 
-	logger.Info("Fetch GitHub commit ID from kodata failed", zap.Error(err))
-	return logger.Sugar()
+	// Enrich logs with GitHub commit ID.
+	return logger.With(zap.String(logkey.GitHubCommitID, commitID)).Sugar()
+
 }
 
 // NewLoggerFromConfig creates a logger using the provided Config
@@ -94,7 +95,7 @@ func NewLoggerFromConfig(config *Config, name string, opts ...zap.Option) (*zap.
 	return logger.Named(name), level
 }
 
-func newLoggerFromConfig(configJSON string, levelOverride string, opts []zap.Option) (*zap.Logger, zap.AtomicLevel, error) {
+func newLoggerFromConfig(configJSON, levelOverride string, opts []zap.Option) (*zap.Logger, zap.AtomicLevel, error) {
 	loggingCfg, err := zapConfigFromJSON(configJSON)
 	if err != nil {
 		return nil, zap.AtomicLevel{}, err
@@ -179,7 +180,6 @@ func levelFromString(level string) (*zapcore.Level, error) {
 // when a config map is updated
 func UpdateLevelFromConfigMap(logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel,
 	levelKey string) func(configMap *corev1.ConfigMap) {
-
 	return func(configMap *corev1.ConfigMap) {
 		config, err := NewConfigFromConfigMap(configMap)
 		if err != nil {
