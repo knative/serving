@@ -41,7 +41,7 @@ func WithDynamicLeaderElectorBuilder(ctx context.Context, kc kubernetes.Interfac
 	b, _, err := NewStatefulSetBucketAndSet(int(cc.Buckets))
 	if err == nil {
 		logger.Info("Running with StatefulSet leader election")
-		return withStatefulSetElectorBuilder(ctx, cc, b)
+		return WithStatefulSetElectorBuilder(ctx, cc, b)
 	}
 	logger.Info("Running with Standard leader election")
 	return WithStandardLeaderElectorBuilder(ctx, kc, cc)
@@ -57,10 +57,10 @@ func WithStandardLeaderElectorBuilder(ctx context.Context, kc kubernetes.Interfa
 	})
 }
 
-// withStatefulSetElectorBuilder infuses a context with the ability to build
+// WithStatefulSetElectorBuilder infuses a context with the ability to build
 // Electors which are assigned leadership based on the StatefulSet ordinal from
 // the provided component configuration.
-func withStatefulSetElectorBuilder(ctx context.Context, cc ComponentConfig, bkt reconciler.Bucket) context.Context {
+func WithStatefulSetElectorBuilder(ctx context.Context, cc ComponentConfig, bkt reconciler.Bucket) context.Context {
 	return context.WithValue(ctx, builderKey{}, &statefulSetBuilder{
 		lec: cc,
 		bkt: bkt,
