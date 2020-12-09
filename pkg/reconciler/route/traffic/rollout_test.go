@@ -1335,8 +1335,8 @@ func TestStepRevisions(t *testing.T) {
 			}},
 		},
 		want: &ConfigurationRollout{
-			Percent: 15,
-			StepParams:  RolloutParams{
+			Percent:    15,
+			StepParams: RolloutParams{
 				// we reset rollout params, since we're done now.
 			},
 			Revisions: []RevisionRollout{{
@@ -1365,8 +1365,8 @@ func TestStepRevisions(t *testing.T) {
 			}},
 		},
 		want: &ConfigurationRollout{
-			Percent: 15,
-			StepParams:  RolloutParams{
+			Percent:    15,
+			StepParams: RolloutParams{
 				// we reset rollout params, since we're done now.
 			},
 			Revisions: []RevisionRollout{{
