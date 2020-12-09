@@ -58,6 +58,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	logger := logging.FromContext(ctx)
 	logger.Debugf("Reconciling DomainMapping %s/%s", dm.Namespace, dm.Name)
 
+	// TODO(https://github.com/knative/serving/issues/10247)
+	dm.Status.MarkTLSNotEnabled("AutoTLS for DomainMapping is not implemented")
+
 	// Defensively assume the ingress is not configured until we manage to
 	// successfully reconcile it below. This avoids error cases where we fail
 	// before we've reconciled the ingress and get a new ObservedGeneration but

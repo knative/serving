@@ -106,6 +106,10 @@ const (
 	// DomainMappingConditionDomainClaimed reflects that the ClusterDomainClaim
 	// for this DomainMapping exists, and is owned by this DomainMapping.
 	DomainMappingConditionDomainClaimed apis.ConditionType = "DomainClaimed"
+
+	// DomainMappingConditionCertificateProvisioned is set to False when the
+	// Knative Certificates fail to be provisioned for the DomainMapping.
+	DomainMappingConditionCertificateProvisioned apis.ConditionType = "CertificateProvisioned"
 )
 
 // GetStatus retrieves the status of the DomainMapping. Implements the KRShaped interface.

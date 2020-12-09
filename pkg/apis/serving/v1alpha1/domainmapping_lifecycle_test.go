@@ -71,6 +71,7 @@ func TestDomainClaimConditions(t *testing.T) {
 	dms := &DomainMappingStatus{}
 
 	dms.InitializeConditions()
+	dms.MarkTLSNotEnabled("AutoTLS not yet available for DomainMapping")
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionDomainClaimed, t)
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
 
@@ -102,6 +103,7 @@ func TestReferenceResolvedCondition(t *testing.T) {
 	dms := &DomainMappingStatus{}
 
 	dms.InitializeConditions()
+	dms.MarkTLSNotEnabled("AutoTLS not yet available for DomainMapping")
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionReferenceResolved, t)
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
 
@@ -129,10 +131,53 @@ func TestReferenceResolvedCondition(t *testing.T) {
 	apistest.CheckConditionFailed(dms, DomainMappingConditionReady, t)
 }
 
+func TestCertificateNotReady(t *testing.T) {
+	dms := &DomainMappingStatus{}
+
+	dms.InitializeConditions()
+	dms.MarkCertificateNotReady("cert pending")
+
+	apistest.CheckConditionOngoing(dms, DomainMappingConditionCertificateProvisioned, t)
+}
+
+func TestCertificateProvisionFailed(t *testing.T) {
+	dms := &DomainMappingStatus{}
+
+	dms.InitializeConditions()
+	dms.MarkCertificateProvisionFailed("cert failed")
+
+	apistest.CheckConditionFailed(dms, DomainMappingConditionCertificateProvisioned, t)
+}
+
+func TestDomainMappingNotOwnCertificate(t *testing.T) {
+	dms := &DomainMappingStatus{}
+	dms.InitializeConditions()
+	dms.MarkCertificateNotOwned("cert not owned")
+
+	apistest.CheckConditionFailed(dms, DomainMappingConditionCertificateProvisioned, t)
+}
+
+func TestDomainMappingAutoTLSNotEnabled(t *testing.T) {
+	dms := &DomainMappingStatus{}
+	dms.InitializeConditions()
+	dms.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
+
+	apistest.CheckConditionSucceeded(dms, DomainMappingConditionCertificateProvisioned, t)
+}
+
+func TestDomainMappingHTTPDowngrade(t *testing.T) {
+	dms := &DomainMappingStatus{}
+	dms.InitializeConditions()
+	dms.MarkHTTPDowngrade("downgraded to HTTP because we can't obtain cert")
+
+	apistest.CheckConditionSucceeded(dms, DomainMappingConditionCertificateProvisioned, t)
+}
+
 func TestPropagateIngressStatus(t *testing.T) {
 	dms := &DomainMappingStatus{}
 
 	dms.InitializeConditions()
+	dms.MarkTLSNotEnabled("AutoTLS not yet available for DomainMapping")
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionIngressReady, t)
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
 

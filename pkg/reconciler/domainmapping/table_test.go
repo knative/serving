@@ -604,6 +604,7 @@ func withPropagatedStatus(status netv1alpha1.IngressStatus) domainMappingOption 
 
 func withInitDomainMappingConditions(dm *v1alpha1.DomainMapping) {
 	dm.Status.InitializeConditions()
+	dm.Status.MarkTLSNotEnabled("AutoTLS for DomainMapping is not implemented")
 }
 
 func withDomainClaimNotOwned(dm *v1alpha1.DomainMapping) {
