@@ -33,9 +33,43 @@ import (
 // accessed by IP address directly due to the network mesh.
 const establishTimeout = 500 * time.Millisecond
 
-// bucketProcessor includes the information about how to process
-// the StatMessage owned by a bucket.
-type bucketProcessor struct {
+type bucketProcessor interface {
+	process(asmetrics.StatMessage) error
+
+	// is returns whether the current processor *is* the specified holder.
+	is(holder string) bool
+
+	shutdown()
+}
+
+// localProcessor implements bucketProcessor for an owned bucket.
+type localProcessor struct {
+	logger *zap.SugaredLogger
+	// The name of the bucket
+	bkt    string
+	holder string
+	// `accept` is the function to process a StatMessage which doesn't need
+	// to be forwarded.
+	accept statProcessor
+}
+
+var _ bucketProcessor = (*localProcessor)(nil)
+
+func (p *localProcessor) is(holder string) bool {
+	return p.holder == holder
+}
+
+func (p *localProcessor) process(sm asmetrics.StatMessage) error {
+	l := p.logger.With(zap.String(logkey.Key, sm.Key.String()))
+	l.Debug("Accept stat as owner of bucket ", p.bkt)
+	p.accept(sm)
+	return nil
+}
+
+func (p *localProcessor) shutdown() {}
+
+// remoteProcessor implements bucketProcessor for an unowned bucket.
+type remoteProcessor struct {
 	logger *zap.SugaredLogger
 	// The name of the bucket
 	bkt string
@@ -45,12 +79,11 @@ type bucketProcessor struct {
 	connLock sync.RWMutex
 	// conn is the WebSocket connection to the holder pod.
 	conn *websocket.ManagedConnection
-	// `accept` is the function to process a StatMessage which doesn't need
-	// to be forwarded.
-	accept statProcessor
 }
 
-func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS string) *bucketProcessor {
+var _ bucketProcessor = (*remoteProcessor)(nil)
+
+func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS string) *remoteProcessor {
 	// First try to connect via Pod IP address synchronously. If the connection can
 	// not be established within `establishTimeout`, we assume the pods can not be
 	// accessed by IP address. Then try to connect via Pod IP address synchronously.
@@ -60,7 +93,7 @@ func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS 
 		logger.Info("Autoscaler pods can't be accessed by IP address. Connecting to Autoscaler bucket at ", svcDNS)
 		c, _ = websocket.NewDurableSendingConnectionGuaranteed(svcDNS, establishTimeout, logger)
 	}
-	return &bucketProcessor{
+	return &remoteProcessor{
 		logger: logger,
 		bkt:    bkt,
 		holder: holder,
@@ -69,25 +102,24 @@ func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS 
 	}
 }
 
-func (p *bucketProcessor) getConn() *websocket.ManagedConnection {
+func (p *remoteProcessor) is(holder string) bool {
+	return p.holder == holder
+}
+
+func (p *remoteProcessor) getConn() *websocket.ManagedConnection {
 	p.connLock.RLock()
 	defer p.connLock.RUnlock()
 	return p.conn
 }
 
-func (p *bucketProcessor) setConn(conn *websocket.ManagedConnection) {
+func (p *remoteProcessor) setConn(conn *websocket.ManagedConnection) {
 	p.connLock.Lock()
 	defer p.connLock.Unlock()
 	p.conn = conn
 }
 
-func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
+func (p *remoteProcessor) process(sm asmetrics.StatMessage) error {
 	l := p.logger.With(zap.String(logkey.Key, sm.Key.String()))
-	if p.accept != nil {
-		l.Debug("Accept stat as owner of bucket ", p.bkt)
-		p.accept(sm)
-		return nil
-	}
 
 	l.Debugf("Forward stat of bucket %s to the holder %s", p.bkt, p.holder)
 	wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
@@ -108,7 +140,7 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 	return c.SendRaw(gorillawebsocket.BinaryMessage, b)
 }
 
-func (p *bucketProcessor) shutdown() {
+func (p *remoteProcessor) shutdown() {
 	if c := p.getConn(); c != nil {
 		c.Shutdown()
 	}
