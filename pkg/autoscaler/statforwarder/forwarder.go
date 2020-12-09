@@ -73,16 +73,10 @@ type stat struct {
 // 3. Can be used to forward the metrics owned by a bucket based on
 //    the holder IP.
 type Forwarder struct {
-	selfIP          string
-	logger          *zap.SugaredLogger
-	kc              kubernetes.Interface
-	endpointsLister corev1listers.EndpointsLister
-
-	// `accept` is the function to process a StatMessage which doesn't need
-	// to be forwarded.
-	accept statProcessor
+	logger *zap.SugaredLogger
 	// bs is the BucketSet including all Autoscaler buckets.
 	bs *hash.BucketSet
+
 	// processorsLock is the lock for processors.
 	processorsLock sync.RWMutex
 	processors     map[string]bucketProcessor
@@ -93,41 +87,42 @@ type Forwarder struct {
 	// on when shutting down.
 	processingWg sync.WaitGroup
 
-	// id2ip stores the IP extracted from the holder identity to avoid
-	// string split each time.
-	id2ip map[string]string
-
 	statCh chan stat
 	stopCh chan struct{}
 }
 
 // New creates a new Forwarder.
 func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface, selfIP string, bs *hash.BucketSet, accept statProcessor) *Forwarder {
-	ns := system.Namespace()
 	bkts := bs.Buckets()
 	endpointsInformer := endpointsinformer.Get(ctx)
 	f := &Forwarder{
-		selfIP:          selfIP,
-		logger:          logger,
-		kc:              kc,
-		endpointsLister: endpointsInformer.Lister(),
-		bs:              bs,
-		processors:      make(map[string]bucketProcessor, len(bkts)),
-		accept:          accept,
-		id2ip:           make(map[string]string),
-		statCh:          make(chan stat, 1000),
-		stopCh:          make(chan struct{}),
+		logger:     logger,
+		bs:         bs,
+		processors: make(map[string]bucketProcessor, len(bkts)),
+		statCh:     make(chan stat, 1000),
+		stopCh:     make(chan struct{}),
 	}
 
 	f.processingWg.Add(1)
 	go f.process()
 
+	lt := &leaseTracker{
+		logger:          logger,
+		selfIP:          selfIP,
+		bs:              bs,
+		kc:              kc,
+		endpointsLister: endpointsInformer.Lister(),
+		id2ip:           make(map[string]string),
+		accept:          accept,
+		fwd:             f,
+	}
+
 	leaseInformer := leaseinformer.Get(ctx)
 	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: f.filterFunc(ns),
+		FilterFunc: lt.filterFunc(system.Namespace()),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    f.leaseUpdated,
-			UpdateFunc: controller.PassNew(f.leaseUpdated),
+			AddFunc:    lt.leaseUpdated,
+			UpdateFunc: controller.PassNew(lt.leaseUpdated),
 			// TODO(yanweiguo): Set up DeleteFunc.
 		},
 	})
@@ -135,7 +130,27 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 	return f
 }
 
-func (f *Forwarder) extractIP(holder string) (string, error) {
+type leaseTracker struct {
+	logger *zap.SugaredLogger
+	selfIP string
+	// bs is the BucketSet including all Autoscaler buckets.
+	bs *hash.BucketSet
+
+	kc              kubernetes.Interface
+	endpointsLister corev1listers.EndpointsLister
+
+	// id2ip stores the IP extracted from the holder identity to avoid
+	// string split each time.
+	id2ip map[string]string
+
+	// `accept` is the function to process a StatMessage which doesn't need
+	// to be forwarded.
+	accept statProcessor
+
+	fwd *Forwarder
+}
+
+func (f *leaseTracker) extractIP(holder string) (string, error) {
 	if ip, ok := f.id2ip[holder]; ok {
 		return ip, nil
 	}
@@ -147,7 +162,7 @@ func (f *Forwarder) extractIP(holder string) (string, error) {
 	return ip, err
 }
 
-func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
+func (f *leaseTracker) filterFunc(namespace string) func(interface{}) bool {
 	return func(obj interface{}) bool {
 		l := obj.(*coordinationv1.Lease)
 
@@ -172,7 +187,7 @@ func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 			f.logger.Warn("Found invalid Lease holder identify ", holder)
 			return false
 		}
-		if p := f.getProcessor(l.Name); p != nil && p.is(holder) {
+		if p := f.fwd.getProcessor(l.Name); p != nil && p.is(holder) {
 			return false
 		}
 
@@ -180,7 +195,7 @@ func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 	}
 }
 
-func (f *Forwarder) leaseUpdated(obj interface{}) {
+func (f *leaseTracker) leaseUpdated(obj interface{}) {
 	l := obj.(*coordinationv1.Lease)
 	ns, n := l.Namespace, l.Name
 	ctx := context.Background()
@@ -194,7 +209,10 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 
 	// Close existing connection if there's one. The target address won't
 	// be the same as the IP has changed.
-	f.shutdown(f.getProcessor(n))
+	if p := f.fwd.getProcessor(n); p != nil {
+		p.shutdown()
+	}
+
 	holder := *l.Spec.HolderIdentity
 	// The map should have the IP because of the operations in the filter when queueing.
 	ip, ok := f.id2ip[holder]
@@ -204,12 +222,22 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 		f.logger.Warn("IP not found in cached map for ", holder)
 		return
 	}
-	f.setProcessor(n, f.createProcessor(ns, n, ip, holder))
 
 	if ip != f.selfIP {
+		f.fwd.setProcessor(n, newForwardProcessor(f.logger.With(zap.String("bucket", n)), n, holder,
+			fmt.Sprintf("ws://%s:%d", ip, autoscalerPort),
+			fmt.Sprintf("ws://%s.%s.%s", n, ns, svcURLSuffix)))
+
 		// Skip creating/updating Service and Endpoints if not the leader.
 		return
 	}
+
+	f.fwd.setProcessor(n, &localProcessor{
+		bkt:    n,
+		holder: holder,
+		logger: f.logger.With(zap.String("bucket", n)),
+		accept: f.accept,
+	})
 
 	if err := f.createService(ctx, ns, n); err != nil {
 		f.logger.Fatalf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
@@ -224,7 +252,7 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	f.logger.Infof("Created Endpoints for Lease %s/%s", ns, n)
 }
 
-func (f *Forwarder) createService(ctx context.Context, ns, n string) error {
+func (f *leaseTracker) createService(ctx context.Context, ns, n string) error {
 	var lastErr error
 	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
 		_, lastErr = f.kc.CoreV1().Services(ns).Create(ctx, &corev1.Service{
@@ -257,7 +285,7 @@ func (f *Forwarder) createService(ctx context.Context, ns, n string) error {
 // createOrUpdateEndpoints creates an Endpoints object with the given namespace and
 // name, and the Forwarder.selfIP. If the Endpoints object already
 // exists, it will update the Endpoints with the Forwarder.selfIP.
-func (f *Forwarder) createOrUpdateEndpoints(ctx context.Context, ns, n string) error {
+func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string) error {
 	wantSubsets := []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{
 			IP: f.selfIP,
@@ -334,21 +362,6 @@ func (f *Forwarder) setProcessor(bkt string, p bucketProcessor) {
 	f.processors[bkt] = p
 }
 
-func (f *Forwarder) createProcessor(ns, bkt, ip, holder string) bucketProcessor {
-	if ip == f.selfIP {
-		return &localProcessor{
-			bkt:    bkt,
-			holder: holder,
-			logger: f.logger.With(zap.String("bucket", bkt)),
-			accept: f.accept,
-		}
-	}
-
-	return newForwardProcessor(f.logger.With(zap.String("bucket", bkt)), bkt, holder,
-		fmt.Sprintf("ws://%s:%d", ip, autoscalerPort),
-		fmt.Sprintf("ws://%s.%s.%s", bkt, ns, svcURLSuffix))
-}
-
 // Process enqueues the given Stat for processing asynchronously.
 // It calls Forwarder.accept if the pod where this Forwarder is running is the owner
 // of the given StatMessage. Otherwise it forwards the given StatMessage to the right
@@ -403,12 +416,6 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat) {
 	}()
 }
 
-func (f *Forwarder) shutdown(p bucketProcessor) {
-	if p != nil {
-		p.shutdown()
-	}
-}
-
 // Cancel is the function to call when terminating a Forwarder.
 func (f *Forwarder) Cancel() {
 	// Tell process go-runtine to stop.
@@ -417,7 +424,9 @@ func (f *Forwarder) Cancel() {
 	f.processorsLock.RLock()
 	defer f.processorsLock.RUnlock()
 	for _, p := range f.processors {
-		f.shutdown(p)
+		if p != nil {
+			p.shutdown()
+		}
 	}
 
 	f.processingWg.Wait()
