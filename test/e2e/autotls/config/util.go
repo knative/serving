@@ -75,7 +75,7 @@ func ChangeDNSRecord(change *dns.Change, svc *dns.Service, dnsProject, dnsZone s
 		return err
 	}
 	// Wait for change to be acknowledged.
-	return wait.PollImmediate(time.Second, 5*time.Minute, func() (bool, error) {
+	return wait.PollImmediate(10*time.Second, 5*time.Minute, func() (bool, error) {
 		tmp, err := svc.Changes.Get(dnsProject, dnsZone, chg.Id).Do()
 		if err != nil {
 			return false, err
