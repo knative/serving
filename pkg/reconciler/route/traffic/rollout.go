@@ -58,8 +58,8 @@ type ConfigurationRollout struct {
 	// Note: that it is not 100% of the route traffic, in more complex cases.
 	Revisions []RevisionRollout `json:"revisions,omitempty"`
 
-	// Params describes rollout params for the configuration.
-	Params RolloutParams `json:"params"`
+	// StepParams describes rollout params for the configuration.
+	StepParams RolloutParams `json:"stepParams"`
 }
 
 // RolloutParams contains the timing and sizing parameters for the
@@ -131,10 +131,10 @@ const durationSecs = 120.0
 func (cur *Rollout) ObserveReady(nowTS int) {
 	for i := range cur.Configurations {
 		c := &cur.Configurations[i]
-		if c.Params.StepDuration == 0 && c.Params.StartTime > 0 {
+		if c.StepParams.StepDuration == 0 && c.StepParams.StartTime > 0 {
 			// In really ceil(nowTS-params.StartTime) should always give 1s, but
 			// given possible time drift, we'll ensure that at least 1s is returned.
-			minStepSec := math.Max(1, math.Ceil(time.Duration(nowTS-c.Params.StartTime).Seconds()))
+			minStepSec := math.Max(1, math.Ceil(time.Duration(nowTS-c.StepParams.StartTime).Seconds()))
 			c.computeProperties(float64(nowTS), minStepSec, durationSecs)
 		}
 	}
@@ -251,12 +251,12 @@ func adjustPercentage(goal int, cr *ConfigurationRollout) {
 func stepRevisions(goal *ConfigurationRollout, nowTS int) {
 	// Not yet ready to adjust the steps or we're done
 	// (shouldn't really be here, but better be defensive).
-	if nowTS < goal.Params.NextStepTime || len(goal.Revisions) < 2 {
+	if nowTS < goal.StepParams.NextStepTime || len(goal.Revisions) < 2 {
 		return
 	}
 
 	revLen := len(goal.Revisions)
-	remaining := goal.Params.StepSize
+	remaining := goal.StepParams.StepSize
 	writePos := revLen - 1
 	// readPos is guaranteed to be >= 0, due to the check above.
 	readPos := revLen - 2
@@ -286,7 +286,7 @@ func stepRevisions(goal *ConfigurationRollout, nowTS int) {
 	// Copy the last one to the write pos
 	goal.Revisions[writePos] = goal.Revisions[revLen-1]
 
-	goal.Revisions[writePos].Percent += goal.Params.StepSize
+	goal.Revisions[writePos].Percent += goal.StepParams.StepSize
 	// This can happen if step is now larger than total allocation, see the
 	// note above.
 	// E.g. with example above R2 = 20, and ro we have to cap it at 15.
@@ -297,10 +297,10 @@ func stepRevisions(goal *ConfigurationRollout, nowTS int) {
 	goal.Revisions = goal.Revisions[:writePos+1]
 	// Also set the next time.
 	if len(goal.Revisions) > 1 {
-		goal.Params.NextStepTime = nowTS + goal.Params.StepDuration
+		goal.StepParams.NextStepTime = nowTS + goal.StepParams.StepDuration
 	} else {
 		// This is the last step, we're done! Clear the params out.
-		goal.Params = RolloutParams{}
+		goal.StepParams = RolloutParams{}
 	}
 }
 
@@ -336,10 +336,10 @@ func stepConfig(goal, prev *ConfigurationRollout, nowTS int) *ConfigurationRollo
 
 			// Copy various rollout stats from the previous when no new revision
 			// has been created.
-			ret.Params = prev.Params
+			ret.StepParams = prev.StepParams
 			// We might end up here before `ObserveReady` is called.
 			// In that case don't step individual revisions just yet.
-			if ret.Params.StepSize > 0 {
+			if ret.StepParams.StepSize > 0 {
 				// adjustPercentage above would've already accounted if target for the
 				// whole Configuration changed up or down. So here we should just redistribute
 				// the existing values.
@@ -352,7 +352,7 @@ func stepConfig(goal, prev *ConfigurationRollout, nowTS int) *ConfigurationRollo
 	// Otherwise we start a rollout, which means we need to stamp the starttime,
 	// the rest of the fields will remain unset and `ObserveReady` will
 	// compute them when the ingress becomes ready.
-	ret.Params.StartTime = nowTS
+	ret.StepParams.StartTime = nowTS
 
 	// Go backwards and find first revision with traffic assignment > 0.
 	// Reduce it by one, so we can give that 1% to the new revision.
@@ -415,9 +415,9 @@ func (cur *ConfigurationRollout) computeProperties(nowTS, minStepSec, durationSe
 	// than slightly shorter.
 	stepDuration := math.Ceil(durationSecs / numSteps)
 
-	cur.Params.StepDuration = int(stepDuration)
-	cur.Params.StepSize = int(stepSize)
-	cur.Params.NextStepTime = int(nowTS + stepDuration*float64(time.Second))
+	cur.StepParams.StepDuration = int(stepDuration)
+	cur.StepParams.StepSize = int(stepSize)
+	cur.StepParams.NextStepTime = int(nowTS + stepDuration*float64(time.Second))
 }
 
 // sortRollout sorts the rollout based on tag so it's consistent

@@ -78,7 +78,7 @@ func TestStep(t *testing.T) {
 					RevisionName: "let-it-bleed",
 					Percent:      100,
 				}},
-				Params: RolloutParams{ // <- Those should be kept.
+				StepParams: RolloutParams{ // <- Those should be kept.
 					NextStepTime: 2009,
 					StepDuration: 2020,
 					StartTime:    2004,
@@ -116,7 +116,7 @@ func TestStep(t *testing.T) {
 					RevisionName: "let-it-bleed",
 					Percent:      100,
 				}},
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					NextStepTime: 2009,
 					StepDuration: 2020,
 					StartTime:    2004,
@@ -128,7 +128,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					NextStepTime: 2019,
 					StepDuration: 5,
 					StartTime:    2004,
@@ -154,7 +154,7 @@ func TestStep(t *testing.T) {
 					RevisionName: "let-it-bleed",
 					Percent:      8, // +3
 				}},
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					NextStepTime: 2020 + 5, // now + duration.
 					StepDuration: 5,
 					StartTime:    2004,
@@ -172,7 +172,7 @@ func TestStep(t *testing.T) {
 					RevisionName: "let-it-bleed",
 					Percent:      100,
 				}},
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					NextStepTime: 2009,
 					StepDuration: 2020,
 					StartTime:    2004,
@@ -184,7 +184,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					NextStepTime: 2019, // <- Those should be reset and/or updated.
 					StartTime:    2004,
 					StepDuration: 5,
@@ -210,7 +210,7 @@ func TestStep(t *testing.T) {
 					RevisionName: "let-it-bleed",
 					Percent:      5,
 				}},
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					NextStepTime: 2019,
 					StartTime:    2004,
 					StepDuration: 5,
@@ -300,7 +300,7 @@ func TestStep(t *testing.T) {
 					RevisionName: "goat-head-soup",
 					Percent:      100,
 				}},
-				Params: RolloutParams{ // <- Those should be thrown out.
+				StepParams: RolloutParams{ // <- Those should be thrown out.
 					NextStepTime: 1984,
 					StepDuration: 1988,
 					StepSize:     11,
@@ -311,7 +311,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					StartTime: now,
 				},
 				Revisions: []RevisionRollout{{
@@ -352,7 +352,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           33,
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					StartTime: now,
 				},
 				Revisions: []RevisionRollout{{
@@ -395,7 +395,7 @@ func TestStep(t *testing.T) {
 		want: &Rollout{
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					StartTime: now,
 				},
 				Percent: 75,
@@ -437,7 +437,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "brian",
 				Percent:           70,
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					StartTime: now,
 				},
 				Revisions: []RevisionRollout{{
@@ -465,7 +465,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					StartTime: now - 1982, // A rollout in progress, this would be set.
 				},
 				Revisions: []RevisionRollout{{
@@ -481,7 +481,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					StartTime: now,
 				},
 				Revisions: []RevisionRollout{{
@@ -512,7 +512,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					StartTime: now - 1984, // A rollout in progress, this would be set.
 				},
 				Revisions: []RevisionRollout{{
@@ -527,7 +527,7 @@ func TestStep(t *testing.T) {
 		want: &Rollout{
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "mick",
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					StartTime: now,
 				},
 				Percent: 100,
@@ -699,7 +699,7 @@ func TestStep(t *testing.T) {
 			Configurations: []ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           99,
-				Params: RolloutParams{
+				StepParams: RolloutParams{
 					StartTime: now,
 				},
 				Revisions: []RevisionRollout{{ // <-- note this one actually rolls.
@@ -834,7 +834,7 @@ func TestObserveReady(t *testing.T) {
 		Configurations: []ConfigurationRollout{{
 			Percent:           100,
 			ConfigurationName: "has-step",
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				StepDuration: 11,
 			},
 		}, {
@@ -842,19 +842,19 @@ func TestObserveReady(t *testing.T) {
 			Percent:           100,
 		}, {
 			ConfigurationName: "step-begin < 1s",
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				StartTime: 200620092020,
 			},
 			Percent: 100,
 		}, {
 			ConfigurationName: "step-begin > 1s",
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				StartTime: oldenDays,
 			},
 			Percent: 100,
 		}, {
 			ConfigurationName: "Percent not 100%",
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				StartTime: oldenDays,
 			},
 			Percent: 50,
@@ -865,7 +865,7 @@ func TestObserveReady(t *testing.T) {
 		Configurations: []ConfigurationRollout{{
 			Percent:           100,
 			ConfigurationName: "has-step",
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				StepDuration: 11,
 			},
 		}, {
@@ -874,7 +874,7 @@ func TestObserveReady(t *testing.T) {
 		}, {
 			ConfigurationName: "step-begin < 1s",
 			Percent:           100,
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				StartTime:    200620092020,
 				StepDuration: 2,
 				StepSize:     1,
@@ -883,7 +883,7 @@ func TestObserveReady(t *testing.T) {
 		}, {
 			ConfigurationName: "step-begin > 1s",
 			Percent:           100,
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				StartTime:    oldenDays,
 				StepDuration: 3,
 				StepSize:     100 / 40,
@@ -892,7 +892,7 @@ func TestObserveReady(t *testing.T) {
 		}, {
 			ConfigurationName: "Percent not 100%",
 			Percent:           50,
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				StartTime:    oldenDays,
 				StepDuration: 3,
 				StepSize:     50 / 40,
@@ -1157,7 +1157,7 @@ func TestJSONRoundtrip(t *testing.T) {
 				RevisionName: "roy",
 				Percent:      100,
 			}},
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				StartTime:    1955,
 				NextStepTime: 1988,
 				StepDuration: 1984,
@@ -1204,7 +1204,7 @@ func TestStepRevisions(t *testing.T) {
 		name: "noop (1): too soon",
 		now:  1982,
 		cfg: &ConfigurationRollout{
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				NextStepTime: 1984,
 				StepSize:     10,
 			},
@@ -1217,7 +1217,7 @@ func TestStepRevisions(t *testing.T) {
 			}},
 		},
 		want: &ConfigurationRollout{
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				NextStepTime: 1984,
 				StepSize:     10,
 			},
@@ -1233,7 +1233,7 @@ func TestStepRevisions(t *testing.T) {
 		name: "noop (2): done",
 		now:  1982,
 		cfg: &ConfigurationRollout{
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				NextStepTime: 1984,
 				StepDuration: 10,
 				StepSize:     10,
@@ -1243,7 +1243,7 @@ func TestStepRevisions(t *testing.T) {
 			}},
 		},
 		want: &ConfigurationRollout{
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				NextStepTime: 1984,
 				StepDuration: 10,
 				StepSize:     10,
@@ -1256,7 +1256,7 @@ func TestStepRevisions(t *testing.T) {
 		name: "step last, exact time",
 		now:  1984,
 		cfg: &ConfigurationRollout{
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				NextStepTime: 1984,
 				StepSize:     10,
 				StepDuration: 55,
@@ -1270,7 +1270,7 @@ func TestStepRevisions(t *testing.T) {
 		},
 		want: &ConfigurationRollout{
 			Percent: 90,
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				NextStepTime: 1984 + 55,
 				StepDuration: 55,
 				StepSize:     10,
@@ -1286,7 +1286,7 @@ func TestStepRevisions(t *testing.T) {
 		now:  1988,
 		cfg: &ConfigurationRollout{
 			Percent: 90,
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				NextStepTime: 1984,
 				StepSize:     10,
 				StepDuration: 55,
@@ -1303,7 +1303,7 @@ func TestStepRevisions(t *testing.T) {
 		},
 		want: &ConfigurationRollout{
 			Percent: 90,
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				NextStepTime: 1988 + 55,
 				StepDuration: 55,
 				StepSize:     10,
@@ -1319,7 +1319,7 @@ func TestStepRevisions(t *testing.T) {
 		now:  1988,
 		cfg: &ConfigurationRollout{
 			Percent: 15,
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				NextStepTime: 1984,
 				StepSize:     10,
 				StepDuration: 77,
@@ -1336,7 +1336,7 @@ func TestStepRevisions(t *testing.T) {
 		},
 		want: &ConfigurationRollout{
 			Percent: 15,
-			Params:  RolloutParams{
+			StepParams:  RolloutParams{
 				// we reset rollout params, since we're done now.
 			},
 			Revisions: []RevisionRollout{{
@@ -1348,7 +1348,7 @@ func TestStepRevisions(t *testing.T) {
 		now:  2006,
 		cfg: &ConfigurationRollout{
 			Percent: 15,
-			Params: RolloutParams{
+			StepParams: RolloutParams{
 				NextStepTime: 1984,
 				StartTime:    1977,
 				StepDuration: 77,
@@ -1366,7 +1366,7 @@ func TestStepRevisions(t *testing.T) {
 		},
 		want: &ConfigurationRollout{
 			Percent: 15,
-			Params:  RolloutParams{
+			StepParams:  RolloutParams{
 				// we reset rollout params, since we're done now.
 			},
 			Revisions: []RevisionRollout{{
