@@ -35,7 +35,10 @@ const establishTimeout = 500 * time.Millisecond
 
 type bucketProcessor interface {
 	process(asmetrics.StatMessage) error
+
+	// is returns whether the current processor *is* the specified holder.
 	is(holder string) bool
+
 	shutdown()
 }
 
