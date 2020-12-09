@@ -40,9 +40,10 @@ aliases:
   - vagababov       # Scaling
 
   autoscaling-approvers:
+  - julz
   - markusthoemmes
   - vagababov
-  - julz
+  - yanweiguo
   autoscaling-reviewers:
   - julz
   - markusthoemmes
