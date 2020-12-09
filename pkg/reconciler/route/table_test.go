@@ -436,11 +436,11 @@ func TestReconcile(t *testing.T) {
 				}}, fakeCurTime.Add(-3*time.Second),
 					func(r *traffic.Rollout) {
 						// Step duration is 3s (now - (now-3s)).
-						r.Configurations[0].StepDuration = 3
+						r.Configurations[0].StepParams.StepDuration = 3
 						// 120 / 3 = 40 steps. floor(100/40) = 2.
-						r.Configurations[0].StepSize = 2
+						r.Configurations[0].StepParams.StepSize = 2
 						// StepDuration is 3, and so next step is `now` + 3.
-						r.Configurations[0].NextStepTime = int(fakeCurTime.Add(3 * time.Second).UnixNano())
+						r.Configurations[0].StepParams.NextStepTime = int(fakeCurTime.Add(3 * time.Second).UnixNano())
 					},
 				)),
 		}, {
@@ -2694,9 +2694,11 @@ func simpleRollout(cfg string, revs []traffic.RevisionRollout,
 		r := &traffic.Rollout{
 			Configurations: []traffic.ConfigurationRollout{{
 				ConfigurationName: cfg,
-				StartTime:         int(now.UnixNano()),
-				Percent:           100,
-				Revisions:         revs,
+				StepParams: traffic.RolloutParams{
+					StartTime: int(now.UnixNano()),
+				},
+				Percent:   100,
+				Revisions: revs,
 			}},
 		}
 		for _, ro := range ros {
