@@ -35,6 +35,7 @@ const establishTimeout = 500 * time.Millisecond
 
 type bucketProcessor interface {
 	process(asmetrics.StatMessage) error
+	is(holder string) bool
 	shutdown()
 }
 
@@ -42,13 +43,18 @@ type bucketProcessor interface {
 type localProcessor struct {
 	logger *zap.SugaredLogger
 	// The name of the bucket
-	bkt string
+	bkt    string
+	holder string
 	// `accept` is the function to process a StatMessage which doesn't need
 	// to be forwarded.
 	accept statProcessor
 }
 
 var _ bucketProcessor = (*localProcessor)(nil)
+
+func (p *localProcessor) is(holder string) bool {
+	return p.holder == holder
+}
 
 func (p *localProcessor) process(sm asmetrics.StatMessage) error {
 	l := p.logger.With(zap.String(logkey.Key, sm.Key.String()))
@@ -91,6 +97,10 @@ func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS 
 		conn:   c,
 		svcDNS: svcDNS,
 	}
+}
+
+func (p *remoteProcessor) is(holder string) bool {
+	return p.holder == holder
 }
 
 func (p *remoteProcessor) getConn() *websocket.ManagedConnection {

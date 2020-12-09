@@ -172,6 +172,9 @@ func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 			f.logger.Warn("Found invalid Lease holder identify ", holder)
 			return false
 		}
+		if p := f.getProcessor(l.Name); p != nil && p.is(holder) {
+			return false
+		}
 
 		return true
 	}
@@ -335,6 +338,7 @@ func (f *Forwarder) createProcessor(ns, bkt, ip, holder string) bucketProcessor 
 	if ip == f.selfIP {
 		return &localProcessor{
 			bkt:    bkt,
+			holder: holder,
 			logger: f.logger.With(zap.String("bucket", bkt)),
 			accept: f.accept,
 		}

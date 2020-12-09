@@ -437,7 +437,8 @@ func TestProcess(t *testing.T) {
 
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		_, p1owned := f.getProcessor(bucket1).(*localProcessor)
-		return p1owned, nil
+		_, p2notowned := f.getProcessor(bucket2).(*remoteProcessor)
+		return p1owned && p2notowned, nil
 	}); err != nil {
 		t.Fatalf("Timeout waiting f.processors got updated")
 	}
