@@ -435,11 +435,9 @@ func TestProcess(t *testing.T) {
 	kubeClient.CoordinationV1().Leases(testNs).Create(ctx, anotherLease, metav1.CreateOptions{})
 	lease.Informer().GetIndexer().Add(anotherLease)
 
-	// Wait for the forwarder to become the leader for bucket1.
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		p1 := f.getProcessor(bucket1)
-		p2 := f.getProcessor(bucket2)
-		return p1 != nil && p2 != nil && p1.holder == testHolder1 && p2.holder == testHolder2, nil
+		_, p1owned := f.getProcessor(bucket1).(*localProcessor)
+		return p1owned, nil
 	}); err != nil {
 		t.Fatalf("Timeout waiting f.processors got updated")
 	}
@@ -464,12 +462,12 @@ func TestProcess(t *testing.T) {
 
 func TestIsBucketOwner(t *testing.T) {
 	f := Forwarder{
-		processors: map[string]*bucketProcessor{
-			bucket1: {
+		processors: map[string]bucketProcessor{
+			bucket1: &localProcessor{
 				bkt:    bucket1,
 				accept: noOp,
 			},
-			bucket2: {
+			bucket2: &remoteProcessor{
 				bkt: bucket2,
 			},
 		},

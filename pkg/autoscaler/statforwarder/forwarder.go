@@ -85,7 +85,7 @@ type Forwarder struct {
 	bs *hash.BucketSet
 	// processorsLock is the lock for processors.
 	processorsLock sync.RWMutex
-	processors     map[string]*bucketProcessor
+	processors     map[string]bucketProcessor
 	// Used to capture asynchronous processes for re-enqueuing to be waited
 	// on when shutting down.
 	retryWg sync.WaitGroup
@@ -112,7 +112,7 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		kc:              kc,
 		endpointsLister: endpointsInformer.Lister(),
 		bs:              bs,
-		processors:      make(map[string]*bucketProcessor, len(bkts)),
+		processors:      make(map[string]bucketProcessor, len(bkts)),
 		accept:          accept,
 		id2ip:           make(map[string]string),
 		statCh:          make(chan stat, 1000),
@@ -169,11 +169,7 @@ func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 		holder := *l.Spec.HolderIdentity
 		_, err := f.extractIP(holder)
 		if err != nil {
-			f.logger.Warn("Found invalid Lease holder identify ", *l.Spec.HolderIdentity)
-			return false
-		}
-		if p := f.getProcessor(l.Name); p != nil && p.holder == holder {
-			// Already up-to-date.
+			f.logger.Warn("Found invalid Lease holder identify ", holder)
 			return false
 		}
 
@@ -323,24 +319,23 @@ func (f *Forwarder) createOrUpdateEndpoints(ctx context.Context, ns, n string) e
 	return nil
 }
 
-func (f *Forwarder) getProcessor(bkt string) *bucketProcessor {
+func (f *Forwarder) getProcessor(bkt string) bucketProcessor {
 	f.processorsLock.RLock()
 	defer f.processorsLock.RUnlock()
 	return f.processors[bkt]
 }
 
-func (f *Forwarder) setProcessor(bkt string, p *bucketProcessor) {
+func (f *Forwarder) setProcessor(bkt string, p bucketProcessor) {
 	f.processorsLock.Lock()
 	defer f.processorsLock.Unlock()
 	f.processors[bkt] = p
 }
 
-func (f *Forwarder) createProcessor(ns, bkt, ip, holder string) *bucketProcessor {
+func (f *Forwarder) createProcessor(ns, bkt, ip, holder string) bucketProcessor {
 	if ip == f.selfIP {
-		return &bucketProcessor{
+		return &localProcessor{
 			bkt:    bkt,
 			logger: f.logger.With(zap.String("bucket", bkt)),
-			holder: holder,
 			accept: f.accept,
 		}
 	}
@@ -404,8 +399,8 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat) {
 	}()
 }
 
-func (f *Forwarder) shutdown(p *bucketProcessor) {
-	if p != nil && p.accept == nil {
+func (f *Forwarder) shutdown(p bucketProcessor) {
+	if p != nil {
 		p.shutdown()
 	}
 }
@@ -427,7 +422,6 @@ func (f *Forwarder) Cancel() {
 
 // IsBucketOwner returns true if this Autoscaler pod is the owner of the given bucket.
 func (f *Forwarder) IsBucketOwner(bkt string) bool {
-	p := f.getProcessor(bkt)
-	// The accept func is not nil iif this Autoscaler is the owner.
-	return p != nil && p.accept != nil
+	_, owned := f.getProcessor(bkt).(*localProcessor)
+	return owned
 }
