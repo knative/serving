@@ -96,7 +96,7 @@ func New(
 	opts ...TransportOption) (*SpoofingClient, error) {
 	endpoint, mapper, err := ResolveEndpoint(ctx, kubeClientset, domain, resolvable, endpointOverride)
 	if err != nil {
-		return nil, fmt.Errorf("failed get the cluster endpoint: %w", err)
+		return nil, fmt.Errorf("failed to get the cluster endpoint: %w", err)
 	}
 
 	// Spoof the hostname at the resolver level

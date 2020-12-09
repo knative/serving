@@ -61,6 +61,12 @@ func CheckMinimumVersion(versioner discovery.ServerVersionInterface) error {
 		return err
 	}
 
+	// If no specific pre-release requirement is set, we default to "-0" to always allow
+	// pre-release versions of the same Major.Minor.Patch version.
+	if len(minimumVersion.Pre) == 0 {
+		minimumVersion.Pre = []semver.PRVersion{{VersionNum: 0}}
+	}
+
 	// Compare returns 1 if the first version is greater than the
 	// second version.
 	if currentVersion.LT(minimumVersion) {
