@@ -18,6 +18,7 @@ package resources
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -141,12 +142,13 @@ func TestMakeIngressWithRollout(t *testing.T) {
 		Annotations: map[string]string{
 			// Make sure to get passdownIngressClass instead of ingressClass
 			networking.IngressClassAnnotationKey: passdownIngressClass,
-			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"valhalla","percent":100,"revisions":[{"revisionName":"valhalla-01982","percent":100}]},{"configurationName":"thor","tag":"tagged","percent":100,"revisions":[{"revisionName":"thor-02020","percent":100}]}]}`,
+			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"valhalla","percent":100,"revisions":[{"revisionName":"valhalla-01982","percent":100}],"params":{}},{"configurationName":"thor","tag":"tagged","percent":100,"revisions":[{"revisionName":"thor-02020","percent":100}],"params":{}}]}`,
 			"test-annotation":                    "bar",
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
 	ing, err := MakeIngress(testContext(), r, cfg, nil, ingressClass)
+	fmt.Println("####\n" + ing.Annotations[networking.RolloutAnnotationKey])
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
