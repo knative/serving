@@ -52,16 +52,26 @@ func AutoscalerBucketSet(total uint32) *hash.BucketSet {
 	return hash.NewBucketSet(names)
 }
 
-// Identity returns a identify for this Autoscaler pod used as the Lease holder
-// identity. It's in the format of <POD-NAME>_<POD-IP> whose information is ready from
-// environment variables.
-func Identity() (string, error) {
+// PodIP returns the IP address of the current pod, or an error
+// if it wasn't properly projected.
+func PodIP() (string, error) {
 	selfIP, existing := os.LookupEnv("POD_IP")
 	if !existing {
 		return "", errors.New("POD_IP environment variable not set")
 	}
 	if selfIP == "" {
 		return "", errors.New("POD_IP environment variable is empty")
+	}
+	return selfIP, nil
+}
+
+// Identity returns a identify for this Autoscaler pod used as the Lease holder
+// identity. It's in the format of <POD-NAME>_<POD-IP> whose information is ready from
+// environment variables.
+func Identity() (string, error) {
+	selfIP, err := PodIP()
+	if err != nil {
+		return "", err
 	}
 
 	podName, existing := os.LookupEnv("POD_NAME")
