@@ -18,7 +18,6 @@ package resources
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -148,7 +147,6 @@ func TestMakeIngressWithRollout(t *testing.T) {
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
 	ing, err := MakeIngress(testContext(), r, cfg, nil, ingressClass)
-	fmt.Println("####\n" + ing.Annotations[networking.RolloutAnnotationKey])
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
