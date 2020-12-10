@@ -35,7 +35,7 @@ func TestStep(t *testing.T) {
 	tests := []struct {
 		name            string
 		prev, cur, want *Rollout
-		wantNextStep    int
+		wantNextStep    int64
 	}{{
 		name: "no prev",
 		cur:  &Rollout{},
@@ -1064,18 +1064,18 @@ func TestObserveReady(t *testing.T) {
 			Percent:           100,
 			StepParams: RolloutParams{
 				StartTime:    oldenDays,
-				StepDuration: int(3 * time.Second),
+				StepDuration: int64(3 * time.Second),
 				StepSize:     100 / 40,
-				NextStepTime: now + 3*int(time.Second),
+				NextStepTime: now + 3*int64(time.Second),
 			},
 		}, {
 			ConfigurationName: "Percent not 100%",
 			Percent:           50,
 			StepParams: RolloutParams{
 				StartTime:    oldenDays,
-				StepDuration: int(3 * time.Second),
+				StepDuration: int64(3 * time.Second),
 				StepSize:     50 / 40,
-				NextStepTime: now + 3*int(time.Second),
+				NextStepTime: now + 3*int64(time.Second),
 			},
 		}},
 	}
@@ -1376,7 +1376,7 @@ func TestJSONRoundtrip(t *testing.T) {
 func TestStepRevisions(t *testing.T) {
 	tests := []struct {
 		name string
-		now  int
+		now  int64
 		cfg  *ConfigurationRollout
 		want *ConfigurationRollout
 	}{{
