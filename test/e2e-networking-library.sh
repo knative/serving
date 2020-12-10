@@ -36,7 +36,7 @@ function install_istio() {
     cd $NET_ISTIO_DIR \
       && git init \
       && git remote add origin https://github.com/knative-sandbox/net-istio.git \
-      && git fetch --depth 1 origin $NET_ISTIO_COMMIT \
+      && git fetch --depth 1 origin master \
       && git checkout FETCH_HEAD
   )
 
