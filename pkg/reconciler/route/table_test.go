@@ -435,10 +435,10 @@ func TestReconcile(t *testing.T) {
 					RevisionName: "config-00001", Percent: 1,
 				}}, fakeCurTime.Add(-3*time.Second),
 					func(r *traffic.Rollout) {
-						// Step duration is 3s (now - (now-3s)).
-						r.Configurations[0].StepParams.StepDuration = 3
-						// 120 / 3 = 40 steps. floor(100/40) = 2.
-						r.Configurations[0].StepParams.StepSize = 2
+						numSteps := 120 / 3 // 40
+						// Step duration is 3s (duration / numSteps = 120/40)
+						r.Configurations[0].StepParams.StepDuration = int(time.Second) * 120 / numSteps // 3s in ns.
+						r.Configurations[0].StepParams.StepSize = (100 - 1) / numSteps                  // 2
 						// StepDuration is 3, and so next step is `now` + 3.
 						r.Configurations[0].StepParams.NextStepTime = int(fakeCurTime.Add(3 * time.Second).UnixNano())
 					},
