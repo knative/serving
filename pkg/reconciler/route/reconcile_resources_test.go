@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +30,7 @@ import (
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakeingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	"knative.dev/pkg/ptr"
+	rtesting "knative.dev/pkg/reconciler/testing"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
@@ -50,6 +52,124 @@ func TestReconcileIngressInsert(t *testing.T) {
 	tc, tls := testIngressParams(t, r)
 	if _, err := reconciler.reconcileIngress(updateContext(ctx), r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
+	}
+}
+
+func TestReconcileIngressUpdateRenqueueRollout(t *testing.T) {
+	var reconciler *Reconciler
+	const (
+		fakeCurSecs = 19551982
+		fakeCurNsec = 19841988
+		fakeCurTime = fakeCurSecs*1_000_000_000 + fakeCurNsec // *1e9
+	)
+	fakeClock := &rtesting.FakeClock{Time: time.Unix(fakeCurSecs, fakeCurNsec)}
+	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
+		r.clock = fakeClock
+		reconciler = r
+	})
+	defer cancel()
+	wasReenqueued := false
+	duration := 0 * time.Second
+	reconciler.enqueueAfter = func(_ interface{}, d time.Duration) {
+		wasReenqueued = true
+		duration = d
+	}
+
+	r := Route("test-ns", "rollout-route")
+
+	tc, tls := testIngressParams(t, r, func(tc *traffic.Config) {
+		tc.Targets[traffic.DefaultTarget] = traffic.RevisionTargets{{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "thor",
+				RevisionName:      "thursday",
+				Percent:           ptr.Int64(52),
+				LatestRevision:    ptr.Bool(true),
+			},
+			Protocol: networking.ProtocolHTTP1,
+		}, {
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "odin",
+				RevisionName:      "wednesday",
+				Percent:           ptr.Int64(48),
+				LatestRevision:    ptr.Bool(true),
+			},
+			Protocol: networking.ProtocolHTTP1,
+		}}
+	})
+	if _, err := reconciler.reconcileIngress(updateContext(ctx), r, tc, tls, "foo-ingress-class"); err != nil {
+		t.Fatal("Unexpected error:", err)
+	}
+
+	ing := getRouteIngressFromClient(ctx, t, r)
+	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ing)
+
+	// Now we have initial version. Let's make a rollout.
+	tc.Targets[traffic.DefaultTarget][1].RevisionName = "miercoles"
+
+	if _, err := reconciler.reconcileIngress(updateContext(ctx), r, tc, tls, "foo-ingress-class"); err != nil {
+		t.Error("Unexpected error:", err)
+	}
+
+	// This should update the rollout with the new annotation.
+	updated := getRouteIngressFromClient(ctx, t, r)
+
+	if got, want := updated.Annotations[networking.RolloutAnnotationKey],
+		ing.Annotations[networking.RolloutAnnotationKey]; got == want {
+		t.Fatal("Expected difference in the rollout annotation, but found none")
+	}
+	if wasReenqueued {
+		t.Fatal("Unexpected re-enqueuing happened")
+	}
+	ro := deserializeRollout(ctx, updated.Annotations[networking.RolloutAnnotationKey])
+	if ro == nil {
+		t.Fatal("Rollout was bogus and impossible to deserialize")
+	}
+
+	// After sorting `odin` will come first.
+	if got, want := ro.Configurations[0].StepParams.StartTime, int64(fakeCurTime); got != want {
+		t.Errorf("Rollout StartTime = %d, want: %d", got, want)
+	}
+
+	// OK. So now let's observe ready to start the rollout. For that we need to make ingress ready.
+	cp := updated.DeepCopy()
+	cp.Status.MarkLoadBalancerReady(nil, nil)
+	cp.Status.MarkNetworkConfigured()
+	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(cp)
+	// For comparisons.
+	ing = updated
+
+	// Advance the time. This 5s will become step time as well.
+	fakeClock.Time = fakeClock.Time.Add(5 * time.Second)
+
+	if _, err := reconciler.reconcileIngress(updateContext(ctx), r, tc, tls, "foo-ingress"); err != nil {
+		t.Error("Unexpected error:", err)
+	}
+
+	// This should update the rollout with the new annotation with steps and stuff.
+	updated = getRouteIngressFromClient(ctx, t, r)
+
+	if got, want := updated.Annotations[networking.RolloutAnnotationKey],
+		ing.Annotations[networking.RolloutAnnotationKey]; got == want {
+		t.Fatal("Expected difference in the rollout annotation, but found none")
+	}
+	ro = deserializeRollout(ctx, updated.Annotations[networking.RolloutAnnotationKey])
+	if ro == nil {
+		t.Fatal("Rollout was bogus and impossible to deserialize")
+	}
+	// Verify NextStepTime and StepSize are set as expected
+	if got, want := ro.Configurations[0].StepParams.NextStepTime,
+		fakeClock.Time.Add(5*time.Second).UnixNano(); got != want {
+		t.Errorf("NextStepTime = %d, want: %d", got, want)
+	}
+
+	if got, want := ro.Configurations[0].StepParams.StepSize, 1; got != want {
+		t.Errorf("StepSize = %d, want: %d", got, want)
+	}
+	if !wasReenqueued {
+		t.Fatal("Re-enqueuing didn't happen")
+	}
+	if duration != 5*time.Second {
+		t.Errorf("Re-enqueue duration = %v, want: 5s", duration)
 	}
 }
 
