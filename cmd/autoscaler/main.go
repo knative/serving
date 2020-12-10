@@ -259,7 +259,7 @@ func componentConfigAndIP(ctx context.Context) leaderelection.ComponentConfig {
 	// Set up leader election config
 	leaderElectionConfig, err := sharedmain.GetLeaderElectionConfig(ctx)
 	if err != nil {
-		logging.FromContext(ctx).Fatal("Error loading leader election configuration: ", err)
+		logging.FromContext(ctx).Fatalw("Error loading leader election configuration", zap.Error(err))
 	}
 
 	cc := leaderElectionConfig.GetComponentConfig(component)

@@ -30,8 +30,7 @@ func StatefulSetBasedProcessor(ctx context.Context, f *Forwarder, accept statPro
 		return err
 	}
 	for _, b := range bs.Buckets() {
-		n := b.Name()
-		if n == id.Name() {
+		if n := b.Name(); n == id.Name() {
 			f.setProcessor(n, &localProcessor{
 				bkt:    n,
 				logger: f.logger.With(zap.String("bucket", n)),
