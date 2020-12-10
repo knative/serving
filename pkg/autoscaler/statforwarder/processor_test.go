@@ -79,7 +79,7 @@ func TestProcessorForwardingViaSvcRetry(t *testing.T) {
 	}
 
 	// Change to a working URL
-	p.svcDNS = "ws" + strings.TrimPrefix(s.URL, "http")
+	p.addrs = []string{"ws" + strings.TrimPrefix(s.URL, "http")}
 	p.process(stat1)
 
 	select {

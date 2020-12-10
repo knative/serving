@@ -1055,7 +1055,7 @@ func TestObserveReady(t *testing.T) {
 			Percent:           100,
 			StepParams: RolloutParams{
 				StartTime:    200620092020,
-				StepDuration: 1212121212,
+				StepDuration: 1212121212, // 120/99
 				StepSize:     1,
 				NextStepTime: now + 1212121212,
 			},

@@ -65,18 +65,17 @@ type ConfigurationRollout struct {
 // RolloutParams contains the timing and sizing parameters for the
 // ConfigurationRollout.
 type RolloutParams struct {
-	// StartTime is the Unix timestamp by when (+/- reconcile precision)
+	// StartTime is the Unix timestamp in ns by when (+/- reconcile precision)
 	// the Rollout has started.
 	// This is required to compute step time and deadline.
 	StartTime int64 `json:"starttime,omitempty"`
 
-	// NextStepTime is the Unix timestamp when the next
+	// NextStepTime is the Unix timestamp in ns when the next
 	// rollout step should performed.
 	NextStepTime int64 `json:"nextStepTime,omitempty"`
 
-	// StepDuration is a rounded up number of seconds how long it took
-	// for ingress to successfully move first 1% of traffic to the new revision.
-	// Note, that his number does not include any coldstart, etc timing.
+	// StepDuration is the number of nanoseconds between two successive steps
+	// of rollout.
 	StepDuration int64 `json:"stepDuration,omitempty"`
 
 	// How much traffic to move in a single step.
@@ -424,8 +423,6 @@ func (cur *ConfigurationRollout) computeProperties(nowTS, minStepSec, durationSe
 	stepSize := math.Floor((pf - 1) / numSteps)
 
 	// The time we sleep between the steps.
-	// We round up here since it's better to roll slightly longer,
-	// than slightly shorter.
 	stepDuration := durationSecs / numSteps * float64(time.Second)
 
 	cur.StepParams.StepDuration = int64(stepDuration)

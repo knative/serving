@@ -74,8 +74,13 @@ type remoteProcessor struct {
 	// The name of the bucket
 	bkt string
 	// holder is the HolderIdentity of a Lease for a bucket.
-	holder   string
-	svcDNS   string
+	holder string
+
+	// addrs contains the list of addresses for the remote to try in the order to try them.
+	// The first address to establish a successful connection will be used until things reset
+	// at which point the order is re-evaluated.
+	addrs []string
+
 	connLock sync.RWMutex
 	// conn is the WebSocket connection to the holder pod.
 	conn *websocket.ManagedConnection
@@ -83,22 +88,12 @@ type remoteProcessor struct {
 
 var _ bucketProcessor = (*remoteProcessor)(nil)
 
-func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS string) *remoteProcessor {
-	// First try to connect via Pod IP address synchronously. If the connection can
-	// not be established within `establishTimeout`, we assume the pods can not be
-	// accessed by IP address. Then try to connect via Pod IP address synchronously.
-	logger.Info("Connecting to Autoscaler bucket at ", podDNS)
-	c, err := websocket.NewDurableSendingConnectionGuaranteed(podDNS, establishTimeout, logger)
-	if err != nil {
-		logger.Info("Autoscaler pods can't be accessed by IP address. Connecting to Autoscaler bucket at ", svcDNS)
-		c, _ = websocket.NewDurableSendingConnectionGuaranteed(svcDNS, establishTimeout, logger)
-	}
+func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder string, addrs ...string) *remoteProcessor {
 	return &remoteProcessor{
 		logger: logger,
 		bkt:    bkt,
 		holder: holder,
-		conn:   c,
-		svcDNS: svcDNS,
+		addrs:  addrs,
 	}
 }
 
@@ -130,11 +125,17 @@ func (p *remoteProcessor) process(sm asmetrics.StatMessage) error {
 
 	c := p.getConn()
 	if c == nil {
-		c, err = websocket.NewDurableSendingConnectionGuaranteed(p.svcDNS, establishTimeout, p.logger)
+		for _, addr := range p.addrs {
+			c, err = websocket.NewDurableSendingConnectionGuaranteed(addr, establishTimeout, p.logger)
+			if err != nil {
+				continue
+			}
+			p.setConn(c)
+			break
+		}
 		if err != nil {
 			return err
 		}
-		p.setConn(c)
 	}
 
 	return c.SendRaw(gorillawebsocket.BinaryMessage, b)
