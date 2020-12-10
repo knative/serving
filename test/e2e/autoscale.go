@@ -376,6 +376,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 // The given `duration` is how long the traffic will be generated. You must make sure that the signal
 // from the given `done` channel will be sent within the `duration`.
 func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
+	ctx.t.Helper()
 	wait := AutoscaleUpToNumPods(ctx, curPods, targetPods, done, quick)
 	if err := wait(); err != nil {
 		ctx.t.Fatal(err)
@@ -387,6 +388,7 @@ func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, d
 // Starting the routines is separated from waiting for easy re-use in other
 // places (e.g. upgrade tests).
 func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) func() error {
+	ctx.t.Helper()
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
 	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
