@@ -1797,6 +1797,7 @@ func TestReconcile(t *testing.T) {
 			ingressLister:       listers.GetIngressLister(),
 			tracker:             ctx.Value(TrackerKey).(tracker.Interface),
 			clock:               FakeClock{Time: fakeCurTime},
+			enqueueAfter:        func(interface{}, time.Duration) {},
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
