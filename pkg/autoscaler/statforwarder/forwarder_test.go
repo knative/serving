@@ -19,6 +19,7 @@ package statforwarder
 import (
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -37,7 +38,6 @@ import (
 	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
-	"knative.dev/pkg/logging"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
@@ -80,9 +80,15 @@ var (
 	noOp = func(sm asmetrics.StatMessage) {}
 )
 
+func must(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
 func TestForwarderReconcile(t *testing.T) {
 	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
-	logger := logging.FromContext(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
 	service := fakeserviceinformer.Get(ctx)
@@ -93,8 +99,12 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	f1 := New(ctx, logger, kubeClient, testIP1, testBs, noOp)
-	f2 := New(ctx, logger, kubeClient, testIP2, testBs, noOp)
+	os.Setenv("POD_IP", testIP1)
+	f1 := New(ctx, testBs)
+	must(t, LeaseBasedProcessor(ctx, f1, noOp))
+	os.Setenv("POD_IP", testIP2)
+	f2 := New(ctx, testBs)
+	must(t, LeaseBasedProcessor(ctx, f2, noOp))
 
 	defer func() {
 		f1.Cancel()
@@ -172,7 +182,6 @@ func TestForwarderReconcile(t *testing.T) {
 
 func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
-	logger := logging.FromContext(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
@@ -186,7 +195,8 @@ func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 		waitInformers()
 	}()
 
-	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
+	os.Setenv("POD_IP", testIP1)
+	must(t, LeaseBasedProcessor(ctx, New(ctx, testBs), noOp))
 
 	svcCreation := 0
 	retried := make(chan struct{})
@@ -213,7 +223,6 @@ func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 
 func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
-	logger := logging.FromContext(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
@@ -227,7 +236,8 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 		waitInformers()
 	}()
 
-	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
+	os.Setenv("POD_IP", testIP1)
+	must(t, LeaseBasedProcessor(ctx, New(ctx, testBs), noOp))
 
 	endpointsCreation := 0
 	retried := make(chan struct{})
@@ -254,7 +264,6 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 
 func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
-	logger := logging.FromContext(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
@@ -269,7 +278,8 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 		waitInformers()
 	}()
 
-	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
+	os.Setenv("POD_IP", testIP1)
+	must(t, LeaseBasedProcessor(ctx, New(ctx, testBs), noOp))
 
 	endpointsUpdate := 0
 	retried := make(chan struct{})
@@ -304,7 +314,6 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 
 func TestForwarderSkipReconciling(t *testing.T) {
 	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
-	logger := logging.FromContext(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
@@ -318,7 +327,8 @@ func TestForwarderSkipReconciling(t *testing.T) {
 		waitInformers()
 	}()
 
-	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
+	os.Setenv("POD_IP", testIP1)
+	must(t, LeaseBasedProcessor(ctx, New(ctx, testBs), noOp))
 
 	svcCreated := make(chan struct{})
 	kubeClient.PrependReactor("create", "services",
@@ -392,7 +402,6 @@ func TestForwarderSkipReconciling(t *testing.T) {
 
 func TestProcess(t *testing.T) {
 	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
-	logger := logging.FromContext(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
@@ -413,7 +422,9 @@ func TestProcess(t *testing.T) {
 		acceptCount++
 		acceptCh <- acceptCount
 	}
-	f := New(ctx, logger, kubeClient, testIP1, hash.NewBucketSet(sets.NewString(bucket1, bucket2)), accept)
+	os.Setenv("POD_IP", testIP1)
+	f := New(ctx, hash.NewBucketSet(sets.NewString(bucket1, bucket2)))
+	must(t, LeaseBasedProcessor(ctx, f, accept))
 
 	// A Forward without any leadership information should process with retry.
 	// Stat1 should be accepted and stat2 should be forwarded.
