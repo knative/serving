@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
@@ -70,7 +71,8 @@ type Reconciler struct {
 	certificateLister   networkinglisters.CertificateLister
 	tracker             tracker.Interface
 
-	clock system.Clock
+	clock        system.Clock
+	enqueueAfter func(interface{}, time.Duration)
 }
 
 // Check that our Reconciler implements routereconciler.Interface

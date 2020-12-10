@@ -93,6 +93,7 @@ func newControllerWithClock(
 		configStore.WatchConfigs(cmw)
 		return controller.Options{ConfigStore: configStore}
 	})
+	c.enqueueAfter = impl.EnqueueAfter
 
 	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

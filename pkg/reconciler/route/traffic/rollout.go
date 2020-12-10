@@ -68,15 +68,15 @@ type RolloutParams struct {
 	// StartTime is the Unix timestamp in ns by when (+/- reconcile precision)
 	// the Rollout has started.
 	// This is required to compute step time and deadline.
-	StartTime int `json:"starttime,omitempty"`
+	StartTime int64 `json:"starttime,omitempty"`
 
 	// NextStepTime is the Unix timestamp in ns when the next
 	// rollout step should performed.
-	NextStepTime int `json:"nextStepTime,omitempty"`
+	NextStepTime int64 `json:"nextStepTime,omitempty"`
 
 	// StepDuration is the number of nanoseconds between two successive steps
 	// of rollout.
-	StepDuration int `json:"stepDuration,omitempty"`
+	StepDuration int64 `json:"stepDuration,omitempty"`
 
 	// How much traffic to move in a single step.
 	StepSize int `json:"stepSize,omitempty"`
@@ -127,7 +127,7 @@ const durationSecs = 120.0
 // ObserveReady traverses the configs and the ones that are in rollout
 // but have not observed step time yet, will have it set, to
 // max(1, nowTS-cfg.StartTime).
-func (cur *Rollout) ObserveReady(nowTS int) {
+func (cur *Rollout) ObserveReady(nowTS int64) {
 	for i := range cur.Configurations {
 		c := &cur.Configurations[i]
 		if c.StepParams.StepDuration == 0 && c.StepParams.StartTime > 0 {
@@ -144,9 +144,11 @@ func (cur *Rollout) ObserveReady(nowTS int) {
 // At the end of the call the returned object will contain the
 // desired traffic shape.
 // Step will return cur if no previous state was available.
-func (cur *Rollout) Step(prev *Rollout, nowTS int) *Rollout {
+// Second return value is the Unix timestamp in ns of the closest
+// rollout action to take or 0, if no rollout is currently scheduled.
+func (cur *Rollout) Step(prev *Rollout, nowTS int64) (*Rollout, int64) {
 	if prev == nil || len(prev.Configurations) == 0 {
-		return cur
+		return cur, 0
 	}
 
 	// The algorithm below is simplest, but probably not the most performant.
@@ -162,12 +164,14 @@ func (cur *Rollout) Step(prev *Rollout, nowTS int) *Rollout {
 	}
 
 	var ret []ConfigurationRollout
+	returnTS := int64(math.MaxInt64)
 	for t, ccfgs := range currConfigs {
 		pcfgs, ok := prevConfigs[t]
 		// A new tag was added, so we have no previous state to roll from,
 		// thus just add it to the return, we'll rollout to 100% from the get go (and it is
 		// always 100%, since default tag is _always_ there).
 		// So just append to the return list.
+		// TODO(vagababov): perhaps just ignore and remove from the return?
 		if !ok {
 			ret = append(ret, *ccfgs[0])
 			continue
@@ -182,12 +186,17 @@ func (cur *Rollout) Step(prev *Rollout, nowTS int) *Rollout {
 				ret = append(ret, *ccfgs[i])
 				i++
 			case ccfgs[i].ConfigurationName == pcfgs[j].ConfigurationName:
-				// Config might have 0% traffic assigned, if it is a tag only route (i.e.
+				// Config might have >0% traffic assigned, unless it is a tag only route (i.e.
 				// receives no traffic via default tag). So just skip it from the rollout
 				// altogether.
 				switch p := ccfgs[i].Percent; {
 				case p > 1:
-					ret = append(ret, *stepConfig(ccfgs[i], pcfgs[j], nowTS))
+					sc := *stepConfig(ccfgs[i], pcfgs[j], nowTS)
+					ret = append(ret, sc)
+					// Keep the minimum value if it is not 0.
+					if nst := sc.StepParams.NextStepTime; nst > 0 && nst < returnTS {
+						returnTS = nst
+					}
 				case p == 1:
 					// Skip all the work if it's a common A/B scenario where the test config
 					// receives just 1% of traffic.
@@ -215,7 +224,11 @@ func (cur *Rollout) Step(prev *Rollout, nowTS int) *Rollout {
 	// We need to sort the rollout, since we have map iterations in between,
 	// which are random.
 	sortRollout(ro)
-	return ro
+	// If no active rollouts return 0.
+	if returnTS == math.MaxInt64 {
+		returnTS = 0
+	}
+	return ro, returnTS
 }
 
 // adjustPercentage updates the rollout with the new percentage values.
@@ -247,7 +260,7 @@ func adjustPercentage(goal int, cr *ConfigurationRollout) {
 
 // stepRevisions performs re-adjustment of percentages on the revisions
 // to rollout more traffic to the last one.
-func stepRevisions(goal *ConfigurationRollout, nowTS int) {
+func stepRevisions(goal *ConfigurationRollout, nowTS int64) {
 	// Not yet ready to adjust the steps or we're done
 	// (shouldn't really be here, but better be defensive).
 	if nowTS < goal.StepParams.NextStepTime || len(goal.Revisions) < 2 {
@@ -305,7 +318,7 @@ func stepRevisions(goal *ConfigurationRollout, nowTS int) {
 
 // stepConfig takes previous and goal configuration shapes and returns a new
 // config rollout, after computing the percetage allocations.
-func stepConfig(goal, prev *ConfigurationRollout, nowTS int) *ConfigurationRollout {
+func stepConfig(goal, prev *ConfigurationRollout, nowTS int64) *ConfigurationRollout {
 	pc := len(prev.Revisions)
 	ret := &ConfigurationRollout{
 		ConfigurationName: goal.ConfigurationName,
@@ -412,9 +425,9 @@ func (cur *ConfigurationRollout) computeProperties(nowTS, minStepSec, durationSe
 	// The time we sleep between the steps.
 	stepDuration := durationSecs / numSteps * float64(time.Second)
 
-	cur.StepParams.StepDuration = int(stepDuration)
+	cur.StepParams.StepDuration = int64(stepDuration)
 	cur.StepParams.StepSize = int(stepSize)
-	cur.StepParams.NextStepTime = int(nowTS + stepDuration)
+	cur.StepParams.NextStepTime = int64(nowTS + stepDuration)
 }
 
 // sortRollout sorts the rollout based on tag so it's consistent

@@ -35,6 +35,7 @@ func TestStep(t *testing.T) {
 	tests := []struct {
 		name            string
 		prev, cur, want *Rollout
+		wantNextStep    int64
 	}{{
 		name: "no prev",
 		cur:  &Rollout{},
@@ -116,12 +117,6 @@ func TestStep(t *testing.T) {
 					RevisionName: "let-it-bleed",
 					Percent:      100,
 				}},
-				StepParams: RolloutParams{
-					NextStepTime: 2009,
-					StepDuration: 2020,
-					StartTime:    2004,
-					StepSize:     14,
-				},
 			}},
 		},
 		prev: &Rollout{
@@ -155,13 +150,198 @@ func TestStep(t *testing.T) {
 					Percent:      8, // +3
 				}},
 				StepParams: RolloutParams{
-					NextStepTime: 2020 + 5, // now + duration.
+					NextStepTime: now + 5, // now + duration.
 					StepDuration: 5,
 					StartTime:    2004,
 					StepSize:     3,
 				},
 			}},
 		},
+		wantNextStep: now + 5,
+	}, {
+		name: "multiple configs step",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           42,
+				Revisions: []RevisionRollout{{
+					RevisionName: "let-it-bleed",
+					Percent:      42,
+				}},
+			}, {
+				ConfigurationName: "keith",
+				Percent:           52,
+				Revisions: []RevisionRollout{{
+					RevisionName: "beggars-banquet",
+					Percent:      52,
+				}},
+			}},
+			// 6% allocated to the revision direct, say.
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           42,
+				StepParams: RolloutParams{
+					NextStepTime: 2019,
+					StepDuration: 43,
+					StartTime:    1961,
+					StepSize:     3,
+				},
+				Revisions: []RevisionRollout{{
+					RevisionName: "their-satanic-majesties-request",
+					Percent:      37,
+				}, {
+					RevisionName: "let-it-bleed",
+					Percent:      5,
+				}},
+			}, {
+				ConfigurationName: "keith",
+				Percent:           52,
+				StepParams: RolloutParams{
+					NextStepTime: 2018,
+					StepDuration: 55,
+					StartTime:    1971,
+					StepSize:     4,
+				},
+				Revisions: []RevisionRollout{{
+					RevisionName: "sticky-fingers",
+					Percent:      36,
+				}, {
+					RevisionName: "beggars-banquet",
+					Percent:      16,
+				}},
+			}},
+		},
+		want: &Rollout{
+			// Note: order will change, since we sort.
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           52,
+				StepParams: RolloutParams{
+					NextStepTime: now + 55,
+					StepDuration: 55,
+					StartTime:    1971,
+					StepSize:     4,
+				},
+				Revisions: []RevisionRollout{{
+					RevisionName: "sticky-fingers",
+					Percent:      32,
+				}, {
+					RevisionName: "beggars-banquet",
+					Percent:      20,
+				}},
+			}, {
+				ConfigurationName: "mick",
+				Percent:           42,
+				Revisions: []RevisionRollout{{
+					RevisionName: "their-satanic-majesties-request",
+					Percent:      34, // -3
+				}, {
+					RevisionName: "let-it-bleed",
+					Percent:      8, // +3
+				}},
+				StepParams: RolloutParams{
+					NextStepTime: now + 43, // now + duration.
+					StepDuration: 43,
+					StartTime:    1961,
+					StepSize:     3,
+				},
+			}},
+		},
+		wantNextStep: now + 43, // the min of the two.
+	}, {
+		name: "multiple configs step and roll",
+		cur: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           42,
+				Revisions: []RevisionRollout{{
+					RevisionName: "let-it-bleed",
+					Percent:      42,
+				}},
+			}, {
+				ConfigurationName: "keith",
+				Percent:           52,
+				Revisions: []RevisionRollout{{
+					RevisionName: "tattoo-you",
+					Percent:      52,
+				}},
+			}},
+			// 6% allocated to the revision direct, say.
+		},
+		prev: &Rollout{
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "mick",
+				Percent:           42,
+				StepParams: RolloutParams{
+					NextStepTime: 2019,
+					StepDuration: 43,
+					StartTime:    1961,
+					StepSize:     3,
+				},
+				Revisions: []RevisionRollout{{
+					RevisionName: "their-satanic-majesties-request",
+					Percent:      37,
+				}, {
+					RevisionName: "let-it-bleed",
+					Percent:      5,
+				}},
+			}, {
+				ConfigurationName: "keith",
+				Percent:           52,
+				StepParams: RolloutParams{
+					NextStepTime: 2018,
+					StepDuration: 55,
+					StartTime:    1971,
+					StepSize:     4,
+				},
+				Revisions: []RevisionRollout{{
+					RevisionName: "sticky-fingers",
+					Percent:      36,
+				}, {
+					RevisionName: "beggars-banquet",
+					Percent:      16,
+				}},
+			}},
+		},
+		want: &Rollout{
+			// Note: order will change, since we sort.
+			Configurations: []ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           52,
+				StepParams: RolloutParams{
+					StartTime: 2020,
+				},
+				Revisions: []RevisionRollout{{
+					RevisionName: "sticky-fingers",
+					Percent:      36,
+				}, {
+					RevisionName: "beggars-banquet",
+					Percent:      15,
+				}, {
+					RevisionName: "tattoo-you",
+					Percent:      1,
+				}},
+			}, {
+				ConfigurationName: "mick",
+				Percent:           42,
+				Revisions: []RevisionRollout{{
+					RevisionName: "their-satanic-majesties-request",
+					Percent:      34, // -3
+				}, {
+					RevisionName: "let-it-bleed",
+					Percent:      8, // +3
+				}},
+				StepParams: RolloutParams{
+					NextStepTime: now + 43, // now + duration.
+					StepDuration: 43,
+					StartTime:    1961,
+					StepSize:     3,
+				},
+			}},
+		},
+		wantNextStep: now + 43, // the min of the two.
 	}, {
 		name: "simplest, step, when stepsize=0",
 		cur: &Rollout{
@@ -185,10 +365,8 @@ func TestStep(t *testing.T) {
 				ConfigurationName: "mick",
 				Percent:           100,
 				StepParams: RolloutParams{
-					NextStepTime: 2019, // <- Those should be reset and/or updated.
-					StartTime:    2004,
-					StepDuration: 5,
-					StepSize:     0,
+					StartTime: 2004,
+					// The other fields should not be set yet.
 				},
 				Revisions: []RevisionRollout{{
 					RevisionName: "their-satanic-majesties-request",
@@ -211,10 +389,7 @@ func TestStep(t *testing.T) {
 					Percent:      5,
 				}},
 				StepParams: RolloutParams{
-					NextStepTime: 2019,
-					StartTime:    2004,
-					StepDuration: 5,
-					StepSize:     0,
+					StartTime: 2004,
 				},
 			}},
 		},
@@ -302,6 +477,7 @@ func TestStep(t *testing.T) {
 				}},
 				StepParams: RolloutParams{ // <- Those should be thrown out.
 					NextStepTime: 1984,
+					StartTime:    1981,
 					StepDuration: 1988,
 					StepSize:     11,
 				},
@@ -814,12 +990,15 @@ func TestStep(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.cur.Step(tc.prev, now)
+			got, gotNS := tc.cur.Step(tc.prev, now)
 			if want := tc.want; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
 				t.Errorf("Wrong rolled rollout, diff(-want,+got):\n%s", cmp.Diff(want, got))
 			}
 			if !got.Validate() {
 				t.Errorf("Step returned an invalid config:\n%#v", got)
+			}
+			if got, want := gotNS, tc.wantNextStep; got != want {
+				t.Errorf("Incorrect NextStepTime = %d, want: %d", got, want)
 			}
 		})
 	}
@@ -885,18 +1064,18 @@ func TestObserveReady(t *testing.T) {
 			Percent:           100,
 			StepParams: RolloutParams{
 				StartTime:    oldenDays,
-				StepDuration: 3 * int(time.Second),
+				StepDuration: int64(3 * time.Second),
 				StepSize:     100 / 40,
-				NextStepTime: now + 3*int(time.Second),
+				NextStepTime: now + 3*int64(time.Second),
 			},
 		}, {
 			ConfigurationName: "Percent not 100%",
 			Percent:           50,
 			StepParams: RolloutParams{
 				StartTime:    oldenDays,
-				StepDuration: 3 * int(time.Second),
+				StepDuration: int64(3 * time.Second),
 				StepSize:     50 / 40,
-				NextStepTime: now + 3*int(time.Second),
+				NextStepTime: now + 3*int64(time.Second),
 			},
 		}},
 	}
@@ -1197,7 +1376,7 @@ func TestJSONRoundtrip(t *testing.T) {
 func TestStepRevisions(t *testing.T) {
 	tests := []struct {
 		name string
-		now  int
+		now  int64
 		cfg  *ConfigurationRollout
 		want *ConfigurationRollout
 	}{{
