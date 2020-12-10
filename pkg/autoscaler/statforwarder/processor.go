@@ -74,8 +74,13 @@ type remoteProcessor struct {
 	// The name of the bucket
 	bkt string
 	// holder is the HolderIdentity of a Lease for a bucket.
-	holder   string
-	addrs    []string
+	holder string
+
+	// addrs contains the list of addresses for the remote to try in the order to try them.
+	// The first address to establish a successful connection will be used until things reset
+	// at which point the order is re-evaluated.
+	addrs []string
+
 	connLock sync.RWMutex
 	// conn is the WebSocket connection to the holder pod.
 	conn *websocket.ManagedConnection

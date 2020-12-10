@@ -130,6 +130,10 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 	return f
 }
 
+// leaseTracker monitors lease resources to update the Forwarder's processor configuration(s)
+// with the appropriate owner's stats endpoint.  When we own the lease, a localProcessor is
+// used, and when someone else owns the lease a remoteProcessor is used with their stats
+// endpoint.
 type leaseTracker struct {
 	logger *zap.SugaredLogger
 	selfIP string
