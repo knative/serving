@@ -92,6 +92,7 @@ func (c *Reconciler) reconcileIngress(
 		if nextStepTime > 0 {
 			nextStepTime -= now
 			c.enqueueAfter(r, time.Duration(nextStepTime))
+			logger.Debug("Re-enqueuing after", zap.Duration("duration", time.Duration(nextStepTime)))
 		}
 
 		// Comparing and diffing isn't cheap so do it only if we're going
