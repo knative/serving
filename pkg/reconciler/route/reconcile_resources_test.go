@@ -162,7 +162,8 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 		t.Errorf("NextStepTime = %d, want: %d", got, want)
 	}
 
-	if got, want := ro.Configurations[0].StepParams.StepSize, 1; got != want {
+	// Rounding up, so step size should be 2.
+	if got, want := ro.Configurations[0].StepParams.StepSize, 47/24+1; got != want {
 		t.Errorf("StepSize = %d, want: %d", got, want)
 	}
 	if !wasReenqueued {

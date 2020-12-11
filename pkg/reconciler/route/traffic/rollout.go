@@ -416,11 +416,10 @@ func (cur *ConfigurationRollout) computeProperties(nowTS, minStepSec, durationSe
 	}
 
 	// We're moving traffic in equal steps.
-	// The last step can be larger, since it's more likely to
-	// easily accommodate the traffic jump, due to built in
-	// spare capacity.
-	// E.g. 100% in 4 steps. 1% -> 25% -> 49% -> 74% -> 100%, last jump being 26%.
-	stepSize := math.Floor((pf - 1) / numSteps)
+	// For bigger jumps this might yield slightly bigger moves
+	// but rounding down makes 1.9 => 1, which basically doubles the rollout time.
+	// E.g. 100% in 4 steps. 1% -> 26% -> 51% -> 76% -> 100%.
+	stepSize := math.Round((pf - 1) / numSteps)
 
 	// The time we sleep between the steps.
 	stepDuration := durationSecs / numSteps * float64(time.Second)
