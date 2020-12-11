@@ -55,7 +55,7 @@ func TestReconcileIngressInsert(t *testing.T) {
 	}
 }
 
-func TestReconcileIngressUpdateRenqueueRollout(t *testing.T) {
+func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 	var reconciler *Reconciler
 	const (
 		fakeCurSecs = 19551982
