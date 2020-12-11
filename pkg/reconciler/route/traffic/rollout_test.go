@@ -1032,6 +1032,12 @@ func TestObserveReady(t *testing.T) {
 			},
 			Percent: 100,
 		}, {
+			ConfigurationName: "step-begin > 1s, step size round up",
+			StepParams: RolloutParams{
+				StartTime: oldenDays,
+			},
+			Percent: 75,
+		}, {
 			ConfigurationName: "Percent not 100%",
 			StepParams: RolloutParams{
 				StartTime: oldenDays,
@@ -1066,6 +1072,15 @@ func TestObserveReady(t *testing.T) {
 				StartTime:    oldenDays,
 				StepDuration: int64(3 * time.Second),
 				StepSize:     100 / 40,
+				NextStepTime: now + 3*int64(time.Second),
+			},
+		}, {
+			ConfigurationName: "step-begin > 1s, step size round up",
+			Percent:           75,
+			StepParams: RolloutParams{
+				StartTime:    oldenDays,
+				StepDuration: int64(3 * time.Second),
+				StepSize:     75/40 + 1,
 				NextStepTime: now + 3*int64(time.Second),
 			},
 		}, {
