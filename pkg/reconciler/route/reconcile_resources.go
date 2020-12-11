@@ -79,18 +79,19 @@ func (c *Reconciler) reconcileIngress(
 
 		// And recompute the rollout state.
 		now := c.clock.Now().UnixNano()
-		effectiveRO, nextStepTime := curRO.Step(prevRO, now)
-		logger := logging.FromContext(ctx).Desugar()
-		if nextStepTime > 0 {
-			nextStepTime -= now
-			c.enqueueAfter(r, time.Duration(nextStepTime))
-		}
 
 		// Now check if the ingress status changed from not ready to ready.
 		rtView := r.Status.GetCondition(v1.RouteConditionIngressReady)
-		if ingress.IsReady() && !rtView.IsTrue() {
+		logger := logging.FromContext(ctx).Desugar()
+		if prevRO != nil && ingress.IsReady() && !rtView.IsTrue() {
 			logger.Debug("Observing Ingress not-ready to ready switch condition for rollout")
-			effectiveRO.ObserveReady(now)
+			prevRO.ObserveReady(now)
+		}
+
+		effectiveRO, nextStepTime := curRO.Step(prevRO, now)
+		if nextStepTime > 0 {
+			nextStepTime -= now
+			c.enqueueAfter(r, time.Duration(nextStepTime))
 		}
 
 		// Comparing and diffing isn't cheap so do it only if we're going
