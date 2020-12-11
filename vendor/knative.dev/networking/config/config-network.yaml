@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "5e3df87d"
+    knative.dev/example-checksum: "eaf5fb3f"
 data:
   _example: |
     ################################
@@ -104,3 +104,7 @@ data:
     # 3. Redirected: The Knative ingress will send a 302 redirect for all
     # http connections, asking the clients to use HTTPS.
     httpProtocol: "Enabled"
+
+    # rolloutDuration contains the minimal duration in seconds over which the
+    # Configuration traffic targets are rolled out to the newest revision.
+    rolloutDuration: "0"
