@@ -152,20 +152,26 @@ func makeIngressSpec(
 			rule := makeIngressRule(domains, r.Namespace, visibility, tc.Targets[name])
 			if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
-					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string)
+					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string, 1)
 				}
 
 				if name == traffic.DefaultTarget {
-					// To provide a information if a request is routed via the "default route" or not,
+					// To provide information if a request is routed via the "default route" or not,
 					// the header "Knative-Serving-Default-Route: true" is appended here.
 					// If the header has "true" and there is a "Knative-Serving-Tag" header,
-					// then the request is having the undefined tag header, which will be observed in queue-proxy.
+					// then the request is having the undefined tag header,
+					// which will be observed in queue-proxy.
 					rule.HTTP.Paths[0].AppendHeaders[network.DefaultRouteHeaderName] = "true"
+
 					// Add ingress paths for a request with the tag header.
-					// If a request has one of the `names`(tag name) except the default path,
-					// the request will be routed via one of the ingress paths, corresponding to the tag name.
+					// If a request has one of the `names` (tag name), specified as the
+					// Knative-Serving-Tag header, except for the DefaultTarget,
+					// the request will be routed to that target.
+					// corresponding to the tag name.
+					// Since names are sorted `DefaultTarget == ""` is the first one,
+					// so just pass the subslice.
 					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(r.Namespace, tc, names), rule.HTTP.Paths...)
+						makeTagBasedRoutingIngressPaths(r.Namespace, tc, names[1:]), rule.HTTP.Paths...)
 				} else {
 					// If a request is routed by a tag-attached hostname instead of the tag header,
 					// the request may not have the tag header "Knative-Serving-Tag",
@@ -259,15 +265,14 @@ func makeIngressRule(domains []string, ns string,
 	}
 }
 
+// `names` should not include `""` — the DefaultTarget.
 func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
-		if name != traffic.DefaultTarget {
-			path := makeBaseIngressPath(ns, tc.Targets[name])
-			path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
-			paths = append(paths, *path)
-		}
+		path := makeBaseIngressPath(ns, tc.Targets[name])
+		path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
+		paths = append(paths, *path)
 	}
 
 	return paths
