@@ -1008,6 +1008,7 @@ func TestObserveReady(t *testing.T) {
 	const (
 		now       = 200620092020 + 1982
 		oldenDays = 198219841988
+		duration  = 120.
 	)
 	ro := Rollout{
 		Configurations: []ConfigurationRollout{{
@@ -1096,7 +1097,7 @@ func TestObserveReady(t *testing.T) {
 	}
 
 	// This works in place.
-	ro.ObserveReady(now)
+	ro.ObserveReady(now, duration)
 
 	if !cmp.Equal(ro, want) {
 		t.Errorf("ObserveReady generated mismatched config: diff(-want,+got):\n%s",

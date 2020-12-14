@@ -63,6 +63,8 @@ const TestIngressClass = "ingress-class-foo"
 
 var fakeCurTime = time.Unix(1e9, 0)
 
+var rolloutDurationKey = struct{}{}
+
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
 	table := TableTest{{
@@ -383,6 +385,7 @@ func TestReconcile(t *testing.T) {
 		Key: "default/becomes-ready",
 	}, {
 		Name: "simple route rollout when ingress becomes ready",
+		Ctx:  context.WithValue(context.Background(), rolloutDurationKey, 120),
 		Objects: []runtime.Object{
 			Route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteGeneration(2009), MarkIngressNotConfigured),
@@ -1800,9 +1803,16 @@ func TestReconcile(t *testing.T) {
 			enqueueAfter:        func(interface{}, time.Duration) {},
 		}
 
+		cfg := reconcilerTestConfig(false)
+		if v := ctx.Value(rolloutDurationKey); v != nil {
+			cfg.Network.RolloutDurationSecs = v.(int)
+		}
+
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{ConfigStore: &testConfigStore{config: reconcilerTestConfig(false)}})
+			controller.Options{
+				ConfigStore: &testConfigStore{config: cfg},
+			})
 	}))
 }
 
