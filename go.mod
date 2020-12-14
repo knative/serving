@@ -9,8 +9,8 @@ require (
 	github.com/form3tech-oss/jwt-go v3.2.2+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.1
-	github.com/google/go-cmp v0.5.2
-	github.com/google/go-containerregistry v0.1.4
+	github.com/google/go-cmp v0.5.4
+	github.com/google/go-containerregistry v0.2.1
 	github.com/google/gofuzz v1.1.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/gorilla/websocket v1.4.2
@@ -25,10 +25,10 @@ require (
 	go.uber.org/automaxprocs v1.3.0
 	go.uber.org/goleak v1.1.10
 	go.uber.org/zap v1.16.0
-	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
+	golang.org/x/oauth2 v0.0.0-20201208152858-08078c50e5b5
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	google.golang.org/api v0.34.0
-	google.golang.org/grpc v1.33.1
+	google.golang.org/api v0.36.0
+	google.golang.org/grpc v1.34.0
 	k8s.io/api v0.18.12
 	k8s.io/apimachinery v0.18.12
 	k8s.io/client-go v0.18.12
