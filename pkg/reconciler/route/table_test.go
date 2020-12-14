@@ -383,6 +383,7 @@ func TestReconcile(t *testing.T) {
 		Key: "default/becomes-ready",
 	}, {
 		Name: "simple route rollout when ingress becomes ready",
+		Ctx:  context.WithValue(context.Background(), "rolloutDuration", 120),
 		Objects: []runtime.Object{
 			Route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteGeneration(2009), MarkIngressNotConfigured),
@@ -1800,9 +1801,16 @@ func TestReconcile(t *testing.T) {
 			enqueueAfter:        func(interface{}, time.Duration) {},
 		}
 
+		cfg := reconcilerTestConfig(false)
+		if v := ctx.Value("rolloutDuration"); v != nil {
+			cfg.Network.RolloutDurationSecs = v.(int)
+		}
+
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{ConfigStore: &testConfigStore{config: reconcilerTestConfig(false)}})
+			controller.Options{
+				ConfigStore: &testConfigStore{config: cfg},
+			})
 	}))
 }
 

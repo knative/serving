@@ -120,14 +120,10 @@ func (cur *Rollout) Validate() bool {
 	return true
 }
 
-// TODO(vagababov): default fake rollout duration in use, while we
-// only modify the annotation and do not actually modify the traffic.
-const durationSecs = 120.0
-
 // ObserveReady traverses the configs and the ones that are in rollout
 // but have not observed step time yet, will have it set, to
 // max(1, nowTS-cfg.StartTime).
-func (cur *Rollout) ObserveReady(nowTS int64) {
+func (cur *Rollout) ObserveReady(nowTS int64, durationSecs float64) {
 	for i := range cur.Configurations {
 		c := &cur.Configurations[i]
 		if c.StepParams.StepDuration == 0 && c.StepParams.StartTime > 0 {

@@ -37,6 +37,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
@@ -84,8 +85,10 @@ func (c *Reconciler) reconcileIngress(
 		rtView := r.Status.GetCondition(v1.RouteConditionIngressReady)
 		logger := logging.FromContext(ctx).Desugar()
 		if prevRO != nil && ingress.IsReady() && !rtView.IsTrue() {
-			logger.Debug("Observing Ingress not-ready to ready switch condition for rollout")
-			prevRO.ObserveReady(now)
+			cfg := config.FromContext(ctx)
+			logger.Debug("Observing Ingress not-ready to ready switch condition for rollout",
+				zap.Int("durationSecs", cfg.Network.RolloutDurationSecs))
+			prevRO.ObserveReady(now, float64(cfg.Network.RolloutDurationSecs))
 		}
 
 		effectiveRO, nextStepTime := curRO.Step(prevRO, now)
