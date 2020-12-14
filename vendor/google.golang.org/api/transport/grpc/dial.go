@@ -12,7 +12,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"log"
-	"os"
 	"strings"
 
 	"go.opencensus.io/plugin/ocgrpc"
@@ -138,9 +137,7 @@ func dial(ctx context.Context, insecure bool, o *internal.DialSettings) (*grpc.C
 		// * The endpoint is a host:port (or dns:///host:port).
 		// * Credentials are obtained via GCE metadata server, using the default
 		//   service account.
-		// * Opted in via GOOGLE_CLOUD_ENABLE_DIRECT_PATH environment variable.
-		//   For example, GOOGLE_CLOUD_ENABLE_DIRECT_PATH=spanner,pubsub
-		if isDirectPathEnabled(endpoint) && isTokenSourceDirectPathCompatible(creds.TokenSource) {
+		if o.EnableDirectPath && checkDirectPathEndPoint(endpoint) && isTokenSourceDirectPathCompatible(creds.TokenSource) {
 			if !strings.HasPrefix(endpoint, "dns:///") {
 				endpoint = "dns:///" + endpoint
 			}
@@ -189,7 +186,7 @@ func dial(ctx context.Context, insecure bool, o *internal.DialSettings) (*grpc.C
 	// point when isDirectPathEnabled will default to true, we guard it by
 	// the Directpath env var for now once we can introspect user defined
 	// dialer (https://github.com/grpc/grpc-go/issues/2795).
-	if timeoutDialerOption != nil && isDirectPathEnabled(endpoint) {
+	if timeoutDialerOption != nil && o.EnableDirectPath && checkDirectPathEndPoint(endpoint) {
 		grpcOpts = append(grpcOpts, timeoutDialerOption)
 	}
 
@@ -250,8 +247,8 @@ func isTokenSourceDirectPathCompatible(ts oauth2.TokenSource) bool {
 	return true
 }
 
-func isDirectPathEnabled(endpoint string) bool {
-	// Only host:port is supported, not other schemes (e.g., "tcp://" or "unix://").
+func checkDirectPathEndPoint(endpoint string) bool {
+	// Only [dns:///]host[:port] is supported, not other schemes (e.g., "tcp://" or "unix://").
 	// Also don't try direct path if the user has chosen an alternate name resolver
 	// (i.e., via ":///" prefix).
 	//
@@ -261,15 +258,11 @@ func isDirectPathEnabled(endpoint string) bool {
 		return false
 	}
 
-	// Only try direct path if the user has opted in via the environment variable.
-	directPathAPIs := strings.Split(os.Getenv("GOOGLE_CLOUD_ENABLE_DIRECT_PATH"), ",")
-	for _, api := range directPathAPIs {
-		// Ignore empty string since an empty env variable splits into [""]
-		if api != "" && strings.Contains(endpoint, api) {
-			return true
-		}
+	if endpoint == "" {
+		return false
 	}
-	return false
+
+	return true
 }
 
 func processAndValidateOpts(opts []option.ClientOption) (*internal.DialSettings, error) {
