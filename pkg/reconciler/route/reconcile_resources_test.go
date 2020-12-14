@@ -175,6 +175,54 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 	}
 }
 
+func TestReconcileIngressUpdateNoRollout(t *testing.T) {
+	var reconciler *Reconciler
+	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
+		reconciler = r
+	})
+	defer cancel()
+	ctx = updateContext(ctx, 0)
+
+	r := Route("test-ns", "test-route")
+
+	tc, tls := testIngressParams(t, r)
+	if _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
+		t.Error("Unexpected error:", err)
+	}
+
+	initial := getRouteIngressFromClient(ctx, t, r)
+	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(initial)
+
+	tc, tls = testIngressParams(t, r, func(tc *traffic.Config) {
+		tc.Targets[traffic.DefaultTarget][0].RevisionName = "revision2"
+	})
+	if _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
+		t.Error("Unexpected error:", err)
+	}
+
+	updated := getRouteIngressFromClient(ctx, t, r)
+	if diff := cmp.Diff(initial, updated); diff == "" {
+		t.Error("Expected difference, but found none")
+	}
+	initialdRO := deserializeRollout(ctx, initial.Annotations[networking.RolloutAnnotationKey])
+	if initialdRO == nil {
+		t.Fatal("Rollout was bogus and impossible to deserialize")
+	}
+	updatedRO := deserializeRollout(ctx, updated.Annotations[networking.RolloutAnnotationKey])
+	if updatedRO == nil {
+		t.Fatal("Rollout was bogus and impossible to deserialize")
+	}
+	// This verifies no rollout was started.
+	if got := len(updatedRO.Configurations[0].Revisions); got != 1 {
+		t.Errorf("|revisions in rollout| = %d, want: 1", got)
+	}
+	// This verifies that the new *noop* rollout was installed.
+	if was, become := initialdRO.Configurations[0].Revisions[0].RevisionName,
+		updatedRO.Configurations[0].Revisions[0].RevisionName; was == become {
+		t.Errorf("Revision for default rollout = %s was unchanged", was)
+	}
+}
+
 func TestReconcileIngressUpdate(t *testing.T) {
 	var reconciler *Reconciler
 	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
@@ -360,7 +408,7 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 
 func updateContext(ctx context.Context, rolloutDurationSecs int) context.Context {
 	cfg := reconcilerTestConfig(false)
-	cfg.Network.RolloutDurationSecs = 120
+	cfg.Network.RolloutDurationSecs = rolloutDurationSecs
 	c := config.ToContext(ctx, cfg)
 	return c
 }

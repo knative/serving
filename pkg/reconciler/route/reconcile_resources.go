@@ -71,41 +71,45 @@ func (c *Reconciler) reconcileIngress(
 		// Ingress exists. We need to compute the rollout spec diff.
 		// Get the current rollout state as described by the traffic.
 		curRO := tc.BuildRollout()
+		effectiveRO := curRO
+		nextStepTime := int64(0)
+		cfg := config.FromContext(ctx)
 
-		// Get the previous rollout state from the annotation.
-		// If it's corrupt, inexistent, or otherwise incorrect,
-		// the prevRO will be just nil rollout.
-		prevRO := deserializeRollout(ctx,
-			ingress.Annotations[networking.RolloutAnnotationKey])
-
-		// And recompute the rollout state.
-		now := c.clock.Now().UnixNano()
-
-		// Now check if the ingress status changed from not ready to ready.
-		rtView := r.Status.GetCondition(v1.RouteConditionIngressReady)
-		logger := logging.FromContext(ctx).Desugar()
-		if prevRO != nil && ingress.IsReady() && !rtView.IsTrue() {
-			cfg := config.FromContext(ctx)
-			logger.Debug("Observing Ingress not-ready to ready switch condition for rollout",
+		if cfg.Network.RolloutDurationSecs > 0 {
+			logger := logging.FromContext(ctx).Desugar().With(
 				zap.Int("durationSecs", cfg.Network.RolloutDurationSecs))
-			prevRO.ObserveReady(now, float64(cfg.Network.RolloutDurationSecs))
-		}
+			logger.Debug("Rollout is enabled. Stepping from previous state.")
+			// Get the previous rollout state from the annotation.
+			// If it's corrupt, inexistent, or otherwise incorrect,
+			// the prevRO will be just nil rollout.
+			prevRO := deserializeRollout(ctx,
+				ingress.Annotations[networking.RolloutAnnotationKey])
 
-		effectiveRO, nextStepTime := curRO.Step(prevRO, now)
-		if nextStepTime > 0 {
-			nextStepTime -= now
-			c.enqueueAfter(r, time.Duration(nextStepTime))
-			logger.Debug("Re-enqueuing after", zap.Duration("duration", time.Duration(nextStepTime)))
-		}
+			// And recompute the rollout state.
+			now := c.clock.Now().UnixNano()
 
-		// Comparing and diffing isn't cheap so do it only if we're going
-		// to actually log the message.
-		// Those are well known types, cmp won't panic.
-		if logger.Core().Enabled(zapcore.DebugLevel) && !cmp.Equal(prevRO, effectiveRO) {
-			logger.Debug("Rollout diff:(-was,+now)",
-				zap.String("diff", cmp.Diff(prevRO, effectiveRO)))
-		}
+			// Now check if the ingress status changed from not ready to ready.
+			rtView := r.Status.GetCondition(v1.RouteConditionIngressReady)
+			if prevRO != nil && ingress.IsReady() && !rtView.IsTrue() {
+				logger.Debug("Observing Ingress not-ready to ready switch condition for rollout")
+				prevRO.ObserveReady(now, float64(cfg.Network.RolloutDurationSecs))
+			}
 
+			effectiveRO, nextStepTime = curRO.Step(prevRO, now)
+			if nextStepTime > 0 {
+				nextStepTime -= now
+				c.enqueueAfter(r, time.Duration(nextStepTime))
+				logger.Debug("Re-enqueuing after", zap.Duration("duration", time.Duration(nextStepTime)))
+			}
+
+			// Comparing and diffing isn't cheap so do it only if we're going
+			// to actually log the message.
+			// Those are well known types, cmp won't panic.
+			if logger.Core().Enabled(zapcore.DebugLevel) && !cmp.Equal(prevRO, effectiveRO) {
+				logger.Debug("Rollout diff:(-was,+now)",
+					zap.String("diff", cmp.Diff(prevRO, effectiveRO)))
+			}
+		}
 		desired, err := resources.MakeIngressWithRollout(ctx, r, tc, effectiveRO,
 			tls, ingressClass, acmeChallenges...)
 		if err != nil {

@@ -746,7 +746,8 @@ func TestReconcile(t *testing.T) {
 		// A new LatestCreatedRevisionName on the Configuration alone should result in no changes to the Route.
 		Key: "default/new-latest-created",
 	}, {
-		Name: "new latest ready revision",
+		Name: "new latest ready revision. rollout enabled",
+		Ctx:  context.WithValue(context.Background(), rolloutDurationKey, 120),
 		Objects: []runtime.Object{
 			Route("default", "new-latest-ready", WithConfigTarget("config"),
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
@@ -804,6 +805,72 @@ func TestReconcile(t *testing.T) {
 				}, {
 					RevisionName: "config-00002", Percent: 1,
 				}}, fakeCurTime)),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "new-latest-ready", WithConfigTarget("config"),
+				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00002",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
+		}},
+		Key: "default/new-latest-ready",
+	}, {
+		Name: "new latest ready revision, rollout disabled",
+		Objects: []runtime.Object{
+			Route("default", "new-latest-ready", WithConfigTarget("config"),
+				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName: "config-00001",
+						Percent:      ptr.Int64(100),
+					})),
+			cfg("default", "config",
+				WithConfigGeneration(2), WithLatestCreated("config-00002"), WithLatestReady("config-00002"),
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "new-latest-ready"),
+			),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("magnolia")),
+			// This is the name of the new revision we're referencing above.
+			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002"), WithServiceName("belltown")),
+			simpleReadyIngress(
+				Route("default", "new-latest-ready", WithConfigTarget("config"), WithURL),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+							},
+							ServiceName: "magnolia",
+						}},
+					},
+				},
+			),
+			simpleK8sService(Route("default", "new-latest-ready", WithConfigTarget("config"))),
+		},
+		// A new LatestReadyRevisionName on the Configuration should result in the new Revision being rolled out.
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleReadyIngress(
+				Route("default", "new-latest-ready", WithConfigTarget("config"), WithURL, WithRouteGeneration(1)),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								// This is the new config we're making become ready.
+								RevisionName: "config-00002",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "belltown",
+						}},
+					},
+				}),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "new-latest-ready", WithConfigTarget("config"),
@@ -1002,12 +1069,7 @@ func TestReconcile(t *testing.T) {
 							ServiceName: "wallingford",
 						}},
 					},
-				},
-				simpleRollout("config", []traffic.RevisionRollout{{
-					RevisionName: "config-00001", Percent: 99,
-				}, {
-					RevisionName: "config-00002", Percent: 1,
-				}}, fakeCurTime)),
+				}),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "update-ci-failure", WithConfigTarget("config"),
