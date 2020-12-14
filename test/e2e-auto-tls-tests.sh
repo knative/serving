@@ -151,7 +151,9 @@ function cleanup_per_selfsigned_namespace_auto_tls() {
 
 function setup_dns_record() {
   go run ./test/e2e/autotls/config/dnssetup/
-  if [ $? -ne 0 ]; then
+  if [ $? -eq 0 ]; then
+    echo "Sucessfully set up DNS record"
+  else 
     echo "Error setting up DNS record"
     exit 1
   fi
@@ -159,7 +161,9 @@ function setup_dns_record() {
 
 function delete_dns_record() {
   go run ./test/e2e/autotls/config/dnscleanup/
-  if [ $? -ne 0 ]; then
+  if [ $? -eq 0 ]; then
+    echo "Successfully tore down DNS record"
+  else
     echo "Error deleting up DNS record"
     exit 1
   fi
