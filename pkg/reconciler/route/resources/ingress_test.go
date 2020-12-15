@@ -634,50 +634,6 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 	}
 }
 
-// One active target and a target of 0 percent (nil is now impossible with defaulting to 0).
-func TestMakeIngressRuleNilPercentTarget(t *testing.T) {
-	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1.TrafficTarget{
-			ConfigurationName: "config",
-			RevisionName:      "revision",
-			Percent:           ptr.Int64(100),
-		},
-		ServiceName: "active-target",
-	}, {
-		TrafficTarget: v1.TrafficTarget{
-			ConfigurationName: "new-config",
-			RevisionName:      "new-revision",
-			Percent:           ptr.Int64(0),
-		},
-	}}
-	domains := []string{"test.org"}
-	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
-	expected := netv1alpha1.IngressRule{
-		Hosts: []string{"test.org"},
-		HTTP: &netv1alpha1.HTTPIngressRuleValue{
-			Paths: []netv1alpha1.HTTPIngressPath{{
-				Splits: []netv1alpha1.IngressBackendSplit{{
-					IngressBackend: netv1alpha1.IngressBackend{
-						ServiceNamespace: ns,
-						ServiceName:      "active-target",
-						ServicePort:      intstr.FromInt(80),
-					},
-					Percent: 100,
-					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  "revision",
-						"Knative-Serving-Namespace": ns,
-					},
-				}},
-			}},
-		},
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-	}
-
-	if !cmp.Equal(expected, rule) {
-		t.Error("Unexpected rule (-want, +got):", cmp.Diff(expected, rule))
-	}
-}
-
 // Two active targets.
 func TestMakeIngressRuleTwoTargets(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
