@@ -44,6 +44,7 @@ func defaultFeaturesConfig() *Features {
 		MultiContainer:          Enabled,
 		PodSpecAffinity:         Disabled,
 		PodSpecDryRun:           Allowed,
+		PodSpecHostAliases:      Disabled,
 		PodSpecFieldRef:         Disabled,
 		PodSpecNodeSelector:     Disabled,
 		PodSpecRuntimeClassName: Disabled,
@@ -61,6 +62,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("multi-container", &nc.MultiContainer),
 		asFlag("kubernetes.podspec-affinity", &nc.PodSpecAffinity),
 		asFlag("kubernetes.podspec-dryrun", &nc.PodSpecDryRun),
+		asFlag("kubernetes.podspec-hostaliases", &nc.PodSpecHostAliases),
 		asFlag("kubernetes.podspec-fieldref", &nc.PodSpecFieldRef),
 		asFlag("kubernetes.podspec-nodeselector", &nc.PodSpecNodeSelector),
 		asFlag("kubernetes.podspec-runtimeclassname", &nc.PodSpecRuntimeClassName),
@@ -83,6 +85,7 @@ type Features struct {
 	PodSpecAffinity         Flag
 	PodSpecDryRun           Flag
 	PodSpecFieldRef         Flag
+	PodSpecHostAliases      Flag
 	PodSpecNodeSelector     Flag
 	PodSpecRuntimeClassName Flag
 	PodSpecSecurityContext  Flag

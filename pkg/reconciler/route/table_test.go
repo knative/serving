@@ -2726,6 +2726,7 @@ func reconcilerTestConfig(enableAutoTLS bool) *config.Config {
 			PodSpecAffinity:       cfgmap.Disabled,
 			PodSpecFieldRef:       cfgmap.Disabled,
 			PodSpecDryRun:         cfgmap.Enabled,
+			PodSpecHostAliases:    cfgmap.Disabled,
 			PodSpecNodeSelector:   cfgmap.Disabled,
 			PodSpecTolerations:    cfgmap.Disabled,
 			TagHeaderBasedRouting: cfgmap.Disabled,

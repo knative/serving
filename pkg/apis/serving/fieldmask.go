@@ -176,6 +176,9 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	if cfg.Features.PodSpecAffinity != config.Disabled {
 		out.Affinity = in.Affinity
 	}
+	if cfg.Features.PodSpecHostAliases != config.Disabled {
+		out.HostAliases = in.HostAliases
+	}
 	if cfg.Features.PodSpecNodeSelector != config.Disabled {
 		out.NodeSelector = in.NodeSelector
 	}
@@ -205,7 +208,6 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.Hostname = ""
 	out.Subdomain = ""
 	out.SchedulerName = ""
-	out.HostAliases = nil
 	out.PriorityClassName = ""
 	out.Priority = nil
 	out.DNSConfig = nil
