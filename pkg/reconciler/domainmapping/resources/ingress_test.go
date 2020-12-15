@@ -60,8 +60,7 @@ func TestMakeIngress(t *testing.T) {
 				"some.annotation":                      "some.value",
 			},
 			Labels: kmeta.UnionMaps(dm.Labels, map[string]string{
-				serving.DomainMappingLabelKey:          dm.Name,
-				serving.DomainMappingNamespaceLabelKey: dm.Namespace,
+				serving.DomainMappingLabelKey: dm.Name,
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(dm)},
 		},
