@@ -144,6 +144,7 @@ func (a *autoscaler) Update(deciderSpec *DeciderSpec) {
 func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	logger := logging.FromContext(ctx)
 	desugared := logger.Desugar()
+	debugEnabled := desugared.Core().Enabled(zapcore.DebugLevel)
 
 	spec := a.currentSpec()
 	originalReadyPodsCount, err := a.podCounter.ReadyCount()
@@ -190,7 +191,7 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 
 	dspc := math.Ceil(observedStableValue / spec.TargetValue)
 	dppc := math.Ceil(observedPanicValue / spec.TargetValue)
-	if desugared.Core().Enabled(zapcore.DebugLevel) {
+	if debugEnabled {
 		desugared.Debug(fmt.Sprintf("DesiredStablePodCount = %0.3f, DesiredPanicPodCount = %0.3f, ReadyEndpointCount = %d, MaxScaleUp = %0.3f, MaxScaleDown = %0.3f",
 			dspc, dppc, originalReadyPodsCount, maxScaleUp, maxScaleDown), zap.String("metric", metricName))
 	}
@@ -199,7 +200,7 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
 	desiredPanicPodCount := int32(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
 
-	if desugared.Core().Enabled(zapcore.DebugLevel) {
+	if debugEnabled {
 		desugared.Debug(fmt.Sprintf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
 			observedStableValue, spec.TargetValue), zap.String("mode", "stable"), zap.String("metric", metricName))
 		desugared.Debug(fmt.Sprintf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
@@ -291,7 +292,7 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 			math.Ceil(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue/a.deciderSpec.ActivatorCapacity)))
 	}
 
-	if desugared.Core().Enabled(zapcore.DebugLevel) {
+	if debugEnabled {
 		desugared.Debug(fmt.Sprintf("PodCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f NumActivators=%d",
 			originalReadyPodsCount, a.deciderSpec.TotalValue, observedStableValue,
 			observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF, numAct), zap.String("metric", metricName))
