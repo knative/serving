@@ -92,6 +92,19 @@ type RevisionRollout struct {
 	Percent int `json:"percent"`
 }
 
+// RolloutsByTag returns the ConfigurationRollout(s) for the given tag.
+func (cur *Rollout) RolloutsByTag(t string) []*ConfigurationRollout {
+	// TODO(vagababov): add an intermediate cache later.
+	ret := []*ConfigurationRollout{}
+	for i := range cur.Configurations {
+		cr := cur.Configurations[i]
+		if cr.Tag == t {
+			ret = append(ret, &cr)
+		}
+	}
+	return ret
+}
+
 // Done returns true if there is no active rollout going on
 // for the configuration.
 func (cur *ConfigurationRollout) Done() bool {

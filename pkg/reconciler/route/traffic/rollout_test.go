@@ -1579,3 +1579,73 @@ func TestStepRevisions(t *testing.T) {
 		})
 	}
 }
+
+func TestGetByTag(t *testing.T) {
+	r := &Rollout{
+		Configurations: []ConfigurationRollout{{
+			ConfigurationName: "one",
+			Percent:           50,
+			Revisions: []RevisionRollout{{
+				RevisionName: "rob",
+				Percent:      10,
+			}, {
+				RevisionName: "roy",
+				Percent:      40,
+			}},
+		}, {
+			ConfigurationName: "two",
+			Percent:           40,
+			Revisions: []RevisionRollout{{
+				RevisionName: "wish",
+				Percent:      40,
+			}},
+		}, {
+			ConfigurationName: "two",
+			Tag:               "gilberto",
+			Percent:           100,
+			Revisions: []RevisionRollout{{
+				RevisionName: "wish",
+				Percent:      100,
+			}},
+		}, {
+			ConfigurationName: "three",
+			Percent:           10,
+			Revisions: []RevisionRollout{{
+				RevisionName: "forty-two",
+				Percent:      5,
+			}, {
+				RevisionName: "flowers",
+				Percent:      5,
+			}},
+		}, {
+			ConfigurationName: "three",
+			Tag:               "jobim",
+			Percent:           100,
+			Revisions: []RevisionRollout{{
+				RevisionName: "forty-two",
+				Percent:      60,
+			}, {
+				RevisionName: "flowers",
+				Percent:      40,
+			}},
+		}},
+	}
+	sortRollout(r)
+
+	wantDef := []*ConfigurationRollout{&r.Configurations[0], &r.Configurations[1], &r.Configurations[2]}
+	wantGilberto := []*ConfigurationRollout{&r.Configurations[3]}
+	wantJobim := []*ConfigurationRollout{&r.Configurations[4]}
+
+	if got, want := r.RolloutsByTag(""), wantDef; !cmp.Equal(got, want) {
+		t.Errorf(`RolloutsByTag("") mismatch: diff(-want,+got):\n%s`, cmp.Diff(want, got))
+	}
+	if got, want := r.RolloutsByTag("gilberto"), wantGilberto; !cmp.Equal(got, want) {
+		t.Errorf(`RolloutsByTag("gilberto") mismatch: diff(-want,+got):\n%s`, cmp.Diff(want, got))
+	}
+	if got, want := r.RolloutsByTag("jobim"), wantJobim; !cmp.Equal(got, want) {
+		t.Errorf(`RolloutsByTag("jobim") mismatch: diff(-want,+got):\n%s`, cmp.Diff(want, got))
+	}
+	if got, want := r.RolloutsByTag("nyaful"), []*ConfigurationRollout{}; !cmp.Equal(got, want) {
+		t.Errorf(`RolloutsByTag("nyaful") mismatch: diff(-want,+got):\n%s`, cmp.Diff(want, got))
+	}
+}
