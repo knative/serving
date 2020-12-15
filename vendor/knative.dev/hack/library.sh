@@ -385,8 +385,7 @@ function report_go_test() {
   local xml
   xml="$(mktemp_with_extension "${ARTIFACTS}"/junit_XXXXXXXX xml)"
   echo "Running go test with args: ${go_test_args[*]}"
-  # TODO(chizhg): change to `--format testname`?
-  capture_output "${report}" gotestsum --format "${GO_TEST_VERBOSITY:-standard-verbose}" \
+  capture_output "${report}" gotestsum --format "${GO_TEST_VERBOSITY:-testname}" \
     --junitfile "${xml}" --junitfile-testsuite-name relative --junitfile-testcase-classname relative \
     -- "${go_test_args[@]}"
   local failed=$?

@@ -26,7 +26,7 @@ require (
 	go.uber.org/goleak v1.1.10
 	go.uber.org/zap v1.16.0
 	golang.org/x/oauth2 v0.0.0-20201208152858-08078c50e5b5
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
 	google.golang.org/api v0.36.0
 	google.golang.org/grpc v1.34.0
 	k8s.io/api v0.18.12
@@ -34,8 +34,8 @@ require (
 	k8s.io/client-go v0.18.12
 	k8s.io/code-generator v0.18.12
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20201210131541-02962cbd3851
-	knative.dev/hack v0.0.0-20201201234937-fddbf732e450
-	knative.dev/networking v0.0.0-20201213231442-54d26dd4fc50
-	knative.dev/pkg v0.0.0-20201210165642-80c1131539da
+	knative.dev/caching v0.0.0-20201215015243-9bd909a64850
+	knative.dev/hack v0.0.0-20201214230143-4ed1ecb8db24
+	knative.dev/networking v0.0.0-20201215014943-f9843265b98a
+	knative.dev/pkg v0.0.0-20201215101243-af53027cbd91
 )
