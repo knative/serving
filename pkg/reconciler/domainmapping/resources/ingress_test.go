@@ -27,6 +27,7 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -58,6 +59,10 @@ func TestMakeIngress(t *testing.T) {
 				"networking.knative.dev/ingress.class": "the-ingress-class",
 				"some.annotation":                      "some.value",
 			},
+			Labels: kmeta.UnionMaps(dm.Labels, map[string]string{
+				serving.DomainMappingLabelKey:          dm.Name,
+				serving.DomainMappingNamespaceLabelKey: dm.Namespace,
+			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(dm)},
 		},
 		Spec: netv1alpha1.IngressSpec{

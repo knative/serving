@@ -25,6 +25,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis/serving"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -42,6 +43,10 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName
 				networking.IngressClassAnnotationKey: ingressClass,
 			}, dm.GetAnnotations()), func(key string) bool {
 				return key == corev1.LastAppliedConfigAnnotation
+			}),
+			Labels: kmeta.UnionMaps(dm.Labels, map[string]string{
+				serving.DomainMappingLabelKey:          dm.Name,
+				serving.DomainMappingNamespaceLabelKey: dm.Namespace,
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(dm)},
 		},
