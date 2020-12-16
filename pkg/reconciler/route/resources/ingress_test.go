@@ -462,7 +462,6 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 	if got, want := ing.Spec.Rules, wantRules; !cmp.Equal(got, want) {
 		t.Errorf("Rules mismatch: diff(-want,+got)\n%s", cmp.Diff(want, got))
 	}
-	//t.Logf("### Spec:\n%s\n", spew.Sdump(ing.Spec))
 }
 
 func TestIngressNoKubectlAnnotation(t *testing.T) {
