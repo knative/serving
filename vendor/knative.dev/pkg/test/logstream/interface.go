@@ -19,6 +19,7 @@ package logstream
 import (
 	"context"
 	"os"
+	"strings"
 	"sync"
 
 	"knative.dev/pkg/system"
@@ -51,7 +52,9 @@ func Start(t ti) Canceler {
 				return
 			}
 
-			stream = &shim{logstreamv2.FromNamespace(context.TODO(), kc, ns)}
+			// handle case when ns contains a csv list
+			namespaces := strings.Split(ns, ",")
+			stream = &shim{logstreamv2.FromNamespaces(context.Background(), kc, namespaces)}
 
 		} else {
 			// Otherwise set up a null stream.
