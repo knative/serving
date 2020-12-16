@@ -34,19 +34,28 @@ import (
 	"knative.dev/pkg/ptr"
 )
 
+func FromNamespaces(ctx context.Context, c kubernetes.Interface, namespaces []string) Source {
+	return &namespaceSource{
+		ctx:        ctx,
+		kc:         c,
+		namespaces: namespaces,
+		keys:       make(map[string]Callback, 1),
+	}
+}
+
 func FromNamespace(ctx context.Context, c kubernetes.Interface, namespace string) Source {
 	return &namespaceSource{
-		ctx:       ctx,
-		kc:        c,
-		namespace: namespace,
-		keys:      make(map[string]Callback, 1),
+		ctx:        ctx,
+		kc:         c,
+		namespaces: []string{namespace},
+		keys:       make(map[string]Callback, 1),
 	}
 }
 
 type namespaceSource struct {
-	namespace string
-	kc        kubernetes.Interface
-	ctx       context.Context
+	namespaces []string
+	kc         kubernetes.Interface
+	ctx        context.Context
 
 	m        sync.RWMutex
 	once     sync.Once
@@ -57,7 +66,7 @@ type namespaceSource struct {
 func (s *namespaceSource) StartStream(name string, l Callback) (Canceler, error) {
 	s.once.Do(func() { s.watchErr = s.watchPods() })
 	if s.watchErr != nil {
-		return nil, fmt.Errorf("failed to watch pods in namespace %q: %w", s.namespace, s.watchErr)
+		return nil, fmt.Errorf("failed to watch pods in one of the namespace(s) %q: %w", s.namespaces, s.watchErr)
 	}
 
 	// Register a key
@@ -74,38 +83,40 @@ func (s *namespaceSource) StartStream(name string, l Callback) (Canceler, error)
 }
 
 func (s *namespaceSource) watchPods() error {
-	wi, err := s.kc.CoreV1().Pods(s.namespace).Watch(s.ctx, metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		defer wi.Stop()
-		watchedPods := sets.NewString()
-
-		for {
-			select {
-			case <-s.ctx.Done():
-				return
-			case ev := <-wi.ResultChan():
-				// We have reports of this being randomly nil.
-				if ev.Object == nil || reflect.ValueOf(ev.Object).IsNil() {
-					continue
-				}
-				p := ev.Object.(*corev1.Pod)
-				switch ev.Type {
-				case watch.Deleted:
-					watchedPods.Delete(p.Name)
-				case watch.Added, watch.Modified:
-					if !watchedPods.Has(p.Name) && isPodReady(p) {
-						watchedPods.Insert(p.Name)
-						s.startForPod(p)
-					}
-				}
-
-			}
+	for _, ns := range s.namespaces {
+		wi, err := s.kc.CoreV1().Pods(ns).Watch(s.ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
 		}
-	}()
+
+		go func() {
+			defer wi.Stop()
+			watchedPods := sets.NewString()
+
+			for {
+				select {
+				case <-s.ctx.Done():
+					return
+				case ev := <-wi.ResultChan():
+					// We have reports of this being randomly nil.
+					if ev.Object == nil || reflect.ValueOf(ev.Object).IsNil() {
+						continue
+					}
+					p := ev.Object.(*corev1.Pod)
+					switch ev.Type {
+					case watch.Deleted:
+						watchedPods.Delete(p.Name)
+					case watch.Added, watch.Modified:
+						if !watchedPods.Has(p.Name) && isPodReady(p) {
+							watchedPods.Insert(p.Name)
+							s.startForPod(p)
+						}
+					}
+
+				}
+			}
+		}()
+	}
 
 	return nil
 }
@@ -119,9 +130,12 @@ func (s *namespaceSource) startForPod(pod *corev1.Pod) {
 		psn, pn, cn := pod.Namespace, pod.Name, container.Name
 
 		handleLine := s.handleLine
-		if cn == ChaosDuck {
-			// Specialcase logs from chaosduck to be able to easily see when pods
-			// have been killed throughout all tests.
+		if wellKnownContainers.Has(cn) {
+			// Specialcase logs from chaosduck, queueproxy etc.
+			// - ChaosDuck logs enable easy
+			//   monitoring of killed pods throughout all tests.
+			// - QueueProxy logs enable
+			//   debugging troubleshooting data plane request handling issues.
 			handleLine = s.handleGenericLine
 		}
 
@@ -137,13 +151,13 @@ func (s *namespaceSource) startForPod(pod *corev1.Pod) {
 			req := s.kc.CoreV1().Pods(psn).GetLogs(pn, options)
 			stream, err := req.Stream(context.Background())
 			if err != nil {
-				s.handleGenericLine([]byte(err.Error()), pn)
+				s.handleGenericLine([]byte(err.Error()), pn, cn)
 				return
 			}
 			defer stream.Close()
 			// Read this container's stream.
 			for scanner := bufio.NewScanner(stream); scanner.Scan(); {
-				handleLine(scanner.Bytes(), pn)
+				handleLine(scanner.Bytes(), pn, cn)
 			}
 			// Pods get killed with chaos duck, so logs might end
 			// before the test does. So don't report an error here.
@@ -167,9 +181,16 @@ const (
 	timeFormat = "15:04:05.000"
 	// ChaosDuck is the well known name for the chaosduck.
 	ChaosDuck = "chaosduck"
+	// QueueProxy is the well known name for the queueproxy.
+	QueueProxy = "queueproxy"
 )
 
-func (s *namespaceSource) handleLine(l []byte, pod string) {
+// Names of well known containers that do not produce nicely formatted logs that
+// could be easily filtered and parsed by handleLine. Logs from these containers
+// are captured without filtering.
+var wellKnownContainers = sets.NewString(ChaosDuck, QueueProxy)
+
+func (s *namespaceSource) handleLine(l []byte, pod string, _ string) {
 	// This holds the standard structure of our logs.
 	var line struct {
 		Level      string    `json:"severity"`
@@ -231,12 +252,12 @@ func (s *namespaceSource) handleLine(l []byte, pod string) {
 
 // handleGenericLine prints the given logline to all active tests as it cannot be parsed
 // and/or doesn't contain any correlation data (like the chaosduck for example).
-func (s *namespaceSource) handleGenericLine(l []byte, pod string) {
+func (s *namespaceSource) handleGenericLine(l []byte, pod string, cn string) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	for _, logf := range s.keys {
 		// I 15:04:05.000 webhook-699b7b668d-9smk2 this is my message
-		logf("I %s %s %s", time.Now().Format(timeFormat), pod, string(l))
+		logf("I %s %s %s %s", time.Now().Format(timeFormat), pod, cn, string(l))
 	}
 }
