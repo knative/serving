@@ -192,20 +192,16 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	dspc := math.Ceil(observedStableValue / spec.TargetValue)
 	dppc := math.Ceil(observedPanicValue / spec.TargetValue)
 	if debugEnabled {
-		desugared.Debug(fmt.Sprintf("DesiredStablePodCount = %0.3f, DesiredPanicPodCount = %0.3f, ReadyEndpointCount = %d, MaxScaleUp = %0.3f, MaxScaleDown = %0.3f",
-			dspc, dppc, originalReadyPodsCount, maxScaleUp, maxScaleDown), zap.String("metric", metricName))
+		desugared.Debug(
+			fmt.Sprintf("For metric %s observed values: stable = %0.3f; panic = %0.3f; target = %0.3f "+
+				"Desired StablePodCount = %0.0f, PanicPodCount = %0.0f, ReadyEndpointCount = %d, MaxScaleUp = %0.0f, MaxScaleDown = %0.0f",
+				metricName, observedStableValue, observedPanicValue, spec.TargetValue,
+				dspc, dppc, originalReadyPodsCount, maxScaleUp, maxScaleDown))
 	}
 
 	// We want to keep desired pod count in the  [maxScaleDown, maxScaleUp] range.
 	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
 	desiredPanicPodCount := int32(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
-
-	if debugEnabled {
-		desugared.Debug(fmt.Sprintf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
-			observedStableValue, spec.TargetValue), zap.String("mode", "stable"), zap.String("metric", metricName))
-		desugared.Debug(fmt.Sprintf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
-			observedPanicValue, spec.TargetValue), zap.String("mode", "panic"), zap.String("metric", metricName))
-	}
 
 	isOverPanicThreshold := dppc/readyPodsCount >= spec.PanicThreshold
 
@@ -236,10 +232,10 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 		logger.Debug("Operating in panic mode.")
 		// We do not scale down while in panic mode. Only increases will be applied.
 		if desiredPodCount > a.maxPanicPods {
-			logger.Infof("Increasing pods from %d to %d.", originalReadyPodsCount, desiredPodCount)
+			logger.Infof("Increasing pods count from %d to %d.", originalReadyPodsCount, desiredPodCount)
 			a.maxPanicPods = desiredPodCount
 		} else if desiredPodCount < a.maxPanicPods {
-			logger.Infof("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPodCount)
+			logger.Infof("Skipping pod count decrease from %d to %d.", a.maxPanicPods, desiredPodCount)
 		}
 		desiredPodCount = a.maxPanicPods
 	} else {
@@ -256,7 +252,11 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 		a.delayWindow.Record(now, desiredPodCount)
 		delayedPodCount := a.delayWindow.Current()
 		if delayedPodCount != desiredPodCount {
-			logger.Debugf("Delaying scale to %d, staying at %d", desiredPodCount, delayedPodCount)
+			if debugEnabled {
+				desugared.Debug(
+					fmt.Sprintf("Delaying scale to %d, staying at %d",
+						desiredPodCount, delayedPodCount))
+			}
 			desiredPodCount = delayedPodCount
 		}
 	}
@@ -295,7 +295,7 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	if debugEnabled {
 		desugared.Debug(fmt.Sprintf("PodCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f NumActivators=%d",
 			originalReadyPodsCount, a.deciderSpec.TotalValue, observedStableValue,
-			observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF, numAct), zap.String("metric", metricName))
+			observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF, numAct))
 	}
 
 	switch spec.ScalingMetric {
