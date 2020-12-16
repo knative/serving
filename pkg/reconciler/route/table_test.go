@@ -418,7 +418,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// ingress should be updated with the new rollout data.
-			Object: simpleReadyIngress(
+			Object: ingressWithRollout(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
@@ -431,6 +431,18 @@ func TestReconcile(t *testing.T) {
 							},
 						}},
 					},
+				},
+				&traffic.Rollout{
+					Configurations: []traffic.ConfigurationRollout{{
+						ConfigurationName: "config",
+						Revisions: []traffic.RevisionRollout{{
+							RevisionName: "config-00000",
+							Percent:      99,
+						}, {
+							RevisionName: "config-00001",
+							Percent:      1,
+						}},
+					}},
 				},
 				simpleRollout("config", []traffic.RevisionRollout{{
 					RevisionName: "config-00000", Percent: 99,
@@ -784,7 +796,7 @@ func TestReconcile(t *testing.T) {
 		},
 		// A new LatestReadyRevisionName on the Configuration should result in the new Revision being rolled out.
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleReadyIngress(
+			Object: ingressWithRollout(
 				Route("default", "new-latest-ready", WithConfigTarget("config"), WithURL, WithRouteGeneration(1)),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
@@ -799,6 +811,18 @@ func TestReconcile(t *testing.T) {
 							ServiceName: "belltown",
 						}},
 					},
+				},
+				&traffic.Rollout{
+					Configurations: []traffic.ConfigurationRollout{{
+						ConfigurationName: "config",
+						Revisions: []traffic.RevisionRollout{{
+							RevisionName: "config-00001",
+							Percent:      99,
+						}, {
+							RevisionName: "config-00002",
+							Percent:      1,
+						}},
+					}},
 				},
 				simpleRollout("config", []traffic.RevisionRollout{{
 					RevisionName: "config-00001", Percent: 99,
@@ -2641,6 +2665,15 @@ func simpleReadyIngress(r *v1.Route, tc *traffic.Config, io ...IngressOption) *n
 		opt(ingress)
 	}
 
+	return ingress
+}
+
+func ingressWithRollout(r *v1.Route, tc *traffic.Config, ro *traffic.Rollout, io ...IngressOption) *netv1alpha1.Ingress {
+	ingress, _ := resources.MakeIngressWithRollout(getContext(), r, tc, ro, nil /*tls*/, TestIngressClass)
+	ingress.Status = readyIngressStatus()
+	for _, o := range io {
+		o(ingress)
+	}
 	return ingress
 }
 

@@ -81,10 +81,12 @@ func MakeIngressWithRollout(
 	ingressClass string,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (*netv1alpha1.Ingress, error) {
-	spec, err := makeIngressSpec(ctx, r, tls, tc, acmeChallenges...)
+	spec, err := makeIngressSpec(ctx, r, tls, tc, ro, acmeChallenges...)
 	if err != nil {
 		return nil, err
 	}
+	logger := logging.FromContext(ctx)
+	logger.Infof("@@@ Applying rollout %#v\n", ro)
 	return &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Ingress(r),
@@ -122,6 +124,7 @@ func makeIngressSpec(
 	r *servingv1.Route,
 	tls []netv1alpha1.IngressTLS,
 	tc *traffic.Config,
+	ro *traffic.Rollout,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (netv1alpha1.IngressSpec, error) {
 	// Domain should have been specified in route status
@@ -149,7 +152,8 @@ func makeIngressSpec(
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
-			rule := makeIngressRule(domains, r.Namespace, visibility, tc.Targets[name])
+			rule := makeIngressRule(domains, r.Namespace, name,
+				visibility, tc.Targets[name], ro)
 			if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string, 1)
@@ -171,7 +175,7 @@ func makeIngressSpec(
 					// Since names are sorted `DefaultTarget == ""` is the first one,
 					// so just pass the subslice.
 					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(r.Namespace, tc, names[1:]), rule.HTTP.Paths...)
+						makeTagBasedRoutingIngressPaths(r.Namespace, tc, ro, names[1:]), rule.HTTP.Paths...)
 				} else {
 					// If a request is routed by a tag-attached hostname instead of the tag header,
 					// the request may not have the tag header "Knative-Serving-Tag",
@@ -252,25 +256,27 @@ func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, dom
 	return paths
 }
 
-func makeIngressRule(domains []string, ns string,
-	visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) netv1alpha1.IngressRule {
+func makeIngressRule(domains []string, ns, tag string,
+	visibility netv1alpha1.IngressVisibility,
+	targets traffic.RevisionTargets,
+	ro *traffic.Rollout) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{
-				*makeBaseIngressPath(ns, targets),
+				*makeBaseIngressPath(ns, tag, targets, ro),
 			},
 		},
 	}
 }
 
 // `names` should not include `""` — the DefaultTarget.
-func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, names []string) []netv1alpha1.HTTPIngressPath {
+func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.Rollout, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
-		path := makeBaseIngressPath(ns, tc.Targets[name])
+		path := makeBaseIngressPath(ns, name, tc.Targets[name], ro)
 		path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
 		paths = append(paths, *path)
 	}
@@ -278,28 +284,66 @@ func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, names []stri
 	return paths
 }
 
-func makeBaseIngressPath(ns string, targets traffic.RevisionTargets) *netv1alpha1.HTTPIngressPath {
+func rolloutConfig(cfgName string, ros []*traffic.ConfigurationRollout) *traffic.ConfigurationRollout {
+	for _, ro := range ros {
+		if ro.ConfigurationName == cfgName {
+			return ro
+		}
+	}
+	// Technically impossible with valid inputs.
+	return nil
+}
+
+func makeBaseIngressPath(ns, tag string, targets traffic.RevisionTargets,
+	ro *traffic.Rollout) *netv1alpha1.HTTPIngressPath {
+	roCfgs := ro.RolloutsByTag(tag)
+
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
+		var cfg *traffic.ConfigurationRollout
 		if *t.Percent == 0 {
 			continue
 		}
 
-		splits = append(splits, netv1alpha1.IngressBackendSplit{
-			IngressBackend: netv1alpha1.IngressBackend{
-				ServiceNamespace: ns,
-				ServiceName:      t.ServiceName,
-				// Port on the public service must match port on the activator.
-				// Otherwise, the serverless services can't guarantee seamless positive handoff.
-				ServicePort: intstr.FromInt(networking.ServicePort(t.Protocol)),
-			},
-			Percent: int(*t.Percent),
-			AppendHeaders: map[string]string{
-				activator.RevisionHeaderName:      t.TrafficTarget.RevisionName,
-				activator.RevisionHeaderNamespace: ns,
-			},
-		})
+		if t.LatestRevision != nil && *t.LatestRevision {
+			cfg = rolloutConfig(t.ConfigurationName, roCfgs)
+		}
+		if cfg == nil || len(cfg.Revisions) < 2 {
+			// No rollout in progress.
+			splits = append(splits, netv1alpha1.IngressBackendSplit{
+				IngressBackend: netv1alpha1.IngressBackend{
+					ServiceNamespace: ns,
+					ServiceName:      t.ServiceName,
+					// Port on the public service must match port on the activator.
+					// Otherwise, the serverless services can't guarantee seamless positive handoff.
+					ServicePort: intstr.FromInt(networking.ServicePort(t.Protocol)),
+				},
+				Percent: int(*t.Percent),
+				AppendHeaders: map[string]string{
+					activator.RevisionHeaderName:      t.TrafficTarget.RevisionName,
+					activator.RevisionHeaderNamespace: ns,
+				},
+			})
+		} else {
+			for i := range cfg.Revisions {
+				rev := &cfg.Revisions[i]
+				splits = append(splits, netv1alpha1.IngressBackendSplit{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      rev.RevisionName,
+						// Port on the public service must match port on the activator.
+						// Otherwise, the serverless services can't guarantee seamless positive handoff.
+						ServicePort: intstr.FromInt(networking.ServicePort(t.Protocol)),
+					},
+					Percent: rev.Percent,
+					AppendHeaders: map[string]string{
+						activator.RevisionHeaderName:      rev.RevisionName,
+						activator.RevisionHeaderNamespace: ns,
+					},
+				})
+			}
+		}
 	}
 
 	return &netv1alpha1.HTTPIngressPath{
