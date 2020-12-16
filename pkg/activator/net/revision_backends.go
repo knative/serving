@@ -359,6 +359,7 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 		case <-rw.stopCh:
 			return
 		case x := <-rw.destsCh:
+			rw.logger.Debugf("Updating Endpoints: ready backends: %d, not-ready backends: %d", len(x.ready), len(x.notReady))
 			prevDests, curDests = curDests, x
 		case <-tickCh:
 		}
@@ -480,17 +481,13 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 	}
 	endpoints := newObj.(*corev1.Endpoints)
 	revID := types.NamespacedName{Namespace: endpoints.Namespace, Name: endpoints.Labels[serving.RevisionLabelKey]}
-	logger := rbm.logger.With(zap.String(logkey.Key, revID.String()))
-
-	logger.Debugf("Endpoints updated: %#v", newObj)
 
 	rw, err := rbm.getOrCreateRevisionWatcher(revID)
 	if err != nil {
-		logger.Errorw("Failed to get revision watcher", zap.Error(err))
+		rbm.logger.Errorw("Failed to get revision watcher", zap.Error(err), zap.String(logkey.Key, revID.String()))
 		return
 	}
 	ready, notReady := endpointsToDests(endpoints, pkgnet.ServicePortName(rw.protocol))
-	logger.Debugf("Updating Endpoints: ready backends: %d, not-ready backends: %d", len(ready), len(notReady))
 	select {
 	case <-rbm.ctx.Done():
 		return

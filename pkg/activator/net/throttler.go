@@ -586,11 +586,10 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 
 func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
-		logger := t.logger.With(zap.String(logkey.Key, update.Rev.String()))
 		if k8serrors.IsNotFound(err) {
-			logger.Debug("Revision not found. It was probably removed")
+			t.logger.Debugw("Revision not found. It was probably removed", zap.String(logkey.Key, update.Rev.String()))
 		} else {
-			logger.Errorw("Failed to get revision throttler", zap.Error(err))
+			t.logger.Errorw("Failed to get revision throttler", zap.Error(err), zap.String(logkey.Key, update.Rev.String()))
 		}
 	} else {
 		rt.handleUpdate(update)
@@ -608,11 +607,10 @@ func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
 	}
 	rev := types.NamespacedName{Name: revN, Namespace: eps.Namespace}
 	if rt, err := t.getOrCreateRevisionThrottler(rev); err != nil {
-		logger := t.logger.With(zap.String(logkey.Key, rev.String()))
 		if k8serrors.IsNotFound(err) {
-			logger.Debug("Revision not found. It was probably removed")
+			t.logger.Debugw("Revision not found. It was probably removed", zap.String(logkey.Key, rev.String()))
 		} else {
-			logger.Errorw("Failed to get revision throttler", zap.Error(err))
+			t.logger.Errorw("Failed to get revision throttler", zap.Error(err), zap.String(logkey.Key, rev.String()))
 		}
 	} else {
 		rt.handlePubEpsUpdate(eps, t.ipAddress)
