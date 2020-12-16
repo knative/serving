@@ -420,9 +420,6 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 	logger = logger.With(zap.String("targetMethod", name))
 	switch name {
 	case {{.doReconcileKind|raw}}:
-		// Append the target method to the logger.
-		logger = logger.With(zap.String("targetMethod", "ReconcileKind"))
-
 		// Set and update the finalizer on resource if r.reconciler
 		// implements Finalizer.
 		if resource, err = r.setFinalizerIfFinalizer(ctx, resource); err != nil {
