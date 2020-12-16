@@ -295,7 +295,7 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	if debugEnabled {
 		desugared.Debug(fmt.Sprintf("PodCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f NumActivators=%d",
 			originalReadyPodsCount, a.deciderSpec.TotalValue, observedStableValue,
-			observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF, numAct), zap.String("metric", metricName))
+			observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF, numAct))
 	}
 
 	switch spec.ScalingMetric {
