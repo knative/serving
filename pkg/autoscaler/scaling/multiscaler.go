@@ -26,8 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
@@ -219,8 +217,6 @@ func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, 
 // Create instantiates the desired Decider.
 func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, error) {
 	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
-	logger := m.logger.With(zap.String(logkey.Key, key.String()))
-	ctx = logging.WithLogger(ctx, logger)
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	scaler, exists := m.scalers[key]
