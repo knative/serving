@@ -72,10 +72,10 @@ rotation, feel free to send a PR to remove yourself.
 | 2020-12-21 | (looking for a volunteer)                           |
 | 2020-12-28 | [vagababov](https://github.com/vagababov)           |
 | 2021-01-04 | [mattmoor](https://github.com/mattmoor)             |
-| 2020-01-11 | [ZhiminXiang](https://github.com/ZhiminXiang)       |
-| 2020-01-18 | [yanweiguo](https://github.com/yanweiguo)           |
-| 2020-01-25 | [markusthoemmes](https://github.com/markusthoemmes) |
-| 2020-02-01 | [julz](https://github.com/julz)                     |
+| 2020-01-11 | [yanweiguo](https://github.com/ZhiminXiang)         |
+| 2020-01-18 | [markusthoemmes](https://github.com/yanweiguo)      |
+| 2020-01-25 | [julz](https://github.com/markusthoemmes)           |
+| 2020-02-01 | [ZhiminXiang](https://github.com/julz)              |
 | 2020-02-08 | [JRBANCEL](https://github.com/JRBANCEL)             |
 | 2020-02-15 | [nak3](https://github.com/nak3)                     |
 | 2020-02-22 | [vagababov](https://github.com/vagababov)           |
