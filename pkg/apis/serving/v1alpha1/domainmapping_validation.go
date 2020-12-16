@@ -18,7 +18,10 @@ package v1alpha1
 
 import (
 	"context"
+	"fmt"
 
+	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -37,6 +40,11 @@ func (dm *DomainMapping) Validate(ctx context.Context) *apis.FieldError {
 func (dm *DomainMapping) validateMetadata(ctx context.Context) (errs *apis.FieldError) {
 	if dm.GenerateName != "" {
 		errs = errs.Also(apis.ErrDisallowedFields("generateName"))
+	}
+
+	err := validation.IsFullyQualifiedDomainName(field.NewPath("name"), dm.Name)
+	if err != nil {
+		errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("invalid name %q: %s", dm.Name, err.ToAggregate()), "name"))
 	}
 
 	if apis.IsInUpdate(ctx) {
