@@ -7,7 +7,6 @@ require (
 	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
 	github.com/docker/docker v1.13.1 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.2+incompatible
-	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/google/go-cmp v0.5.4
 	github.com/google/go-containerregistry v0.2.1
@@ -38,4 +37,5 @@ require (
 	knative.dev/hack v0.0.0-20201214230143-4ed1ecb8db24
 	knative.dev/networking v0.0.0-20201215172457-b175a8d66f91
 	knative.dev/pkg v0.0.0-20201215202458-ef8048c0ba77
+	sigs.k8s.io/yaml v1.2.0
 )
