@@ -147,13 +147,17 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	}
 
 	// Reconcile ingress and its children resources.
-	ingress, _, err := c.reconcileIngress(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), acmeChallenges...)
+	ingress, effectiveRO, err := c.reconcileIngress(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), acmeChallenges...)
 	if err != nil {
 		return err
 	}
 
 	if ingress.GetObjectMeta().GetGeneration() != ingress.Status.ObservedGeneration {
 		r.Status.MarkIngressNotConfigured()
+	} else if !effectiveRO.Done() {
+		logger.Info("Rollout is in progress")
+		// Rollout in progress
+		r.Status.MarkIngressRolloutInProgress()
 	} else {
 		r.Status.PropagateIngressStatus(ingress.Status)
 	}

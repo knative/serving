@@ -70,6 +70,13 @@ func (rs *RouteStatus) MarkServiceNotOwned(name string) {
 		fmt.Sprintf("There is an existing placeholder Service %q that we do not own.", name))
 }
 
+// MarkIngressRolloutInProgress changes the IngressReady condition to be unknown to reflect
+// that a gradual rollout of the latest new revision (or stacked revisions) is in progress.
+func (rs *RouteStatus) MarkIngressRolloutInProgress() {
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionIngressReady,
+		"RolloutInProgress", "A gradual rollout of the latest revision(s) is in progress.")
+}
+
 // MarkIngressNotConfigured changes the IngressReady condition to be unknown to reflect
 // that the Ingress does not yet have a Status
 func (rs *RouteStatus) MarkIngressNotConfigured() {

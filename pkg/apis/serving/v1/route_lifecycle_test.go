@@ -479,3 +479,11 @@ func TestIngressNotConfigured(t *testing.T) {
 
 	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
 }
+
+func TestMarkInRollout(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkIngressRolloutInProgress()
+
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+}
