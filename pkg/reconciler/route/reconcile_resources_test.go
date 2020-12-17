@@ -50,8 +50,12 @@ func TestReconcileIngressInsert(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 	tc, tls := testIngressParams(t, r)
-	if _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
+	_, ro, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress")
+	if err != nil {
 		t.Error("Unexpected error:", err)
+	}
+	if got, want := ro, tc.BuildRollout(); !cmp.Equal(got, want) {
+		t.Errorf("Default rollout mismatch: diff(-want,+got):\n%s", cmp.Diff(want, got))
 	}
 }
 
@@ -97,8 +101,13 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 		}}
 	})
 	ctx = updateContext(ctx, 120.0)
-	if _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress-class"); err != nil {
+	_, ro, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress-class")
+	if err != nil {
 		t.Fatal("Unexpected error:", err)
+	}
+
+	if got, want := ro, tc.BuildRollout(); !cmp.Equal(got, want) {
+		t.Errorf("Complex initial rollout mismatch: diff(-want,+got):\n%s", cmp.Diff(want, got))
 	}
 
 	ing := getRouteIngressFromClient(ctx, t, r)
@@ -107,7 +116,8 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 	// Now we have initial version. Let's make a rollout.
 	tc.Targets[traffic.DefaultTarget][1].RevisionName = "miercoles"
 
-	if _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress-class"); err != nil {
+	_, updRO, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress-class")
+	if err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
@@ -121,9 +131,15 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 	if wasReenqueued {
 		t.Fatal("Unexpected re-enqueuing happened")
 	}
-	ro := deserializeRollout(ctx, updated.Annotations[networking.RolloutAnnotationKey])
+
+	ro = deserializeRollout(ctx, updated.Annotations[networking.RolloutAnnotationKey])
 	if ro == nil {
 		t.Fatal("Rollout was bogus and impossible to deserialize")
+	}
+
+	// Verify the same rollout was returned by the ReconcileResources.
+	if !cmp.Equal(ro, updRO) {
+		t.Errorf("Returned and Annotation Rollouts differ: diff(-ret,+ann):\n%s", cmp.Diff(updRO, ro))
 	}
 
 	// After sorting `odin` will come first.
@@ -142,7 +158,8 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 	// Advance the time. This 5s will become step time as well.
 	fakeClock.Time = fakeClock.Time.Add(5 * time.Second)
 
-	if _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
+	_, updRO, err = reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress")
+	if err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
@@ -157,10 +174,17 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 	if ro == nil {
 		t.Fatal("Rollout was bogus and impossible to deserialize")
 	}
+
 	// Verify NextStepTime and StepSize are set as expected
 	if got, want := ro.Configurations[0].StepParams.NextStepTime,
 		fakeClock.Time.Add(5*time.Second).UnixNano(); got != want {
 		t.Errorf("NextStepTime = %d, want: %d", got, want)
+	}
+
+	// Verify the same rollout was returned by the ReconcileResources.
+	if !cmp.Equal(ro, updRO) {
+		t.Errorf("Returned and Annotation Rollouts after re-enqueue differ: diff(-ret,+ann):\n%s",
+			cmp.Diff(updRO, ro))
 	}
 
 	// Rounding up, so step size should be 2.
@@ -186,7 +210,7 @@ func TestReconcileIngressUpdateNoRollout(t *testing.T) {
 	r := Route("test-ns", "test-route")
 
 	tc, tls := testIngressParams(t, r)
-	if _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
+	if _, _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
@@ -196,7 +220,7 @@ func TestReconcileIngressUpdateNoRollout(t *testing.T) {
 	tc, tls = testIngressParams(t, r, func(tc *traffic.Config) {
 		tc.Targets[traffic.DefaultTarget][0].RevisionName = "revision2"
 	})
-	if _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
+	if _, _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
@@ -233,7 +257,7 @@ func TestReconcileIngressUpdate(t *testing.T) {
 	r := Route("test-ns", "test-route")
 
 	tc, tls := testIngressParams(t, r)
-	if _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
+	if _, _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
@@ -249,7 +273,7 @@ func TestReconcileIngressUpdate(t *testing.T) {
 			},
 		})
 	})
-	if _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
+	if _, _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
@@ -303,7 +327,7 @@ func TestReconcileIngressRolloutDeserializeFail(t *testing.T) {
 			ingClient := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Ingresses(ing.Namespace)
 			ingClient.Create(ctx, ing, metav1.CreateOptions{})
 			fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ing)
-			if _, err := reconciler.reconcileIngress(ctx, r, traffic, tls, "foo-ingress"); err != nil {
+			if _, _, err := reconciler.reconcileIngress(ctx, r, traffic, tls, "foo-ingress"); err != nil {
 				t.Error("Unexpected error:", err)
 			}
 			ing, err = ingClient.Get(ctx, ing.Name, metav1.GetOptions{})
@@ -388,14 +412,14 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 	tc, tls := testIngressParams(t, r)
-	if _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
+	if _, _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
 	updated := getRouteIngressFromClient(ctx, t, r)
 	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(updated)
 
-	if _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, expClass); err != nil {
+	if _, _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, expClass); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 

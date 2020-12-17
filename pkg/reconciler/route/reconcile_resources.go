@@ -26,6 +26,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -48,30 +49,31 @@ func (c *Reconciler) reconcileIngress(
 	tls []netv1alpha1.IngressTLS,
 	ingressClass string,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
-) (*netv1alpha1.Ingress, error) {
+) (*netv1alpha1.Ingress, *traffic.Rollout, error) {
 	recorder := controller.GetEventRecorder(ctx)
+	var effectiveRO *traffic.Rollout
 
 	ingress, err := c.ingressLister.Ingresses(r.Namespace).Get(names.Ingress(r))
 	if apierrs.IsNotFound(err) {
 		desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, acmeChallenges...)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		ingress, err = c.netclient.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
 		if err != nil {
 			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
-			return nil, fmt.Errorf("failed to create Ingress: %w", err)
+			return nil, nil, fmt.Errorf("failed to create Ingress: %w", err)
 		}
 
 		recorder.Eventf(r, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.GetName())
-		return ingress, nil
+		return ingress, tc.BuildRollout(), nil
 	} else if err != nil {
-		return nil, err
+		return nil, nil, err
 	} else {
 		// Ingress exists. We need to compute the rollout spec diff.
 		// Get the current rollout state as described by the traffic.
 		curRO := tc.BuildRollout()
-		effectiveRO := curRO
+		effectiveRO = curRO
 		nextStepTime := int64(0)
 		cfg := config.FromContext(ctx)
 
@@ -113,7 +115,7 @@ func (c *Reconciler) reconcileIngress(
 		desired, err := resources.MakeIngressWithRollout(ctx, r, tc, effectiveRO,
 			tls, ingressClass, acmeChallenges...)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
@@ -135,13 +137,13 @@ func (c *Reconciler) reconcileIngress(
 			updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(
 				ctx, origin, metav1.UpdateOptions{})
 			if err != nil {
-				return nil, fmt.Errorf("failed to update Ingress: %w", err)
+				return nil, nil, fmt.Errorf("failed to update Ingress: %w", err)
 			}
-			return updated, nil
+			return updated, effectiveRO, nil
 		}
 	}
 
-	return ingress, err
+	return ingress, effectiveRO, err
 }
 
 func (c *Reconciler) deleteServices(ctx context.Context, namespace string, serviceNames sets.String) error {
