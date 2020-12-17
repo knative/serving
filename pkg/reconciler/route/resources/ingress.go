@@ -85,8 +85,6 @@ func MakeIngressWithRollout(
 	if err != nil {
 		return nil, err
 	}
-	logger := logging.FromContext(ctx)
-	logger.Infof("@@@ Applying rollout %#v\n", ro)
 	return &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Ingress(r),
@@ -152,8 +150,8 @@ func makeIngressSpec(
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
-			rule := makeIngressRule(domains, r.Namespace, name,
-				visibility, tc.Targets[name], ro)
+			rule := makeIngressRule(domains, r.Namespace,
+				visibility, tc.Targets[name], ro.RolloutsByTag(name))
 			if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string, 1)
@@ -256,16 +254,16 @@ func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, dom
 	return paths
 }
 
-func makeIngressRule(domains []string, ns, tag string,
+func makeIngressRule(domains []string, ns string,
 	visibility netv1alpha1.IngressVisibility,
 	targets traffic.RevisionTargets,
-	ro *traffic.Rollout) netv1alpha1.IngressRule {
+	roCfgs []*traffic.ConfigurationRollout) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{
-				*makeBaseIngressPath(ns, tag, targets, ro),
+				*makeBaseIngressPath(ns, targets, roCfgs),
 			},
 		},
 	}
@@ -276,7 +274,7 @@ func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
-		path := makeBaseIngressPath(ns, name, tc.Targets[name], ro)
+		path := makeBaseIngressPath(ns, tc.Targets[name], ro.RolloutsByTag(name))
 		path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
 		paths = append(paths, *path)
 	}
@@ -294,10 +292,8 @@ func rolloutConfig(cfgName string, ros []*traffic.ConfigurationRollout) *traffic
 	return nil
 }
 
-func makeBaseIngressPath(ns, tag string, targets traffic.RevisionTargets,
-	ro *traffic.Rollout) *netv1alpha1.HTTPIngressPath {
-	roCfgs := ro.RolloutsByTag(tag)
-
+func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
+	roCfgs []*traffic.ConfigurationRollout) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
