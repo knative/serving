@@ -124,7 +124,6 @@ github.com/evanphx/json-patch
 ## explicit
 github.com/form3tech-oss/jwt-go
 # github.com/ghodss/yaml v1.0.0
-## explicit
 github.com/ghodss/yaml
 # github.com/go-logr/logr v0.1.0
 github.com/go-logr/logr
@@ -1139,4 +1138,5 @@ knative.dev/pkg/websocket
 # sigs.k8s.io/structured-merge-diff/v3 v3.0.1-0.20200706213357-43c19bbb7fba
 sigs.k8s.io/structured-merge-diff/v3/value
 # sigs.k8s.io/yaml v1.2.0
+## explicit
 sigs.k8s.io/yaml
