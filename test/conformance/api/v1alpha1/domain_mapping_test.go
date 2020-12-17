@@ -58,8 +58,14 @@ func TestDomainMapping(t *testing.T) {
 
 	// Using fixed hostnames can lead to conflicts when multiple tests run at
 	// once, so include the svc name to avoid collisions.
-	host := svc.Service.Name + ".mapping.com"
+	host := svc.Service.Name + ".example.org"
+	// Set resolvabledomain for custom domain to false by default.
+	resolvableCustomDomain := false
 
+	if test.ServingFlags.CustomDomain != "" {
+		host = svc.Service.Name + "." + test.ServingFlags.CustomDomain
+		resolvableCustomDomain = true
+	}
 	// Point DomainMapping at our service.
 	var dm *v1alpha1.DomainMapping
 	if err := reconciler.RetryTestErrors(func(int) error {
@@ -100,7 +106,7 @@ func TestDomainMapping(t *testing.T) {
 	}
 
 	// Should be able to access the test image text via the mapped domain.
-	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}); err != nil {
+	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}, resolvableCustomDomain); err != nil {
 		t.Errorf("CheckDistribution=%v, expected no error", err)
 	}
 
@@ -158,7 +164,7 @@ func TestDomainMapping(t *testing.T) {
 	}
 
 	// Because the second DomainMapping collided with the first, it should not have taken effect.
-	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}); err != nil {
+	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}, resolvableCustomDomain); err != nil {
 		t.Errorf("CheckDistribution=%v, expected no error", err)
 	}
 
@@ -181,7 +187,7 @@ func TestDomainMapping(t *testing.T) {
 	}
 
 	// The domain name should now point to the second service.
-	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText2}); err != nil {
+	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText2}, resolvableCustomDomain); err != nil {
 		t.Errorf("CheckDistribution=%v, expected no error", err)
 	}
 }

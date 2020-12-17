@@ -181,8 +181,8 @@ func checkResponses(t testing.TB, num, min int, domain string, expectedResponses
 
 // CheckDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
-func CheckDistribution(ctx context.Context, t testing.TB, clients *test.Clients, url *url.URL, num, min int, expectedResponses []string) error {
-	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS))
+func CheckDistribution(ctx context.Context, t testing.TB, clients *test.Clients, url *url.URL, num, min int, expectedResponses []string, resolvable bool) error {
+	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf, url.Hostname(), resolvable, test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return err
 	}
