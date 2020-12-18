@@ -28,6 +28,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	. "knative.dev/pkg/logging/testing"
 )
 
 func TestStep(t *testing.T) {
@@ -988,9 +990,10 @@ func TestStep(t *testing.T) {
 		},
 	}}
 
+	ctx := TestContextWithLogger(t)
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, gotNS := tc.cur.Step(tc.prev, now)
+			got, gotNS := tc.cur.Step(ctx, tc.prev, now)
 			if want := tc.want; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
 				t.Errorf("Wrong rolled rollout, diff(-want,+got):\n%s", cmp.Diff(want, got))
 			}
@@ -1097,7 +1100,8 @@ func TestObserveReady(t *testing.T) {
 	}
 
 	// This works in place.
-	ro.ObserveReady(now, duration)
+	ctx := TestContextWithLogger(t)
+	ro.ObserveReady(ctx, now, duration)
 
 	if !cmp.Equal(ro, want) {
 		t.Errorf("ObserveReady generated mismatched config: diff(-want,+got):\n%s",

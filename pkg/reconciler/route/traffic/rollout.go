@@ -135,7 +135,8 @@ func (cur *Rollout) Validate() bool {
 // ObserveReady traverses the configs and the ones that are in rollout
 // but have not observed step time yet, will have it set, to
 // max(1, nowTS-cfg.StartTime).
-func (cur *Rollout) ObserveReady(nowTS int64, durationSecs float64) {
+func (cur *Rollout) ObserveReady(ctx context.Context, nowTS int64, durationSecs float64) {
+	logger := logging.FromContext(ctx)
 	for i := range cur.Configurations {
 		c := &cur.Configurations[i]
 		if c.StepParams.StepDuration == 0 && c.StepParams.StartTime > 0 {
@@ -143,6 +144,7 @@ func (cur *Rollout) ObserveReady(nowTS int64, durationSecs float64) {
 			// given possible time drift, we'll ensure that at least 1s is returned.
 			minStepSec := math.Max(1, math.Ceil(time.Duration(nowTS-c.StepParams.StartTime).Seconds()))
 			c.computeProperties(float64(nowTS), minStepSec, durationSecs)
+			logger.Debugf("Rollout properties for %s: %#v", c.ConfigurationName, c.StepParams)
 		}
 	}
 }
