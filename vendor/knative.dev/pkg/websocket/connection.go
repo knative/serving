@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http/httputil"
@@ -165,7 +166,7 @@ func NewDurableConnection(target string, messageChan chan []byte, logger *zap.Su
 				}
 				logger.Debug("Connected to ", target)
 				if err := c.keepalive(); err != nil {
-					logger.With(zap.Error(err)).Errorf("Connection to %s broke down, reconnecting...", target)
+					logger.Errorw(fmt.Sprintf("Connection to %s broke down, reconnecting...", target), zap.Error(err))
 				}
 				if err := c.closeConnection(); err != nil {
 					logger.Errorw("Failed to close the connection after crashing", zap.Error(err))

@@ -17,7 +17,7 @@ limitations under the License.
 package config
 
 import (
-	yaml "gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 )
 
 var defaultChannel = Channel{Name: "performance", Identity: "CBDMABCTF"}
