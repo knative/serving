@@ -23,10 +23,10 @@ import (
 	"testing"
 	"unicode"
 
-	"github.com/ghodss/yaml"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/configmap"
+	"sigs.k8s.io/yaml"
 )
 
 // ConfigMapFromTestFile creates a v1.ConfigMap from a YAML file
@@ -52,7 +52,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 
 	var orig corev1.ConfigMap
 
-	// Use github.com/ghodss/yaml since it reads json struct
+	// Use sigs.k8s.io/yaml since it reads json struct
 	// tags so things unmarshal properly
 	if err := yaml.Unmarshal(b, &orig); err != nil {
 		t.Fatal("yaml.Unmarshal() =", err)

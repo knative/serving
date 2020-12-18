@@ -26,6 +26,7 @@ import (
 	"github.com/google/uuid"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -265,9 +266,12 @@ func (c *Impl) EnqueueAfter(obj interface{}, after time.Duration) {
 // and enqueues that key in the slow lane.
 func (c *Impl) EnqueueSlowKey(key types.NamespacedName) {
 	c.workQueue.SlowLane().Add(key)
-	c.logger.With(zap.String(logkey.Key, key.String())).
-		Debugf("Adding to the slow queue %s (depth(total/slow): %d/%d)",
-			safeKey(key), c.workQueue.Len(), c.workQueue.SlowLane().Len())
+
+	if logger := c.logger.Desugar(); logger.Core().Enabled(zapcore.DebugLevel) {
+		logger.Debug(fmt.Sprintf("Adding to the slow queue %s (depth(total/slow): %d/%d)",
+			safeKey(key), c.workQueue.Len(), c.workQueue.SlowLane().Len()),
+			zap.String(logkey.Key, key.String()))
+	}
 }
 
 // EnqueueSlow extracts namespaced name from the object and enqueues it on the slow
@@ -393,8 +397,11 @@ func (c *Impl) EnqueueNamespaceOf(obj interface{}) {
 // EnqueueKey takes a namespace/name string and puts it onto the work queue.
 func (c *Impl) EnqueueKey(key types.NamespacedName) {
 	c.workQueue.Add(key)
-	c.logger.With(zap.String(logkey.Key, key.String())).
-		Debugf("Adding to queue %s (depth: %d)", safeKey(key), c.workQueue.Len())
+
+	if logger := c.logger.Desugar(); logger.Core().Enabled(zapcore.DebugLevel) {
+		logger.Debug(fmt.Sprintf("Adding to queue %s (depth: %d)", safeKey(key), c.workQueue.Len()),
+			zap.String(logkey.Key, key.String()))
+	}
 }
 
 // MaybeEnqueueBucketKey takes a Bucket and namespace/name string and puts it onto
@@ -409,8 +416,11 @@ func (c *Impl) MaybeEnqueueBucketKey(bkt reconciler.Bucket, key types.Namespaced
 // the work queue after given delay.
 func (c *Impl) EnqueueKeyAfter(key types.NamespacedName, delay time.Duration) {
 	c.workQueue.AddAfter(key, delay)
-	c.logger.With(zap.String(logkey.Key, key.String())).
-		Debugf("Adding to queue %s (delay: %v, depth: %d)", safeKey(key), delay, c.workQueue.Len())
+
+	if logger := c.logger.Desugar(); logger.Core().Enabled(zapcore.DebugLevel) {
+		logger.Debug(fmt.Sprintf("Adding to queue %s (delay: %v, depth: %d)", safeKey(key), delay, c.workQueue.Len()),
+			zap.String(logkey.Key, key.String()))
+	}
 }
 
 // RunContext starts the controller's worker threads, the number of which is threadiness.
