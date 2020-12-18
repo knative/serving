@@ -468,6 +468,82 @@ func TestReconcile(t *testing.T) {
 				// Populated by reconciliation when the route becomes ready.
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
 				WithRouteGeneration(2009), WithRouteObservedGeneration,
+				MarkTrafficAssigned, MarkInRollout, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
+		},
+		Key: "default/becomes-ready",
+	}, {
+		Name: "simple route rollout and rollout ends",
+		Ctx:  context.WithValue(context.Background(), rolloutDurationKey, 120),
+		Objects: []runtime.Object{
+			Route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteGeneration(2009), MarkInRollout),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			simpleReadyIngress(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
+							},
+						}},
+					},
+				},
+				simpleRollout("config", []traffic.RevisionRollout{{
+					RevisionName: "config-00000", Percent: 1,
+				}, {
+					RevisionName: "config-00001", Percent: 99,
+				}}, fakeCurTime.Add(-3*time.Second),
+					withStepParams(traffic.RolloutParams{
+						NextStepTime: fakeCurTime.Add(-time.Second).UnixNano(),
+						StepSize:     4,
+						StartTime:    fakeCurTime.Add(-time.Hour).UnixNano(),
+						StepDuration: int64(time.Second),
+					})),
+			),
+		},
+		WantCreates: []runtime.Object{
+			simplePlaceholderK8sService(getContext(), Route("default", "becomes-ready", WithConfigTarget("config")), ""),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// ingress should be updated with the new rollout data.
+			Object: simpleReadyIngress(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+								LatestRevision:    ptr.Bool(true),
+							},
+						}},
+					},
+				}),
+		}, {
+			Object: simpleK8sService(
+				Route("default", "becomes-ready", WithConfigTarget("config")),
+			),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
+				// Populated by reconciliation when the route becomes ready.
+				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithRouteGeneration(2009), WithRouteObservedGeneration,
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -758,7 +834,7 @@ func TestReconcile(t *testing.T) {
 		// A new LatestCreatedRevisionName on the Configuration alone should result in no changes to the Route.
 		Key: "default/new-latest-created",
 	}, {
-		Name: "new latest ready revision. rollout enabled",
+		Name: "new latest ready revision; rollout enabled",
 		Ctx:  context.WithValue(context.Background(), rolloutDurationKey, 120),
 		Objects: []runtime.Object{
 			Route("default", "new-latest-ready", WithConfigTarget("config"),
@@ -833,7 +909,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "new-latest-ready", WithConfigTarget("config"),
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
-				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
+				MarkTrafficAssigned, MarkInRollout, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00002",
 						Percent:        ptr.Int64(100),
@@ -2815,5 +2891,13 @@ func simpleRollout(cfg string, revs []traffic.RevisionRollout,
 			d, _ := json.Marshal(r)
 			return string(d)
 		}()
+	}
+}
+
+func withStepParams(p traffic.RolloutParams) rolloutOption {
+	return func(ro *traffic.Rollout) {
+		for i := range ro.Configurations {
+			ro.Configurations[i].StepParams = p
+		}
 	}
 }

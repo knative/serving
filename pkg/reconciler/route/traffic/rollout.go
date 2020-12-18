@@ -107,9 +107,20 @@ func (cur *Rollout) RolloutsByTag(t string) []*ConfigurationRollout {
 	return ret
 }
 
-// Done returns true if there is no active rollout going on
+// Done returns true if all the Configuration rollouts in this
+// Rollout have completed.
+func (cur *Rollout) Done() bool {
+	for i := range cur.Configurations {
+		if !cur.Configurations[i].done() {
+			return false
+		}
+	}
+	return true
+}
+
+// done returns true if there is no active rollout going on
 // for the configuration.
-func (cur *ConfigurationRollout) Done() bool {
+func (cur *ConfigurationRollout) done() bool {
 	// Zero or just one revision.
 	return len(cur.Revisions) < 2
 }

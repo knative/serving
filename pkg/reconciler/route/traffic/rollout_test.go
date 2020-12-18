@@ -1314,6 +1314,9 @@ func TestValidateFailures(t *testing.T) {
 func TestConfigDone(t *testing.T) {
 	r := &Rollout{
 		Configurations: []ConfigurationRollout{{
+			ConfigurationName: "nil",
+			Percent:           100,
+		}, {
 			ConfigurationName: "one",
 			Percent:           100,
 			Revisions: []RevisionRollout{{
@@ -1336,14 +1339,24 @@ func TestConfigDone(t *testing.T) {
 			}},
 		}},
 	}
-	if !r.Configurations[0].Done() {
+	if !r.Configurations[0].done() {
+		t.Error("Nil revision slice rollout is not `Done`")
+	}
+	if !r.Configurations[1].done() {
 		t.Error("Single revision rollout is not `Done`")
 	}
-	if !r.Configurations[1].Done() {
+	if !r.Configurations[2].done() {
 		t.Error("Zero revisions rollout is not `Done`")
 	}
-	if r.Configurations[2].Done() {
+	if r.Configurations[3].done() {
 		t.Error("Many revisions rollout is `Done`")
+	}
+	if r.Done() {
+		t.Error("Whole Rollout was marked done, but it's not")
+	}
+	r.Configurations = r.Configurations[:3]
+	if !r.Done() {
+		t.Error("Updated Rollout without the last one was marked not done, but it is")
 	}
 }
 

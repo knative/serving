@@ -221,6 +221,11 @@ func MarkIngressReady(r *v1.Route) {
 	})
 }
 
+// MarkInRollout marks the route to be in process of rolling out.
+func MarkInRollout(r *v1.Route) {
+	r.Status.MarkIngressRolloutInProgress()
+}
+
 // MarkIngressNotConfigured calls the method of the same name on .Status
 func MarkIngressNotConfigured(r *v1.Route) {
 	r.Status.MarkIngressNotConfigured()
