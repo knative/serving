@@ -97,7 +97,7 @@ func (c *Reconciler) reconcileIngress(
 				prevRO.ObserveReady(ctx, now, float64(cfg.Network.RolloutDurationSecs))
 			}
 
-			effectiveRO, nextStepTime = curRO.Step(prevRO, now)
+			effectiveRO, nextStepTime = curRO.Step(ctx, prevRO, now)
 			if nextStepTime > 0 {
 				nextStepTime -= now
 				c.enqueueAfter(r, time.Duration(nextStepTime))

@@ -22,9 +22,12 @@ limitations under the License.
 package traffic
 
 import (
+	"context"
 	"math"
 	"sort"
 	"time"
+
+	"knative.dev/pkg/logging"
 )
 
 // Rollout encapsulates the current rollout state of the system.
@@ -156,8 +159,10 @@ func (cur *Rollout) ObserveReady(ctx context.Context, nowTS int64, durationSecs 
 // Step will return cur if no previous state was available.
 // Second return value is the Unix timestamp in ns of the closest
 // rollout action to take or 0, if no rollout is currently scheduled.
-func (cur *Rollout) Step(prev *Rollout, nowTS int64) (*Rollout, int64) {
+func (cur *Rollout) Step(ctx context.Context, prev *Rollout, nowTS int64) (*Rollout, int64) {
+	logger := logging.FromContext(ctx)
 	if prev == nil || len(prev.Configurations) == 0 {
+		logger.Debug("No previous Rollout to Step")
 		return cur, 0
 	}
 
@@ -201,7 +206,7 @@ func (cur *Rollout) Step(prev *Rollout, nowTS int64) (*Rollout, int64) {
 				// altogether.
 				switch p := ccfgs[i].Percent; {
 				case p > 1:
-					sc := *stepConfig(ccfgs[i], pcfgs[j], nowTS)
+					sc := *stepConfig(ctx, ccfgs[i], pcfgs[j], nowTS)
 					ret = append(ret, sc)
 					// Keep the minimum value if it is not 0.
 					if nst := sc.StepParams.NextStepTime; nst > 0 && nst < returnTS {
@@ -328,7 +333,8 @@ func stepRevisions(goal *ConfigurationRollout, nowTS int64) {
 
 // stepConfig takes previous and goal configuration shapes and returns a new
 // config rollout, after computing the percetage allocations.
-func stepConfig(goal, prev *ConfigurationRollout, nowTS int64) *ConfigurationRollout {
+func stepConfig(ctx context.Context, goal, prev *ConfigurationRollout, nowTS int64) *ConfigurationRollout {
+	logger := logging.FromContext(ctx)
 	pc := len(prev.Revisions)
 	ret := &ConfigurationRollout{
 		ConfigurationName: goal.ConfigurationName,
@@ -347,6 +353,7 @@ func stepConfig(goal, prev *ConfigurationRollout, nowTS int64) *ConfigurationRol
 	// If it matches the last revision of the previous rollout state (or there were no revisions)
 	// then no new rollout has begun for this configuration.
 	if len(prev.Revisions) == 0 || goal.Revisions[0].RevisionName == prev.Revisions[pc-1].RevisionName {
+		logger.Debug("No new revision to roll out for config: ", goal.ConfigurationName)
 		// So if |prev.revisions| == 0 => then there was no rollout —
 		// nothing is required to step.
 		// If |prev.revisions| == 1 and it matches current revision then
