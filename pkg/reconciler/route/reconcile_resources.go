@@ -94,10 +94,10 @@ func (c *Reconciler) reconcileIngress(
 			rtView := r.Status.GetCondition(v1.RouteConditionIngressReady)
 			if prevRO != nil && ingress.IsReady() && !rtView.IsTrue() {
 				logger.Debug("Observing Ingress not-ready to ready switch condition for rollout")
-				prevRO.ObserveReady(now, float64(cfg.Network.RolloutDurationSecs))
+				prevRO.ObserveReady(ctx, now, float64(cfg.Network.RolloutDurationSecs))
 			}
 
-			effectiveRO, nextStepTime = curRO.Step(prevRO, now)
+			effectiveRO, nextStepTime = curRO.Step(ctx, prevRO, now)
 			if nextStepTime > 0 {
 				nextStepTime -= now
 				c.enqueueAfter(r, time.Duration(nextStepTime))
