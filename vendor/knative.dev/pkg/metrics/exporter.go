@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 
+	"go.opencensus.io/resource"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -161,13 +162,13 @@ func UpdateExporter(ctx context.Context, ops ExporterOptions, logger *zap.Sugare
 		flushGivenExporter(curMetricsExporter)
 		e, f, err := newMetricsExporter(newConfig, logger)
 		if err != nil {
-			logger.Errorw("Failed to update a new metrics exporter based on metric config", newConfig, zap.Error(err))
+			logger.Errorw("Failed to update a new metrics exporter based on metric config", zap.Error(err), "config", newConfig)
 			return err
 		}
 		existingConfig := curMetricsConfig
 		curMetricsExporter = e
 		if err := setFactory(f); err != nil {
-			logger.Errorw("Failed to update metrics factory when loading metric config", newConfig, zap.Error(err))
+			logger.Errorw("Failed to update metrics factory when loading metric config", zap.Error(err), "config", newConfig)
 			return err
 		}
 		logger.Infof("Successfully updated the metrics exporter; old config: %v; new config %v", existingConfig, newConfig)
@@ -212,7 +213,10 @@ func newMetricsExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.
 		openCensus:  newOpenCensusExporter,
 		prometheus:  newPrometheusExporter,
 		none: func(*metricsConfig, *zap.SugaredLogger) (view.Exporter, ResourceExporterFactory, error) {
-			return nil, nil, nil
+			noneFactory := func(*resource.Resource) (view.Exporter, error) {
+				return &noneExporter{}, nil
+			}
+			return &noneExporter{}, noneFactory, nil
 		},
 	}
 
@@ -271,4 +275,11 @@ func flushGivenExporter(e view.Exporter) bool {
 		return true
 	}
 	return false
+}
+
+type noneExporter struct {
+}
+
+// NoneExporter implements view.Exporter in the nil case.
+func (*noneExporter) ExportView(*view.Data) {
 }
