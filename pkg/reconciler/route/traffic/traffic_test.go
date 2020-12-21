@@ -1381,7 +1381,81 @@ func TestRoundTripping(t *testing.T) {
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, route); err != nil {
 		t.Error("Unexpected error", err)
 	} else {
-		targets, err := tc.GetRevisionTrafficTargets(getContext(), route)
+		targets, err := tc.GetRevisionTrafficTargets(getContext(), route, &Rollout{})
+		if err != nil {
+			t.Error("Unexpected error:", err)
+		}
+		if got, want := targets, expected; !cmp.Equal(want, got) {
+			t.Errorf("Unexpected traffic diff (-want +got):\n%s", cmp.Diff(want, got))
+		}
+	}
+}
+
+func TestRoundTrippingWithRollout(t *testing.T) {
+	expected := []v1.TrafficTarget{{
+		RevisionName:   "older-rev",
+		Percent:        ptr.Int64(56),
+		LatestRevision: ptr.Bool(true),
+	}, {
+		RevisionName:   goodOldRev.Name,
+		Percent:        ptr.Int64(44),
+		LatestRevision: ptr.Bool(true),
+	}, {
+		Tag:            "beta",
+		RevisionName:   goodNewRev.Name,
+		URL:            domains.URL(domains.HTTPScheme, "beta-test-route.test.example.com"),
+		LatestRevision: ptr.Bool(false),
+		Percent:        ptr.Int64(0),
+	}, {
+		Tag:            "alpha",
+		RevisionName:   niceOldRev.Name,
+		URL:            domains.URL(domains.HTTPScheme, "alpha-test-route.test.example.com"),
+		LatestRevision: ptr.Bool(true),
+		Percent:        ptr.Int64(81),
+	}, {
+		Tag:            "alpha",
+		RevisionName:   niceNewRev.Name,
+		URL:            domains.URL(domains.HTTPScheme, "alpha-test-route.test.example.com"),
+		LatestRevision: ptr.Bool(true),
+		Percent:        ptr.Int64(19),
+	}}
+	route := testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
+		ConfigurationName: goodConfig.Name,
+		LatestRevision:    ptr.Bool(true),
+		Percent:           ptr.Int64(100),
+	}, v1.TrafficTarget{
+		Tag:          "beta",
+		RevisionName: goodNewRev.Name,
+	}, v1.TrafficTarget{
+		Tag:               "alpha",
+		ConfigurationName: niceConfig.Name,
+	}))
+	ro := &Rollout{
+		Configurations: []ConfigurationRollout{{
+			ConfigurationName: goodConfig.Name,
+			Revisions: []RevisionRollout{{
+				RevisionName: "older-rev",
+				Percent:      56,
+			}, {
+				RevisionName: goodOldRev.Name,
+				Percent:      44,
+			}},
+		}, {
+			ConfigurationName: niceConfig.Name,
+			Tag:               "alpha",
+			Revisions: []RevisionRollout{{
+				RevisionName: niceOldRev.Name,
+				Percent:      81,
+			}, {
+				RevisionName: niceNewRev.Name,
+				Percent:      19,
+			}},
+		}},
+	}
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, route); err != nil {
+		t.Error("Unexpected error", err)
+	} else {
+		targets, err := tc.GetRevisionTrafficTargets(getContext(), route, ro)
 		if err != nil {
 			t.Error("Unexpected error:", err)
 		}

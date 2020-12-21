@@ -25,6 +25,7 @@ import (
 
 	net "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -87,39 +88,92 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 	return builder.build()
 }
 
-// GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
-func (cfg *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route) ([]v1.TrafficTarget, error) {
-	results := make([]v1.TrafficTarget, len(cfg.revisionTargets))
-	for i, tt := range cfg.revisionTargets {
-		var pp *int64
-		if tt.Percent != nil {
-			pp = ptr.Int64(*tt.Percent)
+func rolloutConfig(cfgName string, ros []*ConfigurationRollout) *ConfigurationRollout {
+	for _, ro := range ros {
+		if ro.ConfigurationName == cfgName {
+			return ro
 		}
+	}
+	// Technically impossible with valid inputs.
+	return nil
+}
 
+func (cfg *Config) computeURL(ctx context.Context, r *v1.Route, tt *RevisionTarget) (*apis.URL, error) {
+	meta := r.ObjectMeta.DeepCopy()
+
+	hostname, err := domains.HostnameFromTemplate(ctx, meta.Name, tt.Tag)
+	if err != nil {
+		return nil, err
+	}
+
+	labels.SetVisibility(meta, cfg.Visibility[tt.Tag] == netv1alpha1.IngressVisibilityClusterLocal)
+
+	// HTTP is currently the only supported scheme.
+	fullDomain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
+	if err != nil {
+		return nil, err
+	}
+	return domains.URL(domains.HTTPScheme, fullDomain), nil
+}
+
+func (cfg *Config) targetToStatus(ctx context.Context, r *v1.Route, tt *RevisionTarget,
+	revs []RevisionRollout, results []v1.TrafficTarget) (_ []v1.TrafficTarget, err error) {
+	var url *apis.URL
+	// Do this once per tag.
+	if tt.Tag != "" {
+		url, err = cfg.computeURL(ctx, r, tt)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for i := range revs {
+		rr := &revs[i]
 		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
 		// configuration and revision.
-		results[i] = v1.TrafficTarget{
+		result := v1.TrafficTarget{
 			Tag:            tt.Tag,
-			RevisionName:   tt.RevisionName,
-			Percent:        pp,
+			RevisionName:   rr.RevisionName,
+			Percent:        ptr.Int64(int64(rr.Percent)),
 			LatestRevision: tt.LatestRevision,
 		}
+
 		if tt.Tag != "" {
-			meta := r.ObjectMeta.DeepCopy()
+			result.URL = url
+		}
+		results = append(results, result)
+	}
+	return results, nil
+}
 
-			hostname, err := domains.HostnameFromTemplate(ctx, meta.Name, tt.Tag)
-			if err != nil {
-				return nil, err
-			}
+// GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
+func (cfg *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route, ro *Rollout) ([]v1.TrafficTarget, error) {
+	results := make([]v1.TrafficTarget, 0, len(cfg.revisionTargets))
+	for _, tt := range cfg.revisionTargets {
+		var (
+			roCfg *ConfigurationRollout
+			revs  []RevisionRollout
+			err   error
+		)
 
-			labels.SetVisibility(meta, cfg.Visibility[tt.Tag] == netv1alpha1.IngressVisibilityClusterLocal)
+		if tt.LatestRevision != nil && *tt.LatestRevision {
+			cfgs := ro.RolloutsByTag(tt.Tag)
+			roCfg = rolloutConfig(tt.ConfigurationName, cfgs)
+		}
 
-			// HTTP is currently the only supported scheme.
-			fullDomain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
-			if err != nil {
-				return nil, err
-			}
-			results[i].URL = domains.URL(domains.HTTPScheme, fullDomain)
+		// Not a rollout, or just a revision target. Setup mock revision rollout
+		// with a single element.
+		if roCfg == nil {
+			revs = []RevisionRollout{{
+				RevisionName: tt.RevisionName,
+				Percent:      int(*tt.Percent),
+			}}
+		} else {
+			revs = roCfg.Revisions
+		}
+		results, err = cfg.targetToStatus(ctx, r, &tt, revs, results)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return results, nil
