@@ -432,8 +432,9 @@ func stepConfig(ctx context.Context, goal, prev *ConfigurationRollout, nowTS int
 // Pre: minStepSec >= 1, in seconds.
 // Pre: durationSecs > 1, in seconds.
 func (cur *ConfigurationRollout) computeProperties(nowTS, minStepSec, durationSecs float64) {
-	// First compute number of steps.
-	numSteps := durationSecs / minStepSec
+	// First compute number of steps. If it takes more time to step 1% than the
+	// whole allotted time for the rollout, do it in 1 step.
+	numSteps := math.Max(1, durationSecs/minStepSec)
 	pf := float64(cur.Percent)
 
 	// The smallest step is 1%, so if we can fit more steps
@@ -447,7 +448,9 @@ func (cur *ConfigurationRollout) computeProperties(nowTS, minStepSec, durationSe
 	// For bigger jumps this might yield slightly bigger moves
 	// but rounding down makes 1.9 => 1, which basically doubles the rollout time.
 	// E.g. 100% in 4 steps. 1% -> 26% -> 51% -> 76% -> 100%.
-	stepSize := math.Round((pf - 1) / numSteps)
+	// In addition, ensure that we don't have step size larger than total
+	//  percentage for the configuration.
+	stepSize := math.Min(pf-1, math.Round((pf-1)/numSteps))
 
 	// The time we sleep between the steps.
 	stepDuration := durationSecs / numSteps * float64(time.Second)
