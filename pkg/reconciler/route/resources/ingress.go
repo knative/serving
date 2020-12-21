@@ -193,9 +193,22 @@ func makeIngressSpec(
 		}
 	}
 
+	var httpOption netv1alpha1.HTTPOption
+
+	switch config.FromContext(ctx).Network.HTTPProtocol {
+	case network.HTTPEnabled:
+		httpOption = netv1alpha1.HTTPOptionEnabled
+	case network.HTTPRedirected:
+		httpOption = netv1alpha1.HTTPOptionRedirected
+	// This will be deprecated soon
+	case network.HTTPDisabled:
+		httpOption = ""
+	}
+
 	return netv1alpha1.IngressSpec{
-		Rules: rules,
-		TLS:   tls,
+		Rules:      rules,
+		TLS:        tls,
+		HTTPOption: httpOption,
 	}, nil
 }
 
