@@ -208,7 +208,7 @@ func createMetricsConfig(ctx context.Context, ops ExporterOptions) (*metricsConf
 	}
 
 	switch lb := metricsBackend(strings.ToLower(backend)); lb {
-	case stackdriver, prometheus, openCensus:
+	case stackdriver, prometheus, openCensus, none:
 		mc.backendDestination = lb
 	default:
 		return nil, fmt.Errorf("unsupported metrics backend value %q", backend)
