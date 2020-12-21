@@ -149,7 +149,8 @@ func (cfg *Config) targetToStatus(ctx context.Context, r *v1.Route, tt *Revision
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
 func (cfg *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route, ro *Rollout) ([]v1.TrafficTarget, error) {
 	results := make([]v1.TrafficTarget, 0, len(cfg.revisionTargets))
-	for _, tt := range cfg.revisionTargets {
+	for i := range cfg.revisionTargets {
+		tt := &cfg.revisionTargets[i]
 		var (
 			roCfg *ConfigurationRollout
 			revs  []RevisionRollout
@@ -171,7 +172,7 @@ func (cfg *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route, r
 		} else {
 			revs = roCfg.Revisions
 		}
-		results, err = cfg.targetToStatus(ctx, r, &tt, revs, results)
+		results, err = cfg.targetToStatus(ctx, r, tt, revs, results)
 		if err != nil {
 			return nil, err
 		}
