@@ -19,7 +19,6 @@ package route
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -164,28 +163,26 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		r.Status.PropagateIngressStatus(ingress.Status)
 	}
 
-	if roInProgress {
-		logger.Info("### Rollout is in progress!")
-		applyRolloutToStatus(ctx, r, traffic, effectiveRO)
-	}
-
 	logger.Info("Updating placeholder k8s services with ingress information")
 	if err := c.updatePlaceholderServices(ctx, r, services, ingress); err != nil {
 		return err
 	}
 
-	logger.Info("Route successfully synced")
-	return nil
-}
-
-// applyRolloutToStatus updates the route.Status.Traffic to contain correct traffic
-// distribution based on rollout status.
-func applyRolloutToStatus(ctx context.Context, r *v1.Route, traffic *traffic.Config, ro *traffic.Rollout) (err error) {
-	r.Status.Traffic, err = traffic.GetRevisionTrafficTargets(ctx, r, ro)
-	if err != nil {
-		fmt.Printf("### %s: err: %#v\n", r.Name, err)
-		return err
+	// We do it here, rather than in the similar check above,
+	// since we might be inside a rollout and Ingress
+	// is not yet ready and that takes priority, so the `roInProgress` branch
+	// wil not be triggered.
+	if roInProgress {
+		// Update the route.Status.Traffic to contain correct traffic
+		// distribution based on rollout status.
+		r.Status.Traffic, err = traffic.GetRevisionTrafficTargets(ctx, r, effectiveRO)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
+
+	logger.Info("Route successfully synced")
 	return nil
 }
 
