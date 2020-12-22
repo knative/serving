@@ -152,11 +152,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
+	roInProgress := !effectiveRO.Done()
 	if ingress.GetObjectMeta().GetGeneration() != ingress.Status.ObservedGeneration {
 		r.Status.MarkIngressNotConfigured()
-	} else if !effectiveRO.Done() {
+	} else if roInProgress {
 		logger.Info("Rollout is in progress")
-		// Rollout in progress
+		// Rollout in progress, so mark the status as such.
 		r.Status.MarkIngressRolloutInProgress()
 	} else {
 		r.Status.PropagateIngressStatus(ingress.Status)
@@ -165,6 +166,20 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	logger.Info("Updating placeholder k8s services with ingress information")
 	if err := c.updatePlaceholderServices(ctx, r, services, ingress); err != nil {
 		return err
+	}
+
+	// We do it here, rather than in the similar check above,
+	// since we might be inside a rollout and Ingress
+	// is not yet ready and that takes priority, so the `roInProgress` branch
+	// wil not be triggered.
+	if roInProgress {
+		// Update the route.Status.Traffic to contain correct traffic
+		// distribution based on rollout status.
+		r.Status.Traffic, err = traffic.GetRevisionTrafficTargets(ctx, r, effectiveRO)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	logger.Info("Route successfully synced")
@@ -324,8 +339,8 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 
 	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
 
-	// Domain should already be present
-	r.Status.Traffic, err = t.GetRevisionTrafficTargets(ctx, r)
+	// Pass empty rollout here. We'll recompute this if there is a rollout in progress.
+	r.Status.Traffic, err = t.GetRevisionTrafficTargets(ctx, r, &traffic.Rollout{})
 	if err != nil {
 		return nil, err
 	}

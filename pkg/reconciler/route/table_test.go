@@ -470,8 +470,13 @@ func TestReconcile(t *testing.T) {
 				WithRouteGeneration(2009), WithRouteObservedGeneration,
 				MarkTrafficAssigned, MarkInRollout, WithStatusTraffic(
 					v1.TrafficTarget{
+						RevisionName:   "config-00000",
+						Percent:        ptr.Int64(99),
+						LatestRevision: ptr.Bool(true),
+					},
+					v1.TrafficTarget{
 						RevisionName:   "config-00001",
-						Percent:        ptr.Int64(100),
+						Percent:        ptr.Int64(1),
 						LatestRevision: ptr.Bool(true),
 					})),
 		}},
@@ -911,8 +916,13 @@ func TestReconcile(t *testing.T) {
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkInRollout, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(99),
+						LatestRevision: ptr.Bool(true),
+					},
+					v1.TrafficTarget{
 						RevisionName:   "config-00002",
-						Percent:        ptr.Int64(100),
+						Percent:        ptr.Int64(1),
 						LatestRevision: ptr.Bool(true),
 					})),
 		}},
