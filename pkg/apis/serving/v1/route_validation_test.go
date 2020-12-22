@@ -192,14 +192,6 @@ func TestTrafficTargetValidation(t *testing.T) {
 		},
 		want: apis.ErrGeneric(`may not set revisionName "" when latestRevision is false`, "latestRevision"),
 	}, {
-		name: "invalid without revisionName in status",
-		tt: &TrafficTarget{
-			ConfigurationName: "blah",
-			Percent:           ptr.Int64(37),
-		},
-		wc:   apis.WithinStatus,
-		want: apis.ErrMissingField("revisionName"),
-	}, {
 		name: "valid with revisionName and default configurationName",
 		tt: &TrafficTarget{
 			RevisionName: "bar",
@@ -364,35 +356,6 @@ func TestRouteValidation(t *testing.T) {
 			},
 		},
 		want: nil,
-	}, {
-		name: "missing url in status",
-		r: &Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
-			},
-			Spec: RouteSpec{
-				Traffic: []TrafficTarget{{
-					Tag:          "bar",
-					RevisionName: "foo",
-					Percent:      ptr.Int64(100),
-				}},
-			},
-			Status: RouteStatus{
-				RouteStatusFields: RouteStatusFields{
-					Traffic: []TrafficTarget{{
-						Tag:          "bar",
-						RevisionName: "foo",
-						Percent:      ptr.Int64(100),
-					}},
-				},
-			},
-		},
-		want: &apis.FieldError{
-			Message: "missing field(s)",
-			Paths: []string{
-				"status.traffic[0].url",
-			},
-		},
 	}, {
 		name: "invalid traffic entry (missing oneof)",
 		r: &Route{

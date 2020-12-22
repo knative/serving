@@ -41,8 +41,6 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 		errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
 
-	errs = errs.Also(s.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
-
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Service)
 		errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, s.Spec, original.GetAnnotations(),
@@ -60,12 +58,6 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 		// Within the context of Service, the RouteSpec has a default
 		// configurationName.
 		ss.RouteSpec.Validate(WithDefaultConfigurationName(ctx)))
-}
-
-// Validate implements apis.Validatable
-func (ss *ServiceStatus) Validate(ctx context.Context) *apis.FieldError {
-	return ss.ConfigurationStatusFields.Validate(ctx).Also(
-		ss.RouteStatusFields.Validate(ctx))
 }
 
 // validateLabels function validates service labels
