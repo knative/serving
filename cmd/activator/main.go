@@ -40,6 +40,7 @@ import (
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
+	configmapinformer "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
 	pkglogging "knative.dev/pkg/logging"
@@ -155,7 +156,7 @@ func main() {
 	})
 
 	// Set up our config store
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
+	configMapWatcher := configmapinformer.NewInformedWatcher(kubeClient, system.Namespace())
 	configStore := activatorconfig.NewStore(logger, tracerUpdater)
 	configStore.WatchConfigs(configMapWatcher)
 

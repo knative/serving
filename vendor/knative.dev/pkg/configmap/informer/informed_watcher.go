@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package configmap
+package informer
 
 import (
 	"errors"
@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/informers/internalinterfaces"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/configmap"
 )
 
 // NewInformedWatcherFromFactory watches a Kubernetes namespace for ConfigMap changes.
@@ -38,7 +39,7 @@ func NewInformedWatcherFromFactory(sif informers.SharedInformerFactory, namespac
 	return &InformedWatcher{
 		sif:      sif,
 		informer: sif.Core().V1().ConfigMaps(),
-		ManualWatcher: ManualWatcher{
+		ManualWatcher: configmap.ManualWatcher{
 			Namespace: namespace,
 		},
 		defaults: make(map[string]*corev1.ConfigMap),
@@ -97,22 +98,22 @@ type InformedWatcher struct {
 	// Embedding this struct allows us to reuse the logic
 	// of registering and notifying observers. This simplifies the
 	// InformedWatcher to just setting up the Kubernetes informer.
-	ManualWatcher
+	configmap.ManualWatcher
 }
 
 // Asserts that InformedWatcher implements Watcher.
-var _ Watcher = (*InformedWatcher)(nil)
+var _ configmap.Watcher = (*InformedWatcher)(nil)
 
 // Asserts that InformedWatcher implements DefaultingWatcher.
-var _ DefaultingWatcher = (*InformedWatcher)(nil)
+var _ configmap.DefaultingWatcher = (*InformedWatcher)(nil)
 
 // WatchWithDefault implements DefaultingWatcher.
-func (i *InformedWatcher) WatchWithDefault(cm corev1.ConfigMap, o ...Observer) {
+func (i *InformedWatcher) WatchWithDefault(cm corev1.ConfigMap, o ...configmap.Observer) {
 	i.defaults[cm.Name] = &cm
 
-	i.m.Lock()
+	i.Lock()
 	started := i.started
-	i.m.Unlock()
+	i.Unlock()
 	if started {
 		// TODO make both Watch and WatchWithDefault work after the InformedWatcher has started.
 		// This likely entails changing this to `o(&cm)` and having Watch check started, if it has
@@ -130,11 +131,12 @@ func (i *InformedWatcher) Start(stopCh <-chan struct{}) error {
 	// Pretend that all the defaulted ConfigMaps were just created. This is done before we start
 	// the informer to ensure that if a defaulted ConfigMap does exist, then the real value is
 	// processed after the default one.
-	for k := range i.observers {
+	i.ForEach(func(k string, _ []configmap.Observer) error {
 		if def, ok := i.defaults[k]; ok {
 			i.addConfigMapEvent(def)
 		}
-	}
+		return nil
+	})
 
 	if err := i.registerCallbackAndStartInformer(stopCh); err != nil {
 		return err
@@ -149,8 +151,8 @@ func (i *InformedWatcher) Start(stopCh <-chan struct{}) error {
 }
 
 func (i *InformedWatcher) registerCallbackAndStartInformer(stopCh <-chan struct{}) error {
-	i.m.Lock()
-	defer i.m.Unlock()
+	i.Lock()
+	defer i.Unlock()
 	if i.started {
 		return errors.New("watcher already started")
 	}
@@ -168,19 +170,19 @@ func (i *InformedWatcher) registerCallbackAndStartInformer(stopCh <-chan struct{
 }
 
 func (i *InformedWatcher) checkObservedResourcesExist() error {
-	i.m.RLock()
-	defer i.m.RUnlock()
+	i.RLock()
+	defer i.RUnlock()
 	// Check that all objects with Observers exist in our informers.
-	for k := range i.observers {
+	return i.ForEach(func(k string, _ []configmap.Observer) error {
 		if _, err := i.informer.Lister().ConfigMaps(i.Namespace).Get(k); err != nil {
 			if _, ok := i.defaults[k]; ok && k8serrors.IsNotFound(err) {
 				// It is defaulted, so it is OK that it doesn't exist.
-				continue
+				return nil
 			}
 			return err
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func (i *InformedWatcher) addConfigMapEvent(obj interface{}) {
