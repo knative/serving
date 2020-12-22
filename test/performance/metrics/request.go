@@ -17,6 +17,8 @@ limitations under the License.
 package metrics
 
 import (
+	"log"
+
 	"github.com/google/mako/go/quickstore"
 	vegeta "github.com/tsenart/vegeta/v12/lib"
 
@@ -50,6 +52,7 @@ func HandleResult(q *quickstore.Quickstore, res vegeta.Result, latencyKey string
 		// the details page for each Mako run.
 		q.AddError(mako.XTime(res.Timestamp), res.Error)
 		isAnError = 1
+		log.Printf("Error from the app: %#v", res.Error)
 	} else {
 		// Add a sample points for the target benchmark's latency stat
 		// with the latency of the request this result is for.

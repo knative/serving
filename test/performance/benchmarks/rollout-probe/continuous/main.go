@@ -111,6 +111,7 @@ func main() {
 	results := attacker.Attack(targeter, rate, *duration, "rollout-test")
 	// After a minute, update the Ksvc.
 	updateSvc := time.After(time.Minute)
+
 LOOP:
 	for {
 		select {
@@ -126,7 +127,24 @@ LOOP:
 			if err != nil {
 				log.Fatalf("Error getting ksvc %s: %v", *target, err)
 			}
+			svc = svc.DeepCopy()
 			// Make sure we start with a single instance.
+
+			// At the end of the benchmark, restore to the previous value.
+			if prev := svc.Spec.Template.Annotations["autoscaling.knative.dev/minScale"]; prev != "" {
+				defer func() {
+					restore, err := sc.ServingV1().Services(namespace).Get(context.Background(), *target, metav1.GetOptions{})
+					if err != nil {
+						log.Println("Error getting service: ", err)
+						return
+					}
+					restore = restore.DeepCopy()
+					restore.Spec.Template.Annotations["autoscaling.knative.dev/minScale"] = prev
+					_, err = sc.ServingV1().Services(namespace).Update(
+						context.Background(), restore, metav1.UpdateOptions{})
+					log.Printf("Restoring the service to initial minScale = %s, err: %#v", prev, err)
+				}()
+			}
 			svc.Spec.Template.Annotations["autoscaling.knative.dev/minScale"] = "1"
 			_, err = sc.ServingV1().Services(namespace).Update(context.Background(), svc, metav1.UpdateOptions{})
 			if err != nil {
