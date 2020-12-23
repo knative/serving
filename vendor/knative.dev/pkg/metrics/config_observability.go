@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	// The following is used to set the default log url template
+	// DefaultLogURLTemplate is used to set the default log url template
 	DefaultLogURLTemplate = ""
 
 	// DefaultRequestLogTemplate is the default format for emitting request logs.
