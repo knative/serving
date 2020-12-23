@@ -117,6 +117,9 @@ func main() {
 
 	// After a minute, update the Ksvc.
 	updateSvc := time.After(30 * time.Second)
+
+	// Since we might qfatal in the end, this would not execute the deferred calls
+	// thus failing the restore. So bind and execute explicitly.
 	var restoreFn func()
 LOOP:
 	for {
