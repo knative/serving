@@ -106,12 +106,17 @@ func main() {
 		serving.ServiceLabelKey: *target,
 	})
 	log.Print("Selector: ", selector)
+
+	// Setup background metric processes
 	deploymentStatus := metrics.FetchDeploymentsStatus(ctx, namespace, selector, time.Second)
+	routeStatus := metrics.FetchRouteStatus(ctx, namespace, *target, time.Second)
+
 	// Start the attack!
 	results := attacker.Attack(targeter, rate, *duration, "rollout-test")
-	// After a minute, update the Ksvc.
-	updateSvc := time.After(time.Minute)
+	firstRev := ""
 
+	// After a minute, update the Ksvc.
+	updateSvc := time.After(30 * time.Second)
 LOOP:
 	for {
 		select {
@@ -165,6 +170,25 @@ LOOP:
 				"dp": float64(ds.DesiredReplicas),
 				"ap": float64(ds.ReadyReplicas),
 			})
+		case rs := <-routeStatus:
+			if firstRev == "" {
+				firstRev = rs.Traffic[0].RevisionName
+			}
+			v := make(map[string]float64, 2)
+			if len(rs.Traffic) == 1 {
+				// If the name matches the first revision then it's before
+				// we started the rollout. If not, then the rollout is
+				// 100% complete.
+				if rs.Traffic[0].RevisionName == firstRev {
+					v["t1"] = float64(*rs.Traffic[0].Percent)
+				} else {
+					v["t2"] = float64(*rs.Traffic[0].Percent)
+				}
+			} else {
+				v["t1"] = float64(*rs.Traffic[0].Percent)
+				v["t2"] = float64(*rs.Traffic[1].Percent)
+			}
+			q.AddSamplePoint(mako.XTime(rs.Time), v)
 		}
 	}
 
