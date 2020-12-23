@@ -34,6 +34,7 @@ var ServingFlags = initializeServingFlags()
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
 	ResolvableDomain    bool   // Resolve Route controller's `domainSuffix`
+	CustomDomain        string // Indicaates the `domainSuffix` for custom domain test.
 	HTTPS               bool   // Indicates where the test service will be created with https
 	IngressClass        string // Indicates the class of Ingress provider to test.
 	CertificateClass    string // Indicates the class of Certificate provider to test.
@@ -56,6 +57,15 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 			"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 	} else {
 		f.ResolvableDomain = fl.Value.(flag.Getter).Get().(bool)
+	}
+
+	if fl := flag.Lookup("customdomain"); fl == nil {
+		flag.StringVar(&f.CustomDomain,
+			"customdomain",
+			"",
+			"Set this flag to the custom domain suffix for domainmapping test.")
+	} else {
+		f.CustomDomain = fl.Value.String()
 	}
 
 	if fl := flag.Lookup("https"); fl == nil {

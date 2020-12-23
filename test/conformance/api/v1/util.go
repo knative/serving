@@ -83,13 +83,13 @@ func validateDomains(t testing.TB, clients *test.Clients, baseDomain *url.URL,
 			minBasePercentage = test.MinDirectPercentage
 		}
 		min := int(math.Floor(test.ConcurrentRequests * minBasePercentage))
-		return shared.CheckDistribution(egCtx, t, clients, baseDomain, test.ConcurrentRequests, min, baseExpected)
+		return shared.CheckDistribution(egCtx, t, clients, baseDomain, test.ConcurrentRequests, min, baseExpected, test.ServingFlags.ResolvableDomain)
 	})
 	for i, subdomain := range subdomains {
 		i, subdomain := i, subdomain
 		g.Go(func() error {
 			min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-			return shared.CheckDistribution(egCtx, t, clients, subdomain, test.ConcurrentRequests, min, []string{targetsExpected[i]})
+			return shared.CheckDistribution(egCtx, t, clients, subdomain, test.ConcurrentRequests, min, []string{targetsExpected[i]}, test.ServingFlags.ResolvableDomain)
 		})
 	}
 	if err := g.Wait(); err != nil {
