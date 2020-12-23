@@ -54,6 +54,7 @@ import (
 func TestV2Reconcile(t *testing.T) {
 	now := metav1.Now()
 	fakeTime := now.Time
+	clock := clock.NewFakeClock(fakeTime)
 
 	table := TableTest{{
 		Name: "bad workqueue key",
@@ -107,7 +108,7 @@ func TestV2Reconcile(t *testing.T) {
 				WithConfigAnn("serving.knative.dev/routes", "steady-state")),
 			rev("default", "the-config",
 				WithRevisionAnn("serving.knative.dev/routes", "steady-state"),
-				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingState(v1.RoutingStateActive, clock),
 				WithRoutingStateModified(now.Time)),
 		},
 		Key: "default/steady-state",
@@ -138,7 +139,7 @@ func TestV2Reconcile(t *testing.T) {
 				WithConfigAnn("serving.knative.dev/routes", "transitioning-route")),
 			rev("default", "old",
 				WithRevisionAnn("serving.knative.dev/routes", "transitioning-route"),
-				WithRoutingState(v1.RoutingStateActive)),
+				WithRoutingState(v1.RoutingStateActive, clock)),
 			simpleConfig("default", "new"),
 			rev("default", "new"),
 		},
@@ -182,7 +183,7 @@ func TestV2Reconcile(t *testing.T) {
 			simpleConfig("default", "the-config"),
 			rev("default", "the-config",
 				WithRevisionAnn("serving.knative.dev/routes", "add-label-failure"),
-				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingState(v1.RoutingStateActive, clock),
 				WithRoutingStateModified(now.Time)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
@@ -216,7 +217,7 @@ func TestV2Reconcile(t *testing.T) {
 				WithConfigAnn("serving.knative.dev/routes", "config-change")),
 			rev("default", "old-config",
 				WithRevisionAnn("serving.knative.dev/routes", "config-change"),
-				WithRoutingState(v1.RoutingStateActive)),
+				WithRoutingState(v1.RoutingStateActive, clock)),
 			simpleConfig("default", "new-config"),
 			rev("default", "new-config"),
 		},
@@ -237,7 +238,7 @@ func TestV2Reconcile(t *testing.T) {
 				WithConfigAnn("serving.knative.dev/routes", "config-update")),
 			rev("default", "the-config",
 				WithRevisionAnn("serving.knative.dev/routes", "config-update"),
-				WithRoutingState(v1.RoutingStateActive)),
+				WithRoutingState(v1.RoutingStateActive, clock)),
 			rev("default", "the-config",
 				WithRevName("the-config-ecoge")),
 		},
@@ -295,7 +296,7 @@ func TestV2Reconcile(t *testing.T) {
 				WithConfigAnn("serving.knative.dev/routes", "delete-label-failure")),
 			rev("default", "new-config",
 				WithRevisionAnn("serving.knative.dev/routes", "delete-label-failure"),
-				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingState(v1.RoutingStateActive, clock),
 				WithRoutingStateModified(now.Time)),
 			rev("default", "old-config"),
 		},
@@ -323,7 +324,7 @@ func TestV2Reconcile(t *testing.T) {
 			rev("default", "new-config",
 				WithRevisionAnn("serving.knative.dev/routes", "delete-label-failure")),
 			rev("default", "old-config",
-				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingState(v1.RoutingStateActive, clock),
 				WithRevisionAnn("serving.knative.dev/routes", "delete-label-failure")),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
@@ -337,7 +338,6 @@ func TestV2Reconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		clock := clock.NewFakeClock(fakeTime)
 		client := servingclient.Get(ctx)
 		cLister := listers.GetConfigurationLister()
 		cIndexer := listers.IndexerFor(&v1.Configuration{})

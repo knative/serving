@@ -75,6 +75,7 @@ func TestGCReconcile(t *testing.T) {
 			},
 		}}
 
+	fc := clock.NewFakeClock(time.Now())
 	table := TableTest{{
 		Name: "delete oldest, keep two V2",
 		Objects: []runtime.Object{
@@ -84,15 +85,15 @@ func TestGCReconcile(t *testing.T) {
 				WithConfigObservedGen),
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(oldest)),
 			rev("keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(older)),
 			rev("keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingState(v1.RoutingStateActive, fc),
 				WithRoutingStateModified(old)),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{

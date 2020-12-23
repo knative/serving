@@ -65,6 +65,7 @@ func TestCollectMin(t *testing.T) {
 	old := now.Add(-11 * time.Minute)
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
+	fc := clock.NewFakeClock(now)
 
 	table := []struct {
 		name        string
@@ -80,7 +81,7 @@ func TestCollectMin(t *testing.T) {
 		revs: []*v1.Revision{
 			rev("none-reserved", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingState(v1.RoutingStateActive, fc),
 				WithCreationTimestamp(old)),
 		},
 	}, {
@@ -93,17 +94,17 @@ func TestCollectMin(t *testing.T) {
 			// Stale, oldest should be deleted
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(oldest)),
 			// Stale, but MinNonActiveRevisions is 1
 			rev("keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(older)),
 			// Actively referenced by Configuration
 			rev("keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingState(v1.RoutingStateActive, fc),
 				WithRoutingStateModified(old)),
 		},
 		wantDeletes: []clientgotesting.DeleteActionImpl{{
@@ -121,17 +122,17 @@ func TestCollectMin(t *testing.T) {
 			// Stale, oldest should be deleted
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(oldest)),
 			// Stale, but MinNonActiveRevisions is 1
 			rev("keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(older)),
 			// Actively referenced by Configuration
 			rev("keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingState(v1.RoutingStateActive, fc),
 				WithRoutingStateModified(old)),
 		},
 		wantDeletes: []clientgotesting.DeleteActionImpl{{
@@ -151,15 +152,15 @@ func TestCollectMin(t *testing.T) {
 		revs: []*v1.Revision{
 			rev("none-reserved", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
-				WithRoutingState(v1.RoutingStatePending),
+				WithRoutingState(v1.RoutingStatePending, fc),
 				WithCreationTimestamp(oldest)),
 			rev("none-reserved", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithRoutingState(v1.RoutingStateUnset),
+				WithRoutingState(v1.RoutingStateUnset, fc),
 				WithCreationTimestamp(older)),
 			rev("none-reserved", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingState(v1.RoutingStateActive, fc),
 				WithCreationTimestamp(old)),
 		},
 	}, {
@@ -168,15 +169,15 @@ func TestCollectMin(t *testing.T) {
 		revs: []*v1.Revision{
 			rev("none-stale", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(now)),
 			rev("none-stale", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(now)),
 			rev("none-stale", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(now)),
 		},
 	}, {
@@ -186,15 +187,15 @@ func TestCollectMin(t *testing.T) {
 			rev("keep-oldest", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithRoutingStateModified(oldest),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRevisionPreserveAnnotation()),
 			rev("keep-oldest", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(older)),
 			rev("keep-oldest", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(old)),
 		},
 		wantDeletes: []clientgotesting.DeleteActionImpl{{
@@ -228,6 +229,7 @@ func TestCollectMax(t *testing.T) {
 	old := now.Add(-11 * time.Minute)
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
+	fc := clock.NewFakeClock(now)
 
 	table := []struct {
 		name        string
@@ -244,17 +246,17 @@ func TestCollectMax(t *testing.T) {
 			// Under max
 			rev("at max", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(older)),
 			// Under max
 			rev("at max", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(older)),
 			// Actively referenced by Configuration
 			rev("at max", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingState(v1.RoutingStateActive, fc),
 				WithRoutingStateModified(old)),
 		},
 	}, {
@@ -267,22 +269,22 @@ func TestCollectMax(t *testing.T) {
 			// Stale and over the max
 			rev("delete oldest", "foo", 5553, MarkRevisionReady,
 				WithRevName("5553"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(oldest)),
 			// Stale but under max
 			rev("delete oldest", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(older)),
 			// Stale but under max
 			rev("delete oldest", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingState(v1.RoutingStateReserve, fc),
 				WithRoutingStateModified(older)),
 			// Actively referenced by Configuration
 			rev("keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingState(v1.RoutingStateActive, fc),
 				WithRoutingStateModified(old)),
 		},
 		wantDeletes: []clientgotesting.DeleteActionImpl{{
@@ -302,16 +304,16 @@ func TestCollectMax(t *testing.T) {
 		revs: []*v1.Revision{
 			rev("keep-two", "foo", 5553, MarkRevisionReady,
 				WithRevName("5553"),
-				WithRoutingState(v1.RoutingStateActive)),
+				WithRoutingState(v1.RoutingStateActive, fc)),
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
-				WithRoutingState(v1.RoutingStateActive)),
+				WithRoutingState(v1.RoutingStateActive, fc)),
 			rev("keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithRoutingState(v1.RoutingStateActive)),
+				WithRoutingState(v1.RoutingStateActive, fc)),
 			rev("keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithRoutingState(v1.RoutingStateActive)),
+				WithRoutingState(v1.RoutingStateActive, fc)),
 		},
 	}}
 
@@ -327,6 +329,7 @@ func TestCollectSettings(t *testing.T) {
 	old := now.Add(-11 * time.Minute)
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
+	fc := clock.NewFakeClock(now)
 
 	cfg := cfg("settings-test", "foo", 5556,
 		WithLatestCreated("5556"),
@@ -336,15 +339,15 @@ func TestCollectSettings(t *testing.T) {
 	revs := []*v1.Revision{
 		rev("settings-test", "foo", 5554, MarkRevisionReady,
 			WithRevName("5554"),
-			WithRoutingState(v1.RoutingStateReserve),
+			WithRoutingState(v1.RoutingStateReserve, fc),
 			WithRoutingStateModified(oldest)),
 		rev("settings-test", "foo", 5555, MarkRevisionReady,
 			WithRevName("5555"),
-			WithRoutingState(v1.RoutingStateReserve),
+			WithRoutingState(v1.RoutingStateReserve, fc),
 			WithRoutingStateModified(older)),
 		rev("settings-test", "foo", 5556, MarkRevisionReady,
 			WithRevName("5556"),
-			WithRoutingState(v1.RoutingStateActive),
+			WithRoutingState(v1.RoutingStateActive, fc),
 			WithRoutingStateModified(old)),
 	}
 

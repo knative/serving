@@ -19,11 +19,13 @@ package revision
 import (
 	"context"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
 
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
@@ -53,6 +55,10 @@ import (
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
+	// We don't care about the value, but that it does not change,
+	// since it leads to flakes.
+	fc := clock.NewFakeClock(time.Now())
+
 	table := TableTest{{
 		Name: "bad workqueue key",
 		// Make sure Reconcile handles bad keys.
@@ -386,7 +392,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Revision("foo", "fix-mutated-pa",
 				WithK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady,
-				WithRoutingState(v1.RoutingStateActive)),
+				WithRoutingState(v1.RoutingStateActive, fc)),
 			pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
 				WithTraffic, WithPASKSReady, WithScaleTargetInitialized, WithReachabilityReachable,
 				WithPAStatusService("fix-mutated-pa")),
@@ -399,7 +405,7 @@ func TestReconcile(t *testing.T) {
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
 				WithK8sServiceName("fix-mutated-pa"),
-				WithRoutingState(v1.RoutingStateActive), WithLogURL, MarkRevisionReady,
+				WithRoutingState(v1.RoutingStateActive, fc), WithLogURL, MarkRevisionReady,
 				withDefaultContainerStatuses()),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
