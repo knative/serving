@@ -158,7 +158,9 @@ func (cur *Rollout) ObserveReady(ctx context.Context, nowTS int64, durationSecs 
 			// given possible time drift, we'll ensure that at least 1s is returned.
 			minStepSec := math.Max(1, math.Ceil(time.Duration(nowTS-c.StepParams.StartTime).Seconds()))
 			c.computeProperties(float64(nowTS), minStepSec, durationSecs)
-			logger.Debugf("Rollout properties for %s: %#v", c.ConfigurationName, c.StepParams)
+			logger.Debugf("Computed rollout properties for %s: %#v", c.ConfigurationName, c.StepParams)
+		} else {
+			logger.Debugf("Existing rollout properties for %s: %#v", c.ConfigurationName, c.StepParams)
 		}
 	}
 }
@@ -392,6 +394,8 @@ func stepConfig(ctx context.Context, goal, prev *ConfigurationRollout, nowTS int
 	// Otherwise we start a rollout, which means we need to stamp the starttime,
 	// the rest of the fields will remain unset and `ObserveReady` will
 	// compute them when the ingress becomes ready.
+	logger.Debugf("Starting a new revision rollout for configuration %s and revision %s at %d",
+		goal.ConfigurationName, goal.Revisions[0].RevisionName, nowTS)
 	ret.StepParams.StartTime = nowTS
 
 	// Go backwards and find first revision with traffic assignment > 0.
