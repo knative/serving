@@ -117,6 +117,7 @@ func main() {
 
 	// After a minute, update the Ksvc.
 	updateSvc := time.After(30 * time.Second)
+	var restoreFn func()
 LOOP:
 	for {
 		select {
@@ -126,7 +127,7 @@ LOOP:
 			break LOOP
 
 		case <-updateSvc:
-			log.Println("Updating the service: ", *target)
+			log.Println("Updating the service:", *target)
 			sc := servingclient.Get(ctx)
 			svc, err := sc.ServingV1().Services(namespace).Get(context.Background(), *target, metav1.GetOptions{})
 			if err != nil {
@@ -137,10 +138,10 @@ LOOP:
 
 			// At the end of the benchmark, restore to the previous value.
 			if prev := svc.Spec.Template.Annotations["autoscaling.knative.dev/minScale"]; prev != "" {
-				defer func() {
+				restoreFn = func() {
 					restore, err := sc.ServingV1().Services(namespace).Get(context.Background(), *target, metav1.GetOptions{})
 					if err != nil {
-						log.Println("Error getting service: ", err)
+						log.Println("Error getting service", err)
 						return
 					}
 					restore = restore.DeepCopy()
@@ -148,7 +149,7 @@ LOOP:
 					_, err = sc.ServingV1().Services(namespace).Update(
 						context.Background(), restore, metav1.UpdateOptions{})
 					log.Printf("Restoring the service to initial minScale = %s, err: %#v", prev, err)
-				}()
+				}
 			}
 			svc.Spec.Template.Annotations["autoscaling.knative.dev/minScale"] = "1"
 			_, err = sc.ServingV1().Services(namespace).Update(context.Background(), svc, metav1.UpdateOptions{})
@@ -190,6 +191,9 @@ LOOP:
 			}
 			q.AddSamplePoint(mako.XTime(rs.Time), v)
 		}
+	}
+	if restoreFn != nil {
+		restoreFn()
 	}
 
 	// Walk over our accumulated per-second error rates and report them as
