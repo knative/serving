@@ -78,7 +78,7 @@ function update_knative() {
     --type merge \
     -p '{"data":{"scale-to-zero-grace-period":"10s"}}'
 
-  // Ensure gradual rollout is enabled.
+  # Ensure gradual rollout is enabled.
   kubectl patch configmap/config-network\
     -n knative-serving \
     --type merge \
