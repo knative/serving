@@ -75,11 +75,12 @@ func (g graph) path(name string) []string {
 	return append(base, name)
 }
 
-func buildGraph(importpaths ...string) (graph, error) {
-	g := make(graph, len(importpaths))
+func buildGraph(importpath string, buildFlags ...string) (graph, error) {
+	g := make(graph, 1)
 	pkgs, err := packages.Load(&packages.Config{
-		Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedImports | packages.NeedDeps | packages.NeedModule,
-	}, importpaths...)
+		Mode:       packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedImports | packages.NeedDeps | packages.NeedModule,
+		BuildFlags: buildFlags,
+	}, importpath)
 	if err != nil {
 		return nil, err
 	}
@@ -101,10 +102,10 @@ func buildGraph(importpaths ...string) (graph, error) {
 
 // CheckNoDependency checks that the given import paths (ip) does not
 // depend (transitively) on certain banned imports.
-func CheckNoDependency(ip string, banned []string) error {
-	g, err := buildGraph(ip)
+func CheckNoDependency(ip string, banned []string, buildFlags ...string) error {
+	g, err := buildGraph(ip, buildFlags...)
 	if err != nil {
-		return fmt.Errorf("buildGraph(queue) = %w", err)
+		return fmt.Errorf("buildGraph(%q) = %w", ip, err)
 	}
 	for _, dip := range banned {
 		if g.contains(dip) {
@@ -117,11 +118,11 @@ func CheckNoDependency(ip string, banned []string) error {
 
 // AssertNoDependency checks that the given import paths (the keys) do not
 // depend (transitively) on certain banned imports (the values)
-func AssertNoDependency(t *testing.T, banned map[string][]string) {
+func AssertNoDependency(t *testing.T, banned map[string][]string, buildFlags ...string) {
 	t.Helper()
 	for ip, banned := range banned {
 		t.Run(ip, func(t *testing.T) {
-			if err := CheckNoDependency(ip, banned); err != nil {
+			if err := CheckNoDependency(ip, banned, buildFlags...); err != nil {
 				t.Error("CheckNoDependency() =", err)
 			}
 		})
@@ -133,10 +134,10 @@ func AssertNoDependency(t *testing.T, banned map[string][]string) {
 // Note: while perhaps counterintuitive we allow the value to be a superset
 // of the actual imports to that folks can use a constant that holds blessed
 // import paths.
-func CheckOnlyDependencies(ip string, allowed map[string]struct{}) error {
-	g, err := buildGraph(ip)
+func CheckOnlyDependencies(ip string, allowed map[string]struct{}, buildFlags ...string) error {
+	g, err := buildGraph(ip, buildFlags...)
 	if err != nil {
-		return fmt.Errorf("buildGraph(queue) = %w", err)
+		return fmt.Errorf("buildGraph(%q) = %w", ip, err)
 	}
 	for _, name := range g.order() {
 		if _, ok := allowed[name]; !ok {
@@ -152,7 +153,7 @@ func CheckOnlyDependencies(ip string, allowed map[string]struct{}) error {
 // Note: while perhaps counterintuitive we allow the value to be a superset
 // of the actual imports to that folks can use a constant that holds blessed
 // import paths.
-func AssertOnlyDependencies(t *testing.T, allowed map[string][]string) {
+func AssertOnlyDependencies(t *testing.T, allowed map[string][]string, buildFlags ...string) {
 	t.Helper()
 	for ip, allow := range allowed {
 		// Always include our own package in the set of allowed dependencies.
@@ -161,7 +162,7 @@ func AssertOnlyDependencies(t *testing.T, allowed map[string][]string) {
 			allowed[x] = struct{}{}
 		}
 		t.Run(ip, func(t *testing.T) {
-			if err := CheckOnlyDependencies(ip, allowed); err != nil {
+			if err := CheckOnlyDependencies(ip, allowed, buildFlags...); err != nil {
 				t.Error("CheckOnlyDependencies() =", err)
 			}
 		})
