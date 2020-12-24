@@ -95,7 +95,7 @@ func main() {
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs, t.analyzers...)
 
 	// Send 1k QPS for the given duration with a 30s request timeout.
-	rate := vegeta.Rate{Freq: 1000, Per: time.Second}
+	rate := vegeta.Rate{Freq: 3600, Per: time.Second}
 	targeter := vegeta.NewStaticTargeter(t.target)
 	attacker := vegeta.NewAttacker(vegeta.Timeout(30 * time.Second))
 
@@ -157,7 +157,7 @@ LOOP:
 			svc.Spec.Template.Annotations["autoscaling.knative.dev/minScale"] = "1"
 			_, err = sc.ServingV1().Services(namespace).Update(context.Background(), svc, metav1.UpdateOptions{})
 			if err != nil {
-				log.Fatalf("Error updating ksvc %s: %v", *target, err)
+				fatalf("Error updating ksvc %s: %v", *target, err)
 			}
 			log.Println("Successfully updated the service.")
 		case res, ok := <-results:
