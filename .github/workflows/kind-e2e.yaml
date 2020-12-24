@@ -56,6 +56,7 @@ jobs:
     env:
       GOPATH: ${{ github.workspace }}
       GO111MODULE: off
+      GOFLAGS: -tags=nostackdriver
       # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
       # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
       # thus allowing us to test without bypassing tag-to-digest resolution.
