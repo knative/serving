@@ -1,3 +1,5 @@
+// +build !nostackdriver
+
 /*
 Copyright 2019 The Knative Authors
 
@@ -20,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strconv"
 	"sync"
 	"time"
 
@@ -88,15 +91,47 @@ var (
 	// metricToResourceLabels provides a quick lookup from a custom metric name to the set of tags
 	// which should be promoted to Stackdriver Resource labels via opencensus resources.
 	metricToResourceLabels = map[string]*resourceTemplate{}
-
-	// TestOverrideBundleCount is a variable for testing to reduce the size (number of metrics) buffered before
-	// Stackdriver will send a bundled metric report. Only applies if non-zero.
-	TestOverrideBundleCount = 0
 )
 
 type resourceTemplate struct {
 	Type      string
 	LabelKeys sets.String
+}
+
+func sdinit(ctx context.Context, m map[string]string, mc *metricsConfig, ops ExporterOptions) error {
+	// If stackdriverClientConfig is not provided for stackdriver backend destination, OpenCensus will try to
+	// use the application default credentials. If that is not available, Opencensus would fail to create the
+	// metrics exporter.
+	scc := NewStackdriverClientConfigFromMap(m)
+	mc.stackdriverClientConfig = *scc
+	mc.isStackdriverBackend = true
+	var allowCustomMetrics bool
+	var err error
+	mc.stackdriverMetricTypePrefix = path.Join(mc.domain, mc.component)
+
+	customMetricsSubDomain := m[stackdriverCustomMetricSubDomainKey]
+	if customMetricsSubDomain == "" {
+		customMetricsSubDomain = defaultCustomMetricSubDomain
+	}
+	mc.stackdriverCustomMetricTypePrefix = path.Join(customMetricTypePrefix, customMetricsSubDomain, mc.component)
+	if ascmStr := m[allowStackdriverCustomMetricsKey]; ascmStr != "" {
+		allowCustomMetrics, err = strconv.ParseBool(ascmStr)
+		if err != nil {
+			return fmt.Errorf("invalid %s value %q", allowStackdriverCustomMetricsKey, ascmStr)
+		}
+	}
+
+	mc.recorder = sdCustomMetricsRecorder(*mc, allowCustomMetrics)
+
+	if scc.UseSecret {
+		secret, err := getStackdriverSecret(ctx, ops.Secrets)
+		if err != nil {
+			return err
+		}
+
+		mc.secret = secret
+	}
+	return nil
 }
 
 // SetStackdriverSecretLocation sets the name and namespace of the Secret that can be used to authenticate with Stackdriver.

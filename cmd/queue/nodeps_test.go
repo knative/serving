@@ -24,11 +24,6 @@ import (
 
 func TestNoDeps(t *testing.T) {
 	depcheck.AssertNoDependency(t, map[string][]string{
-		"knative.dev/serving/cmd/queue": {
-			"k8s.io/apimachinery/pkg/api/apitesting/fuzzer",
-			// TODO(https://github.com/knative/serving/issues/9957): Remove these dependencies.
-			// "k8s.io/client-go/informers",
-			// "k8s.io/client-go/kubernetes",
-		},
-	})
+		"knative.dev/serving/cmd/queue": depcheck.KnownHeavyDependencies,
+	}, "-tags=nostackdriver")
 }

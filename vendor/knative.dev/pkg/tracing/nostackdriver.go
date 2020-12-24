@@ -1,3 +1,5 @@
+// +build nostackdriver
+
 /*
 Copyright 2020 The Knative Authors
 
@@ -14,17 +16,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package metrics
+package tracing
 
-const (
-	testComponent = "testComponent"
+import (
+	"errors"
+
+	"go.opencensus.io/trace"
+	"knative.dev/pkg/tracing/config"
 )
 
-// InitForTesting initialize the necessary global variables for unit tests.
-func InitForTesting() {
-	setCurMetricsConfig(&metricsConfig{
-		backendDestination: prometheus,
-		component:          "test",
-		domain:             "test",
-	})
+func newStackdriver(cfg *config.Config) (trace.Exporter, error) {
+	return nil, errors.New("Stackdriver is not configured")
 }
