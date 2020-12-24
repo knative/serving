@@ -71,11 +71,18 @@ function update_knative() {
   # Update the activator hpa minReplicas to 10
   kubectl patch hpa -n knative-serving activator \
     --patch '{"spec": {"minReplicas": 10}}'
+
   # Update the scale-to-zero grace period to 10s
   kubectl patch configmap/config-autoscaler \
     -n knative-serving \
     --type merge \
     -p '{"data":{"scale-to-zero-grace-period":"10s"}}'
+
+  # Ensure gradual rollout is enabled.
+  kubectl patch configmap/config-network\
+    -n knative-serving \
+    --type merge \
+    -p '{"data":{"rolloutDuration":"240"}}'
 
   echo ">> Setting up 'prod' config-mako"
   cat <<EOF | kubectl apply -f -
