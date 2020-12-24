@@ -51,7 +51,7 @@ spec:
           limits:
             cpu: 50m
             memory: 50Mi
-      containerConcurrency: 1
+      containerConcurrency: 5
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -92,5 +92,5 @@ spec:
           limits:
             cpu: 50m
             memory: 50Mi
-      containerConcurrency: 1
+      containerConcurrency: 5
 ---
