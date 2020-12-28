@@ -1011,7 +1011,9 @@ func TestObserveReady(t *testing.T) {
 	const (
 		now         = 200620092020 + 1982
 		oldenDays   = 198219841988
+		oldenStep   = float64(now-oldenDays) / float64(time.Second)
 		ancientDays = 14921812
+		ancientStep = float64(now-ancientDays) / float64(time.Second)
 		duration    = 120.
 	)
 	ro := Rollout{
@@ -1050,7 +1052,8 @@ func TestObserveReady(t *testing.T) {
 			Percent: 50,
 		}, {
 			// This covers the case when duration of a step is larger
-			// than duration of the whole rollout.
+			// than duration of the whole rollout. Which means we'll
+			// do the whole rollout in one final step.
 			ConfigurationName: "días antiguos",
 			StepParams: RolloutParams{
 				StartTime: ancientDays,
@@ -1074,9 +1077,9 @@ func TestObserveReady(t *testing.T) {
 			Percent:           100,
 			StepParams: RolloutParams{
 				StartTime:    200620092020,
-				StepDuration: 1212121212, // 120/99
+				StepDuration: 1202020202, // (120s-1984ns)/99
 				StepSize:     1,
-				NextStepTime: now + 1212121212,
+				NextStepTime: now + 1202020202,
 			},
 		}, {
 			ConfigurationName: "step-begin > 1s",
@@ -1084,7 +1087,7 @@ func TestObserveReady(t *testing.T) {
 			StepParams: RolloutParams{
 				StartTime:    oldenDays,
 				StepDuration: int64(3 * time.Second),
-				StepSize:     100 / 40,
+				StepSize:     3, // int(100. / ((duration - oldenStep) / oldenStep)),
 				NextStepTime: now + 3*int64(time.Second),
 			},
 		}, {
@@ -1110,9 +1113,9 @@ func TestObserveReady(t *testing.T) {
 			Percent:           13,
 			StepParams: RolloutParams{
 				StartTime:    ancientDays,
-				StepDuration: int64(duration * time.Second),
+				StepDuration: int64(time.Second), // The minimal possible.
 				StepSize:     12,
-				NextStepTime: now + int64(duration*time.Second),
+				NextStepTime: now + int64(time.Second),
 			},
 		}},
 	}
