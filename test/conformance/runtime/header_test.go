@@ -91,7 +91,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		// We expect the value to be a 64-bit or 128-bit hex string
 		"x-b3-traceid": regexp.MustCompile("[0-9a-f]{16}|[0-9a-f]{32}"),
 
-		"Traceparent": regexp.MustCompile("[0-9]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9]{2}"),
+		"traceparent": regexp.MustCompile("[0-9]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9]{2}"),
 
 		// "x-b3-parentspanid" and "x-b3-sampled" are often present for tracing, but are not
 		// required for tracing so we do not validate them.
