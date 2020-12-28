@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -450,10 +451,10 @@ func TestReconcile(t *testing.T) {
 					RevisionName: "config-00001", Percent: 1,
 				}}, fakeCurTime.Add(-3*time.Second),
 					func(r *traffic.Rollout) {
-						const numSteps = 120 / 3 // 40
-						// Step duration is 3s (duration / numSteps = 120/40)
-						r.Configurations[0].StepParams.StepDuration = int64(time.Second) * 120 / numSteps // 3s in ns.
-						r.Configurations[0].StepParams.StepSize = (100 - 1) / numSteps                    // 2
+						const numSteps = (120 - 3) / 3 // 39
+						// Step duration is 3s (duration - 3)/ numSteps = 120/40)
+						r.Configurations[0].StepParams.StepDuration = int64(time.Second) * (120 - 3) / numSteps   // 3s in ns.
+						r.Configurations[0].StepParams.StepSize = int(math.Round((100. - 1) / float64(numSteps))) // 3
 						// StepDuration is 3, and so next step is `now` + 3.
 						r.Configurations[0].StepParams.NextStepTime = fakeCurTime.Add(3 * time.Second).UnixNano()
 					},
