@@ -438,6 +438,11 @@ func stepConfig(ctx context.Context, goal, prev *ConfigurationRollout, nowTS int
 func (cur *ConfigurationRollout) computeProperties(nowTS, minStepSec, durationSecs float64) {
 	// First compute number of steps. If it takes more time to step 1% than the
 	// whole allotted time for the rollout, do it in 1 step.
+	// Take into account that we already used minStepSecs to move first
+	// 1% so the overall rollout duration is shorter by this amount.
+	// If it took longer than duration it might be negative, so cap it
+	// at 1s, so we just do 1 step.
+	durationSecs = math.Max(1, durationSecs-minStepSec)
 	numSteps := math.Max(1, durationSecs/minStepSec)
 	pf := float64(cur.Percent)
 
