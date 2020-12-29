@@ -69,6 +69,15 @@ function install_istio() {
     sed "s/namespace: \"*${KNATIVE_DEFAULT_NAMESPACE}\"*/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
     echo "net-istio patched YAML: $YAML_NAME"
     ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider=istio || return 1
+
+    if [[ $MESH -eq 1 ]]; then
+      kubectl patch configmap/config-istio -n ${SYSTEM_NAMESPACE} --patch='{"data":{"local-gateway.mesh":"mesh"}}'
+    fi
+
+    if [[ $ENABLE_VIRTUALSERVICE_STATUS -eq 1 ]]; then
+      kubectl patch configmap/config-istio -n ${SYSTEM_NAMESPACE} --patch='{"data":{"enable-virtualservice-status":"true"}}'
+    fi
+
     UNINSTALL_LIST+=( "${YAML_NAME}" )
   fi
 }
