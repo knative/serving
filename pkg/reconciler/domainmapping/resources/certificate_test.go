@@ -26,6 +26,7 @@ import (
 	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	// . "knative.dev/serving/pkg/testing/v1"
 )
@@ -55,6 +56,9 @@ func TestMakeCertificate(t *testing.T) {
 				Name:        "mapping.com",
 				Namespace:   "the-namespace",
 				Annotations: map[string]string{"networking.knative.dev/certificate.class": certClass},
+				Labels: map[string]string{
+					serving.DomainMappingLabelKey: "mapping.com",
+				},
 			},
 			Spec: networkingv1alpha1.CertificateSpec{
 				DNSNames: []string{
@@ -88,6 +92,9 @@ func TestMakeCertificate(t *testing.T) {
 				Annotations: map[string]string{
 					"networking.knative.dev/certificate.class": certClass,
 					"others": "kept",
+				},
+				Labels: map[string]string{
+					serving.DomainMappingLabelKey: "mapping.com",
 				},
 			},
 			Spec: networkingv1alpha1.CertificateSpec{

@@ -17,33 +17,15 @@ limitations under the License.
 package resources
 
 import (
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/networking/pkg/apis/networking"
 	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
 )
 
 // MakeCertificate creates a Certificate for the DomainMapping.
 func MakeCertificate(dm *v1alpha1.DomainMapping, certClass string) *networkingv1alpha1.Certificate {
 	certName := kmeta.ChildName(dm.GetName(), "")
-	return &networkingv1alpha1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      certName,
-			Namespace: dm.Namespace,
-			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
-				networking.CertificateClassAnnotationKey: certClass,
-			}, dm.Annotations), func(key string) bool {
-				return key == corev1.LastAppliedConfigAnnotation
-			}),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(dm)},
-		},
-		Spec: networkingv1alpha1.CertificateSpec{
-			DNSNames: []string{
-				dm.GetName(),
-			},
-			SecretName: certName,
-		},
-	}
+	return routeresources.MakeCertificate(dm, serving.DomainMappingLabelKey, dm.Name, certName, certClass)
 }

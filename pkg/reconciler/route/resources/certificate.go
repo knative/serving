@@ -32,6 +32,28 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
 )
 
+func MakeCertificate(owner kmeta.OwnerRefableAccessor, ownerLabelKey string, dnsName string, certName string, certClass string) *networkingv1alpha1.Certificate {
+	return &networkingv1alpha1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            certName,
+			Namespace:       owner.GetNamespace(),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(owner)},
+			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
+				networking.CertificateClassAnnotationKey: certClass,
+			}, owner.GetAnnotations()), func(key string) bool {
+				return key == corev1.LastAppliedConfigAnnotation
+			}),
+			Labels: map[string]string{
+				ownerLabelKey: owner.GetName(),
+			},
+		},
+		Spec: networkingv1alpha1.CertificateSpec{
+			DNSNames:   []string{dnsName},
+			SecretName: certName,
+		},
+	}
+}
+
 // MakeCertificates creates an array of Certificate for the Route to request TLS certificates.
 // domainTagMap is an one-to-one mapping between domain and tag, for major domain (tag-less),
 // the value is an empty string
@@ -56,26 +78,7 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 		if tag != "" {
 			certName += fmt.Sprint("-", adler32.Checksum([]byte(tag)))
 		}
-
-		certs = append(certs, &networkingv1alpha1.Certificate{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            certName,
-				Namespace:       route.Namespace,
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
-				Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
-					networking.CertificateClassAnnotationKey: certClass,
-				}, route.Annotations), func(key string) bool {
-					return key == corev1.LastAppliedConfigAnnotation
-				}),
-				Labels: map[string]string{
-					serving.RouteLabelKey: route.Name,
-				},
-			},
-			Spec: networkingv1alpha1.CertificateSpec{
-				DNSNames:   []string{dnsName},
-				SecretName: certName,
-			},
-		})
+		certs = append(certs, MakeCertificate(route, serving.RouteLabelKey, dnsName, certName, certClass))
 	}
 	return certs
 }
