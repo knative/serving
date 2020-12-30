@@ -25,7 +25,12 @@ import (
 )
 
 // MakeCertificate creates a Certificate for the DomainMapping.
+//
+// This function delegates entirely to routeresources.MakeCertificate,
+// but we keep it here to hide the `certName`, and `dnsName` logic
+// from the caller.
 func MakeCertificate(dm *v1alpha1.DomainMapping, certClass string) *networkingv1alpha1.Certificate {
 	certName := kmeta.ChildName(dm.GetName(), "")
-	return routeresources.MakeCertificate(dm, serving.DomainMappingLabelKey, dm.Name, certName, certClass)
+	return routeresources.MakeCertificate(
+		dm, serving.DomainMappingLabelKey, dm.Name, certName, certClass)
 }

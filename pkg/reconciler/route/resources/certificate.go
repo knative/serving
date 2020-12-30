@@ -32,6 +32,9 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
 )
 
+// MakeCertificate creates a Certificate, inheriting the certClass
+// annotations from the owner, as well as the namespaces. If owner
+// does not have a certClass, use the provided `certClass` parameter.
 func MakeCertificate(owner kmeta.OwnerRefableAccessor, ownerLabelKey string, dnsName string, certName string, certClass string) *networkingv1alpha1.Certificate {
 	return &networkingv1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
