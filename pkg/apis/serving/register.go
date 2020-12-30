@@ -75,6 +75,10 @@ const (
 	// which Service they are created.
 	ServiceLabelKey = GroupName + "/service"
 
+	// DomainMappingLabelKey is the label key attached to Ingress resources to indicate
+	// which DomainMapping triggered their creation.
+	DomainMappingLabelKey = GroupName + "/domainmapping"
+
 	// ConfigurationGenerationLabelKey is the label key attached to a Revision indicating the
 	// metadata generation of the Configuration that created this revision
 	ConfigurationGenerationLabelKey = GroupName + "/configurationGeneration"
