@@ -135,7 +135,6 @@ func makeIngressSpec(
 	sort.Strings(names)
 	// The routes are matching rule based on domain name to traffic split targets.
 	rules := make([]netv1alpha1.IngressRule, 0, len(names))
-	challengeHosts := getChallengeHosts(acmeChallenges)
 
 	featuresConfig := config.FromContextOrDefaults(ctx).Features
 
@@ -188,7 +187,7 @@ func makeIngressSpec(
 			// If this is a public rule, we need to configure ACME challenge paths.
 			if visibility == netv1alpha1.IngressVisibilityExternalIP {
 				rule.HTTP.Paths = append(
-					makeACMEIngressPaths(challengeHosts, domains), rule.HTTP.Paths...)
+					MakeACMEIngressPaths(acmeChallenges, domains...), rule.HTTP.Paths...)
 			}
 			rules = append(rules, rule)
 		}
@@ -231,7 +230,10 @@ func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, vis
 	return domains, err
 }
 
-func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, domains []string) []netv1alpha1.HTTPIngressPath {
+// MakeACMEIngressPaths returns a set of netv1alpha1.HTTPIngressPath
+// that can be used to perform ACME challenges.
+func MakeACMEIngressPaths(acmeChallenges []netv1alpha1.HTTP01Challenge, domains ...string) []netv1alpha1.HTTPIngressPath {
+	challenges := getChallengeHosts(acmeChallenges)
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(challenges))
 	for _, domain := range domains {
 		challenge, ok := challenges[domain]
