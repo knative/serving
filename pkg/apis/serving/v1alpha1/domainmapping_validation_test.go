@@ -33,8 +33,26 @@ func TestDomainMappingValidation(t *testing.T) {
 		dm   *DomainMapping
 		want *apis.FieldError
 	}{{
+		name: "invalid name",
+		want: apis.ErrGeneric("invalid name \"invalid\": name: Invalid value: \"invalid\": should be a domain with at least two segments separated by dots", "metadata.name"),
+		dm: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "invalid",
+				Namespace: "ns",
+			},
+			Spec: DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Name:       "some-name.example.com",
+					APIVersion: "serving.knative.dev/v1",
+					Kind:       "Service",
+					Namespace:  "ns",
+				},
+			},
+		},
+	}, {
 		name: "uses GenerateName rather than Name",
-		want: apis.ErrDisallowedFields("metadata.generateName"),
+		want: apis.ErrDisallowedFields("metadata.generateName").Also(
+			apis.ErrGeneric("invalid name \"\": name: Required value", "metadata.name")),
 		dm: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "cant-use-this",
@@ -42,7 +60,7 @@ func TestDomainMappingValidation(t *testing.T) {
 			},
 			Spec: DomainMappingSpec{
 				Ref: duckv1.KReference{
-					Name:       "some-name",
+					Name:       "some-name.example.com",
 					APIVersion: "serving.knative.dev/v1",
 					Kind:       "Service",
 					Namespace:  "ns",
@@ -58,7 +76,7 @@ func TestDomainMappingValidation(t *testing.T) {
 		},
 		dm: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "wrong-ref-ns",
+				Name:      "wrong-ref-ns.example.com",
 				Namespace: "good-namespace",
 			},
 			Spec: DomainMappingSpec{
@@ -75,7 +93,7 @@ func TestDomainMappingValidation(t *testing.T) {
 		want: apis.ErrMissingField("spec.ref.kind"),
 		dm: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "wrong-kind",
+				Name:      "wrong-kind.example.com",
 				Namespace: "ns",
 			},
 			Spec: DomainMappingSpec{
@@ -91,7 +109,7 @@ func TestDomainMappingValidation(t *testing.T) {
 		want: apis.ErrMissingField("spec.ref.apiVersion"),
 		dm: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "wrong-version",
+				Name:      "wrong-version.example.com",
 				Namespace: "ns",
 			},
 			Spec: DomainMappingSpec{
@@ -108,6 +126,7 @@ func TestDomainMappingValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			got := test.dm.Validate(ctx)
+
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got):\n%s", cmp.Diff(test.want.Error(), got.Error()))
 			}
@@ -140,7 +159,7 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		name: "update creator annotation",
 		this: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
+				Name:      "valid.example.com",
 				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u2,
@@ -151,7 +170,7 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		},
 		prev: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
+				Name:      "valid.example.com",
 				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u1,
@@ -166,7 +185,7 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		name: "update creator annotation with spec changes",
 		this: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
+				Name:      "valid.example.com",
 				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u2,
@@ -177,7 +196,7 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		},
 		prev: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
+				Name:      "valid.example.com",
 				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u1,
@@ -192,7 +211,7 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		name: "update lastModifier annotation without spec changes",
 		this: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
+				Name:      "valid.example.com",
 				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u1,
@@ -203,7 +222,7 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		},
 		prev: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
+				Name:      "valid.example.com",
 				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u1,
@@ -217,7 +236,7 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		name: "update lastModifier annotation with spec changes",
 		this: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
+				Name:      "valid.example.com",
 				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u1,
@@ -228,7 +247,7 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 		},
 		prev: &DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
+				Name:      "valid.example.com",
 				Namespace: "ns",
 				Annotations: map[string]string{
 					serving.CreatorAnnotation: u1,
