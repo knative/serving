@@ -27,6 +27,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
 )
 
 // MakeIngress creates an Ingress object for a DomainMapping.  The Ingress is
@@ -34,7 +35,7 @@ import (
 // backend is always in the same namespace also (as this is required by
 // KIngress).  The created ingress will contain a RewriteHost rule to cause the
 // given hostName to be used as the host.
-func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName, ingressClass string) *netv1alpha1.Ingress {
+func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName, ingressClass string, tls []netv1alpha1.IngressTLS, acmeChallenges ...netv1alpha1.HTTP01Challenge) *netv1alpha1.Ingress {
 	return &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(dm.GetName(), ""),
@@ -50,11 +51,12 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(dm)},
 		},
 		Spec: netv1alpha1.IngressSpec{
+			TLS: tls,
 			Rules: []netv1alpha1.IngressRule{{
 				Hosts:      []string{dm.Name},
 				Visibility: netv1alpha1.IngressVisibilityExternalIP,
 				HTTP: &netv1alpha1.HTTPIngressRuleValue{
-					Paths: []netv1alpha1.HTTPIngressPath{{
+					Paths: append([]netv1alpha1.HTTPIngressPath{{
 						RewriteHost: hostName,
 						Splits: []netv1alpha1.IngressBackendSplit{{
 							Percent: 100,
@@ -67,7 +69,7 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName
 								ServicePort:      intstr.FromInt(80),
 							},
 						}},
-					}},
+					}}, routeresources.MakeACMEIngressPaths(acmeChallenges, dm.GetName())...),
 				},
 			}},
 		},
