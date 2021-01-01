@@ -510,9 +510,10 @@ func TestReconcile(t *testing.T) {
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		ctx = addressable.WithDuck(ctx)
 		r := &Reconciler{
-			netclient:     networkingclient.Get(ctx),
-			ingressLister: listers.GetIngressLister(),
-			resolver:      resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
+			certificateLister: listers.GetCertificateLister(),
+			ingressLister:     listers.GetIngressLister(),
+			netclient:         networkingclient.Get(ctx),
+			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
 		}
 
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),

@@ -45,9 +45,10 @@ import (
 
 // Reconciler implements controller.Reconciler for DomainMapping resources.
 type Reconciler struct {
-	ingressLister networkinglisters.IngressLister
-	netclient     netclientset.Interface
-	resolver      *resolver.URIResolver
+	certificateLister networkinglisters.CertificateLister
+	ingressLister     networkinglisters.IngressLister
+	netclient         netclientset.Interface
+	resolver          *resolver.URIResolver
 }
 
 // Check that our Reconciler implements Interface
