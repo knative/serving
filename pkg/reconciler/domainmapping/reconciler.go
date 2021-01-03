@@ -19,12 +19,19 @@ package domainmapping
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 
+	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
+	networkaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
+
+	"github.com/prometheus/common/log"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -37,10 +44,12 @@ import (
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
+	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
 )
 
 // Reconciler implements controller.Reconciler for DomainMapping resources.
@@ -54,13 +63,23 @@ type Reconciler struct {
 // Check that our Reconciler implements Interface
 var _ domainmappingreconciler.Interface = (*Reconciler)(nil)
 
+// Check that our Reconciler implements CertificateAccessor
+var _ networkaccessor.CertificateAccessor = (*Reconciler)(nil)
+
+// GetNetworkingClient implements networking.CertificateAccessor
+func (r *Reconciler) GetNetworkingClient() netclientset.Interface {
+	return r.netclient
+}
+
+// GetCertificateLister implements networking.CertificateAccessor
+func (r *Reconciler) GetCertificateLister() networkinglisters.CertificateLister {
+	return r.certificateLister
+}
+
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMapping) reconciler.Event {
 	logger := logging.FromContext(ctx)
 	logger.Debugf("Reconciling DomainMapping %s/%s", dm.Namespace, dm.Name)
-
-	// TODO(https://github.com/knative/serving/issues/10247)
-	dm.Status.MarkTLSNotEnabled("AutoTLS for DomainMapping is not implemented")
 
 	// Defensively assume the ingress is not configured until we manage to
 	// successfully reconcile it below. This avoids error cases where we fail
@@ -74,6 +93,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	url := &apis.URL{Scheme: "http", Host: dm.Name}
 	dm.Status.URL = url
 	dm.Status.Address = &duckv1.Addressable{URL: url}
+
+	tls, acmeChallenges, err := r.tls(ctx, dm)
+	if err != nil {
+		return err
+	}
 
 	// IngressClass can be set via annotations or in the config map.
 	ingressClass := dm.Annotations[networking.IngressClassAnnotationKey]
@@ -95,7 +119,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
 	logger.Debugf("Mapping %s to ref %s/%s (host: %q, svc: %q)", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name, targetHost, targetBackendSvc)
-	desired := resources.MakeIngress(dm, targetBackendSvc, targetHost, ingressClass, nil /* tls */)
+	desired := resources.MakeIngress(dm, targetBackendSvc, targetHost, ingressClass, tls, acmeChallenges...)
 	ingress, err := r.reconcileIngress(ctx, dm, desired)
 	if err != nil {
 		return err
@@ -109,6 +133,64 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	}
 
 	return err
+}
+
+func autoTLSEnabled(ctx context.Context, dm *v1alpha1.DomainMapping) bool {
+	if !config.FromContext(ctx).Network.AutoTLS {
+		return false
+	}
+	logger := logging.FromContext(ctx)
+	annotationValue := dm.Annotations[networking.DisableAutoTLSAnnotationKey]
+	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
+	if annotationValue != "" && err != nil {
+		// validation should've caught an invalid value here.
+		// if we have one anyways, assume not disabled and log a warning.
+		logger.Warnf("Invalid annotation value for %q. Value: %q",
+			networking.DisableAutoTLSAnnotationKey, annotationValue)
+	}
+
+	return !disabledByAnnotation
+}
+
+func certClass(ctx context.Context) string {
+	return config.FromContext(ctx).Network.DefaultCertificateClass
+}
+
+func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
+	tls := []netv1alpha1.IngressTLS{}
+	if !autoTLSEnabled(ctx, dm) {
+		dm.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
+		return tls, nil, nil
+	}
+
+	acmeChallenges := []netv1alpha1.HTTP01Challenge{}
+	desiredCert := resources.MakeCertificate(dm, certClass(ctx))
+	cert, err := networkaccessor.ReconcileCertificate(ctx, dm, desiredCert, r)
+	log.Infof("Found the cert: %+v", cert)
+	if err != nil {
+		if kaccessor.IsNotOwned(err) {
+			dm.Status.MarkCertificateNotOwned(desiredCert.Name)
+		} else {
+			dm.Status.MarkCertificateProvisionFailed(desiredCert.Name)
+		}
+		return nil, nil, err
+	}
+
+	dnsNames := sets.NewString(desiredCert.Spec.DNSNames...)
+	if dnsNames.Has(dm.Name) {
+		dm.Status.URL.Scheme = "https"
+	}
+	if cert.IsReady() {
+		dm.Status.MarkCertificateReady(cert.Name)
+		tls = append(tls, routeresources.MakeIngressTLS(cert, dnsNames.List()))
+	} else {
+		acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
+		dm.Status.MarkCertificateNotReady(cert.Name)
+	}
+	sort.Slice(acmeChallenges, func(i, j int) bool {
+		return acmeChallenges[i].URL.String() < acmeChallenges[j].URL.String()
+	})
+	return tls, acmeChallenges, nil
 }
 
 func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMapping, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {

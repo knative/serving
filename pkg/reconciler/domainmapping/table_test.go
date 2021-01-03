@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
 	network "knative.dev/networking/pkg"
@@ -34,11 +35,14 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	pkgnetwork "knative.dev/pkg/network"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
+	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
@@ -73,6 +77,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "first-reconcile.com"),
 				withAddress("http", "first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withIngressNotConfigured,
 				withReferenceResolved,
@@ -99,6 +104,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "first-reconcile.com"),
 				withAddress("http", "first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withIngressNotConfigured,
 				withReferenceResolved,
@@ -127,6 +133,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "first-reconcile.com"),
 				withAddress("http", "first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withReferenceNotResolved(`services.serving.knative.dev "target" not found`),
 			),
@@ -152,6 +159,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "first-reconcile.com"),
 				withAddress("http", "first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withReferenceNotResolved(`resolved URI "http://the-target-svc.svc.cluster.local/path" contains a path`),
 			),
@@ -177,6 +185,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "first-reconcile.com"),
 				withAddress("http", "first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withReferenceNotResolved(`resolved URI "http://notasvc.cluster.local" must be of the form {name}.{namespace}.svc.cluster.local`),
 			),
@@ -202,6 +211,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "first-reconcile.com"),
 				withAddress("http", "first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withReferenceNotResolved(`resolved URI "http://name.anothernamespace.svc.cluster.local" must be in same namespace as DomainMapping`),
 			),
@@ -227,6 +237,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "first-reconcile.com"),
 				withAddress("http", "first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withIngressNotConfigured,
 				withDomainClaimed,
 				withReferenceResolved,
@@ -255,6 +266,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "first-reconcile.com"),
 				withAddress("http", "first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 			),
 		}},
 		WantCreates: []runtime.Object{
@@ -282,6 +294,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "first-reconcile.com"),
 				withAddress("http", "first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimNotOwned,
 			),
 		}},
@@ -305,6 +318,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "ingressclass.first-reconcile.com"),
 				withAddress("http", "ingressclass.first-reconcile.com"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withIngressNotConfigured,
 				withReferenceResolved,
@@ -337,6 +351,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "ingress-exists.org"),
 				withAddress("http", "ingress-exists.org"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withIngressNotConfigured,
 				withReferenceResolved,
@@ -366,6 +381,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "ingress-failed.me"),
 				withAddress("http", "ingress-failed.me"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withReferenceResolved,
 				withPropagatedStatus(ingress(domainMapping("default", "failed.default.svc.cluster.local"), "", WithLoadbalancerFailed("fell over", "hurt myself")).Status),
@@ -392,6 +408,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "ingress-unknown.me"),
 				withAddress("http", "ingress-unknown.me"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withReferenceResolved,
 				withPropagatedStatus(ingress(domainMapping("default", "ingress-unknown.me"), "", withIngressNotReady).Status),
@@ -418,6 +435,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "ingress-ready.me"),
 				withAddress("http", "ingress-ready.me"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withReferenceResolved,
 				withPropagatedStatus(ingress(domainMapping("default", "ingress-ready.me"), "", withIngressReady).Status),
@@ -436,6 +454,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "cantcreate.this"),
 				withAddress("http", "cantcreate.this"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withReferenceResolved,
 				withGeneration(1),
@@ -453,6 +472,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "cantcreate.this"),
 				withAddress("http", "cantcreate.this"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withReferenceResolved,
 				withIngressNotConfigured,
@@ -477,6 +497,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "cantupdate.this"),
 				withAddress("http", "cantupdate.this"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withReferenceResolved,
 				withGeneration(1),
@@ -495,6 +516,7 @@ func TestReconcile(t *testing.T) {
 				withURL("http", "cantupdate.this"),
 				withAddress("http", "cantupdate.this"),
 				withInitDomainMappingConditions,
+				withTLSNotEnabled,
 				withDomainClaimed,
 				withReferenceResolved,
 				withIngressNotConfigured,
@@ -522,6 +544,290 @@ func TestReconcile(t *testing.T) {
 				config: &config.Config{
 					Network: &network.Config{
 						DefaultIngressClass: "the-ingress-class",
+					},
+				},
+			}},
+		)
+	}))
+}
+
+func TestReconcileTLSEnabled(t *testing.T) {
+	table := TableTest{{
+		Name: "first reconcile",
+		Key:  "default/first.reconcile.io",
+		Objects: []runtime.Object{
+			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			domainMapping("default", "first.reconcile.io",
+				withRef("default", "ready"),
+				withURL("http", "first.reconcile.io"),
+				withAddress("http", "first.reconcile.io"),
+			),
+			resources.MakeDomainClaim(domainMapping("default", "first.reconcile.io", withRef("default", "ready"))),
+		},
+		WantCreates: []runtime.Object{
+			resources.MakeCertificate(domainMapping("default", "first.reconcile.io",
+				withRef("default", "ready"),
+				withURL("http", "first.reconcile.io"),
+				withAddress("http", "first.reconcile.io"),
+			), "the-cert-class"),
+			ingress(domainMapping("default", "first.reconcile.io", withRef("default", "ready")), "the-ingress-class"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "first.reconcile.io",
+				withRef("default", "ready"),
+				withURL("https", "first.reconcile.io"),
+				withAddress("https", "first.reconcile.io"),
+				withCertificateNotReady,
+				withInitDomainMappingConditions,
+				withIngressNotConfigured,
+				withDomainClaimed,
+				withReferenceResolved,
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %s/%s", "default", "first.reconcile.io"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first.reconcile.io"),
+		},
+	}, {
+		Name: "becomes ready",
+		Key:  "default/becomes.ready.run",
+		Objects: []runtime.Object{
+			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			domainMapping("default", "becomes.ready.run",
+				withRef("default", "ready"),
+				withURL("http", "becomes.ready.run"),
+				withAddress("http", "becomes.ready.run"),
+			),
+			resources.MakeDomainClaim(domainMapping("default", "becomes.ready.run", withRef("default", "ready"))),
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "becomes.ready.run",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						domainMapping("default", "becomes.ready.run",
+							withRef("default", "ready"),
+							withURL("http", "becomes.ready.run"),
+							withAddress("http", "becomes.ready.run")))},
+					Annotations: map[string]string{
+						networking.CertificateClassAnnotationKey: "the-cert-class",
+					},
+					Labels: map[string]string{
+						serving.DomainMappingLabelKey: "becomes.ready.run",
+					},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					DNSNames:   []string{"becomes.ready.run"},
+					SecretName: "becomes.ready.run",
+				},
+				Status: readyCertStatus(),
+			},
+			ingress(domainMapping("default", "becomes.ready.run", withRef("default", "ready")), "the-ingress-class", withIngressReady),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "becomes.ready.run",
+				withRef("default", "ready"),
+				withURL("https", "becomes.ready.run"),
+				withAddress("https", "becomes.ready.run"),
+				withCertificateReady,
+				withInitDomainMappingConditions,
+				withDomainClaimed,
+				withReferenceResolved,
+				withPropagatedStatus(ingress(domainMapping("default", "becomes.ready.run"), "", withIngressReady).Status),
+			),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: ingress(domainMapping("default", "becomes.ready.run", withRef("default", "ready")), "the-ingress-class", withIngressReady, withIngressTLS(netv1alpha1.IngressTLS{
+				Hosts:           []string{"becomes.ready.run"},
+				SecretName:      "becomes.ready.run",
+				SecretNamespace: "default",
+			})),
+		}},
+	}, {
+		Name:    "cert not owned",
+		WantErr: true,
+		Key:     "default/cert.not.owned.ru",
+		Objects: []runtime.Object{
+			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			domainMapping("default", "cert.not.owned.ru",
+				withRef("default", "ready"),
+				withURL("http", "cert.not.owned.ru"),
+				withAddress("http", "cert.not.owned.ru"),
+			),
+			resources.MakeDomainClaim(domainMapping("default", "cert.not.owned.ru", withRef("default", "ready"))),
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cert.not.owned.ru",
+					Namespace: "default",
+					Annotations: map[string]string{
+						networking.CertificateClassAnnotationKey: "the-cert-class",
+					},
+				},
+			},
+			ingress(domainMapping("default", "cert.not.owned.ru", withRef("default", "ready")), "the-ingress-class", withIngressReady),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "cert.not.owned.ru",
+				withRef("default", "ready"),
+				withURL("http", "cert.not.owned.ru"),
+				withAddress("http", "cert.not.owned.ru"),
+				withCertificateNotOwned,
+				withInitDomainMappingConditions,
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `notowned: owner: cert.not.owned.ru with Type *v1alpha1.DomainMapping does not own Certificate: "cert.not.owned.ru"`),
+		},
+	}, {
+		Name:    "cert creation failed",
+		WantErr: true,
+		Key:     "default/cert.creation.failed.ly",
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "certificates"),
+		},
+		WantCreates: []runtime.Object{
+			resources.MakeCertificate(domainMapping("default", "cert.creation.failed.ly",
+				withRef("default", "ready"),
+				withURL("http", "cert.creation.failed.ly"),
+				withAddress("http", "cert.creation.failed.ly"),
+			), "the-cert-class"),
+		},
+		Objects: []runtime.Object{
+			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			domainMapping("default", "cert.creation.failed.ly",
+				withRef("default", "ready"),
+				withURL("http", "cert.creation.failed.ly"),
+				withAddress("http", "cert.creation.failed.ly"),
+			),
+			resources.MakeDomainClaim(domainMapping("default", "cert.creation.failed.ly", withRef("default", "ready"))),
+			ingress(domainMapping("default", "cert.creation.failed.ly", withRef("default", "ready")), "the-ingress-class", withIngressReady),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "cert.creation.failed.ly",
+				withRef("default", "ready"),
+				withURL("http", "cert.creation.failed.ly"),
+				withAddress("http", "cert.creation.failed.ly"),
+				withCertificateFail,
+				withInitDomainMappingConditions,
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", `Failed to create Certificate default/cert.creation.failed.ly: inducing failure for create certificates`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `failed to create Certificate: inducing failure for create certificates`),
+		},
+	}, {
+		Name: "with challenges",
+		Key:  "default/challenged.com",
+		Objects: []runtime.Object{
+			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			domainMapping("default", "challenged.com",
+				withRef("default", "ready"),
+				withURL("http", "challenged.com"),
+				withAddress("http", "challenged.com"),
+			),
+			resources.MakeDomainClaim(domainMapping("default", "challenged.com", withRef("default", "ready"))),
+			ingress(domainMapping("default", "challenged.com", withRef("default", "ready")), "the-ingress-class", withIngressReady),
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "challenged.com",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						domainMapping("default", "challenged.com",
+							withRef("default", "ready"),
+							withURL("http", "challenged.com"),
+							withAddress("http", "challenged.com"),
+						))},
+					Annotations: map[string]string{
+						networking.CertificateClassAnnotationKey: "the-cert-class",
+					},
+					Labels: map[string]string{
+						serving.DomainMappingLabelKey: "challenged.com",
+					},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					DNSNames:   []string{"challenged.com"},
+					SecretName: "challenged.com",
+				},
+				Status: netv1alpha1.CertificateStatus{
+					HTTP01Challenges: []netv1alpha1.HTTP01Challenge{{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "challenged.com",
+							Path:   "/.well-known/acme-challenge/challengeToken",
+						},
+						ServiceName:      "cm-solver",
+						ServicePort:      intstr.FromInt(8090),
+						ServiceNamespace: "default",
+					}, {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "challenged.com",
+							Path:   "/.well-known/acme-challenge/challengeToken-two",
+						},
+						ServiceName:      "cm-solver",
+						ServicePort:      intstr.FromInt(8090),
+						ServiceNamespace: "default",
+					}},
+				},
+			},
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "challenged.com",
+				withRef("default", "ready"),
+				withURL("https", "challenged.com"),
+				withAddress("https", "challenged.com"),
+				withInitDomainMappingConditions,
+				withDomainClaimed,
+				withReferenceResolved,
+				withCertificateNotReady,
+				withPropagatedStatus(ingress(domainMapping("default", "challenged.com"), "", withIngressReady).Status),
+			),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// Ingress should be updated with correct challenges
+			Object: ingressWithChallenges(domainMapping("default", "challenged.com",
+				withRef("default", "ready"),
+				withURL("https", "challenged.com"),
+				withAddress("https", "challenged.com")),
+				"the-ingress-class",
+				[]netv1alpha1.HTTP01Challenge{{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "challenged.com",
+						Path:   "/.well-known/acme-challenge/challengeToken",
+					},
+					ServiceName:      "cm-solver",
+					ServicePort:      intstr.FromInt(8090),
+					ServiceNamespace: "default",
+				}, {
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "challenged.com",
+						Path:   "/.well-known/acme-challenge/challengeToken-two",
+					},
+					ServiceName:      "cm-solver",
+					ServicePort:      intstr.FromInt(8090),
+					ServiceNamespace: "default",
+				}}, withIngressReady),
+		}},
+	}}
+
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		ctx = addressable.WithDuck(ctx)
+		r := &Reconciler{
+			certificateLister: listers.GetCertificateLister(),
+			ingressLister:     listers.GetIngressLister(),
+			netclient:         networkingclient.Get(ctx),
+			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
+		}
+
+		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{
+				config: &config.Config{
+					Network: &network.Config{
+						DefaultIngressClass:     "the-ingress-class",
+						DefaultCertificateClass: "the-cert-class",
+						AutoTLS:                 true,
 					},
 				},
 			}},
@@ -605,7 +911,26 @@ func withPropagatedStatus(status netv1alpha1.IngressStatus) domainMappingOption 
 
 func withInitDomainMappingConditions(dm *v1alpha1.DomainMapping) {
 	dm.Status.InitializeConditions()
-	dm.Status.MarkTLSNotEnabled("AutoTLS for DomainMapping is not implemented")
+}
+
+func withTLSNotEnabled(dm *v1alpha1.DomainMapping) {
+	dm.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
+}
+
+func withCertificateNotReady(dm *v1alpha1.DomainMapping) {
+	dm.Status.MarkCertificateNotReady(dm.Name)
+}
+
+func withCertificateReady(dm *v1alpha1.DomainMapping) {
+	dm.Status.MarkCertificateReady(dm.Name)
+}
+
+func withCertificateFail(dm *v1alpha1.DomainMapping) {
+	dm.Status.MarkCertificateProvisionFailed(dm.Name)
+}
+
+func withCertificateNotOwned(dm *v1alpha1.DomainMapping) {
+	dm.Status.MarkCertificateNotOwned(dm.Name)
 }
 
 func withDomainClaimNotOwned(dm *v1alpha1.DomainMapping) {
@@ -637,7 +962,11 @@ func withObservedGeneration(dm *v1alpha1.DomainMapping) {
 }
 
 func ingress(dm *v1alpha1.DomainMapping, ingressClass string, opt ...IngressOption) *netv1alpha1.Ingress {
-	ing := resources.MakeIngress(dm, dm.Spec.Ref.Name, dm.Spec.Ref.Name+"."+dm.Spec.Ref.Namespace+".svc.cluster.local", ingressClass, nil /* tls */)
+	return ingressWithChallenges(dm, ingressClass, nil /* challenges */, opt...)
+}
+
+func ingressWithChallenges(dm *v1alpha1.DomainMapping, ingressClass string, challenges []netv1alpha1.HTTP01Challenge, opt ...IngressOption) *netv1alpha1.Ingress {
+	ing := resources.MakeIngress(dm, dm.Spec.Ref.Name, dm.Spec.Ref.Name+"."+dm.Spec.Ref.Namespace+".svc.cluster.local", ingressClass, nil /* tls */, challenges...)
 	for _, o := range opt {
 		o(ing)
 	}
@@ -681,6 +1010,12 @@ func ksvc(ns, name, host, path string) *servingv1.Service {
 	}
 }
 
+func readyCertStatus() netv1alpha1.CertificateStatus {
+	certStatus := &netv1alpha1.CertificateStatus{}
+	certStatus.MarkReady()
+	return *certStatus
+}
+
 func service(ns, name string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -692,6 +1027,12 @@ func service(ns, name string) *corev1.Service {
 
 func withIngressNotReady(ing *netv1alpha1.Ingress) {
 	ing.Status.MarkIngressNotReady("progressing", "hold your horses")
+}
+
+func withIngressTLS(tls netv1alpha1.IngressTLS) func(ing *netv1alpha1.Ingress) {
+	return func(ing *netv1alpha1.Ingress) {
+		ing.Spec.TLS = []netv1alpha1.IngressTLS{tls}
+	}
 }
 
 type testConfigStore struct {
