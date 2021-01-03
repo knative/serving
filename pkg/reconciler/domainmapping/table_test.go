@@ -42,7 +42,6 @@ import (
 	"knative.dev/pkg/resolver"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
@@ -914,7 +913,7 @@ func withInitDomainMappingConditions(dm *v1alpha1.DomainMapping) {
 }
 
 func withTLSNotEnabled(dm *v1alpha1.DomainMapping) {
-	dm.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
+	dm.Status.MarkTLSNotEnabled(servingv1.AutoTLSNotEnabledMessage)
 }
 
 func withCertificateNotReady(dm *v1alpha1.DomainMapping) {
