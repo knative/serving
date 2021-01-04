@@ -213,9 +213,12 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 				autoscaling.MetricAnnotationKey:            metric,
 				autoscaling.TargetAnnotationKey:            strconv.Itoa(target),
 				autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
-				// We run the test for 60s, so make window a bit shorter,
-				// so that we're operating in sustained mode and the pod actions stopped happening.
-				autoscaling.WindowAnnotationKey: "50s",
+				// Reduce the amount of historical data we need before scaling down to account for
+				// the fact that the chaosduck will only let a bucket leader live for ~30s.  This
+				// value still allows the chaosduck to make us failover, but is low enough that we
+				// should not need to survive multiple rounds of chaos in order to scale a
+				// revision down.
+				autoscaling.WindowAnnotationKey: "30s",
 			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("100m"),
