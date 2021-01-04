@@ -143,8 +143,8 @@ func autoTLSEnabled(ctx context.Context, dm *v1alpha1.DomainMapping) bool {
 	annotationValue := dm.Annotations[networking.DisableAutoTLSAnnotationKey]
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
 	if annotationValue != "" && err != nil {
-		// validation should've caught an invalid value here.
-		// if we have one anyways, assume not disabled and log a warning.
+		// Validation should've caught an invalid value here.
+		// If we have one anyway, assume not disabled and log a warning.
 		logger.Warnf("Invalid annotation value for %q. Value: %q",
 			networking.DisableAutoTLSAnnotationKey, annotationValue)
 	}
