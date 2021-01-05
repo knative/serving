@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	network "knative.dev/networking/pkg"
 	netclient "knative.dev/networking/pkg/client/injection/client"
+	certificateinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	ingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -36,12 +37,14 @@ import (
 // NewController creates a new DomainMapping controller.
 func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	logger := logging.FromContext(ctx)
+	certificateInformer := certificateinformer.Get(ctx)
 	domainmappingInformer := domainmapping.Get(ctx)
 	ingressInformer := ingressinformer.Get(ctx)
 
 	r := &Reconciler{
-		ingressLister: ingressInformer.Lister(),
-		netclient:     netclient.Get(ctx),
+		certificateLister: certificateInformer.Lister(),
+		ingressLister:     ingressInformer.Lister(),
+		netclient:         netclient.Get(ctx),
 	}
 
 	impl := kindreconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options {
@@ -63,6 +66,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		FilterFunc: controller.FilterControllerGK(v1alpha1.Kind("DomainMapping")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	}
+	certificateInformer.Informer().AddEventHandler(handleControllerOf)
 	ingressInformer.Informer().AddEventHandler(handleControllerOf)
 
 	r.resolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
