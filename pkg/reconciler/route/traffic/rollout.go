@@ -99,10 +99,13 @@ type RevisionRollout struct {
 func (cur *Rollout) RolloutsByTag(t string) []*ConfigurationRollout {
 	// TODO(vagababov): add an intermediate cache later.
 	ret := []*ConfigurationRollout{}
-	for i := range cur.Configurations {
-		if cr := cur.Configurations[i]; cr.Tag == t {
-			ret = append(ret, &cr)
-		}
+	st := sort.Search(len(cur.Configurations), func(i int) bool {
+		return cur.Configurations[i].Tag >= t
+	})
+	// Now append all configs rollouts with given tag.
+	// If tag != "", then there'll be only one such entry.
+	for ; st < len(cur.Configurations) && cur.Configurations[st].Tag == t; st++ {
+		ret = append(ret, &cur.Configurations[st])
 	}
 	return ret
 }
