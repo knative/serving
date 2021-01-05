@@ -78,8 +78,8 @@ func TestAutoTLSEnabled(t *testing.T) {
 			})
 			if tc.tlsDisabledAnnotation != "" {
 				dm.Annotations = map[string]string{
-				 networking.DisableAutoTLSAnnotationKey: tc.tlsDisabledAnnotation,
-				 }
+					networking.DisableAutoTLSAnnotationKey: tc.tlsDisabledAnnotation,
+				}
 			}
 			if got := autoTLSEnabled(ctx, dm); got != tc.wantAutoTLSEnabled {
 				t.Errorf("autoTLSEnabled = %t, want %t", got, tc.wantAutoTLSEnabled)
