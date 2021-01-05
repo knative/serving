@@ -27,6 +27,8 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/pkg/test/logging"
+
 	vegeta "github.com/tsenart/vegeta/v12/lib"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -60,8 +62,9 @@ const (
 // TestContext includes context for autoscaler testing.
 type TestContext struct {
 	t                 *testing.T
+	logf              logging.FormatLogger
 	clients           *test.Clients
-	names             test.ResourceNames
+	names             *test.ResourceNames
 	resources         *v1test.ResourceObjects
 	targetUtilization float64
 	targetValue       int
@@ -84,13 +87,18 @@ func (ctx *TestContext) SetResources(resources *v1test.ResourceObjects) {
 }
 
 // Names returns the resource names of the TestContext.
-func (ctx *TestContext) Names() test.ResourceNames {
+func (ctx *TestContext) Names() *test.ResourceNames {
 	return ctx.names
 }
 
 // SetNames set the resource names of the TestContext to the given values.
-func (ctx *TestContext) SetNames(names test.ResourceNames) {
+func (ctx *TestContext) SetNames(names *test.ResourceNames) {
 	ctx.names = names
+}
+
+// SetLogger sets the logger of the TestContext.
+func (ctx *TestContext) SetLogger(logf logging.FormatLogger) {
+	ctx.logf = logf
 }
 
 func getVegetaTarget(kubeClientset kubernetes.Interface, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
@@ -141,7 +149,7 @@ func generateTraffic(
 	for {
 		select {
 		case <-stopChan:
-			ctx.t.Log("Stopping generateTraffic")
+			ctx.logf("Stopping generateTraffic")
 			successRate := float64(1)
 			if totalRequests > 0 {
 				successRate = float64(successfulRequests) / float64(totalRequests)
@@ -153,14 +161,14 @@ func generateTraffic(
 			return nil
 		case res, ok := <-results:
 			if !ok {
-				ctx.t.Log("Time is up; done")
+				ctx.logf("Time is up; done")
 				return nil
 			}
 
 			totalRequests++
 			if res.Code != http.StatusOK {
-				ctx.t.Logf("Status = %d, want: 200", res.Code)
-				ctx.t.Logf("URL: %s Duration: %v Error: %s Body:\n%s", res.URL, res.Latency, res.Error, string(res.Body))
+				ctx.logf("Status = %d, want: 200", res.Code)
+				ctx.logf("URL: %s Duration: %v Error: %s Body:\n%s", res.URL, res.Latency, res.Error, string(res.Body))
 				continue
 			}
 			successfulRequests++
@@ -175,7 +183,7 @@ func generateTrafficAtFixedConcurrency(ctx *TestContext, concurrency int, stopCh
 		vegeta.Workers(uint64(concurrency)),
 		vegeta.MaxWorkers(uint64(concurrency)))
 
-	ctx.t.Logf("Maintaining %d concurrent requests.", concurrency)
+	ctx.logf("Maintaining %d concurrent requests.", concurrency)
 	return generateTraffic(ctx, attacker, pacer, stopChan)
 }
 
@@ -183,7 +191,7 @@ func generateTrafficAtFixedRPS(ctx *TestContext, rps int, stopChan chan struct{}
 	pacer := vegeta.ConstantPacer{Freq: rps, Per: time.Second}
 	attacker := vegeta.NewAttacker(vegeta.Timeout(0)) // No timeout is enforced at all.
 
-	ctx.t.Logf("Maintaining %v RPS.", rps)
+	ctx.logf("Maintaining %v RPS.", rps)
 	return generateTraffic(ctx, attacker, pacer, stopChan)
 }
 
@@ -194,19 +202,16 @@ func toPercentageString(f float64) string {
 // SetupSvc creates a new service, with given service options.
 // It returns a TestContext that has resources, K8s clients and other needed
 // data points.
-// It sets up EnsureTearDown to ensure that resources are cleaned up when the
-// test terminates.
 func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization float64, fopts ...rtesting.ServiceOption) *TestContext {
 	t.Helper()
 	clients := Setup(t)
 
 	t.Log("Creating a new Route and Configuration")
-	names := test.ResourceNames{
+	names := &test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   autoscaleTestImageName,
 	}
-	test.EnsureTearDown(t, clients, &names)
-	resources, err := v1test.CreateServiceReady(t, clients, &names,
+	resources, err := v1test.CreateServiceReady(t, clients, names,
 		append([]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
 				autoscaling.ClassAnnotationKey:             class,
@@ -249,6 +254,7 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 
 	return &TestContext{
 		t:                 t,
+		logf:              t.Logf,
 		clients:           clients,
 		names:             names,
 		resources:         resources,
@@ -265,7 +271,7 @@ func assertScaleDown(ctx *TestContext) {
 	}
 
 	// Account for the case where scaling up uses all available pods.
-	ctx.t.Log("Wait for all pods to terminate.")
+	ctx.logf("Wait for all pods to terminate.")
 
 	if err := pkgTest.WaitForPodListState(
 		context.Background(),
@@ -284,12 +290,12 @@ func assertScaleDown(ctx *TestContext) {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", deploymentName, err)
 	}
 
-	ctx.t.Log("The Revision should remain ready after scaling to zero.")
+	ctx.logf("The Revision should remain ready after scaling to zero.")
 	if err := v1test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, v1test.IsRevisionReady); err != nil {
 		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
 	}
 
-	ctx.t.Log("Scaled down.")
+	ctx.logf("Scaled down.")
 }
 
 func numberOfReadyPods(ctx *TestContext) (float64, error) {
@@ -297,11 +303,11 @@ func numberOfReadyPods(ctx *TestContext) (float64, error) {
 	n := ctx.resources.Revision.Name
 	sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(context.Background(), n, metav1.GetOptions{})
 	if err != nil {
-		ctx.t.Logf("Error getting SKS %q: %v", n, err)
+		ctx.logf("Error getting SKS %q: %v", n, err)
 		return 0, fmt.Errorf("error retrieving sks %q: %w", n, err)
 	}
 	if sks.Status.PrivateServiceName == "" {
-		ctx.t.Logf("SKS %s has not yet reconciled", n)
+		ctx.logf("SKS %s has not yet reconciled", n)
 		// Not an error, but no pods either.
 		return 0, nil
 	}
@@ -328,7 +334,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 				return err
 			}
 			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v", ctx.resources.Revision.Name, got, minPods)
-			ctx.t.Log(mes)
+			ctx.logf(mes)
 			// verify that the number of pods doesn't go down while we are scaling up.
 			if got < minPods {
 				return errors.New("interim scale didn't fulfill constraints: " + mes)
@@ -336,7 +342,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			// A quick test succeeds when the number of pods scales up to `targetPods`
 			// (and, as an extra check, no more than `maxPods`).
 			if quick && got >= targetPods && got <= maxPods {
-				ctx.t.Logf("Quick Mode: got %v >= %v", got, targetPods)
+				ctx.logf("Quick Mode: got %v >= %v", got, targetPods)
 				return nil
 			}
 			if minPods < targetPods-1 {
@@ -353,7 +359,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			}
 			mes := fmt.Sprintf("got %v replicas, expected between [%v, %v] replicas for revision %s",
 				got, targetPods-1, maxPods, ctx.resources.Revision.Name)
-			ctx.t.Log(mes)
+			ctx.logf(mes)
 			if got < targetPods-1 || got > maxPods {
 				return errors.New("final scale didn't fulfill constraints: " + mes)
 			}
@@ -371,7 +377,18 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 // from the given `done` channel will be sent within the `duration`.
 func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
 	ctx.t.Helper()
+	wait := AutoscaleUpToNumPods(ctx, curPods, targetPods, done, quick)
+	if err := wait(); err != nil {
+		ctx.t.Fatal(err)
+	}
+}
 
+// AutoscaleUpToNumPods starts the traffic for AssertAutoscaleUpToNumPods and returns
+// a function to wait for which will return any error from test execution.
+// Starting the routines is separated from waiting for easy re-use in other
+// places (e.g. upgrade tests).
+func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) func() error {
+	ctx.t.Helper()
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
 	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
@@ -393,7 +410,5 @@ func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, d
 		return checkPodScale(ctx, targetPods, minPods, maxPods, done, quick)
 	})
 
-	if err := grp.Wait(); err != nil {
-		ctx.t.Fatal("Error: ", err)
-	}
+	return grp.Wait
 }

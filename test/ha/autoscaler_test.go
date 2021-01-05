@@ -55,7 +55,7 @@ func TestAutoscalerHA(t *testing.T) {
 	resources := ctx.Resources()
 	clients := ctx.Clients()
 
-	test.EnsureTearDown(t, clients, &names)
+	test.EnsureTearDown(t, clients, names)
 
 	t.Log("Expected replicas = ", test.ServingFlags.Replicas)
 	if err := pkgTest.WaitForDeploymentScale(context.Background(), clients.KubeClient, autoscalerDeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
@@ -100,7 +100,7 @@ func TestAutoscalerHA(t *testing.T) {
 	}
 
 	t.Log("Service should be able to generate a new revision after changing the leader controller")
-	names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
+	names.Revision, err = v1test.WaitForServiceLatestRevision(clients, *names)
 	if err != nil {
 		t.Fatal("New image not reflected in Service:", err)
 	}

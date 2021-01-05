@@ -41,12 +41,12 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
 
 	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
+	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
 	AssertAutoscaleUpToNumPods(ctx, 1, 2, time.After(60*time.Second), true /* quick */)
 	assertScaleDown(ctx)
 	AssertAutoscaleUpToNumPods(ctx, 0, 2, time.After(60*time.Second), true /* quick */)
 }
-
 func TestAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
 	runAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.Concurrency)
@@ -66,6 +66,7 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 	}
 
 	ctx := SetupSvc(t, class, metric, target, targetUtilization)
+	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
 	// Note: without the warm-up / gradual increase of load the test is
@@ -89,6 +90,8 @@ func TestAutoscaleSustaining(t *testing.T) {
 	t.Parallel()
 
 	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
+	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
+
 	AssertAutoscaleUpToNumPods(ctx, 1, 10, time.After(2*time.Minute), false /* quick */)
 }
 
@@ -105,6 +108,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 			autoscaling.TargetBurstCapacityKey:                "7",
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
 		}))
+	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
 	cfg, err := autoscalerCM(ctx.clients)
 	if err != nil {
@@ -167,6 +171,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
+	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
 	_, err := autoscalerCM(ctx.clients)
 	if err != nil {
@@ -193,6 +198,7 @@ func TestFastScaleToZero(t *testing.T) {
 			autoscaling.TargetBurstCapacityKey: "-1",
 			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(),
 		}))
+	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
 	cfg, err := autoscalerCM(ctx.clients)
 	if err != nil {

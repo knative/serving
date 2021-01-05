@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,11 +18,8 @@ package upgrade
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
-	"os"
-	"syscall"
 	"testing"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
@@ -66,6 +63,7 @@ func assertServiceResourcesUpdated(t testing.TB, clients *test.Clients, names te
 }
 
 func createNewService(serviceName string, t *testing.T) {
+	t.Parallel()
 	clients := e2e.Setup(t)
 
 	names := test.ResourceNames{
@@ -79,18 +77,4 @@ func createNewService(serviceName string, t *testing.T) {
 	}
 	url := resources.Service.Status.URL.URL()
 	assertServiceResourcesUpdated(t, clients, names, url, test.PizzaPlanetText1)
-}
-
-// createPipe create a named pipe. It fails the test if any error except
-// already exist happens.
-func createPipe(t *testing.T, name string) {
-	if err := syscall.Mkfifo(name, 0666); err != nil {
-		if !errors.Is(err, os.ErrExist) {
-			t.Fatal("Failed to create pipe:", err)
-		}
-	}
-
-	test.EnsureCleanup(t, func() {
-		os.Remove(name)
-	})
 }
