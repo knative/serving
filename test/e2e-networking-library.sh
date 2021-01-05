@@ -69,6 +69,14 @@ function install_istio() {
     sed "s/namespace: \"*${KNATIVE_DEFAULT_NAMESPACE}\"*/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
     echo "net-istio patched YAML: $YAML_NAME"
     ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider=istio || return 1
+
+    CONFIGURE_ISTIO=${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/extras/configure-istio.sh
+    if [[ -f "$CONFIGURE_ISTIO" ]]; then
+      $CONFIGURE_ISTIO
+    else
+      echo "configure-istio.sh not found; skipping."
+    fi
+
     UNINSTALL_LIST+=( "${YAML_NAME}" )
   fi
 }
