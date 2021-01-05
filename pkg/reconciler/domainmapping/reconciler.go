@@ -156,7 +156,6 @@ func certClass(ctx context.Context) string {
 }
 
 func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
-	tls := []netv1alpha1.IngressTLS{}
 	if !autoTLSEnabled(ctx, dm) {
 		dm.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
 		return nil, nil, nil
@@ -180,15 +179,15 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]net
 	}
 	if cert.IsReady() {
 		dm.Status.MarkCertificateReady(cert.Name)
-		tls = append(tls, routeresources.MakeIngressTLS(cert, dnsNames.List()))
-	} else {
-		acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
-		dm.Status.MarkCertificateNotReady(cert.Name)
+		return []netv1alpha1.IngressTLS{routeresources.MakeIngressTLS(cert, dnsNames.List())}, nil, nil
 	}
+	acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
+	dm.Status.MarkCertificateNotReady(cert.Name)
+
 	sort.Slice(acmeChallenges, func(i, j int) bool {
 		return acmeChallenges[i].URL.String() < acmeChallenges[j].URL.String()
 	})
-	return tls, acmeChallenges, nil
+	return nil, acmeChallenges, nil
 }
 
 func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMapping, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {
