@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -138,13 +137,13 @@ func autoTLSEnabled(ctx context.Context, dm *v1alpha1.DomainMapping) bool {
 	if !config.FromContext(ctx).Network.AutoTLS {
 		return false
 	}
-	logger := logging.FromContext(ctx)
 	annotationValue := dm.Annotations[networking.DisableAutoTLSAnnotationKey]
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
 	if annotationValue != "" && err != nil {
+		logger := logging.FromContext(ctx)
 		// Validation should've caught an invalid value here.
 		// If we have one anyway, assume not disabled and log a warning.
-		logger.Warnf("Invalid annotation value for %q. Value: %q",
+		logger.Warnf("DM.Annotations[%s] = %q is invalid",
 			networking.DisableAutoTLSAnnotationKey, annotationValue)
 	}
 
@@ -173,13 +172,15 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]net
 		return nil, nil, err
 	}
 
-	dnsNames := sets.NewString(desiredCert.Spec.DNSNames...)
-	if dnsNames.Has(dm.Name) {
-		dm.Status.URL.Scheme = "https"
+	for _, dnsName := range desiredCert.Spec.DNSNames {
+		if dnsName == dm.Name {
+			dm.Status.URL.Scheme = "https"
+			break
+		}
 	}
 	if cert.IsReady() {
 		dm.Status.MarkCertificateReady(cert.Name)
-		return []netv1alpha1.IngressTLS{routeresources.MakeIngressTLS(cert, dnsNames.List())}, nil, nil
+		return []netv1alpha1.IngressTLS{routeresources.MakeIngressTLS(cert, desiredCert.Spec.DNSNames)}, nil, nil
 	}
 	acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 	dm.Status.MarkCertificateNotReady(cert.Name)

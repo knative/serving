@@ -27,7 +27,6 @@ import (
 
 func TestAutoTLSEnabled(t *testing.T) {
 	dm := domainMapping("test-ns", "test-route")
-	dm.Annotations = map[string]string{}
 
 	for _, tc := range []struct {
 		name                  string
@@ -62,6 +61,14 @@ func TestAutoTLSEnabled(t *testing.T) {
 		configAutoTLSEnabled:  false,
 		tlsDisabledAnnotation: "foo",
 		wantAutoTLSEnabled:    false,
+	}, {
+		name:                 "AutoTLS disabled by config nil annotations",
+		configAutoTLSEnabled: false,
+		wantAutoTLSEnabled:   false,
+	}, {
+		name:                 "AutoTLS enabled by config, nil annotations",
+		configAutoTLSEnabled: true,
+		wantAutoTLSEnabled:   true,
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := config.ToContext(context.Background(), &config.Config{
@@ -69,9 +76,10 @@ func TestAutoTLSEnabled(t *testing.T) {
 					AutoTLS: tc.configAutoTLSEnabled,
 				},
 			})
-
-			dm.Annotations[networking.DisableAutoTLSAnnotationKey] = tc.tlsDisabledAnnotation
-
+			if tc.tlsDisabledAnnotation != "" {
+				dm.Annotations = map[string]string{}
+				dm.Annotations[networking.DisableAutoTLSAnnotationKey] = tc.tlsDisabledAnnotation
+			}
 			if got := autoTLSEnabled(ctx, dm); got != tc.wantAutoTLSEnabled {
 				t.Errorf("autoTLSEnabled = %t, want %t", got, tc.wantAutoTLSEnabled)
 			}
