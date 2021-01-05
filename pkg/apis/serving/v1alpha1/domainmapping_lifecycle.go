@@ -62,7 +62,7 @@ const (
 	// AutoTLSNotEnabledMessage is the message which is set on the
 	// DomainMappingConditionCertificateProvisioned condition when it is set to True
 	// because AutoTLS was not enabled.
-	AutoTLSNotEnabledMessage = "AutoTLS is not enabled"
+	AutoTLSNotEnabledMessage = "autoTLS is not enabled"
 )
 
 // MarkTLSNotEnabled sets DomainMappingConditionCertificateProvisioned to true when

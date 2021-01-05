@@ -26,7 +26,6 @@ import (
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	networkaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
 
-	"github.com/prometheus/common/log"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -160,13 +159,12 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]net
 	tls := []netv1alpha1.IngressTLS{}
 	if !autoTLSEnabled(ctx, dm) {
 		dm.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
-		return tls, nil, nil
+		return nil, nil, nil
 	}
 
 	acmeChallenges := []netv1alpha1.HTTP01Challenge{}
 	desiredCert := resources.MakeCertificate(dm, certClass(ctx))
 	cert, err := networkaccessor.ReconcileCertificate(ctx, dm, desiredCert, r)
-	log.Infof("Found the cert: %+v", cert)
 	if err != nil {
 		if kaccessor.IsNotOwned(err) {
 			dm.Status.MarkCertificateNotOwned(desiredCert.Name)
