@@ -18,7 +18,6 @@ require (
 	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/prometheus/client_golang v1.8.0
 	github.com/prometheus/client_model v0.2.0
-	github.com/prometheus/common v0.15.0
 	github.com/tsenart/vegeta/v12 v12.8.4
 	go.opencensus.io v0.22.5
 	go.uber.org/atomic v1.7.0
