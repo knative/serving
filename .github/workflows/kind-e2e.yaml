@@ -190,6 +190,12 @@ jobs:
           --type merge \
           --patch '{"data":{"ingress.class":"${{ matrix.kingress }}.ingress.networking.knative.dev"}}'
 
+        # Reduce the progress deadline so failure tests don't take forever.
+        kubectl patch configmap/config-deployment \
+          --namespace knative-serving \
+          --type merge \
+          --patch '{"data":{"progressDeadline":"120s"}}'
+
         # Be KinD to these tests.
         kubectl scale -nknative-serving deployment/chaosduck --replicas=0
 
