@@ -834,6 +834,65 @@ func TestReconcileTLSEnabled(t *testing.T) {
 	}))
 }
 
+func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
+	table := TableTest{{
+		Name: "ingress ready, cert not ready, downgraded to HTTP",
+		Key:  "default/http.downgraded.com",
+		Objects: []runtime.Object{
+			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			domainMapping("default", "http.downgraded.com",
+				withRef("default", "ready"),
+				withURL("http", "http.downgraded.com"),
+				withAddress("http", "http.downgraded.com"),
+			),
+			resources.MakeDomainClaim(domainMapping("default", "http.downgraded.com", withRef("default", "ready"))),
+			resources.MakeCertificate(domainMapping("default", "http.downgraded.com",
+				withRef("default", "ready"),
+				withURL("http", "http.downgraded.com"),
+				withAddress("http", "http.downgraded.com"),
+			), "the-cert-class"),
+			ingress(domainMapping("default", "http.downgraded.com", withRef("default", "ready")), "the-ingress-class",
+				withIngressReady),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "http.downgraded.com",
+				withRef("default", "ready"),
+				withURL("http", "http.downgraded.com"),
+				withAddress("http", "http.downgraded.com"),
+				withHTTPDowngraded,
+				withInitDomainMappingConditions,
+				withDomainClaimed,
+				withReferenceResolved,
+				withPropagatedStatus(ingress(domainMapping("default", "http.downgraded.com"), "", withIngressReady).Status),
+			),
+		}},
+	}}
+
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		ctx = addressable.WithDuck(ctx)
+		r := &Reconciler{
+			certificateLister: listers.GetCertificateLister(),
+			ingressLister:     listers.GetIngressLister(),
+			netclient:         networkingclient.Get(ctx),
+			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
+		}
+
+		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{
+				config: &config.Config{
+					Network: &network.Config{
+						DefaultIngressClass:     "the-ingress-class",
+						DefaultCertificateClass: "the-cert-class",
+						AutoTLS:                 true,
+						HTTPProtocol:            network.HTTPEnabled,
+					},
+				},
+			}},
+		)
+	}))
+}
+
 type domainMappingOption func(dm *v1alpha1.DomainMapping)
 
 func domainMapping(namespace, name string, opt ...domainMappingOption) *v1alpha1.DomainMapping {
@@ -918,6 +977,10 @@ func withTLSNotEnabled(dm *v1alpha1.DomainMapping) {
 
 func withCertificateNotReady(dm *v1alpha1.DomainMapping) {
 	dm.Status.MarkCertificateNotReady(dm.Name)
+}
+
+func withHTTPDowngraded(dm *v1alpha1.DomainMapping) {
+	dm.Status.MarkHTTPDowngrade(dm.Name)
 }
 
 func withCertificateReady(dm *v1alpha1.DomainMapping) {
