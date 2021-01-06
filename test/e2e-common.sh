@@ -530,7 +530,7 @@ function install_latest_release() {
   install_knative_serving latest-release \
       || fail_test "Knative latest release installation failed"
   test_logging_config_setup
-  
+
   # Setting deadline progress to a shorter value.
   kubectl patch cm "config-deployment" -n "${SYSTEM_NAMESPACE}" -p '{"data":{"'progressDeadline'":"'120s'"}}'
 
