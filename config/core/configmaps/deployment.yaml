@@ -50,7 +50,7 @@ data:
 
     # ProgressDeadline is the duration we wait for the deployment to
     # be ready before considering it failed.
-    progressDeadline: "120s"
+    progressDeadline: "600s"
 
     # queueSidecarCPURequest is the requests.cpu to set for the queue proxy sidecar container.
     # If omitted, a default value (currently "25m"), is used.
