@@ -153,7 +153,7 @@ type revisionThrottler struct {
 	podTrackers []*podTracker
 
 	// Effective trackers that are assigned to this Activator.
-	// This is a subset of podIPTrackers.
+	// This is a subset of podTrackers.
 	assignedTrackers []*podTracker
 
 	// If we don't have a healthy clusterIPTracker this is set to nil, otherwise
@@ -412,7 +412,7 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 		zap.String("ClusterIP", update.ClusterIPDest), zap.Object("dests", logging.StringSet(update.Dests)))
 
 	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
-	// NB: this will not be called in parallel, thus we can build a new podIPTrackers
+	// NB: this will not be called in parallel, thus we can build a new podTrackers
 	// array before taking out a lock.
 	if update.ClusterIPDest == "" {
 		// Create a map for fast lookup of existing trackers.
