@@ -40,6 +40,7 @@ community contact's duty (subject to change) is as followed:
 - Check Docs
   [unassigned issues / untriaged issues](https://github.com/knative/docs/issues?q=is%3Aopen+is%3Aissue+no%3Aassignee+no%3Amilestone)
   for unanswered questions.
+- Answer relevant [Stack Overflow Questions](https://stackoverflow.com/questions/tagged/knative-serving?tab=Newest) 
 
 ## SLO
 
