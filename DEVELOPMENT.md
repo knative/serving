@@ -275,11 +275,3 @@ ko delete --ignore-not-found=true \
   -f ./third_party/kourier-latest/kourier.yaml \
   -f ./third_party/cert-manager-latest/cert-manager.yaml
 ```
-
-## Telemetry
-
-To access Telemetry see:
-
-- [Accessing Metrics](https://www.knative.dev/docs/serving/accessing-metrics/)
-- [Accessing Logs](https://www.knative.dev/docs/serving/accessing-logs/)
-- [Accessing Traces](https://www.knative.dev/docs/serving/accessing-traces/)
