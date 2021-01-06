@@ -331,7 +331,7 @@ func buildTransport(env config, logger *zap.SugaredLogger, maxConns int) http.Ro
 
 	return &ochttp.Transport{
 		Base:        transport,
-		Propagation: tracecontextb3.B3Egress,
+		Propagation: tracecontextb3.TraceContextB3Egress,
 	}
 }
 

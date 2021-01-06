@@ -58,7 +58,7 @@ func New(_ context.Context, t Throttler, transport http.RoundTripper) http.Handl
 		transport: transport,
 		tracingTransport: &ochttp.Transport{
 			Base:        transport,
-			Propagation: tracecontextb3.B3Egress,
+			Propagation: tracecontextb3.TraceContextB3Egress,
 		},
 		throttler:  t,
 		bufferPool: network.NewBufferPool(),

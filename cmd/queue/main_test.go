@@ -143,7 +143,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				}
 				proxy.Transport = &ochttp.Transport{
 					Base:        pkgnet.AutoTransport,
-					Propagation: tracecontextb3.B3Egress,
+					Propagation: tracecontextb3.TraceContextB3Egress,
 				}
 
 				h := queue.ProxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
