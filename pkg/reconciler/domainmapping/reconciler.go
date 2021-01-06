@@ -31,6 +31,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	networkingpkg "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
@@ -182,8 +183,15 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]net
 		dm.Status.MarkCertificateReady(cert.Name)
 		return []netv1alpha1.IngressTLS{routeresources.MakeIngressTLS(cert, desiredCert.Spec.DNSNames)}, nil, nil
 	}
+	if config.FromContext(ctx).Network.HTTPProtocol == networkingpkg.HTTPEnabled {
+		// When httpProtocol is enabled, downgrade http scheme.
+		dm.Status.URL.Scheme = "http"
+		dm.Status.MarkHTTPDowngrade(cert.Name)
+	} else {
+		// Otherwise, mark certificate not ready.
+		dm.Status.MarkCertificateNotReady(cert.Name)
+	}
 	acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
-	dm.Status.MarkCertificateNotReady(cert.Name)
 
 	sort.Slice(acmeChallenges, func(i, j int) bool {
 		return acmeChallenges[i].URL.String() < acmeChallenges[j].URL.String()
