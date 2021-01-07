@@ -422,6 +422,10 @@ function test_setup() {
     kubectl label namespace serving-tests-alt istio-injection=enabled
   fi
 
+  # Setting deadline progress to a shorter value.
+  kubectl patch cm "config-deployment" -n "${SYSTEM_NAMESPACE}" \
+    -p '{"data":{"'progressDeadline'":"'120s'"}}'
+
   echo ">> Uploading test images..."
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
 
@@ -530,6 +534,7 @@ function install_latest_release() {
   install_knative_serving latest-release \
       || fail_test "Knative latest release installation failed"
   test_logging_config_setup
+
   wait_until_pods_running ${SYSTEM_NAMESPACE}
   wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
 }
@@ -540,6 +545,7 @@ function install_head_reuse_ingress() {
   # makes ongoing requests fail.
   REUSE_INGRESS=true install_knative_serving || fail_test "Knative head release installation failed"
   test_logging_config_setup
+
   wait_until_pods_running ${SYSTEM_NAMESPACE}
   wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
 }
