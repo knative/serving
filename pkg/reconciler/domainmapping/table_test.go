@@ -43,7 +43,6 @@ import (
 	"knative.dev/pkg/resolver"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
@@ -1281,7 +1280,7 @@ func withIngressTLS(tls netv1alpha1.IngressTLS) func(ing *netv1alpha1.Ingress) {
 }
 
 func patchAddFinalizerAction(namespace, name string) clientgotesting.PatchActionImpl {
-	p := fmt.Sprintf(`{"metadata":{"finalizers":[%q],"resourceVersion":""}}`, v1.Resource("domainmappings").String())
+	p := fmt.Sprintf(`{"metadata":{"finalizers":[%q],"resourceVersion":""}}`, servingv1.Resource("domainmappings").String())
 	return clientgotesting.PatchActionImpl{
 		Name:       name,
 		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
