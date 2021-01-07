@@ -46,7 +46,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "prev is empty",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -56,13 +56,13 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -74,7 +74,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "simplest, same",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -90,7 +90,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -100,7 +100,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -112,7 +112,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "simplest, step",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -122,7 +122,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				StepParams: RolloutParams{
@@ -141,7 +141,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -163,7 +163,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "multiple configs step",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           42,
 				Revisions: []RevisionRollout{{
@@ -181,7 +181,7 @@ func TestStep(t *testing.T) {
 			// 6% allocated to the revision direct, say.
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           42,
 				StepParams: RolloutParams{
@@ -217,7 +217,7 @@ func TestStep(t *testing.T) {
 		},
 		want: &Rollout{
 			// Note: order will change, since we sort.
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           52,
 				StepParams: RolloutParams{
@@ -255,7 +255,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "multiple configs step and roll",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           42,
 				Revisions: []RevisionRollout{{
@@ -273,7 +273,7 @@ func TestStep(t *testing.T) {
 			// 6% allocated to the revision direct, say.
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           42,
 				StepParams: RolloutParams{
@@ -309,7 +309,7 @@ func TestStep(t *testing.T) {
 		},
 		want: &Rollout{
 			// Note: order will change, since we sort.
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           52,
 				StepParams: RolloutParams{
@@ -347,7 +347,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "simplest, step, when stepsize=0",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -363,7 +363,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				StepParams: RolloutParams{
@@ -380,7 +380,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -398,7 +398,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "when new revision becomes 0%",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "charlie",
 				Percent:           0,
 				Revisions: []RevisionRollout{{
@@ -408,7 +408,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "charlie",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -421,7 +421,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "when new config is added but it's 0%",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "charlie",
 				Percent:           0,
 				Revisions: []RevisionRollout{{
@@ -438,7 +438,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -448,7 +448,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -460,7 +460,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "simplest, roll",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -470,7 +470,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -486,7 +486,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				StepParams: RolloutParams{
@@ -504,7 +504,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "roll with percentage change down",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           33,
 				Revisions: []RevisionRollout{{
@@ -514,7 +514,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           42,
 				Revisions: []RevisionRollout{{
@@ -527,7 +527,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           33,
 				StepParams: RolloutParams{
@@ -548,7 +548,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "roll with percentage change up",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           75,
 				Revisions: []RevisionRollout{{
@@ -558,7 +558,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           25,
 				Revisions: []RevisionRollout{{
@@ -571,7 +571,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				StepParams: RolloutParams{
 					StartTime: now,
@@ -592,7 +592,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "roll, where sum < 100% (one route targets a revision, e.g.)",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "brian",
 				Percent:           70,
 				Revisions: []RevisionRollout{{
@@ -602,7 +602,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "brian",
 				Percent:           70,
 				Revisions: []RevisionRollout{{
@@ -612,7 +612,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "brian",
 				Percent:           70,
 				StepParams: RolloutParams{
@@ -630,7 +630,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "roll with two existing revisions, no deletes",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -640,7 +640,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				StepParams: RolloutParams{
@@ -656,7 +656,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				StepParams: RolloutParams{
@@ -677,7 +677,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "roll with delete (two fast successive rolls)",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -687,7 +687,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				StepParams: RolloutParams{
@@ -703,7 +703,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				StepParams: RolloutParams{
 					StartTime: now,
@@ -721,7 +721,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "roll with delete (minimal config target)",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           1,
 				Revisions: []RevisionRollout{{
@@ -731,7 +731,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           1,
 				Revisions: []RevisionRollout{{
@@ -741,7 +741,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           1,
 				Revisions: []RevisionRollout{{
@@ -753,7 +753,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "new tag, no roll", // just attached a tag to an existing route.
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -771,7 +771,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -781,7 +781,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -801,7 +801,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "deleted config, no roll",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -811,7 +811,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           50,
 				Revisions: []RevisionRollout{{
@@ -828,7 +828,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -840,7 +840,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "a/b config, roll both",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           99,
 				Revisions: []RevisionRollout{{
@@ -857,7 +857,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           99,
 				Revisions: []RevisionRollout{{
@@ -874,7 +874,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           99,
 				StepParams: RolloutParams{
@@ -899,7 +899,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "new config, no roll, newer smaller",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           50,
 				Revisions: []RevisionRollout{{
@@ -916,7 +916,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "mick",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -926,7 +926,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           50,
 				Revisions: []RevisionRollout{{
@@ -945,7 +945,7 @@ func TestStep(t *testing.T) {
 	}, {
 		name: "new config, no roll, newer larger",
 		cur: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           50,
 				Revisions: []RevisionRollout{{
@@ -962,7 +962,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		prev: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           100,
 				Revisions: []RevisionRollout{{
@@ -972,7 +972,7 @@ func TestStep(t *testing.T) {
 			}},
 		},
 		want: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           50,
 				Revisions: []RevisionRollout{{
@@ -1017,7 +1017,7 @@ func TestObserveReady(t *testing.T) {
 		duration    = 120.
 	)
 	ro := Rollout{
-		Configurations: []ConfigurationRollout{{
+		Configurations: []*ConfigurationRollout{{
 			Percent:           100,
 			ConfigurationName: "has-step",
 			StepParams: RolloutParams{
@@ -1063,7 +1063,7 @@ func TestObserveReady(t *testing.T) {
 	}
 
 	want := Rollout{
-		Configurations: []ConfigurationRollout{{
+		Configurations: []*ConfigurationRollout{{
 			Percent:           100,
 			ConfigurationName: "has-step",
 			StepParams: RolloutParams{
@@ -1264,7 +1264,7 @@ func TestValidateFailures(t *testing.T) {
 	}{{
 		name: "config > 100%",
 		r: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           101,
 				Revisions: []RevisionRollout{{
@@ -1276,7 +1276,7 @@ func TestValidateFailures(t *testing.T) {
 	}, {
 		name: "rev more than config",
 		r: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           42,
 				Revisions: []RevisionRollout{{
@@ -1288,7 +1288,7 @@ func TestValidateFailures(t *testing.T) {
 	}, {
 		name: "revs more than config",
 		r: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "keith",
 				Percent:           42,
 				Revisions: []RevisionRollout{{
@@ -1303,7 +1303,7 @@ func TestValidateFailures(t *testing.T) {
 	}, {
 		name: "2nd config > 100%",
 		r: &Rollout{
-			Configurations: []ConfigurationRollout{{
+			Configurations: []*ConfigurationRollout{{
 				ConfigurationName: "rob",
 				Percent:           10,
 				Revisions: []RevisionRollout{{
@@ -1334,7 +1334,7 @@ func TestValidateFailures(t *testing.T) {
 
 func TestConfigDone(t *testing.T) {
 	r := &Rollout{
-		Configurations: []ConfigurationRollout{{
+		Configurations: []*ConfigurationRollout{{
 			ConfigurationName: "nil",
 			Percent:           100,
 		}, {
@@ -1383,7 +1383,7 @@ func TestConfigDone(t *testing.T) {
 
 func TestJSONRoundtrip(t *testing.T) {
 	orig := &Rollout{
-		Configurations: []ConfigurationRollout{{
+		Configurations: []*ConfigurationRollout{{
 			ConfigurationName: "one",
 			Percent:           100,
 			Revisions: []RevisionRollout{{
@@ -1620,7 +1620,7 @@ func TestStepRevisions(t *testing.T) {
 
 func TestGetByTag(t *testing.T) {
 	r := &Rollout{
-		Configurations: []ConfigurationRollout{{
+		Configurations: []*ConfigurationRollout{{
 			ConfigurationName: "one",
 			Percent:           50,
 			Revisions: []RevisionRollout{{
@@ -1670,9 +1670,9 @@ func TestGetByTag(t *testing.T) {
 	}
 	sortRollout(r)
 
-	wantDef := []*ConfigurationRollout{&r.Configurations[0], &r.Configurations[1], &r.Configurations[2]}
-	wantGilberto := []*ConfigurationRollout{&r.Configurations[3]}
-	wantJobim := []*ConfigurationRollout{&r.Configurations[4]}
+	wantDef := []*ConfigurationRollout{r.Configurations[0], r.Configurations[1], r.Configurations[2]}
+	wantGilberto := []*ConfigurationRollout{r.Configurations[3]}
+	wantJobim := []*ConfigurationRollout{r.Configurations[4]}
 
 	if got, want := r.RolloutsByTag(""), wantDef; !cmp.Equal(got, want) {
 		t.Errorf(`RolloutsByTag("") mismatch: diff(-want,+got):\n%s`, cmp.Diff(want, got))
