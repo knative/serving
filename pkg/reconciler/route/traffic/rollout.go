@@ -37,7 +37,7 @@ import (
 // same configuration if there is a tag configured traffic target.
 type Rollout struct {
 	// Configurations are sorted by tag first and within same tag, by configuration name.
-	Configurations []ConfigurationRollout `json:"configurations,omitempty"`
+	Configurations []*ConfigurationRollout `json:"configurations,omitempty"`
 }
 
 // ConfigurationRollout describes the rollout state for a given config+tag pair.
@@ -105,7 +105,7 @@ func (cur *Rollout) RolloutsByTag(t string) []*ConfigurationRollout {
 	// Now append all configs rollouts with given tag.
 	// If tag != "", then there'll be only one such entry.
 	for ; st < len(cur.Configurations) && cur.Configurations[st].Tag == t; st++ {
-		ret = append(ret, &cur.Configurations[st])
+		ret = append(ret, cur.Configurations[st])
 	}
 	return ret
 }
@@ -155,7 +155,7 @@ func (cur *Rollout) Validate() bool {
 func (cur *Rollout) ObserveReady(ctx context.Context, nowTS int64, durationSecs float64) {
 	logger := logging.FromContext(ctx)
 	for i := range cur.Configurations {
-		c := &cur.Configurations[i]
+		c := cur.Configurations[i]
 		if c.StepParams.StepDuration == 0 && c.StepParams.StartTime > 0 {
 			// In really ceil(nowTS-params.StartTime) should always give 1s, but
 			// given possible time drift, we'll ensure that at least 1s is returned.
@@ -188,13 +188,13 @@ func (cur *Rollout) Step(ctx context.Context, prev *Rollout, nowTS int64) (*Roll
 	// Map the configs by tag.
 	currConfigs, prevConfigs := map[string][]*ConfigurationRollout{}, map[string][]*ConfigurationRollout{}
 	for i, cfg := range cur.Configurations {
-		currConfigs[cfg.Tag] = append(currConfigs[cfg.Tag], &cur.Configurations[i])
+		currConfigs[cfg.Tag] = append(currConfigs[cfg.Tag], cur.Configurations[i])
 	}
 	for i, cfg := range prev.Configurations {
-		prevConfigs[cfg.Tag] = append(prevConfigs[cfg.Tag], &prev.Configurations[i])
+		prevConfigs[cfg.Tag] = append(prevConfigs[cfg.Tag], prev.Configurations[i])
 	}
 
-	var ret []ConfigurationRollout
+	var ret []*ConfigurationRollout
 	returnTS := int64(math.MaxInt64)
 	for t, ccfgs := range currConfigs {
 		pcfgs, ok := prevConfigs[t]
@@ -204,7 +204,7 @@ func (cur *Rollout) Step(ctx context.Context, prev *Rollout, nowTS int64) (*Roll
 		// So just append to the return list.
 		// TODO(vagababov): perhaps just ignore and remove from the return?
 		if !ok {
-			ret = append(ret, *ccfgs[0])
+			ret = append(ret, ccfgs[0])
 			continue
 		}
 		// This is basically an intersect algorithm,
@@ -214,7 +214,7 @@ func (cur *Rollout) Step(ctx context.Context, prev *Rollout, nowTS int64) (*Roll
 			case j >= len(pcfgs):
 				// Those are the new configs that were added during this reconciliation.
 				// So we just copy them to the result.
-				ret = append(ret, *ccfgs[i])
+				ret = append(ret, ccfgs[i])
 				i++
 			case ccfgs[i].ConfigurationName == pcfgs[j].ConfigurationName:
 				// Config might have >0% traffic assigned, unless it is a tag only route (i.e.
@@ -222,7 +222,7 @@ func (cur *Rollout) Step(ctx context.Context, prev *Rollout, nowTS int64) (*Roll
 				// altogether.
 				switch p := ccfgs[i].Percent; {
 				case p > 1:
-					sc := *stepConfig(ctx, ccfgs[i], pcfgs[j], nowTS)
+					sc := stepConfig(ctx, ccfgs[i], pcfgs[j], nowTS)
 					ret = append(ret, sc)
 					// Keep the minimum value if it is not 0.
 					if nst := sc.StepParams.NextStepTime; nst > 0 && nst < returnTS {
@@ -231,7 +231,7 @@ func (cur *Rollout) Step(ctx context.Context, prev *Rollout, nowTS int64) (*Roll
 				case p == 1:
 					// Skip all the work if it's a common A/B scenario where the test config
 					// receives just 1% of traffic.
-					ret = append(ret, *ccfgs[i])
+					ret = append(ret, ccfgs[i])
 					// default p == 0 => just ignore for rollout.
 				}
 				i++
@@ -240,7 +240,7 @@ func (cur *Rollout) Step(ctx context.Context, prev *Rollout, nowTS int64) (*Roll
 				// A new config, has been added. No action for rollout though.
 				// Keep it for future rollout actions.
 				if ccfgs[i].Percent != 0 {
-					ret = append(ret, *ccfgs[i])
+					ret = append(ret, ccfgs[i])
 				}
 				i++
 			default: // cur > prev.

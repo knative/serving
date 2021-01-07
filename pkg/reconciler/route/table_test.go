@@ -434,7 +434,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				&traffic.Rollout{
-					Configurations: []traffic.ConfigurationRollout{{
+					Configurations: []*traffic.ConfigurationRollout{&traffic.ConfigurationRollout{
 						ConfigurationName: "config",
 						Revisions: []traffic.RevisionRollout{{
 							RevisionName: "config-00000",
@@ -895,7 +895,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				&traffic.Rollout{
-					Configurations: []traffic.ConfigurationRollout{{
+					Configurations: []*traffic.ConfigurationRollout{&traffic.ConfigurationRollout{
 						ConfigurationName: "config",
 						Revisions: []traffic.RevisionRollout{{
 							RevisionName: "config-00001",
@@ -2886,7 +2886,7 @@ func simpleRollout(cfg string, revs []traffic.RevisionRollout,
 	now time.Time, ros ...rolloutOption) IngressOption {
 	return func(i *netv1alpha1.Ingress) {
 		r := &traffic.Rollout{
-			Configurations: []traffic.ConfigurationRollout{{
+			Configurations: []*traffic.ConfigurationRollout{&traffic.ConfigurationRollout{
 				ConfigurationName: cfg,
 				StepParams: traffic.RolloutParams{
 					StartTime: now.UnixNano(),

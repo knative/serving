@@ -294,7 +294,7 @@ func TestReconcileIngressRolloutDeserializeFail(t *testing.T) {
 		name: "invalid",
 		val: func() string {
 			ro := &traffic.Rollout{
-				Configurations: []traffic.ConfigurationRollout{{
+				Configurations: []*traffic.ConfigurationRollout{&traffic.ConfigurationRollout{
 					ConfigurationName: "configuration",
 					Percent:           202, // <- this is not right!
 				}},

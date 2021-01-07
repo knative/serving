@@ -251,7 +251,7 @@ func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
 			continue
 		}
 		// The targets with the same revision are already joined together.
-		r.Configurations = append(r.Configurations, ConfigurationRollout{
+		r.Configurations = append(r.Configurations, &ConfigurationRollout{
 			ConfigurationName: rt.ConfigurationName,
 			Tag:               tag,
 			Percent:           int(*rt.Percent),
