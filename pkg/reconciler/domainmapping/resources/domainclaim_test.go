@@ -22,18 +22,23 @@ import (
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 func TestMakeDomainClaim(t *testing.T) {
-	dm := &v1alpha1.DomainMapping{ObjectMeta: metav1.ObjectMeta{Name: "mapping.com"}}
-	got := MakeDomainClaim(dm)
+	got := MakeDomainClaim(&v1alpha1.DomainMapping{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mapping.com",
+			Namespace: "the-namespace",
+		},
+	})
 
 	want := &netv1alpha1.ClusterDomainClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            "mapping.com",
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(dm)},
+			Name: "mapping.com",
+		},
+		Spec: netv1alpha1.ClusterDomainClaimSpec{
+			Namespace: "the-namespace",
 		},
 	}
 

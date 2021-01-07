@@ -18,6 +18,7 @@ package domainmapping
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -42,6 +43,7 @@ import (
 	"knative.dev/pkg/resolver"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
@@ -55,6 +57,8 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
+	now := metav1.Now()
+
 	table := TableTest{{
 		Name: "bad workqueue key",
 		// Make sure Reconcile handles bad keys.
@@ -87,8 +91,79 @@ func TestReconcile(t *testing.T) {
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", nil /* tls */),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
+		},
+	}, {
+		Name: "finalize cleans up claim",
+		Key:  "default/cleanup.on.aisle-three",
+		Objects: []runtime.Object{
+			domainMapping("default", "cleanup.on.aisle-three", withRef("default", "target"), withFinalizer, withDeletionTimestamp(&now)),
+			resources.MakeDomainClaim(domainMapping("default", "cleanup.on.aisle-three", withRef("default", "target"))),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Verb:     "delete",
+				Resource: v1alpha1.SchemeGroupVersion.WithResource("clusterdomainclaims"),
+			},
+			Name: "cleanup.on.aisle-three",
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchRemoveFinalizerAction("default", "cleanup.on.aisle-three"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "cleanup.on.aisle-three"),
+		},
+	}, {
+		Name: "finalize does not clean up unowned claim",
+		Key:  "default/cleanup.on.aisle-three",
+		Objects: []runtime.Object{
+			domainMapping("default", "cleanup.on.aisle-three", withRef("default", "target"), withFinalizer, withDeletionTimestamp(&now)),
+			resources.MakeDomainClaim(domainMapping("another-namespace", "cleanup.on.aisle-three", withRef("default", "target"))),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchRemoveFinalizerAction("default", "cleanup.on.aisle-three"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "cleanup.on.aisle-three"),
+		},
+	}, {
+		Name: "finalize claim already gone or never claimed",
+		Key:  "default/cleanup.on.aisle-three",
+		Objects: []runtime.Object{
+			domainMapping("default", "cleanup.on.aisle-three", withRef("default", "target"), withFinalizer, withDeletionTimestamp(&now)),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchRemoveFinalizerAction("default", "cleanup.on.aisle-three"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "cleanup.on.aisle-three"),
+		},
+	}, {
+		Name: "finalize claim deletion fails",
+		Key:  "default/cleanup.on.aisle-three",
+		Objects: []runtime.Object{
+			domainMapping("default", "cleanup.on.aisle-three", withRef("default", "target"), withFinalizer, withDeletionTimestamp(&now)),
+			resources.MakeDomainClaim(domainMapping("default", "cleanup.on.aisle-three", withRef("default", "target"))),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("delete", "clusterdomainclaims"),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			// This is the delete we induce failure on.
+			ActionImpl: clientgotesting.ActionImpl{
+				Verb:     "delete",
+				Resource: v1alpha1.SchemeGroupVersion.WithResource("clusterdomainclaims"),
+			},
+			Name: "cleanup.on.aisle-three",
+		}},
+		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for delete clusterdomainclaims"),
 		},
 	}, {
 		Name: "first reconcile, corev1 service",
@@ -116,7 +191,11 @@ func TestReconcile(t *testing.T) {
 				domainMapping("default", "first-reconcile.com", withRef("default", "target", withAPIVersionKind("v1", "Service"))),
 				"target", "target.default.svc.cluster.local", "the-ingress-class", nil /* tls */),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
 		},
 	}, {
@@ -141,7 +220,11 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
 			Eventf(corev1.EventTypeWarning, "InternalError", `resolving reference: services.serving.knative.dev "target" not found`),
 		},
 	}, {
@@ -167,7 +250,11 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
 			Eventf(corev1.EventTypeWarning, "InternalError", `resolved URI "http://the-target-svc.svc.cluster.local/path" contains a path`),
 		},
 	}, {
@@ -193,7 +280,11 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
 			Eventf(corev1.EventTypeWarning, "InternalError", `resolved URI "http://notasvc.cluster.local" must be of the form {name}.{namespace}.svc.cluster.local`),
 		},
 	}, {
@@ -219,7 +310,11 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
 			Eventf(corev1.EventTypeWarning, "InternalError", `resolved URI "http://name.anothernamespace.svc.cluster.local" must be in same namespace as DomainMapping`),
 		},
 	}, {
@@ -245,7 +340,11 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", nil /* tls */),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
 		},
 	}, {
@@ -272,7 +371,11 @@ func TestReconcile(t *testing.T) {
 			// this is the clusterdomainclaim create that we induce failure on.
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
 			Eventf(corev1.EventTypeWarning, "InternalError", `failed to create ClusterDomainClaim: inducing failure for create clusterdomainclaims`),
 		},
 	}, {
@@ -281,7 +384,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 			resources.MakeDomainClaim(
-				domainMapping("default", "first-reconcile.com", withRef("default", "target"),
+				domainMapping("wrong-namespace", "first-reconcile.com", withRef("default", "target"),
 					withUID("some-other-uid"),
 				),
 			),
@@ -297,8 +400,12 @@ func TestReconcile(t *testing.T) {
 				withDomainClaimNotOwned,
 			),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `domain mapping: "first-reconcile.com" does not own matching cluster domain claim`),
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
+			Eventf(corev1.EventTypeWarning, "InternalError", `domain mapping: namespace "default" does not own cluster domain claim for "first-reconcile.com"`),
 		},
 	}, {
 		Name: "reconcile with ingressClass annotation",
@@ -332,7 +439,11 @@ func TestReconcile(t *testing.T) {
 			resources.MakeIngress(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target")),
 				"the-target-svc", "the-target-svc.default.svc.cluster.local", "overridden-ingress-class", nil /* tls */),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "ingressclass.first-reconcile.com"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "ingressclass.first-reconcile.com"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "ingressclass.first-reconcile.com"),
 		},
 	}, {
@@ -359,6 +470,12 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingress(domainMapping("default", "ingress-exists.org", withRef("default", "changed")), "the-ingress-class"),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "ingress-exists.org"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "ingress-exists.org"),
+		},
 	}, {
 		Name: "reconcile failed ingress",
 		Key:  "default/ingress-failed.me",
@@ -386,6 +503,12 @@ func TestReconcile(t *testing.T) {
 				withPropagatedStatus(ingress(domainMapping("default", "failed.default.svc.cluster.local"), "", WithLoadbalancerFailed("fell over", "hurt myself")).Status),
 			),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "ingress-failed.me"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "ingress-failed.me"),
+		},
 	}, {
 		Name: "reconcile unknown ingress",
 		Key:  "default/ingress-unknown.me",
@@ -413,6 +536,12 @@ func TestReconcile(t *testing.T) {
 				withPropagatedStatus(ingress(domainMapping("default", "ingress-unknown.me"), "", withIngressNotReady).Status),
 			),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "ingress-unknown.me"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "ingress-unknown.me"),
+		},
 	}, {
 		Name: "reconcile ready ingress",
 		Key:  "default/ingress-ready.me",
@@ -440,6 +569,12 @@ func TestReconcile(t *testing.T) {
 				withPropagatedStatus(ingress(domainMapping("default", "ingress-ready.me"), "", withIngressReady).Status),
 			),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "ingress-ready.me"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "ingress-ready.me"),
+		},
 	}, {
 		Name: "fail ingress creation",
 		Key:  "default/cantcreate.this",
@@ -479,7 +614,11 @@ func TestReconcile(t *testing.T) {
 				withObservedGeneration,
 			),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "cantcreate.this"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "cantcreate.this"),
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: inducing failure for create ingresses"),
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Ingress: inducing failure for create ingresses"),
 		},
@@ -523,7 +662,11 @@ func TestReconcile(t *testing.T) {
 				withObservedGeneration,
 			),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "cantupdate.this"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "cantupdate.this"),
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Ingress: inducing failure for update ingresses"),
 		},
 	}}
@@ -583,7 +726,11 @@ func TestReconcileTLSEnabled(t *testing.T) {
 				withReferenceResolved,
 			),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first.reconcile.io"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first.reconcile.io"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %s/%s", "default", "first.reconcile.io"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first.reconcile.io"),
 		},
@@ -641,6 +788,12 @@ func TestReconcileTLSEnabled(t *testing.T) {
 				SecretNamespace: "default",
 			})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "becomes.ready.run"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "becomes.ready.run"),
+		},
 	}, {
 		Name:    "cert not owned",
 		WantErr: true,
@@ -673,7 +826,11 @@ func TestReconcileTLSEnabled(t *testing.T) {
 				withInitDomainMappingConditions,
 			),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "cert.not.owned.ru"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "cert.not.owned.ru"),
 			Eventf(corev1.EventTypeWarning, "InternalError", `notowned: owner: cert.not.owned.ru with Type *v1alpha1.DomainMapping does not own Certificate: "cert.not.owned.ru"`),
 		},
 	}, {
@@ -709,7 +866,11 @@ func TestReconcileTLSEnabled(t *testing.T) {
 				withInitDomainMappingConditions,
 			),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "cert.creation.failed.ly"),
+		},
 		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "cert.creation.failed.ly"),
 			Eventf(corev1.EventTypeWarning, "CreationFailed", `Failed to create Certificate default/cert.creation.failed.ly: inducing failure for create certificates`),
 			Eventf(corev1.EventTypeWarning, "InternalError", `failed to create Certificate: inducing failure for create certificates`),
 		},
@@ -808,6 +969,12 @@ func TestReconcileTLSEnabled(t *testing.T) {
 					ServiceNamespace: "default",
 				}}, withIngressReady),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "challenged.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "challenged.com"),
+		},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -866,6 +1033,12 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 				withPropagatedStatus(ingress(domainMapping("default", "http.downgraded.com"), "", withIngressReady).Status),
 			),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "http.downgraded.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "http.downgraded.com"),
+		},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -1023,6 +1196,16 @@ func withObservedGeneration(dm *v1alpha1.DomainMapping) {
 	dm.Status.ObservedGeneration = dm.Generation
 }
 
+func withFinalizer(dm *v1alpha1.DomainMapping) {
+	dm.ObjectMeta.Finalizers = append(dm.ObjectMeta.Finalizers, "domainmappings.serving.knative.dev")
+}
+
+func withDeletionTimestamp(t *metav1.Time) domainMappingOption {
+	return func(dm *v1alpha1.DomainMapping) {
+		dm.ObjectMeta.DeletionTimestamp = t
+	}
+}
+
 func ingress(dm *v1alpha1.DomainMapping, ingressClass string, opt ...IngressOption) *netv1alpha1.Ingress {
 	return ingressWithChallenges(dm, ingressClass, nil /* challenges */, opt...)
 }
@@ -1094,6 +1277,23 @@ func withIngressNotReady(ing *netv1alpha1.Ingress) {
 func withIngressTLS(tls netv1alpha1.IngressTLS) func(ing *netv1alpha1.Ingress) {
 	return func(ing *netv1alpha1.Ingress) {
 		ing.Spec.TLS = []netv1alpha1.IngressTLS{tls}
+	}
+}
+
+func patchAddFinalizerAction(namespace, name string) clientgotesting.PatchActionImpl {
+	p := fmt.Sprintf(`{"metadata":{"finalizers":[%q],"resourceVersion":""}}`, v1.Resource("domainmappings").String())
+	return clientgotesting.PatchActionImpl{
+		Name:       name,
+		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
+		Patch:      []byte(p),
+	}
+}
+
+func patchRemoveFinalizerAction(namespace, name string) clientgotesting.PatchActionImpl {
+	return clientgotesting.PatchActionImpl{
+		Name:       name,
+		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
+		Patch:      []byte(`{"metadata":{"finalizers":[],"resourceVersion":""}}`),
 	}
 }
 
