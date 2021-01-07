@@ -30,6 +30,9 @@ const (
 	// the Kubernetes minimum version required by Knative.
 	KubernetesMinVersionKey = "KUBERNETES_MIN_VERSION"
 
+	// NOTE: If you are changing this line, please also update the minimum kubernetes
+	// version listed here:
+	// https://github.com/knative/docs/blob/master/docs/install/any-kubernetes-cluster.md#before-you-begin
 	defaultMinimumVersion = "v1.17.0"
 )
 
