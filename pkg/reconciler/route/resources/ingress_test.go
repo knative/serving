@@ -157,7 +157,7 @@ func TestMakeIngressWithTaggedRollout(t *testing.T) {
 func TestMakeIngressWithActualRollout(t *testing.T) {
 	const ingressClass = "ng-ingress"
 	ro := &traffic.Rollout{
-		Configurations: []*traffic.ConfigurationRollout{&traffic.ConfigurationRollout{
+		Configurations: []*traffic.ConfigurationRollout{{
 			ConfigurationName: "rune",
 			Percent:           1,
 			Revisions: []traffic.RevisionRollout{{

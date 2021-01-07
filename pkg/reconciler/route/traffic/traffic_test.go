@@ -179,7 +179,7 @@ func TestBuildTrafficConfigurationVanilla(t *testing.T) {
 	}
 	gotR := tc.BuildRollout()
 	wantR := &Rollout{
-		Configurations: []*ConfigurationRollout{&ConfigurationRollout{
+		Configurations: []*ConfigurationRollout{{
 			ConfigurationName: goodConfig.Name,
 			Percent:           100,
 			Revisions: []RevisionRollout{{
@@ -279,7 +279,7 @@ func TestBuildTrafficConfigurationVanillaScaledToZero(t *testing.T) {
 	// Inactive shouldn't matter for rollout state.
 	gotR := tc.BuildRollout()
 	wantR := &Rollout{
-		Configurations: []*ConfigurationRollout{&ConfigurationRollout{
+		Configurations: []*ConfigurationRollout{{
 			ConfigurationName: inactiveConfig.Name,
 			Percent:           100,
 			Revisions: []RevisionRollout{{
@@ -424,7 +424,7 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfig(t *testing.T) {
 
 	gotR := tc.BuildRollout()
 	wantR := &Rollout{
-		Configurations: []*ConfigurationRollout{&ConfigurationRollout{
+		Configurations: []*ConfigurationRollout{{
 			ConfigurationName: niceConfig.Name,
 			Percent:           100,
 			Revisions: []RevisionRollout{{
@@ -551,7 +551,7 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 	gotR := tc.BuildRollout()
 	wantR := &Rollout{
 		// Default tag configs are sorted as well.
-		Configurations: []*ConfigurationRollout{&ConfigurationRollout{
+		Configurations: []*ConfigurationRollout{{
 			ConfigurationName: goodConfig.Name,
 			Percent:           35,
 			Revisions: []RevisionRollout{{
@@ -661,7 +661,7 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 
 	gotR := tc.BuildRollout()
 	wantR := &Rollout{
-		Configurations: []*ConfigurationRollout{&ConfigurationRollout{
+		Configurations: []*ConfigurationRollout{{
 			ConfigurationName: niceConfig.Name,
 			Percent:           100,
 			Revisions: []RevisionRollout{{
@@ -746,7 +746,7 @@ func TestBuildTrafficConfigurationCanary(t *testing.T) {
 	// Ensure just the 10% is going to be rolled out.
 	gotR := tc.BuildRollout()
 	wantR := &Rollout{
-		Configurations: []*ConfigurationRollout{&ConfigurationRollout{
+		Configurations: []*ConfigurationRollout{{
 			ConfigurationName: goodConfig.Name,
 			Percent:           10,
 			Revisions: []RevisionRollout{{
@@ -1202,7 +1202,7 @@ func TestBuildTrafficConfigurationReadyNotReadyConfig(t *testing.T) {
 	}
 	gotR := tc.BuildRollout()
 	wantR := &Rollout{
-		Configurations: []*ConfigurationRollout{&ConfigurationRollout{
+		Configurations: []*ConfigurationRollout{{
 			ConfigurationName: readyUnreadyConfig.Name,
 			Percent:           100,
 			Revisions: []RevisionRollout{{
@@ -1431,7 +1431,7 @@ func TestRoundTrippingWithRollout(t *testing.T) {
 		ConfigurationName: niceConfig.Name,
 	}))
 	ro := &Rollout{
-		Configurations: []*ConfigurationRollout{&ConfigurationRollout{
+		Configurations: []*ConfigurationRollout{{
 			ConfigurationName: goodConfig.Name,
 			Revisions: []RevisionRollout{{
 				RevisionName: "older-rev",
@@ -1651,7 +1651,7 @@ func TestBuildTrafficConfigurationTag0Percent(t *testing.T) {
 
 	gotR := tc.BuildRollout()
 	wantR := &Rollout{
-		Configurations: []*ConfigurationRollout{&ConfigurationRollout{
+		Configurations: []*ConfigurationRollout{{
 			ConfigurationName: niceConfig.Name,
 			Percent:           100,
 			Revisions: []RevisionRollout{{
