@@ -32,6 +32,11 @@ type ClusterDomainClaim struct {
 	// More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec is the desired state of the ClusterDomainClaim.
+	// More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +optional
+	Spec ClusterDomainClaimSpec `json:"spec,omitempty"`
 }
 
 var (
@@ -51,4 +56,13 @@ type ClusterDomainClaimList struct {
 
 	// Items is the list of ClusterDomainClaim objects.
 	Items []ClusterDomainClaim `json:"items"`
+}
+
+// ClusterDomainClaimSpec is the desired state of the ClusterDomainClaim.
+// Its only field is `namespace`, which controls which namespace currently owns
+// the ability to create a DomainMapping with the ClusterDomainClaim's name.
+type ClusterDomainClaimSpec struct {
+	// Namespace is the namespace which is allowed to create a DomainMapping
+	// using this ClusterDomainClaim's name.
+	Namespace string `json:"namespace"`
 }
