@@ -164,7 +164,7 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 				RevisionName: "rune-01911",
 				Percent:      1,
 			}},
-		}, &traffic.ConfigurationRollout{
+		}, {
 			ConfigurationName: "valhalla",
 			Percent:           99,
 			Revisions: []traffic.RevisionRollout{{
@@ -174,14 +174,14 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 				RevisionName: "valhalla-01982",
 				Percent:      68,
 			}},
-		}, &traffic.ConfigurationRollout{
+		}, {
 			ConfigurationName: "rune",
 			Percent:           1,
 			Revisions: []traffic.RevisionRollout{{
 				RevisionName: "rune-01911",
 				Percent:      1,
 			}},
-		}, &traffic.ConfigurationRollout{
+		}, {
 			ConfigurationName: "thor",
 			Tag:               "hammer",
 			Percent:           80,
