@@ -134,6 +134,27 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	return err
 }
 
+// FinalizeKind cleans up the ClusterDomainClaim created by the DomainMapping.
+func (r *Reconciler) FinalizeKind(ctx context.Context, dm *v1alpha1.DomainMapping) reconciler.Event {
+	dc, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Get(ctx, dm.Name, metav1.GetOptions{})
+	if err != nil {
+		if apierrs.IsNotFound(err) {
+			// Nothing to do since the domain was never claimed.
+			return nil
+		}
+
+		return err
+	}
+
+	// We need to check that we only delete if the CDC is owned by our namespace, otherwise we could
+	// delete the claim when we didn't succeed in acquiring it.
+	if dc.Spec.Namespace != dm.Namespace {
+		return nil
+	}
+
+	return r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Delete(ctx, dm.Name, metav1.DeleteOptions{})
+}
+
 func autoTLSEnabled(ctx context.Context, dm *v1alpha1.DomainMapping) bool {
 	if !config.FromContext(ctx).Network.AutoTLS {
 		return false
@@ -279,9 +300,9 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.Doma
 		return fmt.Errorf("failed to get ClusterDomainClaim: %w", err)
 	}
 
-	if !metav1.IsControlledBy(dc, dm) {
+	if dm.Namespace != dc.Spec.Namespace {
 		dm.Status.MarkDomainClaimNotOwned()
-		return fmt.Errorf("domain mapping: %q does not own matching cluster domain claim", dm.Name)
+		return fmt.Errorf("domain mapping: namespace %q does not own cluster domain claim for %q", dm.Namespace, dm.Name)
 	}
 
 	dm.Status.MarkDomainClaimed()
