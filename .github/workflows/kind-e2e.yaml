@@ -177,24 +177,17 @@ jobs:
       run: |
         set -o pipefail
 
-        kubectl create namespace knative-serving
         kubectl apply -f config/core/300-imagecache.yaml
 
         # Build and Publish our containers to the docker daemon (including test assets)
-        ko apply --platform=all -Pf test/config/
-        ko apply --platform=all -PRf config/core
+        ko apply --platform=linux/amd64 -PRf config/core
+        ko apply --platform=linux/amd64 -Pf test/config/
 
         # Have Serving use the kingress option.
         kubectl patch configmap/config-network \
           --namespace knative-serving \
           --type merge \
           --patch '{"data":{"ingress.class":"${{ matrix.kingress }}.ingress.networking.knative.dev"}}'
-
-        # Reduce the progress deadline so failure tests don't take forever.
-        kubectl patch configmap/config-deployment \
-          --namespace knative-serving \
-          --type merge \
-          --patch '{"data":{"progressDeadline":"120s"}}'
 
         # Be KinD to these tests.
         kubectl scale -nknative-serving deployment/chaosduck --replicas=0
