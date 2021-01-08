@@ -177,12 +177,11 @@ jobs:
       run: |
         set -o pipefail
 
-        kubectl create namespace knative-serving
         kubectl apply -f config/core/300-imagecache.yaml
 
         # Build and Publish our containers to the docker daemon (including test assets)
-        ko apply --platform=all -Pf test/config/
         ko apply --platform=all -PRf config/core
+        ko apply --platform=all -Pf test/config/
 
         # Have Serving use the kingress option.
         kubectl patch configmap/config-network \
