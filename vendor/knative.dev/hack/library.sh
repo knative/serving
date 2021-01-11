@@ -490,24 +490,37 @@ function start_latest_eventing_sugar_controller() {
 function run_go_tool() {
   local tool=$2
   local install_failed=0
-  if [[ -z "$(which ${tool})" ]]; then
-    local action=get
-    [[ $1 =~ ^[\./].* ]] && action=install
-    # Avoid running `go get` from root dir of the repository, as it can change go.sum and go.mod files.
-    # See discussions in https://github.com/golang/go/issues/27643.
-    if [[ ${action} == "get" && $(pwd) == "${REPO_ROOT_DIR}" ]]; then
-      local temp_dir="$(mktemp -d)"
-      # Swallow the output as we are returning the stdout in the end.
-      pushd "${temp_dir}" > /dev/null 2>&1
-      GOFLAGS="" go ${action} "$1" || install_failed=1
-      popd > /dev/null 2>&1
-    else
-      GOFLAGS="" go ${action} "$1" || install_failed=1
-    fi
+  local run=$1
+
+  if [[ "$(basename $1)" != "$2" ]]; then
+    echo "Assuming tool is in package $2"
+    run="${run}/$2"
   fi
-  (( install_failed )) && return ${install_failed}
-  shift 2
-  ${tool} "$@"
+
+  if [[ -z "$(go list -mod=readonly -f '{{.Module.Version}}' $1)" ]]; then
+    echo "Tool $1/$2 is not included in hack/tools.go, falling back to non-hermetic install (via GOPATH)."
+    if [[ -z "$(which ${tool})" ]]; then
+      local action=get
+      [[ $1 =~ ^[\./].* ]] && action=install
+      # Avoid running `go get` from root dir of the repository, as it can change go.sum and go.mod files.
+      # See discussions in https://github.com/golang/go/issues/27643.
+      if [[ ${action} == "get" && $(pwd) == "${REPO_ROOT_DIR}" ]]; then
+        local temp_dir="$(mktemp -d)"
+        # Swallow the output as we are returning the stdout in the end.
+        pushd "${temp_dir}" > /dev/null 2>&1
+        GOFLAGS="" go ${action} "$1" || install_failed=1
+        popd > /dev/null 2>&1
+      else
+        GOFLAGS="" go ${action} "$1" || install_failed=1
+      fi
+    fi
+    (( install_failed )) && return ${install_failed}
+    shift 2
+    ${tool} "$@"
+  else
+    shift 2
+    GOFLAGS="-mod=vendor" go run "${run}" "$@"
+  fi
 }
 
 # Add function call to trap
