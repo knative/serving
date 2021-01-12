@@ -1274,6 +1274,36 @@ func TestValidateFailures(t *testing.T) {
 			}},
 		},
 	}, {
+		name: "step larger than total",
+		r: &Rollout{
+			Configurations: []*ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           71,
+				StepParams: RolloutParams{
+					StepSize: 75,
+				},
+				Revisions: []RevisionRollout{{
+					RevisionName: "black-on-blue",
+					Percent:      71,
+				}},
+			}},
+		},
+	}, {
+		name: "step negative",
+		r: &Rollout{
+			Configurations: []*ConfigurationRollout{{
+				ConfigurationName: "keith",
+				Percent:           71,
+				StepParams: RolloutParams{
+					StepSize: -1,
+				},
+				Revisions: []RevisionRollout{{
+					RevisionName: "black-on-blue",
+					Percent:      71,
+				}},
+			}},
+		},
+	}, {
 		name: "rev more than config",
 		r: &Rollout{
 			Configurations: []*ConfigurationRollout{{
