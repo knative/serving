@@ -271,7 +271,7 @@ func makeIngressRule(domains []string, ns string,
 	}
 }
 
-// `names` should not include `""` — the DefaultTarget.
+// `names` must not include `""` — the DefaultTarget.
 func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.Rollout, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
@@ -285,13 +285,14 @@ func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.
 }
 
 func rolloutConfig(cfgName string, ros []*traffic.ConfigurationRollout) *traffic.ConfigurationRollout {
-	for _, ro := range ros {
-		if ro.ConfigurationName == cfgName {
-			return ro
-		}
-	}
+	idx := sort.Search(len(ros), func(i int) bool {
+		return ros[i].ConfigurationName >= cfgName
+	})
 	// Technically impossible with valid inputs.
-	return nil
+	if idx >= len(ros) {
+		return nil
+	}
+	return ros[idx]
 }
 
 func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
