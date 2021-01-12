@@ -39,6 +39,7 @@ import (
 type DeploymentStatus struct {
 	DesiredReplicas int32
 	ReadyReplicas   int32
+	DeploymentName  string
 	// Time is the time when the status is fetched
 	Time time.Time
 }
@@ -112,6 +113,7 @@ func fetchStatusInternal(ctx context.Context, duration time.Duration,
 			ds := DeploymentStatus{
 				DesiredReplicas: *d.Spec.Replicas,
 				ReadyReplicas:   d.Status.ReadyReplicas,
+				DeploymentName:  d.ObjectMeta.Name,
 				Time:            t,
 			}
 			ch <- ds
