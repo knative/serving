@@ -266,7 +266,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 
 func sendRequest(namespace, revName string, handler http.Handler, store *activatorconfig.Store) *httptest.ResponseRecorder {
 	resp := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+	req := httptest.NewRequest(http.MethodPost, "http://example.com/", nil)
 	ctx := store.ToContext(req.Context())
 	ctx = util.WithRevID(ctx, types.NamespacedName{Namespace: namespace, Name: revName})
 	handler.ServeHTTP(resp, req.WithContext(ctx))

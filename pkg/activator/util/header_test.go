@@ -17,28 +17,21 @@ limitations under the License.
 package util
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"net/http/httputil"
 	"net/url"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"knative.dev/serving/pkg/activator"
 )
 
-func TestHeaderPruning(t *testing.T) {
+func TestNewProxy(t *testing.T) {
 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(activator.RevisionHeaderName) != "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
+		if err := json.NewEncoder(w).Encode(r.Header); err != nil {
+			panic(err)
 		}
-
-		if r.Header.Get(activator.RevisionHeaderNamespace) != "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
 	}
 
 	server := httptest.NewServer(handler)
@@ -47,29 +40,54 @@ func TestHeaderPruning(t *testing.T) {
 	defer server.Close()
 
 	tests := []struct {
-		name   string
-		header string
+		name          string
+		url           string
+		header        http.Header
+		expectHeaders http.Header
 	}{{
-		name:   "revision name header",
-		header: activator.RevisionHeaderName,
+		name: "prunes activator headers, does not add user agent header",
+		url:  "http://example.com/",
+		header: http.Header{
+			"Header":                          []string{"value"},
+			activator.RevisionHeaderName:      []string{"some-value"},
+			activator.RevisionHeaderNamespace: []string{"some-value"},
+		},
+		expectHeaders: http.Header{
+			"Header": []string{"value"},
+		},
 	}, {
-		name:   "revision namespace header",
-		header: activator.RevisionHeaderNamespace,
+		name: "explicit user agent header not removed",
+		url:  "http://example.com/",
+		header: http.Header{
+			"User-Agent": []string{"gold"},
+		},
+		expectHeaders: http.Header{
+			"User-Agent": []string{"gold"},
+		},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			proxy := httputil.NewSingleHostReverseProxy(serverURL)
-			SetupHeaderPruning(proxy)
+			proxy := NewHeaderPruningReverseProxy(serverURL.Host)
 
 			resp := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-			req.Header.Set(test.header, "some-value")
+			req := httptest.NewRequest(http.MethodPost, test.url, nil)
+			req.Header = test.header
 
 			proxy.ServeHTTP(resp, req)
 
-			if resp.Code != http.StatusOK {
-				t.Errorf("expected header %q to be filtered", test.header)
+			var proxiedHeaders http.Header
+			if err := json.NewDecoder(resp.Body).Decode(&proxiedHeaders); err != nil {
+				t.Fatalf("Decode = %v", err)
+			}
+
+			// Remove headers golang adds from consideration.
+			for _, k := range []string{"Accept-Encoding", "Content-Length", "X-Forwarded-For"} {
+				proxiedHeaders.Del(k)
+			}
+
+			if got, want := proxiedHeaders, test.expectHeaders; !cmp.Equal(want, got) {
+				t.Errorf("Got Headers=%v, want: %v; diff: %s", got, want, cmp.Diff(want, got))
 			}
 		})
 	}
