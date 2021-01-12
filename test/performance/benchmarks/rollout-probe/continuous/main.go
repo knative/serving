@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"strings"
 	"time"
 
 	vegeta "github.com/tsenart/vegeta/v12/lib"
@@ -113,7 +114,7 @@ func main() {
 
 	// Start the attack!
 	results := attacker.Attack(targeter, rate, *duration, "rollout-test")
-	firstRev := ""
+	firstRev, secondRev := "", ""
 
 	// After a minute, update the Ksvc.
 	updateSvc := time.After(30 * time.Second)
@@ -152,6 +153,9 @@ LOOP:
 					_, err = sc.ServingV1().Services(namespace).Update(
 						context.Background(), restore, metav1.UpdateOptions{})
 					log.Printf("Restoring the service to initial minScale = %s, err: %#v", prev, err)
+					// Also remove the oldest revision, to keep the list of revisions short.
+					sc.ServingV1().Revisions(namespace).Delete(ctx, restore.Status.LatestReadyRevisionName,
+						metav1.DeleteOptions{})
 				}
 			}
 			svc.Spec.Template.Annotations["autoscaling.knative.dev/minScale"] = "1"
@@ -169,14 +173,33 @@ LOOP:
 			// Handle the result for this request.
 			metrics.HandleResult(q, *res, t.stat, ar)
 		case ds := <-deploymentStatus:
-			// Add a sample point for the deployment status.
-			q.AddSamplePoint(mako.XTime(ds.Time), map[string]float64{
-				"dp": float64(ds.DesiredReplicas),
-				"ap": float64(ds.ReadyReplicas),
-			})
+			// Ignore deployment updates until we get current one.
+			if firstRev == "" {
+				break LOOP
+			}
+			// Deployment name contains revision name.
+			// If it is the first one -- report it.
+			if strings.Contains(ds.DeploymentName, firstRev) {
+				// Add a sample point for the deployment status.
+				q.AddSamplePoint(mako.XTime(ds.Time), map[string]float64{
+					"dp": float64(ds.DesiredReplicas),
+					"ap": float64(ds.ReadyReplicas),
+				})
+			} else if secondRev != "" && strings.Contains(ds.DeploymentName, secondRev) {
+				// Otherwise eport the pods for the new deployment.
+				q.AddSamplePoint(mako.XTime(ds.Time), map[string]float64{
+					"dp2": float64(ds.DesiredReplicas),
+					"ap2": float64(ds.ReadyReplicas),
+				})
+				// Ignore all other revisions' deployments if there are, since
+				// they are from previous test run iterations and we don't care about
+				// their reported scale values (should be 0 & 100 depending on which
+				// one it is).
+			}
 		case rs := <-routeStatus:
 			if firstRev == "" {
 				firstRev = rs.Traffic[0].RevisionName
+				log.Println("Inferred first revision =", firstRev)
 			}
 			v := make(map[string]float64, 2)
 			if len(rs.Traffic) == 1 {
@@ -191,6 +214,10 @@ LOOP:
 			} else {
 				v["t1"] = float64(*rs.Traffic[0].Percent)
 				v["t2"] = float64(*rs.Traffic[1].Percent)
+				if secondRev == "" {
+					secondRev = rs.Traffic[1].RevisionName
+					log.Println("Inferred second revision =", secondRev)
+				}
 			}
 			q.AddSamplePoint(mako.XTime(rs.Time), v)
 		}
