@@ -116,6 +116,10 @@ const (
 	// constructing the Knative Route's tag names.
 	DefaultTagTemplate = "{{.Tag}}-{{.Name}}"
 
+	// AutocreateClusterDomainClaimsKey is the key for the
+	// AutocreateClusterDomainClaims property.
+	AutocreateClusterDomainClaimsKey = "autocreateClusterDomainClaims"
+
 	// AutoTLSKey is the name of the configuration entry
 	// that specifies enabling auto-TLS or not.
 	AutoTLSKey = "autoTLS"
@@ -235,6 +239,13 @@ type Config struct {
 
 	// RolloutDurationSecs specifies the default duration for the rollout.
 	RolloutDurationSecs int
+
+	// AutocreateClusterDomainClaims specifies whether cluster-wide DomainClaims
+	// should be automatically created (and deleted) as needed when a
+	// DomainMapping is reconciled. If this is false, the
+	// cluster administrator is responsible for pre-creating ClusterDomainClaims
+	// and delegating them to namespaces via their spec.Namespace field.
+	AutocreateClusterDomainClaims bool
 }
 
 // HTTPProtocol indicates a type of HTTP endpoint behavior
@@ -254,12 +265,13 @@ const (
 
 func defaultConfig() *Config {
 	return &Config{
-		DefaultIngressClass:     IstioIngressClassName,
-		DefaultCertificateClass: CertManagerCertificateClassName,
-		DomainTemplate:          DefaultDomainTemplate,
-		TagTemplate:             DefaultTagTemplate,
-		AutoTLS:                 false,
-		HTTPProtocol:            HTTPEnabled,
+		DefaultIngressClass:           IstioIngressClassName,
+		DefaultCertificateClass:       CertManagerCertificateClassName,
+		DomainTemplate:                DefaultDomainTemplate,
+		TagTemplate:                   DefaultTagTemplate,
+		AutoTLS:                       false,
+		HTTPProtocol:                  HTTPEnabled,
+		AutocreateClusterDomainClaims: true,
 	}
 }
 
@@ -280,6 +292,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsString(DomainTemplateKey, &nc.DomainTemplate),
 		cm.AsString(TagTemplateKey, &nc.TagTemplate),
 		cm.AsInt(RolloutDurationKey, &nc.RolloutDurationSecs),
+		cm.AsBool(AutocreateClusterDomainClaimsKey, &nc.AutocreateClusterDomainClaims),
 	); err != nil {
 		return nil, err
 	}
