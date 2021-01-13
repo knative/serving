@@ -137,6 +137,10 @@ func (cur *Rollout) Validate() bool {
 		if c.Percent > 100 {
 			return false
 		}
+		// Ensure step size is valid.
+		if c.StepParams.StepSize < 0 || c.StepParams.StepSize > c.Percent {
+			return false
+		}
 		// If total % values in the revision do not add up — discard.
 		tot := 0
 		for _, r := range c.Revisions {
