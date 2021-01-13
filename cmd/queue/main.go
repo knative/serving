@@ -23,8 +23,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -266,22 +264,19 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 
 func buildServer(ctx context.Context, env config, healthState *health.State, rp *readiness.Probe, stats *network.RequestStats,
 	logger *zap.SugaredLogger) *http.Server {
-	target := &url.URL{
-		Scheme: "http",
-		Host:   net.JoinHostPort("127.0.0.1", env.UserPort),
-	}
 
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
 	if env.ContainerConcurrency > 0 {
 		maxIdleConns = env.ContainerConcurrency
 	}
 
-	httpProxy := httputil.NewSingleHostReverseProxy(target)
+	target := net.JoinHostPort("127.0.0.1", env.UserPort)
+
+	httpProxy := activatorutil.NewHeaderPruningReverseProxy(target)
 	httpProxy.Transport = buildTransport(env, logger, maxIdleConns)
 	httpProxy.ErrorHandler = pkgnet.ErrorHandler(logger)
 	httpProxy.BufferPool = network.NewBufferPool()
 	httpProxy.FlushInterval = network.FlushInterval
-	activatorutil.SetupHeaderPruning(httpProxy)
 
 	breaker := buildBreaker(logger, env)
 	metricsSupported := supportsMetrics(ctx, logger, env)

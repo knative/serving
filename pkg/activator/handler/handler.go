@@ -21,7 +21,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
@@ -81,10 +80,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if tracingEnabled {
 			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "activator_proxy")
 		}
-		a.proxyRequest(logger, w, r.WithContext(proxyCtx), &url.URL{
-			Scheme: "http",
-			Host:   dest,
-		}, tracingEnabled)
+		a.proxyRequest(logger, w, r.WithContext(proxyCtx), dest, tracingEnabled)
 		proxySpan.End()
 
 		return nil
@@ -103,12 +99,12 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.ResponseWriter, r *http.Request, target *url.URL, tracingEnabled bool) {
+func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.ResponseWriter, r *http.Request, target string, tracingEnabled bool) {
 	network.RewriteHostIn(r)
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
 	// Set up the reverse proxy.
-	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy := util.NewHeaderPruningReverseProxy(target)
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
 	if tracingEnabled {
@@ -116,7 +112,6 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 	}
 	proxy.FlushInterval = network.FlushInterval
 	proxy.ErrorHandler = pkgnet.ErrorHandler(logger)
-	util.SetupHeaderPruning(proxy)
 
 	proxy.ServeHTTP(w, r)
 }

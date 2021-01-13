@@ -28,16 +28,24 @@ var headersToRemove = []string{
 	activator.RevisionHeaderNamespace,
 }
 
-// SetupHeaderPruning will cause the http.ReverseProxy
-// to not forward activator headers.
-func SetupHeaderPruning(p *httputil.ReverseProxy) {
-	// Director is never nil - otherwise ServeHTTP panics.
-	orig := p.Director
-	p.Director = func(r *http.Request) {
-		orig(r)
+// NewHeaderPruningReverseProxy returns a httputil.ReverseProxy that proxies
+// requests to the given targetHost.  The returned reverse proxy strips
+// activator-specific headers that should not reach the user container.
+func NewHeaderPruningReverseProxy(targetHost string) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
+		Director: func(req *http.Request) {
+			req.URL.Scheme = "http"
+			req.URL.Host = targetHost
 
-		for _, h := range headersToRemove {
-			r.Header.Del(h)
-		}
+			// Copied from httputil.NewSingleHostReverseProxy.
+			if _, ok := req.Header["User-Agent"]; !ok {
+				// explicitly disable User-Agent so it's not set to default value
+				req.Header.Set("User-Agent", "")
+			}
+
+			for _, h := range headersToRemove {
+				req.Header.Del(h)
+			}
+		},
 	}
 }
