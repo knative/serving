@@ -302,7 +302,7 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.Doma
 	}
 
 	if apierrs.IsNotFound(err) {
-		dc, err = r.createDomainClaimIfAllowed(ctx, dm)
+		dc, err = r.createDomainClaim(ctx, dm)
 		if err != nil {
 			return err
 		}
@@ -317,7 +317,7 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.Doma
 	return nil
 }
 
-func (r *Reconciler) createDomainClaimIfAllowed(ctx context.Context, dm *v1alpha1.DomainMapping) (*netv1alpha1.ClusterDomainClaim, error) {
+func (r *Reconciler) createDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) (*netv1alpha1.ClusterDomainClaim, error) {
 	if !config.FromContext(ctx).Network.AutocreateClusterDomainClaims {
 		dm.Status.MarkDomainClaimNotOwned()
 		return nil, fmt.Errorf("namespace %q does not own ClusterDomainClaim for %q", dm.Namespace, dm.Name)
