@@ -233,11 +233,7 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 //    | -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
-	// In pre-0.17 we could have scaled down normally without ever setting ScaleTargetInitialized.
-	// In this case we'll be in the NoTraffic/inactive state.
-	// TODO(taragu): remove after 0.19
-	alreadyScaledDownSuccessfully := minReady > 0 && pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive).GetReason() == noTrafficReason
-	if (pc.ready >= minReady || alreadyScaledDownSuccessfully) && pa.Status.ServiceName != "" {
+	if pc.ready >= minReady {
 		pa.Status.MarkScaleTargetInitialized()
 	}
 
