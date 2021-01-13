@@ -42,6 +42,7 @@ func Service(name, namespace string, so ...ServiceOption) *v1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			UID:       "cccccccc-cccc-cccc-cccc-cccccccccccc",
 		},
 	}
 	for _, opt := range so {

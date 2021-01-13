@@ -49,7 +49,7 @@ func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerRef
 		Kind:       "Service",
 		Name:       testServiceName,
 	}}
-	if diff := cmp.Diff(expectedRefs, ownerRefs, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
+	if diff := cmp.Diff(expectedRefs, ownerRefs, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion", "UID")); diff != "" {
 		t.Error("Unexpected service owner refs diff (-want +got):", diff)
 	}
 }
