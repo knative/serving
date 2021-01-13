@@ -233,7 +233,7 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 //    | -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
-	if pc.ready >= minReady {
+	if pc.ready >= minReady && pa.Status.ServiceName != "" {
 		pa.Status.MarkScaleTargetInitialized()
 	}
 

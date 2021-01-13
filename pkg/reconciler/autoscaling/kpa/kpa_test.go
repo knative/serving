@@ -1129,30 +1129,6 @@ func TestReconcile(t *testing.T) {
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 			),
 		}},
-	}, {
-		Name: "mark initial scale reached for an existing inactive PA",
-		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey{},
-			decider(testNamespace, testRevision, -1, /* desiredScale */
-				-42 /* ebc */, scaling.MinActivators)),
-		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
-				withScales(0, -1), WithReachabilityReachable, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
-				WithPASKSReady,
-			),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
-			metric(testNamespace, testRevision),
-			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
-				d.Spec.Replicas = ptr.Int32(2)
-			}),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
-				WithPASKSReady, markScaleTargetInitialized,
-				withScales(0, -1), WithReachabilityReachable, WithPAStatusService(testRevision),
-				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
-			),
-		}},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
