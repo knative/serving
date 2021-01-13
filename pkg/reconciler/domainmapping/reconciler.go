@@ -136,6 +136,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 
 // FinalizeKind cleans up the ClusterDomainClaim created by the DomainMapping.
 func (r *Reconciler) FinalizeKind(ctx context.Context, dm *v1alpha1.DomainMapping) reconciler.Event {
+	if !config.FromContext(ctx).Network.AutocreateClusterDomainClaims {
+		// If we're not responsible for creating domain claims, we're not responsible for cleaning them up.
+		return nil
+	}
+
 	dc, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Get(ctx, dm.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrs.IsNotFound(err) {
@@ -292,12 +297,15 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping)
 
 func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
 	dc, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Get(ctx, dm.Name, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) {
-		if dc, err = r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, resources.MakeDomainClaim(dm), metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("failed to create ClusterDomainClaim: %w", err)
-		}
-	} else if err != nil {
+	if err != nil && !apierrs.IsNotFound(err) {
 		return fmt.Errorf("failed to get ClusterDomainClaim: %w", err)
+	}
+
+	if apierrs.IsNotFound(err) {
+		dc, err = r.createDomainClaimIfAllowed(ctx, dm)
+		if err != nil {
+			return err
+		}
 	}
 
 	if dm.Namespace != dc.Spec.Namespace {
@@ -307,4 +315,18 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.Doma
 
 	dm.Status.MarkDomainClaimed()
 	return nil
+}
+
+func (r *Reconciler) createDomainClaimIfAllowed(ctx context.Context, dm *v1alpha1.DomainMapping) (*netv1alpha1.ClusterDomainClaim, error) {
+	if !config.FromContext(ctx).Network.AutocreateClusterDomainClaims {
+		dm.Status.MarkDomainClaimNotOwned()
+		return nil, fmt.Errorf("domain mapping: namespace %q does not own cluster domain claim for %q", dm.Namespace, dm.Name)
+	}
+
+	dc, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, resources.MakeDomainClaim(dm), metav1.CreateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ClusterDomainClaim: %w", err)
+	}
+
+	return dc, err
 }

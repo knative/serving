@@ -684,7 +684,135 @@ func TestReconcile(t *testing.T) {
 			controller.Options{ConfigStore: &testConfigStore{
 				config: &config.Config{
 					Network: &network.Config{
-						DefaultIngressClass: "the-ingress-class",
+						DefaultIngressClass:           "the-ingress-class",
+						AutocreateClusterDomainClaims: true,
+					},
+				},
+			}},
+		)
+	}))
+}
+
+func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
+	now := metav1.Now()
+
+	table := TableTest{{
+		Name: "first reconcile, no existing claim",
+		Key:  "default/first-reconcile.com",
+		Objects: []runtime.Object{
+			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
+			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "first-reconcile.com",
+				withRef("default", "target"),
+				withURL("http", "first-reconcile.com"),
+				withAddress("http", "first-reconcile.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimNotOwned,
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantErr:                 true,
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
+			Eventf(corev1.EventTypeWarning, "InternalError", `domain mapping: namespace "default" does not own cluster domain claim for "first-reconcile.com"`),
+		},
+	}, {
+		Name: "first reconcile, claim exists and is owned",
+		Key:  "default/first-reconcile.com",
+		Objects: []runtime.Object{
+			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
+			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
+			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "first-reconcile.com",
+				withRef("default", "target"),
+				withURL("http", "first-reconcile.com"),
+				withAddress("http", "first-reconcile.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withIngressNotConfigured,
+				withReferenceResolved,
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", nil /* tls */),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
+		},
+	}, {
+		Name: "first reconcile, claim exists but isnt owned",
+		Key:  "default/first-reconcile.com",
+		Objects: []runtime.Object{
+			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
+			resources.MakeDomainClaim(
+				domainMapping("wrong-namespace", "first-reconcile.com", withRef("default", "target"),
+					withUID("some-other-uid"),
+				),
+			),
+		},
+		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "first-reconcile.com",
+				withRef("default", "target"),
+				withURL("http", "first-reconcile.com"),
+				withAddress("http", "first-reconcile.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimNotOwned,
+			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
+			Eventf(corev1.EventTypeWarning, "InternalError", `domain mapping: namespace "default" does not own cluster domain claim for "first-reconcile.com"`),
+		},
+	}, {
+		Name: "finalize does not clean up claim, even if owned by namespace",
+		Key:  "default/cleanup.on.aisle-three",
+		Objects: []runtime.Object{
+			domainMapping("default", "cleanup.on.aisle-three", withRef("default", "target"), withFinalizer, withDeletionTimestamp(&now)),
+			resources.MakeDomainClaim(domainMapping("default", "cleanup.on.aisle-three", withRef("default", "target"))),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchRemoveFinalizerAction("default", "cleanup.on.aisle-three"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "cleanup.on.aisle-three"),
+		},
+	}}
+
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		ctx = addressable.WithDuck(ctx)
+		r := &Reconciler{
+			certificateLister: listers.GetCertificateLister(),
+			ingressLister:     listers.GetIngressLister(),
+			netclient:         networkingclient.Get(ctx),
+			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
+		}
+
+		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{
+				config: &config.Config{
+					Network: &network.Config{
+						DefaultIngressClass:           "the-ingress-class",
+						AutocreateClusterDomainClaims: false,
 					},
 				},
 			}},
