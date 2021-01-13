@@ -300,7 +300,7 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.Doma
 	if err != nil && !apierrs.IsNotFound(err) {
 		return fmt.Errorf("failed to get ClusterDomainClaim: %w", err)
 	} else if apierrs.IsNotFound(err) {
-		if _, err := r.createDomainClaim(ctx, dm); err != nil {
+		if err := r.createDomainClaim(ctx, dm); err != nil {
 			return err
 		}
 	} else if dm.Namespace != dc.Spec.Namespace {
@@ -312,16 +312,16 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.Doma
 	return nil
 }
 
-func (r *Reconciler) createDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) (*netv1alpha1.ClusterDomainClaim, error) {
+func (r *Reconciler) createDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
 	if !config.FromContext(ctx).Network.AutocreateClusterDomainClaims {
 		dm.Status.MarkDomainClaimNotOwned()
-		return nil, fmt.Errorf("namespace %q does not own ClusterDomainClaim for %q", dm.Namespace, dm.Name)
+		return fmt.Errorf("namespace %q does not own ClusterDomainClaim for %q", dm.Namespace, dm.Name)
 	}
 
-	dc, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, resources.MakeDomainClaim(dm), metav1.CreateOptions{})
+	_, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, resources.MakeDomainClaim(dm), metav1.CreateOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create ClusterDomainClaim: %w", err)
+		return fmt.Errorf("failed to create ClusterDomainClaim: %w", err)
 	}
 
-	return dc, err
+	return nil
 }
