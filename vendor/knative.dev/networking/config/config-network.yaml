@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "eaf5fb3f"
+    knative.dev/example-checksum: "14cd8fa3"
 data:
   _example: |
     ################################
@@ -108,3 +108,14 @@ data:
     # rolloutDuration contains the minimal duration in seconds over which the
     # Configuration traffic targets are rolled out to the newest revision.
     rolloutDuration: "0"
+
+    # autocreateClusterDomainClaims controls whether ClusterDomainClaims should
+    # be automatically created (and deleted) as needed when DomainMappings are
+    # reconciled.
+    #
+    # If this is "false", the cluster administrator is responsible for creating
+    # ClusterDomainClaims and delegating them to namespaces via their
+    # spec.Namespace field. This is useful for multitenant environments
+    # which need to control which namespace can use a particular domain name in
+    # a domain mapping.
+    autocreateClusterDomainClaims: "true"
