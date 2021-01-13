@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 
@@ -35,7 +36,7 @@ func (h *ProbeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// probing the network, respond with a 200 and our component name.
 	if val := r.Header.Get(network.ProbeHeaderName); val != "" {
 		if val != activator.Name {
-			http.Error(w, fmt.Sprintf("unexpected probe header value: %q", val), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("unexpected probe header value: %q", html.EscapeString(val)), http.StatusBadRequest)
 			return
 		}
 		io.WriteString(w, activator.Name)
