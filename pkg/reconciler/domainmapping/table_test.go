@@ -404,7 +404,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
-			Eventf(corev1.EventTypeWarning, "InternalError", `domain mapping: namespace "default" does not own cluster domain claim for "first-reconcile.com"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `namespace "default" does not own ClusterDomainClaim for "first-reconcile.com"`),
 		},
 	}, {
 		Name: "reconcile with ingressClass annotation",
@@ -720,7 +720,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
-			Eventf(corev1.EventTypeWarning, "InternalError", `domain mapping: namespace "default" does not own cluster domain claim for "first-reconcile.com"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `namespace "default" does not own ClusterDomainClaim for "first-reconcile.com"`),
 		},
 	}, {
 		Name: "first reconcile, claim exists and is owned",
@@ -780,7 +780,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
-			Eventf(corev1.EventTypeWarning, "InternalError", `domain mapping: namespace "default" does not own cluster domain claim for "first-reconcile.com"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `namespace "default" does not own ClusterDomainClaim for "first-reconcile.com"`),
 		},
 	}, {
 		Name: "finalize does not clean up claim, even if owned by namespace",

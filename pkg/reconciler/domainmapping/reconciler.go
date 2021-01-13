@@ -310,7 +310,7 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.Doma
 
 	if dm.Namespace != dc.Spec.Namespace {
 		dm.Status.MarkDomainClaimNotOwned()
-		return fmt.Errorf("domain mapping: namespace %q does not own cluster domain claim for %q", dm.Namespace, dm.Name)
+		return fmt.Errorf("namespace %q does not own ClusterDomainClaim for %q", dm.Namespace, dm.Name)
 	}
 
 	dm.Status.MarkDomainClaimed()
@@ -320,7 +320,7 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.Doma
 func (r *Reconciler) createDomainClaimIfAllowed(ctx context.Context, dm *v1alpha1.DomainMapping) (*netv1alpha1.ClusterDomainClaim, error) {
 	if !config.FromContext(ctx).Network.AutocreateClusterDomainClaims {
 		dm.Status.MarkDomainClaimNotOwned()
-		return nil, fmt.Errorf("domain mapping: namespace %q does not own cluster domain claim for %q", dm.Namespace, dm.Name)
+		return nil, fmt.Errorf("namespace %q does not own ClusterDomainClaim for %q", dm.Namespace, dm.Name)
 	}
 
 	dc, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, resources.MakeDomainClaim(dm), metav1.CreateOptions{})
