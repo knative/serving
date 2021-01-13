@@ -299,16 +299,11 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.Doma
 	dc, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Get(ctx, dm.Name, metav1.GetOptions{})
 	if err != nil && !apierrs.IsNotFound(err) {
 		return fmt.Errorf("failed to get ClusterDomainClaim: %w", err)
-	}
-
-	if apierrs.IsNotFound(err) {
-		dc, err = r.createDomainClaim(ctx, dm)
-		if err != nil {
+	} else if apierrs.IsNotFound(err) {
+		if _, err := r.createDomainClaim(ctx, dm); err != nil {
 			return err
 		}
-	}
-
-	if dm.Namespace != dc.Spec.Namespace {
+	} else if dm.Namespace != dc.Spec.Namespace {
 		dm.Status.MarkDomainClaimNotOwned()
 		return fmt.Errorf("namespace %q does not own ClusterDomainClaim for %q", dm.Namespace, dm.Name)
 	}
