@@ -18,12 +18,15 @@ package v1
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/validation"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	apisconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -58,13 +61,13 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 // Validate implements apis.Validatable
 func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	errs := rts.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
-	errs = errs.Also(autoscaling.ValidateAnnotations(ctx, apisconfig.FromContextOrDefaults(ctx).Autoscaler,
+	errs = errs.Also(autoscaling.ValidateAnnotations(ctx, config.FromContextOrDefaults(ctx).Autoscaler,
 		rts.GetAnnotations()).ViaField("metadata.annotations"))
 
 	// If the RevisionTemplateSpec has a name specified, then check that
 	// it follows the requirements on the name.
-	errs = errs.Also(serving.ValidateRevisionName(ctx, rts.Name, rts.GenerateName))
-	errs = errs.Also(serving.ValidateQueueSidecarAnnotation(rts.Annotations).ViaField("metadata.annotations"))
+	errs = errs.Also(validateRevisionName(ctx, rts.Name, rts.GenerateName))
+	errs = errs.Also(validateQueueSidecarAnnotation(rts.Annotations).ViaField("metadata.annotations"))
 	return errs
 }
 
@@ -103,7 +106,7 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidatePodSpec(ctx, rs.PodSpec)
 
 	if rs.TimeoutSeconds != nil {
-		errs = errs.Also(serving.ValidateTimeoutSeconds(ctx, *rs.TimeoutSeconds))
+		errs = errs.Also(validateTimeoutSeconds(ctx, *rs.TimeoutSeconds))
 	}
 
 	if rs.ContainerConcurrency != nil {
@@ -136,4 +139,73 @@ func (r *Revision) ValidateLabels() (errs *apis.FieldError) {
 		}
 	}
 	return
+}
+
+// validateRevisionName validates name and generateName for the revisionTemplate
+func validateRevisionName(ctx context.Context, name, generateName string) *apis.FieldError {
+	if generateName != "" {
+		if msgs := validation.NameIsDNS1035Label(generateName, true); len(msgs) > 0 {
+			return apis.ErrInvalidValue(
+				fmt.Sprint("not a DNS 1035 label prefix: ", msgs),
+				"metadata.generateName")
+		}
+	}
+	if name != "" {
+		if msgs := validation.NameIsDNS1035Label(name, false); len(msgs) > 0 {
+			return apis.ErrInvalidValue(
+				fmt.Sprint("not a DNS 1035 label: ", msgs),
+				"metadata.name")
+		}
+		om := apis.ParentMeta(ctx)
+		prefix := om.Name + "-"
+		if om.Name != "" {
+			// Even if there is GenerateName, allow the use
+			// of Name post-creation.
+		} else if om.GenerateName != "" {
+			// We disallow bringing your own name when the parent
+			// resource uses generateName (at creation).
+			return apis.ErrDisallowedFields("metadata.name")
+		}
+
+		if !strings.HasPrefix(name, prefix) {
+			return apis.ErrInvalidValue(
+				fmt.Sprintf("%q must have prefix %q", name, prefix),
+				"metadata.name")
+		}
+	}
+	return nil
+}
+
+// validateTimeoutSeconds validates timeout by comparing MaxRevisionTimeoutSeconds
+func validateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.FieldError {
+	if timeoutSeconds != 0 {
+		cfg := config.FromContextOrDefaults(ctx)
+		if timeoutSeconds > cfg.Defaults.MaxRevisionTimeoutSeconds || timeoutSeconds < 0 {
+			return apis.ErrOutOfBoundsValue(timeoutSeconds, 0,
+				cfg.Defaults.MaxRevisionTimeoutSeconds,
+				"timeoutSeconds")
+		}
+	}
+	return nil
+}
+
+// validateQueueSidecarAnnotation validates QueueSideCarResourcePercentageAnnotation
+func validateQueueSidecarAnnotation(annotations map[string]string) *apis.FieldError {
+	if len(annotations) == 0 {
+		return nil
+	}
+	v, ok := annotations[serving.QueueSideCarResourcePercentageAnnotation]
+	if !ok {
+		return nil
+	}
+	value, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return apis.ErrInvalidValue(v, apis.CurrentField).
+			ViaKey(serving.QueueSideCarResourcePercentageAnnotation)
+	}
+	if value < 0.1 || value > 100 {
+		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, apis.CurrentField).
+			ViaKey(serving.QueueSideCarResourcePercentageAnnotation)
+	}
+	return nil
 }

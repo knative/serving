@@ -989,3 +989,142 @@ func autoscalerConfigCtx(allowInitialScaleZero bool, initialScale int) context.C
 	})
 	return config.ToContext(context.Background(), testConfigs)
 }
+
+func TestValidateQueueSidecarAnnotation(t *testing.T) {
+	cases := []struct {
+		name       string
+		annotation map[string]string
+		expectErr  *apis.FieldError
+	}{{
+		name: "too small",
+		annotation: map[string]string{
+			serving.QueueSideCarResourcePercentageAnnotation: "0.01982",
+		},
+		expectErr: &apis.FieldError{
+			Message: "expected 0.1 <= 0.01982 <= 100",
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
+		},
+	}, {
+		name: "too big for Queue sidecar resource percentage annotation",
+		annotation: map[string]string{
+			serving.QueueSideCarResourcePercentageAnnotation: "100.0001",
+		},
+		expectErr: &apis.FieldError{
+			Message: "expected 0.1 <= 100.0001 <= 100",
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
+		},
+	}, {
+		name: "Invalid queue sidecar resource percentage annotation",
+		annotation: map[string]string{
+			serving.QueueSideCarResourcePercentageAnnotation: "",
+		},
+		expectErr: &apis.FieldError{
+			Message: "invalid value: ",
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
+		},
+	}, {
+		name:       "empty annotation",
+		annotation: map[string]string{},
+	}, {
+		name: "different annotation other than QueueSideCarResourcePercentageAnnotation",
+		annotation: map[string]string{
+			serving.CreatorAnnotation: "umph",
+		},
+	}, {
+		name: "valid value for Queue sidecar resource percentage annotation",
+		annotation: map[string]string{
+			serving.QueueSideCarResourcePercentageAnnotation: "0.1",
+		},
+	}, {
+		name: "valid value for Queue sidecar resource percentage annotation",
+		annotation: map[string]string{
+			serving.QueueSideCarResourcePercentageAnnotation: "100",
+		},
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := validateQueueSidecarAnnotation(c.annotation)
+			if got, want := err.Error(), c.expectErr.Error(); got != want {
+				t.Errorf("Got: %q want: %q", got, want)
+			}
+		})
+	}
+}
+
+func TestValidateTimeoutSecond(t *testing.T) {
+	cases := []struct {
+		name      string
+		timeout   *int64
+		expectErr *apis.FieldError
+	}{{
+		name:    "exceed max timeout",
+		timeout: ptr.Int64(6000),
+		expectErr: apis.ErrOutOfBoundsValue(
+			6000, 0, config.DefaultMaxRevisionTimeoutSeconds,
+			"timeoutSeconds"),
+	}, {
+		name:    "valid timeout value",
+		timeout: ptr.Int64(100),
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := validateTimeoutSeconds(context.Background(), *c.timeout)
+			if got, want := err.Error(), c.expectErr.Error(); got != want {
+				t.Errorf("Got: %q want: %q", got, want)
+			}
+		})
+	}
+}
+
+func TestValidateRevisionName(t *testing.T) {
+	cases := []struct {
+		name            string
+		revName         string
+		revGenerateName string
+		objectMeta      metav1.ObjectMeta
+		expectErr       *apis.FieldError
+	}{{
+		name:            "invalid revision generateName - dots",
+		revGenerateName: "foo.bar",
+		expectErr: apis.ErrInvalidValue("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"metadata.generateName"),
+	}, {
+		name:    "invalid revision name - dots",
+		revName: "foo.bar",
+		expectErr: apis.ErrInvalidValue("not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"metadata.name"),
+	}, {
+		name: "invalid name (not prefixed)",
+		objectMeta: metav1.ObjectMeta{
+			Name: "bar",
+		},
+		revName: "foo",
+		expectErr: apis.ErrInvalidValue(`"foo" must have prefix "bar-"`,
+			"metadata.name"),
+	}, {
+		name: "invalid name (with generateName)",
+		objectMeta: metav1.ObjectMeta{
+			GenerateName: "foo-bar-",
+		},
+		revName:   "foo-bar-foo",
+		expectErr: apis.ErrDisallowedFields("metadata.name"),
+	}, {
+		name: "valid name",
+		objectMeta: metav1.ObjectMeta{
+			Name: "valid",
+		},
+		revName: "valid-name",
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx := apis.WithinParent(context.Background(), c.objectMeta)
+			err := validateRevisionName(ctx, c.revName, c.revGenerateName)
+			if got, want := err.Error(), c.expectErr.Error(); got != want {
+				t.Errorf("Got: %q want: %q", got, want)
+			}
+		})
+	}
+}
