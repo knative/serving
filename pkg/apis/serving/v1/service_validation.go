@@ -47,8 +47,9 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 			apis.ValidateCreatorAndModifier(
 				original.Spec, s.Spec, original.GetAnnotations(),
 				s.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
-		errs = errs.Also(s.Spec.ConfigurationSpec.Template.VerifyNameChange(ctx,
-			&original.Spec.ConfigurationSpec.Template)).ViaField("spec.template")
+		errs = errs.Also(
+			s.Spec.ConfigurationSpec.Template.VerifyNameChange(ctx,
+				&original.Spec.ConfigurationSpec.Template).ViaField("spec.template"))
 	}
 	return errs
 }
