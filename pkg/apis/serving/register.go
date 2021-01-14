@@ -100,10 +100,6 @@ const (
 	// It has to be in [0.1,100]
 	QueueSideCarResourcePercentageAnnotation = "queue.sidecar." + GroupName + "/resourcePercentage"
 
-	// VisibilityLabelKeyObsolete is the obsolete VisibilityLabelKey.
-	// This will move over to VisibilityLabelKey in networking repo..
-	VisibilityLabelKeyObsolete = "serving.knative.dev/visibility"
-
 	// VisibilityClusterLocal is the label value for VisibilityLabelKey
 	// that will result to the Route/KService getting a cluster local
 	// domain suffix.

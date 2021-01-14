@@ -99,11 +99,11 @@ func (c *Domain) LookupDomainForLabels(labels map[string]string) string {
 	specificity := -1
 	// If we see VisibilityLabelKey sets with VisibilityClusterLocal, that
 	// will take precedence and the route will get a Cluster's Domain Name.
-	if labels[netpkg.VisibilityLabelKey] == serving.VisibilityClusterLocal ||
-		labels[serving.VisibilityLabelKeyObsolete] == serving.VisibilityClusterLocal {
+	if labels[netpkg.VisibilityLabelKey] == serving.VisibilityClusterLocal {
 		return "svc." + network.GetClusterDomainName()
 	}
 	for k, selector := range c.Domains {
+
 		// Ignore if selector doesn't match, or decrease the specificity.
 		if !selector.Matches(labels) || selector.specificity() < specificity {
 			continue

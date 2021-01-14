@@ -24,7 +24,7 @@ import (
 
 // IsObjectLocalVisibility returns whether an ObjectMeta is of cluster-local visibility
 func IsObjectLocalVisibility(meta *metav1.ObjectMeta) bool {
-	return meta.Labels[network.VisibilityLabelKey] != "" || meta.Labels[serving.VisibilityLabelKeyObsolete] != ""
+	return meta.Labels[network.VisibilityLabelKey] != ""
 }
 
 // SetVisibility sets the visibility on an ObjectMeta

@@ -20,12 +20,15 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	. "knative.dev/pkg/configmap/testing"
+
+	netpkg "knative.dev/networking/pkg"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 
+	. "knative.dev/pkg/configmap/testing"
 	_ "knative.dev/pkg/system/testing"
 )
 
@@ -172,7 +175,7 @@ func TestLookupDomainForLabels(t *testing.T) {
 		labels: map[string]string{},
 		domain: "default.com",
 	}, {
-		labels: map[string]string{"serving.knative.dev/visibility": "cluster-local"},
+		labels: map[string]string{netpkg.VisibilityLabelKey: "cluster-local"},
 		domain: "svc." + network.GetClusterDomainName(),
 	}}
 
