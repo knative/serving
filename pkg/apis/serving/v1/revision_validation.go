@@ -27,7 +27,6 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
-	apisconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -62,7 +61,7 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 // Validate implements apis.Validatable
 func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	errs := rts.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
-	errs = errs.Also(autoscaling.ValidateAnnotations(ctx, apisconfig.FromContextOrDefaults(ctx).Autoscaler,
+	errs = errs.Also(autoscaling.ValidateAnnotations(ctx, config.FromContextOrDefaults(ctx).Autoscaler,
 		rts.GetAnnotations()).ViaField("metadata.annotations"))
 
 	// If the RevisionTemplateSpec has a name specified, then check that
