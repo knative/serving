@@ -593,6 +593,7 @@ func SecurityContextMask(ctx context.Context, in *corev1.SecurityContext) *corev
 
 	// Allowed fields
 	out.RunAsUser = in.RunAsUser
+	out.ReadOnlyRootFilesystem = in.ReadOnlyRootFilesystem
 
 	if config.FromContextOrDefaults(ctx).Features.PodSpecSecurityContext != config.Disabled {
 		out.RunAsGroup = in.RunAsGroup
@@ -603,7 +604,6 @@ func SecurityContextMask(ctx context.Context, in *corev1.SecurityContext) *corev
 	out.Capabilities = nil
 	out.Privileged = nil
 	out.SELinuxOptions = nil
-	out.ReadOnlyRootFilesystem = nil
 	out.AllowPrivilegeEscalation = nil
 	out.ProcMount = nil
 
