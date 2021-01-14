@@ -720,8 +720,8 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 func TestSecurityContextMask(t *testing.T) {
 	mtype := corev1.UnmaskedProcMount
 	want := &corev1.SecurityContext{
-		RunAsUser: ptr.Int64(1),
-		ReadOnlyRootFilesystem:   ptr.Bool(true),
+		RunAsUser:              ptr.Int64(1),
+		ReadOnlyRootFilesystem: ptr.Bool(true),
 	}
 	in := &corev1.SecurityContext{
 		RunAsUser:                ptr.Int64(1),
@@ -755,10 +755,10 @@ func TestSecurityContextMask(t *testing.T) {
 func TestSecurityContextMask_FeatureEnabled(t *testing.T) {
 	mtype := corev1.UnmaskedProcMount
 	want := &corev1.SecurityContext{
-		RunAsGroup:   ptr.Int64(2),
-		RunAsNonRoot: ptr.Bool(true),
-		RunAsUser:    ptr.Int64(1),
-		ReadOnlyRootFilesystem:   ptr.Bool(true),
+		RunAsGroup:             ptr.Int64(2),
+		RunAsNonRoot:           ptr.Bool(true),
+		RunAsUser:              ptr.Int64(1),
+		ReadOnlyRootFilesystem: ptr.Bool(true),
 	}
 	in := &corev1.SecurityContext{
 		AllowPrivilegeEscalation: ptr.Bool(true),
