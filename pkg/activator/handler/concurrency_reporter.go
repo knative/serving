@@ -29,7 +29,6 @@ import (
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -222,7 +221,7 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 // machinery.
 func (cr *ConcurrencyReporter) Handler(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		revisionKey := util.RevIDFrom(r.Context())
+		revisionKey := revIDFrom(r.Context())
 		cr.handleEvent(network.ReqEvent{Key: revisionKey, Type: network.ReqIn, Time: time.Now()})
 		defer func() {
 			cr.handleEvent(network.ReqEvent{Key: revisionKey, Type: network.ReqOut, Time: time.Now()})

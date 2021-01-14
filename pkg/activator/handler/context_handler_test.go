@@ -27,7 +27,6 @@ import (
 
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/activator/util"
 )
 
 func TestContextHandler(t *testing.T) {
@@ -38,11 +37,11 @@ func TestContextHandler(t *testing.T) {
 	revisionInformer(ctx, revision)
 
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := util.RevisionFrom(r.Context()); got != revision {
+		if got := revisionFrom(r.Context()); got != revision {
 			t.Errorf("revisionFrom() = %v, want %v", got, revision)
 		}
 
-		if got := util.RevIDFrom(r.Context()); got != revID {
+		if got := revIDFrom(r.Context()); got != revID {
 			t.Errorf("revIDFrom() = %v, want %v", got, revID)
 		}
 	})
