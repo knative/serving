@@ -54,7 +54,7 @@ func TestProbeQueueNotReady(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 	})
 
-	err := probeQueueHealthPath(2*aggressivePollInterval, port, http.DefaultTransport)
+	err := probeQueueHealthPath(100*time.Millisecond, port, http.DefaultTransport)
 
 	if err == nil || err.Error() != "probe returned not ready" {
 		t.Error("Unexpected not ready error:", err)
@@ -122,14 +122,14 @@ func TestProbeQueueTimeout(t *testing.T) {
 	var probed atomic.Bool
 	port := newProbeTestServer(t, func(w http.ResponseWriter) {
 		probed.Store(true)
-		time.Sleep(aggressivePollInterval * 3)
+		time.Sleep(200 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	})
 
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
 	os.Setenv(queuePortEnvVar, strconv.Itoa(port))
 
-	if rv := standaloneProbeMain(aggressivePollInterval, nil); rv == 0 {
+	if rv := standaloneProbeMain(100*time.Millisecond, nil); rv == 0 {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
