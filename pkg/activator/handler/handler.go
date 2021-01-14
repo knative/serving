@@ -25,6 +25,7 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/logging"
@@ -39,7 +40,7 @@ import (
 
 // Throttler is the interface that Handler calls to Try to proxy the user request.
 type Throttler interface {
-	Try(context.Context, func(string) error) error
+	Try(ctx context.Context, revID types.NamespacedName, fn func(string) error) error
 }
 
 // activationHandler will wait for an active endpoint for a revision
@@ -73,7 +74,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
 	}
 
-	if err := a.throttler.Try(tryContext, func(dest string) error {
+	if err := a.throttler.Try(tryContext, util.RevIDFrom(r.Context()), func(dest string) error {
 		trySpan.End()
 
 		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)
