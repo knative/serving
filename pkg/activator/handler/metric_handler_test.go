@@ -31,7 +31,6 @@ import (
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -115,8 +114,8 @@ func TestRequestMetricHandler(t *testing.T) {
 				metricstest.AssertMetricExists(t, responseTimeInMsecM.Name())
 			}()
 
-			reqCtx := util.WithRevision(context.Background(), rev)
-			reqCtx = util.WithRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+			reqCtx := withRevision(context.Background(), rev)
+			reqCtx = withRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 			handler.ServeHTTP(resp, req.WithContext(reqCtx))
 		})
 	}
@@ -129,7 +128,7 @@ func reset() {
 
 func BenchmarkMetricHandler(b *testing.B) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	reqCtx := util.WithRevision(context.Background(), revision(testNamespace, testRevName))
+	reqCtx := withRevision(context.Background(), revision(testNamespace, testRevName))
 
 	handler := NewMetricHandler("benchPod", baseHandler)
 

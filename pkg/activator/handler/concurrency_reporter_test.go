@@ -35,7 +35,6 @@ import (
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/serving/pkg/activator/util"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -428,7 +427,7 @@ func TestConcurrencyReporterHandler(t *testing.T) {
 
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-	rCtx := util.WithRevID(context.Background(), rev1)
+	rCtx := withRevID(context.Background(), rev1)
 
 	// Send a few requests.
 	handler.ServeHTTP(resp, req.WithContext(rCtx))
@@ -568,7 +567,7 @@ func BenchmarkConcurrencyReporterHandler(b *testing.B) {
 			Name:      testRevName + strconv.Itoa(i),
 		}
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		reqs = append(reqs, req.WithContext(util.WithRevID(context.Background(), key)))
+		reqs = append(reqs, req.WithContext(withRevID(context.Background(), key)))
 
 		// Create revisions in the fake clients to trigger report logic.
 		rev := revision(key.Namespace, key.Name)

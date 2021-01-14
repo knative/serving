@@ -74,7 +74,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
 	}
 
-	if err := a.throttler.Try(tryContext, util.RevIDFrom(r.Context()), func(dest string) error {
+	if err := a.throttler.Try(tryContext, revIDFrom(r.Context()), func(dest string) error {
 		trySpan.End()
 
 		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)

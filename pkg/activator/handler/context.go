@@ -19,7 +19,7 @@ This file contains the context manipulation routines used within
 the activator binary.
 */
 
-package util
+package handler
 
 import (
 	"context"
@@ -33,22 +33,22 @@ type (
 	revIDKey    struct{}
 )
 
-// WithRevision attaches the Revision object to the context.
-func WithRevision(ctx context.Context, rev *v1.Revision) context.Context {
+// withRevision attaches the Revision object to the context.
+func withRevision(ctx context.Context, rev *v1.Revision) context.Context {
 	return context.WithValue(ctx, revisionKey{}, rev)
 }
 
-// RevisionFrom retrieves the Revision object from the context.
-func RevisionFrom(ctx context.Context) *v1.Revision {
+// revisionFrom retrieves the Revision object from the context.
+func revisionFrom(ctx context.Context) *v1.Revision {
 	return ctx.Value(revisionKey{}).(*v1.Revision)
 }
 
-// WithRevID attaches the the revisionID to the context.
-func WithRevID(ctx context.Context, revID types.NamespacedName) context.Context {
+// withRevID attaches the the revisionID to the context.
+func withRevID(ctx context.Context, revID types.NamespacedName) context.Context {
 	return context.WithValue(ctx, revIDKey{}, revID)
 }
 
-// RevIDFrom retrieves the the revisionID from the context.
-func RevIDFrom(ctx context.Context) types.NamespacedName {
+// revIDFrom retrieves the the revisionID from the context.
+func revIDFrom(ctx context.Context) types.NamespacedName {
 	return ctx.Value(revIDKey{}).(types.NamespacedName)
 }

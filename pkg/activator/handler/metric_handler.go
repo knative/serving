@@ -22,7 +22,6 @@ import (
 
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/metrics"
@@ -43,7 +42,7 @@ type MetricHandler struct {
 }
 
 func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	rev := util.RevisionFrom(r.Context())
+	rev := revisionFrom(r.Context())
 	reporterCtx, _ := metrics.PodRevisionContext(h.podName, activator.Name,
 		rev.Namespace, rev.Labels[serving.ServiceLabelKey], rev.Labels[serving.ConfigurationLabelKey], rev.Name)
 

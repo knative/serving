@@ -41,7 +41,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatortest "knative.dev/serving/pkg/activator/testing"
-	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/queue"
@@ -135,7 +134,7 @@ func TestActivationHandler(t *testing.T) {
 			// Set up config store to populate context.
 			configStore := setupConfigStore(t, logging.FromContext(ctx))
 			ctx = configStore.ToContext(ctx)
-			ctx = util.WithRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+			ctx = withRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 
 			handler.ServeHTTP(resp, req.WithContext(ctx))
 
@@ -173,7 +172,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	// Set up config store to populate context.
 	configStore := setupConfigStore(t, logging.FromContext(ctx))
 	ctx = configStore.ToContext(req.Context())
-	ctx = util.WithRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+	ctx = withRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 
 	handler.ServeHTTP(writer, req.WithContext(ctx))
 
@@ -268,7 +267,7 @@ func sendRequest(namespace, revName string, handler http.Handler, store *activat
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com/", nil)
 	ctx := store.ToContext(req.Context())
-	ctx = util.WithRevID(ctx, types.NamespacedName{Namespace: namespace, Name: revName})
+	ctx = withRevID(ctx, types.NamespacedName{Namespace: namespace, Name: revName})
 	handler.ServeHTTP(resp, req.WithContext(ctx))
 	return resp
 }
@@ -319,7 +318,7 @@ func BenchmarkHandler(b *testing.B) {
 			req.Host = "test-host"
 
 			reqCtx := configStore.ToContext(context.Background())
-			reqCtx = util.WithRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+			reqCtx = withRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 			return req.WithContext(reqCtx)
 		}
 

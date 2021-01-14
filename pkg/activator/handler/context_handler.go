@@ -28,7 +28,6 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/activator/util"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 )
@@ -65,8 +64,8 @@ func (h *contextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	ctx = logging.WithLogger(ctx, logger)
-	ctx = util.WithRevision(ctx, revision)
-	ctx = util.WithRevID(ctx, revID)
+	ctx = withRevision(ctx, revision)
+	ctx = withRevID(ctx, revID)
 
 	h.nextHandler.ServeHTTP(w, r.WithContext(ctx))
 }
