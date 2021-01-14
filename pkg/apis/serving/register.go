@@ -101,7 +101,7 @@ const (
 	QueueSideCarResourcePercentageAnnotation = "queue.sidecar." + GroupName + "/resourcePercentage"
 
 	// VisibilityLabelKeyObsolete is the obsolete VisibilityLabelKey.
-	// This will move over to VisibilityLabelKey in networking repo..
+	// This will move over to VisibilityLabelKey in networking repo.
 	VisibilityLabelKeyObsolete = "serving.knative.dev/visibility"
 
 	// VisibilityClusterLocal is the label value for VisibilityLabelKey
