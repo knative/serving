@@ -290,18 +290,6 @@ func TestConfigurationLabelValidation(t *testing.T) {
 		c    *Configuration
 		want *apis.FieldError
 	}{{
-		name: "valid obsolete visibility name",
-		c: &Configuration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "byo-name",
-				Labels: map[string]string{
-					serving.VisibilityLabelKeyObsolete: "cluster-local",
-				},
-			},
-			Spec: validConfigSpec,
-		},
-		want: nil,
-	}, {
 		name: "valid route name",
 		c: &Configuration{
 			ObjectMeta: metav1.ObjectMeta{

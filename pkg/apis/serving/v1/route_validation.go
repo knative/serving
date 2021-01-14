@@ -202,7 +202,7 @@ func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
 func (r *Route) validateLabels() (errs *apis.FieldError) {
 	for key, val := range r.GetLabels() {
 		switch key {
-		case serving.VisibilityLabelKeyObsolete, network.VisibilityLabelKey:
+		case network.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisibilityLabel(val))
 		case serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))

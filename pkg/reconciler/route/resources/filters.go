@@ -24,6 +24,5 @@ import (
 
 // IsClusterLocalService returns whether a service is cluster local.
 func IsClusterLocalService(svc *corev1.Service) bool {
-	return svc.GetLabels()[network.VisibilityLabelKey] == serving.VisibilityClusterLocal ||
-		svc.GetLabels()[serving.VisibilityLabelKeyObsolete] == serving.VisibilityClusterLocal
+	return svc.GetLabels()[network.VisibilityLabelKey] == serving.VisibilityClusterLocal
 }
