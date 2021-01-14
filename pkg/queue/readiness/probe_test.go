@@ -94,6 +94,10 @@ func TestAggressiveFailureOnlyLogsOnce(t *testing.T) {
 		},
 	})
 
+	// Make the poll timeout a ton shorter but long enough to potentially observe
+	// multiple log lines.
+	pb.pollTimeout = retryInterval * 3
+
 	var buf bytes.Buffer
 	pb.out = &buf
 
@@ -108,7 +112,7 @@ func TestAggressiveFailureNotLoggedOnSuccess(t *testing.T) {
 	tsURL := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		// Fail a few times before succeeding to ensure no failures are
 		// misleadingly logged as long as we eventually succeed.
-		if polled.Inc() > 20 {
+		if polled.Inc() > 3 {
 			w.WriteHeader(200)
 			return
 		}
@@ -308,13 +312,13 @@ func TestHTTPManyParallel(t *testing.T) {
 
 func TestHTTPTimeout(t *testing.T) {
 	tsURL := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(3 * time.Second)
+		time.Sleep(time.Second + 10*time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	})
 
 	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    1,
-		TimeoutSeconds:   2,
+		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
@@ -333,7 +337,7 @@ func TestHTTPTimeout(t *testing.T) {
 
 func TestHTTPSuccessWithDelay(t *testing.T) {
 	tsURL := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -461,7 +465,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 
 func TestKnHTTPTimeoutFailure(t *testing.T) {
 	tsURL := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(time.Second)
+		time.Sleep(aggressiveProbeTimeout + 10*time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -478,7 +482,7 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 			},
 		},
 	})
-	pb.pollTimeout = time.Second
+	pb.pollTimeout = retryInterval
 	var logs bytes.Buffer
 	pb.out = &logs
 
@@ -540,7 +544,7 @@ func TestKnTCPProbeFailure(t *testing.T) {
 			},
 		},
 	})
-	pb.pollTimeout = time.Second
+	pb.pollTimeout = retryInterval
 	var logs bytes.Buffer
 	pb.out = &logs
 
