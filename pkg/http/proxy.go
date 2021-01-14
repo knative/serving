@@ -14,24 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package http
 
 import (
 	"net/http"
 	"net/http/httputil"
-
-	"knative.dev/serving/pkg/activator"
 )
 
-var headersToRemove = []string{
-	activator.RevisionHeaderName,
-	activator.RevisionHeaderNamespace,
-}
-
 // NewHeaderPruningReverseProxy returns a httputil.ReverseProxy that proxies
-// requests to the given targetHost.  The returned reverse proxy strips
-// activator-specific headers that should not reach the user container.
-func NewHeaderPruningReverseProxy(targetHost string) *httputil.ReverseProxy {
+// requests to the given targetHost after removing the headersToRemove.
+func NewHeaderPruningReverseProxy(targetHost string, headersToRemove []string) *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"

@@ -34,7 +34,7 @@ import (
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
-	"knative.dev/serving/pkg/activator/util"
+	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/queue"
 )
 
@@ -105,7 +105,7 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
 	// Set up the reverse proxy.
-	proxy := util.NewHeaderPruningReverseProxy(target)
+	proxy := pkghttp.NewHeaderPruningReverseProxy(target, activator.RevisionHeaders)
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
 	if tracingEnabled {

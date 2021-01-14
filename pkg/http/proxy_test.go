@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package http
 
 import (
 	"encoding/json"
@@ -24,10 +24,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/serving/pkg/activator"
 )
 
-func TestNewProxy(t *testing.T) {
+func TestNewHeaderPruningProxy(t *testing.T) {
 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewEncoder(w).Encode(r.Header); err != nil {
 			panic(err)
@@ -48,12 +47,12 @@ func TestNewProxy(t *testing.T) {
 		name: "prunes activator headers, does not add user agent header",
 		url:  "http://example.com/",
 		header: http.Header{
-			"Header":                          []string{"value"},
-			activator.RevisionHeaderName:      []string{"some-value"},
-			activator.RevisionHeaderNamespace: []string{"some-value"},
+			"Header-Not-To-Remove": []string{"value"},
+			"Header-To-Remove-1":   []string{"some-value"},
+			"Header-To-Remove-2":   []string{"some-value"},
 		},
 		expectHeaders: http.Header{
-			"Header": []string{"value"},
+			"Header-Not-To-Remove": []string{"value"},
 		},
 	}, {
 		name: "explicit user agent header not removed",
@@ -68,7 +67,10 @@ func TestNewProxy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			proxy := NewHeaderPruningReverseProxy(serverURL.Host)
+			proxy := NewHeaderPruningReverseProxy(serverURL.Host, []string{
+				"header-to-remove-1",
+				"header-to-remove-2",
+			})
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, test.url, nil)
