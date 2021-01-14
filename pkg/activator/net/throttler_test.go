@@ -41,7 +41,6 @@ import (
 	. "knative.dev/pkg/logging/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	_ "knative.dev/pkg/system/testing"
-	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -236,14 +235,13 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	})
 
 	// Make sure it now works.
-	ctx = util.WithRevID(ctx, revID)
-	if err := throttler.Try(ctx, func(string) error { return nil }); err != nil {
+	if err := throttler.Try(ctx, revID, func(string) error { return nil }); err != nil {
 		t.Fatalf("Try() = %v, want no error", err)
 	}
 
 	// Make sure errors are propagated correctly.
 	innerError := errors.New("inner")
-	if err := throttler.Try(ctx, func(string) error { return innerError }); !errors.Is(err, innerError) {
+	if err := throttler.Try(ctx, revID, func(string) error { return innerError }); !errors.Is(err, innerError) {
 		t.Fatalf("Try() = %v, want %v", err, innerError)
 	}
 
@@ -253,7 +251,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	// Eventually it should now fail.
 	var lastError error
 	wait.PollInfinite(10*time.Millisecond, func() (bool, error) {
-		lastError = throttler.Try(ctx, func(string) error { return nil })
+		lastError = throttler.Try(ctx, revID, func(string) error { return nil })
 		return lastError != nil, nil
 	})
 	if lastError == nil || lastError.Error() != `revision.serving.knative.dev "test-revision" not found` {
@@ -834,11 +832,11 @@ func TestInfiniteBreakerCreation(t *testing.T) {
 func (t *Throttler) try(ctx context.Context, requests int, try func(string) error) chan tryResult {
 	resultChan := make(chan tryResult)
 
-	ctx = util.WithRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevision})
+	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	for i := 0; i < requests; i++ {
 		go func() {
 			var result tryResult
-			if err := t.Try(ctx, func(dest string) error {
+			if err := t.Try(ctx, revID, func(dest string) error {
 				result = tryResult{dest: dest}
 				return try(dest)
 			}); err != nil {

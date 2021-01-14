@@ -64,7 +64,7 @@ type fakeThrottler struct {
 	err error
 }
 
-func (ft fakeThrottler) Try(_ context.Context, f func(string) error) error {
+func (ft fakeThrottler) Try(_ context.Context, _ types.NamespacedName, f func(string) error) error {
 	if ft.err != nil {
 		return ft.err
 	}
