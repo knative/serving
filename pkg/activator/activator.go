@@ -24,3 +24,12 @@ const (
 	// RevisionHeaderNamespace is the header key for revision's namespace.
 	RevisionHeaderNamespace = "Knative-Serving-Namespace"
 )
+
+var (
+	// RevisionHeaders are the headers the activator uses to identify the
+	// revision. They are removed before reaching the user container.
+	RevisionHeaders = []string{
+		RevisionHeaderName,
+		RevisionHeaderNamespace,
+	}
+)

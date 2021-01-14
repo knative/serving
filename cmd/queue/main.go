@@ -44,7 +44,7 @@ import (
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
-	activatorutil "knative.dev/serving/pkg/activator/util"
+	"knative.dev/serving/pkg/activator"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/http/handler"
 	"knative.dev/serving/pkg/logging"
@@ -272,7 +272,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 
-	httpProxy := activatorutil.NewHeaderPruningReverseProxy(target)
+	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, activator.RevisionHeaders)
 	httpProxy.Transport = buildTransport(env, logger, maxIdleConns)
 	httpProxy.ErrorHandler = pkgnet.ErrorHandler(logger)
 	httpProxy.BufferPool = network.NewBufferPool()
