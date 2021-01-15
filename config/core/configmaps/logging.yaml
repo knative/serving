@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "79e88319"
+    knative.dev/example-checksum: "d9570453"
 data:
   _example: |
     ################################
@@ -62,8 +62,8 @@ data:
       }
 
     # Log level overrides
-    # For all components except the autoscaler and queue proxy,
-    # changes are be picked up immediately.
+    # For all components except the queue proxy,
+    # changes are picked up immediately.
     # For queue proxy, changes require recreation of the pods.
     loglevel.controller: "info"
     loglevel.autoscaler: "info"
