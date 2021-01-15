@@ -62,7 +62,7 @@ data:
       }
 
     # Log level overrides
-    # For all components except the autoscaler and queue proxy,
+    # For all components except the queue proxy,
     # changes are be picked up immediately.
     # For queue proxy, changes require recreation of the pods.
     loglevel.controller: "info"
