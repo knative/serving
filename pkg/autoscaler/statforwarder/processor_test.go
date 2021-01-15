@@ -37,6 +37,7 @@ func TestProcessorForwardingViaPodIP(t *testing.T) {
 	logger := TestLogger(t)
 	url := "ws" + strings.TrimPrefix(s.URL, "http")
 	p := newForwardProcessor(logger, bucket1, testIP1, url, url)
+	defer p.shutdown()
 
 	p.process(stat1)
 
@@ -55,6 +56,7 @@ func TestProcessorForwardingViaSvc(t *testing.T) {
 
 	logger := TestLogger(t)
 	p := newForwardProcessor(logger, bucket1, testIP1, "ws://something.not.working", "ws"+strings.TrimPrefix(s.URL, "http"))
+	defer p.shutdown()
 
 	p.process(stat1)
 
@@ -73,6 +75,7 @@ func TestProcessorForwardingViaSvcRetry(t *testing.T) {
 
 	logger := TestLogger(t)
 	p := newForwardProcessor(logger, bucket1, testIP1, "ws://something.not.working", "ws://something.not.working")
+	defer p.shutdown()
 
 	if p.conn != nil {
 		t.Fatal("Unexpected connection")
@@ -104,12 +107,16 @@ func testService(t *testing.T, received chan struct{}) *httptest.Server {
 
 		defer conn.Close()
 		for {
-			_, _, err := conn.ReadMessage()
+			t, b, err := conn.ReadMessage()
 			if err != nil {
 				// This is probably caused by connection closed by client side.
 				return
 			}
 			received <- struct{}{}
+
+			// Answer messages to keep the connection's keepalive function moving and the
+			// connection closed quicker than 10s.
+			conn.WriteMessage(t, b)
 		}
 	}
 
