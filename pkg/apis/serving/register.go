@@ -51,6 +51,12 @@ const (
 	// referenced by one or many routes. The value is a comma separated list of Route names.
 	RoutesAnnotationKey = GroupName + "/routes"
 
+	// RolloutDurationKey is an annotation attached to a Route to indicate the duration
+	// of the rollout of the latest revision. The value must be a valid positive
+	// Golang time.Duration value serialized to string.
+	// The value can be specified with at most with a second precision.
+	RolloutDurationKey = GroupName + "/rolloutDuration"
+
 	// RoutingStateLabelKey is the label attached to a Revision indicating
 	// its state in relation to serving a Route.
 	RoutingStateLabelKey = GroupName + "/routingState"
