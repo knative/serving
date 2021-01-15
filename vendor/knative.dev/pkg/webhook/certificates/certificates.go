@@ -57,7 +57,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 		// only reconciler the certificate when we are leader.
 		return r.reconcileCertificate(ctx)
 	}
-	return nil
+	return controller.NewSkipKey(key)
 }
 
 func (r *reconciler) reconcileCertificate(ctx context.Context) error {
