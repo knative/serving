@@ -34,10 +34,7 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	"knative.dev/serving/pkg/networking"
-	servingreconciler "knative.dev/serving/pkg/reconciler"
 )
-
-const controllerAgentName = "serverlessservice-controller"
 
 // NewController initializes the controller and is called by the generated code.
 // Registers eventhandlers to enqueue events.
@@ -46,7 +43,6 @@ func NewController(
 	cmw configmap.Watcher,
 ) *controller.Impl {
 
-	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)

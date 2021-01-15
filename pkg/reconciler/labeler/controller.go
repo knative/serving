@@ -28,7 +28,6 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
-	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/configuration/config"
 	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 
@@ -37,8 +36,6 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/tracker"
 )
-
-const controllerAgentName = "labeler-controller"
 
 // NewController wraps a new instance of the labeler that labels
 // Configurations with Routes in a controller.
@@ -54,7 +51,6 @@ func newControllerWithClock(
 	cmw configmap.Watcher,
 	clock clock.Clock,
 ) *controller.Impl {
-	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	routeInformer := routeinformer.Get(ctx)
 	configInformer := configurationinformer.Get(ctx)
