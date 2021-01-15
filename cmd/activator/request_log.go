@@ -50,8 +50,8 @@ func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.Request
 
 func requestLogTemplateInputGetter(revisionLister servinglisters.RevisionLister) pkghttp.RequestLogTemplateInputGetter {
 	return func(req *http.Request, resp *pkghttp.RequestLogResponse) *pkghttp.RequestLogTemplateInput {
-		namespace := pkghttp.LastHeaderValue(req.Header, activator.RevisionHeaderNamespace)
-		name := pkghttp.LastHeaderValue(req.Header, activator.RevisionHeaderName)
+		namespace := req.Header.Get(activator.RevisionHeaderNamespace)
+		name := req.Header.Get(activator.RevisionHeaderName)
 		revInfo := &pkghttp.RequestLogRevision{
 			Namespace: namespace,
 			Name:      name,
