@@ -471,3 +471,46 @@ func TestAnnotationUpdate(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateRolloutDurationAnnotation(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{{
+		name: "empty",
+	}, {
+		name:  "valid",
+		value: "120s",
+	}, {
+		name:  "fancy valid",
+		value: "3h15m21s",
+	}, {
+		name:  "in ns",
+		value: "120000000000",
+		want:  "invalid value: 120000000000: serving.knative.dev/rolloutDuration",
+	}, {
+		name:  "not a valid duration",
+		value: "five minutes and 6 seconds",
+		want:  "invalid value: five minutes and 6 seconds: serving.knative.dev/rolloutDuration",
+	}, {
+		name:  "negative",
+		value: "-211s",
+		want:  "rolloutDuration=-211s must be positive: serving.knative.dev/rolloutDuration",
+	}, {
+		name:  "too precise",
+		value: "211s44ms",
+		want:  "rolloutDuration=211s44ms is not at second precision: serving.knative.dev/rolloutDuration",
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateRolloutDurationAnnotation(map[string]string{
+				RolloutDurationKey: tc.value,
+			})
+			if got, want := err.Error(), tc.want; got != want {
+				t.Errorf("APIErr mismatch, diff(-want,+got):\n%s", cmp.Diff(want, got))
+			}
+		})
+	}
+}

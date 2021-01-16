@@ -18,7 +18,9 @@ package serving
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,13 +33,14 @@ import (
 
 var (
 	allowedAnnotations = sets.NewString(
-		UpdaterAnnotation,
 		CreatorAnnotation,
-		RevisionLastPinnedAnnotationKey,
-		RoutingStateModifiedAnnotationKey,
 		ForceUpgradeAnnotationKey,
+		RevisionLastPinnedAnnotationKey,
 		RevisionPreservedAnnotationKey,
+		RolloutDurationKey,
 		RoutesAnnotationKey,
+		RoutingStateModifiedAnnotationKey,
+		UpdaterAnnotation,
 	)
 )
 
@@ -48,6 +51,34 @@ func ValidateObjectMetadata(ctx context.Context, meta metav1.Object) *apis.Field
 		Also(autoscaling.ValidateAnnotations(ctx, config.FromContextOrDefaults(ctx).Autoscaler, meta.GetAnnotations()).
 			Also(validateKnativeAnnotations(meta.GetAnnotations())).
 			ViaField("annotations"))
+}
+
+// ValidateRolloutDurationAnnotation validates the rollout duration annotation.
+// This annotation can be set on either service or route objects.
+func ValidateRolloutDurationAnnotation(annos map[string]string) (errs *apis.FieldError) {
+	if v := annos[RolloutDurationKey]; v != "" {
+		// Parse as duration.
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return errs.Also(apis.ErrInvalidValue(v, RolloutDurationKey))
+		}
+		// Validate that it has second precision.
+		if d.Round(time.Second) != d {
+			return errs.Also(&apis.FieldError{
+				// Even if tempting %v won't work here, since it might output the value spelled differently.
+				Message: fmt.Sprintf("rolloutDuration=%s is not at second precision", v),
+				Paths:   []string{RolloutDurationKey},
+			})
+		}
+		// And positive.
+		if d < 0 {
+			return errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("rolloutDuration=%s must be positive", v),
+				Paths:   []string{RolloutDurationKey},
+			})
+		}
+	}
+	return errs
 }
 
 func validateKnativeAnnotations(annotations map[string]string) (errs *apis.FieldError) {

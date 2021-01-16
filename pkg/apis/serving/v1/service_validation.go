@@ -34,7 +34,8 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 	if !apis.IsInStatusUpdate(ctx) {
 		errs = errs.Also(serving.ValidateObjectMetadata(ctx, s.GetObjectMeta()))
 		errs = errs.Also(s.validateLabels().ViaField("labels"))
-		errs = errs.Also(serving.ValidateHasNoAutoscalingAnnotation(s.GetAnnotations()).ViaField("annotations"))
+		errs = errs.Also(serving.ValidateHasNoAutoscalingAnnotation(
+			s.GetAnnotations()).ViaField("annotations"))
 		errs = errs.ViaField("metadata")
 
 		ctx = apis.WithinParent(ctx, s.ObjectMeta)
