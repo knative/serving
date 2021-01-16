@@ -36,7 +36,10 @@ func MakeConfiguration(service *v1.Service) *v1.Configuration {
 
 // MakeConfigurationFromExisting creates a Configuration from a Service object given an existing Configuration.
 func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configuration) *v1.Configuration {
-	labels := map[string]string{serving.ServiceLabelKey: service.Name}
+	labels := map[string]string{
+		serving.ServiceLabelKey:    service.Name,
+		serving.ServiceUIDLabelKey: string(service.ObjectMeta.UID),
+	}
 	anns := kmeta.FilterMap(service.GetAnnotations(), func(key string) bool {
 		return key == corev1.LastAppliedConfigAnnotation
 	})

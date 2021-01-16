@@ -41,7 +41,7 @@ func TestConfigurationSpec(t *testing.T) {
 	}
 	expectOwnerReferencesSetCorrectly(t, c.OwnerReferences)
 
-	if got, want := c.Labels, map[string]string{serving.ServiceLabelKey: testServiceName}; !cmp.Equal(got, want) {
+	if got, want := c.Labels, map[string]string{serving.ServiceLabelKey: testServiceName, serving.ServiceUIDLabelKey: "cccccccc-cccc-cccc-cccc-cccccccccccc"}; !cmp.Equal(got, want) {
 		t.Errorf("Labels mismatch: diff(-want,+got):\n%s", cmp.Diff(want, got))
 	}
 	if got, want := c.Annotations, map[string]string{

@@ -64,6 +64,8 @@ func updateRevisionLabels(rev, config metav1.Object) {
 		serving.ConfigurationLabelKey,
 		serving.ServiceLabelKey,
 		serving.ConfigurationGenerationLabelKey,
+		serving.ConfigUIDLabelKey,
+		serving.ServiceUIDLabelKey,
 	} {
 		labels[key] = RevisionLabelValueForKey(key, config)
 	}
@@ -101,6 +103,10 @@ func RevisionLabelValueForKey(key string, config metav1.Object) string {
 		return config.GetLabels()[serving.ServiceLabelKey]
 	case serving.ConfigurationGenerationLabelKey:
 		return fmt.Sprint(config.GetGeneration())
+	case serving.ConfigUIDLabelKey:
+		return string(config.GetUID())
+	case serving.ServiceUIDLabelKey:
+		return config.GetLabels()[serving.ServiceUIDLabelKey]
 	}
 	return ""
 }
