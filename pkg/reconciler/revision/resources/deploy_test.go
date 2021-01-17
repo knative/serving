@@ -334,6 +334,7 @@ func withPrependedVolumeMounts(volumeMounts ...corev1.VolumeMount) containerOpti
 func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSpec {
 	podSpec := defaultPodSpec.DeepCopy()
 	podSpec.Containers = containers
+	podSpec.AutomountServiceAccountToken = ptr.Bool(false)
 
 	for _, option := range opts {
 		option(podSpec)

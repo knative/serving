@@ -177,6 +177,7 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 func BuildPodSpec(rev *v1.Revision, containers []corev1.Container, cfg *config.Config) *corev1.PodSpec {
 	pod := rev.Spec.PodSpec.DeepCopy()
 	pod.Containers = containers
+	pod.AutomountServiceAccountToken = ptr.Bool(false)
 	pod.TerminationGracePeriodSeconds = rev.Spec.TimeoutSeconds
 	if cfg != nil && pod.EnableServiceLinks == nil {
 		pod.EnableServiceLinks = cfg.Defaults.EnableServiceLinks
