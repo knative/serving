@@ -77,9 +77,9 @@ const (
 	// its unique identifier
 	RevisionUID = GroupName + "/revisionUID"
 
-	// ConfigUIDLabelKey is the label key attached to a pod to reference its
+	// ConfigurationUIDLabelKey is the label key attached to a pod to reference its
 	// Knative Configuration by its unique UID
-	ConfigUIDLabelKey = GroupName + "/configurationUID"
+	ConfigurationUIDLabelKey = GroupName + "/configurationUID"
 
 	// ServiceUIDLabelKey is the label key attached to a pod to reference its
 	// Knative Service by its unique UID

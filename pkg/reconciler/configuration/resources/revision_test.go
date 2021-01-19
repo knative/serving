@@ -81,7 +81,7 @@ func TestMakeRevisions(t *testing.T) {
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey:           "build",
 					serving.ConfigurationGenerationLabelKey: "10",
-					serving.ConfigUIDLabelKey:               "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+					serving.ConfigurationUIDLabelKey:        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
 					serving.RoutingStateLabelKey:            "pending",
 					serving.ServiceLabelKey:                 "",
 					serving.ServiceUIDLabelKey:              "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
@@ -146,7 +146,7 @@ func TestMakeRevisions(t *testing.T) {
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey:           "labels",
 					serving.ConfigurationGenerationLabelKey: "100",
-					serving.ConfigUIDLabelKey:               "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+					serving.ConfigurationUIDLabelKey:        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
 					serving.RoutingStateLabelKey:            "pending",
 					serving.ServiceLabelKey:                 "",
 					serving.ServiceUIDLabelKey:              "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
@@ -207,7 +207,7 @@ func TestMakeRevisions(t *testing.T) {
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey:           "annotations",
 					serving.ConfigurationGenerationLabelKey: "100",
-					serving.ConfigUIDLabelKey:               "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+					serving.ConfigurationUIDLabelKey:        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
 					serving.RoutingStateLabelKey:            "pending",
 					serving.ServiceLabelKey:                 "",
 					serving.ServiceUIDLabelKey:              "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
@@ -276,7 +276,7 @@ func TestMakeRevisions(t *testing.T) {
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey:           "config",
 					serving.ConfigurationGenerationLabelKey: "10",
-					serving.ConfigUIDLabelKey:               "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+					serving.ConfigurationUIDLabelKey:        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
 					serving.RoutingStateLabelKey:            "active",
 					serving.ServiceLabelKey:                 "",
 					serving.ServiceUIDLabelKey:              "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
@@ -345,7 +345,7 @@ func TestMakeRevisions(t *testing.T) {
 				Labels: map[string]string{
 					serving.ConfigurationLabelKey:           "config",
 					serving.ConfigurationGenerationLabelKey: "10",
-					serving.ConfigUIDLabelKey:               "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+					serving.ConfigurationUIDLabelKey:        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
 					serving.RoutingStateLabelKey:            "pending",
 					serving.ServiceLabelKey:                 "",
 					serving.ServiceUIDLabelKey:              "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",

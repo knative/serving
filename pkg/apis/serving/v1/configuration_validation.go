@@ -66,7 +66,7 @@ func (c *Configuration) validateLabels() (errs *apis.FieldError) {
 	for key, val := range c.GetLabels() {
 		switch key {
 		case serving.RouteLabelKey,
-			serving.ConfigUIDLabelKey,
+			serving.ConfigurationUIDLabelKey,
 			serving.ServiceUIDLabelKey:
 			// Known valid labels - so just skip them
 		case serving.ServiceLabelKey:
