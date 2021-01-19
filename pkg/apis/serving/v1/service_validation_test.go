@@ -50,9 +50,9 @@ func TestServiceValidation(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		r    *Service
-		want *apis.FieldError
+		name    string
+		r       *Service
+		wantErr *apis.FieldError
 	}{{
 		name: "valid run latest",
 		r: &Service{
@@ -69,7 +69,6 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
 	}, {
 		name: "valid visibility label",
 		r: &Service{
@@ -84,7 +83,6 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec:         goodRouteSpec,
 			},
 		},
-		want: nil,
 	}, {
 		name: "invalid knative label",
 		r: &Service{
@@ -99,7 +97,7 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec:         goodRouteSpec,
 			},
 		},
-		want: apis.ErrInvalidKeyName("serving.knative.dev/name", "metadata.labels"),
+		wantErr: apis.ErrInvalidKeyName("serving.knative.dev/name", "metadata.labels"),
 	}, {
 		name: "valid non knative label",
 		r: &Service{
@@ -114,7 +112,6 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec:         goodRouteSpec,
 			},
 		},
-		want: nil,
 	}, {
 		name: "invalid visibility label value",
 		r: &Service{
@@ -129,7 +126,7 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec:         goodRouteSpec,
 			},
 		},
-		want: apis.ErrInvalidValue("bad-label", "metadata.labels."+network.VisibilityLabelKey),
+		wantErr: apis.ErrInvalidValue("bad-label", "metadata.labels."+network.VisibilityLabelKey),
 	}, {
 		name: "valid release",
 		r: &Service{
@@ -157,7 +154,6 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
 	}, {
 		name: "invalid configurationName",
 		r: &Service{
@@ -175,7 +171,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("spec.traffic[0].configurationName"),
+		wantErr: apis.ErrDisallowedFields("spec.traffic[0].configurationName"),
 	}, {
 		name: "invalid latestRevision",
 		r: &Service{
@@ -193,7 +189,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrGeneric(`may not set revisionName "valid" when latestRevision is true`, "spec.traffic[0].latestRevision"),
+		wantErr: apis.ErrGeneric(`may not set revisionName "valid" when latestRevision is true`, "spec.traffic[0].latestRevision"),
 	}, {
 		name: "invalid container concurrency",
 		r: &Service{
@@ -221,9 +217,39 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrOutOfBoundsValue(
+		wantErr: apis.ErrOutOfBoundsValue(
 			-10, 0, config.DefaultMaxRevisionContainerConcurrency,
 			"spec.template.spec.containerConcurrency"),
+	}, {
+		name: "invalid rollout duration",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "rollout-duration-annotation",
+				Annotations: map[string]string{
+					serving.RolloutDurationKey: "CLXXXIIIs", // 183s.
+				},
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "hellworld",
+								}},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        ptr.Int64(100),
+					}},
+				},
+			},
+		},
+		wantErr: apis.ErrInvalidValue("CLXXXIIIs", serving.RolloutDurationKey).ViaField("metadata.annotations"),
 	}, {
 		name: "invalid autoscaling.knative.dev annotation",
 		r: &Service{
@@ -253,7 +279,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidKeyName("autoscaling.knative.dev/foo", "metadata.annotations", `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`),
+		wantErr: apis.ErrInvalidKeyName("autoscaling.knative.dev/foo", "metadata.annotations", `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`),
 	}}
 
 	// TODO(dangerd): PodSpec validation failures.
@@ -262,9 +288,9 @@ func TestServiceValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
-			if !cmp.Equal(test.want.Error(), got.Error()) {
+			if !cmp.Equal(test.wantErr.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
-					cmp.Diff(test.want.Error(), got.Error()))
+					cmp.Diff(test.wantErr.Error(), got.Error()))
 			}
 		})
 	}
