@@ -33,7 +33,6 @@ import (
 // referencing the Configuration responsible for creating them; in these cases
 // the Route is additionally responsible for monitoring the Configuration for
 // "latest ready revision" changes, and smoothly rolling out latest revisions.
-//
 // For more information on how Route interacts with other Resource Types, see 
 // the "Route" sub-heading [in the Resource Types Overview.](https://github.com/knative/serving/blob/master/docs/spec/overview.md#route)
 type Route struct {
