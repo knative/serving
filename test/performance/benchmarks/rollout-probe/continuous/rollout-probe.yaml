@@ -110,4 +110,4 @@ spec:
             configMap:
               name: config-mako
           restartPolicy: Never
-      backoffLimit: 0
+      backoffLimit: 1
