@@ -31,17 +31,17 @@ import (
 type DomainMapping struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
-	// More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// Refer to the [Kubernetes API documentation](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata) for the fields of the `Metadata` object.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec is the desired state of the DomainMapping.
-	// More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// Refer to the [Kubernetes API documentation](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status) for more info on the `DomainMappingSpec` object.
 	// +optional
 	Spec DomainMappingSpec `json:"spec,omitempty"`
 
 	// Status is the current state of the DomainMapping.
-	// More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// Refer to the [Kubernetes API documentation](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status) for more info on the `DomainMappingStatus` object.
 	// +optional
 	Status DomainMappingStatus `json:"status,omitempty"`
 }
@@ -62,7 +62,7 @@ var (
 type DomainMappingList struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object metadata.
-	// More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// Refer to the [Kubernetes API documentation](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata) for the fields of the `Metadata` object.
 	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
 

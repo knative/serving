@@ -39,7 +39,8 @@ import (
 // The Service's controller will track the statuses of its owned Configuration
 // and Route, reflecting their statuses and conditions as its own.
 //
-// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#service
+// For an overview of the different Resource Types (like Route and Configuration) of the Knative Serving API and how they interact with one another,
+// [see this explanation of Resource Types.](https://github.com/knative/serving/blob/master/docs/spec/overview.md)
 type Service struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

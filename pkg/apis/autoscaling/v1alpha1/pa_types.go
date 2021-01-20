@@ -31,8 +31,8 @@ import (
 
 // PodAutoscaler is a Knative abstraction that encapsulates the interface by which Knative
 // components instantiate autoscalers.  This definition is an abstraction that may be backed
-// by multiple definitions.  For more information, see the Knative Pluggability presentation:
-// https://docs.google.com/presentation/d/10KWynvAJYuOEWy69VBa6bHJVCqIsz1TNdEKosNvcpPY/edit
+// by multiple definitions. For more information on Knative Autoscalers and Pluggability,
+// [see the Knative Pluggability presentation.](https://docs.google.com/presentation/d/10KWynvAJYuOEWy69VBa6bHJVCqIsz1TNdEKosNvcpPY/edit)
 type PodAutoscaler struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

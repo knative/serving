@@ -32,7 +32,8 @@ import (
 // references a container image. Revisions are created by updates to a
 // Configuration.
 //
-// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision
+// For more information on how Revision interacts with other Resource Types,
+// see the "Revision" sub-heading [in the Resource Types Overview.](https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision)
 type Revision struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -62,7 +63,7 @@ var (
 )
 
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
-// Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190
+// Based on [the PodTemplateSpec in Kubernetes](https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190)
 type RevisionTemplateSpec struct {
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -141,7 +142,7 @@ type RevisionStatus struct {
 	// for serving container.
 	// DEPRECATED: Use ContainerStatuses instead.
 	// TODO(savitaashture) Remove deprecatedImageDigest.
-	// ref https://kubernetes.io/docs/reference/using-api/deprecation-policy for deprecation.
+	// see the [Kubernetes Deprecation Policy](https://kubernetes.io/docs/reference/using-api/deprecation-policy)) for more information.
 	// +optional
 	DeprecatedImageDigest string `json:"imageDigest,omitempty"`
 
@@ -150,7 +151,7 @@ type RevisionStatus struct {
 	// The digests are resolved during the creation of Revision.
 	// ContainerStatuses holds the container name and image digests
 	// for both serving and non serving containers.
-	// ref: http://bit.ly/image-digests
+	// See the [Proposal for multiple containers in a revision](http://bit.ly/image-digests) for some context on this field.
 	// +optional
 	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty"`
 }
