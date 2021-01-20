@@ -109,6 +109,33 @@ func TestEndpointsToDests(t *testing.T) {
 			}},
 		},
 		expectReady: sets.NewString("128.0.0.1:1234"),
+	}, {
+		name:     "multiple endpoint, different protocol",
+		protocol: networking.ProtocolH2C,
+		endpoints: corev1.Endpoints{
+			Subsets: []corev1.EndpointSubset{{
+				Addresses: []corev1.EndpointAddress{{
+					IP: "128.0.0.1",
+				}, {
+					IP: "128.0.0.2",
+				}},
+				Ports: []corev1.EndpointPort{{
+					Name: networking.ServicePortNameHTTP1,
+					Port: 1234,
+				}},
+			}, {
+				Addresses: []corev1.EndpointAddress{{
+					IP: "128.0.0.3",
+				}, {
+					IP: "128.0.0.4",
+				}},
+				Ports: []corev1.EndpointPort{{
+					Name: networking.ServicePortNameH2C,
+					Port: 5678,
+				}},
+			}},
+		},
+		expectReady: sets.NewString("128.0.0.3:5678", "128.0.0.4:5678"),
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.protocol == "" {
