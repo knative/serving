@@ -235,8 +235,6 @@ type HTTPIngressPath struct {
 
 	// Splits defines the referenced service endpoints to which the traffic
 	// will be forwarded to.
-	//
-	// If Splits are specified, RewriteHost must not be.
 	Splits []IngressBackendSplit `json:"splits"`
 
 	// AppendHeaders allow specifying additional HTTP headers to add
