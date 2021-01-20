@@ -18,12 +18,14 @@ package v1
 
 import (
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 var routeCondSet = apis.NewLivingConditionSet(
@@ -56,6 +58,20 @@ func (r *Route) IsFailed() bool {
 	rs := r.Status
 	return rs.ObservedGeneration == r.Generation &&
 		rs.GetCondition(RouteConditionReady).IsFalse()
+}
+
+// RolloutDuration returns the rollout duration specified as an
+// annotation.
+// 0 is returned if missing or cannot be parsed.
+func (r *Route) RolloutDuration() time.Duration {
+	if v, ok := r.Annotations[serving.RolloutDurationKey]; ok && v != "" {
+		// WH should've declined all the invalid values for this annotation.
+		d, err := time.ParseDuration(v)
+		if err == nil {
+			return d
+		}
+	}
+	return 0
 }
 
 // InitializeConditions sets the initial values to the conditions.
