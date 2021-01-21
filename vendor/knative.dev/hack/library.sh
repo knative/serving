@@ -794,11 +794,32 @@ function shellcheck_new_files() {
 }
 
 function latest_version() {
-  local semver=$(git describe --match "v[0-9]*" --abbrev=0)
-  local major_minor=$(echo "$semver" | cut -d. -f1-2)
+  # This function works "best effort" and works on Prow but not necessarily locally.
+  # The problem is finding the latest release. If a release occurs on the same commit which
+  # was branched from master, then the tag will be an ancestor to any commit derived from master.
+  # That was the original logic. Additionally in a release branch, the tag is always an ancestor.
+  # However, if the release commit ends up not the first commit from master, then the tag is not
+  # an ancestor of master, so we can't use `git describe` to find the most recent versioned tag. So
+  # we just sort all the tags and find the newest versioned one.
+  # But when running locally, we cannot(?) know if the current branch is a fork of master or a fork
+  # of a release branch. That's where this function will malfunction when the last release did not
+  # occur on the first commit -- it will try to run the upgrade tests from an older version instead
+  # of the most recent release.
+  # Workarounds include:
+  # Tag the first commit of the release branch. Say release-0.75 released v0.75.0 from the second commit
+  # Then tag the first commit in common between master and release-0.75 with `v0.75`.
+  # Always name your local fork master or main.
+  if [ $(current_branch) = "master" ] || [ $(current_branch) = "main" ]; then
+    # For main branch, simply use git tag without major version, this will work even
+    # if the release tag is not in the main
+    git tag -l "v[0-9]*" | sort -r --version-sort | head -n1
+  else
+    local semver=$(git describe --match "v[0-9]*" --abbrev=0)
+    local major_minor=$(echo "$semver" | cut -d. -f1-2)
 
-  # Get the latest patch release for the major minor
-  git tag -l "${major_minor}*" | sort -r --version-sort | head -n1
+    # Get the latest patch release for the major minor
+    git tag -l "${major_minor}*" | sort -r --version-sort | head -n1
+  fi
 }
 
 # Initializations that depend on previous functions.
