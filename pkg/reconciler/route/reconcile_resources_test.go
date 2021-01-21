@@ -170,8 +170,8 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 			// 5s of the duration already spent.
 			totalDuration := float64(rd - 5)
 			// Step count is minimum of % points of traffic allocated to the config (1% already shifted).
-			steps := math.Min(float64(totalDuration/5), allocatedTraffic-1)
-			stepSize := math.Max(1, math.Round(float64((allocatedTraffic-1)/steps))) // we round the step size.
+			steps := math.Min(totalDuration/5, allocatedTraffic-1)
+			stepSize := math.Max(1, math.Round((allocatedTraffic-1)/steps)) // we round the step size.
 			stepDuration := time.Duration(int(totalDuration * float64(time.Second) / steps))
 
 			_, updRO, err = reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress")
