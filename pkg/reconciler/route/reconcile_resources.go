@@ -77,9 +77,15 @@ func (c *Reconciler) reconcileIngress(
 		nextStepTime := int64(0)
 		cfg := config.FromContext(ctx)
 
-		if cfg.Network.RolloutDurationSecs > 0 {
+		// Is there rollout duration specified?
+		rd := int(r.RolloutDuration().Seconds())
+		if rd == 0 {
+			// If not, check if there's a cluster-wide default.
+			rd = cfg.Network.RolloutDurationSecs
+		}
+		if rd > 0 {
 			logger := logging.FromContext(ctx).Desugar().With(
-				zap.Int("durationSecs", cfg.Network.RolloutDurationSecs))
+				zap.Int("durationSecs", rd))
 			logger.Debug("Rollout is enabled. Stepping from previous state.")
 			// Get the previous rollout state from the annotation.
 			// If it's corrupt, inexistent, or otherwise incorrect,
@@ -94,7 +100,7 @@ func (c *Reconciler) reconcileIngress(
 			rtView := r.Status.GetCondition(v1.RouteConditionIngressReady)
 			if prevRO != nil && ingress.IsReady() && !rtView.IsTrue() {
 				logger.Debug("Observing Ingress not-ready to ready switch condition for rollout")
-				prevRO.ObserveReady(ctx, now, float64(cfg.Network.RolloutDurationSecs))
+				prevRO.ObserveReady(ctx, now, float64(rd))
 			}
 
 			effectiveRO, nextStepTime = curRO.Step(ctx, prevRO, now)
