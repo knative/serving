@@ -234,7 +234,7 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 	})
 	defer cancel()
 
-	for _, rd := range []int{120, 600, 3600} {
+	for _, rd := range []int{240, 666, 7200} {
 		rds := strconv.Itoa(rd)
 		t.Run(rds, func(t *testing.T) {
 			r := Route("test-ns-"+rds, "rollout-route")
