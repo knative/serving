@@ -18,14 +18,17 @@ package v1
 
 import (
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	apistest "knative.dev/pkg/apis/testing"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 func TestRouteDuckTypes(t *testing.T) {
@@ -486,4 +489,38 @@ func TestMarkInRollout(t *testing.T) {
 	r.MarkIngressRolloutInProgress()
 
 	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+}
+
+func TestRolloutDuration(t *testing.T) {
+	tests := []struct {
+		name string
+		val  string
+		want time.Duration
+	}{{
+		name: "empty",
+		val:  "",
+		want: 0,
+	}, {
+		name: "invalid",
+		val:  "not-a-duration",
+		want: 0,
+	}, {
+		name: "duration",
+		val:  "2m1982s",
+		want: 2*time.Minute + 1982*time.Second,
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						serving.RolloutDurationKey: tc.val,
+					},
+				},
+			}
+			if got, want := r.RolloutDuration(), tc.want; got != want {
+				t.Errorf("RolloutDuration = %v, want: %v", got, want)
+			}
+		})
+	}
 }
