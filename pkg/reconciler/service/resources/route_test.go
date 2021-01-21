@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -30,6 +31,12 @@ import (
 
 func TestRouteSpec(t *testing.T) {
 	s := createService()
+	s.Annotations = kmeta.UnionMaps(s.Annotations,
+		map[string]string{
+			serving.RolloutDurationKey: "2021s",
+		},
+	)
+
 	testConfigName := names.Configuration(s)
 	r := MakeRoute(s)
 	if got, want := r.Name, testServiceName; got != want {
@@ -56,6 +63,13 @@ func TestRouteSpec(t *testing.T) {
 	}
 	if got, want := r.Labels[serving.ServiceLabelKey], testServiceName; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
+	}
+	if got, want := len(r.Annotations), 1; got != want {
+		t.Fatalf("expected %d labels got %d", want, got)
+	}
+	// Would fatal if annotations is not set.
+	if got, want := r.Annotations[serving.RolloutDurationKey], "2021s"; got != want {
+		t.Errorf("r.Annotations[%s] = %q, want: %q", serving.RolloutDurationKey, got, want)
 	}
 }
 

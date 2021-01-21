@@ -41,7 +41,9 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 		serving.ServiceUIDLabelKey: string(service.ObjectMeta.UID),
 	}
 	anns := kmeta.FilterMap(service.GetAnnotations(), func(key string) bool {
-		return key == corev1.LastAppliedConfigAnnotation
+		return key == corev1.LastAppliedConfigAnnotation ||
+			// Configs & Revisions don't use rollout information, it is only for routes.
+			key == serving.RolloutDurationKey
 	})
 
 	routeName := names.Route(service)

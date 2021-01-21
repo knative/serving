@@ -24,11 +24,18 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
 func TestConfigurationSpec(t *testing.T) {
 	s := createService()
+	s.Annotations = kmeta.UnionMaps(s.Annotations,
+		map[string]string{
+			serving.RolloutDurationKey: "2021s",
+		},
+	)
+
 	c := MakeConfiguration(s)
 	if got, want := c.Name, testServiceName; got != want {
 		t.Errorf("Service name = %q; want: %q", got, want)
@@ -41,7 +48,10 @@ func TestConfigurationSpec(t *testing.T) {
 	}
 	expectOwnerReferencesSetCorrectly(t, c.OwnerReferences)
 
-	if got, want := c.Labels, map[string]string{serving.ServiceLabelKey: testServiceName, serving.ServiceUIDLabelKey: "cccccccc-cccc-cccc-cccc-cccccccccccc"}; !cmp.Equal(got, want) {
+	if got, want := c.Labels, map[string]string{
+		serving.ServiceLabelKey:    testServiceName,
+		serving.ServiceUIDLabelKey: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+	}; !cmp.Equal(got, want) {
 		t.Errorf("Labels mismatch: diff(-want,+got):\n%s", cmp.Diff(want, got))
 	}
 	if got, want := c.Annotations, map[string]string{
