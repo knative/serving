@@ -72,8 +72,15 @@ type DomainMappingList struct {
 
 // DomainMappingSpec describes the DomainMapping the user wishes to exist.
 type DomainMappingSpec struct {
-	// Ref points to an Addressable.
-	// Currently, Ref must be a KSvc.
+	// Ref specifies the target of the Domain Mapping.
+	//
+	// The object identified by the Ref must be an Addressable with a URL of the
+	// form `{name}.{namespace}.{domain}` where `{domain}` is the cluster domain,
+	// and `{name}` and `{namespace}` are the name and namespace of a Kubernetes
+	// Service.
+	//
+	// This contract is satisfied by Knative types such as Knative Services and
+	// Knative Routes, and by Kubernetes Services.
 	Ref duckv1.KReference `json:"ref"`
 }
 
