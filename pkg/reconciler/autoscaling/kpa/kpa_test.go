@@ -27,7 +27,7 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
-
+       _ "knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake"
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakesksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"

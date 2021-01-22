@@ -1097,6 +1097,7 @@ knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake
 knative.dev/pkg/client/injection/kube/informers/factory
 knative.dev/pkg/client/injection/kube/informers/factory/fake
 knative.dev/pkg/client/injection/kube/informers/factory/filtered
+knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake
 knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace
 knative.dev/pkg/codegen/cmd/injection-gen
 knative.dev/pkg/codegen/cmd/injection-gen/args
