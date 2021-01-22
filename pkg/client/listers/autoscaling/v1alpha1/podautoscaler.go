@@ -26,8 +26,10 @@ import (
 )
 
 // PodAutoscalerLister helps list PodAutoscalers.
+// All objects returned here must be treated as read-only.
 type PodAutoscalerLister interface {
 	// List lists all PodAutoscalers in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.PodAutoscaler, err error)
 	// PodAutoscalers returns an object that can list and get PodAutoscalers.
 	PodAutoscalers(namespace string) PodAutoscalerNamespaceLister
@@ -58,10 +60,13 @@ func (s *podAutoscalerLister) PodAutoscalers(namespace string) PodAutoscalerName
 }
 
 // PodAutoscalerNamespaceLister helps list and get PodAutoscalers.
+// All objects returned here must be treated as read-only.
 type PodAutoscalerNamespaceLister interface {
 	// List lists all PodAutoscalers in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.PodAutoscaler, err error)
 	// Get retrieves the PodAutoscaler from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.PodAutoscaler, error)
 	PodAutoscalerNamespaceListerExpansion
 }

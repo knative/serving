@@ -26,8 +26,10 @@ import (
 )
 
 // DomainMappingLister helps list DomainMappings.
+// All objects returned here must be treated as read-only.
 type DomainMappingLister interface {
 	// List lists all DomainMappings in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.DomainMapping, err error)
 	// DomainMappings returns an object that can list and get DomainMappings.
 	DomainMappings(namespace string) DomainMappingNamespaceLister
@@ -58,10 +60,13 @@ func (s *domainMappingLister) DomainMappings(namespace string) DomainMappingName
 }
 
 // DomainMappingNamespaceLister helps list and get DomainMappings.
+// All objects returned here must be treated as read-only.
 type DomainMappingNamespaceLister interface {
 	// List lists all DomainMappings in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.DomainMapping, err error)
 	// Get retrieves the DomainMapping from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.DomainMapping, error)
 	DomainMappingNamespaceListerExpansion
 }
