@@ -126,14 +126,13 @@ func TestHTTPSchemeProbeSuccess(t *testing.T) {
 }
 
 func TestHTTPProbeTimeoutFailure(t *testing.T) {
-	timeout := 10 * time.Millisecond
 	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(timeout * 5)
+		time.Sleep(50 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	})
 
 	config := HTTPProbeConfigOptions{
-		Timeout:       timeout,
+		Timeout:       1 * time.Millisecond,
 		HTTPGetAction: newHTTPGetAction(t, server.URL),
 	}
 	if err := HTTPProbe(config); err == nil {
