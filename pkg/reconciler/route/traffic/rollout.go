@@ -455,9 +455,9 @@ func (cur *ConfigurationRollout) computeProperties(nowTS, minStepSec, durationSe
 	// The smallest step is 1%, so if we can fit more steps
 	// than we have percents, we'll make pf = c.Percent-1 steps
 	// each equal to 1%. -1, since we already moved 1% of the traffic.
-	pf := float64(cur.Percent - 1)
-	if pf < numSteps {
-		numSteps = pf
+	remPercent := float64(cur.Percent - 1)
+	if remPercent < numSteps {
+		numSteps = remPercent
 	}
 
 	// We're moving traffic in equal steps.
@@ -466,7 +466,7 @@ func (cur *ConfigurationRollout) computeProperties(nowTS, minStepSec, durationSe
 	// E.g. 100% in 4 steps. 1% -> 26% -> 51% -> 76% -> 100%.
 	// In addition, ensure that we don't have step size larger than total
 	//  percentage for the configuration.
-	stepSize := math.Round(pf / numSteps)
+	stepSize := math.Round(remPercent / numSteps)
 
 	// The time we sleep between the steps.
 	stepDuration := durationSecs / numSteps * float64(time.Second)
