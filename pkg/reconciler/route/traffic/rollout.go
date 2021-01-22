@@ -466,7 +466,7 @@ func (cur *ConfigurationRollout) computeProperties(nowTS, minStepSec, durationSe
 	// E.g. 100% in 4 steps. 1% -> 26% -> 51% -> 76% -> 100%.
 	// In addition, ensure that we don't have step size larger than total
 	//  percentage for the configuration.
-	stepSize := math.Min(pf, math.Round(pf/numSteps))
+	stepSize := math.Round(pf / numSteps)
 
 	// The time we sleep between the steps.
 	stepDuration := durationSecs / numSteps * float64(time.Second)
