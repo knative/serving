@@ -34,13 +34,12 @@ import (
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	filteredpodinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered"
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/sharedmain"
-	"knative.dev/pkg/leaderelection"
-
 	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	configmap "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/injection"
+	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
@@ -85,7 +84,7 @@ func main() {
 	// Adjust our client's rate limits based on the number of controller's we are running.
 	cfg.QPS = controllerNum * rest.DefaultQPS
 	cfg.Burst = controllerNum * rest.DefaultBurst
-	ctx = context.WithValue(ctx, filteredinformerfactory.LabelKey{}, []string{serving.ServiceLabelKey})
+	ctx = context.WithValue(ctx, filteredinformerfactory.LabelKey{}, []string{serving.RevisionUID})
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
 	kubeClient := kubeclient.Get(ctx)
@@ -124,7 +123,7 @@ func main() {
 		metrics.ConfigMapWatcher(ctx, component, nil /* SecretFetcher */, logger),
 		profilingHandler.UpdateFromConfigMap)
 
-	podLister := filteredpodinformer.Get(ctx, serving.ServiceLabelKey).Lister()
+	podLister := filteredpodinformer.Get(ctx, serving.RevisionUID).Lister()
 
 	collector := asmetrics.NewMetricCollector(
 		statsScraperFactoryFunc(podLister), logger)

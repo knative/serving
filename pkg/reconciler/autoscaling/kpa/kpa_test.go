@@ -33,6 +33,7 @@ import (
 	fakesksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakepodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -1214,6 +1215,8 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	fakeDeciders := newTestDeciders()
+	// ctx = context.WithValue(ctx, filteredinformerfactory.LabelKey{}, []string{serving.RevisionUID})
+	// ctx = filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	ctl := NewController(ctx, watcher, fakeDeciders)
 
 	// Load default config

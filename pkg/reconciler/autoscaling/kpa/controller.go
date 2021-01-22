@@ -56,7 +56,7 @@ func NewController(
 	logger := logging.FromContext(ctx)
 	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
-	podsInformer := filteredpodinformer.Get(ctx, serving.ServiceLabelKey)
+	podsInformer := filteredpodinformer.Get(ctx, serving.RevisionUID)
 	metricInformer := metricinformer.Get(ctx)
 	psInformerFactory := podscalable.Get(ctx)
 
