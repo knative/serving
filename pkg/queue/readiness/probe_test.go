@@ -312,7 +312,11 @@ func TestHTTPManyParallel(t *testing.T) {
 
 func TestHTTPTimeout(t *testing.T) {
 	tsURL := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(time.Second + 10*time.Millisecond)
+		select {
+		case <-time.After(10 * time.Second):
+		case <-r.Context().Done():
+		}
+
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -465,7 +469,11 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 
 func TestKnHTTPTimeoutFailure(t *testing.T) {
 	tsURL := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(aggressiveProbeTimeout + 10*time.Millisecond)
+		select {
+		case <-time.After(1 * time.Second):
+		case <-r.Context().Done():
+		}
+
 		w.WriteHeader(http.StatusOK)
 	})
 

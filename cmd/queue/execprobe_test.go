@@ -49,7 +49,7 @@ func TestProbeQueueConnectionFailure(t *testing.T) {
 
 func TestProbeQueueNotReady(t *testing.T) {
 	var probed atomic.Bool
-	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+	port := newProbeTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		probed.Store(true)
 		w.WriteHeader(http.StatusBadRequest)
 	})
@@ -67,7 +67,7 @@ func TestProbeQueueNotReady(t *testing.T) {
 
 func TestProbeShuttingDown(t *testing.T) {
 	var probed atomic.Bool
-	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+	port := newProbeTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		probed.Store(true)
 		w.WriteHeader(http.StatusGone)
 	})
@@ -84,7 +84,7 @@ func TestProbeShuttingDown(t *testing.T) {
 }
 
 func TestProbeQueueShuttingDownFailsFast(t *testing.T) {
-	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+	port := newProbeTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusGone)
 	})
 
@@ -101,7 +101,7 @@ func TestProbeQueueShuttingDownFailsFast(t *testing.T) {
 
 func TestProbeQueueReady(t *testing.T) {
 	var probed atomic.Bool
-	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+	port := newProbeTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		probed.Store(true)
 		w.WriteHeader(http.StatusOK)
 	})
@@ -120,16 +120,21 @@ func TestProbeQueueReady(t *testing.T) {
 
 func TestProbeQueueTimeout(t *testing.T) {
 	var probed atomic.Bool
-	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+	port := newProbeTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		probed.Store(true)
-		time.Sleep(200 * time.Millisecond)
+
+		select {
+		case <-time.After(1 * time.Second):
+		case <-r.Context().Done():
+		}
+
 		w.WriteHeader(http.StatusOK)
 	})
 
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
 	os.Setenv(queuePortEnvVar, strconv.Itoa(port))
 
-	if rv := standaloneProbeMain(100*time.Millisecond, nil); rv == 0 {
+	if rv := standaloneProbeMain(1*time.Millisecond, nil); rv == 0 {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
@@ -140,7 +145,7 @@ func TestProbeQueueTimeout(t *testing.T) {
 
 func TestProbeQueueDelayedReady(t *testing.T) {
 	var count atomic.Int64
-	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+	port := newProbeTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		if count.Inc() < 3 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -153,10 +158,10 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 	}
 }
 
-func newProbeTestServer(t *testing.T, f func(w http.ResponseWriter)) (port int) {
+func newProbeTestServer(t *testing.T, f func(w http.ResponseWriter, r *http.Request)) (port int) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get(network.UserAgentKey) == network.QueueProxyUserAgent {
-			f(w)
+			f(w, r)
 		}
 	}))
 	t.Cleanup(ts.Close)

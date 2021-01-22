@@ -124,7 +124,10 @@ func TestResolveInBackground(t *testing.T) {
 		timeout: ptr.Duration(10 * time.Millisecond),
 		resolver: func(ctx context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
 			if img == "second-image" {
-				time.Sleep(500 * time.Millisecond)
+				select {
+				case <-time.After(10 * time.Second):
+				case <-ctx.Done():
+				}
 			}
 
 			return img + "-digest", ctx.Err()
