@@ -127,7 +127,11 @@ func TestHTTPSchemeProbeSuccess(t *testing.T) {
 
 func TestHTTPProbeTimeoutFailure(t *testing.T) {
 	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(50 * time.Millisecond)
+		select {
+		case <-time.After(1 * time.Second):
+		case <-r.Context().Done():
+		}
+
 		w.WriteHeader(http.StatusOK)
 	})
 
