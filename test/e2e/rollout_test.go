@@ -55,37 +55,44 @@ func TestGradualRollout(t *testing.T) {
 		t.Fatalf("Patch update for Service %s with image %s failed: %v", names.Service, test.Autoscale, err)
 	}
 
-	sawRolloutStatus := false
-	sawTwoTrafficTargets := false
-
 	// This will cover all the status checks:
 	// - Status is in Rollout
 	// - Traffic is splitting
 	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service,
 		func(s *v1.Service) (bool, error) {
 			// New revision not yet created.
-			if s.Status.LatestCreatedRevisionName == robjs.Revision.Name {
-				return false, nil
-			}
+			return s.Status.LatestCreatedRevisionName != robjs.Revision.Name, nil
+		}, "SecondRevision"); err != nil {
+		t.Fatal("Second revision never got created")
+	}
 
-			// Rollout not yet started.
-			if !sawRolloutStatus && s.Status.GetCondition(v1.ServiceConditionRoutesReady).GetReason() != "RolloutInProgress" {
-				return false, nil
-			}
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service,
+		func(s *v1.Service) (bool, error) {
+			return s.Status.GetCondition(v1.ServiceConditionRoutesReady).GetReason() == "RolloutInProgress", nil
+		}, "RolloutStarted"); err != nil {
+		t.Fatal("Rollout never started")
+	}
 
-			// Rollout started!
-			if !sawRolloutStatus {
-				t.Log("Rollout started to the second revision")
-				sawRolloutStatus = true
-			}
+	t.Log("Rollout started to the second revision")
 
-			// Here we saw rollout. So two things can happen:
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service,
+		func(s *v1.Service) (bool, error) {
+			traffic := s.Status.Traffic
+			return len(traffic) == 2, nil
+		}, "TrafficSplit"); err != nil {
+		t.Fatal("Never got split traffic")
+	}
+	t.Log("Saw two traffic targets")
+
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service,
+		func(s *v1.Service) (bool, error) {
+			// Here we saw rollout and split traffic So two things can happen:
 			// 1. Rollout finished
 			// 2. Rollout in progress.
 
 			// We must see two traffic targets at least once (60s to rollout, so more than once in reality).
 			traffic := s.Status.Traffic
-			if sawTwoTrafficTargets && s.IsReady() {
+			if s.IsReady() {
 				t.Log("Saw the status ready!")
 				// Rollout finished! Verify single target.
 				if len(traffic) != 1 {
@@ -102,18 +109,15 @@ func TestGradualRollout(t *testing.T) {
 			// Verify traffic shape. During the rollout there should be exactly 2 items or rollout just finished
 			// and the new target has 100%, but service is not yet ready.
 			if tl := len(traffic); tl != 2 {
-				if sawTwoTrafficTargets && tl == 1 &&
-					traffic[0].RevisionName == s.Status.LatestCreatedRevisionName && *traffic[0].Percent == 100 {
+				if tl == 1 &&
+					traffic[0].RevisionName == s.Status.LatestCreatedRevisionName &&
+					*traffic[0].Percent == 100 {
 					return false, nil
 				}
 				return false, fmt.Errorf("Expected two items in traffic stanza but got: %#v", s.Status.Traffic)
-			} else if !sawTwoTrafficTargets {
-				t.Log("Saw two traffic targets")
-				sawTwoTrafficTargets = true
 			}
-
 			return false, nil
-		}, "ServiceIsRollingOut"); err != nil {
+		}, "RolloutFinished"); err != nil {
 		t.Fatalf("Failed waiting for Rollout %q to complete: %+v", names.Service, err)
 	}
 }
