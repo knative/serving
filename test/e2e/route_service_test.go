@@ -74,7 +74,7 @@ func TestRoutesNotReady(t *testing.T) {
 	// Wait for RoutesReady to become False
 	t.Logf("Validating Service %q has reconciled to RoutesReady == False.", names.Service)
 	if err = v1test.CheckServiceState(clients.ServingClient, names.Service, v1test.IsServiceRoutesNotReady); err != nil {
-		t.Fatalf("Service %q was not marked RoutesReady  == False: %#v", names.Service, err)
+		t.Fatalf("Service %q was not marked RoutesReady == False: %#v", names.Service, err)
 	}
 }
 
@@ -84,49 +84,45 @@ func TestRouteVisibilityChanges(t *testing.T) {
 	testCases := []struct {
 		name            string
 		withTrafficSpec rtesting.ServiceOption
-	}{
-		{
-			name: "Route visibility changes from public to private with single traffic",
-			withTrafficSpec: rtesting.WithRouteSpec(v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{
-						Percent: ptr.Int64(100),
-					},
+	}{{
+		name: "Route visibility changes from public to private with single traffic",
+		withTrafficSpec: rtesting.WithRouteSpec(v1.RouteSpec{
+			Traffic: []v1.TrafficTarget{
+				{
+					Percent: ptr.Int64(100),
 				},
-			}),
-		},
-		{
-			name: "Route visibility changes from public to private with tag only",
-			withTrafficSpec: rtesting.WithRouteSpec(v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{
-						Percent: ptr.Int64(100),
-						Tag:     "cow",
-					},
+			},
+		}),
+	}, {
+		name: "Route visibility changes from public to private with tag only",
+		withTrafficSpec: rtesting.WithRouteSpec(v1.RouteSpec{
+			Traffic: []v1.TrafficTarget{
+				{
+					Percent: ptr.Int64(100),
+					Tag:     "cow",
 				},
-			}),
-		},
-		{
-			name: "Route visibility changes from public to private with both tagged and non-tagged traffic",
-			withTrafficSpec: rtesting.WithRouteSpec(v1.RouteSpec{
-				Traffic: []v1.TrafficTarget{
-					{
-						Percent: ptr.Int64(60),
-					},
-					{
-						Percent: ptr.Int64(40),
-						Tag:     "cow",
-					},
+			},
+		}),
+	}, {
+		name: "Route visibility changes from public to private with both tagged and non-tagged traffic",
+		withTrafficSpec: rtesting.WithRouteSpec(v1.RouteSpec{
+			Traffic: []v1.TrafficTarget{
+				{
+					Percent: ptr.Int64(60),
 				},
-			}),
-		},
-	}
+				{
+					Percent: ptr.Int64(40),
+					Tag:     "cow",
+				},
+			},
+		}),
+	}}
 
-	hasPublicRoute := func(r *v1.Route) (b bool, e error) {
+	hasPublicRoute := func(r *v1.Route) (bool, error) {
 		return !isRouteClusterLocal(r.Status), nil
 	}
 
-	hasPrivateRoute := func(r *v1.Route) (b bool, e error) {
+	hasPrivateRoute := func(r *v1.Route) (bool, error) {
 		return isRouteClusterLocal(r.Status), nil
 	}
 
@@ -145,15 +141,11 @@ func TestRouteVisibilityChanges(t *testing.T) {
 			test.EnsureTearDown(t, clients, &names)
 
 			st.Log("Creating a new Service")
-			svc, err := v1test.CreateService(st, clients, names, testCase.withTrafficSpec)
+			objs, err := v1test.CreateServiceReady(st, clients, &names, testCase.withTrafficSpec)
 			if err != nil {
 				st.Fatalf("Failed to create initial Service %q: %#v", names.Service, err)
 			}
-
-			st.Logf("Waiting for Service %q ObservedGeneration to match Generation, and status transition to Ready == True", names.Service)
-			if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
-				st.Fatalf("Failed waiting for Service %q to transition to Ready == True: %#v", names.Service, err)
-			}
+			svc := objs.Service
 
 			st.Logf("Validating Route %q has non cluster-local address", serviceresourcenames.Route(svc))
 			// Check Route is not ready

@@ -23,10 +23,11 @@ import (
 	"testing"
 
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	. "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/pkg/webhook"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
+
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 func withInvalidContainer() ServiceOption {
