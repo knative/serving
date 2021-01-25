@@ -34,6 +34,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		defer isLocked.Store(false)
 		time.Sleep(500 * time.Millisecond)
 		fmt.Fprintf(w, "One at a time")
+		return
 	}
 	// Return HTTP 500 if more than 1 request at a time gets in
 	w.WriteHeader(http.StatusInternalServerError)
