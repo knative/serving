@@ -27,18 +27,16 @@ import (
 	"knative.dev/serving/test"
 )
 
-var lockedFlag = atomic.NewInt32(-1)
+var isLocked = atomic.NewBool(false)
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	v := lockedFlag.Inc() // Returns the new value.
-	defer lockedFlag.Dec()
-	if v > 0 {
-		// Return HTTP 500 if more than 1 request at a time gets in
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	if isLocked.CAS(false /*was unlocked*/, true /*lock*/) {
+		defer isLocked.Store(false)
+		time.Sleep(500 * time.Millisecond)
+		fmt.Fprintf(w, "One at a time")
 	}
-	time.Sleep(500 * time.Millisecond)
-	fmt.Fprintf(w, "One at a time")
+	// Return HTTP 500 if more than 1 request at a time gets in
+	w.WriteHeader(http.StatusInternalServerError)
 }
 
 func main() {
