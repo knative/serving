@@ -26,8 +26,10 @@ import (
 )
 
 // ServerlessServiceLister helps list ServerlessServices.
+// All objects returned here must be treated as read-only.
 type ServerlessServiceLister interface {
 	// List lists all ServerlessServices in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ServerlessService, err error)
 	// ServerlessServices returns an object that can list and get ServerlessServices.
 	ServerlessServices(namespace string) ServerlessServiceNamespaceLister
@@ -58,10 +60,13 @@ func (s *serverlessServiceLister) ServerlessServices(namespace string) Serverles
 }
 
 // ServerlessServiceNamespaceLister helps list and get ServerlessServices.
+// All objects returned here must be treated as read-only.
 type ServerlessServiceNamespaceLister interface {
 	// List lists all ServerlessServices in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ServerlessService, err error)
 	// Get retrieves the ServerlessService from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.ServerlessService, error)
 	ServerlessServiceNamespaceListerExpansion
 }

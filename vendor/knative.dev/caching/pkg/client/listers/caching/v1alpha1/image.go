@@ -26,8 +26,10 @@ import (
 )
 
 // ImageLister helps list Images.
+// All objects returned here must be treated as read-only.
 type ImageLister interface {
 	// List lists all Images in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.Image, err error)
 	// Images returns an object that can list and get Images.
 	Images(namespace string) ImageNamespaceLister
@@ -58,10 +60,13 @@ func (s *imageLister) Images(namespace string) ImageNamespaceLister {
 }
 
 // ImageNamespaceLister helps list and get Images.
+// All objects returned here must be treated as read-only.
 type ImageNamespaceLister interface {
 	// List lists all Images in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.Image, err error)
 	// Get retrieves the Image from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.Image, error)
 	ImageNamespaceListerExpansion
 }

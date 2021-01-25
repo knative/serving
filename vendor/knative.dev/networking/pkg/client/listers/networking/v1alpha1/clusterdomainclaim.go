@@ -26,10 +26,13 @@ import (
 )
 
 // ClusterDomainClaimLister helps list ClusterDomainClaims.
+// All objects returned here must be treated as read-only.
 type ClusterDomainClaimLister interface {
 	// List lists all ClusterDomainClaims in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ClusterDomainClaim, err error)
 	// Get retrieves the ClusterDomainClaim from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.ClusterDomainClaim, error)
 	ClusterDomainClaimListerExpansion
 }

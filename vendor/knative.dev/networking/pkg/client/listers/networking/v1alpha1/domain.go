@@ -26,10 +26,13 @@ import (
 )
 
 // DomainLister helps list Domains.
+// All objects returned here must be treated as read-only.
 type DomainLister interface {
 	// List lists all Domains in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.Domain, err error)
 	// Get retrieves the Domain from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.Domain, error)
 	DomainListerExpansion
 }
