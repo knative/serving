@@ -131,7 +131,7 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
-	return
+	return ctx, informers, ctrl, configMapWatcher, cf
 }
 
 func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1.Route) *v1alpha1.Ingress {

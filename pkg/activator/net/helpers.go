@@ -98,9 +98,9 @@ func getServicePort(protocol networking.ProtocolType, svc *corev1.Service) (port
 	wantName := networking.ServicePortName(protocol)
 	for _, p := range svc.Spec.Ports {
 		if p.Name == wantName {
-			port, ok = int(p.Port), true
-			return
+			return int(p.Port), true
 		}
 	}
-	return
+
+	return 0, false
 }

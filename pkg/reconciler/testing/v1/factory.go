@@ -163,7 +163,7 @@ func ToUnstructured(t *testing.T, sch *runtime.Scheme, objs []runtime.Object) (u
 		}
 		us = append(us, u)
 	}
-	return
+	return us
 }
 
 type key struct{}
