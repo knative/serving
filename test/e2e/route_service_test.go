@@ -46,12 +46,11 @@ func TestRoutesNotReady(t *testing.T) {
 	test.EnsureTearDown(t, clients, &names)
 
 	withTrafficSpec := rtesting.WithRouteSpec(v1.RouteSpec{
-		Traffic: []v1.TrafficTarget{
-			{
-				RevisionName: "foobar", // Invalid revision name. This allows Revision creation to succeed and Route configuration to fail
-				Percent:      ptr.Int64(100),
-			},
-		},
+		Traffic: []v1.TrafficTarget{{
+			// Invalid revision name. This allows Revision creation to succeed and Route configuration to fail
+			RevisionName: "foobar",
+			Percent:      ptr.Int64(100),
+		}},
 	})
 
 	t.Log("Creating a new Service with an invalid traffic target.")
@@ -87,34 +86,27 @@ func TestRouteVisibilityChanges(t *testing.T) {
 	}{{
 		name: "Route visibility changes from public to private with single traffic",
 		withTrafficSpec: rtesting.WithRouteSpec(v1.RouteSpec{
-			Traffic: []v1.TrafficTarget{
-				{
-					Percent: ptr.Int64(100),
-				},
-			},
+			Traffic: []v1.TrafficTarget{{
+				Percent: ptr.Int64(100),
+			}},
 		}),
 	}, {
 		name: "Route visibility changes from public to private with tag only",
 		withTrafficSpec: rtesting.WithRouteSpec(v1.RouteSpec{
-			Traffic: []v1.TrafficTarget{
-				{
-					Percent: ptr.Int64(100),
-					Tag:     "cow",
-				},
-			},
+			Traffic: []v1.TrafficTarget{{
+				Percent: ptr.Int64(100),
+				Tag:     "cow",
+			}},
 		}),
 	}, {
 		name: "Route visibility changes from public to private with both tagged and non-tagged traffic",
 		withTrafficSpec: rtesting.WithRouteSpec(v1.RouteSpec{
-			Traffic: []v1.TrafficTarget{
-				{
-					Percent: ptr.Int64(60),
-				},
-				{
-					Percent: ptr.Int64(40),
-					Tag:     "cow",
-				},
-			},
+			Traffic: []v1.TrafficTarget{{
+				Percent: ptr.Int64(60),
+			}, {
+				Percent: ptr.Int64(40),
+				Tag:     "cow",
+			}},
 		}),
 	}}
 
