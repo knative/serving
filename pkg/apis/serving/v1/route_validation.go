@@ -191,7 +191,7 @@ func (tt *TrafficTarget) validateURL(ctx context.Context, errs *apis.FieldError)
 	return errs
 }
 
-func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
+func validateClusterVisibilityLabel(label string) *apis.FieldError {
 	if label != serving.VisibilityClusterLocal {
 		return apis.ErrInvalidValue(label, network.VisibilityLabelKey)
 	}
