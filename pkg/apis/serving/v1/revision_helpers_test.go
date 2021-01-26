@@ -181,10 +181,7 @@ func TestRevisionGetProtocol(t *testing.T) {
 				},
 			}
 
-			got := r.GetProtocol()
-			want := tt.protocol
-
-			if got != want {
+			if got, want := r.GetProtocol(), tt.protocol; got != want {
 				t.Errorf("Protocol = %v, want: %v", got, want)
 			}
 		})
