@@ -49,7 +49,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	// A standalone revision
-	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName("test-rev"))
+	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName)
 	// A route targeting the revision
 	route := Route(testNamespace, "test-route", WithSpecTraffic(
 		v1.TrafficTarget{

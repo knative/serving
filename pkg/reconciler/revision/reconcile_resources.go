@@ -172,6 +172,10 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 		}
 	}
 
+	// The public service name is always equal to the revision name itself.
+	// Historically it's been acquired from the PA object, so the assignment is here.
+	rev.Status.ServiceName = rev.Name
+
 	logger.Debugf("Observed PA Status=%#v", pa.Status)
 	rev.Status.PropagateAutoscalerStatus(&pa.Status)
 	return nil
