@@ -53,7 +53,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 	t.Log("Creating a Service for the helloworld test app.")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   test.HelloWorld,
 	}
 
 	test.EnsureTearDown(t, clients, &names)
