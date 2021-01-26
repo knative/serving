@@ -153,7 +153,8 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// uniformness with one above.
 	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
 		svcEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(
-			context.Background(), ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
+			context.Background(), ctx.resources.Revision.Name, /* revision service name is equal to revision name*/
+			metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

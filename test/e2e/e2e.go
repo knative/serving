@@ -131,7 +131,7 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 		}
 
 		svcEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(
-			context.Background(), ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
+			context.Background(), ctx.resources.Revision.Status.DeprecatedServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
