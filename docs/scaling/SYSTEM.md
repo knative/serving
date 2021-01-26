@@ -121,7 +121,7 @@ especially the switch between having the activator as a buffer on the data path
 directly (when scaled above zero).
 
 This is achieved by creating two Kubernetes services for each revision: A
-**public**service and a **private** service.
+**public** service and a **private** service.
 
 The private service is a standard Kubernetes service. Its selector is set to
 point to the application instances deployed and as the deployment grows and
