@@ -21,6 +21,7 @@ package e2e
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving"
@@ -35,6 +36,8 @@ func TestGradualRollout(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
+	const rolloutDuration = time.Minute
+
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   test.PizzaPlanet1,
@@ -46,7 +49,7 @@ func TestGradualRollout(t *testing.T) {
 	// Setup Service
 	t.Log("Creating a new Service", names.Service)
 	robjs, err := v1test.CreateServiceReady(t, clients, &names,
-		testingv1.WithServiceAnnotation(serving.RolloutDurationKey, "60s"))
+		testingv1.WithServiceAnnotation(serving.RolloutDurationKey, rolloutDuration.String()))
 	if err != nil {
 		t.Fatal("Create Ready Service:", err)
 	}
@@ -54,6 +57,7 @@ func TestGradualRollout(t *testing.T) {
 	if _, err := v1test.PatchService(t, clients, robjs.Service, testingv1.WithServiceImage(pkgtest.ImagePath(test.Autoscale))); err != nil {
 		t.Fatalf("Patch update for Service %s with image %s failed: %v", names.Service, test.Autoscale, err)
 	}
+	start := time.Now()
 
 	// This will cover all the status checks:
 	// - Status is in Rollout
@@ -120,4 +124,10 @@ func TestGradualRollout(t *testing.T) {
 		}, "RolloutFinished"); err != nil {
 		t.Fatalf("Failed waiting for Rollout %q to complete: %+v", names.Service, err)
 	}
+
+	dur := time.Since(start)
+	if dur < time.Minute {
+		t.Errorf("Actual Rollout duration shorter than requested: %v < %v", dur, rolloutDuration)
+	}
+	t.Log("Rollout Duration =", dur)
 }
