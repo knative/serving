@@ -84,7 +84,7 @@ func testConfiguration() *v1.Configuration {
 func revisionForConfig(config *v1.Configuration) *v1.Revision {
 	return Revision(testNamespace, "p-deadbeef", func(r *v1.Revision) {
 		r.Spec = *config.Spec.GetTemplate().Spec.DeepCopy()
-	}, MarkRevisionReady, WithK8sServiceName("p-deadbeef"))
+	}, MarkRevisionReady, WithK8sServiceName)
 }
 
 func newTestSetup(t *testing.T, opts ...reconcilerOption) (
@@ -537,7 +537,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	defer cf()
 
 	// A standalone revision
-	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName("test-rev"))
+	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
@@ -757,7 +757,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	ctx, _, ctl, _, cf := newTestSetup(t)
 	defer cf()
 	// A standalone revision
-	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName("test-rev"))
+	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
@@ -972,7 +972,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 		},
 	})
 	// A standalone revision
-	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName("test-rev"))
+	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 

@@ -169,9 +169,6 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 
 // PropagateAutoscalerStatus propagates autoscaler's status to the revision's status.
 func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerStatus) {
-	// Propagate the service name from the PA.
-	rs.ServiceName = ps.ServiceName
-
 	// Reflect the PA status in our own.
 	cond := ps.GetCondition(av1alpha1.PodAutoscalerConditionReady)
 	if cond == nil {
