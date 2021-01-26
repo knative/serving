@@ -225,7 +225,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 					Splits: []v1alpha1.IngressBackendSplit{{
 						IngressBackend: v1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      rev.Status.ServiceName,
+							ServiceName:      rev.Status.DeprecatedServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
@@ -246,7 +246,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 					Splits: []v1alpha1.IngressBackendSplit{{
 						IngressBackend: v1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      rev.Status.ServiceName,
+							ServiceName:      rev.Status.DeprecatedServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100,
@@ -353,7 +353,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 					Splits: []v1alpha1.IngressBackendSplit{{
 						IngressBackend: v1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      cfgrev.Status.ServiceName,
+							ServiceName:      cfgrev.Status.DeprecatedServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
@@ -364,7 +364,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 					}, {
 						IngressBackend: v1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      rev.Status.ServiceName,
+							ServiceName:      rev.Status.DeprecatedServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 10,
@@ -385,7 +385,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 					Splits: []v1alpha1.IngressBackendSplit{{
 						IngressBackend: v1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      cfgrev.Status.ServiceName,
+							ServiceName:      cfgrev.Status.DeprecatedServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
@@ -396,7 +396,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 					}, {
 						IngressBackend: v1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      rev.Status.ServiceName,
+							ServiceName:      rev.Status.DeprecatedServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 10,
@@ -470,7 +470,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 					Splits: []v1alpha1.IngressBackendSplit{{
 						IngressBackend: v1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      cfgrev.Status.ServiceName,
+							ServiceName:      cfgrev.Status.DeprecatedServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
@@ -481,7 +481,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 					}, {
 						IngressBackend: v1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      rev.Status.ServiceName,
+							ServiceName:      rev.Status.DeprecatedServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 10,
@@ -502,7 +502,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 					Splits: []v1alpha1.IngressBackendSplit{{
 						IngressBackend: v1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      cfgrev.Status.ServiceName,
+							ServiceName:      cfgrev.Status.DeprecatedServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 90,
@@ -513,7 +513,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 					}, {
 						IngressBackend: v1alpha1.IngressBackend{
 							ServiceNamespace: testNamespace,
-							ServiceName:      rev.Status.ServiceName,
+							ServiceName:      rev.Status.DeprecatedServiceName,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 10,
