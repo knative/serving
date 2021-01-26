@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -118,11 +119,12 @@ func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
 		"Upgrade":    "h2c",
 	}
 	expectedPath := "/health"
-	callCount := 0
+	var callCount int32
+	callCount = 0
 
 	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		if callCount == 1 {
+		count := atomic.AddInt32(&callCount, 1)
+		if count == 1 {
 			// This is the h2c handshake, we won't do anything.
 			for key, value := range h2cHeaders {
 				if r.Header.Get(key) == value {
@@ -130,7 +132,7 @@ func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
 				}
 			}
 		} else {
-			t.Errorf("Handler should only have one calls, this is call %d", callCount)
+			t.Errorf("Handler should only have one calls, this is call %d", count)
 		}
 	})
 
@@ -144,8 +146,8 @@ func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
 	if err := HTTPProbe(ctx, config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
 	}
-	if callCount != 1 {
-		t.Errorf("Unexpected call count %d", callCount)
+	if count := atomic.LoadInt32(&callCount); count != 1 {
+		t.Errorf("Unexpected call count %d", count)
 	}
 }
 
@@ -160,18 +162,19 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 		"Upgrade":    "h2c",
 	}
 	expectedPath := "/health"
-	callCount := 0
+	var callCount int32 
+	callCount = 0
 
 	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		if callCount == 1 {
+		count := atomic.AddInt32(&callCount, 1)
+		if count == 1 {
 			// This is the h2c handshake, we won't do anything.
 			for key, value := range h2cHeaders {
 				if r.Header.Get(key) != value {
 					t.Errorf("Key %v = %v was supposed to be present in the request", key, value)
 				}
 			}
-		} else if callCount == 2 {
+		} else if count == 2 {
 			// This is the expected call. It should not have any of the h2c upgrade stuff, since the h2c test server will handle that for us.
 			for key, value := range h2cHeaders {
 				if r.Header.Get(key) == value {
@@ -179,7 +182,7 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 				}
 			}
 		} else {
-			t.Errorf("Handler should only have two calls, this is call %d", callCount)
+			t.Errorf("Handler should only have two calls, this is call %d", count)
 		}
 	})
 
@@ -193,8 +196,8 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 	if err := HTTPProbe(ctx, config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
 	}
-	if callCount != 2 {
-		t.Errorf("Unexpected call count %d", callCount)
+	if count := atomic.LoadInt32(&callCount); count != 2 {
+		t.Errorf("Unexpected call count %d", count)
 	}
 }
 
