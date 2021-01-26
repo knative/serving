@@ -162,7 +162,7 @@ func HTTPProbe(ctx context.Context, config HTTPProbeConfigOptions) error {
 	if autoDetect == apicfg.Enabled && config.IsHTTP2 == nil {
 		isHTTP2, isReady, err := http2UpgradeProbe(config)
 		if err != nil {
-			return fmt.Errorf("Failed to run HTTP2 upgrade probe with error: %v", err)
+			return fmt.Errorf("failed to run HTTP2 upgrade probe with error: %w", err)
 		}
 		config.IsHTTP2 = isHTTP2
 		if isReady {

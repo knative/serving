@@ -119,8 +119,7 @@ func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
 		"Upgrade":    "h2c",
 	}
 	expectedPath := "/health"
-	var callCount int32
-	callCount = 0
+	var callCount int32 = 0
 
 	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		count := atomic.AddInt32(&callCount, 1)
@@ -162,8 +161,7 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 		"Upgrade":    "h2c",
 	}
 	expectedPath := "/health"
-	var callCount int32
-	callCount = 0
+	var callCount int32 = 0
 
 	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		count := atomic.AddInt32(&callCount, 1)
