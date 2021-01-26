@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: activator
@@ -27,15 +27,14 @@ spec:
     kind: Deployment
     name: activator
   metrics:
-    - type: Resource
-      resource:
-        name: cpu
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
         # Percentage of the requested CPU
-        targetAverageUtilization: 100
-
-
+        averageUtilization: 100
 ---
-
 # Activator PDB. Currently we permit unavailability of 20% of tasks at the same time.
 # Given the subsetting and that the activators are partially stateful systems, we want
 # a slow rollout of the new versions and slow migration during node upgrades.

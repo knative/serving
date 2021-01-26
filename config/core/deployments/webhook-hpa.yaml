@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: webhook
@@ -27,15 +27,14 @@ spec:
     kind: Deployment
     name: webhook
   metrics:
-    - type: Resource
-      resource:
-        name: cpu
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
         # Percentage of the requested CPU
-        targetAverageUtilization: 100
-
-
+        averageUtilization: 100
 ---
-
 # Webhook PDB.
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
