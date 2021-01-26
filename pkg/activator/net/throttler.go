@@ -354,16 +354,16 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 		// e.g. lt=3, #ac = 5; for selfIdx = 3 => 3 % 3 = 0, or for si = 5 => 5%3 = 2
 		beginIndex = selfIndex % numTrackers
 		endIndex = beginIndex + 1
-		return
+		return beginIndex, endIndex, 0
 	}
 
 	// 2. distribute equally and share the remnants
 	// among all the activators, but with reduced capacity, if finite.
 	sliceSize := numTrackers / numActivators
-	remnants = numTrackers % numActivators
 	beginIndex = selfIndex * sliceSize
 	endIndex = beginIndex + sliceSize
-	return
+	remnants = numTrackers % numActivators
+	return beginIndex, endIndex, remnants
 }
 
 // assignSlice picks a subset of the individual pods to send requests to

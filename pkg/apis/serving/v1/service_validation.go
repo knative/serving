@@ -75,5 +75,5 @@ func (s *Service) validateLabels() (errs *apis.FieldError) {
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}
-	return
+	return errs
 }

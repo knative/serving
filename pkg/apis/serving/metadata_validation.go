@@ -87,7 +87,7 @@ func validateKnativeAnnotations(annotations map[string]string) (errs *apis.Field
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}
-	return
+	return errs
 }
 
 // ValidateHasNoAutoscalingAnnotation validates that the respective entity does not have

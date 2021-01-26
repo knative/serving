@@ -51,6 +51,7 @@ func (pa PodAccessor) PodCountsByState() (ready, notReady, pending, terminating 
 	if err != nil {
 		return 0, 0, 0, 0, err
 	}
+
 	for _, p := range pods {
 		switch p.Status.Phase {
 		case corev1.PodPending:
@@ -69,7 +70,8 @@ func (pa PodAccessor) PodCountsByState() (ready, notReady, pending, terminating 
 			}
 		}
 	}
-	return
+
+	return ready, notReady, pending, terminating, nil
 }
 
 // ReadyCount implements EndpointsCounter.

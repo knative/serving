@@ -194,11 +194,12 @@ func (tt *TrafficTarget) validateURL(ctx context.Context, errs *apis.FieldError)
 	return errs
 }
 
-func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
+func validateClusterVisibilityLabel(label string) *apis.FieldError {
 	if label != serving.VisibilityClusterLocal {
-		errs = apis.ErrInvalidValue(label, network.VisibilityLabelKey)
+		return apis.ErrInvalidValue(label, network.VisibilityLabelKey)
 	}
-	return
+
+	return nil
 }
 
 // validateLabels function validates route labels.
@@ -215,5 +216,5 @@ func (r *Route) validateLabels() (errs *apis.FieldError) {
 			}
 		}
 	}
-	return
+	return errs
 }

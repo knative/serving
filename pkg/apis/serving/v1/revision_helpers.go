@@ -157,19 +157,13 @@ func (r *Revision) IsReachable() bool {
 }
 
 // GetProtocol returns the app level network protocol.
-func (r *Revision) GetProtocol() (p net.ProtocolType) {
-	p = net.ProtocolHTTP1
-
+func (r *Revision) GetProtocol() net.ProtocolType {
 	ports := r.Spec.GetContainer().Ports
-	if len(ports) == 0 {
-		return
+	if len(ports) > 0 && ports[0].Name == string(net.ProtocolH2C) {
+		return net.ProtocolH2C
 	}
 
-	if ports[0].Name == string(net.ProtocolH2C) {
-		p = net.ProtocolH2C
-	}
-
-	return
+	return net.ProtocolHTTP1
 }
 
 // IsActivationRequired returns true if activation is required.
