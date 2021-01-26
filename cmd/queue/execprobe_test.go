@@ -124,7 +124,7 @@ func TestProbeQueueTimeout(t *testing.T) {
 		probed.Store(true)
 
 		select {
-		case <-time.After(1 * time.Second):
+		case <-time.After(time.Second):
 		case <-r.Context().Done():
 		}
 
@@ -134,7 +134,7 @@ func TestProbeQueueTimeout(t *testing.T) {
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
 	os.Setenv(queuePortEnvVar, strconv.Itoa(port))
 
-	if rv := standaloneProbeMain(100*time.Millisecond, nil); rv == 0 {
+	if rv := standaloneProbeMain(300*time.Millisecond, nil); rv == 0 {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
