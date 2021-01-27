@@ -8,7 +8,7 @@ ko apply -f test/performance/config
 ```
 
 By default, it is configured to load test the
-[autoscale-go](https://github.com/knative/docs/tree/master/docs/serving/samples/autoscale-go)
+[autoscale-go](https://github.com/knative/docs/tree/master/docs/serving/autoscaling/autoscale-go)
 sample, which must already be deployed. You can change the target by altering
 the `ConfigMap` to point to a different endpoint.
 
