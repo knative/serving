@@ -364,7 +364,7 @@ func (cb *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
 		Protocol:      rev.GetProtocol(),
-		ServiceName:   rev.Status.DeprecatedServiceName,
+		ServiceName:   rev.Name,
 	}
 	target.TrafficTarget.RevisionName = rev.Name
 	cb.addFlattenedTarget(target)
@@ -383,7 +383,7 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
 		Protocol:      rev.GetProtocol(),
-		ServiceName:   rev.Status.DeprecatedServiceName,
+		ServiceName:   rev.Name,
 	}
 	if configName, ok := rev.Labels[serving.ConfigurationLabelKey]; ok {
 		target.TrafficTarget.ConfigurationName = configName
