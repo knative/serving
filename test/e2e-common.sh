@@ -34,7 +34,7 @@ KO_FLAGS="--platform=linux/amd64"
 KAIL_LOG_FILE="${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
 
 HTTPS=0
-MESH=0
+export MESH=0
 
 # List of custom YAMLs to install, if specified (space-separated).
 INSTALL_CUSTOM_YAMLS=""
