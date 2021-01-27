@@ -151,7 +151,8 @@ func TestBuildTrafficConfigurationVanilla(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				Protocol:    net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -161,7 +162,8 @@ func TestBuildTrafficConfigurationVanilla(t *testing.T) {
 				Percent:           ptr.Int64(100),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Protocol: net.ProtocolH2C,
+			Protocol:    net.ProtocolH2C,
+			ServiceName: goodNewRev.Name,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			goodConfig.Name: goodConfig,
@@ -212,7 +214,8 @@ func TestBuildTrafficConfigurationNoNameRevision(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -222,7 +225,8 @@ func TestBuildTrafficConfigurationNoNameRevision(t *testing.T) {
 				Percent:           ptr.Int64(100),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: goodNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1.Revision{goodNewRev.Name: goodNewRev},
@@ -249,7 +253,8 @@ func TestBuildTrafficConfigurationVanillaScaledToZero(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolHTTP1,
+				ServiceName: inactiveRev.Name,
+				Protocol:    net.ProtocolHTTP1,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -259,7 +264,8 @@ func TestBuildTrafficConfigurationVanillaScaledToZero(t *testing.T) {
 				Percent:           ptr.Int64(100),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Protocol: net.ProtocolHTTP1,
+			ServiceName: inactiveRev.Name,
+			Protocol:    net.ProtocolHTTP1,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			inactiveConfig.Name: inactiveConfig,
@@ -304,7 +310,8 @@ func TestBuildTrafficConfigurationTwoConfigs(t *testing.T) {
 					Percent:           ptr.Int64(90),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: niceNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
@@ -312,7 +319,8 @@ func TestBuildTrafficConfigurationTwoConfigs(t *testing.T) {
 					Percent:           ptr.Int64(10),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -322,7 +330,8 @@ func TestBuildTrafficConfigurationTwoConfigs(t *testing.T) {
 				Percent:           ptr.Int64(90),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: niceNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
@@ -330,7 +339,8 @@ func TestBuildTrafficConfigurationTwoConfigs(t *testing.T) {
 				Percent:           ptr.Int64(10),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: goodNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			goodConfig.Name: goodConfig,
@@ -364,7 +374,8 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfig(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: niceNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -374,7 +385,8 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfig(t *testing.T) {
 				Percent:           ptr.Int64(100),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: niceNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			niceConfig.Name: niceConfig,
@@ -449,7 +461,8 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 					Percent:           ptr.Int64(30),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: niceNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
@@ -458,7 +471,8 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 					LatestRevision:    ptr.Bool(true),
 					Tag:               "robert",
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: inactiveConfig.Name,
@@ -467,7 +481,8 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 					LatestRevision:    ptr.Bool(true),
 					Tag:               "jackson",
 				},
-				Protocol: net.ProtocolHTTP1,
+				ServiceName: inactiveRev.Name,
+				Protocol:    net.ProtocolHTTP1,
 			}},
 			"robert": {{
 				TrafficTarget: v1.TrafficTarget{
@@ -477,7 +492,8 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 					Tag:               "robert",
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 			"jackson": {{
 				TrafficTarget: v1.TrafficTarget{
@@ -487,7 +503,8 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 					Tag:               "jackson",
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolHTTP1,
+				ServiceName: inactiveRev.Name,
+				Protocol:    net.ProtocolHTTP1,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -497,7 +514,8 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 				Percent:           ptr.Int64(30),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: niceNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
@@ -506,7 +524,8 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 				LatestRevision:    ptr.Bool(true),
 				Tag:               "robert",
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: goodNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: inactiveConfig.Name,
@@ -515,7 +534,8 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 				LatestRevision:    ptr.Bool(true),
 				Tag:               "jackson",
 			},
-			Protocol: net.ProtocolHTTP1,
+			ServiceName: inactiveRev.Name,
+			Protocol:    net.ProtocolHTTP1,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			niceConfig.Name:     niceConfig,
@@ -605,7 +625,8 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: niceNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 			"robert": {{
 				TrafficTarget: v1.TrafficTarget{
@@ -615,7 +636,8 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 					Tag:               "robert",
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: niceNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -625,7 +647,8 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 				Percent:           ptr.Int64(90),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: niceNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: niceConfig.Name,
@@ -634,7 +657,8 @@ func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T
 				LatestRevision:    ptr.Bool(true),
 				Tag:               "robert",
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: niceNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			niceConfig.Name: niceConfig,
@@ -694,7 +718,8 @@ func TestBuildTrafficConfigurationCanary(t *testing.T) {
 					Percent:           ptr.Int64(90),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Protocol: net.ProtocolHTTP1,
+				ServiceName: goodOldRev.Name,
+				Protocol:    net.ProtocolHTTP1,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
@@ -702,7 +727,8 @@ func TestBuildTrafficConfigurationCanary(t *testing.T) {
 					Percent:           ptr.Int64(10),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -712,7 +738,8 @@ func TestBuildTrafficConfigurationCanary(t *testing.T) {
 				Percent:           ptr.Int64(90),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Protocol: net.ProtocolHTTP1,
+			ServiceName: goodOldRev.Name,
+			Protocol:    net.ProtocolHTTP1,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
@@ -720,7 +747,8 @@ func TestBuildTrafficConfigurationCanary(t *testing.T) {
 				Percent:           ptr.Int64(10),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: goodNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			goodConfig.Name: goodConfig,
@@ -772,7 +800,8 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 					Percent:           ptr.Int64(49),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Protocol: net.ProtocolHTTP1,
+				ServiceName: goodOldRev.Name,
+				Protocol:    net.ProtocolHTTP1,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					Tag:               "two",
@@ -781,7 +810,8 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 					Percent:           ptr.Int64(51),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 			"one": {{
 				TrafficTarget: v1.TrafficTarget{
@@ -791,7 +821,8 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Protocol: net.ProtocolHTTP1,
+				ServiceName: goodOldRev.Name,
+				Protocol:    net.ProtocolHTTP1,
 			}},
 			"two": {{
 				TrafficTarget: v1.TrafficTarget{
@@ -801,7 +832,8 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 			"also-two": {{
 				TrafficTarget: v1.TrafficTarget{
@@ -811,7 +843,8 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -822,7 +855,8 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 				Percent:           ptr.Int64(49),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Protocol: net.ProtocolHTTP1,
+			ServiceName: goodOldRev.Name,
+			Protocol:    net.ProtocolHTTP1,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				Tag:               "two",
@@ -831,7 +865,8 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 				Percent:           ptr.Int64(50),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: goodNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				Tag:               "also-two",
@@ -840,7 +875,8 @@ func TestBuildTrafficConfigurationConsolidated(t *testing.T) {
 				Percent:           ptr.Int64(1),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: goodNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			goodConfig.Name: goodConfig,
@@ -880,7 +916,8 @@ func TestBuildTrafficConfigurationTwoFixedRevisions(t *testing.T) {
 					Percent:           ptr.Int64(90),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Protocol: net.ProtocolHTTP1,
+				ServiceName: goodOldRev.Name,
+				Protocol:    net.ProtocolHTTP1,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
@@ -888,7 +925,8 @@ func TestBuildTrafficConfigurationTwoFixedRevisions(t *testing.T) {
 					Percent:           ptr.Int64(10),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -898,7 +936,8 @@ func TestBuildTrafficConfigurationTwoFixedRevisions(t *testing.T) {
 				Percent:           ptr.Int64(90),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Protocol: net.ProtocolHTTP1,
+			ServiceName: goodOldRev.Name,
+			Protocol:    net.ProtocolHTTP1,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
@@ -906,7 +945,8 @@ func TestBuildTrafficConfigurationTwoFixedRevisions(t *testing.T) {
 				Percent:           ptr.Int64(10),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: goodNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			goodConfig.Name: goodConfig,
@@ -948,7 +988,8 @@ func TestBuildTrafficConfigurationTwoFixedRevisionsFromTwoConfigurations(t *test
 					Percent:           ptr.Int64(40),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: niceConfig.Name,
@@ -956,7 +997,8 @@ func TestBuildTrafficConfigurationTwoFixedRevisionsFromTwoConfigurations(t *test
 					Percent:           ptr.Int64(60),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: niceNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -966,7 +1008,8 @@ func TestBuildTrafficConfigurationTwoFixedRevisionsFromTwoConfigurations(t *test
 				Percent:           ptr.Int64(40),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: goodNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: niceConfig.Name,
@@ -974,7 +1017,8 @@ func TestBuildTrafficConfigurationTwoFixedRevisionsFromTwoConfigurations(t *test
 				Percent:           ptr.Int64(60),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: niceNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			goodConfig.Name: goodConfig,
@@ -1009,7 +1053,8 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Protocol: net.ProtocolHTTP1,
+				ServiceName: goodOldRev.Name,
+				Protocol:    net.ProtocolHTTP1,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					Tag:               "beta",
@@ -1018,7 +1063,8 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 					LatestRevision:    ptr.Bool(false),
 					Percent:           ptr.Int64(0),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					Tag:               "alpha",
@@ -1027,7 +1073,8 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 					Percent:           ptr.Int64(0),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: niceNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 			"beta": {{
 				TrafficTarget: v1.TrafficTarget{
@@ -1037,7 +1084,8 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(false),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 			"alpha": {{
 				TrafficTarget: v1.TrafficTarget{
@@ -1047,7 +1095,8 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: niceNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -1057,7 +1106,8 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 				Percent:           ptr.Int64(100),
 				LatestRevision:    ptr.Bool(false),
 			},
-			Protocol: net.ProtocolHTTP1,
+			ServiceName: goodOldRev.Name,
+			Protocol:    net.ProtocolHTTP1,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				Tag:               "beta",
@@ -1066,7 +1116,8 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 				LatestRevision:    ptr.Bool(false),
 				Percent:           ptr.Int64(0),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: goodNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				Tag:               "alpha",
@@ -1075,7 +1126,8 @@ func TestBuildTrafficConfigurationPreliminary(t *testing.T) {
 				LatestRevision:    ptr.Bool(true),
 				Percent:           ptr.Int64(0),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: niceNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			goodConfig.Name: goodConfig,
@@ -1167,7 +1219,8 @@ func TestBuildTrafficConfigurationReadyNotReadyConfig(t *testing.T) {
 					LatestRevision:    ptr.Bool(true),
 					Percent:           ptr.Int64(100),
 				},
-				Protocol: net.ProtocolHTTP1,
+				ServiceName: readyRevision.Name,
+				Protocol:    net.ProtocolHTTP1,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -1177,7 +1230,8 @@ func TestBuildTrafficConfigurationReadyNotReadyConfig(t *testing.T) {
 				LatestRevision:    ptr.Bool(true),
 				Percent:           ptr.Int64(100),
 			},
-			Protocol: net.ProtocolHTTP1,
+			ServiceName: readyRevision.Name,
+			Protocol:    net.ProtocolHTTP1,
 		}},
 		Revisions: map[string]*v1.Revision{
 			readyRevision.Name: readyRevision,
@@ -1584,7 +1638,8 @@ func TestBuildTrafficConfigurationTag0Percent(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				ServiceName: niceNewRev.Name,
+				Protocol:    net.ProtocolH2C,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
@@ -1593,7 +1648,8 @@ func TestBuildTrafficConfigurationTag0Percent(t *testing.T) {
 					LatestRevision:    ptr.Bool(true),
 					Tag:               "robert",
 				},
-				Protocol: net.ProtocolH2C,
+				Protocol:    net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
 			}},
 			"robert": {{
 				TrafficTarget: v1.TrafficTarget{
@@ -1603,7 +1659,8 @@ func TestBuildTrafficConfigurationTag0Percent(t *testing.T) {
 					Tag:               "robert",
 					LatestRevision:    ptr.Bool(true),
 				},
-				Protocol: net.ProtocolH2C,
+				Protocol:    net.ProtocolH2C,
+				ServiceName: goodNewRev.Name,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -1613,7 +1670,8 @@ func TestBuildTrafficConfigurationTag0Percent(t *testing.T) {
 				Percent:           ptr.Int64(100),
 				LatestRevision:    ptr.Bool(true),
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: niceNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
@@ -1622,7 +1680,8 @@ func TestBuildTrafficConfigurationTag0Percent(t *testing.T) {
 				LatestRevision:    ptr.Bool(true),
 				Tag:               "robert",
 			},
-			Protocol: net.ProtocolH2C,
+			ServiceName: goodNewRev.Name,
+			Protocol:    net.ProtocolH2C,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			niceConfig.Name: niceConfig,
