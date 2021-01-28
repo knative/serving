@@ -36,7 +36,6 @@ import (
 	smetrics "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/resources"
 
-	. "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/metrics/testing"
 )
 
@@ -79,7 +78,7 @@ func TestAutoscalerScaleDownDelay(t *testing.T) {
 		PanicThreshold:   100,
 		ScaleDownDelay:   5 * time.Minute,
 	}
-	as := New(TestContextWithLogger(t), testNamespace, testRevision, metrics, pc, spec)
+	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
 
 	now := time.Time{}
 
@@ -148,7 +147,7 @@ func TestAutoscalerScaleDownDelayZero(t *testing.T) {
 		PanicThreshold:   100,
 		ScaleDownDelay:   0,
 	}
-	as := New(TestContextWithLogger(t), testNamespace, testRevision, metrics, pc, spec)
+	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
 
 	now := time.Time{}
 
