@@ -413,7 +413,7 @@ func (u *fakeUniScaler) fakeUniScalerFactory(*Decider) (UniScaler, error) {
 	return u, nil
 }
 
-func (u *fakeUniScaler) Scale(context.Context, time.Time) ScaleResult {
+func (u *fakeUniScaler) Scale(*zap.SugaredLogger, time.Time) ScaleResult {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 	u.scaleCount++

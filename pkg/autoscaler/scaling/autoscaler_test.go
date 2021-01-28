@@ -31,11 +31,11 @@ import (
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
 
+	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	smetrics "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/resources"
 
-	. "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/metrics/testing"
 )
 
@@ -78,7 +78,7 @@ func TestAutoscalerScaleDownDelay(t *testing.T) {
 		PanicThreshold:   100,
 		ScaleDownDelay:   5 * time.Minute,
 	}
-	as := New(TestContextWithLogger(t), testNamespace, testRevision, metrics, pc, spec)
+	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
 
 	now := time.Time{}
 
@@ -147,7 +147,7 @@ func TestAutoscalerScaleDownDelayZero(t *testing.T) {
 		PanicThreshold:   100,
 		ScaleDownDelay:   0,
 	}
-	as := New(TestContextWithLogger(t), testNamespace, testRevision, metrics, pc, spec)
+	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
 
 	now := time.Time{}
 
@@ -560,7 +560,7 @@ func TestCantCountPods(t *testing.T) {
 	metrics := &metricClient{StableConcurrency: 1000, PanicConcurrency: 888}
 	a, pc := newTestAutoscaler(10, 81, metrics)
 	pc.err = errors.New("peaches-in-regalia")
-	if got, want := a.Scale(context.Background(), time.Now()), invalidSR; !cmp.Equal(got, want) {
+	if got, want := a.Scale(logtesting.TestLogger(t), time.Now()), invalidSR; !cmp.Equal(got, want) {
 		t.Errorf("Scale = %v, want: %v", got, want)
 	}
 }
@@ -646,7 +646,7 @@ func approxEquateInt32(field string) cmp.Option {
 
 func expectScale(t *testing.T, a UniScaler, now time.Time, want ScaleResult) {
 	t.Helper()
-	got := a.Scale(TestContextWithLogger(t), now)
+	got := a.Scale(logtesting.TestLogger(t), now)
 	if !cmp.Equal(got, want, approxEquateInt32("ExcessBurstCapacity")) {
 		t.Error("ScaleResult mismatch(-want,+got):\n", cmp.Diff(want, got))
 	}
@@ -764,6 +764,6 @@ func BenchmarkAutoscaler(b *testing.B) {
 	now := time.Now()
 
 	for i := 0; i < b.N; i++ {
-		a.Scale(context.Background(), now)
+		a.Scale(logtesting.TestLogger(b), now)
 	}
 }

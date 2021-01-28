@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/logging"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
@@ -117,7 +118,7 @@ var invalidSR = ScaleResult{
 // UniScaler records statistics for a particular Decider and proposes the scale for the Decider's target based on those statistics.
 type UniScaler interface {
 	// Scale computes a scaling suggestion for a revision.
-	Scale(context.Context, time.Time) ScaleResult
+	Scale(*zap.SugaredLogger, time.Time) ScaleResult
 
 	// Update reconfigures the UniScaler according to the DeciderSpec.
 	Update(*DeciderSpec)
@@ -131,6 +132,7 @@ type scalerRunner struct {
 	scaler UniScaler
 	stopCh chan struct{}
 	pokeCh chan struct{}
+	logger *zap.SugaredLogger
 
 	// mux guards access to decider.
 	mux     sync.RWMutex
@@ -285,7 +287,7 @@ func (m *MultiScaler) Inform(event types.NamespacedName) bool {
 	return false
 }
 
-func (m *MultiScaler) runScalerTicker(ctx context.Context, runner *scalerRunner) {
+func (m *MultiScaler) runScalerTicker(runner *scalerRunner) {
 	metricKey := types.NamespacedName{Namespace: runner.decider.Namespace, Name: runner.decider.Name}
 	ticker := m.tickProvider(tickInterval)
 	go func() {
@@ -297,9 +299,9 @@ func (m *MultiScaler) runScalerTicker(ctx context.Context, runner *scalerRunner)
 			case <-runner.stopCh:
 				return
 			case <-ticker.C:
-				m.tickScaler(ctx, runner.scaler, runner, metricKey)
+				m.tickScaler(runner.scaler, runner, metricKey)
 			case <-runner.pokeCh:
-				m.tickScaler(ctx, runner.scaler, runner, metricKey)
+				m.tickScaler(runner.scaler, runner, metricKey)
 			}
 		}
 	}()
@@ -317,6 +319,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 		stopCh:  make(chan struct{}),
 		decider: d,
 		pokeCh:  make(chan struct{}),
+		logger:  logging.FromContext(ctx),
 	}
 	d.Status.DesiredScale = -1
 	switch tbc := d.Spec.TargetBurstCapacity; tbc {
@@ -328,12 +331,12 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 		d.Status.ExcessBurstCapacity = int32(float64(d.Spec.InitialScale)*d.Spec.TotalValue - tbc)
 	}
 
-	m.runScalerTicker(ctx, runner)
+	m.runScalerTicker(runner)
 	return runner, nil
 }
 
-func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *scalerRunner, metricKey types.NamespacedName) {
-	sr := scaler.Scale(ctx, time.Now())
+func (m *MultiScaler) tickScaler(scaler UniScaler, runner *scalerRunner, metricKey types.NamespacedName) {
+	sr := scaler.Scale(runner.logger, time.Now())
 
 	if !sr.ScaleValid {
 		return

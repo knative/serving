@@ -27,7 +27,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/autoscaler/aggregation/max"
@@ -141,8 +140,7 @@ func (a *autoscaler) Update(deciderSpec *DeciderSpec) {
 // validScale signifies whether the desiredPodCount should be applied or not.
 // Scale is not thread safe in regards to panic state, but it's thread safe in
 // regards to acquiring the decider spec.
-func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
-	logger := logging.FromContext(ctx)
+func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult {
 	desugared := logger.Desugar()
 	debugEnabled := desugared.Core().Enabled(zapcore.DebugLevel)
 
