@@ -58,8 +58,8 @@ func (h *contextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// If the headers aren't explicitly specified, then decode the revision
 	// name and namespace from the Host header.
 	if name == "" || namespace == "" {
-		parts := strings.SplitN(r.Host, ".", 3)
-		if len(parts) == 3 && parts[2] == "svc."+network.GetClusterDomainName() {
+		parts := strings.SplitN(r.Host, ".", 4)
+		if len(parts) == 4 && parts[2] == "svc" && parts[3] == network.GetClusterDomainName() {
 			name, namespace = parts[0], parts[1]
 		}
 	}
