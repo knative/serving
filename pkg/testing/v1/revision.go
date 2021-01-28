@@ -52,7 +52,7 @@ func WithRevName(name string) RevisionOption {
 // WithServiceName propagates the given service name to the revision status.
 func WithServiceName(sn string) RevisionOption {
 	return func(rev *v1.Revision) {
-		rev.Status.DeprecatedServiceName = sn
+		rev.Status.ServiceName = sn
 	}
 }
 
@@ -139,7 +139,7 @@ func MarkActive(r *v1.Revision) {
 
 // WithK8sServiceName applies sn to the revision status field.
 func WithK8sServiceName(r *v1.Revision) {
-	r.Status.DeprecatedServiceName = r.Name
+	r.Status.ServiceName = r.Name
 }
 
 // MarkInactive calls .Status.MarkInactive on the Revision.
