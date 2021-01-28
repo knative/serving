@@ -54,10 +54,10 @@ func TestGradualRollout(t *testing.T) {
 		t.Fatal("Create Ready Service:", err)
 	}
 
+	start := time.Now()
 	if _, err := v1test.PatchService(t, clients, robjs.Service, testingv1.WithServiceImage(pkgtest.ImagePath(test.Autoscale))); err != nil {
 		t.Fatalf("Patch update for Service %s with image %s failed: %v", names.Service, test.Autoscale, err)
 	}
-	start := time.Now()
 
 	// This will cover all the status checks:
 	// - Status is in Rollout
