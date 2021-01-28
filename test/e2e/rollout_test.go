@@ -54,7 +54,6 @@ func TestGradualRollout(t *testing.T) {
 		t.Fatal("Create Ready Service:", err)
 	}
 
-	start := time.Now()
 	if _, err := v1test.PatchService(t, clients, robjs.Service, testingv1.WithServiceImage(pkgtest.ImagePath(test.Autoscale))); err != nil {
 		t.Fatalf("Patch update for Service %s with image %s failed: %v", names.Service, test.Autoscale, err)
 	}
@@ -124,10 +123,4 @@ func TestGradualRollout(t *testing.T) {
 		}, "RolloutFinished"); err != nil {
 		t.Fatalf("Failed waiting for Rollout %q to complete: %+v", names.Service, err)
 	}
-
-	dur := time.Since(start)
-	if dur < time.Minute {
-		t.Errorf("Actual Rollout duration shorter than requested: %v < %v", dur, rolloutDuration)
-	}
-	t.Log("Rollout Duration =", dur)
 }
