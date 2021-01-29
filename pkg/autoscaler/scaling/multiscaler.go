@@ -235,10 +235,7 @@ func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, e
 		}
 		m.scalers[key] = scaler
 	}
-	scaler.mux.RLock()
-	defer scaler.mux.RUnlock()
-	// scaler.decider is already a copy of the original, so just return it.
-	return scaler.decider, nil
+	return scaler.safeDecider(), nil
 }
 
 // Update applies the desired DeciderSpec to a currently running Decider.
