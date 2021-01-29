@@ -36,9 +36,9 @@ import (
 type HTTPProbeConfigOptions struct {
 	Timeout time.Duration
 	*corev1.HTTPGetAction
-	KubeMajor string
-	KubeMinor string
-	IsHTTP2   *bool
+	KubeMajor     string
+	KubeMinor     string
+	MaxProtoMajor int
 }
 
 // TCPProbeConfigOptions holds the TCP probe config options
@@ -61,13 +61,13 @@ func TCPProbe(config TCPProbeConfigOptions) error {
 
 // Returns a transport that uses HTTP/2 if it's known to be supported, and otherwise
 // spoofs the request & response versions to HTTP/1.1.
-func autoDowngradingTransport(isHTTP2 *bool) http.RoundTripper {
+func autoDowngradingTransport(opt HTTPProbeConfigOptions) http.RoundTripper {
 	t := pkgnet.NewProberTransport()
 	return pkgnet.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		// If the user-container can handle HTTP2, we pass through the request as-is.
 		// We have to set r.ProtoMajor to 2, since auto transport relies solely on it
 		// to decide whether to use h2c or http1.1.
-		if isHTTP2 != nil && *isHTTP2 {
+		if opt.MaxProtoMajor == 2 {
 			r.ProtoMajor = 2
 			return t.RoundTrip(r)
 		}
@@ -105,8 +105,8 @@ func getURL(config HTTPProbeConfigOptions) url.URL {
 
 // http2UpgradeProbe checks that an HTTP with HTTP2 upgrade request
 // connection can be understood by the address.
-func http2UpgradeProbe(config HTTPProbeConfigOptions) (*bool, bool, error) {
-
+// Returns: the highest known proto version supported (0 if not ready or error)
+func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 	httpClient := &http.Client{
 		Transport: transport,
 		Timeout:   config.Timeout,
@@ -114,10 +114,11 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (*bool, bool, error) {
 	url := getURL(config)
 	req, err := http.NewRequest(http.MethodOptions, url.String(), nil)
 	if err != nil {
-		return nil, false, fmt.Errorf("error constructing probe request %w", err)
+		return 0, fmt.Errorf("error constructing probe request %w", err)
 	}
 
 	// An upgrade will need to have at least these 3 headers.
+	// This is documented at https://tools.ietf.org/html/rfc7540#section-3.2
 	req.Header.Add("Connection", "Upgrade, HTTP2-Settings")
 	req.Header.Add("Upgrade", "h2c")
 	req.Header.Add("HTTP2-Settings", "")
@@ -126,25 +127,21 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (*bool, bool, error) {
 
 	res, err := httpClient.Do(req)
 	if err != nil {
-		return nil, false, err
+		return 0, err
 	}
 	defer res.Body.Close()
 
-	// If the container is not ready, we can't know whether it's h2c upgradable or not.
-	// So we handle it normally, and we don't make a decision over h2c or not.
-	if res.StatusCode >= 400 {
-		return nil, false, fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
+	maxProto := 0
+
+	if IsHTTPProbeUpgradingToH2C(res) {
+		maxProto = 2
+	} else if IsHTTPProbeReady(res) {
+		maxProto = 1
+	} else {
+		return maxProto, fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
 	}
 
-	isHTTP2 := false
-	isHTTP1AndReady := false
-	if IsHTTPProbeReady(res) {
-		isHTTP1AndReady = true
-	} else if res.StatusCode == http.StatusSwitchingProtocols && res.Header.Get("Upgrade") == "h2c" {
-		isHTTP2 = true
-	}
-
-	return &isHTTP2, isHTTP1AndReady, nil
+	return maxProto, nil
 }
 
 // HTTPProbe checks that HTTP connection can be established to the address.
@@ -152,25 +149,25 @@ func HTTPProbe(ctx context.Context, config HTTPProbeConfigOptions) error {
 	cfg := apicfg.FromContextOrDefaults(ctx)
 	autoDetect := cfg.Features.AutoDetectHTTP2
 	if autoDetect == apicfg.Disabled {
-		ishttp := false
-		config.IsHTTP2 = &ishttp
+		config.MaxProtoMajor = 1
 	}
 	// If we don't know if the connection supports HTTP2, we will try it.
 	// Once we get a non-error response, we won't try again.
-	// It's also possible that we get a ready status, which means both that
-	// the connection didn't support http2 and that the http 1.1 probe was ready.
-	if autoDetect == apicfg.Enabled && config.IsHTTP2 == nil {
-		isHTTP2, isReady, err := http2UpgradeProbe(config)
+	// If maxProto is 0, container is not ready, so we don't know whether http2 is supported.
+	// If maxProto is 1, we know we're ready, but we also can't upgrade, so just return.
+	// If maxProto is 2, we know we can upgrade to http2
+	if autoDetect == apicfg.Enabled && config.MaxProtoMajor == 0 {
+		maxProto, err := http2UpgradeProbe(config)
 		if err != nil {
 			return fmt.Errorf("failed to run HTTP2 upgrade probe with error: %w", err)
 		}
-		config.IsHTTP2 = isHTTP2
-		if isReady {
+		config.MaxProtoMajor = maxProto
+		if config.MaxProtoMajor == 1 {
 			return nil
 		}
 	}
 	httpClient := &http.Client{
-		Transport: autoDowngradingTransport(config.IsHTTP2),
+		Transport: autoDowngradingTransport(config),
 		Timeout:   config.Timeout,
 	}
 	url := getURL(config)
@@ -202,6 +199,11 @@ func HTTPProbe(ctx context.Context, config HTTPProbeConfigOptions) error {
 	}
 
 	return nil
+}
+
+// IsHTTPProbeUpgradingToH2C checks whether the server indicates it's switching to h2c protocol.
+func IsHTTPProbeUpgradingToH2C(res *http.Response) bool {
+	return res.StatusCode == http.StatusSwitchingProtocols && res.Header.Get("Upgrade") == "h2c"
 }
 
 // IsHTTPProbeReady checks whether we received a successful Response
