@@ -149,6 +149,13 @@ func sameSign(a, b int32) bool {
 	return (a&math.MinInt32)^(b&math.MinInt32) == 0
 }
 
+// decider returns a thread safe deep copy of the owned decider.
+func (sr *scalerRunner) safeDecider() *Decider {
+	sr.mux.RLock()
+	defer sr.mux.RUnlock()
+	return sr.decider.DeepCopy()
+}
+
 func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
 	ret := false
 	sr.mux.Lock()
@@ -211,9 +218,7 @@ func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, 
 		// This GroupResource is a lie, but unfortunately this interface requires one.
 		return nil, errors.NewNotFound(av1alpha1.Resource("Deciders"), key.String())
 	}
-	scaler.mux.RLock()
-	defer scaler.mux.RUnlock()
-	return scaler.decider.DeepCopy(), nil
+	return scaler.safeDecider(), nil
 }
 
 // Create instantiates the desired Decider.
@@ -230,10 +235,7 @@ func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, e
 		}
 		m.scalers[key] = scaler
 	}
-	scaler.mux.RLock()
-	defer scaler.mux.RUnlock()
-	// scaler.decider is already a copy of the original, so just return it.
-	return scaler.decider, nil
+	return scaler.safeDecider(), nil
 }
 
 // Update applies the desired DeciderSpec to a currently running Decider.
