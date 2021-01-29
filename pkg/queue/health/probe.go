@@ -96,7 +96,7 @@ var transport = func() *http.Transport {
 }()
 
 func getURL(config HTTPProbeConfigOptions) url.URL {
-	url := url.URL{
+	return url.URL{
 		Scheme: string(config.Scheme),
 		Host:   net.JoinHostPort(config.Host, config.Port.String()),
 		Path:   config.Path,
