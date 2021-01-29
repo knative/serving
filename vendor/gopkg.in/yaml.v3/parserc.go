@@ -423,6 +423,7 @@ func yaml_parser_set_event_comments(parser *yaml_parser_t, event *yaml_event_t) 
 	parser.line_comment = nil
 	parser.foot_comment = nil
 	parser.tail_comment = nil
+	parser.stem_comment = nil
 }
 
 // Parse the productions:
@@ -629,6 +630,10 @@ func yaml_parser_parse_node(parser *yaml_parser_t, event *yaml_event_t, block, i
 			implicit:   implicit,
 			style:      yaml_style_t(yaml_BLOCK_SEQUENCE_STYLE),
 		}
+		if parser.stem_comment != nil {
+			event.head_comment = parser.stem_comment
+			parser.stem_comment = nil
+		}
 		return true
 	}
 	if block && token.typ == yaml_BLOCK_MAPPING_START_TOKEN {
@@ -642,6 +647,10 @@ func yaml_parser_parse_node(parser *yaml_parser_t, event *yaml_event_t, block, i
 			tag:        tag,
 			implicit:   implicit,
 			style:      yaml_style_t(yaml_BLOCK_MAPPING_STYLE),
+		}
+		if parser.stem_comment != nil {
+			event.head_comment = parser.stem_comment
+			parser.stem_comment = nil
 		}
 		return true
 	}
@@ -689,7 +698,9 @@ func yaml_parser_parse_block_sequence_entry(parser *yaml_parser_t, event *yaml_e
 
 	if token.typ == yaml_BLOCK_ENTRY_TOKEN {
 		mark := token.end_mark
+		prior_head_len := len(parser.head_comment)
 		skip_token(parser)
+		yaml_parser_split_stem_comment(parser, prior_head_len)
 		token = peek_token(parser)
 		if token == nil {
 			return false
@@ -735,7 +746,9 @@ func yaml_parser_parse_indentless_sequence_entry(parser *yaml_parser_t, event *y
 
 	if token.typ == yaml_BLOCK_ENTRY_TOKEN {
 		mark := token.end_mark
+		prior_head_len := len(parser.head_comment)
 		skip_token(parser)
+		yaml_parser_split_stem_comment(parser, prior_head_len)
 		token = peek_token(parser)
 		if token == nil {
 			return false
@@ -759,6 +772,32 @@ func yaml_parser_parse_indentless_sequence_entry(parser *yaml_parser_t, event *y
 		end_mark:   token.start_mark, // [Go] Shouldn't this be token.end_mark?
 	}
 	return true
+}
+
+// Split stem comment from head comment.
+//
+// When a sequence or map is found under a sequence entry, the former head comment
+// is assigned to the underlying sequence or map as a whole, not the individual
+// sequence or map entry as would be expected otherwise. To handle this case the
+// previous head comment is moved aside as the stem comment.
+func yaml_parser_split_stem_comment(parser *yaml_parser_t, stem_len int) {
+	if stem_len == 0 {
+		return
+	}
+
+	token := peek_token(parser)
+	if token.typ != yaml_BLOCK_SEQUENCE_START_TOKEN && token.typ != yaml_BLOCK_MAPPING_START_TOKEN {
+		return
+	}
+
+	parser.stem_comment = parser.head_comment[:stem_len]
+	if len(parser.head_comment) == stem_len {
+		parser.head_comment = nil
+	} else {
+		// Copy suffix to prevent very strange bugs if someone ever appends
+		// further bytes to the prefix in the stem_comment slice above.
+		parser.head_comment = append([]byte(nil), parser.head_comment[stem_len+1:]...)
+	}
 }
 
 // Parse the productions:
