@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	network "knative.dev/pkg/network"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
 )
@@ -47,15 +48,28 @@ func TestContextHandler(t *testing.T) {
 	})
 
 	handler := NewContextHandler(ctx, baseHandler)
-	resp := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
-	req.Header.Set(activator.RevisionHeaderNamespace, revID.Namespace)
-	req.Header.Set(activator.RevisionHeaderName, revID.Name)
-	handler.ServeHTTP(resp, req)
 
-	if got, want := resp.Code, http.StatusOK; got != want {
-		t.Errorf("StatusCode = %d, want %d, body: %s", got, want, resp.Body.String())
-	}
+	t.Run("with headers", func(t *testing.T) {
+		resp := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
+		req.Header.Set(activator.RevisionHeaderNamespace, revID.Namespace)
+		req.Header.Set(activator.RevisionHeaderName, revID.Name)
+		handler.ServeHTTP(resp, req)
+
+		if got, want := resp.Code, http.StatusOK; got != want {
+			t.Errorf("StatusCode = %d, want %d, body: %s", got, want, resp.Body.String())
+		}
+	})
+
+	t.Run("with host", func(t *testing.T) {
+		resp := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "http://"+network.GetServiceHostname(revID.Name, revID.Namespace), bytes.NewBufferString(""))
+		handler.ServeHTTP(resp, req)
+
+		if got, want := resp.Code, http.StatusOK; got != want {
+			t.Errorf("StatusCode = %d, want %d, body: %s", got, want, resp.Body.String())
+		}
+	})
 }
 
 func TestContextHandlerError(t *testing.T) {

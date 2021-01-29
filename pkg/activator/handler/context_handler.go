@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,6 +28,7 @@ import (
 
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
+	network "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/activator"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
@@ -52,6 +54,16 @@ type contextHandler struct {
 func (h *contextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
 	name := r.Header.Get(activator.RevisionHeaderName)
+
+	// If the headers aren't explicitly specified, then decode the revision
+	// name and namespace from the Host header.
+	if name == "" || namespace == "" {
+		parts := strings.SplitN(r.Host, ".", 4)
+		if len(parts) == 4 && parts[2] == "svc" && parts[3] == network.GetClusterDomainName() {
+			name, namespace = parts[0], parts[1]
+		}
+	}
+
 	revID := types.NamespacedName{Namespace: namespace, Name: name}
 	logger := h.logger.With(zap.String(logkey.Key, revID.String()))
 
