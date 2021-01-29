@@ -232,7 +232,7 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 	pods, youngPods, err := s.podAccessor.PodIPsSplitByAge(window, time.Now())
 	if err != nil {
-		s.logger.Info("Error querying pods by age: ", err)
+		s.logger.Infow("Error querying pods by age", zap.Error(err))
 		return emptyStat, err
 	}
 	lp := len(pods)
@@ -285,7 +285,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 					results <- stat
 					return nil
 				}
-				s.logger.Infof("Pod %s failed scraping: %v", pods[myIdx], err)
+				s.logger.Infow("Failed scraping pod "+pods[myIdx], zap.Error(err))
 			}
 		})
 	}
