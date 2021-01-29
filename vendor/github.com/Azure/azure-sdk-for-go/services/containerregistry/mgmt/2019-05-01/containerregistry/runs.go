@@ -76,7 +76,7 @@ func (client RunsClient) Cancel(ctx context.Context, resourceGroupName string, r
 
 	result, err = client.CancelSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "containerregistry.RunsClient", "Cancel", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "containerregistry.RunsClient", "Cancel", nil, "Failure sending request")
 		return
 	}
 
@@ -113,7 +113,23 @@ func (client RunsClient) CancelSender(req *http.Request) (future RunsCancelFutur
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client RunsClient) (ar autorest.Response, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "containerregistry.RunsCancelFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("containerregistry.RunsCancelFuture")
+			return
+		}
+		ar.Response = future.Response()
+		return
+	}
 	return
 }
 
@@ -122,7 +138,6 @@ func (client RunsClient) CancelSender(req *http.Request) (future RunsCancelFutur
 func (client RunsClient) CancelResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
 		autorest.ByClosing())
 	result.Response = resp
@@ -171,6 +186,7 @@ func (client RunsClient) Get(ctx context.Context, resourceGroupName string, regi
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerregistry.RunsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -209,7 +225,6 @@ func (client RunsClient) GetSender(req *http.Request) (*http.Response, error) {
 func (client RunsClient) GetResponder(resp *http.Response) (result Run, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -259,6 +274,7 @@ func (client RunsClient) GetLogSasURL(ctx context.Context, resourceGroupName str
 	result, err = client.GetLogSasURLResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerregistry.RunsClient", "GetLogSasURL", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -297,7 +313,6 @@ func (client RunsClient) GetLogSasURLSender(req *http.Request) (*http.Response, 
 func (client RunsClient) GetLogSasURLResponder(resp *http.Response) (result RunGetLogResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -350,6 +365,11 @@ func (client RunsClient) List(ctx context.Context, resourceGroupName string, reg
 	result.rlr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerregistry.RunsClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.rlr.hasNextLink() && result.rlr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -393,7 +413,6 @@ func (client RunsClient) ListSender(req *http.Request) (*http.Response, error) {
 func (client RunsClient) ListResponder(resp *http.Response) (result RunListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -473,7 +492,7 @@ func (client RunsClient) Update(ctx context.Context, resourceGroupName string, r
 
 	result, err = client.UpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "containerregistry.RunsClient", "Update", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "containerregistry.RunsClient", "Update", nil, "Failure sending request")
 		return
 	}
 
@@ -512,7 +531,29 @@ func (client RunsClient) UpdateSender(req *http.Request) (future RunsUpdateFutur
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client RunsClient) (r Run, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "containerregistry.RunsUpdateFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("containerregistry.RunsUpdateFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if r.Response.Response, err = future.GetResult(sender); err == nil && r.Response.Response.StatusCode != http.StatusNoContent {
+			r, err = client.UpdateResponder(r.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "containerregistry.RunsUpdateFuture", "Result", r.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -521,7 +562,6 @@ func (client RunsClient) UpdateSender(req *http.Request) (future RunsUpdateFutur
 func (client RunsClient) UpdateResponder(resp *http.Response) (result Run, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

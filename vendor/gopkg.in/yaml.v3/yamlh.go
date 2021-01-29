@@ -600,6 +600,7 @@ type yaml_parser_t struct {
 	line_comment []byte // The current line comments
 	foot_comment []byte // The current foot comments
 	tail_comment []byte // Foot comment that happens at the end of a block.
+	stem_comment []byte // Comment in item preceding a nested structure (list inside list item, etc)
 
 	comments      []yaml_comment_t // The folded comments for all parsed tokens
 	comments_head int
@@ -621,6 +622,7 @@ type yaml_parser_t struct {
 
 	simple_key_allowed bool                // May a simple key occur at the current position?
 	simple_keys        []yaml_simple_key_t // The stack of simple keys.
+	simple_keys_by_tok map[int]int         // possible simple_key indexes indexed by token_number
 
 	// Parser stuff
 
@@ -753,7 +755,8 @@ type yaml_emitter_t struct {
 	indention  bool // If the last character was an indentation character (' ', '-', '?', ':')?
 	open_ended bool // If an explicit document end is required?
 
-	space_above bool // If there's an empty line right above?
+	space_above bool // Is there's an empty line above?
+	foot_indent int  // The indent used to write the foot comment above, or -1 if none.
 
 	// Anchor analysis.
 	anchor_data struct {
@@ -783,6 +786,8 @@ type yaml_emitter_t struct {
 	line_comment []byte
 	foot_comment []byte
 	tail_comment []byte
+
+	key_line_comment []byte
 
 	// Dumper stuff
 
