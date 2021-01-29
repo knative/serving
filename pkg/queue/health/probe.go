@@ -101,7 +101,6 @@ func getURL(config HTTPProbeConfigOptions) url.URL {
 		Host:   net.JoinHostPort(config.Host, config.Port.String()),
 		Path:   config.Path,
 	}
-	return url
 }
 
 // http2UpgradeProbe checks that an HTTP with HTTP2 upgrade request
@@ -131,7 +130,8 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (*bool, bool, error) {
 	}
 	defer res.Body.Close()
 
-	// It is possible that the container might not be ready yet. We
+	// If the container is not ready, we can't know whether it's h2c upgradable or not.
+	// So we handle it normally, and we don't make a decision over h2c or not.
 	if res.StatusCode >= 400 {
 		return nil, false, fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
 	}
