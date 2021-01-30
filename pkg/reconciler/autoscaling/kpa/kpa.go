@@ -169,7 +169,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*scaling.Decider, error) {
-	desiredDecider := resources.MakeDecider(ctx, pa, config.FromContext(ctx).Autoscaler)
+	desiredDecider := resources.MakeDecider(pa, config.FromContext(ctx).Autoscaler)
 	decider, err := c.deciders.Get(ctx, desiredDecider.Namespace, desiredDecider.Name)
 	if errors.IsNotFound(err) {
 		decider, err = c.deciders.Create(ctx, desiredDecider)
