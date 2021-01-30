@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -171,8 +170,8 @@ func TestMakeDecider(t *testing.T) {
 				cfg = tc.cfgOpt(*config)
 			}
 
-			if diff := cmp.Diff(tc.want, MakeDecider(context.Background(), tc.pa, cfg)); diff != "" {
-				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
+			if diff := cmp.Diff(tc.want, MakeDecider(tc.pa, cfg)); diff != "" {
+				t.Errorf("MakeDecider diff(-want, +got):\n%s", diff)
 			}
 		})
 	}
