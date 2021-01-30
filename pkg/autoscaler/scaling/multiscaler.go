@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
@@ -222,14 +222,14 @@ func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, 
 }
 
 // Create instantiates the desired Decider.
-func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, error) {
+func (m *MultiScaler) Create(_ context.Context, decider *Decider) (*Decider, error) {
 	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	scaler, exists := m.scalers[key]
 	if !exists {
 		var err error
-		scaler, err = m.createScaler(ctx, decider)
+		scaler, err = m.createScaler(decider, key)
 		if err != nil {
 			return nil, err
 		}
@@ -289,8 +289,7 @@ func (m *MultiScaler) Inform(event types.NamespacedName) bool {
 	return false
 }
 
-func (m *MultiScaler) runScalerTicker(runner *scalerRunner) {
-	metricKey := types.NamespacedName{Namespace: runner.decider.Namespace, Name: runner.decider.Name}
+func (m *MultiScaler) runScalerTicker(runner *scalerRunner, metricKey types.NamespacedName) {
 	ticker := m.tickProvider(tickInterval)
 	go func() {
 		defer ticker.Stop()
@@ -309,7 +308,7 @@ func (m *MultiScaler) runScalerTicker(runner *scalerRunner) {
 	}()
 }
 
-func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scalerRunner, error) {
+func (m *MultiScaler) createScaler(decider *Decider, key types.NamespacedName) (*scalerRunner, error) {
 	d := decider.DeepCopy()
 	scaler, err := m.uniScalerFactory(d)
 	if err != nil {
@@ -321,7 +320,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 		stopCh:  make(chan struct{}),
 		decider: d,
 		pokeCh:  make(chan struct{}),
-		logger:  logging.FromContext(ctx),
+		logger:  m.logger.With(zap.String(logkey.Key, key.String())),
 	}
 	d.Status.DesiredScale = -1
 	switch tbc := d.Spec.TargetBurstCapacity; tbc {
@@ -333,7 +332,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 		d.Status.ExcessBurstCapacity = int32(float64(d.Spec.InitialScale)*d.Spec.TotalValue - tbc)
 	}
 
-	m.runScalerTicker(runner)
+	m.runScalerTicker(runner, key)
 	return runner, nil
 }
 
