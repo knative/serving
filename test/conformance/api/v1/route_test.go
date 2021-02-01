@@ -26,6 +26,7 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
@@ -157,7 +158,7 @@ func TestRouteCreation(t *testing.T) {
 }
 
 // withConfigImage sets the container image to be the provided string.
-func withConfigImage(img string) ConfigOption {
+func withConfigImage(img string) rtesting.ConfigOption {
 	return func(cfg *v1.Configuration) {
 		cfg.Spec.Template.Spec.Containers[0].Image = img
 	}
