@@ -107,7 +107,6 @@ func TestMakeIngressWithTaggedRollout(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					RevisionName:      "thor-02020",
 				},
-				ServiceName: "hammer",
 			}},
 			traffic.DefaultTarget: {{
 				TrafficTarget: v1.TrafficTarget{
@@ -116,7 +115,6 @@ func TestMakeIngressWithTaggedRollout(t *testing.T) {
 					Percent:           ptr.Int64(100),
 					RevisionName:      "valhalla-01982",
 				},
-				ServiceName: "mia",
 			}},
 		},
 	}
@@ -206,7 +204,6 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 					Percent:           ptr.Int64(80),
 					RevisionName:      "thor-02020",
 				},
-				ServiceName: "thor-02020",
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: "thor",
@@ -214,7 +211,6 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 					Percent:           ptr.Int64(20),
 					RevisionName:      "thor-beta",
 				},
-				ServiceName: "thor-beta",
 			}},
 			traffic.DefaultTarget: {{
 				TrafficTarget: v1.TrafficTarget{
@@ -223,7 +219,6 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 					Percent:           ptr.Int64(1),
 					RevisionName:      "rune-01911",
 				},
-				ServiceName: "rune-01911",
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: "valhalla",
@@ -231,7 +226,6 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 					Percent:           ptr.Int64(99),
 					RevisionName:      "valhalla-01982",
 				},
-				ServiceName: "valhalla-01982",
 			}},
 		},
 	}
@@ -487,7 +481,6 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 				RevisionName:      "v2",
 				Percent:           ptr.Int64(100),
 			},
-			ServiceName: "gilberto",
 		}},
 		"v1": {{
 			TrafficTarget: v1.TrafficTarget{
@@ -495,7 +488,6 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 				RevisionName:      "v1",
 				Percent:           ptr.Int64(100),
 			},
-			ServiceName: "jobim",
 		}},
 	}
 
@@ -512,7 +504,7 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "gilberto",
+						ServiceName:      "v2",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -533,7 +525,7 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "gilberto",
+						ServiceName:      "v2",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -556,7 +548,7 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "jobim",
+						ServiceName:      "v1",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -577,7 +569,7 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "jobim",
+						ServiceName:      "v1",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -620,7 +612,6 @@ func TestMakeIngressSpecCorrectRuleVisibility(t *testing.T) {
 					RevisionName:      "v2",
 					Percent:           ptr.Int64(100),
 				},
-				ServiceName: "gilberto",
 			}},
 		},
 		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
@@ -637,7 +628,6 @@ func TestMakeIngressSpecCorrectRuleVisibility(t *testing.T) {
 					RevisionName:      "v2",
 					Percent:           ptr.Int64(100),
 				},
-				ServiceName: "gilberto",
 			}},
 		},
 		serviceVisibility: map[string]netv1alpha1.IngressVisibility{
@@ -656,7 +646,6 @@ func TestMakeIngressSpecCorrectRuleVisibility(t *testing.T) {
 					RevisionName:      "v2",
 					Percent:           ptr.Int64(100),
 				},
-				ServiceName: "gilberto",
 			}},
 		},
 		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
@@ -696,7 +685,6 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 				RevisionName:      "v2",
 				Percent:           ptr.Int64(100),
 			},
-			ServiceName: "gilberto",
 		}},
 		"v1": {{
 			TrafficTarget: v1.TrafficTarget{
@@ -704,7 +692,6 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 				RevisionName:      "v1",
 				Percent:           ptr.Int64(100),
 			},
-			ServiceName: "jobim",
 		}},
 	}
 
@@ -726,7 +713,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "jobim",
+						ServiceName:      "v1",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -742,7 +729,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "gilberto",
+						ServiceName:      "v2",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -768,7 +755,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "jobim",
+						ServiceName:      "v1",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -784,7 +771,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "gilberto",
+						ServiceName:      "v2",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -810,7 +797,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "jobim",
+						ServiceName:      "v1",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -834,7 +821,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "jobim",
+						ServiceName:      "v1",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -869,10 +856,9 @@ func TestMakeIngressRuleVanilla(t *testing.T) {
 	targets := traffic.RevisionTargets{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
-			RevisionName:      "revision",
+			RevisionName:      "revision-shark",
 			Percent:           ptr.Int64(100),
 		},
-		ServiceName: "chocolate",
 	}}
 	tc := &traffic.Config{
 		Targets: map[string]traffic.RevisionTargets{
@@ -892,12 +878,12 @@ func TestMakeIngressRuleVanilla(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "chocolate",
+						ServiceName:      "revision-shark",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
 					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  "revision",
+						"Knative-Serving-Revision":  "revision-shark",
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
@@ -916,14 +902,13 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
-			RevisionName:      "revision",
+			RevisionName:      "revision-dolphin",
 			Percent:           ptr.Int64(100),
 		},
-		ServiceName: "active-target",
 	}, {
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
-			RevisionName:      "new-revision",
+			RevisionName:      "new-revision-orca",
 			Percent:           ptr.Int64(0),
 		},
 	}}
@@ -943,12 +928,12 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "active-target",
+						ServiceName:      "revision-dolphin",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
 					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  "revision",
+						"Knative-Serving-Revision":  "revision-dolphin",
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
@@ -967,17 +952,15 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
-			RevisionName:      "revision",
+			RevisionName:      "revision-beluga",
 			Percent:           ptr.Int64(80),
 		},
-		ServiceName: "nigh",
 	}, {
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
-			RevisionName:      "new-revision",
+			RevisionName:      "new-revision-narwhal",
 			Percent:           ptr.Int64(20),
 		},
-		ServiceName: "death",
 	}}
 	tc := &traffic.Config{
 		Targets: map[string]traffic.RevisionTargets{
@@ -995,24 +978,24 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "nigh",
+						ServiceName:      "revision-beluga",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 80,
 					AppendHeaders: map[string]string{
 						"Knative-Serving-Namespace": ns,
-						"Knative-Serving-Revision":  "revision",
+						"Knative-Serving-Revision":  "revision-beluga",
 					},
 				}, {
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
-						ServiceName:      "death",
+						ServiceName:      "new-revision-narwhal",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 20,
 					AppendHeaders: map[string]string{
 						"Knative-Serving-Namespace": ns,
-						"Knative-Serving-Revision":  "new-revision",
+						"Knative-Serving-Revision":  "new-revision-narwhal",
 					},
 				}},
 			}},
@@ -1093,7 +1076,6 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 				RevisionName:      "v2",
 				Percent:           ptr.Int64(100),
 			},
-			ServiceName: "gilberto",
 		}},
 	}
 
@@ -1135,7 +1117,7 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "gilberto",
+						ServiceName:      "v2",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -1165,7 +1147,7 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
-						ServiceName:      "gilberto",
+						ServiceName:      "v2",
 						ServicePort:      intstr.FromInt(80),
 					},
 					Percent: 100,
@@ -1201,7 +1183,6 @@ func TestMakeIngressFailToGenerateDomain(t *testing.T) {
 				RevisionName:      "v2",
 				Percent:           ptr.Int64(100),
 			},
-			ServiceName: "gilberto",
 		}},
 	}
 
@@ -1232,7 +1213,6 @@ func TestMakeIngressFailToGenerateTagHost(t *testing.T) {
 				RevisionName:      "v2",
 				Percent:           ptr.Int64(100),
 			},
-			ServiceName: "gilberto",
 		}},
 		"v1": {{
 			TrafficTarget: v1.TrafficTarget{
@@ -1240,7 +1220,6 @@ func TestMakeIngressFailToGenerateTagHost(t *testing.T) {
 				RevisionName:      "v1",
 				Percent:           ptr.Int64(100),
 			},
-			ServiceName: "jobim",
 		}},
 	}
 
