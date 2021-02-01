@@ -49,13 +49,6 @@ func WithRevName(name string) RevisionOption {
 	}
 }
 
-// WithServiceName propagates the given service name to the revision status.
-func WithServiceName(sn string) RevisionOption {
-	return func(rev *v1.Revision) {
-		rev.Status.ServiceName = sn
-	}
-}
-
 // MarkResourceNotOwned calls the function of the same name on the Revision's status.
 func MarkResourceNotOwned(kind, name string) RevisionOption {
 	return func(rev *v1.Revision) {
