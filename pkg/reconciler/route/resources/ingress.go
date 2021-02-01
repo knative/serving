@@ -313,7 +313,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 			splits = append(splits, netv1alpha1.IngressBackendSplit{
 				IngressBackend: netv1alpha1.IngressBackend{
 					ServiceNamespace: ns,
-					ServiceName:      t.ServiceName,
+					ServiceName:      t.RevisionName,
 					// Port on the public service must match port on the activator.
 					// Otherwise, the serverless services can't guarantee seamless positive handoff.
 					ServicePort: intstr.FromInt(networking.ServicePort(t.Protocol)),

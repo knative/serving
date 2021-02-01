@@ -41,8 +41,7 @@ const DefaultTarget = ""
 // Revision to a flattened TrafficTarget.
 type RevisionTarget struct {
 	v1.TrafficTarget
-	Protocol    net.ProtocolType
-	ServiceName string // Revision service name.
+	Protocol net.ProtocolType
 }
 
 // RevisionTargets is a collection of revision targets.
@@ -364,7 +363,6 @@ func (cb *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
 		Protocol:      rev.GetProtocol(),
-		ServiceName:   rev.Name,
 	}
 	target.TrafficTarget.RevisionName = rev.Name
 	cb.addFlattenedTarget(target)
@@ -383,7 +381,6 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
 		Protocol:      rev.GetProtocol(),
-		ServiceName:   rev.Name,
 	}
 	if configName, ok := rev.Labels[serving.ConfigurationLabelKey]; ok {
 		target.TrafficTarget.ConfigurationName = configName
