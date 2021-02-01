@@ -24,7 +24,7 @@ import (
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	nlisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/logging"
-	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -45,7 +45,7 @@ type Base struct {
 }
 
 // ReconcileSKS reconciles a ServerlessService based on the given PodAutoscaler.
-func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler,
+func (c *Base) ReconcileSKS(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler,
 	mode nv1alpha1.ServerlessServiceOperationMode, numActivators int32) (*nv1alpha1.ServerlessService, error) {
 	logger := logging.FromContext(ctx)
 
@@ -79,7 +79,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler,
 }
 
 // ReconcileMetric reconciles a metric instance out of the given PodAutoscaler to control metric collection.
-func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler, metricSN string) error {
+func (c *Base) ReconcileMetric(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, metricSN string) error {
 	desiredMetric := resources.MakeMetric(pa, metricSN, config.FromContext(ctx).Autoscaler)
 	metric, err := c.MetricLister.Metrics(desiredMetric.Namespace).Get(desiredMetric.Name)
 	if errors.IsNotFound(err) {

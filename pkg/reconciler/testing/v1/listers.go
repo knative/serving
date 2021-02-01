@@ -33,7 +33,7 @@ import (
 	fakenetworkingclientset "knative.dev/networking/pkg/client/clientset/versioned/fake"
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/reconciler/testing"
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	fakeservingclientset "knative.dev/serving/pkg/client/clientset/versioned/fake"
@@ -140,12 +140,12 @@ func (l *Listers) GetRevisionLister() servinglisters.RevisionLister {
 
 // GetPodAutoscalerLister gets the PodAutoscaler lister.
 func (l *Listers) GetPodAutoscalerLister() palisters.PodAutoscalerLister {
-	return palisters.NewPodAutoscalerLister(l.IndexerFor(&av1alpha1.PodAutoscaler{}))
+	return palisters.NewPodAutoscalerLister(l.IndexerFor(&autoscalingv1alpha1.PodAutoscaler{}))
 }
 
 // GetMetricLister returns a lister for the Metric objects.
 func (l *Listers) GetMetricLister() palisters.MetricLister {
-	return palisters.NewMetricLister(l.IndexerFor(&av1alpha1.Metric{}))
+	return palisters.NewMetricLister(l.IndexerFor(&autoscalingv1alpha1.Metric{}))
 }
 
 // GetHorizontalPodAutoscalerLister gets lister for HorizontalPodAutoscaler resources.

@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/logging/logkey"
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
@@ -216,7 +216,7 @@ func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, 
 	scaler, exists := m.scalers[key]
 	if !exists {
 		// This GroupResource is a lie, but unfortunately this interface requires one.
-		return nil, errors.NewNotFound(av1alpha1.Resource("Deciders"), key.String())
+		return nil, errors.NewNotFound(autoscalingv1alpha1.Resource("Deciders"), key.String())
 	}
 	return scaler.safeDecider(), nil
 }
@@ -252,7 +252,7 @@ func (m *MultiScaler) Update(_ context.Context, decider *Decider) (*Decider, err
 		return decider, nil
 	}
 	// This GroupResource is a lie, but unfortunately this interface requires one.
-	return nil, errors.NewNotFound(av1alpha1.Resource("Deciders"), key.String())
+	return nil, errors.NewNotFound(autoscalingv1alpha1.Resource("Deciders"), key.String())
 }
 
 // Delete stops and removes a Decider.

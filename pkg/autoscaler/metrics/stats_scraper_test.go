@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 
 	fakepodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 
@@ -632,8 +632,8 @@ func serviceScraperForTest(ctx context.Context, t *testing.T, directClient, mesh
 	return ss
 }
 
-func testMetric() *av1alpha1.Metric {
-	return &av1alpha1.Metric{
+func testMetric() *autoscalingv1alpha1.Metric {
+	return &autoscalingv1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testRevision,
@@ -641,7 +641,7 @@ func testMetric() *av1alpha1.Metric {
 				serving.RevisionLabelKey: testRevision,
 			},
 		},
-		Spec: av1alpha1.MetricSpec{
+		Spec: autoscalingv1alpha1.MetricSpec{
 			StableWindow: time.Minute,
 			ScrapeTarget: testRevision + "-zhudex",
 		},

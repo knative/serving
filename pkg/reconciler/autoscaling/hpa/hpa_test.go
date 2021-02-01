@@ -54,7 +54,7 @@ import (
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
@@ -434,13 +434,13 @@ func key(namespace, name string) string {
 	return namespace + "/" + name
 }
 
-func pa(namespace, name string, options ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
-	pa := &asv1a1.PodAutoscaler{
+func pa(namespace, name string, options ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
+	pa := &autoscalingv1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: asv1a1.PodAutoscalerSpec{
+		Spec: autoscalingv1alpha1.PodAutoscalerSpec{
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
@@ -463,7 +463,7 @@ func withHPAOwnersRemoved(hpa *autoscalingv2beta1.HorizontalPodAutoscaler) {
 }
 
 func withScales(d, a int32) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(d), ptr.Int32(a)
 	}
 }
@@ -473,7 +473,7 @@ func withHPAScaleStatus(d, a int32) hpaOption {
 	}
 }
 
-func hpa(pa *asv1a1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
+func hpa(pa *autoscalingv1alpha1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
 	h := resources.MakeHPA(pa, defaultConfig().Autoscaler)
 	for _, o := range options {
 		o(h)

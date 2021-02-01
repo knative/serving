@@ -28,98 +28,98 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
 
 // PodAutoscalerOption is an option that can be applied to a PA.
-type PodAutoscalerOption func(*asv1a1.PodAutoscaler)
+type PodAutoscalerOption func(*autoscalingv1alpha1.PodAutoscaler)
 
 // WithProtocolType sets the protocol type on the PodAutoscaler.
 func WithProtocolType(pt networking.ProtocolType) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Spec.ProtocolType = pt
 	}
 }
 
 // WithReachability sets the reachability of the PodAutoscaler to the given value.
-func WithReachability(r asv1a1.ReachabilityType) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+func WithReachability(r autoscalingv1alpha1.ReachabilityType) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Spec.Reachability = r
 	}
 }
 
 // WithReachabilityUnknown sets the reachability of the PodAutoscaler to unknown.
-func WithReachabilityUnknown(pa *asv1a1.PodAutoscaler) {
-	WithReachability(asv1a1.ReachabilityUnknown)(pa)
+func WithReachabilityUnknown(pa *autoscalingv1alpha1.PodAutoscaler) {
+	WithReachability(autoscalingv1alpha1.ReachabilityUnknown)(pa)
 }
 
 // WithReachabilityReachable sets the reachability of the PodAutoscaler to reachable.
-func WithReachabilityReachable(pa *asv1a1.PodAutoscaler) {
-	WithReachability(asv1a1.ReachabilityReachable)(pa)
+func WithReachabilityReachable(pa *autoscalingv1alpha1.PodAutoscaler) {
+	WithReachability(autoscalingv1alpha1.ReachabilityReachable)(pa)
 }
 
 // WithReachabilityUnreachable sets the reachability of the PodAutoscaler to unreachable.
-func WithReachabilityUnreachable(pa *asv1a1.PodAutoscaler) {
-	WithReachability(asv1a1.ReachabilityUnreachable)(pa)
+func WithReachabilityUnreachable(pa *autoscalingv1alpha1.PodAutoscaler) {
+	WithReachability(autoscalingv1alpha1.ReachabilityUnreachable)(pa)
 }
 
 // WithPAOwnersRemoved clears the owner references of this PA resource.
-func WithPAOwnersRemoved(pa *asv1a1.PodAutoscaler) {
+func WithPAOwnersRemoved(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.OwnerReferences = nil
 }
 
 // MarkResourceNotOwnedByPA marks PA as not owning a resource it is supposed to own.
 func MarkResourceNotOwnedByPA(rType, name string) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.MarkResourceNotOwned(rType, name)
 	}
 }
 
 // WithPodAutoscalerOwnersRemoved clears the owner references of this PodAutoscaler.
-func WithPodAutoscalerOwnersRemoved(r *asv1a1.PodAutoscaler) {
+func WithPodAutoscalerOwnersRemoved(r *autoscalingv1alpha1.PodAutoscaler) {
 	r.OwnerReferences = nil
 }
 
 // WithTraffic updates the PA to reflect it receiving traffic.
-func WithTraffic(pa *asv1a1.PodAutoscaler) {
+func WithTraffic(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
 // WithPASKSReady marks PA status that SKS is ready.
-func WithPASKSReady(pa *asv1a1.PodAutoscaler) {
+func WithPASKSReady(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Status.MarkSKSReady()
 }
 
 // WithPASKSNotReady marks PA status that SKS is not ready.
 func WithPASKSNotReady(m string) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.MarkSKSNotReady(m)
 	}
 }
 
 // WithScaleTargetInitialized updates the PA to reflect it having initialized its
 // ScaleTarget.
-func WithScaleTargetInitialized(pa *asv1a1.PodAutoscaler) {
+func WithScaleTargetInitialized(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Status.MarkScaleTargetInitialized()
 }
 
 // WithPAStatusService annotates PA Status with the provided service name.
 func WithPAStatusService(svc string) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.ServiceName = svc
 	}
 }
 
 // WithPAMetricsService annotates PA Status with the provided service name.
 func WithPAMetricsService(svc string) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.MetricsServiceName = svc
 	}
 }
 
 // WithBufferedTraffic updates the PA to reflect that it has received
 // and buffered traffic while it is being activated.
-func WithBufferedTraffic(pa *asv1a1.PodAutoscaler) {
+func WithBufferedTraffic(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Status.MarkActivating("Queued",
 		"Requests to the target are being buffered as resources are provisioned.")
 }
@@ -127,19 +127,19 @@ func WithBufferedTraffic(pa *asv1a1.PodAutoscaler) {
 // WithNoTraffic updates the PA to reflect the fact that it is not
 // receiving traffic.
 func WithNoTraffic(reason, message string) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.MarkInactive(reason, message)
 	}
 }
 
 // WithPADeletionTimestamp will set the DeletionTimestamp on the PodAutoscaler.
-func WithPADeletionTimestamp(r *asv1a1.PodAutoscaler) {
+func WithPADeletionTimestamp(r *autoscalingv1alpha1.PodAutoscaler) {
 	t := metav1.NewTime(time.Unix(1e9, 0))
 	r.ObjectMeta.SetDeletionTimestamp(&t)
 }
 
 // WithHPAClass updates the PA to add the hpa class annotation.
-func WithHPAClass(pa *asv1a1.PodAutoscaler) {
+func WithHPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
 	if pa.Annotations == nil {
 		pa.Annotations = make(map[string]string, 1)
 	}
@@ -149,13 +149,13 @@ func WithHPAClass(pa *asv1a1.PodAutoscaler) {
 // WithPAContainerConcurrency returns a PodAutoscalerOption which sets
 // the PodAutoscaler containerConcurrency to the provided value.
 func WithPAContainerConcurrency(cc int64) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Spec.ContainerConcurrency = cc
 	}
 }
 
 func withAnnotationValue(key, value string) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		if pa.Annotations == nil {
 			pa.Annotations = make(map[string]string, 1)
 		}
@@ -208,13 +208,13 @@ func WithMetricAnnotation(metric string) PodAutoscalerOption {
 // WithObservedGeneration returns a PodAutoScalerOption which sets
 // the Status.ObservedGeneration field to the given generation.
 func WithObservedGeneration(gen int64) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.ObservedGeneration = gen
 	}
 }
 
 // WithMetricOwnersRemoved clears the owner references of this PodAutoscaler.
-func WithMetricOwnersRemoved(m *asv1a1.Metric) {
+func WithMetricOwnersRemoved(m *autoscalingv1alpha1.Metric) {
 	m.OwnerReferences = nil
 }
 

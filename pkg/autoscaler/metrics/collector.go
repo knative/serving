@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/clock"
 	"knative.dev/pkg/logging/logkey"
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
 	"knative.dev/serving/pkg/autoscaler/config"
 )
@@ -45,7 +45,7 @@ var (
 )
 
 // StatsScraperFactory creates a StatsScraper for a given Metric.
-type StatsScraperFactory func(*av1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error)
+type StatsScraperFactory func(*autoscalingv1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error)
 
 var emptyStat = Stat{}
 
@@ -60,7 +60,7 @@ type StatMessage struct {
 type Collector interface {
 	// CreateOrUpdate either creates a collection for the given metric or update it, should
 	// it already exist.
-	CreateOrUpdate(*av1alpha1.Metric) error
+	CreateOrUpdate(*autoscalingv1alpha1.Metric) error
 	// Record allows stats to be captured that came from outside the Collector.
 	Record(key types.NamespacedName, now time.Time, stat Stat)
 	// Delete deletes a Metric and halts collection.
@@ -110,7 +110,7 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 
 // CreateOrUpdate either creates a collection for the given metric or update it, should
 // it already exist.
-func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
+func (c *MetricCollector) CreateOrUpdate(metric *autoscalingv1alpha1.Metric) error {
 	logger := c.logger.With(zap.String(logkey.Key, types.NamespacedName{
 		Namespace: metric.Namespace,
 		Name:      metric.Name,
@@ -221,7 +221,7 @@ type collection struct {
 	// mux guards access to all of the collection's state.
 	mux sync.RWMutex
 
-	metric *av1alpha1.Metric
+	metric *autoscalingv1alpha1.Metric
 
 	// Fields relevant to metric collection in general.
 	concurrencyBuckets      *aggregation.TimedFloat64Buckets
@@ -250,7 +250,7 @@ func (c *collection) getScraper() StatsScraper {
 
 // newCollection creates a new collection, which uses the given scraper to
 // collect stats every scrapeTickInterval.
-func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, clock clock.Clock,
+func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clock clock.Clock,
 	callback func(types.NamespacedName), logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric: metric,
@@ -314,7 +314,7 @@ func (c *collection) close() {
 }
 
 // updateMetric safely updates the metric stored in the collection.
-func (c *collection) updateMetric(metric *av1alpha1.Metric) {
+func (c *collection) updateMetric(metric *autoscalingv1alpha1.Metric) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -326,7 +326,7 @@ func (c *collection) updateMetric(metric *av1alpha1.Metric) {
 }
 
 // currentMetric safely returns the current metric stored in the collection.
-func (c *collection) currentMetric() *av1alpha1.Metric {
+func (c *collection) currentMetric() *autoscalingv1alpha1.Metric {
 	c.mux.RLock()
 	defer c.mux.RUnlock()
 

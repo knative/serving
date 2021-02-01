@@ -25,13 +25,13 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/ptr"
-	pav1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
 // MakeSKS makes an SKS resource from the PA, selector and operation mode.
 func TestMakeSKS(t *testing.T) {
-	pa := &pav1a1.PodAutoscaler{
+	pa := &autoscalingv1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "here",
 			Name:      "with-you",
@@ -45,7 +45,7 @@ func TestMakeSKS(t *testing.T) {
 				"a": "b",
 			},
 		},
-		Spec: pav1a1.PodAutoscalerSpec{
+		Spec: autoscalingv1alpha1.PodAutoscalerSpec{
 			ProtocolType: networking.ProtocolHTTP1,
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
@@ -71,7 +71,7 @@ func TestMakeSKS(t *testing.T) {
 				"a": "b",
 			},
 			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion:         pav1a1.SchemeGroupVersion.String(),
+				APIVersion:         autoscalingv1alpha1.SchemeGroupVersion.String(),
 				Kind:               "PodAutoscaler",
 				Name:               "with-you",
 				UID:                "2006",
