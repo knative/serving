@@ -36,7 +36,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
@@ -225,31 +225,31 @@ func TestReconcileWithCollector(t *testing.T) {
 	}
 }
 
-type metricOption func(*av1alpha1.Metric)
+type metricOption func(*autoscalingv1alpha1.Metric)
 
 func failed(r, m string) metricOption {
-	return func(metric *av1alpha1.Metric) {
+	return func(metric *autoscalingv1alpha1.Metric) {
 		metric.Status.MarkMetricFailed(r, m)
 	}
 }
 
 func unknown(r, m string) metricOption {
-	return func(metric *av1alpha1.Metric) {
+	return func(metric *autoscalingv1alpha1.Metric) {
 		metric.Status.MarkMetricNotReady(r, m)
 	}
 }
 
-func ready(m *av1alpha1.Metric) {
+func ready(m *autoscalingv1alpha1.Metric) {
 	m.Status.MarkMetricReady()
 }
 
-func metric(namespace, name string, opts ...metricOption) *av1alpha1.Metric {
-	m := &av1alpha1.Metric{
+func metric(namespace, name string, opts ...metricOption) *autoscalingv1alpha1.Metric {
+	m := &autoscalingv1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
 		},
-		Spec: av1alpha1.MetricSpec{
+		Spec: autoscalingv1alpha1.MetricSpec{
 			// Doesn't really matter what is by default, but we need something, so that
 			// Spec is not empty.
 			StableWindow: time.Minute,
@@ -269,7 +269,7 @@ type testCollector struct {
 	deleteCalls atomic.Int32
 }
 
-func (c *testCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
+func (c *testCollector) CreateOrUpdate(metric *autoscalingv1alpha1.Metric) error {
 	c.createOrUpdateCalls.Inc()
 	return c.createOrUpdateError
 }

@@ -43,7 +43,7 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	"knative.dev/pkg/test/mako"
-	asv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 )
@@ -284,7 +284,7 @@ func main() {
 					// Skip events other than modifications
 					break
 				}
-				pa := event.Object.(*asv1alpha1.PodAutoscaler)
+				pa := event.Object.(*autoscalingv1alpha1.PodAutoscaler)
 				handle(q, pa, pa.Status.Status, paSeen, "pal")
 			}
 		}

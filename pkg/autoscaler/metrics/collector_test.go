@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	. "knative.dev/pkg/logging/testing"
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
 	"knative.dev/serving/pkg/autoscaler/config"
@@ -41,12 +41,12 @@ import (
 var (
 	defaultNamespace = "test-namespace"
 	defaultName      = "test-name"
-	defaultMetric    = av1alpha1.Metric{
+	defaultMetric    = autoscalingv1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: defaultNamespace,
 			Name:      defaultName,
 		},
-		Spec: av1alpha1.MetricSpec{
+		Spec: autoscalingv1alpha1.MetricSpec{
 			StableWindow: 60 * time.Second,
 			PanicWindow:  6 * time.Second,
 			ScrapeTarget: "original-target",
@@ -483,7 +483,7 @@ func TestDoubleWatch(t *testing.T) {
 }
 
 func TestMetricCollectorError(t *testing.T) {
-	testMetric := &av1alpha1.Metric{
+	testMetric := &autoscalingv1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testRevision,
@@ -491,7 +491,7 @@ func TestMetricCollectorError(t *testing.T) {
 				serving.RevisionLabelKey: testRevision,
 			},
 		},
-		Spec: av1alpha1.MetricSpec{
+		Spec: autoscalingv1alpha1.MetricSpec{
 			ScrapeTarget: testRevision + "-zhudex",
 		},
 	}
@@ -570,7 +570,7 @@ func TestMetricCollectorError(t *testing.T) {
 }
 
 func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
-	return func(*av1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error) {
+	return func(*autoscalingv1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error) {
 		return scraper, err
 	}
 }

@@ -28,7 +28,7 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
-	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
@@ -73,7 +73,7 @@ type Reconciler struct {
 var _ pareconciler.Interface = (*Reconciler)(nil)
 
 // ReconcileKind implements Interface.ReconcileKind.
-func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutoscaler) pkgreconciler.Event {
+func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 
 	// We need the SKS object in order to optimize scale to zero
@@ -168,7 +168,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	return nil
 }
 
-func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*scaling.Decider, error) {
+func (c *Reconciler) reconcileDecider(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) (*scaling.Decider, error) {
 	desiredDecider := resources.MakeDecider(pa, config.FromContext(ctx).Autoscaler)
 	decider, err := c.deciders.Get(ctx, desiredDecider.Namespace, desiredDecider.Name)
 	if errors.IsNotFound(err) {
@@ -191,7 +191,7 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func computeStatus(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) {
+func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) {
 	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
 
 	reportMetrics(pa, pc)
@@ -199,7 +199,7 @@ func computeStatus(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCoun
 	logger.Debugf("PA Status after reconcile: %#v", pa.Status.Status)
 }
 
-func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
+func reportMetrics(pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
 	serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
 	configLabel := pa.Labels[serving.ConfigurationLabelKey]
 
@@ -231,7 +231,7 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 //    | -1   | >= min | 0     | active     | inactive   | <-- this case technically is impossible.
 //    | -1   | >= min | >0    | activating | active     |
 //    | -1   | >= min | >0    | active     | active     |
-func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
+func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
 	if pc.ready >= minReady && pa.Status.ServiceName != "" {
 		pa.Status.MarkScaleTargetInitialized()
@@ -270,7 +270,7 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 }
 
 // activeThreshold returns the scale required for the pa to be marked Active
-func activeThreshold(ctx context.Context, pa *pav1alpha1.PodAutoscaler) int {
+func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) int {
 	asConfig := config.FromContext(ctx).Autoscaler
 	min, _ := pa.ScaleBounds(asConfig)
 	if !pa.Status.IsScaleTargetInitialized() {
@@ -282,7 +282,7 @@ func activeThreshold(ctx context.Context, pa *pav1alpha1.PodAutoscaler) int {
 
 // resolveScrapeTarget returns metric service name to be scraped based on TBC configuration
 // TBC == -1 => activator in path, don't scrape the service
-func resolveScrapeTarget(ctx context.Context, pa *pav1alpha1.PodAutoscaler) string {
+func resolveScrapeTarget(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) string {
 	tbc := resolveTBC(ctx, pa)
 	if tbc == -1 {
 		return ""
@@ -291,7 +291,7 @@ func resolveScrapeTarget(ctx context.Context, pa *pav1alpha1.PodAutoscaler) stri
 	return pa.Status.MetricsServiceName
 }
 
-func resolveTBC(ctx context.Context, pa *pav1alpha1.PodAutoscaler) float64 {
+func resolveTBC(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) float64 {
 	if v, ok := pa.TargetBC(); ok {
 		return v
 	}

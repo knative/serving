@@ -72,7 +72,7 @@ import (
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -150,20 +150,20 @@ func newConfigWatcher() configmap.Watcher {
 }
 
 func withScales(g, w int32) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(w), ptr.Int32(g)
 	}
 }
 
-func metricWithDiffSvc(ns, n string) *asv1a1.Metric {
+func metricWithDiffSvc(ns, n string) *autoscalingv1alpha1.Metric {
 	m := metric(ns, n)
 	m.Spec.ScrapeTarget = "something-else"
 	return m
 }
 
-type metricOption func(*asv1a1.Metric)
+type metricOption func(*autoscalingv1alpha1.Metric)
 
-func metric(ns, n string, opts ...metricOption) *asv1a1.Metric {
+func metric(ns, n string, opts ...metricOption) *autoscalingv1alpha1.Metric {
 	pa := kpa(ns, n)
 	m := aresources.MakeMetric(pa, kmeta.ChildName(n, "-private"), defaultConfig().Autoscaler)
 	for _, o := range opts {
@@ -186,15 +186,15 @@ func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	return s
 }
 
-func markOld(pa *asv1a1.PodAutoscaler) {
+func markOld(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Status.Conditions[0].LastTransitionTime.Inner.Time = time.Now().Add(-1 * time.Hour)
 }
 
-func markScaleTargetInitialized(pa *asv1a1.PodAutoscaler) {
+func markScaleTargetInitialized(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Status.MarkScaleTargetInitialized()
 }
 
-func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
+func kpa(ns, n string, opts ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
 	rev := newTestRevision(ns, n)
 	kpa := revisionresources.MakePA(rev)
 	kpa.Generation = 1
@@ -208,7 +208,7 @@ func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 }
 
 func markResourceNotOwned(rType, name string) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Status.MarkResourceNotOwned(rType, name)
 	}
 }
@@ -243,7 +243,7 @@ func TestReconcile(t *testing.T) {
 		Patch:      []byte(fmt.Sprintf(`[{"op":"replace","path":"/spec/replicas","value":%d}]`, defaultScale)),
 	}
 
-	inactiveKPAMinScale := func(g int32) *asv1a1.PodAutoscaler {
+	inactiveKPAMinScale := func(g int32) *autoscalingv1alpha1.PodAutoscaler {
 		return kpa(
 			testNamespace, testRevision, WithPASKSNotReady(""), WithScaleTargetInitialized,
 			WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
@@ -252,7 +252,7 @@ func TestReconcile(t *testing.T) {
 			WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 		)
 	}
-	activatingKPAMinScale := func(g int32, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
+	activatingKPAMinScale := func(g int32, opts ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
 		kpa := kpa(
 			testNamespace, testRevision, WithPASKSNotReady(""),
 			WithBufferedTraffic, withScales(g, defaultScale), WithReachabilityReachable,
@@ -264,7 +264,7 @@ func TestReconcile(t *testing.T) {
 		}
 		return kpa
 	}
-	activeKPAMinScale := func(g, w int32) *asv1a1.PodAutoscaler {
+	activeKPAMinScale := func(g, w int32) *autoscalingv1alpha1.PodAutoscaler {
 		return kpa(
 			testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
 			withScales(g, w), WithReachabilityReachable,
@@ -1157,7 +1157,7 @@ func TestReconcile(t *testing.T) {
 		}
 		psf := podscalable.Get(ctx)
 		scaler := newScaler(ctx, psf, func(interface{}, time.Duration) {})
-		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
+		scaler.activatorProbe = func(*autoscalingv1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 		r := &Reconciler{
 			Base: &areconciler.Base{
 				Client:           servingclient.Get(ctx),
@@ -1452,7 +1452,7 @@ func TestControllerCreateError(t *testing.T) {
 
 	ctl := NewController(ctx, newConfigWatcher(),
 		&failingDeciders{
-			getErr:    apierrors.NewNotFound(asv1a1.Resource("Deciders"), key),
+			getErr:    apierrors.NewNotFound(autoscalingv1alpha1.Resource("Deciders"), key),
 			createErr: want,
 		})
 
@@ -1493,7 +1493,7 @@ func TestControllerUpdateError(t *testing.T) {
 
 	ctl := NewController(ctx, newConfigWatcher(),
 		&failingDeciders{
-			getErr:    apierrors.NewNotFound(asv1a1.Resource("Deciders"), key),
+			getErr:    apierrors.NewNotFound(autoscalingv1alpha1.Resource("Deciders"), key),
 			createErr: want,
 		})
 
@@ -1632,7 +1632,7 @@ func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*scali
 	defer km.mutex.Unlock()
 
 	if km.decider == nil {
-		return nil, apierrors.NewNotFound(asv1a1.Resource("Deciders"), types.NamespacedName{Namespace: namespace, Name: name}.String())
+		return nil, apierrors.NewNotFound(autoscalingv1alpha1.Resource("Deciders"), types.NamespacedName{Namespace: namespace, Name: name}.String())
 	}
 	return km.decider, nil
 }
@@ -1734,7 +1734,7 @@ func makeReadyPods(num int, ns, n string) []runtime.Object {
 }
 
 func withMinScale(minScale int) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations = kmeta.UnionMaps(
 			pa.Annotations,
 			map[string]string{autoscaling.MinScaleAnnotationKey: strconv.Itoa(minScale)},
@@ -1842,7 +1842,7 @@ func TestResolveScrapeTarget(t *testing.T) {
 }
 
 func withInitialScale(initScale int) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations = kmeta.UnionMaps(
 			pa.Annotations,
 			map[string]string{autoscaling.InitialScaleAnnotationKey: strconv.Itoa(initScale)},

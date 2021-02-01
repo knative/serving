@@ -38,7 +38,7 @@ import (
 	"knative.dev/pkg/metrics"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	tracingconfig "knative.dev/pkg/tracing/config"
-	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
@@ -767,7 +767,7 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 	return resources.MakeImageCache(Revision(namespace, name), name, "")
 }
 
-func pa(namespace, name string, ko ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
+func pa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
 	rev := Revision(namespace, name)
 	k := resources.MakePA(rev)
 

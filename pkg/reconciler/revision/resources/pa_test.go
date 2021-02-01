@@ -25,7 +25,7 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/ptr"
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -34,7 +34,7 @@ func TestMakePA(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1.Revision
-		want *av1alpha1.PodAutoscaler
+		want *autoscalingv1alpha1.PodAutoscaler
 	}{{
 		name: "name is bar (Concurrency=1, Reachable=true)",
 		rev: func() *v1.Revision {
@@ -57,7 +57,7 @@ func TestMakePA(t *testing.T) {
 			rev.Status.MarkActiveTrue()
 			return &rev
 		}(),
-		want: &av1alpha1.PodAutoscaler{
+		want: &autoscalingv1alpha1.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
 				Name:      "bar",
@@ -78,7 +78,7 @@ func TestMakePA(t *testing.T) {
 					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
-			Spec: av1alpha1.PodAutoscalerSpec{
+			Spec: autoscalingv1alpha1.PodAutoscalerSpec{
 				ContainerConcurrency: 1,
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
@@ -86,7 +86,7 @@ func TestMakePA(t *testing.T) {
 					Name:       "bar-deployment",
 				},
 				ProtocolType: networking.ProtocolHTTP1,
-				Reachability: av1alpha1.ReachabilityReachable,
+				Reachability: autoscalingv1alpha1.ReachabilityReachable,
 			},
 		},
 	}, {
@@ -113,7 +113,7 @@ func TestMakePA(t *testing.T) {
 			rev.Status.MarkActiveTrue()
 			return &rev
 		}(),
-		want: &av1alpha1.PodAutoscaler{
+		want: &autoscalingv1alpha1.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
 				Name:      "baz",
@@ -132,7 +132,7 @@ func TestMakePA(t *testing.T) {
 					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
-			Spec: av1alpha1.PodAutoscalerSpec{
+			Spec: autoscalingv1alpha1.PodAutoscalerSpec{
 				ContainerConcurrency: 0,
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
@@ -140,7 +140,7 @@ func TestMakePA(t *testing.T) {
 					Name:       "baz-deployment",
 				},
 				ProtocolType: networking.ProtocolH2C,
-				Reachability: av1alpha1.ReachabilityUnreachable,
+				Reachability: autoscalingv1alpha1.ReachabilityUnreachable,
 			}},
 	}, {
 		name: "name is baz (Concurrency=0, Reachable=false, Activating)",
@@ -166,7 +166,7 @@ func TestMakePA(t *testing.T) {
 			rev.Status.MarkActiveUnknown("reasons", "because")
 			return &rev
 		}(),
-		want: &av1alpha1.PodAutoscaler{
+		want: &autoscalingv1alpha1.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
 				Name:      "baz",
@@ -185,7 +185,7 @@ func TestMakePA(t *testing.T) {
 					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
-			Spec: av1alpha1.PodAutoscalerSpec{
+			Spec: autoscalingv1alpha1.PodAutoscalerSpec{
 				ContainerConcurrency: 0,
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
@@ -193,7 +193,7 @@ func TestMakePA(t *testing.T) {
 					Name:       "baz-deployment",
 				},
 				ProtocolType: networking.ProtocolH2C,
-				Reachability: av1alpha1.ReachabilityUnknown,
+				Reachability: autoscalingv1alpha1.ReachabilityUnknown,
 			}},
 	}, {
 		name: "name is batman (Activating, Revision failed)",
@@ -220,7 +220,7 @@ func TestMakePA(t *testing.T) {
 			rev.Status.MarkResourcesAvailableFalse("foo", "bar")
 			return &rev
 		}(),
-		want: &av1alpha1.PodAutoscaler{
+		want: &autoscalingv1alpha1.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
 				Name:      "batman",
@@ -239,7 +239,7 @@ func TestMakePA(t *testing.T) {
 					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
-			Spec: av1alpha1.PodAutoscalerSpec{
+			Spec: autoscalingv1alpha1.PodAutoscalerSpec{
 				ContainerConcurrency: 0,
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
@@ -248,7 +248,7 @@ func TestMakePA(t *testing.T) {
 				},
 				ProtocolType: networking.ProtocolH2C,
 				// When the Revision has failed, we mark the PA as unreachable.
-				Reachability: av1alpha1.ReachabilityUnreachable,
+				Reachability: autoscalingv1alpha1.ReachabilityUnreachable,
 			}},
 	}, {
 		name: "name is robin (Activating, Revision routable but failed)",
@@ -278,7 +278,7 @@ func TestMakePA(t *testing.T) {
 			rev.Status.MarkResourcesAvailableFalse("foo", "bar")
 			return &rev
 		}(),
-		want: &av1alpha1.PodAutoscaler{
+		want: &autoscalingv1alpha1.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
 				Name:      "robin",
@@ -297,7 +297,7 @@ func TestMakePA(t *testing.T) {
 					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 			},
-			Spec: av1alpha1.PodAutoscalerSpec{
+			Spec: autoscalingv1alpha1.PodAutoscalerSpec{
 				ContainerConcurrency: 0,
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
@@ -306,7 +306,7 @@ func TestMakePA(t *testing.T) {
 				},
 				ProtocolType: networking.ProtocolH2C,
 				// Reachability trumps failure of Revisions.
-				Reachability: av1alpha1.ReachabilityUnknown,
+				Reachability: autoscalingv1alpha1.ReachabilityUnknown,
 			}},
 	}}
 

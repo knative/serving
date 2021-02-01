@@ -37,7 +37,7 @@ import (
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
@@ -107,7 +107,7 @@ func NewController(
 		},
 	})
 
-	onlyPAControlled := controller.FilterControllerGVK(av1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"))
+	onlyPAControlled := controller.FilterControllerGVK(autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"))
 	handleMatchingControllers := cache.FilteringResourceEventHandler{
 		FilterFunc: pkgreconciler.ChainFilterFuncs(onlyKPAClass, onlyPAControlled),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),

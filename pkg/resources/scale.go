@@ -22,7 +22,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,7 +40,7 @@ func ScaleResourceArguments(ref corev1.ObjectReference) (gvr *schema.GroupVersio
 
 // GetScaleResource returns the current scale resource for the PA.
 // TODO(markusthoemmes): We shouldn't need to pass namespace here.
-func GetScaleResource(ctx context.Context, namespace string, ref corev1.ObjectReference, psInformerFactory duck.InformerFactory) (*pav1alpha1.PodScalable, error) {
+func GetScaleResource(ctx context.Context, namespace string, ref corev1.ObjectReference, psInformerFactory duck.InformerFactory) (*autoscalingv1alpha1.PodScalable, error) {
 	gvr, name, err := ScaleResourceArguments(ref)
 	if err != nil {
 		return nil, fmt.Errorf("error getting the scale arguments: %w", err)
@@ -54,5 +54,5 @@ func GetScaleResource(ctx context.Context, namespace string, ref corev1.ObjectRe
 	if err != nil {
 		return nil, fmt.Errorf("error fetching Pod Scalable %s/%s: %w", namespace, name, err)
 	}
-	return psObj.(*pav1alpha1.PodScalable), nil
+	return psObj.(*autoscalingv1alpha1.PodScalable), nil
 }
