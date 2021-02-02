@@ -28,13 +28,20 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	pkgTest "knative.dev/pkg/test"
+	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 )
+
+func withContainerConcurrency(cc int64) rtesting.ServiceOption {
+	return func(svc *v1.Service) {
+		svc.Spec.Template.Spec.ContainerConcurrency = &cc
+	}
+}
 
 func TestSingleConcurrency(t *testing.T) {
 	t.Parallel()
@@ -46,7 +53,7 @@ func TestSingleConcurrency(t *testing.T) {
 	}
 	test.EnsureTearDown(t, clients, &names)
 
-	objects, err := v1test.CreateServiceReady(t, clients, &names, rtesting.WithContainerConcurrency(1))
+	objects, err := v1test.CreateServiceReady(t, clients, &names, withContainerConcurrency(1))
 	if err != nil {
 		t.Fatal("Failed to create Service:", err)
 	}
@@ -55,7 +62,7 @@ func TestSingleConcurrency(t *testing.T) {
 	// Ready does not actually mean Ready for a Route just yet.
 	// See https://github.com/knative/serving/issues/1582
 	t.Log("Probing", url)
-	if _, err := pkgTest.WaitForEndpointState(
+	if _, err := pkgtest.WaitForEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
@@ -67,7 +74,8 @@ func TestSingleConcurrency(t *testing.T) {
 		t.Fatalf("Error probing %s: %v", url, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+	client, err := pkgtest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, url.Hostname(),
+		test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		t.Fatal("Error creating spoofing client:", err)
 	}

@@ -20,9 +20,9 @@ package v1
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -129,19 +129,19 @@ func fetchConfiguration(name string, clients *test.Clients, t *testing.T) *v1.Co
 
 func waitForConfigurationLabelsUpdate(clients *test.Clients, names test.ResourceNames, labels map[string]string) error {
 	return v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
-		return reflect.DeepEqual(c.Labels, labels) && c.Generation == c.Status.ObservedGeneration, nil
+		return cmp.Equal(c.Labels, labels) && c.Generation == c.Status.ObservedGeneration, nil
 	}, "ConfigurationMetadataUpdatedWithLabels")
 }
 
 func waitForConfigurationAnnotationsUpdate(clients *test.Clients, names test.ResourceNames, annotations map[string]string) error {
 	return v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
-		return reflect.DeepEqual(c.Annotations, annotations) && c.Generation == c.Status.ObservedGeneration, nil
+		return cmp.Equal(c.Annotations, annotations) && c.Generation == c.Status.ObservedGeneration, nil
 	}, "ConfigurationMetadataUpdatedWithAnnotations")
 }
 
 // checkNoKeysPresent returns true if _no_ keys from `expected`, are present in `actual`.
 // checkNoKeysPresent will log the offending keys to t.Log.
-func checkNoKeysPresent(expected map[string]string, actual map[string]string, t *testing.T) bool {
+func checkNoKeysPresent(expected, actual map[string]string, t *testing.T) bool {
 	t.Helper()
 	present := []string{}
 	for k := range expected {
