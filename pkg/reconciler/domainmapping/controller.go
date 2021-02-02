@@ -41,12 +41,12 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	certificateInformer := certificateinformer.Get(ctx)
 	domainmappingInformer := domainmapping.Get(ctx)
 	ingressInformer := ingressinformer.Get(ctx)
-	domainClaimInforer := domainclaiminformer.Get(ctx)
+	domainClaimInformer := domainclaiminformer.Get(ctx)
 
 	r := &Reconciler{
 		certificateLister: certificateInformer.Lister(),
 		ingressLister:     ingressInformer.Lister(),
-		domainClaimLister: domainClaimInforer.Lister(),
+		domainClaimLister: domainClaimInformer.Lister(),
 		netclient:         netclient.Get(ctx),
 	}
 
