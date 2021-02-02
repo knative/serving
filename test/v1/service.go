@@ -192,17 +192,14 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 			revisionName = s.Status.LatestCreatedRevisionName
 			// Without this it might happen that the latest created revision is later overridden by a newer one
 			// and the following check for LatestReadyRevisionName would fail.
-			if revErr := CheckRevisionState(clients.ServingClient, revisionName, IsRevisionRoutingActive); revErr != nil {
-				return false, nil
-			}
-			return true, nil
+			return CheckRevisionState(clients.ServingClient, revisionName, IsRevisionRoutingActive) == nil, nil
 		}
 		return false, nil
 	}, "ServiceUpdatedWithRevision"); err != nil {
 		return "", fmt.Errorf("LatestCreatedRevisionName not updated: %w", err)
 	}
 	if err := WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
-		return (s.Status.LatestReadyRevisionName == revisionName), nil
+		return s.Status.LatestReadyRevisionName == revisionName, nil
 	}, "ServiceReadyWithRevision"); err != nil {
 		return "", fmt.Errorf("LatestReadyRevisionName not updated with %s: %w", revisionName, err)
 	}
