@@ -55,6 +55,7 @@ import (
 type Reconciler struct {
 	certificateLister networkinglisters.CertificateLister
 	ingressLister     networkinglisters.IngressLister
+	domainClaimLister networkinglisters.ClusterDomainClaimLister
 	netclient         netclientset.Interface
 	resolver          *resolver.URIResolver
 }
@@ -296,7 +297,7 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping)
 }
 
 func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
-	dc, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Get(ctx, dm.Name, metav1.GetOptions{})
+	dc, err := r.domainClaimLister.Get(dm.Name)
 	if err != nil && !apierrs.IsNotFound(err) {
 		return fmt.Errorf("failed to get ClusterDomainClaim: %w", err)
 	} else if apierrs.IsNotFound(err) {

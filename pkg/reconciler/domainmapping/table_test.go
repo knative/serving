@@ -677,6 +677,7 @@ func TestReconcile(t *testing.T) {
 			ingressLister:     listers.GetIngressLister(),
 			netclient:         networkingclient.Get(ctx),
 			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
+			domainClaimLister: listers.GetDomainClaimLister(),
 		}
 
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
@@ -804,6 +805,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 			ingressLister:     listers.GetIngressLister(),
 			netclient:         networkingclient.Get(ctx),
 			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
+			domainClaimLister: listers.GetDomainClaimLister(),
 		}
 
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
@@ -1109,6 +1111,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		r := &Reconciler{
 			certificateLister: listers.GetCertificateLister(),
 			ingressLister:     listers.GetIngressLister(),
+			domainClaimLister: listers.GetDomainClaimLister(),
 			netclient:         networkingclient.Get(ctx),
 			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
 		}
@@ -1172,6 +1175,7 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 		ctx = addressable.WithDuck(ctx)
 		r := &Reconciler{
 			certificateLister: listers.GetCertificateLister(),
+			domainClaimLister: listers.GetDomainClaimLister(),
 			ingressLister:     listers.GetIngressLister(),
 			netclient:         networkingclient.Get(ctx),
 			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
