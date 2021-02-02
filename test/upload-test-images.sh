@@ -28,10 +28,18 @@ function upload_test_images() {
     tag_option="--tags $docker_tag,latest"
   fi
 
+  # If PLATFORM environment variable is specified, then images will be built for
+  # specific hardware architecture.
+  # Example of the variable values - "linux/arm64", "linux/s390x".
+  local platform=""
+  if [ -n "${PLATFORM}" ]; then
+    platform="--platform ${PLATFORM}"
+  fi
+
   # ko resolve is being used for the side-effect of publishing images,
   # so the resulting yaml produced is ignored.
   # We limit the number of concurrent builds (jobs) to avoid OOMs.
-  ko resolve --jobs=4 ${tag_option} -RBf "${image_dir}" > /dev/null
+  ko resolve --jobs=4 ${platform} ${tag_option} -RBf "${image_dir}" > /dev/null
 }
 
 : ${KO_DOCKER_REPO:?"You must set 'KO_DOCKER_REPO', see DEVELOPMENT.md"}
