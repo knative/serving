@@ -158,6 +158,11 @@ func (l *Listers) GetIngressLister() networkinglisters.IngressLister {
 	return networkinglisters.NewIngressLister(l.IndexerFor(&networking.Ingress{}))
 }
 
+// GetDomainClaimLister get listers for ClusterDomainClaim resource.
+func (l *Listers) GetDomainClaimLister() networkinglisters.ClusterDomainClaimLister {
+	return networkinglisters.NewClusterDomainClaimLister(l.IndexerFor(&networking.ClusterDomainClaim{}))
+}
+
 // GetCertificateLister get lister for Certificate resource.
 func (l *Listers) GetCertificateLister() networkinglisters.CertificateLister {
 	return networkinglisters.NewCertificateLister(l.IndexerFor(&networking.Certificate{}))

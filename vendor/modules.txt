@@ -1050,6 +1050,7 @@ knative.dev/networking/pkg/client/injection/informers/factory
 knative.dev/networking/pkg/client/injection/informers/factory/fake
 knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate
 knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake
+knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/clusterdomainclaim
 knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress
 knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake
 knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice

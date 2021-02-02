@@ -23,6 +23,7 @@ import (
 	network "knative.dev/networking/pkg"
 	netclient "knative.dev/networking/pkg/client/injection/client"
 	certificateinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
+	domainclaiminformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/clusterdomainclaim"
 	ingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -40,10 +41,12 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	certificateInformer := certificateinformer.Get(ctx)
 	domainmappingInformer := domainmapping.Get(ctx)
 	ingressInformer := ingressinformer.Get(ctx)
+	domainClaimInformer := domainclaiminformer.Get(ctx)
 
 	r := &Reconciler{
 		certificateLister: certificateInformer.Lister(),
 		ingressLister:     ingressInformer.Lister(),
+		domainClaimLister: domainClaimInformer.Lister(),
 		netclient:         netclient.Get(ctx),
 	}
 
