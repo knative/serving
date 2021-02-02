@@ -19,6 +19,7 @@ package serverlessservice
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -46,14 +47,22 @@ func NewController(
 	logger := logging.FromContext(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
+	psInformerFactory := podscalable.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
 
 	c := &reconciler{
 		kubeclient: kubeclient.Get(ctx),
 
-		endpointsLister:   endpointsInformer.Lister(),
-		serviceLister:     serviceInformer.Lister(),
-		psInformerFactory: podscalable.Get(ctx),
+		endpointsLister: endpointsInformer.Lister(),
+		serviceLister:   serviceInformer.Lister(),
+
+		// We wrap the PodScalable Informer Factory here so Get() uses the outer context.
+		// As the returned Informer is shared across reconciles, passing the context from
+		// an individual reconcile to Get() could lead to problems.
+		listerFactory: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+			_, l, err := psInformerFactory.Get(ctx, gvr)
+			return l, err
+		},
 	}
 	impl := sksreconciler.NewImpl(ctx, c)
 

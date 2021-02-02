@@ -29,13 +29,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 	sksreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
 
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/hash"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
@@ -55,7 +56,7 @@ type reconciler struct {
 	endpointsLister corev1listers.EndpointsLister
 
 	// Used to get PodScalables from object references.
-	psInformerFactory duck.InformerFactory
+	listerFactory func(schema.GroupVersionResource) (cache.GenericLister, error)
 }
 
 // Check that our Reconciler implements Interface
@@ -294,7 +295,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
 
-	selector, err := r.getSelector(ctx, sks)
+	selector, err := r.getSelector(sks)
 	if err != nil {
 		return fmt.Errorf("error retrieving deployment selector spec: %w", err)
 	}
@@ -338,8 +339,8 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 	return nil
 }
 
-func (r *reconciler) getSelector(ctx context.Context, sks *netv1alpha1.ServerlessService) (map[string]string, error) {
-	scale, err := presources.GetScaleResource(ctx, sks.Namespace, sks.Spec.ObjectRef, r.psInformerFactory)
+func (r *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string]string, error) {
+	scale, err := presources.GetScaleResource(sks.Namespace, sks.Spec.ObjectRef, r.listerFactory)
 	if err != nil {
 		return nil, err
 	}

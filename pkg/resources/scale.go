@@ -17,15 +17,14 @@ limitations under the License.
 package resources
 
 import (
-	"context"
 	"fmt"
 
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/apis/duck"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 )
 
 // ScaleResourceArguments returns the GroupVersionResource and resource name from an ObjectReference.
@@ -40,12 +39,12 @@ func ScaleResourceArguments(ref corev1.ObjectReference) (gvr *schema.GroupVersio
 
 // GetScaleResource returns the current scale resource for the PA.
 // TODO(markusthoemmes): We shouldn't need to pass namespace here.
-func GetScaleResource(ctx context.Context, namespace string, ref corev1.ObjectReference, psInformerFactory duck.InformerFactory) (*autoscalingv1alpha1.PodScalable, error) {
+func GetScaleResource(namespace string, ref corev1.ObjectReference, listerFactory func(schema.GroupVersionResource) (cache.GenericLister, error)) (*autoscalingv1alpha1.PodScalable, error) {
 	gvr, name, err := ScaleResourceArguments(ref)
 	if err != nil {
 		return nil, fmt.Errorf("error getting the scale arguments: %w", err)
 	}
-	_, lister, err := psInformerFactory.Get(ctx, *gvr)
+	lister, err := listerFactory(*gvr)
 	if err != nil {
 		return nil, fmt.Errorf("error getting a lister for a pod scalable resource '%+v': %w", gvr, err)
 	}

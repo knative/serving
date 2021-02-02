@@ -38,8 +38,10 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	pkgnet "knative.dev/networking/pkg/apis/networking"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -662,12 +664,16 @@ func TestReconcile(t *testing.T) {
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false
 		ctx = podscalable.WithDuck(ctx)
+		psInformerFactory := podscalable.Get(ctx)
 
 		r := &reconciler{
-			kubeclient:        kubeclient.Get(ctx),
-			serviceLister:     listers.GetK8sServiceLister(),
-			endpointsLister:   listers.GetEndpointsLister(),
-			psInformerFactory: podscalable.Get(ctx),
+			kubeclient:      kubeclient.Get(ctx),
+			serviceLister:   listers.GetK8sServiceLister(),
+			endpointsLister: listers.GetEndpointsLister(),
+			listerFactory: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+				_, l, err := psInformerFactory.Get(ctx, gvr)
+				return l, err
+			},
 		}
 
 		return sksreconciler.NewReconciler(ctx, logging.FromContext(ctx), networkingclient.Get(ctx),
