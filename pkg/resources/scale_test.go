@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/tools/cache"
 
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -100,7 +101,10 @@ func TestGetScaleResource(t *testing.T) {
 		Kind:       "deployment",
 		APIVersion: "apps/v1",
 	}
-	scale, err := GetScaleResource(ctx, testNamespace, objectRef, psInformerFactory)
+	scale, err := GetScaleResource(testNamespace, objectRef, func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+		_, l, err := psInformerFactory.Get(ctx, gvr)
+		return l, err
+	})
 	if err != nil {
 		t.Fatal("GetScaleResource() got error =", err)
 	}

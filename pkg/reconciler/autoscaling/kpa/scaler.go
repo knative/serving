@@ -40,8 +40,10 @@ import (
 	"knative.dev/serving/pkg/resources"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -78,9 +80,9 @@ type asyncProber interface {
 
 // scaler scales the target of a kpa-class PA up or down including scaling to zero.
 type scaler struct {
-	psInformerFactory duck.InformerFactory
-	dynamicClient     dynamic.Interface
-	transport         http.RoundTripper
+	listerFactory func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
+	dynamicClient dynamic.Interface
+	transport     http.RoundTripper
 
 	// For sync probes.
 	activatorProbe func(pa *autoscalingv1alpha1.PodAutoscaler, transport http.RoundTripper) (bool, error)
@@ -95,11 +97,16 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 	logger := logging.FromContext(ctx)
 	transport := pkgnet.NewProberTransport()
 	ks := &scaler{
-		// Wrap it in a cache, so that we don't stamp out a new
-		// informer/lister each time.
-		psInformerFactory: psInformerFactory,
-		dynamicClient:     dynamicclient.Get(ctx),
-		transport:         transport,
+		dynamicClient: dynamicclient.Get(ctx),
+		transport:     transport,
+
+		// We wrap the PodScalable Informer Factory here so Get() uses the outer context.
+		// As the returned Informer is shared across reconciles, passing the context from
+		// an individual reconcile to Get() could lead to problems.
+		listerFactory: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+			_, l, err := psInformerFactory.Get(ctx, gvr)
+			return l, err
+		},
 
 		// Production setup uses the default probe implementation.
 		activatorProbe: activatorProbe,
@@ -341,7 +348,7 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 		return desiredScale, nil
 	}
 
-	ps, err := resources.GetScaleResource(ctx, pa.Namespace, pa.Spec.ScaleTargetRef, ks.psInformerFactory)
+	ps, err := resources.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, ks.listerFactory)
 	if err != nil {
 		return desiredScale, fmt.Errorf("failed to get scale target %v: %w", pa.Spec.ScaleTargetRef, err)
 	}

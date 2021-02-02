@@ -54,6 +54,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 	clientgotesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/testing"
@@ -587,9 +588,13 @@ func TestDisableScaleToZero(t *testing.T) {
 
 			revision := newRevision(ctx, t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
 			deployment := newDeployment(ctx, t, dynamicClient, names.Deployment(revision), test.startReplicas)
+			psInformerFactory := podscalable.Get(ctx)
 			revisionScaler := &scaler{
-				dynamicClient:     fakedynamicclient.Get(ctx),
-				psInformerFactory: podscalable.Get(ctx),
+				dynamicClient: fakedynamicclient.Get(ctx),
+				listerFactory: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+					_, l, err := psInformerFactory.Get(ctx, gvr)
+					return l, err
+				},
 			}
 			pa := newKPA(ctx, t, fakeservingclient.Get(ctx), revision)
 			paMarkActive(pa, time.Now())
