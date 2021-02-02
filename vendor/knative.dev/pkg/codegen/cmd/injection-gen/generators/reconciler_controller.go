@@ -40,6 +40,7 @@ type reconcilerControllerGenerator struct {
 
 	reconcilerClass    string
 	hasReconcilerClass bool
+	hasStatus          bool
 }
 
 var _ generator.Generator = (*reconcilerControllerGenerator)(nil)
@@ -66,10 +67,11 @@ func (g *reconcilerControllerGenerator) GenerateType(c *generator.Context, t *ty
 	klog.V(5).Info("processing type ", t)
 
 	m := map[string]interface{}{
-		"type":     t,
-		"group":    g.groupName,
-		"class":    g.reconcilerClass,
-		"hasClass": g.hasReconcilerClass,
+		"type":      t,
+		"group":     g.groupName,
+		"class":     g.reconcilerClass,
+		"hasClass":  g.hasReconcilerClass,
+		"hasStatus": g.hasStatus,
 		"controllerImpl": c.Universe.Type(types.Name{
 			Package: "knative.dev/pkg/controller",
 			Name:    "Impl",
@@ -264,9 +266,11 @@ func NewImpl(ctx {{.contextContext|raw}}, r Interface{{if .hasClass}}, classValu
 		if opts.AgentName != "" {
 			agentName = opts.AgentName
 		}
+		{{- if .hasStatus}}
 		if opts.SkipStatusUpdates {
 			rec.skipStatusUpdates = true
 		}
+		{{- end}}
 	}
 
 	rec.Recorder = createRecorder(ctx, agentName)
