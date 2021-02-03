@@ -71,11 +71,14 @@ data:
     # path to kubeconfig (if not running inside a k8s cluster)
     # kubeconfig: /path/to/.kube/config
     #
-    # disable HTTPProxy permitInsecure field
+    # Disable RFC-compliant behavior to strip "Content-Length" header if
+    # "Tranfer-Encoding: chunked" is also set.
+    # disableAllowChunkedLength: false
+    # Disable HTTPProxy permitInsecure field
     disablePermitInsecure: false
     tls:
     # minimum TLS version that Contour will negotiate
-    # minimum-protocol-version: "1.1"
+    # minimum-protocol-version: "1.2"
     # Defines the Kubernetes name/namespace matching a secret to use
     # as the fallback certificate when requests which don't match the
     # SNI defined for a vhost.
@@ -143,7 +146,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.9
+    controller-gen.kubebuilder.io/version: v0.4.0
   creationTimestamp: null
   name: extensionservices.projectcontour.io
   labels:
@@ -178,10 +181,28 @@ spec:
               description: ExtensionServiceSpec defines the desired state of an ExtensionService resource.
               properties:
                 loadBalancerPolicy:
-                  description: The policy for load balancing GRPC service requests. Note that the `Cookie` load balancing strategy cannot be used here.
+                  description: The policy for load balancing GRPC service requests. Note that the `Cookie` and `RequestHash` load balancing strategies cannot be used here.
                   properties:
+                    requestHashPolicies:
+                      description: RequestHashPolicies contains a list of hash policies to apply when the `RequestHash` load balancing strategy is chosen. If an element of the supplied list of hash policies is invalid, it will be ignored. If the list of hash policies is empty after validation, the load balancing strategy will fall back the the default `RoundRobin`.
+                      items:
+                        description: RequestHashPolicy contains configuration for an individual hash policy on a request attribute.
+                        properties:
+                          headerHashOptions:
+                            description: HeaderHashOptions should be set when request header hash based load balancing is desired. It must be the only hash option field set, otherwise this request hash policy object will be ignored.
+                            properties:
+                              headerName:
+                                description: HeaderName is the name of the HTTP request header that will be used to calculate the hash key. If the header specified is not present on a request, no hash will be produced.
+                                minLength: 1
+                                type: string
+                            type: object
+                          terminal:
+                            description: Terminal is a flag that allows for short-circuiting computing of a hash for a given request. If set to true, and the request attribute specified in the attribute hash options is present, no further hash policies will be used to calculate a hash for the request.
+                            type: boolean
+                        type: object
+                      type: array
                     strategy:
-                      description: Strategy specifies the policy used to balance requests across the pool of backend pods. Valid policy names are `Random`, `RoundRobin`, `WeightedLeastRequest`, `Random` and `Cookie`. If an unknown strategy name is specified or no policy is supplied, the default `RoundRobin` policy is used.
+                      description: Strategy specifies the policy used to balance requests across the pool of backend pods. Valid policy names are `Random`, `RoundRobin`, `WeightedLeastRequest`, `Cookie`, and `RequestHash`. If an unknown strategy name is specified or no policy is supplied, the default `RoundRobin` policy is used.
                       type: string
                   type: object
                 protocol:
@@ -191,9 +212,9 @@ spec:
                     - h2c
                   type: string
                 protocolVersion:
-                  description: This field sets the version of the GRPC protocol that Envoy uses to send requests to the extension service. Since Contour always uses the v2 Envoy API, this is currently fixed at "v2". However, other protocol options will be available in future.
+                  description: This field sets the version of the GRPC protocol that Envoy uses to send requests to the extension service. Since Contour always uses the v3 Envoy API, this is currently fixed at "v3". However, other protocol options will be available in future.
                   enum:
-                    - v2
+                    - v3
                   type: string
                 services:
                   description: Services specifies the set of Kubernetes Service resources that receive GRPC extension API requests. If no weights are specified for any of the entries in this array, traffic will be spread evenly across all the services. Otherwise, traffic is balanced proportionally to the Weight field in each entry.
@@ -290,20 +311,20 @@ spec:
                           type: object
                         type: array
                       lastTransitionTime:
-                        description: "lastTransitionTime is the last time the condition transitioned from one status to another. \n This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable."
+                        description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                         format: date-time
                         type: string
                       message:
-                        description: "message is a human readable message indicating details about the transition. \n This may be an empty string."
+                        description: message is a human readable message indicating details about the transition. This may be an empty string.
                         maxLength: 32768
                         type: string
                       observedGeneration:
-                        description: "observedGeneration represents the .metadata.generation that the condition was set based upon. \n For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance."
+                        description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
                         format: int64
                         minimum: 0
                         type: integer
                       reason:
-                        description: "Reason contains a programmatic identifier indicating the reason for the condition's last transition. \n Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. \n The value should be a CamelCase string. \n This field may not be empty."
+                        description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
                         maxLength: 1024
                         minLength: 1
                         pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
@@ -316,7 +337,7 @@ spec:
                           - Unknown
                         type: string
                       type:
-                        description: "Type of condition in CamelCase or in foo.example.com/CamelCase. \n Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. \n The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)"
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -382,7 +403,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.9
+    controller-gen.kubebuilder.io/version: v0.4.0
   creationTimestamp: null
   name: httpproxies.projectcontour.io
   labels:
@@ -569,8 +590,26 @@ spec:
                       loadBalancerPolicy:
                         description: The load balancing policy for this route.
                         properties:
+                          requestHashPolicies:
+                            description: RequestHashPolicies contains a list of hash policies to apply when the `RequestHash` load balancing strategy is chosen. If an element of the supplied list of hash policies is invalid, it will be ignored. If the list of hash policies is empty after validation, the load balancing strategy will fall back the the default `RoundRobin`.
+                            items:
+                              description: RequestHashPolicy contains configuration for an individual hash policy on a request attribute.
+                              properties:
+                                headerHashOptions:
+                                  description: HeaderHashOptions should be set when request header hash based load balancing is desired. It must be the only hash option field set, otherwise this request hash policy object will be ignored.
+                                  properties:
+                                    headerName:
+                                      description: HeaderName is the name of the HTTP request header that will be used to calculate the hash key. If the header specified is not present on a request, no hash will be produced.
+                                      minLength: 1
+                                      type: string
+                                  type: object
+                                terminal:
+                                  description: Terminal is a flag that allows for short-circuiting computing of a hash for a given request. If set to true, and the request attribute specified in the attribute hash options is present, no further hash policies will be used to calculate a hash for the request.
+                                  type: boolean
+                              type: object
+                            type: array
                           strategy:
-                            description: Strategy specifies the policy used to balance requests across the pool of backend pods. Valid policy names are `Random`, `RoundRobin`, `WeightedLeastRequest`, `Random` and `Cookie`. If an unknown strategy name is specified or no policy is supplied, the default `RoundRobin` policy is used.
+                            description: Strategy specifies the policy used to balance requests across the pool of backend pods. Valid policy names are `Random`, `RoundRobin`, `WeightedLeastRequest`, `Cookie`, and `RequestHash`. If an unknown strategy name is specified or no policy is supplied, the default `RoundRobin` policy is used.
                             type: string
                         type: object
                       pathRewritePolicy:
@@ -597,6 +636,57 @@ spec:
                       permitInsecure:
                         description: Allow this path to respond to insecure requests over HTTP which are normally not permitted when a `virtualhost.tls` block is present.
                         type: boolean
+                      rateLimitPolicy:
+                        description: The policy for rate limiting on the route.
+                        properties:
+                          local:
+                            description: Local defines local rate limiting parameters, i.e. parameters for rate limiting that occurs within each Envoy pod as requests are handled.
+                            properties:
+                              burst:
+                                description: Burst defines the number of requests above the requests per unit that should be allowed within a short period of time.
+                                format: int32
+                                type: integer
+                              requests:
+                                description: Requests defines how many requests per unit of time should be allowed before rate limiting occurs.
+                                format: int32
+                                minimum: 1
+                                type: integer
+                              responseHeadersToAdd:
+                                description: ResponseHeadersToAdd is an optional list of response headers to set when a request is rate-limited.
+                                items:
+                                  description: HeaderValue represents a header name/value pair
+                                  properties:
+                                    name:
+                                      description: Name represents a key of a header
+                                      minLength: 1
+                                      type: string
+                                    value:
+                                      description: Value represents the value of a header specified by a key
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                    - name
+                                    - value
+                                  type: object
+                                type: array
+                              responseStatusCode:
+                                description: ResponseStatusCode is the HTTP status code to use for responses to rate-limited requests. Codes must be in the 400-599 range (inclusive). If not specified, the Envoy default of 429 (Too Many Requests) is used.
+                                format: int32
+                                maximum: 599
+                                minimum: 400
+                                type: integer
+                              unit:
+                                description: Unit defines the period of time within which requests over the limit will be rate limited. Valid values are "second", "minute" and "hour".
+                                enum:
+                                  - second
+                                  - minute
+                                  - hour
+                                type: string
+                            required:
+                              - requests
+                              - unit
+                            type: object
+                        type: object
                       requestHeadersPolicy:
                         description: The policy for managing request headers during proxying.
                         properties:
@@ -856,10 +946,28 @@ spec:
                         - name
                       type: object
                     loadBalancerPolicy:
-                      description: The load balancing policy for the backend services.
+                      description: The load balancing policy for the backend services. Note that the `Cookie` and `RequestHash` load balancing strategies cannot be used here.
                       properties:
+                        requestHashPolicies:
+                          description: RequestHashPolicies contains a list of hash policies to apply when the `RequestHash` load balancing strategy is chosen. If an element of the supplied list of hash policies is invalid, it will be ignored. If the list of hash policies is empty after validation, the load balancing strategy will fall back the the default `RoundRobin`.
+                          items:
+                            description: RequestHashPolicy contains configuration for an individual hash policy on a request attribute.
+                            properties:
+                              headerHashOptions:
+                                description: HeaderHashOptions should be set when request header hash based load balancing is desired. It must be the only hash option field set, otherwise this request hash policy object will be ignored.
+                                properties:
+                                  headerName:
+                                    description: HeaderName is the name of the HTTP request header that will be used to calculate the hash key. If the header specified is not present on a request, no hash will be produced.
+                                    minLength: 1
+                                    type: string
+                                type: object
+                              terminal:
+                                description: Terminal is a flag that allows for short-circuiting computing of a hash for a given request. If set to true, and the request attribute specified in the attribute hash options is present, no further hash policies will be used to calculate a hash for the request.
+                                type: boolean
+                            type: object
+                          type: array
                         strategy:
-                          description: Strategy specifies the policy used to balance requests across the pool of backend pods. Valid policy names are `Random`, `RoundRobin`, `WeightedLeastRequest`, `Random` and `Cookie`. If an unknown strategy name is specified or no policy is supplied, the default `RoundRobin` policy is used.
+                          description: Strategy specifies the policy used to balance requests across the pool of backend pods. Valid policy names are `Random`, `RoundRobin`, `WeightedLeastRequest`, `Cookie`, and `RequestHash`. If an unknown strategy name is specified or no policy is supplied, the default `RoundRobin` policy is used.
                           type: string
                       type: object
                     services:
@@ -1050,6 +1158,57 @@ spec:
                     fqdn:
                       description: The fully qualified domain name of the root of the ingress tree all leaves of the DAG rooted at this object relate to the fqdn.
                       type: string
+                    rateLimitPolicy:
+                      description: The policy for rate limiting on the virtual host.
+                      properties:
+                        local:
+                          description: Local defines local rate limiting parameters, i.e. parameters for rate limiting that occurs within each Envoy pod as requests are handled.
+                          properties:
+                            burst:
+                              description: Burst defines the number of requests above the requests per unit that should be allowed within a short period of time.
+                              format: int32
+                              type: integer
+                            requests:
+                              description: Requests defines how many requests per unit of time should be allowed before rate limiting occurs.
+                              format: int32
+                              minimum: 1
+                              type: integer
+                            responseHeadersToAdd:
+                              description: ResponseHeadersToAdd is an optional list of response headers to set when a request is rate-limited.
+                              items:
+                                description: HeaderValue represents a header name/value pair
+                                properties:
+                                  name:
+                                    description: Name represents a key of a header
+                                    minLength: 1
+                                    type: string
+                                  value:
+                                    description: Value represents the value of a header specified by a key
+                                    minLength: 1
+                                    type: string
+                                required:
+                                  - name
+                                  - value
+                                type: object
+                              type: array
+                            responseStatusCode:
+                              description: ResponseStatusCode is the HTTP status code to use for responses to rate-limited requests. Codes must be in the 400-599 range (inclusive). If not specified, the Envoy default of 429 (Too Many Requests) is used.
+                              format: int32
+                              maximum: 599
+                              minimum: 400
+                              type: integer
+                            unit:
+                              description: Unit defines the period of time within which requests over the limit will be rate limited. Valid values are "second", "minute" and "hour".
+                              enum:
+                                - second
+                                - minute
+                                - hour
+                              type: string
+                          required:
+                            - requests
+                            - unit
+                          type: object
+                      type: object
                     tls:
                       description: If present the fields describes TLS properties of the virtual host. The SNI names that will be matched on are described in fqdn, the tls.secretName secret must contain a certificate that itself contains a name that matches the FQDN.
                       properties:
@@ -1067,7 +1226,7 @@ spec:
                           description: EnableFallbackCertificate defines if the vhost should allow a default certificate to be applied which handles all requests which don't match the SNI defined in this vhost.
                           type: boolean
                         minimumProtocolVersion:
-                          description: Minimum TLS version this vhost should negotiate
+                          description: MinimumProtocolVersion is the minimum TLS version this vhost should negotiate. Valid options are `1.2` (default) and `1.3`. Any other value defaults to TLS 1.2.
                           type: string
                         passthrough:
                           description: Passthrough defines whether the encrypted TLS handshake will be passed through to the backing cluster. Either Passthrough or SecretName must be specified, but not both.
@@ -1123,20 +1282,20 @@ spec:
                           type: object
                         type: array
                       lastTransitionTime:
-                        description: "lastTransitionTime is the last time the condition transitioned from one status to another. \n This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable."
+                        description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                         format: date-time
                         type: string
                       message:
-                        description: "message is a human readable message indicating details about the transition. \n This may be an empty string."
+                        description: message is a human readable message indicating details about the transition. This may be an empty string.
                         maxLength: 32768
                         type: string
                       observedGeneration:
-                        description: "observedGeneration represents the .metadata.generation that the condition was set based upon. \n For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance."
+                        description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
                         format: int64
                         minimum: 0
                         type: integer
                       reason:
-                        description: "Reason contains a programmatic identifier indicating the reason for the condition's last transition. \n Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. \n The value should be a CamelCase string. \n This field may not be empty."
+                        description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
                         maxLength: 1024
                         minLength: 1
                         pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
@@ -1149,7 +1308,7 @@ spec:
                           - Unknown
                         type: string
                       type:
-                        description: "Type of condition in CamelCase or in foo.example.com/CamelCase. \n Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. \n The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)"
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -1239,7 +1398,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.9
+    controller-gen.kubebuilder.io/version: v0.4.0
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
   labels:
@@ -1259,7 +1418,7 @@ spec:
     - name: v1
       schema:
         openAPIV3Schema:
-          description: TLSCertificateDelegation is an TLS Certificate Delegation CRD specificiation. See design/tls-certificate-delegation.md for details.
+          description: TLSCertificateDelegation is an TLS Certificate Delegation CRD specification. See design/tls-certificate-delegation.md for details.
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -1335,20 +1494,20 @@ spec:
                           type: object
                         type: array
                       lastTransitionTime:
-                        description: "lastTransitionTime is the last time the condition transitioned from one status to another. \n This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable."
+                        description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                         format: date-time
                         type: string
                       message:
-                        description: "message is a human readable message indicating details about the transition. \n This may be an empty string."
+                        description: message is a human readable message indicating details about the transition. This may be an empty string.
                         maxLength: 32768
                         type: string
                       observedGeneration:
-                        description: "observedGeneration represents the .metadata.generation that the condition was set based upon. \n For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance."
+                        description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
                         format: int64
                         minimum: 0
                         type: integer
                       reason:
-                        description: "Reason contains a programmatic identifier indicating the reason for the condition's last transition. \n Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. \n The value should be a CamelCase string. \n This field may not be empty."
+                        description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
                         maxLength: 1024
                         minLength: 1
                         pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
@@ -1361,7 +1520,7 @@ spec:
                           - Unknown
                         type: string
                       type:
-                        description: "Type of condition in CamelCase or in foo.example.com/CamelCase. \n Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. \n The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)"
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -1469,7 +1628,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1.10.0
+  name: contour-certgen-v1.12.0
   namespace: contour-external
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -1482,7 +1641,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:15a17e30bb6b62e71f3b07769a2b634450d935a2c99111486ba3f217ba0deb18
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7bf07109c510de0674025a19eee8250f9752b580450086b70ff3b37772079983
           imagePullPolicy: Always
           command:
             - contour
@@ -1556,17 +1715,6 @@ rules:
   - apiGroups:
       - networking.k8s.io
     resources:
-      - gatewayclasses
-      - gateways
-      - httproutes
-      - tcproutes
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - networking.k8s.io
-    resources:
       - ingresses
     verbs:
       - get
@@ -1580,6 +1728,17 @@ rules:
       - create
       - get
       - update
+  - apiGroups:
+      - networking.x-k8s.io
+    resources:
+      - backendpolicies
+      - gateways
+      - httproutes
+      - tlsroutes
+    verbs:
+      - get
+      - list
+      - watch
   - apiGroups:
       - projectcontour.io
     resources:
@@ -1709,7 +1868,7 @@ spec:
             - --contour-key-file=/certs/tls.key
             - --config-path=/config/contour.yaml
           command: ["contour"]
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:15a17e30bb6b62e71f3b07769a2b634450d935a2c99111486ba3f217ba0deb18
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7bf07109c510de0674025a19eee8250f9752b580450086b70ff3b37772079983
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -1798,7 +1957,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:15a17e30bb6b62e71f3b07769a2b634450d935a2c99111486ba3f217ba0deb18
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7bf07109c510de0674025a19eee8250f9752b580450086b70ff3b37772079983
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -1822,7 +1981,7 @@ spec:
             - --log-level info
           command:
             - envoy
-          image: docker.io/envoyproxy/envoy:v1.16.0
+          image: docker.io/envoyproxy/envoy:v1.17.0
           imagePullPolicy: IfNotPresent
           name: envoy
           env:
@@ -1854,8 +2013,10 @@ spec:
           volumeMounts:
             - name: envoy-config
               mountPath: /config
+              readOnly: true
             - name: envoycert
               mountPath: /certs
+              readOnly: true
           lifecycle:
             preStop:
               httpGet:
@@ -1875,7 +2036,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:15a17e30bb6b62e71f3b07769a2b634450d935a2c99111486ba3f217ba0deb18
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7bf07109c510de0674025a19eee8250f9752b580450086b70ff3b37772079983
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -1973,11 +2134,14 @@ data:
     # path to kubeconfig (if not running inside a k8s cluster)
     # kubeconfig: /path/to/.kube/config
     #
-    # disable HTTPProxy permitInsecure field
+    # Disable RFC-compliant behavior to strip "Content-Length" header if
+    # "Tranfer-Encoding: chunked" is also set.
+    # disableAllowChunkedLength: false
+    # Disable HTTPProxy permitInsecure field
     disablePermitInsecure: false
     tls:
     # minimum TLS version that Contour will negotiate
-    # minimum-protocol-version: "1.1"
+    # minimum-protocol-version: "1.2"
     # Defines the Kubernetes name/namespace matching a secret to use
     # as the fallback certificate when requests which don't match the
     # SNI defined for a vhost.
@@ -2084,7 +2248,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1.10.0
+  name: contour-certgen-v1.12.0
   namespace: contour-internal
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -2097,7 +2261,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:15a17e30bb6b62e71f3b07769a2b634450d935a2c99111486ba3f217ba0deb18
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7bf07109c510de0674025a19eee8250f9752b580450086b70ff3b37772079983
           imagePullPolicy: Always
           command:
             - contour
@@ -2217,7 +2381,7 @@ spec:
             - --contour-key-file=/certs/tls.key
             - --config-path=/config/contour.yaml
           command: ["contour"]
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:15a17e30bb6b62e71f3b07769a2b634450d935a2c99111486ba3f217ba0deb18
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7bf07109c510de0674025a19eee8250f9752b580450086b70ff3b37772079983
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2306,7 +2470,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:15a17e30bb6b62e71f3b07769a2b634450d935a2c99111486ba3f217ba0deb18
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7bf07109c510de0674025a19eee8250f9752b580450086b70ff3b37772079983
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2330,7 +2494,7 @@ spec:
             - --log-level info
           command:
             - envoy
-          image: docker.io/envoyproxy/envoy:v1.16.0
+          image: docker.io/envoyproxy/envoy:v1.17.0
           imagePullPolicy: IfNotPresent
           name: envoy
           env:
@@ -2362,8 +2526,10 @@ spec:
           volumeMounts:
             - name: envoy-config
               mountPath: /config
+              readOnly: true
             - name: envoycert
               mountPath: /certs
+              readOnly: true
           lifecycle:
             preStop:
               httpGet:
@@ -2383,7 +2549,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:15a17e30bb6b62e71f3b07769a2b634450d935a2c99111486ba3f217ba0deb18
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7bf07109c510de0674025a19eee8250f9752b580450086b70ff3b37772079983
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
