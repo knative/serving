@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -135,6 +134,6 @@ func replaceWildcard(domain string) string {
 	if domain[0] != '*' {
 		return domain
 	}
-
-	return strings.Replace(domain, "*", "star", 1)
+	return domain[2:]
+	//return strings.Replace(domain, "*", "star", 1)
 }
