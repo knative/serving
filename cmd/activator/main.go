@@ -139,7 +139,7 @@ func main() {
 	// (via keep-alive) to send real requests, avoiding needing an extra
 	// reconnect for the first request after the probe succeeds.
 	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d", env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
-	transport := pkgnet.NewAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
+	transport := pkgnet.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
