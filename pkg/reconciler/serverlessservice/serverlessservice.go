@@ -91,7 +91,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 	sn := sks.Name
 	srv, err := r.serviceLister.Services(sks.Namespace).Get(sn)
 	if apierrs.IsNotFound(err) {
-		logger.Infof("K8s public service %s does not exist; creating.", sn)
+		logger.Info("K8s public service does not exist; creating.")
 		// We've just created the service, so it has no endpoints.
 		sks.Status.MarkEndpointsNotReady("CreatingPublicService")
 		srv = resources.MakePublicService(sks)
@@ -197,7 +197,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	}
 	if dlogger.Core().Enabled(zap.DebugLevel) {
 		// Spew is expensive and there might be a lof of activator endpoints.
-		logger.Debug("Activator endpoints: ", spew.Sprint(activatorEps))
+		dlogger.Debug("Activator endpoints: " + spew.Sprint(activatorEps.Subsets))
 	}
 
 	psn := sks.Status.PrivateServiceName
@@ -228,23 +228,24 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		// We should have successfully reconciled the private service if we're here
 		// which means that we'd have the name assigned in Status.
 		if dlogger.Core().Enabled(zap.DebugLevel) {
-			// Spew is expensive and there might be a lof of  endpoints.
-			logger.Debug("Private endpoints: ", spew.Sprint(pvtEps))
+			// Spew is expensive and there might be a lof of endpoints.
+			dlogger.Debug("Private endpoints: " + spew.Sprint(pvtEps.Subsets))
 		}
 		// Serving but no ready endpoints.
-		if pvtReady == 0 {
-			logger.Info(psn + " is in mode Serve but has no endpoints, using Activator endpoints for now")
-			srcEps = subsetEndpoints(activatorEps, sks.Name, int(sks.Spec.NumActivators))
-		} else {
+		logger.Infof("SKS is in Serve mode and has %d endpoints in private service %s", pvtReady, psn)
+		if foundServingEndpoints {
 			// Serving & have endpoints ready.
 			srcEps = pvtEps
+		} else {
+			srcEps = subsetEndpoints(activatorEps, sks.Name, int(sks.Spec.NumActivators))
 		}
 	case netv1alpha1.SKSOperationModeProxy:
+		dlogger.Debug("SKS is in Proxy mode")
 		srcEps = subsetEndpoints(activatorEps, sks.Name, int(sks.Spec.NumActivators))
 		if dlogger.Core().Enabled(zap.DebugLevel) {
 			// Spew is expensive and there might be a lof of  endpoints.
-			logger.Debugf("Subset of activator endpoints (needed %d): %s",
-				sks.Spec.NumActivators, spew.Sprint(pvtEps))
+			dlogger.Debug(fmt.Sprintf("Subset of activator endpoints (needed %d): %s",
+				sks.Spec.NumActivators, spew.Sprint(pvtEps)))
 		}
 	}
 
@@ -252,12 +253,12 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	eps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(sn)
 
 	if apierrs.IsNotFound(err) {
-		logger.Infof("Public endpoints %s does not exist; creating.", sn)
+		dlogger.Info("Public endpoints object does not exist; creating.")
 		sks.Status.MarkEndpointsNotReady("CreatingPublicEndpoints")
 		if _, err = r.kubeclient.CoreV1().Endpoints(sks.Namespace).Create(ctx, resources.MakePublicEndpoints(sks, srcEps), metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create public K8s Endpoints: %w", err)
 		}
-		logger.Info("Created K8s Endpoints: ", sn)
+		dlogger.Info("Created K8s Endpoints: " + sn)
 	} else if err != nil {
 		return fmt.Errorf("failed to get public K8s Endpoints: %w", err)
 	} else if !metav1.IsControlledBy(eps, sks) {
@@ -277,7 +278,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	if foundServingEndpoints {
 		sks.Status.MarkEndpointsReady()
 	} else {
-		logger.Infof("Endpoints %s has no ready endpoints", sn)
+		dlogger.Info("No ready endpoints backing revision")
 		sks.Status.MarkEndpointsNotReady("NoHealthyBackends")
 	}
 	// If we have no backends or if we're in the proxy mode, then
@@ -288,7 +289,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		sks.Status.MarkActivatorEndpointsRemoved()
 	}
 
-	logger.Debug("Done reconciling public K8s endpoints: ", sn)
+	dlogger.Debug("Done reconciling public K8s endpoints")
 	return nil
 }
 
