@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/ptr"
-	pkgTest "knative.dev/pkg/test"
+	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -58,7 +58,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		Image:   test.PizzaPlanet1,
 	}
 
-	greenImagePath := pkgTest.ImagePath(test.PizzaPlanet2)
+	greenImagePath := pkgtest.ImagePath(test.PizzaPlanet2)
 
 	test.EnsureTearDown(t, clients, &names)
 
@@ -130,7 +130,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	// Since we are updating the service the teal domain probe will succeed before our changes
 	// take effect so we probe the green domain.
 	t.Log("Probing", greenURL)
-	if _, err := pkgTest.WaitForEndpointState(
+	if _, err := pkgtest.WaitForEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,

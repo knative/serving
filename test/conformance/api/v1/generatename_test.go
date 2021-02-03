@@ -25,7 +25,7 @@ import (
 	"regexp"
 	"testing"
 
-	pkgTest "knative.dev/pkg/test"
+	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -94,7 +94,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1.Route) erro
 	}
 
 	t.Logf("Route %s can serve the expected data at %s", route.Name, url)
-	_, err = pkgTest.WaitForEndpointState(
+	_, err = pkgtest.WaitForEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,

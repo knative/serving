@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	pkgTest "knative.dev/pkg/test"
+	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
@@ -39,7 +39,7 @@ import (
 // sendRequests send a request to "endpoint", returns error if unexpected response code, nil otherwise.
 func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	initialSleep, sleep time.Duration, expectedResponseCode int) error {
-	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+	client, err := pkgtest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return fmt.Errorf("error creating Spoofing client: %w", err)
 	}
@@ -126,7 +126,7 @@ func TestRevisionTimeout(t *testing.T) {
 				}
 			} else {
 				t.Log("Probing to force at least one pod", serviceURL)
-				if _, err := pkgTest.WaitForEndpointState(
+				if _, err := pkgtest.WaitForEndpointState(
 					context.Background(),
 					clients.KubeClient,
 					t.Logf,
