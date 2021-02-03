@@ -590,7 +590,7 @@ func TestAnnotationPropagation(t *testing.T) {
 // TestServiceCreateWithMultipleContainers tests both Creation paths for a service.
 // The test performs a series of Validate steps to ensure that the service transitions as expected during each step.
 func TestServiceCreateWithMultipleContainers(t *testing.T) {
-	if !test.ServingFlags.EnableAlphaFeatures {
+	if !test.ServingFlags.EnableBetaFeatures {
 		t.Skip()
 	}
 	t.Parallel()
