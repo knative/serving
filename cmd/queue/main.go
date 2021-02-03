@@ -309,7 +309,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 
 func buildTransport(env config, logger *zap.SugaredLogger, maxConns int) http.RoundTripper {
 	// set max-idle and max-idle-per-host to same value since we're always proxying to the same host.
-	transport := pkgnet.NewAutoTransport(maxConns /* max-idle */, maxConns /* max-idle-per-host */)
+	transport := pkgnet.NewProxyAutoTransport(maxConns /* max-idle */, maxConns /* max-idle-per-host */)
 
 	if env.TracingConfigBackend == tracingconfig.None {
 		return transport
