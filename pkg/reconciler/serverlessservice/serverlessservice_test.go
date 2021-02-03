@@ -231,7 +231,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `error retrieving deployment selector spec: error fetching Pod Scalable on/blah: deployments.apps "blah" not found`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `error retrieving deployment selector spec: error fetching pod scalable on/blah: deployments.apps "blah" not found`),
 		},
 	}, {
 		Name: "OnCreate-deployment-exists",

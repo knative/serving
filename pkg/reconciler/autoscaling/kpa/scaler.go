@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"knative.dev/pkg/apis/duck"
@@ -96,6 +97,8 @@ type scaler struct {
 func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqueueCB func(interface{}, time.Duration)) *scaler {
 	logger := logging.FromContext(ctx)
 	transport := pkgnet.NewProberTransport()
+	listerCache := make(map[schema.GroupVersionResource]cache.GenericLister, 1)
+	var mu sync.RWMutex
 	ks := &scaler{
 		dynamicClient: dynamicclient.Get(ctx),
 		transport:     transport,
@@ -104,7 +107,21 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 		// As the returned Informer is shared across reconciles, passing the context from
 		// an individual reconcile to Get() could lead to problems.
 		listerFactory: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+			l := func() cache.GenericLister {
+				mu.RLock()
+				defer mu.RUnlock()
+				return listerCache[gvr]
+			}()
+			if l != nil {
+				return l, nil
+			}
+
 			_, l, err := psInformerFactory.Get(ctx, gvr)
+			if l != nil && err == nil {
+				mu.Lock()
+				defer mu.Unlock()
+				listerCache[gvr] = l
+			}
 			return l, err
 		},
 

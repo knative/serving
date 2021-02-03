@@ -51,7 +51,7 @@ func GetScaleResource(namespace string, ref corev1.ObjectReference, listerFactor
 
 	psObj, err := lister.ByNamespace(namespace).Get(name)
 	if err != nil {
-		return nil, fmt.Errorf("error fetching Pod Scalable %s/%s: %w", namespace, name, err)
+		return nil, fmt.Errorf("error fetching pod scalable %s/%s: %w", namespace, name, err)
 	}
 	return psObj.(*autoscalingv1alpha1.PodScalable), nil
 }

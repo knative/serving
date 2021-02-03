@@ -18,6 +18,7 @@ package serverlessservice
 
 import (
 	"context"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
@@ -50,6 +51,8 @@ func NewController(
 	psInformerFactory := podscalable.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
 
+	listerCache := make(map[schema.GroupVersionResource]cache.GenericLister, 1)
+	var mu sync.RWMutex
 	c := &reconciler{
 		kubeclient: kubeclient.Get(ctx),
 
@@ -60,7 +63,21 @@ func NewController(
 		// As the returned Informer is shared across reconciles, passing the context from
 		// an individual reconcile to Get() could lead to problems.
 		listerFactory: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+			l := func() cache.GenericLister {
+				mu.RLock()
+				defer mu.RUnlock()
+				return listerCache[gvr]
+			}()
+			if l != nil {
+				return l, nil
+			}
+
 			_, l, err := psInformerFactory.Get(ctx, gvr)
+			if l != nil && err == nil {
+				mu.Lock()
+				defer mu.Unlock()
+				listerCache[gvr] = l
+			}
 			return l, err
 		},
 	}
