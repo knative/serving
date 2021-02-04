@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -89,6 +90,7 @@ func waitForDNSRecordVisible(record *config.DNSRecord) error {
 		for _, ns := range nameservers {
 			log.Printf("name server host %s", ns.Host)
 			nsIP, err := net.LookupHost(ns.Host)
+			log.Printf("nsIP %v", nsIP)
 			if err != nil {
 				log.Printf("failed to look up host %s: %v", ns.Host, err)
 				latestErr = err
@@ -135,6 +137,5 @@ func replaceWildcard(domain string) string {
 	if domain[0] != '*' {
 		return domain
 	}
-	return domain[2:]
-	//return strings.Replace(domain, "*", "star", 1)
+	return strings.Replace(domain, "*", "star", 1)
 }

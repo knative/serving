@@ -31,9 +31,9 @@ import (
 type EnvConfig struct {
 	FullHostName                  string `envconfig:"full_host_name" required:"true"`
 	DomainName                    string `envconfig:"domain_name" required:"true"`
-	DNSZone                       string `envconfig:"dns_zone" required:"true"`
-	CloudDNSServiceAccountKeyFile string `envconfig:"cloud_dns_service_account_key_file" required:"true"`
-	CloudDNSProject               string `envconfig:"cloud_dns_project" required:"true"`
+	DNSZone                       string `envconfig:"dns_zone" required:"false"`
+	CloudDNSServiceAccountKeyFile string `envconfig:"cloud_dns_service_account_key_file" required:"false"`
+	CloudDNSProject               string `envconfig:"cloud_dns_project" required:"false"`
 	IngressIP                     string `envconfig:"ingress_ip" required:"true"`
 }
 
