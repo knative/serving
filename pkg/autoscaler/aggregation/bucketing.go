@@ -54,6 +54,10 @@ type TimedFloat64Buckets struct {
 	// invalid buckets, e.g. buckets written to before firstTime or after
 	// lastTime are included in this total.
 	windowTotal float64
+
+	// Linear WMA.
+	// WMA := (n*b[n]+(n-1)*b[n-1]...+1*b[1])/sum(1,n)
+	weightedMovingAverage float64
 }
 
 // String implements the Stringer interface.
@@ -87,6 +91,42 @@ func roundToNDigits(n int, f float64) float64 {
 	return math.Floor(f*p) / p
 }
 
+func (t *TimedFloat64Buckets) WindowExponentAverage(now time.Time) float64 {
+	if t.IsEmpty(now) {
+		return 0
+	}
+
+	const precision = 6
+	now = now.Truncate(t.granularity)
+	t.bucketsMutex.RLock()
+	defer t.bucketsMutex.RUnlock()
+	totalB := len(t.buckets)
+	numB := len(t.buckets)
+
+	const multiplier = 0.2
+	stepMultiplier := multiplier
+	// We start with 0es. But we now we have _some_ data because
+	// IsEmpty returned false.
+	if now.After(t.lastWrite) {
+		numZ := now.Sub(t.lastWrite) / t.granularity
+		// fmt.Println("### Number of zeroes", numZ)
+		// Skip to this multiplier directly.
+		stepMultiplier = stepMultiplier * math.Pow(1-multiplier, float64(numZ))
+		// Reduce effective number of buckets.
+		numB -= int(numZ)
+	}
+	stI := t.timeToIndex(t.lastWrite) + totalB // to ensure always positive.
+	ret := 0.
+	for i := 0; i < numB; i++ {
+		effI := (stI - i) % totalB
+		v := t.buckets[effI] * stepMultiplier
+		// fmt.Printf("### i=%d, effI = %d, v = %v sm = %v\n", i, effI, v, stepMultiplier)
+		ret += v
+		stepMultiplier *= (1 - multiplier)
+	}
+	return ret
+}
+
 // WindowAverage returns the average bucket value over the window.
 //
 // If the first write was less than the window length ago, an average is
@@ -104,6 +144,7 @@ func roundToNDigits(n int, f float64) float64 {
 // window length, the missing data is assumed to be 0 and the average is over
 // the whole window length inclusive of the missing data.
 func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
+	return t.WindowExponentAverage(now)
 	const precision = 6
 	now = now.Truncate(t.granularity)
 	t.bucketsMutex.RLock()
