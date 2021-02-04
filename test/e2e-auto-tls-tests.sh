@@ -213,7 +213,7 @@ cleanup_per_selfsigned_namespace_auto_tls
 # TODO(#10486): resume the HTTP01 E2E tests after figuring out the DNS setup failure.
 
 # subheader "Auto TLS test for per-ksvc certificate provision using HTTP01 challenge"
-# setup_http01_auto_tls
+setup_http01_auto_tls
 # add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
 # go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
 # kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/

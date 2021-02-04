@@ -87,6 +87,7 @@ func waitForDNSRecordVisible(record *config.DNSRecord) error {
 	var latestErr error
 	if err := wait.PollImmediate(10*time.Second, 600*time.Second, func() (bool, error) {
 		for _, ns := range nameservers {
+			log.Printf("name server host %s", ns.Host)
 			nsIP, err := net.LookupHost(ns.Host)
 			if err != nil {
 				log.Printf("failed to look up host %s: %v", ns.Host, err)
