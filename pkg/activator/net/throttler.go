@@ -30,12 +30,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	pkgnet "knative.dev/networking/pkg/apis/networking"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
-	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
@@ -453,7 +451,6 @@ type Throttler struct {
 	revisionThrottlers      map[types.NamespacedName]*revisionThrottler
 	revisionThrottlersMutex sync.RWMutex
 	revisionLister          servinglisters.RevisionLister
-	serviceLister           corev1listers.ServiceLister
 	ipAddress               string // The IP address of this activator.
 	logger                  *zap.SugaredLogger
 	epsUpdateCh             chan *corev1.Endpoints
@@ -465,7 +462,6 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 	t := &Throttler{
 		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
 		revisionLister:     revisionInformer.Lister(),
-		serviceLister:      serviceinformer.Get(ctx).Lister(),
 		ipAddress:          ipAddr,
 		logger:             logging.FromContext(ctx),
 		epsUpdateCh:        make(chan *corev1.Endpoints),

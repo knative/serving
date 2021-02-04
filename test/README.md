@@ -144,6 +144,10 @@ To run the script for all end to end test images:
 A docker tag may be passed as an optional parameter. This can be useful on
 Minikube in tandem with the `--tag` [flag](#using-a-docker-tag):
 
+`PLATFORM` environment variable is optional. If it is specified, test images
+will be built for specific hardware architecture, according to its value (for
+instance,`linux/arm64`).
+
 ```bash
 eval $(minikube docker-env)
 ./test/upload-test-images.sh any-old-tag

@@ -37,13 +37,6 @@ func WithConfigReadinessProbe(p *corev1.Probe) ConfigOption {
 	}
 }
 
-// WithConfigImage sets the container image to be the provided string.
-func WithConfigImage(img string) ConfigOption {
-	return func(cfg *v1.Configuration) {
-		cfg.Spec.Template.Spec.Containers[0].Image = img
-	}
-}
-
 // WithConfigDeletionTimestamp sets the DeletionTimestamp on the Config.
 func WithConfigDeletionTimestamp(r *v1.Configuration) {
 	t := metav1.NewTime(time.Unix(1e9, 0))
@@ -53,7 +46,7 @@ func WithConfigDeletionTimestamp(r *v1.Configuration) {
 // WithConfigContainerConcurrency sets the given Configuration's concurrency.
 func WithConfigContainerConcurrency(cc int64) ConfigOption {
 	return func(cfg *v1.Configuration) {
-		cfg.Spec.GetTemplate().Spec.ContainerConcurrency = &cc
+		cfg.Spec.Template.Spec.ContainerConcurrency = &cc
 	}
 }
 

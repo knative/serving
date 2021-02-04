@@ -95,7 +95,7 @@ func ExpectsStatusCodes(statusCodes []int) Verifier {
 // Do sends a single probe to given target, e.g. `http://revision.default.svc.cluster.local:81`.
 // Do returns whether the probe was successful or not, or there was an error probing.
 func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...interface{}) (bool, error) {
-	req, err := http.NewRequest(http.MethodGet, target, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		return false, fmt.Errorf("%s is not a valid URL: %w", target, err)
 	}
@@ -105,7 +105,6 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 		}
 	}
 
-	req = req.WithContext(ctx)
 	resp, err := transport.RoundTrip(req)
 	if err != nil {
 		return false, fmt.Errorf("error roundtripping %s: %w", target, err)

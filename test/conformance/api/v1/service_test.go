@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
-	pkgTest "knative.dev/pkg/test"
+	pkgtest "knative.dev/pkg/test"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -86,7 +86,7 @@ func TestServiceCreateAndUpdate(t *testing.T) {
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
 	names.Image = test.PizzaPlanet2
-	image2 := pkgTest.ImagePath(names.Image)
+	image2 := pkgtest.ImagePath(names.Image)
 	if _, err := v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(image2)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
 	}
@@ -232,7 +232,7 @@ func TestServiceBYOName(t *testing.T) {
 	// Update Container Image
 	t.Log("Updating the Service to use a different image.")
 	names.Image = test.PizzaPlanet2
-	image2 := pkgTest.ImagePath(names.Image)
+	image2 := pkgtest.ImagePath(names.Image)
 	if _, err := v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(image2)); err == nil {
 		t.Fatalf("Patch update for Service %s didn't fail.", names.Service)
 	}
@@ -249,8 +249,8 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	t.Parallel()
 	// Create Initial Service
 	clients := test.Setup(t)
-	releaseImagePath2 := pkgTest.ImagePath(test.PizzaPlanet2)
-	releaseImagePath3 := pkgTest.ImagePath(test.HelloWorld)
+	releaseImagePath2 := pkgtest.ImagePath(test.PizzaPlanet2)
+	releaseImagePath3 := pkgtest.ImagePath(test.HelloWorld)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   test.PizzaPlanet1,
@@ -522,7 +522,7 @@ func TestAnnotationPropagation(t *testing.T) {
 	// Updating metadata does not trigger revision or generation
 	// change, so let's generate a change that we can watch.
 	t.Log("Updating the Service to use a different image.")
-	image2 := pkgTest.ImagePath(test.PizzaPlanet2)
+	image2 := pkgtest.ImagePath(test.PizzaPlanet2)
 	if _, err := v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(image2)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
 	}
@@ -555,7 +555,7 @@ func TestAnnotationPropagation(t *testing.T) {
 	// Updating metadata does not trigger revision or generation
 	// change, so let's generate a change that we can watch.
 	t.Log("Updating the Service to use a different image.")
-	image3 := pkgTest.ImagePath(test.HelloWorld)
+	image3 := pkgtest.ImagePath(test.HelloWorld)
 	if _, err := v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(image3)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image3, err)
 	}
@@ -590,7 +590,7 @@ func TestAnnotationPropagation(t *testing.T) {
 // TestServiceCreateWithMultipleContainers tests both Creation paths for a service.
 // The test performs a series of Validate steps to ensure that the service transitions as expected during each step.
 func TestServiceCreateWithMultipleContainers(t *testing.T) {
-	if !test.ServingFlags.EnableAlphaFeatures {
+	if !test.ServingFlags.EnableBetaFeatures {
 		t.Skip()
 	}
 	t.Parallel()
@@ -607,12 +607,12 @@ func TestServiceCreateWithMultipleContainers(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureTearDown(t, clients, &names)
 	containers := []corev1.Container{{
-		Image: pkgTest.ImagePath(names.Image),
+		Image: pkgtest.ImagePath(names.Image),
 		Ports: []corev1.ContainerPort{{
 			ContainerPort: 8881,
 		}},
 	}, {
-		Image: pkgTest.ImagePath(names.Sidecars[0]),
+		Image: pkgtest.ImagePath(names.Sidecars[0]),
 	}}
 
 	// Setup initial Service

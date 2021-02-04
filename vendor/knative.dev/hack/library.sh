@@ -539,7 +539,8 @@ function go_update_deps() {
 
   export GO111MODULE=on
   export GOFLAGS=""
-  export GOSUMDB=off   # Do not use the sum.golang.org service.
+  export GONOSUMDB="${GONOSUMDB:-},knative.dev/*"
+  export GONOPROXY="${GONOPROXY:-},knative.dev/*"
 
   echo "=== Update Deps for Golang"
 
@@ -559,16 +560,6 @@ function go_update_deps() {
 
   if [[ $UPGRADE == 1 ]]; then
     group "Upgrading to ${VERSION}"
-    # From shell parameter expansion:
-    # ${parameter:+word}
-    # If parameter is null or unset, nothing is substituted, otherwise the expansion of word is substituted.
-    # -z is if the length of the string, so skip setting GOPROXY if GOPROXY is already set.
-    if [[ -z ${GOPROXY:+skip} ]]; then
-      export GOPROXY=direct
-      echo "Using 'GOPROXY=direct'."
-    else
-      echo "Respecting 'GOPROXY=${GOPROXY}'."
-    fi
     FLOATING_DEPS+=( $(run_go_tool knative.dev/test-infra/buoy buoy float ${REPO_ROOT_DIR}/go.mod --release ${VERSION} --domain ${DOMAIN}) )
     if [[ ${#FLOATING_DEPS[@]} > 0 ]]; then
       echo "Floating deps to ${FLOATING_DEPS[@]}"

@@ -182,13 +182,6 @@ func WithServiceAccountName(serviceAccountName string) ServiceOption {
 	}
 }
 
-// WithContainerConcurrency sets the given Service's concurrency.
-func WithContainerConcurrency(cc int64) ServiceOption {
-	return func(svc *v1.Service) {
-		svc.Spec.Template.Spec.ContainerConcurrency = &cc
-	}
-}
-
 // WithVolume adds a volume to the service
 func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) ServiceOption {
 	return func(svc *v1.Service) {

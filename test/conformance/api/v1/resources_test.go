@@ -28,7 +28,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	pkgTest "knative.dev/pkg/test"
+	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -63,7 +63,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 	endpoint := objects.Route.Status.URL.URL()
 
-	_, err = pkgTest.WaitForEndpointState(
+	_, err = pkgtest.WaitForEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
@@ -78,7 +78,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 
 	sendPostRequest := func(resolvableDomain bool, url *url.URL) (*spoof.Response, error) {
 		t.Log("Request", url)
-		client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+		client, err := pkgtest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 		if err != nil {
 			return nil, err
 		}
