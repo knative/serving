@@ -155,4 +155,13 @@ func (*RevisionSpec) applyProbes(container *corev1.Container) {
 		container.ReadinessProbe.SuccessThreshold = 1
 	}
 
+	// Apply k8s defaults when ReadinessProbe.PeriodSeconds property is set
+	if container.ReadinessProbe.PeriodSeconds != 0 {
+		if container.ReadinessProbe.FailureThreshold == 0 {
+			container.ReadinessProbe.FailureThreshold = 3
+		}
+		if container.ReadinessProbe.TimeoutSeconds == 0 {
+			container.ReadinessProbe.TimeoutSeconds = 1
+		}
+	}
 }

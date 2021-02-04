@@ -404,6 +404,39 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 	}, {
+		name: "apply k8s defaults when period seconds has a non zero value",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						ReadinessProbe: &corev1.Probe{
+							// FailureThreshold and TimeoutSeconds missing
+							PeriodSeconds: 10,
+						},
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: config.DefaultUserContainerName,
+						ReadinessProbe: &corev1.Probe{
+							FailureThreshold: 3, // Added as k8s default
+							Handler:          defaultProbe.Handler,
+							PeriodSeconds:    10,
+							SuccessThreshold: 1,
+							TimeoutSeconds:   1, // Added as k8s default
+						},
+						Resources: defaultResources,
+					}},
+				},
+				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+			},
+		},
+	}, {
 		name: "partially initialized",
 		in: &Revision{
 			Spec: RevisionSpec{
