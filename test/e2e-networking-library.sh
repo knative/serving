@@ -90,6 +90,7 @@ function install_kourier() {
 
   kubectl apply -f ${YAML_NAME} || return 1
   UNINSTALL_LIST+=( "${YAML_NAME}" )
+  HA_COMPONENTS+=( "3scale-kourier-control" )
 
   echo ">> Patching Kourier"
   # Scale replicas of the Kourier gateways to handle large qps
