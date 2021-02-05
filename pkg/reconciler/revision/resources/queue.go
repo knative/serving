@@ -171,7 +171,7 @@ func fractionFromPercentage(m map[string]string, k string) (float64, bool) {
 	return value / 100, err == nil
 }
 
-func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
+func makeExecProbe(in *corev1.Probe) *corev1.Probe {
 	if in == nil || in.PeriodSeconds == 0 {
 		out := &corev1.Probe{
 			Handler: corev1.Handler{
@@ -256,13 +256,32 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	ports = append(ports, servingPort)
 
 	container := rev.Spec.GetContainer()
-	rp := container.ReadinessProbe.DeepCopy()
 
-	applyReadinessProbeDefaults(rp, userPort)
-
-	probeJSON, err := readiness.EncodeProbe(rp)
+	// During startup we want to poll the container faster than Kubernetes will
+	// allow, so we use an ExecProbe which starts immediately and then polls
+	// every 25ms. We encode the original probe as JSON in an environment
+	// variable for this probe to use.
+	userProbe := container.ReadinessProbe.DeepCopy()
+	applyReadinessProbeDefaultsForExec(userProbe, userPort)
+	execProbe := makeExecProbe(userProbe)
+	userProbeJSON, err := readiness.EncodeProbe(userProbe)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize readiness probe: %w", err)
+	}
+
+	// After startup we'll directly use the same http health check endpoint the
+	// execprobe would have used (which will then check the user container).
+	// Unlike the StartupProbe, we don't need to override any of the
+	// timeouts/periods/thresholds here.
+	httpProbe := container.ReadinessProbe.DeepCopy()
+	httpProbe.Handler = corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port: intstr.FromInt(int(servingPort.ContainerPort)),
+			HTTPHeaders: []corev1.HTTPHeader{{
+				Name:  network.ProbeHeaderName,
+				Value: queue.Name,
+			}},
+		},
 	}
 
 	return &corev1.Container{
@@ -270,7 +289,8 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		Image:           cfg.Deployment.QueueSidecarImage,
 		Resources:       createQueueResources(cfg.Deployment, rev.GetAnnotations(), container),
 		Ports:           ports,
-		ReadinessProbe:  makeQueueProbe(rp),
+		StartupProbe:    execProbe,
+		ReadinessProbe:  httpProbe,
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
@@ -348,7 +368,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Value: metrics.Domain(),
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
-			Value: probeJSON,
+			Value: userProbeJSON,
 		}, {
 			Name:  "ENABLE_PROFILING",
 			Value: strconv.FormatBool(cfg.Observability.EnableProfiling),
@@ -362,7 +382,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	}, nil
 }
 
-func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
+func applyReadinessProbeDefaultsForExec(p *corev1.Probe, port int32) {
 	switch {
 	case p == nil:
 		return

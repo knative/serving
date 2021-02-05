@@ -77,7 +77,7 @@ var (
 		Name:      QueueContainerName,
 		Resources: createQueueResources(&deploymentConfig, make(map[string]string), &corev1.Container{}),
 		Ports:     append(queueNonServingPorts, queueHTTPPort),
-		ReadinessProbe: &corev1.Probe{
+		StartupProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/ko-app/queue", "-probe-period", "0"},
@@ -85,6 +85,17 @@ var (
 			},
 			PeriodSeconds:  10,
 			TimeoutSeconds: 10,
+		},
+		ReadinessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+					HTTPHeaders: []corev1.HTTPHeader{{
+						Name:  network.ProbeHeaderName,
+						Value: queue.Name,
+					}},
+				},
+			},
 		},
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{

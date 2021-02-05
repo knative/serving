@@ -127,6 +127,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Image = "alpine"
 			c.Ports = append(queueNonServingPorts, queueHTTP2Port)
+			c.ReadinessProbe.Handler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
 			c.Env = env(map[string]string{
 				"USER_PORT":          "1955",
 				"QUEUE_SERVING_PORT": "8013",
@@ -521,10 +522,23 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		c.Env = env(map[string]string{
 			"SERVING_READINESS_PROBE": string(wantProbeJSON),
 		})
-		c.ReadinessProbe = &corev1.Probe{
+		c.StartupProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/ko-app/queue", "-probe-period", "10s"},
+				},
+			},
+			PeriodSeconds:  1,
+			TimeoutSeconds: 10,
+		}
+		c.ReadinessProbe = &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+					HTTPHeaders: []corev1.HTTPHeader{{
+						Name:  network.ProbeHeaderName,
+						Value: queue.Name,
+					}},
 				},
 			},
 			PeriodSeconds:  1,
@@ -593,11 +607,25 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			"USER_PORT":               strconv.Itoa(userPort),
 			"SERVING_READINESS_PROBE": string(wantProbeJSON),
 		})
-		c.ReadinessProbe = &corev1.Probe{
+		c.StartupProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/ko-app/queue", "-probe-period", "10s"},
-				}},
+				},
+			},
+			PeriodSeconds:  2,
+			TimeoutSeconds: 10,
+		}
+		c.ReadinessProbe = &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+					HTTPHeaders: []corev1.HTTPHeader{{
+						Name:  network.ProbeHeaderName,
+						Value: queue.Name,
+					}},
+				},
+			},
 			PeriodSeconds:  2,
 			TimeoutSeconds: 10,
 		}
@@ -651,14 +679,34 @@ func TestTCPProbeGeneration(t *testing.T) {
 			},
 		},
 		want: queueContainer(func(c *corev1.Container) {
-			c.ReadinessProbe = &corev1.Probe{
+			c.StartupProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
 						Command: []string{"/ko-app/queue", "-probe-period", "0"},
 					},
 				},
-				PeriodSeconds:  10,
-				TimeoutSeconds: 10,
+				// StartupProbe overrides the user's parameters because the
+				// actual probing happens inside the execprobe.
+				PeriodSeconds:    10,
+				TimeoutSeconds:   10,
+				SuccessThreshold: 0,
+			}
+			c.ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+						HTTPHeaders: []corev1.HTTPHeader{{
+							Name:  network.ProbeHeaderName,
+							Value: queue.Name,
+						}},
+					},
+				},
+				// The ReadinessProbe does not override the user's probe parameters.
+				// (The aggressive probing will have happened on startup, now
+				// we can probe at the user-requested/default interval).
+				PeriodSeconds:    0,
+				TimeoutSeconds:   0,
+				SuccessThreshold: 3,
 			}
 			c.Env = env(map[string]string{"USER_PORT": strconv.Itoa(userPort)})
 		}),
@@ -689,7 +737,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			TimeoutSeconds: 1,
 		},
 		want: queueContainer(func(c *corev1.Container) {
-			c.ReadinessProbe = &corev1.Probe{
+			c.StartupProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
 						Command: []string{"/ko-app/queue", "-probe-period", "1s"},
@@ -697,6 +745,20 @@ func TestTCPProbeGeneration(t *testing.T) {
 				},
 				PeriodSeconds:  1,
 				TimeoutSeconds: 1,
+			}
+			c.ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+						HTTPHeaders: []corev1.HTTPHeader{{
+							Name:  network.ProbeHeaderName,
+							Value: queue.Name,
+						}},
+					},
+				},
+				PeriodSeconds: 1,
+				// Inherit Kubernetes default here rather than overriding as we need to do for exec probe.
+				TimeoutSeconds: 0,
 			}
 			c.Env = env(map[string]string{})
 		}),
@@ -737,10 +799,26 @@ func TestTCPProbeGeneration(t *testing.T) {
 			},
 		},
 		want: queueContainer(func(c *corev1.Container) {
-			c.ReadinessProbe = &corev1.Probe{
+			c.StartupProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
 						Command: []string{"/ko-app/queue", "-probe-period", "15s"},
+					},
+				},
+				PeriodSeconds:       2,
+				TimeoutSeconds:      15,
+				SuccessThreshold:    2,
+				FailureThreshold:    7,
+				InitialDelaySeconds: 3,
+			}
+			c.ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+						HTTPHeaders: []corev1.HTTPHeader{{
+							Name:  network.ProbeHeaderName,
+							Value: queue.Name,
+						}},
 					},
 				},
 				PeriodSeconds:       2,
