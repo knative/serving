@@ -199,27 +199,25 @@ subheader "Setup auto tls"
 setup_auto_tls_common
 add_trap "cleanup_auto_tls_common" EXIT SIGKILL SIGTERM SIGQUIT
 
-#subheader "Auto TLS test for per-ksvc certificate provision using self-signed CA"
-#setup_selfsigned_per_ksvc_auto_tls
-#go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
-#kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
+subheader "Auto TLS test for per-ksvc certificate provision using self-signed CA"
+setup_selfsigned_per_ksvc_auto_tls
+go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
+kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
 
-#subheader "Auto TLS test for per-namespace certificate provision using self-signed CA"
-#setup_selfsigned_per_namespace_auto_tls
-#add_trap "cleanup_per_selfsigned_namespace_auto_tls" SIGKILL SIGTERM SIGQUIT
-#go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
-#cleanup_per_selfsigned_namespace_auto_tls
+subheader "Auto TLS test for per-namespace certificate provision using self-signed CA"
+setup_selfsigned_per_namespace_auto_tls
+add_trap "cleanup_per_selfsigned_namespace_auto_tls" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
+cleanup_per_selfsigned_namespace_auto_tls
 
 # TODO(#10486): resume the HTTP01 E2E tests after figuring out the DNS setup failure.
 
-# subheader "Auto TLS test for per-ksvc certificate provision using HTTP01 challenge"
+subheader "Auto TLS test for per-ksvc certificate provision using HTTP01 challenge"
 setup_http01_auto_tls
-# add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
-# go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
-# kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
-# delete_dns_record
-
-sleep 30m
+add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
+kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
+delete_dns_record
 
 (( failed )) && fail_test
 
