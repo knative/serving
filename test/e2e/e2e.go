@@ -161,7 +161,7 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 		return svcSet.Intersection(aset).Len() > 0, nil
 	}); rerr != nil {
 		ctx.t.Logf("Did not see activator endpoints in public service for %s."+
-			"Last received values: Activator:%v"+
+			"Last received values: Activator: %v "+
 			"PubSvc: %v, WantActivators %d",
 			ctx.resources.Revision.Name, aset.List(), svcSet.List(), wantAct)
 		return rerr
