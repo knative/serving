@@ -45,7 +45,7 @@ If you're working on and changing `.proto` files:
 ### Create a cluster and a repo
 
 1. [Set up a Kubernetes cluster](https://kubernetes.io/docs/setup/)
-   - Minimum supported version is 1.17.0
+   - Minimum supported version is 1.18.0
    - Follow the instructions in the Kubernetes doc.
 1. Set up a docker repository for pushing images. You can use any container
    image registry by adjusting the authentication methods and repository paths
