@@ -318,6 +318,8 @@ github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/me
 github.com/gobuffalo/envy v1.6.5/go.mod h1:N+GkhhZ/93bGZc6ZKhJLP6+m+tCNPKwgSpH9kaifseQ=
 github.com/gobuffalo/envy v1.7.1 h1:OQl5ys5MBea7OGCdvPbBJWRgnhC/fGona6QKfvFeau8=
 github.com/gobuffalo/envy v1.7.1/go.mod h1:FurDp9+EDPE4aIUS3ZLyD+7/9fpx7YRt/ukY6jIHf0w=
+github.com/gobuffalo/flect v0.2.2 h1:PAVD7sp0KOdfswjAw9BpLCU9hXo7wFSzgpQ+zNeks/A=
+github.com/gobuffalo/flect v0.2.2/go.mod h1:vmkQwuZYhN5Pc4ljYQZzP+1sq+NEkK+lh20jmEmX3jc=
 github.com/gogo/googleapis v1.1.0/go.mod h1:gf4bu3Q80BeJ6H1S1vYPm8/ELATdvryBaNFGgqEef3s=
 github.com/gogo/protobuf v1.1.1/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/gogo/protobuf v1.2.0/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
@@ -1299,8 +1301,8 @@ knative.dev/networking v0.0.0-20210208003533-45b7ed13aeaa h1:618cv8suiExQsAkFIgZ
 knative.dev/networking v0.0.0-20210208003533-45b7ed13aeaa/go.mod h1:Dl70Ul8xiCleoXGA2unSbfDvJN2oUfZXqVYsE6zl/rM=
 knative.dev/pkg v0.0.0-20210203171706-6045ed499615 h1:Ee0n+axzrQXWkJfGl91B5RRmB25R1plTfC7MDw3NxUU=
 knative.dev/pkg v0.0.0-20210203171706-6045ed499615/go.mod h1:X4NPrCo8NK3hbDVan9Vm7mf5io3ZoINakAdrpSXVB08=
-knative.dev/pkg v0.0.0-20210204171111-887806985c09 h1:GD7vfWNgJ9Yy6X9SxXJJj5+NSIg7/hOgNZCzQfHqIQI=
-knative.dev/pkg v0.0.0-20210204171111-887806985c09/go.mod h1:amlT9gE0VkgM+KDt2+i9Eo2y945AjCKh/My9FODy10w=
+knative.dev/pkg v0.0.0-20210208131226-4b2ae073fa06 h1:u2mHDtIEB2WkXXgCj5yg2VuNP/W0XNRliaOJqJGrLeM=
+knative.dev/pkg v0.0.0-20210208131226-4b2ae073fa06/go.mod h1:72bhCSsMqNteAB/T7gZN6w/bnMz+GwGE92+RUmhjzF8=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=
