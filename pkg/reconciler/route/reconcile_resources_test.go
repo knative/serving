@@ -194,7 +194,8 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 			// Verify NextStepTime, StepDuration and StepSize are set as expected.
 			// There is some rounding possible for various durations, so leave a 5ns leeway.
 			if diff := math.Abs(float64(ro.Configurations[0].StepParams.NextStepTime - fakeClock.Time.Add(stepDuration).UnixNano())); diff > 5 {
-				t.Errorf("NextStepTime = %d, want: %d±5ns", ro.Configurations[0].StepParams.NextStepTime, fakeClock.Time.Add(stepDuration).UnixNano())
+				t.Errorf("NextStepTime = %d, want: %d±5ns, diff = %vns", ro.Configurations[0].StepParams.NextStepTime,
+					fakeClock.Time.Add(stepDuration).UnixNano(), diff)
 			}
 			if got, want := ro.Configurations[0].StepParams.StepDuration, int64(stepDuration); got != want {
 				t.Errorf("StepDuration = %d, want: %d", got, want)
@@ -213,7 +214,7 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 				t.Fatal("Re-enqueuing didn't happen")
 			}
 			if got, want, diff := duration, stepDuration, math.Abs(float64(duration-stepDuration)); diff > 5 {
-				t.Errorf("Re-enqueue duration = %v, want: %v±5ns", got, want)
+				t.Errorf("Re-enqueue duration = %v, want: %v±5ns, diff = %vns", got, want, diff)
 			}
 		})
 	}
