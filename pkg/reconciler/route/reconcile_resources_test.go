@@ -26,13 +26,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/clock"
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakeingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	"knative.dev/pkg/ptr"
-	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -70,7 +70,7 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 		fakeCurTime      = fakeCurSecs*1_000_000_000 + fakeCurNsec // *1e9
 		allocatedTraffic = 48
 	)
-	fakeClock := &rtesting.FakeClock{}
+	fakeClock := clock.NewFakePassiveClock(time.Unix(fakeCurSecs, fakeCurNsec))
 	baseCtx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
 		r.clock = fakeClock
 		reconciler = r
@@ -102,7 +102,7 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 				}}
 			})
 
-			fakeClock.Time = time.Unix(fakeCurSecs, fakeCurNsec)
+			fakeClock.SetTime(time.Unix(fakeCurSecs, fakeCurNsec))
 			wasReenqueued := false
 			duration := 0 * time.Second
 			reconciler.enqueueAfter = func(_ interface{}, d time.Duration) {
@@ -165,7 +165,7 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 			ing = updated
 
 			// Advance the time by 5s.
-			fakeClock.Time = fakeClock.Time.Add(5 * time.Second)
+			fakeClock.SetTime(fakeClock.Now().Add(5 * time.Second))
 
 			// 5s of the duration already spent.
 			totalDuration := float64(rd - 5)
@@ -193,9 +193,9 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 
 			// Verify NextStepTime, StepDuration and StepSize are set as expected.
 			// There is some rounding possible for various durations, so leave a 5ns leeway.
-			if diff := math.Abs(float64(ro.Configurations[0].StepParams.NextStepTime - fakeClock.Time.Add(stepDuration).UnixNano())); diff > 5 {
-				t.Errorf("NextStepTime = %d, want: %d±5ns; diff = %vns", ro.Configurations[0].StepParams.NextStepTime,
-					fakeClock.Time.Add(stepDuration).UnixNano(), diff)
+			if diff := math.Abs(float64(ro.Configurations[0].StepParams.NextStepTime - fakeClock.Now().Add(stepDuration).UnixNano())); diff > 5 {
+				t.Errorf("NextStepTime = %d, want: %d±5ns; diff = %vns",
+					ro.Configurations[0].StepParams.NextStepTime, fakeClock.Now().Add(stepDuration).UnixNano(), diff)
 			}
 			if got, want := ro.Configurations[0].StepParams.StepDuration, int64(stepDuration); got != want {
 				t.Errorf("StepDuration = %d, want: %d", got, want)
@@ -228,7 +228,7 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 		fakeCurTime      = fakeCurSecs*1_000_000_000 + fakeCurNsec // *1e9
 		allocatedTraffic = 48
 	)
-	fakeClock := &rtesting.FakeClock{}
+	fakeClock := clock.NewFakePassiveClock(time.Unix(fakeCurSecs, fakeCurNsec))
 	baseCtx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
 		r.clock = fakeClock
 		reconciler = r
@@ -263,7 +263,7 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 				}}
 			})
 
-			fakeClock.Time = time.Unix(fakeCurSecs, fakeCurNsec)
+			fakeClock.SetTime(time.Unix(fakeCurSecs, fakeCurNsec))
 			wasReenqueued := false
 			duration := 0 * time.Second
 			reconciler.enqueueAfter = func(_ interface{}, d time.Duration) {
@@ -326,7 +326,7 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 			ing = updated
 
 			// Advance the time by 5s.
-			fakeClock.Time = fakeClock.Time.Add(5 * time.Second)
+			fakeClock.SetTime(fakeClock.Now().Add(5 * time.Second))
 
 			// 5s of the duration already spent.
 			totalDuration := float64(rd - 5)
@@ -354,9 +354,9 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 
 			// Verify NextStepTime, StepDuration and StepSize are set as expected.
 			// There is some rounding possible for various durations, so leave a 5ns leeway.
-			if diff := math.Abs(float64(ro.Configurations[0].StepParams.NextStepTime - fakeClock.Time.Add(stepDuration).UnixNano())); diff > 5 {
-				t.Errorf("NextStepTime = %d, want: %d±5ns; diff = %vns", ro.Configurations[0].StepParams.NextStepTime,
-					fakeClock.Time.Add(stepDuration).UnixNano(), diff)
+			if diff := math.Abs(float64(ro.Configurations[0].StepParams.NextStepTime - fakeClock.Now().Add(stepDuration).UnixNano())); diff > 5 {
+				t.Errorf("NextStepTime = %d, want: %d±5ns; diff = %vns",
+					ro.Configurations[0].StepParams.NextStepTime, fakeClock.Now().Add(stepDuration).UnixNano(), diff)
 			}
 			if got, want := ro.Configurations[0].StepParams.StepDuration, int64(stepDuration); got != want {
 				t.Errorf("StepDuration = %d, want: %d", got, want)
