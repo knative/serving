@@ -54,5 +54,5 @@ go_test_e2e -tags=upgrade -timeout=${TIMEOUT} \
 
 # Remove the kail log file if the test flow passes.
 # This is for preventing too many large log files to be uploaded to GCS in CI.
-rm "${KAIL_LOG_FILE}"
+rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
 success
