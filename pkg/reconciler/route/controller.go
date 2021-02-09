@@ -30,12 +30,12 @@ import (
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 
+	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/client-go/tools/cache"
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -47,7 +47,7 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	return newControllerWithClock(ctx, cmw, system.RealClock{})
+	return newControllerWithClock(ctx, cmw, clock.RealClock{})
 }
 
 type reconcilerOption func(*Reconciler)
@@ -55,7 +55,7 @@ type reconcilerOption func(*Reconciler)
 func newControllerWithClock(
 	ctx context.Context,
 	cmw configmap.Watcher,
-	clock system.Clock,
+	clock clock.Clock,
 	opts ...reconcilerOption,
 ) *controller.Impl {
 	logger := logging.FromContext(ctx)

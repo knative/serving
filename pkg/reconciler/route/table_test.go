@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
@@ -1940,7 +1941,7 @@ func TestReconcile(t *testing.T) {
 			serviceLister:       listers.GetK8sServiceLister(),
 			ingressLister:       listers.GetIngressLister(),
 			tracker:             ctx.Value(TrackerKey).(tracker.Interface),
-			clock:               FakeClock{Time: fakeCurTime},
+			clock:               clock.NewFakePassiveClock(fakeCurTime),
 			enqueueAfter:        func(interface{}, time.Duration) {},
 		}
 
@@ -2493,7 +2494,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			ingressLister:       listers.GetIngressLister(),
 			certificateLister:   listers.GetCertificateLister(),
 			tracker:             &NullTracker{},
-			clock:               FakeClock{Time: fakeCurTime},
+			clock:               clock.NewFakePassiveClock(fakeCurTime),
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
@@ -2609,7 +2610,7 @@ func TestReconcileEnableAutoTLSHTTPDisabled(t *testing.T) {
 			ingressLister:       listers.GetIngressLister(),
 			certificateLister:   listers.GetCertificateLister(),
 			tracker:             &NullTracker{},
-			clock:               FakeClock{Time: fakeCurTime},
+			clock:               clock.NewFakePassiveClock(fakeCurTime),
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
