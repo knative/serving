@@ -990,9 +990,9 @@ func TestStep(t *testing.T) {
 		},
 	}}
 
-	ctx := TestContextWithLogger(t)
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := TestContextWithLogger(t)
 			got, gotNS := tc.cur.Step(ctx, tc.prev, now)
 			if want := tc.want; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
 				t.Errorf("Wrong rolled rollout, diff(-want,+got):\n%s", cmp.Diff(want, got))
@@ -1249,7 +1249,8 @@ func TestAdjustPercentage(t *testing.T) {
 	}}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			adjustPercentage(tc.goal, tc.prev)
+			logger := TestLogger(t)
+			adjustPercentage(tc.goal, tc.prev, logger)
 			if got, want := tc.prev.Revisions, tc.want; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
 				t.Errorf("Rollout Mistmatch(-want,+got):\n%s", cmp.Diff(want, got))
 			}
