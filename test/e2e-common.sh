@@ -64,7 +64,7 @@ LATEST_NET_ISTIO_RELEASE_VERSION=$(
 function parse_flags() {
   case "$1" in
     --istio-version)
-      [[ $2 =~ ^(stable|latest)$ ]] || abort "version format must be 'stable' or 'latest'"
+      [[ $2 =~ ^(stable|latest|head)$ ]] || abort "version format must be 'stable', 'latest', or 'head'"
       readonly ISTIO_VERSION=$2
       readonly INGRESS_CLASS="istio.ingress.networking.knative.dev"
       return 2
