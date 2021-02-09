@@ -134,6 +134,7 @@ function initialize() {
   local run_tests=0
   local custom_flags=()
   E2E_SCRIPT="$(get_canonical_path "$0")"
+  export E2E_SCRIPT
   local e2e_script_command=( "${E2E_SCRIPT}" "--run-tests" )
 
   cd "${REPO_ROOT_DIR}"

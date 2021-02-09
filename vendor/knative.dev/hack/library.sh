@@ -18,6 +18,8 @@
 # to be used in test scripts and the like. It doesn't do anything when
 # called from command line.
 
+set -x
+
 # GCP project where all tests related resources live
 readonly KNATIVE_TESTS_PROJECT=knative-tests
 
