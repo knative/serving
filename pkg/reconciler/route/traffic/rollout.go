@@ -27,6 +27,7 @@ import (
 	"sort"
 	"time"
 
+	"go.uber.org/zap"
 	"knative.dev/pkg/logging"
 )
 
@@ -226,7 +227,7 @@ func (cur *Rollout) Step(ctx context.Context, prev *Rollout, nowTS int64) (*Roll
 				// altogether.
 				switch p := ccfgs[i].Percent; {
 				case p > 1:
-					sc := stepConfig(ctx, ccfgs[i], pcfgs[j], nowTS)
+					sc := stepConfig(ccfgs[i], pcfgs[j], nowTS, logger)
 					ret = append(ret, sc)
 					// Keep the minimum value if it is not 0.
 					if nst := sc.StepParams.NextStepTime; nst > 0 && nst < returnTS {
@@ -270,14 +271,21 @@ func (cur *Rollout) Step(ctx context.Context, prev *Rollout, nowTS int64) (*Roll
 // If new percentage is larger than the previous, the last revision gets
 // the difference, if it is decreasing then we start removing traffic from
 // the older revisions.
-func adjustPercentage(goal int, cr *ConfigurationRollout) {
+func adjustPercentage(goal int, cr *ConfigurationRollout, logger *zap.SugaredLogger) {
+	// Usually changing traffic target %, especially during rollout is a rare
+	// occurrence, so log all 3 meaningful cases.
 	switch diff := goal - cr.Percent; {
 	case goal == 0:
+		logger.Infof("Traffic for config %s got assigned 0%%", cr.ConfigurationName)
 		cr.Revisions = nil // No traffic, no rollout.
 	case diff > 0:
+		logger.Infof("Traffic for config %s increased by %d%%, assigning the difference to the latest revision",
+			cr.ConfigurationName)
 		cr.Revisions[len(cr.Revisions)-1].Percent += diff
 	case diff < 0:
 		diff = -diff // To make logic more natural.
+		logger.Infof("Traffic for config %s decreased by %d%%, removing the difference from the oldest revision(s)",
+			cr.ConfigurationName)
 		i := 0
 		for diff > 0 && i < len(cr.Revisions) {
 			if cr.Revisions[i].Percent > diff {
@@ -287,9 +295,10 @@ func adjustPercentage(goal int, cr *ConfigurationRollout) {
 			diff -= cr.Revisions[i].Percent
 			i++
 		}
+		// Remove the revisions that got cut to 0%.
 		cr.Revisions = cr.Revisions[i:]
 	default: // diff = 0
-		// noop
+		// noop; no log; this is the normal operation.
 	}
 }
 
@@ -353,8 +362,7 @@ func stepRevisions(goal *ConfigurationRollout, nowTS int64) {
 
 // stepConfig takes previous and goal configuration shapes and returns a new
 // config rollout, after computing the percetage allocations.
-func stepConfig(ctx context.Context, goal, prev *ConfigurationRollout, nowTS int64) *ConfigurationRollout {
-	logger := logging.FromContext(ctx)
+func stepConfig(goal, prev *ConfigurationRollout, nowTS int64, logger *zap.SugaredLogger) *ConfigurationRollout {
 	pc := len(prev.Revisions)
 	ret := &ConfigurationRollout{
 		ConfigurationName: goal.ConfigurationName,
@@ -367,7 +375,7 @@ func stepConfig(ctx context.Context, goal, prev *ConfigurationRollout, nowTS int
 	}
 
 	if len(prev.Revisions) > 0 {
-		adjustPercentage(goal.Percent, prev)
+		adjustPercentage(goal.Percent, prev, logger)
 	}
 	// goal will always have just one revision in the list – the current desired revision.
 	// If it matches the last revision of the previous rollout state (or there were no revisions)
