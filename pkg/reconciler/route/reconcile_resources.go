@@ -243,7 +243,6 @@ func (c *Reconciler) reconcileRollout(
 		return curRO
 	}
 	// Get the current rollout state as described by the traffic.
-	effectiveRO := curRO
 	nextStepTime := int64(0)
 	logger := logging.FromContext(ctx).Desugar().With(
 		zap.Int("durationSecs", rd))
@@ -264,7 +263,7 @@ func (c *Reconciler) reconcileRollout(
 		prevRO.ObserveReady(ctx, now, float64(rd))
 	}
 
-	effectiveRO, nextStepTime = curRO.Step(ctx, prevRO, now)
+	effectiveRO, nextStepTime := curRO.Step(ctx, prevRO, now)
 	if nextStepTime > 0 {
 		nextStepTime -= now
 		c.enqueueAfter(r, time.Duration(nextStepTime))
