@@ -13,7 +13,6 @@ require (
 	github.com/docker/cli v20.10.2+incompatible // indirect
 	github.com/docker/docker v20.10.2+incompatible // indirect
 	github.com/emicklei/go-restful v2.15.0+incompatible // indirect
-	github.com/form3tech-oss/jwt-go v3.2.2+incompatible
 	github.com/go-openapi/spec v0.20.2 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.4

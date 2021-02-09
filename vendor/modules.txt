@@ -135,7 +135,6 @@ github.com/emicklei/go-restful/log
 # github.com/evanphx/json-patch v4.9.0+incompatible
 github.com/evanphx/json-patch
 # github.com/form3tech-oss/jwt-go v3.2.2+incompatible
-## explicit
 github.com/form3tech-oss/jwt-go
 # github.com/go-logr/logr v0.4.0
 github.com/go-logr/logr

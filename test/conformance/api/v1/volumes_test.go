@@ -22,9 +22,9 @@ import (
 	"context"
 	"path"
 	"path/filepath"
+	"regexp"
 	"testing"
 
-	"github.com/form3tech-oss/jwt-go"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
@@ -457,12 +457,7 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 	}
 	names.URL.Path = path.Join(names.URL.Path, tokenPath)
 	var parsesToken = func(resp *spoof.Response) (bool, error) {
-		jwtToken := string(resp.Body)
-		parser := &jwt.Parser{}
-		if _, _, err := parser.ParseUnverified(jwtToken, jwt.MapClaims{}); err != nil {
-			return false, err
-		}
-		return true, nil
+		return regexp.Match(`[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*`, resp.Body)
 	}
 
 	if _, err := pkgTest.WaitForEndpointState(
