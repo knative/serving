@@ -41,6 +41,11 @@ const (
 	knativeConfigurationName = "configuration_name"
 	knativeNamespaceName     = "namespace_name"
 
+	knativeBrokerType  = "knative_broker"
+	knativeBrokerName  = "broker_name"
+	knativeTriggerType = "knative_trigger"
+	knativeTriggerName = "trigger_name"
+
 	appEngineInstanceType = "gae_instance"
 
 	appEngineService  = "appengine.service.id"
@@ -133,6 +138,23 @@ var knativeRevisionResourceMap = map[string]string{
 	knativeNamespaceName:     knativeNamespaceName,
 }
 
+var knativeBrokerResourceMap = map[string]string{
+	"project_id":         stackdriverProjectID,
+	"location":           resourcekeys.CloudKeyZone,
+	"cluster_name":       resourcekeys.K8SKeyClusterName,
+	knativeNamespaceName: knativeNamespaceName,
+	knativeBrokerName:    knativeBrokerName,
+}
+
+var knativeTriggerResourceMap = map[string]string{
+	"project_id":         stackdriverProjectID,
+	"location":           resourcekeys.CloudKeyZone,
+	"cluster_name":       resourcekeys.K8SKeyClusterName,
+	knativeNamespaceName: knativeNamespaceName,
+	knativeBrokerName:    knativeBrokerName,
+	knativeTriggerName:   knativeTriggerName,
+}
+
 // getAutodetectedLabels returns all the labels from the Monitored Resource detected
 // from the environment by calling monitoredresource.Autodetect. If a "zone" label is detected,
 // a "location" label is added with the same value to account for differences between
@@ -213,6 +235,12 @@ func DefaultMapResource(res *resource.Resource) *monitoredrespb.MonitoredResourc
 	case res.Type == knativeResType:
 		result.Type = res.Type
 		match = knativeRevisionResourceMap
+	case res.Type == knativeBrokerType:
+		result.Type = knativeBrokerType
+		match = knativeBrokerResourceMap
+	case res.Type == knativeTriggerType:
+		result.Type = knativeTriggerType
+		match = knativeTriggerResourceMap
 	}
 
 	var missing bool

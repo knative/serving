@@ -25,13 +25,13 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/prometheus/client_golang v1.8.0
+	github.com/prometheus/client_golang v1.9.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/tsenart/vegeta/v12 v12.8.4
-	go.opencensus.io v0.22.5
+	go.opencensus.io v0.22.6
 	go.uber.org/atomic v1.7.0
-	go.uber.org/automaxprocs v1.3.0
+	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/goleak v1.1.10
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
@@ -43,7 +43,7 @@ require (
 	golang.org/x/tools v0.1.0 // indirect
 	gonum.org/v1/netlib v0.0.0-20190331212654-76723241ea4e // indirect
 	google.golang.org/api v0.36.0
-	google.golang.org/grpc v1.34.0
+	google.golang.org/grpc v1.35.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	k8s.io/api v0.19.7
 	k8s.io/apimachinery v0.19.7
@@ -54,7 +54,7 @@ require (
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
 	knative.dev/caching v0.0.0-20210204170711-77321844ace3
 	knative.dev/hack v0.0.0-20210203173706-8368e1f6eacf
-	knative.dev/networking v0.0.0-20210208003533-45b7ed13aeaa
-	knative.dev/pkg v0.0.0-20210208131226-4b2ae073fa06
+	knative.dev/networking v0.0.0-20210208175252-ab1235ed8672
+	knative.dev/pkg v0.0.0-20210208175252-a02dcff9ee26
 	sigs.k8s.io/yaml v1.2.0
 )
