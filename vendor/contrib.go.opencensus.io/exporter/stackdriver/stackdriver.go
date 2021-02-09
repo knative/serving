@@ -67,6 +67,7 @@ import (
 	"go.opencensus.io/trace"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
+	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	monitoredrespb "google.golang.org/genproto/googleapis/api/monitoredres"
 
 	commonpb "github.com/census-instrumentation/opencensus-proto/gen-go/agent/common/v1"
@@ -467,6 +468,15 @@ func (e *Exporter) sdWithDefaultTraceAttributes(sd *trace.SpanData) *trace.SpanD
 func (e *Exporter) Flush() {
 	e.statsExporter.Flush()
 	e.traceExporter.Flush()
+}
+
+// ViewToMetricDescriptor converts an OpenCensus view to a MetricDescriptor.
+//
+// This is useful for cases when you want to use your Go code as source of
+// truth of metric descriptors. You can extract or define views in a central
+// place, then call this method to generate MetricDescriptors.
+func (e *Exporter) ViewToMetricDescriptor(ctx context.Context, v *view.View) (*metricpb.MetricDescriptor, error) {
+	return e.statsExporter.viewToMetricDescriptor(ctx, v)
 }
 
 func (o Options) handleError(err error) {

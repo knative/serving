@@ -7,7 +7,7 @@ cloud.google.com/go/trace/apiv2
 contrib.go.opencensus.io/exporter/ocagent
 # contrib.go.opencensus.io/exporter/prometheus v0.2.1-0.20200609204449-6bcf6f8577f0
 contrib.go.opencensus.io/exporter/prometheus
-# contrib.go.opencensus.io/exporter/stackdriver v0.13.4
+# contrib.go.opencensus.io/exporter/stackdriver v0.13.5
 contrib.go.opencensus.io/exporter/stackdriver
 contrib.go.opencensus.io/exporter/stackdriver/monitoredresource
 contrib.go.opencensus.io/exporter/stackdriver/monitoredresource/aws
@@ -220,7 +220,7 @@ github.com/google/mako/internal/go/common
 github.com/google/mako/internal/quickstore_microservice/proto/quickstore_go_proto
 github.com/google/mako/proto/quickstore/quickstore_go_proto
 github.com/google/mako/spec/proto/mako_go_proto
-# github.com/google/uuid v1.1.2
+# github.com/google/uuid v1.2.0
 github.com/google/uuid
 # github.com/googleapis/gax-go/v2 v2.0.5
 github.com/googleapis/gax-go/v2
@@ -280,7 +280,7 @@ github.com/openzipkin/zipkin-go/reporter/http
 github.com/openzipkin/zipkin-go/reporter/recorder
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
-# github.com/prometheus/client_golang v1.8.0
+# github.com/prometheus/client_golang v1.9.0
 ## explicit
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
@@ -321,7 +321,7 @@ github.com/vdemeester/k8s-pkg-credentialprovider/aws
 github.com/vdemeester/k8s-pkg-credentialprovider/azure
 github.com/vdemeester/k8s-pkg-credentialprovider/gcp
 github.com/vdemeester/k8s-pkg-credentialprovider/secrets
-# go.opencensus.io v0.22.5
+# go.opencensus.io v0.22.6
 ## explicit
 go.opencensus.io
 go.opencensus.io/internal
@@ -346,7 +346,7 @@ go.opencensus.io/trace/tracestate
 # go.uber.org/atomic v1.7.0
 ## explicit
 go.uber.org/atomic
-# go.uber.org/automaxprocs v1.3.0
+# go.uber.org/automaxprocs v1.4.0
 ## explicit
 go.uber.org/automaxprocs/internal/cgroups
 go.uber.org/automaxprocs/internal/runtime
@@ -484,7 +484,7 @@ google.golang.org/appengine/internal/socket
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/socket
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20201211151036-40ec1c210f7a
+# google.golang.org/genproto v0.0.0-20201214200347-8c77b98c765d
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/distribution
@@ -498,7 +498,7 @@ google.golang.org/genproto/googleapis/monitoring/v3
 google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/googleapis/type/calendarperiod
 google.golang.org/genproto/protobuf/field_mask
-# google.golang.org/grpc v1.34.0
+# google.golang.org/grpc v1.35.0
 ## explicit
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -537,6 +537,7 @@ google.golang.org/grpc/internal/grpclog
 google.golang.org/grpc/internal/grpcrand
 google.golang.org/grpc/internal/grpcsync
 google.golang.org/grpc/internal/grpcutil
+google.golang.org/grpc/internal/metadata
 google.golang.org/grpc/internal/resolver
 google.golang.org/grpc/internal/resolver/dns
 google.golang.org/grpc/internal/resolver/passthrough
@@ -1021,7 +1022,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20210208003533-45b7ed13aeaa
+# knative.dev/networking v0.0.0-20210208175252-ab1235ed8672
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1056,7 +1057,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20210208131226-4b2ae073fa06
+# knative.dev/pkg v0.0.0-20210208175252-a02dcff9ee26
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
