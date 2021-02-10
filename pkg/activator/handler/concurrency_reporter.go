@@ -47,7 +47,7 @@ const reportInterval = time.Second
 type revisionStats struct {
 	stats        *network.RequestStats
 	firstRequest float64
-	refs         *atomic.Int64
+	refs         atomic.Int64
 }
 
 // ConcurrencyReporter reports stats based on incoming requests and ticks.
@@ -118,8 +118,8 @@ func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*revisio
 	stat = &revisionStats{
 		stats:        network.NewRequestStats(event.Time),
 		firstRequest: 1,
-		refs:         atomic.NewInt64(1),
 	}
+	stat.refs.Inc()
 	cr.stats[event.Key] = stat
 
 	return stat, &asmetrics.StatMessage{
