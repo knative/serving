@@ -22,9 +22,9 @@ import (
 	"context"
 	"path"
 	"path/filepath"
+	"regexp"
 	"testing"
 
-	"github.com/form3tech-oss/jwt-go"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
@@ -456,24 +456,26 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 		t.Error(err)
 	}
 	names.URL.Path = path.Join(names.URL.Path, tokenPath)
-	var parsesToken = func(resp *spoof.Response) (bool, error) {
-		jwtToken := string(resp.Body)
-		parser := &jwt.Parser{}
-		if _, _, err := parser.ParseUnverified(jwtToken, jwt.MapClaims{}); err != nil {
-			return false, err
-		}
-		return true, nil
-	}
 
 	if _, err := pkgTest.WaitForEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, parsesToken)),
+		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, isJWT)),
 		"WaitForEndpointToServeTheToken",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Error(err)
 	}
+}
+
+// isJWT determines whether or not the response LOOK LIKE a JWT. It does not do any
+// further validation, which is fine as the test just wants to make sure something that
+// looks like a token got mounted. This avoids us having to vendor a JWT dependency
+// just for parsing this.
+//
+// Regex Source: https://www.regextester.com/105777
+func isJWT(resp *spoof.Response) (bool, error) {
+	return regexp.Match(`[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*`, resp.Body)
 }
