@@ -220,7 +220,7 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 		return emptyStat, nil
 	}
 	stat, err = s.scrapeService(window, readyPodsCount)
-	if err == nil {
+	if err == nil && s.podsAddressable {
 		s.logger.Info("Direct pod scraping off, service scraping, on")
 		// If err == nil, this means that we failed to scrape all pods, but service worked
 		// thus it is probably a mesh case.
