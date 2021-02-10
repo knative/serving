@@ -53,7 +53,7 @@ import (
 func TestV2Reconcile(t *testing.T) {
 	now := metav1.Now()
 	fakeTime := now.Time
-	clock := clock.NewFakeClock(fakeTime)
+	clock := clock.NewFakePassiveClock(fakeTime)
 
 	table := TableTest{{
 		Name: "bad workqueue key",

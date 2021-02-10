@@ -37,15 +37,6 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	return NewControllerWithClock(ctx, cmw, clock.RealClock{})
-}
-
-// NewControllerWithClock creates a new Configuration controller with a clock
-func NewControllerWithClock(
-	ctx context.Context,
-	cmw configmap.Watcher,
-	clock clock.Clock,
-) *controller.Impl {
 	logger := logging.FromContext(ctx)
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
@@ -57,7 +48,7 @@ func NewControllerWithClock(
 	c := &Reconciler{
 		client:         servingclient.Get(ctx),
 		revisionLister: revisionInformer.Lister(),
-		clock:          clock,
+		clock:          &clock.RealClock{},
 	}
 	impl := configreconciler.NewImpl(ctx, c, func(*controller.Impl) controller.Options {
 		return controller.Options{ConfigStore: configStore}

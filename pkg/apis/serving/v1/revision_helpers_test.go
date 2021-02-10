@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
+
 	net "knative.dev/networking/pkg/apis/networking"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -261,7 +262,7 @@ func TestGetContainer(t *testing.T) {
 func TestSetRoutingState(t *testing.T) {
 	rev := &Revision{}
 	empty := time.Time{}
-	clock := clock.RealClock{}
+	clock := &clock.RealClock{}
 
 	// Test unset timestamp
 	if rev.GetRoutingStateModified() != empty {

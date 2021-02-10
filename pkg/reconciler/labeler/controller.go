@@ -42,14 +42,6 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	return newControllerWithClock(ctx, cmw, clock.RealClock{})
-}
-
-func newControllerWithClock(
-	ctx context.Context,
-	cmw configmap.Watcher,
-	clock clock.Clock,
-) *controller.Impl {
 	logger := logging.FromContext(ctx)
 	routeInformer := routeinformer.Get(ctx)
 	configInformer := configurationinformer.Get(ctx)
@@ -93,6 +85,7 @@ func newControllerWithClock(
 	))
 
 	client := servingclient.Get(ctx)
+	clock := &clock.RealClock{}
 	c.caccV2 = newConfigurationAccessor(client, tracker, configInformer.Lister(), configInformer.Informer().GetIndexer(), clock)
 	c.raccV2 = newRevisionAccessor(client, tracker, revisionInformer.Lister(), revisionInformer.Informer().GetIndexer(), clock)
 
