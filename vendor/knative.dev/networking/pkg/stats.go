@@ -148,6 +148,7 @@ func (s *RequestStats) Report(now time.Time) RequestStatsReport {
 		report.AverageConcurrency = s.computedConcurrency / s.secondsInUse
 		report.AverageProxiedConcurrency = s.computedProxiedConcurrency / s.secondsInUse
 	}
+
 	return report
 }
 
