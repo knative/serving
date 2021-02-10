@@ -78,14 +78,22 @@ func NewConcurrencyReporter(ctx context.Context, podName string, statCh chan []a
 	}
 }
 
-// handleEvent handles request events (in, out) and updates the respective stats.
-func (cr *ConcurrencyReporter) handleEvent(event network.ReqEvent) {
+// handleRequestIn handles an event of a request coming into the system. Returns the stats
+// the outgoing event should be recorded to.
+func (cr *ConcurrencyReporter) handleRequestIn(event network.ReqEvent) *revisionStats {
 	stat, msg := cr.getOrCreateStat(event)
-	defer stat.refs.Dec()
 	if msg != nil {
 		cr.statCh <- []asmetrics.StatMessage{*msg}
 	}
 	stat.stats.HandleEvent(event)
+	return stat
+}
+
+// handleRequestOut handles an event of a request being done. Takes the stats returned by
+// the handleRequestIn call.
+func (cr *ConcurrencyReporter) handleRequestOut(stat *revisionStats, event network.ReqEvent) {
+	stat.stats.HandleEvent(event)
+	stat.refs.Dec()
 }
 
 // getOrCreateStat gets a stat from the state if present.
@@ -235,9 +243,10 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 func (cr *ConcurrencyReporter) Handler(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		revisionKey := revIDFrom(r.Context())
-		cr.handleEvent(network.ReqEvent{Key: revisionKey, Type: network.ReqIn, Time: time.Now()})
+
+		stat := cr.handleRequestIn(network.ReqEvent{Key: revisionKey, Type: network.ReqIn, Time: time.Now()})
 		defer func() {
-			cr.handleEvent(network.ReqEvent{Key: revisionKey, Type: network.ReqOut, Time: time.Now()})
+			cr.handleRequestOut(stat, network.ReqEvent{Key: revisionKey, Type: network.ReqOut, Time: time.Now()})
 		}()
 
 		next.ServeHTTP(w, r)
