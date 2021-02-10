@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package labeler
 
 import (
 	"context"
@@ -30,9 +30,9 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-// SyncRoutingMeta makes sure that the revisions and configurations referenced from
+// syncRoutingMeta makes sure that the revisions and configurations referenced from
 // a Route are labeled with the routingState label and routes annotation.
-func SyncRoutingMeta(ctx context.Context, r *v1.Route, cacc *Configuration, racc *Revision) error {
+func syncRoutingMeta(ctx context.Context, r *v1.Route, cacc *ConfigurationAcc, racc *RevisionAcc) error {
 	revisions := sets.NewString()
 	configs := sets.NewString()
 
@@ -98,8 +98,8 @@ func SyncRoutingMeta(ctx context.Context, r *v1.Route, cacc *Configuration, racc
 	return setMetaForListed(ctx, r, cacc, configs)
 }
 
-// ClearRoutingMeta removes any labels for a named route from given accessors.
-func ClearRoutingMeta(ctx context.Context, r *v1.Route, accs ...Accessor) error {
+// clearRoutingMeta removes any labels for a named route from given accessors.
+func clearRoutingMeta(ctx context.Context, r *v1.Route, accs ...Accessor) error {
 	for _, acc := range accs {
 		if err := clearMetaForNotListed(ctx, r, acc, nil /*none listed*/); err != nil {
 			return err

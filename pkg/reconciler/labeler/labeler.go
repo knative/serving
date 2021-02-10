@@ -22,13 +22,12 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
-	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 )
 
 // Reconciler implements controller.Reconciler for Route resources.
 type Reconciler struct {
-	caccV2 *labelerv2.Configuration
-	raccV2 *labelerv2.Revision
+	caccV2 *ConfigurationAcc
+	raccV2 *RevisionAcc
 }
 
 // Check that our Reconciler implements routereconciler.Interface
@@ -38,7 +37,7 @@ var _ routereconciler.Finalizer = (*Reconciler)(nil)
 // FinalizeKind removes all Route reference metadata from its traffic targets.
 // This does not modify or observe spec for the Route itself.
 func (rec *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	if err := labelerv2.ClearRoutingMeta(ctx, r, rec.caccV2, rec.raccV2); err != nil {
+	if err := clearRoutingMeta(ctx, r, rec.caccV2, rec.raccV2); err != nil {
 		return err
 	}
 	return nil
@@ -47,7 +46,7 @@ func (rec *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconci
 // ReconcileKind syncs the Route reference metadata to its traffic targets.
 // This does not modify or observe spec for the Route itself.
 func (rec *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	if err := labelerv2.SyncRoutingMeta(ctx, r, rec.caccV2, rec.raccV2); err != nil {
+	if err := syncRoutingMeta(ctx, r, rec.caccV2, rec.raccV2); err != nil {
 		return err
 	}
 
