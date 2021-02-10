@@ -80,7 +80,7 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ServiceLabelKey:                 "",
 				},
 				Annotations: map[string]string{
-					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(fakeCurTime),
 				},
 			},
 			Spec: v1.RevisionSpec{
@@ -122,7 +122,7 @@ func TestMakeRevisions(t *testing.T) {
 				Namespace: "with",
 				Name:      "labels-00100",
 				Annotations: map[string]string{
-					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(fakeCurTime),
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
@@ -194,7 +194,7 @@ func TestMakeRevisions(t *testing.T) {
 				Annotations: map[string]string{
 					"foo": "bar",
 					"baz": "blah",
-					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(fakeCurTime),
 				},
 			},
 			Spec: v1.RevisionSpec{
@@ -238,7 +238,7 @@ func TestMakeRevisions(t *testing.T) {
 				Annotations: map[string]string{
 					"serving.knative.dev/creator":             "someone",
 					serving.RoutesAnnotationKey:               "route",
-					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(fakeCurTime),
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
@@ -300,7 +300,7 @@ func TestMakeRevisions(t *testing.T) {
 					"serving.knative.dev/creator": "someone",
 					"foo":                         "bar",
 					"baz":                         "blah",
-					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(fakeCurTime),
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
