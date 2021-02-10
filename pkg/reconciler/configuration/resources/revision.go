@@ -28,7 +28,7 @@ import (
 )
 
 // MakeRevision creates a revision object from configuration.
-func MakeRevision(ctx context.Context, configuration *v1.Configuration, clock clock.Clock) *v1.Revision {
+func MakeRevision(ctx context.Context, configuration *v1.Configuration, clock clock.PassiveClock) *v1.Revision {
 	// Start from the ObjectMeta/Spec inlined in the Configuration resources.
 	rev := &v1.Revision{
 		ObjectMeta: configuration.Spec.GetTemplate().ObjectMeta,

@@ -65,7 +65,7 @@ func TestCollectMin(t *testing.T) {
 	old := now.Add(-11 * time.Minute)
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
-	fc := clock.NewFakeClock(now)
+	fc := clock.NewFakePassiveClock(now)
 
 	table := []struct {
 		name        string
@@ -229,7 +229,7 @@ func TestCollectMax(t *testing.T) {
 	old := now.Add(-11 * time.Minute)
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
-	fc := clock.NewFakeClock(now)
+	fc := clock.NewFakePassiveClock(now)
 
 	table := []struct {
 		name        string
@@ -329,7 +329,7 @@ func TestCollectSettings(t *testing.T) {
 	old := now.Add(-11 * time.Minute)
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
-	fc := clock.NewFakeClock(now)
+	fc := clock.NewFakePassiveClock(now)
 
 	cfg := cfg("settings-test", "foo", 5556,
 		WithLatestCreated("5556"),

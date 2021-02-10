@@ -49,7 +49,7 @@ type Reconciler struct {
 	// listers index properties about resources
 	revisionLister listers.RevisionLister
 
-	clock clock.Clock
+	clock clock.PassiveClock
 }
 
 // Check that our Reconciler implements configreconciler.Interface
