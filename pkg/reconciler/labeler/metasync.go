@@ -32,7 +32,7 @@ import (
 
 // syncRoutingMeta makes sure that the revisions and configurations referenced from
 // a Route are labeled with the routingState label and routes annotation.
-func syncRoutingMeta(ctx context.Context, r *v1.Route, cacc *ConfigurationAcc, racc *RevisionAcc) error {
+func syncRoutingMeta(ctx context.Context, r *v1.Route, cacc *ConfigurationAccessor, racc *RevisionAccessor) error {
 	revisions := sets.NewString()
 	configs := sets.NewString()
 
