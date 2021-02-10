@@ -111,7 +111,7 @@ func markRoutingState(acc kmeta.Accessor, clock clock.PassiveClock, diffLabels, 
 
 	if acc.GetLabels()[serving.RoutingStateLabelKey] != wantState {
 		diffLabels[serving.RoutingStateLabelKey] = wantState
-		diffAnn[serving.RoutingStateModifiedAnnotationKey] = v1.RoutingStateModifiedString(clock)
+		diffAnn[serving.RoutingStateModifiedAnnotationKey] = v1.RoutingStateModifiedString(clock.Now())
 	}
 }
 
