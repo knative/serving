@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	network "knative.dev/networking/pkg"
@@ -47,6 +48,7 @@ const reportInterval = time.Second
 type revisionStats struct {
 	stats        *network.RequestStats
 	firstRequest float64
+	refs         atomic.Int64
 }
 
 // ConcurrencyReporter reports stats based on incoming requests and ticks.
@@ -80,6 +82,7 @@ func NewConcurrencyReporter(ctx context.Context, podName string, statCh chan []a
 // handleEvent handles request events (in, out) and updates the respective stats.
 func (cr *ConcurrencyReporter) handleEvent(event network.ReqEvent) {
 	stat, msg := cr.getOrCreateStat(event)
+	defer stat.refs.Dec()
 	if msg != nil {
 		cr.statCh <- []asmetrics.StatMessage{*msg}
 	}
@@ -90,14 +93,16 @@ func (cr *ConcurrencyReporter) handleEvent(event network.ReqEvent) {
 // If absent it creates a new one and returns it, potentially returning a StatMessage too
 // to trigger an immediate scale-from-0.
 func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*revisionStats, *asmetrics.StatMessage) {
-	stat := func() *revisionStats {
-		cr.mux.RLock()
-		defer cr.mux.RUnlock()
-		return cr.stats[event.Key]
-	}()
+	cr.mux.RLock()
+	stat := cr.stats[event.Key]
 	if stat != nil {
+		// Since this is incremented under the lock, it's guaranteed to be observed by
+		// the deletion routine.
+		stat.refs.Inc()
+		cr.mux.RUnlock()
 		return stat, nil
 	}
+	cr.mux.RUnlock()
 
 	// Doubly checked locking.
 	cr.mux.Lock()
@@ -105,6 +110,9 @@ func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*revisio
 
 	stat = cr.stats[event.Key]
 	if stat != nil {
+		// Since this is incremented under the lock, it's guaranteed to be observed by
+		// the deletion routine.
+		stat.refs.Inc()
 		return stat, nil
 	}
 
@@ -112,6 +120,7 @@ func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*revisio
 		stats:        network.NewRequestStats(event.Time),
 		firstRequest: 1,
 	}
+	stat.refs.Inc()
 	cr.stats[event.Key] = stat
 
 	return stat, &asmetrics.StatMessage{
@@ -137,7 +146,11 @@ func (cr *ConcurrencyReporter) report(now time.Time) []asmetrics.StatMessage {
 		cr.mux.Lock()
 		defer cr.mux.Unlock()
 		for _, key := range toDelete {
-			delete(cr.stats, key)
+			// Avoid deleting the stat if a request raced fetching it while we've been
+			// busy reporting.
+			if cr.stats[key].refs.Load() == 0 {
+				delete(cr.stats, key)
+			}
 		}
 	}
 
