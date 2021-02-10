@@ -46,7 +46,6 @@ import (
 	autoscalercfg "knative.dev/serving/pkg/autoscaler/config"
 
 	. "knative.dev/pkg/reconciler/testing"
-	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing/v1"
 )
@@ -344,8 +343,8 @@ func TestV2Reconcile(t *testing.T) {
 		rLister := listers.GetRevisionLister()
 		rIndexer := listers.IndexerFor(&v1.Revision{})
 		r := &Reconciler{
-			caccV2: labelerv2.NewConfigurationAccessor(client, &NullTracker{}, cLister, cIndexer, clock),
-			raccV2: labelerv2.NewRevisionAccessor(client, &NullTracker{}, rLister, rIndexer, clock),
+			caccV2: newConfigurationAccessor(client, &NullTracker{}, cLister, cIndexer, clock),
+			raccV2: newRevisionAccessor(client, &NullTracker{}, rLister, rIndexer, clock),
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),

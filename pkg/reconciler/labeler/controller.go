@@ -29,7 +29,6 @@ import (
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	"knative.dev/serving/pkg/reconciler/configuration/config"
-	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -94,8 +93,8 @@ func newControllerWithClock(
 	))
 
 	client := servingclient.Get(ctx)
-	c.caccV2 = labelerv2.NewConfigurationAccessor(client, tracker, configInformer.Lister(), configInformer.Informer().GetIndexer(), clock)
-	c.raccV2 = labelerv2.NewRevisionAccessor(client, tracker, revisionInformer.Lister(), revisionInformer.Informer().GetIndexer(), clock)
+	c.caccV2 = newConfigurationAccessor(client, tracker, configInformer.Lister(), configInformer.Informer().GetIndexer(), clock)
+	c.raccV2 = newRevisionAccessor(client, tracker, revisionInformer.Lister(), revisionInformer.Informer().GetIndexer(), clock)
 
 	return impl
 }

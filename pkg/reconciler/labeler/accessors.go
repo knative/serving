@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package labeler
 
 import (
 	"context"
@@ -43,8 +43,8 @@ type Accessor interface {
 	makeMetadataPatch(route *v1.Route, name string, remove bool) (map[string]interface{}, error)
 }
 
-// Revision is an implementation of Accessor for Revisions.
-type Revision struct {
+// RevisionAccessor is an implementation of Accessor for Revisions.
+type RevisionAccessor struct {
 	client  clientset.Interface
 	tracker tracker.Interface
 	lister  listers.RevisionLister
@@ -52,17 +52,17 @@ type Revision struct {
 	clock   clock.Clock
 }
 
-// Revision implements Accessor
-var _ Accessor = (*Revision)(nil)
+// RevisionAccessor implements Accessor
+var _ Accessor = (*RevisionAccessor)(nil)
 
-// NewRevisionAccessor is a factory function to make a new revision accessor.
-func NewRevisionAccessor(
+// newRevisionAccessor is a factory function to make a new revision accessor.
+func newRevisionAccessor(
 	client clientset.Interface,
 	tracker tracker.Interface,
 	lister listers.RevisionLister,
 	indexer cache.Indexer,
-	clock clock.Clock) *Revision {
-	return &Revision{
+	clock clock.Clock) *RevisionAccessor {
+	return &RevisionAccessor{
 		client:  client,
 		tracker: tracker,
 		lister:  lister,
@@ -141,7 +141,7 @@ func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[str
 }
 
 // list implements Accessor
-func (r *Revision) list(_ context.Context, ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
+func (r *RevisionAccessor) list(_ context.Context, ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
 	kl := make([]kmeta.Accessor, 0, 1)
 	filter := func(m interface{}) {
 		r := m.(*v1.Revision)
@@ -160,12 +160,12 @@ func (r *Revision) list(_ context.Context, ns, routeName string, state v1.Routin
 }
 
 // patch implements Accessor
-func (r *Revision) patch(ctx context.Context, ns, name string, pt types.PatchType, p []byte) error {
+func (r *RevisionAccessor) patch(ctx context.Context, ns, name string, pt types.PatchType, p []byte) error {
 	_, err := r.client.ServingV1().Revisions(ns).Patch(ctx, name, pt, p, metav1.PatchOptions{})
 	return err
 }
 
-func (r *Revision) makeMetadataPatch(route *v1.Route, name string, remove bool) (map[string]interface{}, error) {
+func (r *RevisionAccessor) makeMetadataPatch(route *v1.Route, name string, remove bool) (map[string]interface{}, error) {
 	rev, err := r.lister.Revisions(route.Namespace).Get(name)
 	if err != nil {
 		return nil, err
@@ -173,8 +173,8 @@ func (r *Revision) makeMetadataPatch(route *v1.Route, name string, remove bool) 
 	return makeMetadataPatch(rev, route.Name, true /*addRoutingState*/, remove, r.clock)
 }
 
-// Configuration is an implementation of Accessor for Configurations.
-type Configuration struct {
+// ConfigurationAccessor is an implementation of Accessor for Configurations.
+type ConfigurationAccessor struct {
 	client  clientset.Interface
 	tracker tracker.Interface
 	lister  listers.ConfigurationLister
@@ -182,17 +182,17 @@ type Configuration struct {
 	clock   clock.Clock
 }
 
-// Configuration implements Accessor
-var _ Accessor = (*Configuration)(nil)
+// ConfigurationAccessor implements Accessor
+var _ Accessor = (*ConfigurationAccessor)(nil)
 
 // NewConfigurationAccessor is a factory function to make a new configuration Accessor.
-func NewConfigurationAccessor(
+func newConfigurationAccessor(
 	client clientset.Interface,
 	tracker tracker.Interface,
 	lister listers.ConfigurationLister,
 	indexer cache.Indexer,
-	clock clock.Clock) *Configuration {
-	return &Configuration{
+	clock clock.Clock) *ConfigurationAccessor {
+	return &ConfigurationAccessor{
 		client:  client,
 		tracker: tracker,
 		lister:  lister,
@@ -202,7 +202,7 @@ func NewConfigurationAccessor(
 }
 
 // list implements Accessor
-func (c *Configuration) list(_ context.Context, ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
+func (c *ConfigurationAccessor) list(_ context.Context, ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
 	kl := make([]kmeta.Accessor, 0, 1)
 	filter := func(m interface{}) {
 		c := m.(*v1.Configuration)
@@ -228,12 +228,12 @@ func GetListAnnValue(annotations map[string]string, key string) sets.String {
 }
 
 // patch implements Accessor
-func (c *Configuration) patch(ctx context.Context, ns, name string, pt types.PatchType, p []byte) error {
+func (c *ConfigurationAccessor) patch(ctx context.Context, ns, name string, pt types.PatchType, p []byte) error {
 	_, err := c.client.ServingV1().Configurations(ns).Patch(ctx, name, pt, p, metav1.PatchOptions{})
 	return err
 }
 
-func (c *Configuration) makeMetadataPatch(r *v1.Route, name string, remove bool) (map[string]interface{}, error) {
+func (c *ConfigurationAccessor) makeMetadataPatch(r *v1.Route, name string, remove bool) (map[string]interface{}, error) {
 	config, err := c.lister.Configurations(r.Namespace).Get(name)
 	if err != nil {
 		return nil, err

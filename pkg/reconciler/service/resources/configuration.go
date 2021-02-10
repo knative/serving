@@ -25,7 +25,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
+	"knative.dev/serving/pkg/reconciler/labeler"
 	"knative.dev/serving/pkg/reconciler/service/resources/names"
 )
 
@@ -47,7 +47,7 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 	})
 
 	routeName := names.Route(service)
-	set := labelerv2.GetListAnnValue(existing.Annotations, serving.RoutesAnnotationKey)
+	set := labeler.GetListAnnValue(existing.Annotations, serving.RoutesAnnotationKey)
 	set.Insert(routeName)
 	anns[serving.RoutesAnnotationKey] = strings.Join(set.UnsortedList(), ",")
 
