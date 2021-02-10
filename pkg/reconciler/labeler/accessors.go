@@ -49,7 +49,7 @@ type RevisionAccessor struct {
 	tracker tracker.Interface
 	lister  listers.RevisionLister
 	indexer cache.Indexer
-	clock   clock.Clock
+	clock   clock.PassiveClock
 }
 
 // RevisionAccessor implements Accessor
@@ -61,7 +61,7 @@ func newRevisionAccessor(
 	tracker tracker.Interface,
 	lister listers.RevisionLister,
 	indexer cache.Indexer,
-	clock clock.Clock) *RevisionAccessor {
+	clock clock.PassiveClock) *RevisionAccessor {
 	return &RevisionAccessor{
 		client:  client,
 		tracker: tracker,
@@ -73,7 +73,7 @@ func newRevisionAccessor(
 
 // makeMetadataPatch makes a metadata map to be patched or nil if no changes are needed.
 func makeMetadataPatch(
-	acc kmeta.Accessor, routeName string, addRoutingState, remove bool, clock clock.Clock) (map[string]interface{}, error) {
+	acc kmeta.Accessor, routeName string, addRoutingState, remove bool, clock clock.PassiveClock) (map[string]interface{}, error) {
 	labels := map[string]interface{}{}
 	annotations := map[string]interface{}{}
 
@@ -97,7 +97,7 @@ func makeMetadataPatch(
 }
 
 // markRoutingState updates the RoutingStateLabel and bumps the modified time annotation.
-func markRoutingState(acc kmeta.Accessor, clock clock.Clock, diffLabels, diffAnn map[string]interface{}) {
+func markRoutingState(acc kmeta.Accessor, clock clock.PassiveClock, diffLabels, diffAnn map[string]interface{}) {
 
 	hasRoute := acc.GetAnnotations()[serving.RoutesAnnotationKey] != ""
 	if val, has := diffAnn[serving.RoutesAnnotationKey]; has {
@@ -179,7 +179,7 @@ type ConfigurationAccessor struct {
 	tracker tracker.Interface
 	lister  listers.ConfigurationLister
 	indexer cache.Indexer
-	clock   clock.Clock
+	clock   clock.PassiveClock
 }
 
 // ConfigurationAccessor implements Accessor
@@ -191,7 +191,7 @@ func newConfigurationAccessor(
 	tracker tracker.Interface,
 	lister listers.ConfigurationLister,
 	indexer cache.Indexer,
-	clock clock.Clock) *ConfigurationAccessor {
+	clock clock.PassiveClock) *ConfigurationAccessor {
 	return &ConfigurationAccessor{
 		client:  client,
 		tracker: tracker,

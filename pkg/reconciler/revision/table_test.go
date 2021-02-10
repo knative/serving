@@ -57,7 +57,7 @@ import (
 func TestReconcile(t *testing.T) {
 	// We don't care about the value, but that it does not change,
 	// since it leads to flakes.
-	fc := clock.NewFakeClock(time.Now())
+	fc := clock.NewFakePassiveClock(time.Now())
 
 	table := TableTest{{
 		Name: "bad workqueue key",

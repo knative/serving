@@ -31,10 +31,10 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-var fakeCurTime = time.Unix(1e9, 0)
+var fakeCurTime = time.Unix(1e9, 20102021)
 
 func TestMakeRevisions(t *testing.T) {
-	clock := clock.NewFakeClock(fakeCurTime)
+	clock := clock.NewFakePassiveClock(fakeCurTime)
 
 	tests := []struct {
 		name          string

@@ -89,7 +89,7 @@ func (rs *RevisionSpec) GetContainer() *corev1.Container {
 
 // SetRoutingState sets the routingState label on this Revision and updates the
 // routingStateModified annotation.
-func (r *Revision) SetRoutingState(state RoutingState, clock clock.Clock) {
+func (r *Revision) SetRoutingState(state RoutingState, clock clock.PassiveClock) {
 	stateStr := string(state)
 	if t := r.Annotations[serving.RoutingStateModifiedAnnotationKey]; t != "" &&
 		r.Labels[serving.RoutingStateLabelKey] == stateStr {

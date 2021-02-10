@@ -75,7 +75,7 @@ func TestGCReconcile(t *testing.T) {
 			},
 		}}
 
-	fc := clock.NewFakeClock(time.Now())
+	fc := clock.NewFakePassiveClock(time.Now())
 	table := TableTest{{
 		Name: "delete oldest, keep two V2",
 		Objects: []runtime.Object{
