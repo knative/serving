@@ -123,7 +123,7 @@ func setMetaForListed(ctx context.Context, route *v1.Route, acc accessor, names 
 // not named within our list.  Unlike setMetaForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
 func clearMetaForNotListed(ctx context.Context, r *v1.Route, acc accessor, names sets.String) error {
-	oldList, err := acc.list(ctx, r.Namespace, r.Name, v1.RoutingStateActive)
+	oldList, err := acc.list(r.Namespace, r.Name, v1.RoutingStateActive)
 	if err != nil {
 		return err
 	}
