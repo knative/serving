@@ -24,7 +24,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/clock"
 
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
@@ -34,7 +33,7 @@ import (
 var fakeCurTime = time.Unix(1e9, 20102021)
 
 func TestMakeRevisions(t *testing.T) {
-	clock := clock.NewFakePassiveClock(fakeCurTime)
+	tm := fakeCurTime
 
 	tests := []struct {
 		name          string
@@ -328,7 +327,7 @@ func TestMakeRevisions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeRevision(context.Background(), test.configuration, clock)
+			got := MakeRevision(context.Background(), test.configuration, tm)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Error("MakeRevision (-want, +got) =", diff)
 			}

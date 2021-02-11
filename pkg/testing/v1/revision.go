@@ -103,7 +103,7 @@ func WithRoutingStateModified(t time.Time) RevisionOption {
 // WithRoutingState updates the annotation to the provided timestamp.
 func WithRoutingState(s v1.RoutingState, c clock.PassiveClock) RevisionOption {
 	return func(rev *v1.Revision) {
-		rev.SetRoutingState(s, c)
+		rev.SetRoutingState(s, c.Now())
 	}
 }
 
