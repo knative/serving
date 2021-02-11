@@ -26,8 +26,8 @@ import (
 
 // Reconciler implements controller.Reconciler for Route resources.
 type Reconciler struct {
-	caccV2 *ConfigurationAccessor
-	raccV2 *RevisionAccessor
+	caccV2 *configurationAccessor
+	raccV2 *revisionAccessor
 }
 
 // Check that our Reconciler implements routereconciler.Interface
