@@ -64,12 +64,8 @@ var testClock clock.PassiveClock
 func TestReconcile(t *testing.T) {
 	testClock = clock.NewFakePassiveClock(time.Now())
 	testCtx = context.Background()
-
-	test(t)
-}
-
-func test(t *testing.T) {
 	retryAttempted := false
+
 	now := testClock.Now()
 
 	table := TableTest{{
