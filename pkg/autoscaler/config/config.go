@@ -37,6 +37,7 @@ const (
 	BucketSize = 1 * time.Second
 
 	defaultTargetUtilization = 0.7
+	minScaleTo0GracePeriod   = 5 * time.Second
 )
 
 func defaultConfig() *autoscalerconfig.Config {
@@ -109,8 +110,8 @@ func NewConfigFromMap(data map[string]string) (*autoscalerconfig.Config, error) 
 }
 
 func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
-	if lc.ScaleToZeroGracePeriod < autoscaling.WindowMin {
-		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least %v, was: %v", autoscaling.WindowMin, lc.ScaleToZeroGracePeriod)
+	if lc.ScaleToZeroGracePeriod <= 0 {
+		return nil, fmt.Errorf("scale-to-zero-grace-period must be positive, was: %v", lc.ScaleToZeroGracePeriod)
 	}
 
 	if lc.ScaleDownDelay < 0 {
