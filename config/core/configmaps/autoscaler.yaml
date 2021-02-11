@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "1d830d9e"
+    knative.dev/example-checksum: "604cb513"
 data:
   _example: |
     ################################
@@ -138,7 +138,8 @@ data:
     enable-scale-to-zero: "true"
 
     # Scale to zero grace period is the time an inactive revision is left
-    # running before it is scaled to zero (min: 6s).
+    # running before it is scaled to zero (must be positive, but recommended
+    # at least a few seconds if running with mesh networking).
     # This is the upper limit and is provided not to enforce timeout after
     # the revision stopped receiving requests for stable window, but to
     # ensure network reprogramming to put activator in the path has completed.

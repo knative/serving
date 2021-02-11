@@ -272,7 +272,7 @@ func TestNewConfig(t *testing.T) {
 		name: "grace window too small",
 		input: map[string]string{
 			"stable-window":              "12s",
-			"scale-to-zero-grace-period": "4s",
+			"scale-to-zero-grace-period": "0s",
 		},
 		wantErr: true,
 	}, {
