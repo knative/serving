@@ -37,7 +37,6 @@ const (
 	BucketSize = 1 * time.Second
 
 	defaultTargetUtilization = 0.7
-	minScaleTo0GracePeriod   = 5 * time.Second
 )
 
 func defaultConfig() *autoscalerconfig.Config {
