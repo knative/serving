@@ -140,7 +140,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1.Confi
 
 func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
 	config := cfg(name, namespace, generation)
-	rev := resources.MakeRevision(context.Background(), config, clock.RealClock{})
+	rev := resources.MakeRevision(context.Background(), config, time.Now())
 	rev.SetDefaults(context.Background())
 
 	for _, opt := range ro {

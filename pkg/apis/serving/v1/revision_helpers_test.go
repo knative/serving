@@ -23,7 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/clock"
 
 	net "knative.dev/networking/pkg/apis/networking"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -262,41 +261,42 @@ func TestGetContainer(t *testing.T) {
 func TestSetRoutingState(t *testing.T) {
 	rev := &Revision{}
 	empty := time.Time{}
-	clock := &clock.RealClock{}
+	now := time.Now()
 
 	// Test unset timestamp
 	if rev.GetRoutingStateModified() != empty {
-		t.Errorf("expected default value for unset modified annotation.")
+		t.Error("Expected default value for unset modified annotation.")
 	}
 
 	// Test retrieving routing state and modified
-	rev.SetRoutingState(RoutingStateActive, clock)
+	rev.SetRoutingState(RoutingStateActive, now)
 	if state := rev.GetRoutingState(); state != RoutingStateActive {
-		t.Errorf("retrieved the wrong state got: %v want: %v", state, RoutingStateActive)
+		t.Errorf("Retrieved the wrong state got: %v want: %v", state, RoutingStateActive)
 	}
+
 	modified := rev.GetRoutingStateModified()
 	if modified == empty {
-		t.Error("expected a timestamp. got", modified)
+		t.Error("Expected a non-zero timestamp")
 	}
 
 	// Test that no-op modifications don't bump timestamps.
-	rev.SetRoutingState(RoutingStateActive, clock)
+	rev.SetRoutingState(RoutingStateActive, now)
 	if rev.GetRoutingStateModified() != modified {
-		t.Errorf("modified was bumped, but no change expected.")
+		t.Error("Modified timestamp was bumped, but no change expected.")
 	}
 
 	// Test the actual modifications do bump timestamps.
-	rev.SetRoutingState(RoutingStateReserve, clock)
+	rev.SetRoutingState(RoutingStateReserve, now)
 	if state := rev.GetRoutingState(); state != RoutingStateReserve {
-		t.Errorf("retrieved the wrong state got: %v want: %v", state, RoutingStateReserve)
+		t.Errorf("Retrieved the wrong state got: %v want: %v", state, RoutingStateReserve)
 	}
 	if rev.GetRoutingStateModified() != modified {
-		t.Errorf("expected modified to be bumped.")
+		t.Error("Expected modified to be bumped.")
 	}
 
 	// Test unparsable timestamp.
 	rev.Annotations[serving.RoutingStateModifiedAnnotationKey] = "invalid"
-	if rev.GetRoutingStateModified() != empty {
-		t.Errorf("expected default value for unparsable annotation.")
+	if got, want := rev.GetRoutingStateModified(), empty; got != want {
+		t.Error("Expected default value for unparsable annotationm but got:", got)
 	}
 }

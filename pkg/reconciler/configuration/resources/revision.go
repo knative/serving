@@ -19,16 +19,16 @@ package resources
 import (
 	"context"
 	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/clock"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // MakeRevision creates a revision object from configuration.
-func MakeRevision(ctx context.Context, configuration *v1.Configuration, clock clock.PassiveClock) *v1.Revision {
+func MakeRevision(ctx context.Context, configuration *v1.Configuration, tm time.Time) *v1.Revision {
 	// Start from the ObjectMeta/Spec inlined in the Configuration resources.
 	rev := &v1.Revision{
 		ObjectMeta: configuration.Spec.GetTemplate().ObjectMeta,
@@ -42,10 +42,10 @@ func MakeRevision(ctx context.Context, configuration *v1.Configuration, clock cl
 	}
 
 	// Pending tells the labeler that we have not processed this revision.
-	rev.SetRoutingState(v1.RoutingStatePending, clock)
+	rev.SetRoutingState(v1.RoutingStatePending, tm)
 
 	updateRevisionLabels(rev, configuration)
-	updateRevisionAnnotations(rev, configuration)
+	updateRevisionAnnotations(rev, configuration, tm)
 
 	// Populate OwnerReferences so that deletes cascade.
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(configuration))
@@ -75,7 +75,7 @@ func updateRevisionLabels(rev, config metav1.Object) {
 }
 
 // updateRevisionAnnotations sets the revision's annotation given a Configuration's updater annotation.
-func updateRevisionAnnotations(rev *v1.Revision, config metav1.Object) {
+func updateRevisionAnnotations(rev *v1.Revision, config metav1.Object, tm time.Time) {
 	annotations := rev.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string, 1)
@@ -89,7 +89,7 @@ func updateRevisionAnnotations(rev *v1.Revision, config metav1.Object) {
 
 	if v, ok := cans[serving.RoutesAnnotationKey]; ok {
 		annotations[serving.RoutesAnnotationKey] = v
-		rev.SetRoutingState(v1.RoutingStateActive, clock.RealClock{})
+		rev.SetRoutingState(v1.RoutingStateActive, tm)
 	}
 
 	rev.SetAnnotations(annotations)
