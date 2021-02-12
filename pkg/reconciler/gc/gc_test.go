@@ -14,10 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package gc
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -27,12 +26,10 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
-	pkgrec "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/gc/config"
 
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
@@ -534,44 +531,3 @@ func TestIsRevisionStale(t *testing.T) {
 		})
 	}
 }
-
-func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1.Configuration {
-	c := &v1.Configuration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       name,
-			Namespace:  namespace,
-			Generation: generation,
-		},
-		Spec: v1.ConfigurationSpec{
-			Template: v1.RevisionTemplateSpec{
-				Spec: *revisionSpec.DeepCopy(),
-			},
-		},
-	}
-	for _, opt := range co {
-		opt(c)
-	}
-	c.SetDefaults(context.Background())
-	return c
-}
-
-func rev(configName, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
-	config := cfg(configName, namespace, generation)
-	rev := resources.MakeRevision(context.Background(), config, time.Now())
-	rev.SetDefaults(context.Background())
-
-	for _, opt := range ro {
-		opt(rev)
-	}
-	return rev
-}
-
-type testConfigStore struct {
-	config *config.Config
-}
-
-func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
-	return config.ToContext(ctx, t.config)
-}
-
-var _ pkgrec.ConfigStore = (*testConfigStore)(nil)

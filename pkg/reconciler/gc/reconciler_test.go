@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/clock"
@@ -30,7 +29,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/ptr"
 	pkgrec "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -46,15 +44,6 @@ import (
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing/v1"
 )
-
-var revisionSpec = v1.RevisionSpec{
-	PodSpec: corev1.PodSpec{
-		Containers: []corev1.Container{{
-			Image: "busybox",
-		}},
-	},
-	TimeoutSeconds: ptr.Int64(60),
-}
 
 func TestGCReconcile(t *testing.T) {
 	now := time.Now()
