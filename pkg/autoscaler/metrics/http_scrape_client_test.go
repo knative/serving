@@ -18,7 +18,6 @@ package metrics
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -55,7 +54,11 @@ var (
 func TestHTTPScrapeClientScrapeHappyCaseWithOptionals(t *testing.T) {
 	hClient := newTestHTTPClient(makeProtoResponse(http.StatusOK, stat, network.ProtoAcceptContent), nil)
 	sClient := newHTTPScrapeClient(hClient)
-	got, err := sClient.Scrape(context.Background(), testURL)
+	req, err := http.NewRequest(http.MethodGet, testURL, nil)
+	if err != nil {
+		t.Fatalf("Failed to create a request: %v", err)
+	}
+	got, err := sClient.Do(req)
 	if err != nil {
 		t.Fatalf("Scrape = %v, want no error", err)
 	}
@@ -92,7 +95,11 @@ func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			hClient := newTestHTTPClient(makeProtoResponse(test.responseCode, test.stat, test.responseType), test.responseErr)
 			sClient := newHTTPScrapeClient(hClient)
-			_, err := sClient.Scrape(context.Background(), testURL)
+			req, err := http.NewRequest(http.MethodGet, testURL, nil)
+			if err != nil {
+				t.Fatalf("Failed to create a request: %v", err)
+			}
+			_, err = sClient.Do(req)
 			if err == nil {
 				t.Fatal("Got no error")
 			}

@@ -19,6 +19,7 @@ package metrics
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -665,13 +666,13 @@ type fakeScrapeClient struct {
 }
 
 // Scrape return the next item in the stats and error array of fakeScrapeClient.
-func (c *fakeScrapeClient) Scrape(_ context.Context, url string) (Stat, error) {
+func (c *fakeScrapeClient) Do(req *http.Request) (Stat, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	ans := c.stats[c.curIdx%len(c.stats)]
 	err := c.errs[c.curIdx%len(c.errs)]
 	c.curIdx++
-	c.urls.Insert(url)
+	c.urls.Insert(req.URL.String())
 	return ans, err
 }
 
