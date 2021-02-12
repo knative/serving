@@ -53,8 +53,7 @@ func setupDNSRecord() error {
 		return err
 	}
 	if err := waitForDNSRecordVisible(dnsRecord); err != nil {
-		config.DeleteDNSRecord(dnsRecord, env.CloudDNSServiceAccountKeyFile, env.CloudDNSProject, env.DNSZone)
-		return err
+		log.Printf("DNS record is not visible yet %v", err)
 	}
 	return nil
 }
