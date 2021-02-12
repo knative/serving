@@ -39,5 +39,5 @@ var _ configreconciler.Interface = (*reconciler)(nil)
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
-	return Collect(ctx, c.client, c.revisionLister, config)
+	return collect(ctx, c.client, c.revisionLister, config)
 }

@@ -422,7 +422,7 @@ func runTest(
 
 	recorderList := ActionRecorderList{client}
 
-	Collect(ctx, client, ri.Lister(), cfg)
+	collect(ctx, client, ri.Lister(), cfg)
 
 	actions, err := recorderList.ActionsByVerb()
 	if err != nil {

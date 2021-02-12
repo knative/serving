@@ -35,8 +35,8 @@ import (
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
-// Collect deletes stale revisions if they are sufficiently old
-func Collect(
+// collect deletes stale revisions if they are sufficiently old
+func collect(
 	ctx context.Context,
 	client clientset.Interface,
 	revisionLister listers.RevisionLister,
