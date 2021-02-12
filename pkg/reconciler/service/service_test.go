@@ -286,7 +286,7 @@ func TestReconcile(t *testing.T) {
 			config("update-route-and-config", "foo", WithRunLatestRollout,
 				// This is just an unexpected mutation of the config spec vs. the service spec.
 				WithConfigContainerConcurrency(5)),
-			route("update-route-and-config", "foo", WithRunLatestRollout, MutateRoute),
+			route("update-route-and-config", "foo", WithRunLatestRollout, withEmptyRouteSpec),
 		},
 		Key: "foo/update-route-and-config",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -304,7 +304,7 @@ func TestReconcile(t *testing.T) {
 			config("update-route-and-config", "foo", WithRunLatestRollout,
 				// Change the concurrency to ensure it is corrected.
 				WithConfigContainerConcurrency(5)),
-			route("update-route-and-config", "foo", WithRunLatestRollout, MutateRoute),
+			route("update-route-and-config", "foo", WithRunLatestRollout, withEmptyRouteSpec),
 			&v1.Revision{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "update-route-and-config-blah",
@@ -448,7 +448,7 @@ func TestReconcile(t *testing.T) {
 			DefaultService("update-route-failure", "foo", WithRunLatestRollout,
 				WithInitSvcConditions),
 			// Mutate the Route to have an unexpected body to trigger an update.
-			route("update-route-failure", "foo", WithRunLatestRollout, MutateRoute),
+			route("update-route-failure", "foo", WithRunLatestRollout, withEmptyRouteSpec),
 			config("update-route-failure", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/update-route-failure",
@@ -514,7 +514,7 @@ func TestReconcile(t *testing.T) {
 		// When both route and config are ready, the service should become ready.
 		Objects: []runtime.Object{
 			DefaultService("all-ready", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceGeneration(1)),
-			route("all-ready", "foo", WithRunLatestRollout, RouteReady,
+			route("all-ready", "foo", WithRunLatestRollout, withRouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(
 					v1.TrafficTarget{
@@ -543,7 +543,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			DefaultService("all-ready", "foo", WithRunLatestRollout, WithInitSvcConditions,
 				WithReadyConfig("all-ready-00001"), WithServiceGeneration(1)),
-			route("all-ready", "foo", WithRunLatestRollout, RouteReady,
+			route("all-ready", "foo", WithRunLatestRollout, withRouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1.TrafficTarget{
 					RevisionName: "all-ready-00001",
@@ -572,7 +572,7 @@ func TestReconcile(t *testing.T) {
 		// the service should not be ready.
 		Objects: []runtime.Object{
 			DefaultService("config-only-ready", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceGeneration(1)),
-			route("config-only-ready", "foo", WithRunLatestRollout, RouteReady,
+			route("config-only-ready", "foo", WithRunLatestRollout, withRouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1.TrafficTarget{
 					RevisionName: "config-only-ready-00001",
@@ -600,7 +600,7 @@ func TestReconcile(t *testing.T) {
 		//    => service is still OK serving Gen 1.
 		Objects: []runtime.Object{
 			DefaultService("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceGeneration(1)),
-			route("config-fails", "foo", WithRunLatestRollout, RouteReady,
+			route("config-fails", "foo", WithRunLatestRollout, withRouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1.TrafficTarget{
 					RevisionName: "config-fails-00001",
@@ -626,7 +626,7 @@ func TestReconcile(t *testing.T) {
 		// When config fails, the service should fail.
 		Objects: []runtime.Object{
 			DefaultService("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceGeneration(1)),
-			route("config-fails", "foo", WithRunLatestRollout, RouteReady),
+			route("config-fails", "foo", WithRunLatestRollout, withRouteReady),
 			config("config-fails", "foo", WithRunLatestRollout, WithConfigGeneration(1), WithConfigObservedGen,
 				WithLatestCreated("config-fails-00001"), MarkLatestCreatedFailed("blah")),
 		},
@@ -642,7 +642,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			DefaultService("route-fails", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceGeneration(1)),
 			route("route-fails", "foo", WithRunLatestRollout,
-				RouteFailed("Propagate me, please", "")),
+				withRouteFailed("Propagate me, please", "PrettyPlease")),
 			config("route-fails", "foo", WithRunLatestRollout, WithConfigGeneration(1), WithConfigObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("route-fails-00001"), WithLatestReady("route-fails-00001")),
@@ -653,7 +653,7 @@ func TestReconcile(t *testing.T) {
 				// When the Configuration is Ready, and the Route has failed,
 				// we expect the following changed to our status conditions.
 				WithReadyConfig("route-fails-00001"),
-				WithFailedRoute("Propagate me, please", "")),
+				WithFailedRoute("Propagate me, please", "PrettyPlease")),
 		}},
 	}, {
 		Name:    "existing configuration without an owner causes a failure",
@@ -698,7 +698,7 @@ func TestReconcile(t *testing.T) {
 				// This service was unhappy with the prior owner situation.
 				MarkConfigurationNotOwned, MarkRouteNotOwned),
 			// The service owns these, which should result in a happy result.
-			route("new-owner", "foo", WithRunLatestRollout, RouteReady,
+			route("new-owner", "foo", WithRunLatestRollout, withRouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1.TrafficTarget{
 					RevisionName: "new-owner-00001",
@@ -810,9 +810,7 @@ func TestNew(t *testing.T) {
 		Data: map[string]string{},
 	})
 
-	c := NewController(ctx, configMapWatcher)
-
-	if c == nil {
+	if NewController(ctx, configMapWatcher) == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
 	}
 }
@@ -837,14 +835,14 @@ func route(name, namespace string, so ServiceOption, ro ...RouteOption) *v1.Rout
 	return route
 }
 
-// TODO(mattmoor): Replace these when we refactor Route's table_test.go
-func MutateRoute(rt *v1.Route) {
+func withEmptyRouteSpec(rt *v1.Route) {
 	rt.Spec = v1.RouteSpec{}
 }
 
-func RouteReady(cfg *v1.Route) {
-	cfg.Status = v1.RouteStatus{
+func withRouteReady(rt *v1.Route) {
+	rt.Status = v1.RouteStatus{
 		Status: duckv1.Status{
+			ObservedGeneration: rt.Generation,
 			Conditions: duckv1.Conditions{{
 				Type:   "Ready",
 				Status: "True",
@@ -853,7 +851,7 @@ func RouteReady(cfg *v1.Route) {
 	}
 }
 
-func RouteFailed(reason, message string) RouteOption {
+func withRouteFailed(reason, message string) RouteOption {
 	return func(cfg *v1.Route) {
 		cfg.Status = v1.RouteStatus{
 			Status: duckv1.Status{
