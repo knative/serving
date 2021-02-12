@@ -175,6 +175,11 @@ const (
 	// already using labels for domain, it probably best to keep this
 	// consistent.
 	VisibilityLabelKey = "networking.knative.dev/visibility"
+
+	// PassthroughLoadbalancingHeaderName is the name of the header that directs
+	// load balancers to not load balance the respective request but to
+	// send it to the request's target directly.
+	PassthroughLoadbalancingHeaderName = "K-Passthrough-Lb"
 )
 
 // DomainTemplateValues are the available properties people can choose from
