@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/tracker"
 
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -154,14 +153,4 @@ func setRoutingMeta(ctx context.Context, acc accessor, r *v1.Route, name string,
 	}
 
 	return nil
-}
-
-func ref(namespace, name, kind string) tracker.Reference {
-	apiVersion, kind := v1.SchemeGroupVersion.WithKind(kind).ToAPIVersionAndKind()
-	return tracker.Reference{
-		APIVersion: apiVersion,
-		Kind:       kind,
-		Name:       name,
-		Namespace:  namespace,
-	}
 }
