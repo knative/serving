@@ -23,7 +23,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
@@ -48,11 +47,9 @@ func NewController(
 	return configreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up event handlers")
 
-		// Run GC as Revisions are enqueued by Configurations.
-		// This timing means both the Configurations and (new) Revisions have been created as GC is run.
-		revisionInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-			FilterFunc: controller.FilterControllerGK(v1.Kind("Configuration")),
-			Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+		// Run GC as new Revisions are enqueued.
+		revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: impl.EnqueueControllerOf,
 		})
 
 		logger.Info("Setting up ConfigMap receivers with resync func")
