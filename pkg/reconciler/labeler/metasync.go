@@ -56,10 +56,17 @@ func syncRoutingMeta(ctx context.Context, r *v1.Route, cacc *configurationAccess
 		}
 
 		if configName != "" {
-			if _, err := cacc.lister.Configurations(r.Namespace).Get(configName); err != nil {
+			config, err := cacc.lister.Configurations(r.Namespace).Get(configName)
+			if err != nil {
 				continue // The config might not exist.
 			}
 			configs.Insert(configName)
+
+			// If the target is for the latest revision, add the latest created revision to the list
+			// so that there is a smooth transition when the new revision becomes ready.
+			if config.Status.LatestCreatedRevisionName != "" && tt.LatestRevision != nil && *tt.LatestRevision {
+				revisions.Insert(config.Status.LatestCreatedRevisionName)
+			}
 		}
 	}
 
@@ -138,7 +145,7 @@ func setRoutingMeta(ctx context.Context, acc accessor, r *v1.Route, name string,
 			return err
 		}
 		logger := logging.FromContext(ctx)
-		logger.Debugf("Labeler V2 applying patch to %q. patch: %q", name, mergePatch)
+		logger.Debugf("Labeler applying patch to %q. patch: %q", name, mergePatch)
 		return acc.patch(ctx, r.Namespace, name, types.MergePatchType, patch)
 	}
 
