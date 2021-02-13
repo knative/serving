@@ -25,7 +25,6 @@ import (
 	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
-	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	gcconfig "knative.dev/serving/pkg/gc"
@@ -40,7 +39,6 @@ func NewController(
 	cmw configmap.Watcher,
 ) *controller.Impl {
 	logger := logging.FromContext(ctx)
-	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
 	c := &reconciler{
