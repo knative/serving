@@ -19,11 +19,9 @@ package gc
 import (
 	"context"
 
-	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -50,16 +48,7 @@ func NewController(
 	return configreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up event handlers")
 
-		// Since the gc controller came from the configuration controller, having event handlers
-		// on both configuration and revision matches the existing behaviors of the configuration
-		// controller. This is to minimize risk heading into v1.
-		// TODO (taragu): probably one or both of these event handlers are not needed
 		configurationInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
-
-		revisionInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-			FilterFunc: controller.FilterControllerGK(v1.Kind("Configuration")),
-			Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-		})
 
 		logger.Info("Setting up ConfigMap receivers with resync func")
 		configsToResync := []interface{}{
