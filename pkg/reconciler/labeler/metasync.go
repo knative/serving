@@ -44,8 +44,7 @@ func syncRoutingMeta(ctx context.Context, r *v1.Route, cacc *configurationAccess
 		if revName != "" {
 			rev, err := racc.lister.Revisions(r.Namespace).Get(revName)
 			if err != nil {
-				// The revision might not exist (yet). The informers will notify if it gets created.
-				continue
+				continue // The revision might not exist.
 			}
 
 			revisions.Insert(revName)
@@ -57,19 +56,10 @@ func syncRoutingMeta(ctx context.Context, r *v1.Route, cacc *configurationAccess
 		}
 
 		if configName != "" {
-			config, err := cacc.lister.Configurations(r.Namespace).Get(configName)
-			if err != nil {
-				// The config might not exist (yet). The informers will notify if it gets created.
-				continue
+			if _, err := cacc.lister.Configurations(r.Namespace).Get(configName); err != nil {
+				continue // The config might not exist.
 			}
-
 			configs.Insert(configName)
-
-			// If the target is for the latest revision, add the latest created revision to the list
-			// so that there is a smooth transition when the new revision becomes ready.
-			if config.Status.LatestCreatedRevisionName != "" && tt.LatestRevision != nil && *tt.LatestRevision {
-				revisions.Insert(config.Status.LatestCreatedRevisionName)
-			}
 		}
 	}
 
