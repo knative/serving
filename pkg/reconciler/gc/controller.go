@@ -58,8 +58,8 @@ func NewController(
 					return
 				}
 				// Enqueue on latest created or ready change.
-				if c1.Status.LatestCreatedRevisionName != c1.Status.LatestCreatedRevisionName ||
-					c1.Status.LatestReadyRevisionName != c1.Status.LatestReadyRevisionName {
+				if c1.Status.LatestCreatedRevisionName != c2.Status.LatestCreatedRevisionName ||
+					c1.Status.LatestReadyRevisionName != c2.Status.LatestReadyRevisionName {
 					impl.Enqueue(new)
 				}
 			},
