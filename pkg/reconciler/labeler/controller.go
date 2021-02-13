@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/util/clock"
-	"k8s.io/client-go/tools/cache"
 
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
@@ -32,7 +31,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/tracker"
 )
 
 // NewController wraps a new instance of the labeler that labels
@@ -62,17 +60,10 @@ func NewController(
 	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	tracker := tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
-
-	// Make sure trackers are deleted once the observers are removed.
-	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: tracker.OnDeletedObserver,
-	})
-
 	client := servingclient.Get(ctx)
 	clock := &clock.RealClock{}
-	c.caccV2 = newConfigurationAccessor(client, tracker, configInformer.Lister(), configInformer.Informer().GetIndexer(), clock)
-	c.raccV2 = newRevisionAccessor(client, tracker, revisionInformer.Lister(), revisionInformer.Informer().GetIndexer(), clock)
+	c.caccV2 = newConfigurationAccessor(client, configInformer.Lister(), configInformer.Informer().GetIndexer(), clock)
+	c.raccV2 = newRevisionAccessor(client, revisionInformer.Lister(), revisionInformer.Informer().GetIndexer(), clock)
 
 	return impl
 }

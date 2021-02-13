@@ -343,8 +343,8 @@ func TestV2Reconcile(t *testing.T) {
 		rLister := listers.GetRevisionLister()
 		rIndexer := listers.IndexerFor(&v1.Revision{})
 		r := &Reconciler{
-			caccV2: newConfigurationAccessor(client, &NullTracker{}, cLister, cIndexer, clock),
-			raccV2: newRevisionAccessor(client, &NullTracker{}, rLister, rIndexer, clock),
+			caccV2: newConfigurationAccessor(client, cLister, cIndexer, clock),
+			raccV2: newRevisionAccessor(client, rLister, rIndexer, clock),
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),

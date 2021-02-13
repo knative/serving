@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/kmeta"
 
-	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
@@ -46,7 +45,6 @@ type accessor interface {
 // revisionAccessor is an implementation of Accessor for Revisions.
 type revisionAccessor struct {
 	client  clientset.Interface
-	tracker tracker.Interface
 	lister  listers.RevisionLister
 	indexer cache.Indexer
 	clock   clock.PassiveClock
@@ -58,13 +56,11 @@ var _ accessor = (*revisionAccessor)(nil)
 // newRevisionAccessor is a factory function to make a new revision accessor.
 func newRevisionAccessor(
 	client clientset.Interface,
-	tracker tracker.Interface,
 	lister listers.RevisionLister,
 	indexer cache.Indexer,
 	clock clock.PassiveClock) *revisionAccessor {
 	return &revisionAccessor{
 		client:  client,
-		tracker: tracker,
 		lister:  lister,
 		indexer: indexer,
 		clock:   clock,
@@ -176,7 +172,6 @@ func (r *revisionAccessor) makeMetadataPatch(route *v1.Route, name string, remov
 // configurationAccessor is an implementation of Accessor for Configurations.
 type configurationAccessor struct {
 	client  clientset.Interface
-	tracker tracker.Interface
 	lister  listers.ConfigurationLister
 	indexer cache.Indexer
 	clock   clock.PassiveClock
@@ -188,13 +183,11 @@ var _ accessor = (*configurationAccessor)(nil)
 // NewConfigurationAccessor is a factory function to make a new configuration Accessor.
 func newConfigurationAccessor(
 	client clientset.Interface,
-	tracker tracker.Interface,
 	lister listers.ConfigurationLister,
 	indexer cache.Indexer,
 	clock clock.PassiveClock) *configurationAccessor {
 	return &configurationAccessor{
 		client:  client,
-		tracker: tracker,
 		lister:  lister,
 		indexer: indexer,
 		clock:   clock,
