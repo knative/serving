@@ -23,7 +23,9 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
+	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	gcconfig "knative.dev/serving/pkg/gc"
@@ -38,6 +40,7 @@ func NewController(
 	cmw configmap.Watcher,
 ) *controller.Impl {
 	logger := logging.FromContext(ctx)
+	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
 	c := &reconciler{
@@ -47,9 +50,20 @@ func NewController(
 	return configreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up event handlers")
 
-		// Run GC as new Revisions are enqueued.
-		revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: impl.EnqueueControllerOf,
+		configurationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: impl.Enqueue,
+			UpdateFunc: func(old interface{}, new interface{}) {
+				c1, c2 := old.(*v1.Configuration), new.(*v1.Configuration)
+				if c1 == nil || c2 == nil {
+					return
+				}
+				// Enqueue on latest created or ready change.
+				if c1.Status.LatestCreatedRevisionName != c1.Status.LatestCreatedRevisionName ||
+					c1.Status.LatestReadyRevisionName != c1.Status.LatestReadyRevisionName {
+					impl.Enqueue(new)
+				}
+			},
+			DeleteFunc: impl.Enqueue,
 		})
 
 		logger.Info("Setting up ConfigMap receivers with resync func")
