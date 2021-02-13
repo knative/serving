@@ -19,8 +19,11 @@ package labeler
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/client-go/tools/cache"
 
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -58,7 +61,22 @@ func NewController(
 	})
 
 	logger.Info("Setting up event handlers")
-	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+	routeInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: impl.Enqueue,
+			UpdateFunc: func(old interface{}, new interface{}) {
+				r1, r2 := old.(*v1.Route), new.(*v1.Route)
+				if r1 == nil || r2 == nil {
+					return
+				}
+				// Enqueue on route spec or status traffic changed.
+				if !equality.Semantic.DeepEqual(r1.Spec.Traffic, r2.Spec.Traffic) ||
+					!equality.Semantic.DeepEqual(r1.Status.Traffic, r2.Status.Traffic) {
+					impl.Enqueue(new)
+				}
+			},
+			DeleteFunc: impl.Enqueue,
+		})
 
 	client := servingclient.Get(ctx)
 	clock := &clock.RealClock{}
