@@ -42,6 +42,7 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+
 type config struct {
 	// ServiceName is the name of testing Knative Service.
 	// It is not required for self-signed CA or for the HTTP01 challenge when wildcard domain
