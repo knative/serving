@@ -51,19 +51,11 @@ func NewController(
 		logger.Info("Setting up event handlers")
 
 		configurationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: impl.Enqueue,
 			UpdateFunc: func(old interface{}, new interface{}) {
-				c1, c2 := old.(*v1.Configuration), new.(*v1.Configuration)
-				if c1 == nil || c2 == nil {
-					return
-				}
-				// Enqueue on latest created or ready change.
-				if c1.Status.LatestCreatedRevisionName != c2.Status.LatestCreatedRevisionName ||
-					c1.Status.LatestReadyRevisionName != c2.Status.LatestReadyRevisionName {
+				if c, ok := new.(*v1.Configuration); ok && (c.IsReady() || c.IsFailed()) {
 					impl.Enqueue(new)
 				}
 			},
-			DeleteFunc: impl.Enqueue,
 		})
 
 		logger.Info("Setting up ConfigMap receivers with resync func")

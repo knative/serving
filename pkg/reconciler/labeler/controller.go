@@ -65,14 +65,27 @@ func NewController(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: impl.Enqueue,
 			UpdateFunc: func(old interface{}, new interface{}) {
-				r1, r2 := old.(*v1.Route), new.(*v1.Route)
-				if r1 == nil || r2 == nil {
+				r2, ok := new.(*v1.Route)
+				if !ok {
 					return
 				}
-				// Enqueue on route spec or status traffic changed.
+
+				// Enqueue when ready for cleanup
+				if r2.IsReady() || r2.IsFailed() {
+					impl.Enqueue(new)
+					return
+				}
+
+				r1, ok := old.(*v1.Route)
+				if !ok {
+					return
+				}
+
+				// Enqueue for traffic changes
 				if !equality.Semantic.DeepEqual(r1.Spec.Traffic, r2.Spec.Traffic) ||
 					!equality.Semantic.DeepEqual(r1.Status.Traffic, r2.Status.Traffic) {
 					impl.Enqueue(new)
+					return
 				}
 			},
 			DeleteFunc: impl.Enqueue,
