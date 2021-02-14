@@ -53,8 +53,7 @@ func setupDNSRecord() error {
 		return err
 	}
 	if err := waitForDNSRecordVisible(dnsRecord); err != nil {
-		config.DeleteDNSRecord(dnsRecord, env.CloudDNSServiceAccountKeyFile, env.CloudDNSProject, env.DNSZone)
-		return err
+		log.Printf("DNS record is not visible yet %v", err)
 	}
 	return nil
 }
@@ -84,12 +83,13 @@ func waitForDNSRecordVisible(record *config.DNSRecord) error {
 	if err != nil {
 		return err
 	}
-
-	return wait.PollImmediate(10*time.Second, 300*time.Second, func() (bool, error) {
+	var lastErr error
+	if err := wait.PollImmediate(10*time.Second, 300*time.Second, func() (bool, error) {
 		for _, ns := range nameservers {
 			nsIP, err := net.LookupHost(ns.Host)
 			if err != nil {
-				log.Printf("failed to look up host %s: %v", ns.Host, err)
+				log.Printf("Failed to look up host %s: %v", ns.Host, err)
+				lastErr = err
 				return false, nil
 			}
 			// This resolver bypasses the local resolver and instead queries the
@@ -100,22 +100,35 @@ func waitForDNSRecordVisible(record *config.DNSRecord) error {
 					return d.DialContext(ctx, "udp", nsIP[0]+":53")
 				},
 			}
-			if !validateRecord(r, record) {
+			valid, err := validateRecord(r, record)
+			if err != nil {
+				log.Printf("Failed to validate DNS record %v", err)
+				lastErr = err
 				return false, nil
 			}
+			if !valid {
+				return false, nil
+			}
+
 		}
 		return true, nil
-	})
+	}); err != nil {
+		return lastErr
+	}
+	return nil
 }
 
-func validateRecord(resolver *net.Resolver, record *config.DNSRecord) bool {
-	ips, _ := resolver.LookupHost(context.Background(), replaceWildcard(record.Domain))
+func validateRecord(resolver *net.Resolver, record *config.DNSRecord) (bool, error) {
+	ips, err := resolver.LookupHost(context.Background(), replaceWildcard(record.Domain))
+	if err != nil {
+		return false, err
+	}
 	for _, ip := range ips {
 		if ip == record.IP {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 func replaceWildcard(domain string) string {
