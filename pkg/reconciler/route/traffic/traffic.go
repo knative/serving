@@ -79,7 +79,8 @@ type Config struct {
 // In the case that some target is missing, an error of type TargetError will be returned.
 func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revLister listers.RevisionLister,
 	r *v1.Route) (*Config, error) {
-	builder := newBuilder(configLister, revLister, r, len(r.Spec.Traffic))
+
+	builder := newBuilder(configLister, revLister, r)
 	err := builder.applySpecTraffic(r.Spec.Traffic)
 	if err != nil {
 		return nil, err
@@ -205,16 +206,16 @@ type configBuilder struct {
 
 func newBuilder(
 	configLister listers.ConfigurationLister, revLister listers.RevisionLister,
-	r *v1.Route, trafficSize int) *configBuilder {
+	r *v1.Route) *configBuilder {
 	return &configBuilder{
 		configLister:    configLister.Configurations(r.Namespace),
 		revLister:       revLister.Revisions(r.Namespace),
 		route:           r,
-		targets:         make(map[string]RevisionTargets),
-		revisionTargets: make(RevisionTargets, 0, trafficSize),
+		targets:         make(map[string]RevisionTargets, 1),
+		revisionTargets: make(RevisionTargets, 0, len(r.Spec.Traffic)),
 
 		configurations: make(map[string]*v1.Configuration),
-		revisions:      make(map[string]*v1.Revision),
+		revisions:      make(map[string]*v1.Revision, 1),
 	}
 }
 
@@ -312,8 +313,7 @@ func (cb *configBuilder) deferTargetError(err TargetError) {
 	}
 }
 
-func (cb *configBuilder) addTrafficTarget(tt *v1.TrafficTarget) error {
-	var err error
+func (cb *configBuilder) addTrafficTarget(tt *v1.TrafficTarget) (err error) {
 	if tt.RevisionName != "" {
 		err = cb.addRevisionTarget(tt)
 	} else if tt.ConfigurationName != "" {
