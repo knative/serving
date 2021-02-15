@@ -26,12 +26,10 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "knative.dev/serving/pkg/testing"
@@ -83,80 +81,6 @@ func TestMakeHPA(t *testing.T) {
 				Resource: &autoscalingv2beta1.ResourceMetricSource{
 					Name:                     corev1.ResourceCPU,
 					TargetAverageUtilization: ptr.Int32(1983),
-				},
-			})),
-	}, {
-		name: "with metric=concurrency",
-		pa:   pa(WithMetricAnnotation(autoscaling.Concurrency)),
-		want: hpa(
-			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Concurrency),
-			withMetric(autoscalingv2beta1.MetricSpec{
-				Type: autoscalingv2beta1.ObjectMetricSourceType,
-				Object: &autoscalingv2beta1.ObjectMetricSource{
-					Target: autoscalingv2beta1.CrossVersionObjectReference{
-						APIVersion: servingv1.SchemeGroupVersion.String(),
-						Kind:       "revision",
-						Name:       testName,
-					},
-					MetricName:   autoscaling.Concurrency,
-					AverageValue: resource.NewQuantity(100, resource.DecimalSI),
-					TargetValue:  *resource.NewQuantity(100, resource.DecimalSI),
-				},
-			})),
-	}, {
-		name: "with metric=concurrency and target=50",
-		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(autoscaling.Concurrency)),
-		want: hpa(
-			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Concurrency),
-			withAnnotationValue(autoscaling.TargetAnnotationKey, "50"),
-			withMetric(autoscalingv2beta1.MetricSpec{
-				Type: autoscalingv2beta1.ObjectMetricSourceType,
-				Object: &autoscalingv2beta1.ObjectMetricSource{
-					Target: autoscalingv2beta1.CrossVersionObjectReference{
-						APIVersion: servingv1.SchemeGroupVersion.String(),
-						Kind:       "revision",
-						Name:       testName,
-					},
-					MetricName:   autoscaling.Concurrency,
-					AverageValue: resource.NewQuantity(50, resource.DecimalSI),
-					TargetValue:  *resource.NewQuantity(50, resource.DecimalSI),
-				},
-			})),
-	}, {
-		name: "with metric=RPS",
-		pa:   pa(WithMetricAnnotation(autoscaling.RPS)),
-		want: hpa(
-			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.RPS),
-			withMetric(autoscalingv2beta1.MetricSpec{
-				Type: autoscalingv2beta1.ObjectMetricSourceType,
-				Object: &autoscalingv2beta1.ObjectMetricSource{
-					Target: autoscalingv2beta1.CrossVersionObjectReference{
-						APIVersion: servingv1.SchemeGroupVersion.String(),
-						Kind:       "revision",
-						Name:       testName,
-					},
-					MetricName:   autoscaling.RPS,
-					AverageValue: resource.NewQuantity(200, resource.DecimalSI),
-					TargetValue:  *resource.NewQuantity(200, resource.DecimalSI),
-				},
-			})),
-	}, {
-		name: "with metric=RPS and target=50",
-		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(autoscaling.RPS)),
-		want: hpa(
-			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.RPS),
-			withAnnotationValue(autoscaling.TargetAnnotationKey, "50"),
-			withMetric(autoscalingv2beta1.MetricSpec{
-				Type: autoscalingv2beta1.ObjectMetricSourceType,
-				Object: &autoscalingv2beta1.ObjectMetricSource{
-					Target: autoscalingv2beta1.CrossVersionObjectReference{
-						APIVersion: servingv1.SchemeGroupVersion.String(),
-						Kind:       "revision",
-						Name:       testName,
-					},
-					MetricName:   autoscaling.RPS,
-					AverageValue: resource.NewQuantity(50, resource.DecimalSI),
-					TargetValue:  *resource.NewQuantity(50, resource.DecimalSI),
 				},
 			})),
 	}}

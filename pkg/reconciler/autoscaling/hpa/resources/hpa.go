@@ -21,15 +21,12 @@ import (
 
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
-	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 )
 
 // MakeHPA creates an HPA resource from a PA resource.
@@ -70,22 +67,6 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autos
 				},
 			}}
 		}
-	case autoscaling.Concurrency, autoscaling.RPS:
-		t, _ := aresources.ResolveMetricTarget(pa, config)
-		target := int64(math.Ceil(t))
-		hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
-			Type: autoscalingv2beta1.ObjectMetricSourceType,
-			Object: &autoscalingv2beta1.ObjectMetricSource{
-				Target: autoscalingv2beta1.CrossVersionObjectReference{
-					APIVersion: servingv1.SchemeGroupVersion.String(),
-					Kind:       "revision",
-					Name:       pa.Name,
-				},
-				MetricName:   pa.Metric(),
-				AverageValue: resource.NewQuantity(target, resource.DecimalSI),
-				TargetValue:  *resource.NewQuantity(target, resource.DecimalSI),
-			},
-		}}
 	}
 	return hpa
 }
