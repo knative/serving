@@ -166,7 +166,7 @@ func main() {
 
 	// Setup probe to run for checking user-application healthiness.
 	probe := buildProbe(logger, env.ServingReadinessProbe)
-	healthState := &health.State{}
+	healthState := health.NewState()
 
 	mainServer := buildServer(ctx, env, healthState, probe, stats, logger)
 	servers := map[string]*http.Server{
