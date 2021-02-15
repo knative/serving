@@ -117,12 +117,10 @@ func getVegetaTarget(kubeClientset kubernetes.Interface, domain, endpointOverrid
 		return vegeta.Target{}, err
 	}
 
-	h := http.Header{}
-	h.Set("Host", domain)
 	return vegeta.Target{
 		Method: http.MethodGet,
 		URL:    fmt.Sprintf("http://%s:%s?sleep=%d", endpoint, mapper("80"), autoscaleSleep),
-		Header: h,
+		Header: http.Header{"Host": []string{domain}},
 	}, nil
 }
 
@@ -159,12 +157,7 @@ func generateTraffic(
 					totalRequests, totalRequests-successfulRequests, successRate, successRateSLO)
 			}
 			return nil
-		case res, ok := <-results:
-			if !ok {
-				ctx.logf("Time is up; done")
-				return nil
-			}
-
+		case res := <-results:
 			totalRequests++
 			if res.Code != http.StatusOK {
 				ctx.logf("Status = %d, want: 200", res.Code)
@@ -225,10 +218,6 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 				// revision down.
 				autoscaling.WindowAnnotationKey: "30s",
 			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("100m"),
-					corev1.ResourceMemory: resource.MustParse("128Mi"),
-				},
 				Requests: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("30m"),
 					corev1.ResourceMemory: resource.MustParse("20Mi"),
@@ -373,8 +362,6 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 // 1) Quick mode: succeeds when the number of pods meets targetPods.
 // 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
 //    sustains there until the `done` channel sends a signal.
-// The given `duration` is how long the traffic will be generated. You must make sure that the signal
-// from the given `done` channel will be sent within the `duration`.
 func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
 	ctx.t.Helper()
 	wait := AutoscaleUpToNumPods(ctx, curPods, targetPods, done, quick)
