@@ -54,6 +54,6 @@ require (
 	knative.dev/caching v0.0.0-20210211034718-5a65e9097b79
 	knative.dev/hack v0.0.0-20210203173706-8368e1f6eacf
 	knative.dev/networking v0.0.0-20210211230105-9757667cd59a
-	knative.dev/pkg v0.0.0-20210211034618-e38bb8931ffe
+	knative.dev/pkg v0.0.0-20210212203835-448ae657fb5f
 	sigs.k8s.io/yaml v1.2.0
 )
