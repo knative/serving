@@ -29,22 +29,22 @@ func TestHealthStateSetsState(t *testing.T) {
 	s := NewState()
 
 	wantAlive := func() {
-		if !s.IsAlive() {
+		if !s.isAlive() {
 			t.Error("State was not alive but it should have been alive")
 		}
 	}
 	wantNotAlive := func() {
-		if s.IsAlive() {
+		if s.isAlive() {
 			t.Error("State was alive but it shouldn't have been")
 		}
 	}
 	wantShuttingDown := func() {
-		if !s.IsShuttingDown() {
+		if !s.isShuttingDown() {
 			t.Error("State was not shutting down but it should have been")
 		}
 	}
 	wantNotShuttingDown := func() {
-		if s.IsShuttingDown() {
+		if s.isShuttingDown() {
 			t.Error("State was shutting down but it shouldn't have been")
 		}
 	}
