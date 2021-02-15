@@ -80,7 +80,6 @@ func (h *State) drainFinished() {
 	}
 
 	h.drainCompleted = true
-
 }
 
 // HandleHealthProbe handles the probe according to the current state of the

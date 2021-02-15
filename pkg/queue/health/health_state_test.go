@@ -126,10 +126,10 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		wantStatus:   http.StatusServiceUnavailable,
 	}, {
 		name:         "prober: false, shuttingDown: true",
-		state:        &State{},
+		state:        &State{shuttingDown: true},
 		prober:       func() bool { return false },
 		isAggressive: true,
-		wantStatus:   http.StatusServiceUnavailable,
+		wantStatus:   http.StatusGone,
 	}, {
 		name:         "alive: true, prober: false, shuttingDown: false",
 		state:        &State{alive: true},
@@ -137,19 +137,18 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		isAggressive: true,
 		wantStatus:   http.StatusServiceUnavailable,
 	}}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			rr := httptest.NewRecorder()
 			test.state.HandleHealthProbe(test.prober, test.isAggressive, rr)
 
-			if rr.Code != test.wantStatus {
-				t.Errorf("handler returned wrong status code: got %v want %v",
-					rr.Code, test.wantStatus)
+			if got, want := rr.Code, test.wantStatus; got != want {
+				t.Errorf("handler returned wrong status code: got %v want %v", got, want)
 			}
 
-			if rr.Body.String() != test.wantBody {
-				t.Errorf("handler returned unexpected body: got %v want %v",
-					rr.Body.String(), test.wantBody)
+			if got, want := rr.Body.String(), test.wantBody; got != want {
+				t.Errorf("handler returned unexpected body: got %v want %v", got, want)
 			}
 		})
 	}
