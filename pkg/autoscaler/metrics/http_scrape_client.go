@@ -18,7 +18,6 @@ package metrics
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -46,12 +45,7 @@ func newHTTPScrapeClient(httpClient *http.Client) *httpScrapeClient {
 	}
 }
 
-func (c *httpScrapeClient) Scrape(ctx context.Context, url string) (Stat, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return emptyStat, err
-	}
-
+func (c *httpScrapeClient) Do(req *http.Request) (Stat, error) {
 	req.Header.Add("Accept", network.ProtoAcceptContent)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -59,7 +53,7 @@ func (c *httpScrapeClient) Scrape(ctx context.Context, url string) (Stat, error)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
+		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", req.URL.String(), resp.StatusCode)
 	}
 	if resp.Header.Get("Content-Type") != network.ProtoAcceptContent {
 		return emptyStat, errUnsupportedMetricType

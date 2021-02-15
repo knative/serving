@@ -98,8 +98,8 @@ type StatsScraper interface {
 // scrapeClient defines the interface for collecting Revision metrics for a given
 // URL. Internal used only.
 type scrapeClient interface {
-	// Scrape scrapes the given URL.
-	Scrape(ctx context.Context, url string) (Stat, error)
+	// Do executes the given request.
+	Do(*http.Request) (Stat, error)
 }
 
 // noKeepAliveTransport is a http.Transport with the default settings, but with
@@ -280,7 +280,11 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 
 				// Scrape!
 				target := "http://" + pods[myIdx] + ":" + portAndPath
-				stat, err := s.directClient.Scrape(egCtx, target)
+				req, err := http.NewRequestWithContext(egCtx, http.MethodGet, target, nil)
+				if err != nil {
+					return err
+				}
+				stat, err := s.directClient.Do(req)
 				if err == nil {
 					results <- stat
 					return nil
@@ -413,7 +417,11 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 // tryScrape runs a single scrape and returns stat if this is a pod that has not been
 // seen before. An error otherwise or if scraping failed.
 func (s *serviceScraper) tryScrape(ctx context.Context, scrapedPods *sync.Map) (Stat, error) {
-	stat, err := s.meshClient.Scrape(ctx, s.url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.url, nil)
+	if err != nil {
+		return emptyStat, err
+	}
+	stat, err := s.meshClient.Do(req)
 	if err != nil {
 		return emptyStat, err
 	}
