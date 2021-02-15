@@ -448,14 +448,12 @@ func consolidate(targets RevisionTargets) RevisionTargets {
 			names = append(names, name)
 			continue
 		}
-		if tt.TrafficTarget.Percent != nil {
-			current := int64(0)
-			if cur.TrafficTarget.Percent != nil {
-				current += *cur.TrafficTarget.Percent
-			}
-			current += *tt.TrafficTarget.Percent
-			cur.TrafficTarget.Percent = ptr.Int64(current)
+		current := int64(0)
+		if cur.TrafficTarget.Percent != nil {
+			current += *cur.TrafficTarget.Percent
 		}
+		current += *tt.TrafficTarget.Percent
+		cur.TrafficTarget.Percent = ptr.Int64(current)
 		byName[name] = cur
 	}
 	consolidated := make([]RevisionTarget, len(names))
