@@ -26,7 +26,6 @@ import (
 	"go.opencensus.io/tag"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 	kubemetrics "k8s.io/client-go/tools/metrics"
 	"k8s.io/client-go/util/workqueue"
 	"knative.dev/pkg/metrics"
@@ -93,59 +92,6 @@ func init() {
 	}
 	workqueue.SetProvider(wp)
 
-	// Register to receive metrics from kubernetes reflectors (what powers informers)
-	// NOTE: today these don't actually seem to wire up to anything in Kubernetes.
-	rp := &metrics.ReflectorProvider{
-		ItemsInList: stats.Float64(
-			"reflector_items_in_list",
-			"How many items an API list returns to the reflectors",
-			stats.UnitDimensionless,
-		),
-		// TODO(mattmoor): This is not in the latest version, so it will
-		// be removed in a future version.
-		ItemsInMatch: stats.Float64(
-			"reflector_items_in_match",
-			"",
-			stats.UnitDimensionless,
-		),
-		ItemsInWatch: stats.Float64(
-			"reflector_items_in_watch",
-			"How many items an API watch returns to the reflectors",
-			stats.UnitDimensionless,
-		),
-		LastResourceVersion: stats.Float64(
-			"reflector_last_resource_version",
-			"Last resource version seen for the reflectors",
-			stats.UnitDimensionless,
-		),
-		ListDuration: stats.Float64(
-			"reflector_list_duration_seconds",
-			"How long an API list takes to return and decode for the reflectors",
-			stats.UnitSeconds,
-		),
-		Lists: stats.Int64(
-			"reflector_lists_total",
-			"Total number of API lists done by the reflectors",
-			stats.UnitDimensionless,
-		),
-		ShortWatches: stats.Int64(
-			"reflector_short_watches_total",
-			"Total number of short API watches done by the reflectors",
-			stats.UnitDimensionless,
-		),
-		WatchDuration: stats.Float64(
-			"reflector_watch_duration_seconds",
-			"How long an API watch takes to return and decode for the reflectors",
-			stats.UnitSeconds,
-		),
-		Watches: stats.Int64(
-			"reflector_watches_total",
-			"Total number of API watches done by the reflectors",
-			stats.UnitDimensionless,
-		),
-	}
-	cache.SetReflectorMetricsProvider(rp)
-
 	cp := &metrics.ClientProvider{
 		Latency: stats.Float64(
 			"client_latency",
@@ -181,7 +127,6 @@ func init() {
 		TagKeys:     []tag.Key{reconcilerTagKey, successTagKey, NamespaceTagKey},
 	}}
 	views = append(views, wp.DefaultViews()...)
-	views = append(views, rp.DefaultViews()...)
 	views = append(views, cp.DefaultViews()...)
 
 	// Create views to see our measurements. This can return an error if
