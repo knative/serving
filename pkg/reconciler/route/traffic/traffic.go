@@ -79,13 +79,7 @@ type Config struct {
 // In the case that some target is missing, an error of type TargetError will be returned.
 func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revLister listers.RevisionLister,
 	r *v1.Route) (*Config, error) {
-
-	builder := newBuilder(configLister, revLister, r)
-	err := builder.applySpecTraffic(r.Spec.Traffic)
-	if err != nil {
-		return nil, err
-	}
-	return builder.build()
+	return newBuilder(configLister, revLister, r).build()
 }
 
 func rolloutConfig(cfgName string, ros []*ConfigurationRollout) *ConfigurationRollout {
@@ -265,7 +259,8 @@ func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
 	}
 }
 
-func (cb *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
+func (cb *configBuilder) applySpecTraffic() error {
+	traffic := cb.route.Spec.Traffic
 	for i := range traffic {
 		if err := cb.addTrafficTarget(&traffic[i]); err != nil {
 			// Other non-traffic target errors shouldn't be ignored.
@@ -297,7 +292,8 @@ func (cb *configBuilder) getRevision(name string) (*v1.Revision, error) {
 		rev, err = cb.revLister.Get(name)
 		if apierrs.IsNotFound(err) {
 			return nil, errMissingRevision(name)
-		} else if err != nil {
+		}
+		if err != nil {
 			return nil, err
 		}
 		cb.revisions[name] = rev
@@ -416,6 +412,9 @@ func (cb *configBuilder) addFlattenedTarget(target RevisionTarget) {
 }
 
 func (cb *configBuilder) build() (*Config, error) {
+	if err := cb.applySpecTraffic(); err != nil {
+		return nil, err
+	}
 	if cb.deferredTargetErr != nil {
 		cb.targets = nil
 		cb.revisionTargets = nil
