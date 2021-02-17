@@ -120,6 +120,23 @@ func TestDomainMappingValidation(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "cluster local domain name",
+		want: apis.ErrGeneric("invalid name \"notallowed.svc.cluster.local\": must not be a subdomain of cluster local domain \"cluster.local\"", "metadata.name"),
+		dm: &DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "notallowed.svc.cluster.local",
+				Namespace: "ns",
+			},
+			Spec: DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Name:       "some-name",
+					Namespace:  "ns",
+					Kind:       "Service",
+					APIVersion: "serving.knative.dev/v1",
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {

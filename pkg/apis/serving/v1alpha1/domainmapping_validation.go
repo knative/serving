@@ -19,10 +19,12 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -44,7 +46,14 @@ func (dm *DomainMapping) validateMetadata(ctx context.Context) (errs *apis.Field
 
 	err := validation.IsFullyQualifiedDomainName(field.NewPath("name"), dm.Name)
 	if err != nil {
-		errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("invalid name %q: %s", dm.Name, err.ToAggregate()), "name"))
+		errs = errs.Also(apis.ErrGeneric(fmt.Sprintf(
+			"invalid name %q: %s", dm.Name, err.ToAggregate()), "name"))
+	}
+
+	clusterLocalDomain := network.GetClusterDomainName()
+	if strings.HasSuffix(dm.Name, "."+clusterLocalDomain) {
+		errs = errs.Also(apis.ErrGeneric(
+			fmt.Sprintf("invalid name %q: must not be a subdomain of cluster local domain %q", dm.Name, clusterLocalDomain), "name"))
 	}
 
 	if apis.IsInUpdate(ctx) {
