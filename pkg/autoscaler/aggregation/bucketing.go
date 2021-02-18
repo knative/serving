@@ -129,23 +129,23 @@ func (t *TimedFloat64Buckets) WeightedAverage(now time.Time) float64 {
 	totalB := len(t.buckets)
 	numB := len(t.buckets)
 
-	sm := t.decayMultiplier
+	multiplier := t.decayMultiplier
 	// We start with 0es. But we know that we have _some_ data because
 	// IsEmpty returned false.
 	if now.After(t.lastWrite) {
 		numZ := now.Sub(t.lastWrite) / t.granularity
 		// Skip to this multiplier directly: m*(1-m)^(nz-1).
-		sm = sm * math.Pow(1-t.decayMultiplier, float64(numZ))
+		multiplier = multiplier * math.Pow(1-t.decayMultiplier, float64(numZ))
 		// Reduce effective number of buckets.
 		numB -= int(numZ)
 	}
 	startIdx := t.timeToIndex(t.lastWrite) + totalB // To ensure always positive % operation.
 	ret := 0.
 	for i := 0; i < numB; i++ {
-		effI := (startIdx - i) % totalB
-		v := t.buckets[effI] * sm
+		effectiveIdx := (startIdx - i) % totalB
+		v := t.buckets[effectiveIdx] * multiplier
 		ret += v
-		sm *= (1 - t.decayMultiplier)
+		multiplier *= (1 - t.decayMultiplier)
 		// TODO(vagababov): bail out if sm > weightPrecision?
 	}
 	return ret
