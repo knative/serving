@@ -54,6 +54,12 @@ type TimedFloat64Buckets struct {
 	// invalid buckets, e.g. buckets written to before firstTime or after
 	// lastTime are included in this total.
 	windowTotal float64
+
+	// decayMultiplier contains the speed with which the importance
+	// of items in the past decays. The larger the faster weights decay.
+	// It is autocomputed from window size and weightPrecision constant
+	// and is bounded by minExponent below.
+	decayMultiplier float64
 }
 
 // String implements the Stringer interface.
@@ -61,16 +67,31 @@ func (t *TimedFloat64Buckets) String() string {
 	return spew.Sdump(t.buckets)
 }
 
+// computeDecayMultiplier computes the decay given number of buckets.
+// The function uses precision and min exponent value constants.
+func computeDecayMultiplier(nb float64) float64 {
+	return math.Max(
+		// Given number of buckets, infer the desired multiplier
+		// so that at least weightPrecision sum of buckets is met.
+		1-math.Pow(1-weightPrecision, 1/nb),
+		// If it's smaller than minExponent — then use minExponent,
+		// otherwise with extremely large windows we basically end up
+		// very close to the simple average.
+		minExponent,
+	)
+}
+
 // NewTimedFloat64Buckets generates a new TimedFloat64Buckets with the given
 // granularity.
 func NewTimedFloat64Buckets(window, granularity time.Duration) *TimedFloat64Buckets {
 	// Number of buckets is `window` divided by `granularity`, rounded up.
 	// e.g. 60s / 2s = 30.
-	nb := int(math.Ceil(float64(window) / float64(granularity)))
+	nb := math.Ceil(float64(window) / float64(granularity))
 	return &TimedFloat64Buckets{
-		buckets:     make([]float64, nb),
-		granularity: granularity,
-		window:      window,
+		buckets:         make([]float64, int(nb)),
+		granularity:     granularity,
+		window:          window,
+		decayMultiplier: computeDecayMultiplier(nb),
 	}
 }
 
@@ -85,6 +106,49 @@ func (t *TimedFloat64Buckets) IsEmpty(now time.Time) bool {
 func roundToNDigits(n int, f float64) float64 {
 	p := math.Pow10(n)
 	return math.Floor(f*p) / p
+}
+
+const (
+	// minExponent is the minimal decay multiplier for the weighted average computations.
+	minExponent = 0.2
+	// The sum of weights for weighted average should be at least this much.
+	weightPrecision = 0.9999
+	precision       = 6
+)
+
+// WeightedAverage returns the exponential weighted average
+// TODO(vagababov): optimize for O(1) computation, if possible.
+func (t *TimedFloat64Buckets) WeightedAverage(now time.Time) float64 {
+	if t.IsEmpty(now) {
+		return 0
+	}
+
+	now = now.Truncate(t.granularity)
+	t.bucketsMutex.RLock()
+	defer t.bucketsMutex.RUnlock()
+	totalB := len(t.buckets)
+	numB := len(t.buckets)
+
+	sm := t.decayMultiplier
+	// We start with 0es. But we know that we have _some_ data because
+	// IsEmpty returned false.
+	if now.After(t.lastWrite) {
+		numZ := now.Sub(t.lastWrite) / t.granularity
+		// Skip to this multiplier directly: m*(1-m)^(nz-1).
+		sm = sm * math.Pow(1-t.decayMultiplier, float64(numZ))
+		// Reduce effective number of buckets.
+		numB -= int(numZ)
+	}
+	startIdx := t.timeToIndex(t.lastWrite) + totalB // To ensure always positive % operation.
+	ret := 0.
+	for i := 0; i < numB; i++ {
+		effI := (startIdx - i) % totalB
+		v := t.buckets[effI] * sm
+		ret += v
+		sm *= (1 - t.decayMultiplier)
+		// TODO(vagababov): bail out if sm > weightPrecision?
+	}
+	return ret
 }
 
 // WindowAverage returns the average bucket value over the window.
@@ -104,7 +168,6 @@ func roundToNDigits(n int, f float64) float64 {
 // window length, the missing data is assumed to be 0 and the average is over
 // the whole window length inclusive of the missing data.
 func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
-	const precision = 6
 	now = now.Truncate(t.granularity)
 	t.bucketsMutex.RLock()
 	defer t.bucketsMutex.RUnlock()
@@ -256,4 +319,5 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 	t.window = w
 	t.buckets = newBuckets
 	t.windowTotal = newTotal
+	t.decayMultiplier = computeDecayMultiplier(float64(numBuckets))
 }
