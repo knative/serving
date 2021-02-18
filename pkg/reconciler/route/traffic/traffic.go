@@ -217,7 +217,6 @@ func newBuilder(
 // It is expected to be invoked after applySpecTraffic.
 // Returned Rollout will be sorted by tag and within tag by configuration
 // (only default tag can have more than configuration object attached).
-// TODO(vagababov): actually deal with rollouts, vs just report desired state.
 func (cfg *Config) BuildRollout() *Rollout {
 	rollout := &Rollout{}
 
@@ -230,7 +229,6 @@ func (cfg *Config) BuildRollout() *Rollout {
 
 // buildRolloutForTag builds the current rollout state.
 // It is expected to be invoked after applySpecTraffic.
-// TODO(vagababov): actually deal with rollouts, vs just report desired state.
 func buildRolloutForTag(r *Rollout, tag string, rts RevisionTargets) {
 	// Only main target will have more than 1 element here.
 	for _, rt := range rts {
