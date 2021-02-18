@@ -62,11 +62,8 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 
 // validateLabels function validates configuration labels
 func (c *Configuration) validateLabels() (errs *apis.FieldError) {
-	for key, val := range c.GetLabels() {
-		switch key {
-		case serving.ServiceLabelKey:
-			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", c.GetOwnerReferences()))
-		}
+	if val, ok := c.Labels[serving.ServiceLabelKey]; ok {
+		errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", c.GetOwnerReferences()))
 	}
 	return errs
 }

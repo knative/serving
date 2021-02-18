@@ -123,11 +123,8 @@ func (rs *RevisionStatus) Validate(_ context.Context) *apis.FieldError {
 
 // ValidateLabels function validates service labels
 func (r *Revision) ValidateLabels() (errs *apis.FieldError) {
-	for key, val := range r.GetLabels() {
-		switch key {
-		case serving.ConfigurationLabelKey:
-			errs = errs.Also(verifyLabelOwnerRef(val, serving.ConfigurationLabelKey, "Configuration", r.GetOwnerReferences()))
-		}
+	if val, ok := r.Labels[serving.ConfigurationLabelKey]; ok {
+		errs = errs.Also(verifyLabelOwnerRef(val, serving.ConfigurationLabelKey, "Configuration", r.GetOwnerReferences()))
 	}
 	return errs
 }
