@@ -384,18 +384,6 @@ func TestConfigurationLabelValidation(t *testing.T) {
 			Spec: validConfigSpec,
 		},
 		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/service"),
-	}, {
-		name: "invalid knative label",
-		c: &Configuration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "byo-name",
-				Labels: map[string]string{
-					"serving.knative.dev/testlabel": "value",
-				},
-			},
-			Spec: validConfigSpec,
-		},
-		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.labels"),
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

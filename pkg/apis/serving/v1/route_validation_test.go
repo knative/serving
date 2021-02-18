@@ -584,18 +584,6 @@ func TestRouteLabelValidation(t *testing.T) {
 			},
 			Spec: validRouteSpec,
 		},
-	}, {
-		name: "invalid knative label",
-		r: &Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "byo-name",
-				Labels: map[string]string{
-					"serving.knative.dev/testlabel": "value",
-				},
-			},
-			Spec: validRouteSpec,
-		},
-		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.labels"),
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

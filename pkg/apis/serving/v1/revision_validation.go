@@ -125,19 +125,8 @@ func (rs *RevisionStatus) Validate(_ context.Context) *apis.FieldError {
 func (r *Revision) ValidateLabels() (errs *apis.FieldError) {
 	for key, val := range r.GetLabels() {
 		switch key {
-		case serving.RoutingStateLabelKey,
-			serving.RouteLabelKey,
-			serving.ServiceLabelKey,
-			serving.ConfigurationUIDLabelKey,
-			serving.ServiceUIDLabelKey,
-			serving.ConfigurationGenerationLabelKey:
-			// Known valid labels.
 		case serving.ConfigurationLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ConfigurationLabelKey, "Configuration", r.GetOwnerReferences()))
-		default:
-			if strings.HasPrefix(key, serving.GroupNamePrefix) {
-				errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
-			}
 		}
 	}
 	return errs

@@ -18,7 +18,6 @@ package v1
 
 import (
 	"context"
-	"strings"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
@@ -71,8 +70,6 @@ func (s *Service) validateLabels() (errs *apis.FieldError) {
 		switch {
 		case key == network.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisibilityLabel(val))
-		case strings.HasPrefix(key, serving.GroupNamePrefix):
-			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}
 	return errs

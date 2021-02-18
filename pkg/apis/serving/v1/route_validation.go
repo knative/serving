@@ -19,7 +19,6 @@ package v1
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 	network "knative.dev/networking/pkg"
@@ -210,10 +209,6 @@ func (r *Route) validateLabels() (errs *apis.FieldError) {
 			errs = errs.Also(validateClusterVisibilityLabel(val))
 		case serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))
-		default:
-			if strings.HasPrefix(key, serving.GroupNamePrefix) {
-				errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
-			}
 		}
 	}
 	return errs

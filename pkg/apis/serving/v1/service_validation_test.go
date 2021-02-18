@@ -84,21 +84,6 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 	}, {
-		name: "invalid knative label",
-		r: &Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
-				Labels: map[string]string{
-					"serving.knative.dev/name": "some-value",
-				},
-			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: goodConfigSpec,
-				RouteSpec:         goodRouteSpec,
-			},
-		},
-		wantErr: apis.ErrInvalidKeyName("serving.knative.dev/name", "metadata.labels"),
-	}, {
 		name: "valid non knative label",
 		r: &Service{
 			ObjectMeta: metav1.ObjectMeta{
