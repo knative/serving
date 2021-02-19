@@ -19,6 +19,8 @@ package http
 import (
 	"net/http"
 	"net/http/httputil"
+
+	"knative.dev/pkg/network"
 )
 
 // NewHeaderPruningReverseProxy returns a httputil.ReverseProxy that proxies
@@ -30,9 +32,9 @@ func NewHeaderPruningReverseProxy(targetHost string, headersToRemove []string) *
 			req.URL.Host = targetHost
 
 			// Copied from httputil.NewSingleHostReverseProxy.
-			if _, ok := req.Header["User-Agent"]; !ok {
+			if _, ok := req.Header[network.UserAgentKey]; !ok {
 				// explicitly disable User-Agent so it's not set to default value
-				req.Header.Set("User-Agent", "")
+				req.Header.Set(network.UserAgentKey, "")
 			}
 
 			for _, h := range headersToRemove {

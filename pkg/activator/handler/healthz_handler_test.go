@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	ktesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/network"
 )
 
 func TestHealthHandler(t *testing.T) {
@@ -36,19 +37,17 @@ func TestHealthHandler(t *testing.T) {
 		check          func() error
 	}{{
 		name:           "forward non-kubelet request",
-		headers:        mapToHeader(map[string]string{"User-Agent": "chromium/734.6.5"}),
+		headers:        http.Header{network.UserAgentKey: []string{"chromium/734.6.5"}},
 		passed:         true,
 		expectedStatus: http.StatusOK,
 	}, {
 		name:           "kubelet probe success",
-		headers:        mapToHeader(map[string]string{"User-Agent": "kube-probe/something"}),
-		passed:         false,
+		headers:        http.Header{network.UserAgentKey: []string{"kube-probe/something"}},
 		expectedStatus: http.StatusOK,
 		check:          func() error { return nil },
 	}, {
 		name:           "kubelet probe failure",
-		headers:        mapToHeader(map[string]string{"User-Agent": "kube-probe/something"}),
-		passed:         false,
+		headers:        http.Header{network.UserAgentKey: []string{"kube-probe/something"}},
 		expectedStatus: http.StatusInternalServerError,
 		check:          func() error { return errors.New("not ready") },
 	}}
@@ -77,7 +76,7 @@ func TestHealthHandler(t *testing.T) {
 			}
 
 			if resp.Code != e.expectedStatus {
-				t.Errorf("Unexpected response status. Want %d, got %d", e.expectedStatus, resp.Code)
+				t.Errorf("HTTP Status = %d, want: %d", resp.Code, e.expectedStatus)
 			}
 		})
 	}
@@ -90,15 +89,15 @@ func BenchmarkHealthHandler(b *testing.B) {
 		check   func() error
 	}{{
 		label:   "forward non-kubelet request",
-		headers: mapToHeader(map[string]string{"User-Agent": "chromium/734.6.5"}),
+		headers: http.Header{network.UserAgentKey: []string{"chromium/734.6.5"}},
 		check:   func() error { return nil },
 	}, {
 		label:   "kubelet probe success",
-		headers: mapToHeader(map[string]string{"User-Agent": "kube-probe/something"}),
+		headers: http.Header{network.UserAgentKey: []string{"kube-probe/something"}},
 		check:   func() error { return nil },
 	}, {
 		label:   "kubelet probe failure",
-		headers: mapToHeader(map[string]string{"User-Agent": "kube-probe/something"}),
+		headers: http.Header{network.UserAgentKey: []string{"kube-probe/something"}},
 		check:   func() error { return errors.New("not ready") },
 	}}
 

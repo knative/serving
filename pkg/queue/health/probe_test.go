@@ -66,7 +66,7 @@ func TestHTTPProbeSuccess(t *testing.T) {
 				gotHeader = corev1.HTTPHeader{Name: headerKey, Value: headerValue[0]}
 			}
 
-			if headerKey == "User-Agent" && strings.HasPrefix(headerValue[0], network.KubeProbeUAPrefix) {
+			if headerKey == network.UserAgentKey && strings.HasPrefix(headerValue[0], network.KubeProbeUAPrefix) {
 				gotKubeletHeader = true
 			}
 		}
