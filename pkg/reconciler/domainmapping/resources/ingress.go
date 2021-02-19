@@ -56,6 +56,7 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName
 				Hosts:      []string{dm.Name},
 				Visibility: netv1alpha1.IngressVisibilityExternalIP,
 				HTTP: &netv1alpha1.HTTPIngressRuleValue{
+					// The order of the paths is sensitive, always put tls challenge first
 					Paths: append(routeresources.MakeACMEIngressPaths(acmeChallenges, dm.GetName()),
 						[]netv1alpha1.HTTPIngressPath{{
 							RewriteHost: hostName,
