@@ -21,7 +21,6 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
-	"strings"
 
 	network "knative.dev/networking/pkg"
 )
@@ -50,7 +49,7 @@ func withRequestLog(next http.HandlerFunc) http.HandlerFunc {
 
 // withKubeletProbeHeaderCheck checks each health request has Kubelet probe header
 func withKubeletProbeHeaderCheck(w http.ResponseWriter, r *http.Request) {
-	if !strings.HasPrefix(r.Header.Get("User-Agent"), network.KubeProbeUAPrefix) {
+	if !network.IsKubeletProbe(r) {
 		w.WriteHeader(http.StatusBadRequest)
 	} else {
 		w.WriteHeader(http.StatusOK)

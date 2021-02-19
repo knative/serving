@@ -81,7 +81,7 @@ func TestProbe(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error creating request:", err)
 	}
-	req.Header.Set("User-Agent", "kube-probe/1.15.i.wish")
+	req.Header.Set(network.UserAgentKey, network.KubeProbeUAPrefix+"1.15.i.wish")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
