@@ -240,7 +240,6 @@ func TestTimedFloat64BucketsWeightedAverage(t *testing.T) {
 	if got, want := buckets.WeightedAverage(now.Add(16*time.Second)), 0.; got != want {
 		t.Errorf("WeightedAverage = %v, want: %v", got, want)
 	}
-
 }
 
 func TestTimedFloat64BucketsWindowAverage(t *testing.T) {
