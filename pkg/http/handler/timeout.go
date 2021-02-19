@@ -28,25 +28,14 @@ import (
 	"knative.dev/pkg/websocket"
 )
 
-// TimeoutFunc returns the timeout duration to be used by the timeout handler.
-type TimeoutFunc func(req *http.Request) time.Duration
-
-// StaticTimeoutFunc returns a TimeoutFunc that always returns the same duration.
-func StaticTimeoutFunc(timeout time.Duration) TimeoutFunc {
-	return func(req *http.Request) time.Duration {
-		return timeout
-	}
-}
-
 type timeToFirstByteTimeoutHandler struct {
-	handler     http.Handler
-	timeoutFunc TimeoutFunc
-	body        string
+	handler http.Handler
+	timeout time.Duration
+	body    string
 }
 
 // NewTimeToFirstByteTimeoutHandler returns a Handler that runs `h` with the
-// given time limit from the timeout function in which the first byte of
-// the response must be written.
+// given timeout in which the first byte of the response must be written.
 //
 // The new Handler calls h.ServeHTTP to handle each request, but if a
 // call runs for longer than its time limit, the handler responds with
@@ -60,11 +49,11 @@ type timeToFirstByteTimeoutHandler struct {
 // https://golang.org/pkg/net/http/#Handler.
 //
 // The implementation is largely inspired by http.TimeoutHandler.
-func NewTimeToFirstByteTimeoutHandler(h http.Handler, msg string, timeoutFunc TimeoutFunc) http.Handler {
+func NewTimeToFirstByteTimeoutHandler(h http.Handler, msg string, timeout time.Duration) http.Handler {
 	return &timeToFirstByteTimeoutHandler{
-		handler:     h,
-		body:        msg,
-		timeoutFunc: timeoutFunc,
+		handler: h,
+		body:    msg,
+		timeout: timeout,
 	}
 }
 
@@ -86,7 +75,7 @@ func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
 	}()
 
-	timeout := time.NewTimer(h.timeoutFunc(r))
+	timeout := time.NewTimer(h.timeout)
 	defer timeout.Stop()
 	for {
 		select {
@@ -164,8 +153,8 @@ func (tw *timeoutWriter) WriteHeader(code int) {
 	tw.w.WriteHeader(code)
 }
 
-// timeoutAndError writes an error to the response write if
-// nothing has been written on the writer before. Returns whether
+// timeoutAndWriteError writes an error to the responsewriter if
+// nothing has been written to the writer before. Returns whether
 // an error was written or not.
 //
 // If this writes an error, all subsequent calls to Write will
