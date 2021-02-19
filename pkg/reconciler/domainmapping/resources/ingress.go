@@ -56,20 +56,21 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName
 				Hosts:      []string{dm.Name},
 				Visibility: netv1alpha1.IngressVisibilityExternalIP,
 				HTTP: &netv1alpha1.HTTPIngressRuleValue{
-					Paths: append([]netv1alpha1.HTTPIngressPath{{
-						RewriteHost: hostName,
-						Splits: []netv1alpha1.IngressBackendSplit{{
-							Percent: 100,
-							AppendHeaders: map[string]string{
-								network.OriginalHostHeader: dm.Name,
-							},
-							IngressBackend: netv1alpha1.IngressBackend{
-								ServiceNamespace: dm.Namespace,
-								ServiceName:      backendServiceName,
-								ServicePort:      intstr.FromInt(80),
-							},
-						}},
-					}}, routeresources.MakeACMEIngressPaths(acmeChallenges, dm.GetName())...),
+					Paths: append(routeresources.MakeACMEIngressPaths(acmeChallenges, dm.GetName()),
+						[]netv1alpha1.HTTPIngressPath{{
+							RewriteHost: hostName,
+							Splits: []netv1alpha1.IngressBackendSplit{{
+								Percent: 100,
+								AppendHeaders: map[string]string{
+									network.OriginalHostHeader: dm.Name,
+								},
+								IngressBackend: netv1alpha1.IngressBackend{
+									ServiceNamespace: dm.Namespace,
+									ServiceName:      backendServiceName,
+									ServicePort:      intstr.FromInt(80),
+								},
+							}},
+						}}...),
 				},
 			}},
 		},
