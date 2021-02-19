@@ -100,6 +100,11 @@ func (t *TimedFloat64Buckets) IsEmpty(now time.Time) bool {
 	now = now.Truncate(t.granularity)
 	t.bucketsMutex.RLock()
 	defer t.bucketsMutex.RUnlock()
+	return t.isEmptyLocked(now)
+}
+
+// isEmptyLocked expects `now` to be truncated and at least Read Lock held.
+func (t *TimedFloat64Buckets) isEmptyLocked(now time.Time) bool {
 	return now.Sub(t.lastWrite) > t.window
 }
 
@@ -116,16 +121,23 @@ const (
 	precision       = 6
 )
 
-// WeightedAverage returns the exponential weighted average
+// WeightedAverage returns the exponential weighted average. This means
+// that more recent items have much greater impact on the average than
+// the older ones.
 // TODO(vagababov): optimize for O(1) computation, if possible.
+// E.g. with data  [10, 10, 5, 5] (newest last), then
+// the `WindowAverage` would return (10+10+5+5)/4 = 7.5
+// This with exponent of 0.6 would return 5*0.6+5*0.6*0.4+10*0.6*0.4^2+10*0.6*0.4^3 = 5.544
+// If we reverse the data to [5, 5, 10, 10] the simple average would remain the same,
+// but this one would change to 9.072.
 func (t *TimedFloat64Buckets) WeightedAverage(now time.Time) float64 {
-	if t.IsEmpty(now) {
-		return 0
-	}
-
 	now = now.Truncate(t.granularity)
 	t.bucketsMutex.RLock()
 	defer t.bucketsMutex.RUnlock()
+	if t.isEmptyLocked(now) {
+		return 0
+	}
+
 	totalB := len(t.buckets)
 	numB := len(t.buckets)
 
