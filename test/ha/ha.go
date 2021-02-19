@@ -51,11 +51,11 @@ func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (tes
 		t.Fatal("Failed to create Service:", err)
 	}
 
-	assertServiceEventuallyWorks(t, clients, names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1, test.ServingFlags.ResolvableDomain)
 	return names, resources
 }
 
-func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string) {
+func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string, resolvabledomain bool) {
 	t.Helper()
 	// Wait for the Service to be ready.
 	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
@@ -69,7 +69,7 @@ func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names tes
 		url,
 		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		resolvabledomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err)
 	}
 }
