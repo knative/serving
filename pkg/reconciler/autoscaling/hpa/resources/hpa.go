@@ -56,8 +56,7 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autos
 		hpa.Spec.MinReplicas = &min
 	}
 
-	switch pa.Metric() {
-	case autoscaling.CPU:
+	if pa.Metric() == autoscaling.CPU {
 		if target, ok := pa.Target(); ok {
 			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
 				Type: autoscalingv2beta1.ResourceMetricSourceType,
