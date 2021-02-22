@@ -51,26 +51,23 @@ func TestTCPProbe(t *testing.T) {
 }
 
 func TestHTTPProbeSuccess(t *testing.T) {
-	var gotHeader corev1.HTTPHeader
-	var gotKubeletHeader bool
+	var (
+		gotHeader        corev1.HTTPHeader
+		gotKubeletHeader bool
+	)
 	expectedHeader := corev1.HTTPHeader{
 		Name:  "Testkey",
 		Value: "Testval",
 	}
 	var gotPath string
-	expectedPath := "/health"
+	const expectedPath = "/health"
 	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		for headerKey, headerValue := range r.Header {
-			// Filtering for expectedHeader.TestKey to avoid other HTTP probe headers
-			if expectedHeader.Name == headerKey {
-				gotHeader = corev1.HTTPHeader{Name: headerKey, Value: headerValue[0]}
-			}
-
-			if headerKey == network.UserAgentKey && strings.HasPrefix(headerValue[0], network.KubeProbeUAPrefix) {
-				gotKubeletHeader = true
-			}
+		if v := r.Header.Get(expectedHeader.Name); v != "" {
+			gotHeader = corev1.HTTPHeader{Name: expectedHeader.Name, Value: v}
 		}
-
+		if v := r.Header.Get(network.UserAgentKey); strings.HasPrefix(v, network.KubeProbeUAPrefix) {
+			gotKubeletHeader = true
+		}
 		gotPath = r.URL.Path
 		w.WriteHeader(http.StatusOK)
 	})
@@ -83,20 +80,21 @@ func TestHTTPProbeSuccess(t *testing.T) {
 		Timeout:       time.Second,
 		HTTPGetAction: action,
 	}
-	// Connecting to the server should work
+
+	// Connecting to the server should work.
 	if err := HTTPProbe(config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
 	}
 	if d := cmp.Diff(gotHeader, expectedHeader); d != "" {
-		t.Error("Expected probe headers to match but got", d)
+		t.Error("Expected probe headers to match; diff:\n", d)
 	}
 	if !gotKubeletHeader {
 		t.Error("Expected kubelet probe header to be added to request")
 	}
 	if !cmp.Equal(gotPath, expectedPath) {
-		t.Errorf("Expected %s path to match but got %s", expectedPath, gotPath)
+		t.Errorf("Path = %s, want: %s", gotPath, expectedPath)
 	}
-	// Close the server so probing fails afterwards
+	// Close the server so probing fails afterwards.
 	server.Close()
 	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it didn't")
@@ -217,7 +215,7 @@ func newHTTPGetAction(t *testing.T, serverURL string) *corev1.HTTPGetAction {
 
 	u, err := url.Parse(serverURL)
 	if err != nil {
-		t.Fatalf("Error parsing URL")
+		t.Fatal("Error parsing URL")
 	}
 
 	return &corev1.HTTPGetAction{
