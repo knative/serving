@@ -265,6 +265,20 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 		wantErr: apis.ErrInvalidKeyName("autoscaling.knative.dev/foo", "metadata.annotations", `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`),
+	}, {
+		// We want to be able to introduce new labels with the serving prefix in the future
+		// and not break downgrading.
+		name: "allow unknown uses of knative.dev/serving prefix",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/testlabel": "value",
+				},
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		wantErr: nil,
 	}}
 
 	// TODO(dangerd): PodSpec validation failures.

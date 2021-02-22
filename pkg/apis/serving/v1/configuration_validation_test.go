@@ -384,7 +384,22 @@ func TestConfigurationLabelValidation(t *testing.T) {
 			Spec: validConfigSpec,
 		},
 		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/service"),
+	}, {
+		// We want to be able to introduce new labels with the serving prefix in the future
+		// and not break downgrading.
+		name: "allow unknown uses of knative.dev/serving prefix",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/testlabel": "value",
+				},
+			},
+			Spec: validConfigSpec,
+		},
+		want: nil,
 	}}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.c.Validate(context.Background())
