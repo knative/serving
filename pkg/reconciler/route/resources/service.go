@@ -65,11 +65,7 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, targetName 
 		return nil, err
 	}
 
-	service, err := makeK8sService(ctx, route, targetName)
-	if err != nil {
-		return nil, err
-	}
-	service.Spec = corev1.ServiceSpec{
+	return makeK8sService(ctx, route, &corev1.ServiceSpec{
 		Type:            corev1.ServiceTypeExternalName,
 		ExternalName:    fullName,
 		SessionAffinity: corev1.ServiceAffinityNone,
@@ -78,28 +74,23 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, targetName 
 			Port:       int32(80),
 			TargetPort: intstr.FromInt(80),
 		}},
-	}
-
-	return service, nil
+	}, targetName)
 }
 
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in Ingress status. It's owned by the provided v1.Route.
-func MakeK8sService(ctx context.Context, route *v1.Route, targetName string, ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP string) (*corev1.Service, error) {
+func MakeK8sService(ctx context.Context, route *v1.Route,
+	targetName string, ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP string) (*corev1.Service, error) {
 	svcSpec, err := makeServiceSpec(ingress, isPrivate, clusterIP)
 	if err != nil {
 		return nil, err
 	}
 
-	service, err := makeK8sService(ctx, route, targetName)
-	if err != nil {
-		return nil, err
-	}
-	service.Spec = *svcSpec
-	return service, nil
+	return makeK8sService(ctx, route, svcSpec, targetName)
 }
 
-func makeK8sService(ctx context.Context, route *v1.Route, targetName string) (*corev1.Service, error) {
+func makeK8sService(ctx context.Context, route *v1.Route,
+	spec *corev1.ServiceSpec, targetName string) (*corev1.Service, error) {
 	hostname, err := domains.HostnameFromTemplate(ctx, route.Name, targetName)
 	if err != nil {
 		return nil, err
@@ -124,6 +115,7 @@ func makeK8sService(ctx context.Context, route *v1.Route, targetName string) (*c
 			}), svcLabels),
 			Annotations: route.GetAnnotations(),
 		},
+		Spec: *spec,
 	}, nil
 }
 
