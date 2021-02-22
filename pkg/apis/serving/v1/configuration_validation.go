@@ -18,7 +18,6 @@ package v1
 
 import (
 	"context"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
@@ -63,19 +62,8 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 
 // validateLabels function validates configuration labels
 func (c *Configuration) validateLabels() (errs *apis.FieldError) {
-	for key, val := range c.GetLabels() {
-		switch key {
-		case serving.RouteLabelKey,
-			serving.ConfigurationUIDLabelKey,
-			serving.ServiceUIDLabelKey:
-			// Known valid labels - so just skip them
-		case serving.ServiceLabelKey:
-			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", c.GetOwnerReferences()))
-		default:
-			if strings.HasPrefix(key, serving.GroupNamePrefix) {
-				errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
-			}
-		}
+	if val, ok := c.Labels[serving.ServiceLabelKey]; ok {
+		errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", c.GetOwnerReferences()))
 	}
 	return errs
 }
