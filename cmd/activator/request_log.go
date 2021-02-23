@@ -49,7 +49,7 @@ func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.Request
 
 // requestLogTemplateInputGetter gets the template input from the request.
 // It assumes the Revision has been set on the context such that
-// WithRevision() returns a non-nil revision.
+// handler.FromRevision() returns a non-nil revision.
 func requestLogTemplateInputGetter(req *http.Request, resp *pkghttp.RequestLogResponse) *pkghttp.RequestLogTemplateInput {
 	revision := handler.RevisionFrom(req.Context())
 
