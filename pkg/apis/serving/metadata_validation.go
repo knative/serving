@@ -24,24 +24,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
-)
-
-var (
-	allowedAnnotations = sets.NewString(
-		CreatorAnnotation,
-		ForceUpgradeAnnotationKey,
-		RevisionLastPinnedAnnotationKey,
-		RevisionPreservedAnnotationKey,
-		RolloutDurationKey,
-		RoutesAnnotationKey,
-		RoutingStateModifiedAnnotationKey,
-		UpdaterAnnotation,
-	)
 )
 
 // ValidateObjectMetadata validates that `metadata` stanza of the
@@ -49,7 +35,6 @@ var (
 func ValidateObjectMetadata(ctx context.Context, meta metav1.Object) *apis.FieldError {
 	return apis.ValidateObjectMetadata(meta).
 		Also(autoscaling.ValidateAnnotations(ctx, config.FromContextOrDefaults(ctx).Autoscaler, meta.GetAnnotations()).
-			Also(validateKnativeAnnotations(meta.GetAnnotations())).
 			ViaField("annotations"))
 }
 
@@ -76,15 +61,6 @@ func ValidateRolloutDurationAnnotation(annos map[string]string) (errs *apis.Fiel
 				Message: fmt.Sprintf("rolloutDuration=%s must be positive", v),
 				Paths:   []string{RolloutDurationKey},
 			})
-		}
-	}
-	return errs
-}
-
-func validateKnativeAnnotations(annotations map[string]string) (errs *apis.FieldError) {
-	for key := range annotations {
-		if !allowedAnnotations.Has(key) && strings.HasPrefix(key, GroupNamePrefix) {
-			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}
 	return errs
