@@ -82,9 +82,9 @@ func testConfiguration() *v1.Configuration {
 	}
 }
 
-func revisionForConfig(config *v1.Configuration) *v1.Revision {
+func testRevision() *v1.Revision {
 	return Revision(testNamespace, "p-deadbeef", func(r *v1.Revision) {
-		r.Spec = *config.Spec.GetTemplate().Spec.DeepCopy()
+		r.Spec = *(&v1.ConfigurationSpec{}).GetTemplate().Spec.DeepCopy()
 	}, MarkRevisionReady, WithK8sServiceName)
 }
 
@@ -97,7 +97,7 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 
 	ctx, cf, informers = SetupFakeContextWithCancel(t)
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
-	ctrl = newControllerWithClock(ctx, configMapWatcher, &clock.RealClock{}, opts...)
+	ctrl = newController(ctx, configMapWatcher, &clock.RealClock{}, opts...)
 
 	for _, cfg := range []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
@@ -284,7 +284,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			t.Errorf("<-Events = %s, wanted %s", got, want)
 		}
 	case <-time.After(3 * time.Second):
-		t.Error("timed out waiting for expected events.")
+		t.Error("Timed out waiting for expected events.")
 	}
 	select {
 	case got := <-fakeRecorder.Events:
@@ -293,7 +293,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			t.Errorf("<-Events = %s, wanted prefix %s", got, wantPrefix)
 		}
 	case <-time.After(3 * time.Second):
-		t.Error("timed out waiting for expected events.")
+		t.Error("Timed out waiting for expected events.")
 	}
 }
 
@@ -315,7 +315,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration reconciler.
 	config := testConfiguration()
-	cfgrev := revisionForConfig(config)
+	cfgrev := testRevision()
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	fakeservingclient.Get(ctx).ServingV1().Configurations(testNamespace).Create(ctx, config, metav1.CreateOptions{})
@@ -431,7 +431,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration reconciler.
 	config := testConfiguration()
-	cfgrev := revisionForConfig(config)
+	cfgrev := testRevision()
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	fakeservingclient.Get(ctx).ServingV1().Configurations(testNamespace).Create(ctx, config, metav1.CreateOptions{})
@@ -545,7 +545,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration reconciler.
 	config := testConfiguration()
-	cfgrev := revisionForConfig(config)
+	cfgrev := testRevision()
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	fakeservingclient.Get(ctx).ServingV1().Configurations(testNamespace).Create(ctx, config, metav1.CreateOptions{})
@@ -749,7 +749,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
-		fmt.Printf("%+v\n", ci.Spec)
 		t.Error("Unexpected rule spec diff (-want +got):", diff)
 	}
 }
@@ -765,7 +764,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration reconciler.
 	config := testConfiguration()
-	cfgrev := revisionForConfig(config)
+	cfgrev := testRevision()
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	fakeservingclient.Get(ctx).ServingV1().Configurations(testNamespace).Create(ctx, config, metav1.CreateOptions{})
@@ -832,9 +831,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
 		}, {
-			Hosts: []string{
-				domain,
-			},
+			Hosts: []string{domain},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
 					Splits: []v1alpha1.IngressBackendSplit{{
@@ -887,9 +884,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
 		}, {
-			Hosts: []string{
-				"bar-test-route.test.test-domain.dev",
-			},
+			Hosts: []string{"bar-test-route.test.test-domain.dev"},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
 					Splits: []v1alpha1.IngressBackendSplit{{
@@ -931,9 +926,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
 		}, {
-			Hosts: []string{
-				"foo-test-route.test.test-domain.dev",
-			},
+			Hosts: []string{"foo-test-route.test.test-domain.dev"},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
 					Splits: []v1alpha1.IngressBackendSplit{{
@@ -980,7 +973,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration reconciler.
 	config := testConfiguration()
-	cfgrev := revisionForConfig(config)
+	cfgrev := testRevision()
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	fakeservingclient.Get(ctx).ServingV1().Configurations(testNamespace).Create(ctx, config, metav1.CreateOptions{})
@@ -1089,9 +1082,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
 		}, {
-			Hosts: []string{
-				domain,
-			},
+			Hosts: []string{domain},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
 					Headers: map[string]v1alpha1.HeaderMatch{
@@ -1240,9 +1231,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
 		}, {
-			Hosts: []string{
-				"foo-test-route.test.test-domain.dev",
-			},
+			Hosts: []string{"foo-test-route.test.test-domain.dev"},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
 					Splits: []v1alpha1.IngressBackendSplit{{
@@ -1267,7 +1256,6 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
-		fmt.Printf("%+v\n", ci.Spec)
 		t.Error("Unexpected rule spec diff (-want +got):", diff)
 	}
 }

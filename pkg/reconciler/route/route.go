@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/clock"
@@ -42,6 +41,7 @@ import (
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
@@ -92,18 +92,21 @@ func certClass(ctx context.Context, r *v1.Route) string {
 	return config.FromContext(ctx).Network.DefaultCertificateClass
 }
 
-func (c *Reconciler) getServices(route *v1.Route) ([]*corev1.Service, error) {
-	currentServices, err := c.serviceLister.Services(route.Namespace).List(resources.SelectorFromRoute(route))
+// getPlaceholderServiceNames returns the placeholder services names, or an error.
+func (c *Reconciler) getPlaceholderServiceNames(route *v1.Route) (sets.String, error) {
+	currentServices, err := c.serviceLister.Services(route.Namespace).List(
+		kubelabels.SelectorFromSet(kubelabels.Set{serving.RouteLabelKey: route.Name}),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	serviceCopy := make([]*corev1.Service, len(currentServices))
-	for i, svc := range currentServices {
-		serviceCopy[i] = svc.DeepCopy()
+	names := make(sets.String, len(currentServices))
+	for _, svc := range currentServices {
+		names.Insert(svc.Name)
 	}
 
-	return serviceCopy, nil
+	return names, nil
 }
 
 // ReconcileKind implements Interface.ReconcileKind.
@@ -155,11 +158,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	roInProgress := !effectiveRO.Done()
 	if ingress.GetObjectMeta().GetGeneration() != ingress.Status.ObservedGeneration {
 		r.Status.MarkIngressNotConfigured()
-	} else if roInProgress {
-		logger.Info("Rollout is in progress")
-		// Rollout in progress, so mark the status as such.
-		r.Status.MarkIngressRolloutInProgress()
-	} else {
+	} else if !roInProgress {
 		r.Status.PropagateIngressStatus(ingress.Status)
 	}
 
@@ -171,8 +170,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	// We do it here, rather than in the similar check above,
 	// since we might be inside a rollout and Ingress
 	// is not yet ready and that takes priority, so the `roInProgress` branch
-	// wil not be triggered.
+	// will not be triggered.
 	if roInProgress {
+		logger.Info("Rollout is in progress")
+		// Rollout in progress, so mark the status as such.
+		r.Status.MarkIngressRolloutInProgress()
 		// Update the route.Status.Traffic to contain correct traffic
 		// distribution based on rollout status.
 		r.Status.Traffic, err = traffic.GetRevisionTrafficTargets(ctx, r, effectiveRO)

@@ -24,9 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
@@ -356,13 +354,6 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 	}
 }
 
-func TestSelectorFromRoute(t *testing.T) {
-	selector := SelectorFromRoute(r)
-	if !selector.Matches(labels.Set{serving.RouteLabelKey: r.Name}) {
-		t.Errorf("Unexpected labels in selector")
-	}
-}
-
 func testConfig() *config.Config {
 	return &config.Config{
 		Domain: &config.Domain{
@@ -388,43 +379,5 @@ func testConfig() *config.Config {
 			PodSpecTolerations:    apiConfig.Disabled,
 			TagHeaderBasedRouting: apiConfig.Disabled,
 		},
-	}
-}
-
-func TestGetNames(t *testing.T) {
-	tests := []struct {
-		name     string
-		services []*corev1.Service
-		want     sets.String
-	}{
-		{
-			name: "nil services",
-			want: sets.String{},
-		},
-		{
-			name: "multiple services",
-			services: []*corev1.Service{
-				{ObjectMeta: metav1.ObjectMeta{Name: "svc1"}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "svc2"}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "svc3"}},
-			},
-			want: sets.NewString("svc1", "svc2", "svc3"),
-		},
-		{
-			name: "duplicate services",
-			services: []*corev1.Service{
-				{ObjectMeta: metav1.ObjectMeta{Name: "svc1"}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "svc1"}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "svc1"}},
-			},
-			want: sets.NewString("svc1"),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := GetNames(tt.services); !cmp.Equal(got, tt.want) {
-				t.Error("GetNames() (-want, +got) =", cmp.Diff(tt.want, got))
-			}
-		})
 	}
 }
