@@ -244,31 +244,13 @@ func TestServiceValidation(t *testing.T) {
 					"autoscaling.knative.dev/foo": "bar",
 				},
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{{
-									Image: "hellworld",
-								}},
-							},
-						},
-					},
-				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
-						LatestRevision: ptr.Bool(true),
-						Percent:        ptr.Int64(100),
-					}},
-				},
-			},
+			Spec: getServiceSpec("helloworld:foo"),
 		},
 		wantErr: apis.ErrInvalidKeyName("autoscaling.knative.dev/foo", "metadata.annotations", `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`),
 	}, {
 		// We want to be able to introduce new labels with the serving prefix in the future
 		// and not break downgrading.
-		name: "allow unknown uses of knative.dev/serving prefix",
+		name: "allow unknown uses of knative.dev/serving prefix for labels",
 		r: &Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
@@ -279,6 +261,30 @@ func TestServiceValidation(t *testing.T) {
 			Spec: getServiceSpec("helloworld:foo"),
 		},
 		wantErr: nil,
+	}, {
+		name: "invalid serving.knative.dev annotation",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "serving-annotation",
+				Annotations: map[string]string{
+					"serving.knative.dev/foo": "bar",
+				},
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		wantErr: apis.ErrInvalidKeyName("serving.knative.dev/foo", "metadata.annotations"),
+	}, {
+		name: "invalid name",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "",
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		wantErr: &apis.FieldError{
+			Message: "name or generateName is required",
+			Paths:   []string{"metadata.name"},
+		},
 	}}
 
 	// TODO(dangerd): PodSpec validation failures.
