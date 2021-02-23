@@ -242,7 +242,7 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 // machinery.
 func (cr *ConcurrencyReporter) Handler(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		revisionKey := revIDFrom(r.Context())
+		revisionKey := RevIDFrom(r.Context())
 
 		stat := cr.handleRequestIn(network.ReqEvent{Key: revisionKey, Type: network.ReqIn, Time: time.Now()})
 		defer func() {

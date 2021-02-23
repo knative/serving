@@ -134,7 +134,7 @@ func TestActivationHandler(t *testing.T) {
 			// Set up config store to populate context.
 			configStore := setupConfigStore(t, logging.FromContext(ctx))
 			ctx = configStore.ToContext(ctx)
-			ctx = withRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+			ctx = WithRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 
 			handler.ServeHTTP(resp, req.WithContext(ctx))
 
@@ -172,7 +172,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	// Set up config store to populate context.
 	configStore := setupConfigStore(t, logging.FromContext(ctx))
 	ctx = configStore.ToContext(req.Context())
-	ctx = withRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+	ctx = WithRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 
 	handler.ServeHTTP(writer, req.WithContext(ctx))
 
@@ -267,7 +267,7 @@ func sendRequest(namespace, revName string, handler http.Handler, store *activat
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com/", nil)
 	ctx := store.ToContext(req.Context())
-	ctx = withRevID(ctx, types.NamespacedName{Namespace: namespace, Name: revName})
+	ctx = WithRevID(ctx, types.NamespacedName{Namespace: namespace, Name: revName})
 	handler.ServeHTTP(resp, req.WithContext(ctx))
 	return resp
 }
@@ -318,7 +318,7 @@ func BenchmarkHandler(b *testing.B) {
 			req.Host = "test-host"
 
 			reqCtx := configStore.ToContext(context.Background())
-			reqCtx = withRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+			reqCtx = WithRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 			return req.WithContext(reqCtx)
 		}
 
