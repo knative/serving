@@ -115,7 +115,7 @@ func TestRequestMetricHandler(t *testing.T) {
 			}()
 
 			reqCtx := withRevision(context.Background(), rev)
-			reqCtx = withRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+			reqCtx = WithRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 			handler.ServeHTTP(resp, req.WithContext(reqCtx))
 		})
 	}

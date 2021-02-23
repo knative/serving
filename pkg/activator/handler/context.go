@@ -43,12 +43,12 @@ func revisionFrom(ctx context.Context) *v1.Revision {
 	return ctx.Value(revisionKey{}).(*v1.Revision)
 }
 
-// withRevID attaches the the revisionID to the context.
-func withRevID(ctx context.Context, revID types.NamespacedName) context.Context {
+// WithRevID attaches the the revisionID to the context.
+func WithRevID(ctx context.Context, revID types.NamespacedName) context.Context {
 	return context.WithValue(ctx, revIDKey{}, revID)
 }
 
-// revIDFrom retrieves the the revisionID from the context.
-func revIDFrom(ctx context.Context) types.NamespacedName {
+// RevIDFrom retrieves the the revisionID from the context.
+func RevIDFrom(ctx context.Context) types.NamespacedName {
 	return ctx.Value(revIDKey{}).(types.NamespacedName)
 }

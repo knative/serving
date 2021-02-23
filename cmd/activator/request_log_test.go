@@ -23,15 +23,15 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
-
 	ltesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
+	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -131,11 +131,12 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 			resp := httptest.NewRecorder()
 			rs := string(uuid.NewUUID())
 			req := httptest.NewRequest(http.MethodPost, test.url, bytes.NewBufferString(rs))
-			req.Header = map[string][]string{
-				activator.RevisionHeaderName:      {testRevisionName},
-				activator.RevisionHeaderNamespace: {testNamespaceName},
-			}
-			handler.ServeHTTP(resp, req)
+			ctx := activatorhandler.WithRevID(req.Context(),
+				types.NamespacedName{
+					Namespace: testNamespaceName,
+					Name:      testRevisionName,
+				})
+			handler.ServeHTTP(resp, req.WithContext(ctx))
 
 			if got := buf.String(); got != test.want {
 				t.Errorf("got '%v', want '%v'", got, test.want)
@@ -193,12 +194,19 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.getter(test.request, test.response)
+			ctx := activatorhandler.WithRevID(test.request.Context(),
+				types.NamespacedName{
+					Namespace: test.request.Header.Get(activator.RevisionHeaderNamespace),
+					Name:      test.request.Header.Get(activator.RevisionHeaderName),
+				})
+			request := test.request.WithContext(ctx)
+
+			got := test.getter(request, test.response)
 			if !cmp.Equal(*got.Revision, test.want) {
 				t.Errorf("Got = %v, want: %v, diff:\n%s", got.Revision, test.want, cmp.Diff(got.Revision, test.want))
 			}
-			if got.Request != test.request {
-				t.Errorf("Got = %v, want: %v", got.Request, test.request)
+			if got.Request != request {
+				t.Errorf("Got = %v, want: %v", got.Request, request)
 			}
 			if got.Response != test.response {
 				t.Errorf("Got = %v, want: %v", got.Response, test.response)

@@ -42,8 +42,8 @@ func TestContextHandler(t *testing.T) {
 			t.Errorf("revisionFrom() = %v, want %v", got, revision)
 		}
 
-		if got := revIDFrom(r.Context()); got != revID {
-			t.Errorf("revIDFrom() = %v, want %v", got, revID)
+		if got := RevIDFrom(r.Context()); got != revID {
+			t.Errorf("RevIDFrom() = %v, want %v", got, revID)
 		}
 	})
 

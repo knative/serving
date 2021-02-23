@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/metrics"
-	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/serving"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	pkghttp "knative.dev/serving/pkg/http"
@@ -50,8 +50,10 @@ func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.Request
 
 func requestLogTemplateInputGetter(revisionLister servinglisters.RevisionLister) pkghttp.RequestLogTemplateInputGetter {
 	return func(req *http.Request, resp *pkghttp.RequestLogResponse) *pkghttp.RequestLogTemplateInput {
-		namespace := req.Header.Get(activator.RevisionHeaderNamespace)
-		name := req.Header.Get(activator.RevisionHeaderName)
+		revisionKey := handler.RevIDFrom(req.Context())
+		name := revisionKey.Name
+		namespace := revisionKey.Namespace
+
 		revInfo := &pkghttp.RequestLogRevision{
 			Namespace: namespace,
 			Name:      name,
