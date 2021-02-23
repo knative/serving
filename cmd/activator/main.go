@@ -34,7 +34,6 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	"knative.dev/serving/pkg/activator"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -181,7 +180,7 @@ func main() {
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
-		requestLogTemplateInputGetter(revisioninformer.Get(ctx).Lister()), false /*enableProbeRequestLog*/)
+		requestLogTemplateInputGetter, false /*enableProbeRequestLog*/)
 	if err != nil {
 		logger.Fatalw("Unable to create request log handler", zap.Error(err))
 	}

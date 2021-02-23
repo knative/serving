@@ -38,7 +38,7 @@ func TestContextHandler(t *testing.T) {
 	revisionInformer(ctx, revision)
 
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := revisionFrom(r.Context()); got != revision {
+		if got := RevisionFrom(r.Context()); got != revision {
 			t.Errorf("revisionFrom() = %v, want %v", got, revision)
 		}
 

@@ -114,7 +114,7 @@ func TestRequestMetricHandler(t *testing.T) {
 				metricstest.AssertMetricExists(t, responseTimeInMsecM.Name())
 			}()
 
-			reqCtx := withRevision(context.Background(), rev)
+			reqCtx := WithRevision(context.Background(), rev)
 			reqCtx = WithRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 			handler.ServeHTTP(resp, req.WithContext(reqCtx))
 		})
@@ -128,7 +128,7 @@ func reset() {
 
 func BenchmarkMetricHandler(b *testing.B) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	reqCtx := withRevision(context.Background(), revision(testNamespace, testRevName))
+	reqCtx := WithRevision(context.Background(), revision(testNamespace, testRevName))
 
 	handler := NewMetricHandler("benchPod", baseHandler)
 
