@@ -22,9 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
@@ -36,22 +34,6 @@ import (
 )
 
 var errLoadBalancerNotFound = errors.New("failed to fetch loadbalancer domain/IP from ingress status")
-
-// GetNames returns a set of service names.
-func GetNames(services []*corev1.Service) sets.String {
-	names := make(sets.String, len(services))
-
-	for i := range services {
-		names.Insert(services[i].Name)
-	}
-
-	return names
-}
-
-// SelectorFromRoute creates a label selector given a specific route.
-func SelectorFromRoute(route *v1.Route) labels.Selector {
-	return labels.SelectorFromSet(labels.Set{serving.RouteLabelKey: route.Name})
-}
 
 // MakeK8sPlaceholderService creates a placeholder Service to prevent naming collisions. It's owned by the
 // provided v1.Route.

@@ -47,12 +47,12 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	return newControllerWithClock(ctx, cmw, clock.RealClock{})
+	return newController(ctx, cmw, clock.RealClock{})
 }
 
 type reconcilerOption func(*Reconciler)
 
-func newControllerWithClock(
+func newController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 	clock clock.Clock,
