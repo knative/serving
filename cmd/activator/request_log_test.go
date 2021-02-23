@@ -25,18 +25,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	ltesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
-	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	pkghttp "knative.dev/serving/pkg/http"
 )
 
@@ -53,7 +48,7 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 	})
 	buf := bytes.NewBufferString("")
 	handler, err := pkghttp.NewRequestLogHandler(baseHandler, buf, "",
-		requestLogTemplateInputGetter(revisionLister(t, true)), false /*enableProbeRequestLog*/)
+		requestLogTemplateInputGetter, false /*enableProbeRequestLog*/)
 	if err != nil {
 		t.Fatal("want: no error, got:", err)
 	}
@@ -131,11 +126,7 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 			resp := httptest.NewRecorder()
 			rs := string(uuid.NewUUID())
 			req := httptest.NewRequest(http.MethodPost, test.url, bytes.NewBufferString(rs))
-			ctx := activatorhandler.WithRevID(req.Context(),
-				types.NamespacedName{
-					Namespace: testNamespaceName,
-					Name:      testRevisionName,
-				})
+			ctx := activatorhandler.WithRevision(req.Context(), revision(true))
 			handler.ServeHTTP(resp, req.WithContext(ctx))
 
 			if got := buf.String(); got != test.want {
@@ -148,13 +139,13 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 func TestRequestLogTemplateInputGetter(t *testing.T) {
 	tests := []struct {
 		name     string
-		getter   pkghttp.RequestLogTemplateInputGetter
+		revision *v1.Revision
 		request  *http.Request
 		response *pkghttp.RequestLogResponse
 		want     pkghttp.RequestLogRevision
 	}{{
-		name:   "success",
-		getter: requestLogTemplateInputGetter(revisionLister(t, true)),
+		name:     "success",
+		revision: revision(true),
 		request: &http.Request{Header: map[string][]string{
 			activator.RevisionHeaderName:      {testRevisionName},
 			activator.RevisionHeaderNamespace: {testNamespaceName},
@@ -167,20 +158,8 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 			Service:       testServiceName,
 		},
 	}, {
-		name:   "revision not found",
-		getter: requestLogTemplateInputGetter(revisionLister(t, true)),
-		request: &http.Request{Header: map[string][]string{
-			activator.RevisionHeaderName:      {"foo"},
-			activator.RevisionHeaderNamespace: {"bar"},
-		}},
-		response: &pkghttp.RequestLogResponse{Code: http.StatusAlreadyReported},
-		want: pkghttp.RequestLogRevision{
-			Name:      "foo",
-			Namespace: "bar",
-		},
-	}, {
-		name:   "labels not found",
-		getter: requestLogTemplateInputGetter(revisionLister(t, false)),
+		name:     "labels not found",
+		revision: revision(false),
 		request: &http.Request{Header: map[string][]string{
 			activator.RevisionHeaderName:      {testRevisionName},
 			activator.RevisionHeaderNamespace: {testNamespaceName},
@@ -194,14 +173,10 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := activatorhandler.WithRevID(test.request.Context(),
-				types.NamespacedName{
-					Namespace: test.request.Header.Get(activator.RevisionHeaderNamespace),
-					Name:      test.request.Header.Get(activator.RevisionHeaderName),
-				})
+			ctx := activatorhandler.WithRevision(test.request.Context(), test.revision)
 			request := test.request.WithContext(ctx)
 
-			got := test.getter(request, test.response)
+			got := requestLogTemplateInputGetter(request, test.response)
 			if !cmp.Equal(*got.Revision, test.want) {
 				t.Errorf("Got = %v, want: %v, diff:\n%s", got.Revision, test.want, cmp.Diff(got.Revision, test.want))
 			}
@@ -215,13 +190,14 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 	}
 }
 
-func revisionLister(t *testing.T, addLabels bool) servinglisters.RevisionLister {
+func revision(addLabels bool) *v1.Revision {
 	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testRevisionName,
 			Namespace: testNamespaceName,
 		},
 	}
+
 	if addLabels {
 		rev.Labels = map[string]string{
 			serving.ConfigurationLabelKey: testConfigName,
@@ -229,9 +205,5 @@ func revisionLister(t *testing.T, addLabels bool) servinglisters.RevisionLister 
 		}
 	}
 
-	ctx, _ := rtesting.SetupFakeContext(t)
-	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespaceName).Create(ctx, rev, metav1.CreateOptions{})
-	ri := fakerevisioninformer.Get(ctx)
-	ri.Informer().GetIndexer().Add(rev)
-	return ri.Lister()
+	return rev
 }

@@ -33,13 +33,13 @@ type (
 	revIDKey    struct{}
 )
 
-// withRevision attaches the Revision object to the context.
-func withRevision(ctx context.Context, rev *v1.Revision) context.Context {
+// WithRevision attaches the Revision object to the context.
+func WithRevision(ctx context.Context, rev *v1.Revision) context.Context {
 	return context.WithValue(ctx, revisionKey{}, rev)
 }
 
-// revisionFrom retrieves the Revision object from the context.
-func revisionFrom(ctx context.Context) *v1.Revision {
+// RevisionFrom retrieves the Revision object from the context.
+func RevisionFrom(ctx context.Context) *v1.Revision {
 	return ctx.Value(revisionKey{}).(*v1.Revision)
 }
 

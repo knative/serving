@@ -24,7 +24,6 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/serving"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	pkghttp "knative.dev/serving/pkg/http"
 )
 
@@ -48,27 +47,25 @@ func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.Request
 	}
 }
 
-func requestLogTemplateInputGetter(revisionLister servinglisters.RevisionLister) pkghttp.RequestLogTemplateInputGetter {
-	return func(req *http.Request, resp *pkghttp.RequestLogResponse) *pkghttp.RequestLogTemplateInput {
-		revisionKey := handler.RevIDFrom(req.Context())
-		name := revisionKey.Name
-		namespace := revisionKey.Namespace
+// requestLogTemplateInputGetter gets the template input from the request.
+// It assumes the Revision has been set on the context such that
+// WithRevision() returns a non-nil revision.
+func requestLogTemplateInputGetter(req *http.Request, resp *pkghttp.RequestLogResponse) *pkghttp.RequestLogTemplateInput {
+	revision := handler.RevisionFrom(req.Context())
 
-		revInfo := &pkghttp.RequestLogRevision{
-			Namespace: namespace,
-			Name:      name,
-		}
+	revInfo := &pkghttp.RequestLogRevision{
+		Namespace: revision.Namespace,
+		Name:      revision.Name,
+	}
 
-		revision, err := revisionLister.Revisions(namespace).Get(name)
-		if err == nil && revision.Labels != nil {
-			revInfo.Configuration = revision.Labels[serving.ConfigurationLabelKey]
-			revInfo.Service = revision.Labels[serving.ServiceLabelKey]
-		}
+	if revision.Labels != nil {
+		revInfo.Configuration = revision.Labels[serving.ConfigurationLabelKey]
+		revInfo.Service = revision.Labels[serving.ServiceLabelKey]
+	}
 
-		return &pkghttp.RequestLogTemplateInput{
-			Request:  req,
-			Response: resp,
-			Revision: revInfo,
-		}
+	return &pkghttp.RequestLogTemplateInput{
+		Request:  req,
+		Response: resp,
+		Revision: revInfo,
 	}
 }
