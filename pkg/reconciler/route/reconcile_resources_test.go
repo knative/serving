@@ -168,7 +168,7 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 			const drift = 5
 			fakeClock.SetTime(fakeClock.Now().Add(drift * time.Second))
 
-			// 5s of the duration already spent.
+			// Drift seconds of the duration already spent.
 			totalDuration := float64(rd - drift)
 			// Step count is minimum of % points of traffic allocated to the config (1% already shifted).
 			steps := math.Min(totalDuration/drift, allocatedTraffic-1)
@@ -330,7 +330,7 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 			const drift = 5
 			fakeClock.SetTime(fakeClock.Now().Add(drift * time.Second))
 
-			// 5s of the duration already spent.
+			// Drift seconds of the duration already spent.
 			totalDuration := float64(rd - drift)
 			// Step count is minimum of % points of traffic allocated to the config (1% already shifted).
 			steps := math.Min(totalDuration/drift, allocatedTraffic-1)
