@@ -176,7 +176,7 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 		out := &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-period", "0"},
+					Command: []string{"/ko-app/queue", "-probe-period", "0s", "-probe-timeout", "0s"},
 				},
 			},
 			// The exec probe enables us to retry failed probes quickly to get sub-second
@@ -204,23 +204,26 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 		return out
 	}
 
-	timeout := time.Second
-	if in.TimeoutSeconds > 1 {
-		timeout = time.Duration(in.TimeoutSeconds) * time.Second
-	}
-
 	return &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe-period", timeout.String()},
+				Command: []string{
+					"/ko-app/queue",
+					"-probe-period", secToString(in.PeriodSeconds),
+					"-probe-timeout", secToString(in.TimeoutSeconds),
+				},
 			},
 		},
 		PeriodSeconds:       in.PeriodSeconds,
-		TimeoutSeconds:      int32(timeout.Seconds()),
+		TimeoutSeconds:      in.TimeoutSeconds,
 		SuccessThreshold:    in.SuccessThreshold,
 		FailureThreshold:    in.FailureThreshold,
 		InitialDelaySeconds: in.InitialDelaySeconds,
 	}
+}
+
+func secToString(sec int32) string {
+	return (time.Duration(sec) * time.Second).String()
 }
 
 // makeQueueContainer creates the container spec for the queue sidecar.

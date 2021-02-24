@@ -60,7 +60,8 @@ const (
 )
 
 var (
-	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
+	readinessProbeTimeout = flag.Duration("probe-timeout", -1, "run readiness probe with given timeout")
+	readinessProbePeriod  = flag.Duration("probe-period", -1, "run readiness probe with given period")
 
 	// This creates an abstract socket instead of an actual file.
 	unixSocketPath = "@/knative.dev/serving/queue.sock"
@@ -107,7 +108,7 @@ func main() {
 	flag.Parse()
 
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
-	if *readinessProbeTimeout >= 0 {
+	if *readinessProbePeriod >= 0 {
 		// Use a unix socket rather than TCP to avoid going via entire TCP stack
 		// when we're actually in the same container.
 		transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -115,7 +116,7 @@ func main() {
 			return net.Dial("unix", unixSocketPath)
 		}
 
-		os.Exit(standaloneProbeMain(*readinessProbeTimeout, transport))
+		os.Exit(standaloneProbeMain(*readinessProbePeriod, *readinessProbeTimeout, transport))
 	}
 
 	// Otherwise, we run as the queue-proxy service.

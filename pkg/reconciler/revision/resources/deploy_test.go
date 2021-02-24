@@ -80,7 +80,10 @@ var (
 		ReadinessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-period", "0"},
+					Command: []string{"/ko-app/queue",
+						"-probe-period", "0s",
+						"-probe-timeout", "0s",
+					},
 				},
 			},
 			PeriodSeconds:  10,

@@ -65,7 +65,7 @@ const (
 // until the HTTP endpoint responds with success. This allows us to get an
 // initial readiness result much faster than the effective upstream Kubernetes
 // minimum of 1 second.
-func standaloneProbeMain(timeout time.Duration, transport http.RoundTripper) (exitCode int) {
+func standaloneProbeMain(interval, timeout time.Duration, transport http.RoundTripper) (exitCode int) {
 	queueServingPort, err := strconv.ParseUint(os.Getenv(queuePortEnvVar), 10, 16 /*ports are 16 bit*/)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "parse queue port:", err)
@@ -80,7 +80,11 @@ func standaloneProbeMain(timeout time.Duration, transport http.RoundTripper) (ex
 		timeout = readiness.PollTimeout
 	}
 
-	if err := probeQueueHealthPath(timeout, int(queueServingPort), transport); err != nil {
+	if interval == 0 {
+		interval = aggressivePollInterval
+	}
+
+	if err := probeQueueHealthPath(interval, timeout, int(queueServingPort), transport); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -88,7 +92,7 @@ func standaloneProbeMain(timeout time.Duration, transport http.RoundTripper) (ex
 	return 0
 }
 
-func probeQueueHealthPath(timeout time.Duration, queueServingPort int, transport http.RoundTripper) error {
+func probeQueueHealthPath(interval, timeout time.Duration, queueServingPort int, transport http.RoundTripper) error {
 	url := healthURLPrefix + strconv.Itoa(queueServingPort)
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -112,9 +116,10 @@ func probeQueueHealthPath(timeout time.Duration, queueServingPort int, transport
 		lastErr error
 		res     *http.Response
 	)
+
 	// Using PollImmediateUntil instead of PollImmediate because if timeout is reached while waiting for first
 	// invocation of conditionFunc, it exits immediately without trying for a second time.
-	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
+	timeoutErr := wait.PollImmediateUntil(interval, func() (bool, error) {
 		res, lastErr = httpClient.Do(req)
 		if lastErr != nil {
 			// Return nil error for retrying.
