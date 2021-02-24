@@ -28,7 +28,7 @@ import (
 
 // Validate makes sure that Route is properly configured.
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta()).Also(
+	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta(), false).Also(
 		r.validateLabels().ViaField("labels"))
 	errs = errs.Also(serving.ValidateRolloutDurationAnnotation(
 		r.GetAnnotations()).ViaField("annotations"))
