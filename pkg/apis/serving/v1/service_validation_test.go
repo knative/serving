@@ -262,7 +262,9 @@ func TestServiceValidation(t *testing.T) {
 		},
 		wantErr: nil,
 	}, {
-		name: "invalid serving.knative.dev annotation",
+		// We want to be able to introduce new annotations with the serving prefix in the future
+		// and not break downgrading.
+		name: "allow unknown uses of serving.knative.dev prefix for annotations",
 		r: &Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "serving-annotation",
@@ -272,7 +274,7 @@ func TestServiceValidation(t *testing.T) {
 			},
 			Spec: getServiceSpec("helloworld:foo"),
 		},
-		wantErr: apis.ErrInvalidKeyName("serving.knative.dev/foo", "metadata.annotations"),
+		wantErr: nil,
 	}, {
 		name: "invalid name",
 		r: &Service{

@@ -102,14 +102,6 @@ func TestValidateObjectMetadata(t *testing.T) {
 			Paths:   []string{"name"},
 		},
 	}, {
-		name: "valid forceUpgrade annotation label",
-		objectMeta: &metav1.ObjectMeta{
-			GenerateName: "some-name",
-			Annotations: map[string]string{
-				"serving.knative.dev/forceUpgrade": "true",
-			},
-		},
-	}, {
 		name: "valid creator annotation label",
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
@@ -142,14 +134,13 @@ func TestValidateObjectMetadata(t *testing.T) {
 			},
 		},
 	}, {
-		name: "invalid knative prefix annotation",
+		name: "valid knative prefix annotation",
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
 				"serving.knative.dev/testAnnotation": "value",
 			},
 		},
-		expectErr: apis.ErrInvalidKeyName("serving.knative.dev/testAnnotation", "annotations"),
 	}, {
 		name: "valid non-knative prefix annotation label",
 		objectMeta: &metav1.ObjectMeta{
