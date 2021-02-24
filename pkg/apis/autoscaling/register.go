@@ -87,12 +87,15 @@ const (
 	// of the algorithm to use for averaging metric data in the Autoscaler.
 	// Since autoscalers are a pluggable concept, this field is only validated
 	// for Revisions that are owned by Knative Pod Autoscaler.
+	// The algorithm will apply to both panic and stagble windows.
+	// NB: this is an Alpha feature and can be removed or modified
+	//     at any point.
 	// Possible values for KPA are:
 	// - empty/missing or "linear" — linear average over the whole
 	//   metric window (default);
 	// - weightedExponential — weighted average with exponential decay.
-	//   KPA will compute the decay multiplier automatically and it is capped
-	//	 at 0.2 from below. This algorithm might not utilize all the values
+	//   KPA will compute the decay multiplier automatically based on the window size
+	//   and it is at least 0.2. This algorithm might not utilize all the values
 	//   in the window, due to their coefficients being infinitesimal.
 	MetricAggregationAlgorithm = GroupName + "/metricAggregationAlgorithm"
 
