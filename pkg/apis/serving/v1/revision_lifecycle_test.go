@@ -684,3 +684,22 @@ func TestPropagateAutoscalerStatusRace(t *testing.T) {
 	apistest.CheckConditionFailed(r, RevisionConditionActive, t)
 	apistest.CheckConditionSucceeded(r, RevisionConditionReady, t)
 }
+
+func TestPropagateAutoscalerStatusReplicasInfo(t *testing.T) {
+	r := RevisionStatus{}
+
+	ps := &autoscalingv1alpha1.PodAutoscalerStatus{
+		ActualScale:  ptr.Int32(1),
+		DesiredScale: ptr.Int32(2),
+	}
+
+	r.PropagateAutoscalerStatus(ps)
+
+	if r.ActualReplicas != *ps.ActualScale {
+		t.Errorf("Expected r.ActualReplicas to be %d but got %d", *ps.ActualScale, r.ActualReplicas)
+	}
+
+	if r.DesiredReplicas != *ps.DesiredScale {
+		t.Errorf("Expected r.DesiredReplicas to be %d but got %d", *ps.DesiredScale, r.DesiredReplicas)
+	}
+}
