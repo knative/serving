@@ -28,6 +28,7 @@ KOURIER_VERSION=""
 AMBASSADOR_VERSION=""
 CONTOUR_VERSION=""
 CERTIFICATE_CLASS=""
+export RUN_HTTP01_AUTO_TLS_TESTS=0
 # Only build linux/amd64 bit images
 KO_FLAGS="--platform=linux/amd64"
 
@@ -79,6 +80,10 @@ function parse_flags() {
       readonly CERT_MANAGER_VERSION=$2
       readonly CERTIFICATE_CLASS="cert-manager.certificate.networking.knative.dev"
       return 2
+      ;;
+    --run-http01-auto-tls-tests)
+      readonly RUN_HTTP01_AUTO_TLS_TESTS=1
+      return 1
       ;;
     --mesh)
       readonly MESH=1
