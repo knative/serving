@@ -18,7 +18,7 @@ metadata:
   name: http01-issuer
 spec:
   acme:
-    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    server: https://acme-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       name: "http01-key"
     solvers:
