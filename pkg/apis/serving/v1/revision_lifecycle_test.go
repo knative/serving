@@ -703,3 +703,21 @@ func TestPropagateAutoscalerStatusReplicasInfo(t *testing.T) {
 		t.Errorf("Expected r.DesiredReplicas to be %d but got %d", *ps.DesiredScale, r.DesiredReplicas)
 	}
 }
+
+func TestPropagateAutoscalerStatusReplicasInactivePodAutoScaler(t *testing.T) {
+	r := RevisionStatus{}
+
+	ps := &av1alpha1.PodAutoscalerStatus{
+		DesiredScale: ptr.Int32(-1),
+	}
+
+	r.PropagateAutoscalerStatus(ps)
+
+	if r.ActualReplicas != 0 {
+		t.Errorf("Expected r.ActualReplicas to be %d but got %d", *ps.ActualScale, 0)
+	}
+
+	if r.DesiredReplicas != 0 {
+		t.Errorf("Expected r.DesiredReplicas to be %d but got %d", *ps.DesiredScale, 0)
+	}
+}

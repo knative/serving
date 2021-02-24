@@ -174,7 +174,7 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodA
 	if ps.ActualScale != nil {
 		rs.ActualReplicas = *ps.ActualScale
 	}
-	if ps.DesiredScale != nil {
+	if ps.DesiredScale != nil && *ps.DesiredScale != -1 {
 		rs.DesiredReplicas = *ps.DesiredScale
 	}
 
