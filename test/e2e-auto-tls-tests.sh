@@ -210,7 +210,7 @@ add_trap "cleanup_per_selfsigned_namespace_auto_tls" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
 cleanup_per_selfsigned_namespace_auto_tls
 
-if [[ ${RUN_HTTP01_AUTO_TLS_TESTS} -eq 1]]; then
+if [[ ${RUN_HTTP01_AUTO_TLS_TESTS} -eq 1 ]]; then
   subheader "Auto TLS test for per-ksvc certificate provision using HTTP01 challenge"
   setup_http01_auto_tls
   add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
