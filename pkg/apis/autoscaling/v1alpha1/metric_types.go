@@ -57,6 +57,20 @@ var (
 	_ duckv1.KRShaped = (*Metric)(nil)
 )
 
+// AlgorithmType is the enum type for the averaging algorithms.
+type AlgorithmType string
+
+const (
+	// AlgorithmDefault is the default algorithm provided by the system.
+	AlgorithmDefault AlgorithmType = ""
+	// AlgorithmLinear is the linear aggregation algorithm with all weights
+	// equal to 1.
+	AlgorithmLinear AlgorithmType = "linear"
+	// AlgorithmWeightedExponential is the weighted aggregation algorithm
+	// with exponentially decaying weights.
+	AlgorithmWeightedExponential AlgorithmType = "weightedExponential"
+)
+
 // MetricSpec contains all values a metric collector needs to operate.
 type MetricSpec struct {
 	// StableWindow is the aggregation window for metrics in a stable state.
@@ -65,6 +79,8 @@ type MetricSpec struct {
 	PanicWindow time.Duration `json:"panicWindow"`
 	// ScrapeTarget is the K8s service that publishes the metric endpoint.
 	ScrapeTarget string `json:"scrapeTarget"`
+	// Algorithm is the metric averaging algorithm.
+	Algorithm AlgorithmType `json:"algorithm"`
 }
 
 // MetricStatus reflects the status of metric collection for this specific entity.
