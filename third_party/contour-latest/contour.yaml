@@ -1641,7 +1641,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:46da470e6cc45181edd65d7779f23d3d4f17a313c5163cd90945d98c8e687bb2
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:135ced0b13f2d2cdc51e3bed492da26f3709e3a4224409c6d15fb01cb2626f6c
           imagePullPolicy: Always
           command:
             - contour
@@ -1868,7 +1868,7 @@ spec:
             - --contour-key-file=/certs/tls.key
             - --config-path=/config/contour.yaml
           command: ["contour"]
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:46da470e6cc45181edd65d7779f23d3d4f17a313c5163cd90945d98c8e687bb2
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:135ced0b13f2d2cdc51e3bed492da26f3709e3a4224409c6d15fb01cb2626f6c
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -1957,7 +1957,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:46da470e6cc45181edd65d7779f23d3d4f17a313c5163cd90945d98c8e687bb2
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:135ced0b13f2d2cdc51e3bed492da26f3709e3a4224409c6d15fb01cb2626f6c
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2036,7 +2036,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:46da470e6cc45181edd65d7779f23d3d4f17a313c5163cd90945d98c8e687bb2
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:135ced0b13f2d2cdc51e3bed492da26f3709e3a4224409c6d15fb01cb2626f6c
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -2261,7 +2261,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:46da470e6cc45181edd65d7779f23d3d4f17a313c5163cd90945d98c8e687bb2
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:135ced0b13f2d2cdc51e3bed492da26f3709e3a4224409c6d15fb01cb2626f6c
           imagePullPolicy: Always
           command:
             - contour
@@ -2381,7 +2381,7 @@ spec:
             - --contour-key-file=/certs/tls.key
             - --config-path=/config/contour.yaml
           command: ["contour"]
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:46da470e6cc45181edd65d7779f23d3d4f17a313c5163cd90945d98c8e687bb2
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:135ced0b13f2d2cdc51e3bed492da26f3709e3a4224409c6d15fb01cb2626f6c
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2470,7 +2470,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:46da470e6cc45181edd65d7779f23d3d4f17a313c5163cd90945d98c8e687bb2
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:135ced0b13f2d2cdc51e3bed492da26f3709e3a4224409c6d15fb01cb2626f6c
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2549,7 +2549,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:46da470e6cc45181edd65d7779f23d3d4f17a313c5163cd90945d98c8e687bb2
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:135ced0b13f2d2cdc51e3bed492da26f3709e3a4224409c6d15fb01cb2626f6c
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
