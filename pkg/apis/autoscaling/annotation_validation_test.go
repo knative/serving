@@ -152,6 +152,31 @@ func TestValidateAnnotations(t *testing.T) {
 		isInCreate:  true,
 		annotations: map[string]string{MaxScaleAnnotationKey: "9"},
 	}, {
+		name: "valid algorithm on KPA",
+		annotations: map[string]string{
+			MetricAggregationAlgorithmKey: AlgorithmLinear,
+			ClassAnnotationKey:            KPA,
+		},
+	}, {
+		name: "empty algorithm",
+		annotations: map[string]string{
+			MetricAggregationAlgorithmKey: "",
+			ClassAnnotationKey:            KPA,
+		},
+	}, {
+		name: "random algorithm on KPA",
+		annotations: map[string]string{
+			MetricAggregationAlgorithmKey: "random-selection",
+			ClassAnnotationKey:            KPA,
+		},
+		expectErr: "invalid value: random-selection: " + MetricAggregationAlgorithmKey,
+	}, {
+		name: "random algorithm on non KPA",
+		annotations: map[string]string{
+			MetricAggregationAlgorithmKey: "random-selection",
+			ClassAnnotationKey:            "of-keys",
+		},
+	}, {
 		name:        "panic window percentage bad",
 		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "-1"},
 		expectErr:   "expected 1 <= -1 <= 100: " + PanicWindowPercentageAnnotationKey,

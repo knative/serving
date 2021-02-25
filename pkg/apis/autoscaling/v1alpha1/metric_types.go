@@ -65,6 +65,8 @@ type MetricSpec struct {
 	PanicWindow time.Duration `json:"panicWindow"`
 	// ScrapeTarget is the K8s service that publishes the metric endpoint.
 	ScrapeTarget string `json:"scrapeTarget"`
+	// Algorithm is the metric averaging algorithm.
+	Algorithm string `json:"algorithm"`
 }
 
 // MetricStatus reflects the status of metric collection for this specific entity.
