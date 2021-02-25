@@ -154,7 +154,7 @@ func TestValidateAnnotations(t *testing.T) {
 	}, {
 		name: "valid algorithm on KPA",
 		annotations: map[string]string{
-			MetricAggregationAlgorithmKey: AlgorithmLinear,
+			MetricAggregationAlgorithmKey: MetricAggregationAlgorithmLinear,
 			ClassAnnotationKey:            KPA,
 		},
 	}, {

@@ -72,13 +72,13 @@ func validateClass(annotations map[string]string) *apis.FieldError {
 }
 
 func validateAlgorithm(annotations map[string]string) *apis.FieldError {
+	// Not a KPA? Don't validate, custom autoscalers might have custom values.
+	if c := annotations[ClassAnnotationKey]; c != KPA {
+		return nil
+	}
 	if a := annotations[MetricAggregationAlgorithmKey]; a != "" {
-		// Not a KPA? Don't validate, custom autoscalers might have custom values.
-		if c := annotations[ClassAnnotationKey]; c != KPA {
-			return nil
-		}
 		switch a {
-		case AlgorithmLinear, AlgorithmWeightedExponential:
+		case MetricAggregationAlgorithmLinear, MetricAggregationAlgorithmWeightedExponential:
 			return nil
 		default:
 			return apis.ErrInvalidValue(a, MetricAggregationAlgorithmKey)

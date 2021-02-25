@@ -98,12 +98,12 @@ const (
 	//   and it is at least 0.2. This algorithm might not utilize all the values
 	//   in the window, due to their coefficients being infinitesimal.
 	MetricAggregationAlgorithmKey = GroupName + "/metricAggregationAlgorithm"
-	// AlgorithmLinear is the linear aggregation algorithm with all weights
+	// MetricAggregationAlgorithmLinear is the linear aggregation algorithm with all weights
 	// equal to 1.
-	AlgorithmLinear = "linear"
-	// AlgorithmWeightedExponential is the weighted aggregation algorithm
+	MetricAggregationAlgorithmLinear = "linear"
+	// MetricAggregationAlgorithmWeightedExponential is the weighted aggregation algorithm
 	// with exponentially decaying weights.
-	AlgorithmWeightedExponential = "weightedExponential"
+	MetricAggregationAlgorithmWeightedExponential = "weightedExponential"
 
 	// WindowAnnotationKey is the annotation to specify the time
 	// interval over which to calculate the average metric.  Larger
