@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/clock"
 	"knative.dev/pkg/logging/logkey"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
 	"knative.dev/serving/pkg/autoscaler/config"
@@ -216,25 +217,35 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 		nil
 }
 
-// collection represents the collection of metrics for one specific entity.
-type collection struct {
-	// mux guards access to all of the collection's state.
-	mux sync.RWMutex
+type (
+	// buckets is the client side abstraction for various bucket types.
+	buckets interface {
+		Record(time.Time, float64)
+		ResizeWindow(time.Duration)
+		WindowAverage(time.Time) float64
+		IsEmpty(time.Time) bool
+	}
 
-	metric *autoscalingv1alpha1.Metric
+	// collection represents the collection of metrics for one specific entity.
+	collection struct {
+		// mux guards access to all of the collection's state.
+		mux sync.RWMutex
 
-	// Fields relevant to metric collection in general.
-	concurrencyBuckets      *aggregation.TimedFloat64Buckets
-	concurrencyPanicBuckets *aggregation.TimedFloat64Buckets
-	rpsBuckets              *aggregation.TimedFloat64Buckets
-	rpsPanicBuckets         *aggregation.TimedFloat64Buckets
+		metric *autoscalingv1alpha1.Metric
 
-	// Fields relevant for metric scraping specifically.
-	scraper StatsScraper
-	lastErr error
-	grp     sync.WaitGroup
-	stopCh  chan struct{}
-}
+		// Fields relevant to metric collection in general.
+		concurrencyBuckets      buckets
+		concurrencyPanicBuckets buckets
+		rpsBuckets              buckets
+		rpsPanicBuckets         buckets
+
+		// Fields relevant for metric scraping specifically.
+		scraper StatsScraper
+		lastErr error
+		grp     sync.WaitGroup
+		stopCh  chan struct{}
+	}
+)
 
 func (c *collection) updateScraper(ss StatsScraper) {
 	c.mux.Lock()
@@ -252,15 +263,27 @@ func (c *collection) getScraper() StatsScraper {
 // collect stats every scrapeTickInterval.
 func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clock clock.Clock,
 	callback func(types.NamespacedName), logger *zap.SugaredLogger) *collection {
+	// Pick the constructor to use to build the buckets.
+	// NB: this relies on the fact that aggregation algorithm is set on annotation of revision
+	// and as such is immutable.
+	bucketCtor := func(w time.Duration, g time.Duration) buckets {
+		return aggregation.NewTimedFloat64Buckets(w, g)
+	}
+	if metric.Annotations[autoscaling.MetricAggregationAlgorithmKey] == autoscaling.MetricAggregationAlgorithmWeightedExponential {
+		bucketCtor = func(w time.Duration, g time.Duration) buckets {
+			return aggregation.NewWeightedFloat64Buckets(w, g)
+		}
+	}
+
 	c := &collection{
 		metric: metric,
-		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(
+		concurrencyBuckets: bucketCtor(
 			metric.Spec.StableWindow, config.BucketSize),
-		concurrencyPanicBuckets: aggregation.NewTimedFloat64Buckets(
+		concurrencyPanicBuckets: bucketCtor(
 			metric.Spec.PanicWindow, config.BucketSize),
-		rpsBuckets: aggregation.NewTimedFloat64Buckets(
+		rpsBuckets: bucketCtor(
 			metric.Spec.StableWindow, config.BucketSize),
-		rpsPanicBuckets: aggregation.NewTimedFloat64Buckets(
+		rpsPanicBuckets: bucketCtor(
 			metric.Spec.PanicWindow, config.BucketSize),
 		scraper: scraper,
 

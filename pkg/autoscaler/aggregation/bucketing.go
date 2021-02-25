@@ -24,43 +24,60 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-// TimedFloat64Buckets keeps buckets that have been collected at a certain time.
-type TimedFloat64Buckets struct {
-	bucketsMutex sync.RWMutex
-	// buckets is a ring buffer indexed by timeToIndex() % len(buckets).
-	// Each element represents a certain granularity of time, and the total
-	// represented duration adds up to a window length of time.
-	buckets []float64
+type (
+	// TimedBuckets is the generic interface for various implementations
+	// of timed buckets.
+	TimedBuckets interface {
+		WindowAverage(time.Time) float64
+		Record(time.Time, float64)
+		ResizeWindow(w time.Duration)
+		IsEmpty(time.Time) bool
+	}
 
-	// firstWrite holds the time when the first write has been made.
-	// This time is reset to `now` when the very first write happens,
-	// or when a first write happens after `window` time of inactivity.
-	// The difference between `now` and `firstWrite` is used to compute
-	// the number of eligible buckets for computation of average values.
-	firstWrite time.Time
+	// TimedFloat64Buckets keeps buckets that have been collected at a certain time.
+	TimedFloat64Buckets struct {
+		bucketsMutex sync.RWMutex
+		// buckets is a ring buffer indexed by timeToIndex() % len(buckets).
+		// Each element represents a certain granularity of time, and the total
+		// represented duration adds up to a window length of time.
+		buckets []float64
 
-	// lastWrite stores the time when the last write was made.
-	// This is used to detect when we have gaps in the data (i.e. more than a
-	// granularity has expired since the last write) so that we can zero those
-	// entries in the buckets array. It is also used when calculating the
-	// WindowAverage to know how much of the buckets array represents valid data.
-	lastWrite time.Time
+		// firstWrite holds the time when the first write has been made.
+		// This time is reset to `now` when the very first write happens,
+		// or when a first write happens after `window` time of inactivity.
+		// The difference between `now` and `firstWrite` is used to compute
+		// the number of eligible buckets for computation of average values.
+		firstWrite time.Time
 
-	// granularity is the duration represented by each bucket in the buckets ring buffer.
-	granularity time.Duration
-	// window is the total time represented by the buckets ring buffer.
-	window time.Duration
-	// The total sum of all buckets within the window. This total includes
-	// invalid buckets, e.g. buckets written to before firstTime or after
-	// lastTime are included in this total.
-	windowTotal float64
+		// lastWrite stores the time when the last write was made.
+		// This is used to detect when we have gaps in the data (i.e. more than a
+		// granularity has expired since the last write) so that we can zero those
+		// entries in the buckets array. It is also used when calculating the
+		// WindowAverage to know how much of the buckets array represents valid data.
+		lastWrite time.Time
 
-	// decayMultiplier contains the speed with which the importance
-	// of items in the past decays. The larger the faster weights decay.
-	// It is autocomputed from window size and weightPrecision constant
-	// and is bounded by minExponent below.
-	decayMultiplier float64
-}
+		// granularity is the duration represented by each bucket in the buckets ring buffer.
+		granularity time.Duration
+		// window is the total time represented by the buckets ring buffer.
+		window time.Duration
+		// The total sum of all buckets within the window. This total includes
+		// invalid buckets, e.g. buckets written to before firstTime or after
+		// lastTime are included in this total.
+		windowTotal float64
+	}
+
+	// WeightedFloat64Buckets is the implementation of buckets, that
+	// uses weighted average algorithm.
+	WeightedFloat64Buckets struct {
+		*TimedFloat64Buckets
+
+		// decayMultiplier contains the speed with which the importance
+		// of items in the past decays. The larger the faster weights decay.
+		// It is autocomputed from window size and weightPrecision constant
+		// and is bounded by minExponent below.
+		decayMultiplier float64
+	}
+)
 
 // String implements the Stringer interface.
 func (t *TimedFloat64Buckets) String() string {
@@ -88,10 +105,21 @@ func NewTimedFloat64Buckets(window, granularity time.Duration) *TimedFloat64Buck
 	// e.g. 60s / 2s = 30.
 	nb := math.Ceil(float64(window) / float64(granularity))
 	return &TimedFloat64Buckets{
-		buckets:         make([]float64, int(nb)),
-		granularity:     granularity,
-		window:          window,
-		decayMultiplier: computeDecayMultiplier(nb),
+		buckets:     make([]float64, int(nb)),
+		granularity: granularity,
+		window:      window,
+	}
+}
+
+// NewWeightedFloat64Buckets generates a new WeightedFloat64Buckets with the given
+// granularity.
+func NewWeightedFloat64Buckets(window, granularity time.Duration) *WeightedFloat64Buckets {
+	// Number of buckets is `window` divided by `granularity`, rounded up.
+	// e.g. 60s / 2s = 30.
+	nb := math.Ceil(float64(window) / float64(granularity))
+	return &WeightedFloat64Buckets{
+		TimedFloat64Buckets: NewTimedFloat64Buckets(window, granularity),
+		decayMultiplier:     computeDecayMultiplier(nb),
 	}
 }
 
@@ -121,7 +149,7 @@ const (
 	precision       = 6
 )
 
-// WeightedAverage returns the exponential weighted average. This means
+// WindowAverage returns the exponential weighted average. This means
 // that more recent items have much greater impact on the average than
 // the older ones.
 // TODO(vagababov): optimize for O(1) computation, if possible.
@@ -130,7 +158,7 @@ const (
 // This with exponent of 0.6 would return 5*0.6+5*0.6*0.4+10*0.6*0.4^2+10*0.6*0.4^3 = 5.544
 // If we reverse the data to [5, 5, 10, 10] the simple average would remain the same,
 // but this one would change to 9.072.
-func (t *TimedFloat64Buckets) WeightedAverage(now time.Time) float64 {
+func (t *WeightedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	now = now.Truncate(t.granularity)
 	t.bucketsMutex.RLock()
 	defer t.bucketsMutex.RUnlock()
@@ -284,6 +312,12 @@ func min(a, b int) int {
 	return b
 }
 
+// ResizeWindow implements window resizing for the weighted averaging buckets object.
+func (t *WeightedFloat64Buckets) ResizeWindow(w time.Duration) {
+	t.TimedFloat64Buckets.ResizeWindow(w)
+	t.decayMultiplier = computeDecayMultiplier(math.Ceil(float64(w) / float64(t.granularity)))
+}
+
 // ResizeWindow resizes the window. This is an O(N) operation,
 // and is not supposed to be executed very often.
 func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
@@ -331,5 +365,4 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 	t.window = w
 	t.buckets = newBuckets
 	t.windowTotal = newTotal
-	t.decayMultiplier = computeDecayMultiplier(float64(numBuckets))
 }

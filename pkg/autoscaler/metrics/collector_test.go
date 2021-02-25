@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	. "knative.dev/pkg/logging/testing"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
@@ -106,9 +107,31 @@ func TestMetricCollectorCRUD(t *testing.T) {
 			t.Error("Update() didn't return the same metric:", cmp.Diff(&defaultMetric, got))
 		}
 
-		newURL := (coll.collections[key]).scraper.(*testScraper).url
+		newURL := coll.collections[key].scraper.(*testScraper).url
 		if got, want := newURL, "slightly-off"; got != want {
 			t.Errorf("Updated scraper URL = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
+		}
+
+		if want, ok := coll.collections[key].concurrencyBuckets.(*aggregation.TimedFloat64Buckets); !ok {
+			t.Errorf("Buckets Type = %T, want: %T", coll.collections[key].concurrencyBuckets, want)
+		}
+
+		coll.Delete(defaultNamespace, defaultName)
+	})
+
+	t.Run("different aggregation", func(t *testing.T) {
+		special := defaultMetric.DeepCopy()
+		special.Annotations = map[string]string{
+			autoscaling.MetricAggregationAlgorithmKey: autoscaling.MetricAggregationAlgorithmWeightedExponential,
+		}
+		key := types.NamespacedName{Namespace: special.Namespace, Name: special.Name}
+		coll := NewMetricCollector(factory, logger)
+		if err := coll.CreateOrUpdate(special); err != nil {
+			t.Errorf("CreateOrUpdate() = %v, want no error", err)
+		}
+
+		if want, ok := coll.collections[key].concurrencyBuckets.(*aggregation.WeightedFloat64Buckets); !ok {
+			t.Errorf("Buckets Type = %T, want: %T", coll.collections[key].concurrencyBuckets, want)
 		}
 
 		coll.Delete(defaultNamespace, defaultName)
