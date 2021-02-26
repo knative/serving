@@ -48,7 +48,7 @@ func TestComputeDecayMultiplier(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(fmt.Sprint("nb=", tc.numBuckets), func(t *testing.T) {
-			if got, want := computeDecayMultiplier(tc.numBuckets), tc.want; math.Abs(got-want) > weightPrecision {
+			if got, want := computeSmoothingCoeff(tc.numBuckets), tc.want; math.Abs(got-want) > weightPrecision {
 				t.Errorf("Decay multiplier = %v, want: %v", got, want)
 			}
 		})
@@ -379,7 +379,7 @@ func TestWeightedFloat64BucketsResizeWindow(t *testing.T) {
 	startTime := time.Now()
 	buckets := NewWeightedFloat64Buckets(5*time.Second, granularity)
 
-	if got, want := buckets.smoothingCoeff, computeDecayMultiplier(5); math.Abs(got-want) > weightPrecision {
+	if got, want := buckets.smoothingCoeff, computeSmoothingCoeff(5); math.Abs(got-want) > weightPrecision {
 		t.Errorf("DecayMultipler = %v, want: %v", got, want)
 	}
 
@@ -415,7 +415,7 @@ func TestWeightedFloat64BucketsResizeWindow(t *testing.T) {
 	}
 
 	// And this is the main logic that was added in this type.
-	if got, want := buckets.smoothingCoeff, computeDecayMultiplier(10); math.Abs(got-want) > weightPrecision {
+	if got, want := buckets.smoothingCoeff, computeSmoothingCoeff(10); math.Abs(got-want) > weightPrecision {
 		t.Errorf("DecayMultipler = %v, want: %v", got, want)
 	}
 }

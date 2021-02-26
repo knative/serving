@@ -75,9 +75,9 @@ func (t *TimedFloat64Buckets) String() string {
 	return spew.Sdump(t.buckets)
 }
 
-// computeDecayMultiplier computes the decay given number of buckets.
+// computeSmoothingCoeff computes the decay given number of buckets.
 // The function uses precision and min exponent value constants.
-func computeDecayMultiplier(nb float64) float64 {
+func computeSmoothingCoeff(nb float64) float64 {
 	return math.Max(
 		// Given number of buckets, infer the desired multiplier
 		// so that at least weightPrecision sum of buckets is met.
@@ -110,7 +110,7 @@ func NewWeightedFloat64Buckets(window, granularity time.Duration) *WeightedFloat
 	nb := math.Ceil(float64(window) / float64(granularity))
 	return &WeightedFloat64Buckets{
 		TimedFloat64Buckets: NewTimedFloat64Buckets(window, granularity),
-		smoothingCoeff:      computeDecayMultiplier(nb),
+		smoothingCoeff:      computeSmoothingCoeff(nb),
 	}
 }
 
@@ -306,7 +306,7 @@ func min(a, b int) int {
 // ResizeWindow implements window resizing for the weighted averaging buckets object.
 func (t *WeightedFloat64Buckets) ResizeWindow(w time.Duration) {
 	t.TimedFloat64Buckets.ResizeWindow(w)
-	t.smoothingCoeff = computeDecayMultiplier(math.Ceil(float64(w) / float64(t.granularity)))
+	t.smoothingCoeff = computeSmoothingCoeff(math.Ceil(float64(w) / float64(t.granularity)))
 }
 
 // ResizeWindow resizes the window. This is an O(N) operation,
