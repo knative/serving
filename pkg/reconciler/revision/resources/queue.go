@@ -181,7 +181,7 @@ func makeStartupExecProbe(in *corev1.Probe, progressDeadline time.Duration) *cor
 	out := &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe-timeout", progressDeadline.String()},
+				Command: []string{"/ko-app/queue", "-probe-period", progressDeadline.String()},
 			},
 		},
 		// We keep the connection open for a while because we're actively probing
