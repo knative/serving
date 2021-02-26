@@ -110,7 +110,7 @@ func NewWeightedFloat64Buckets(window, granularity time.Duration) *WeightedFloat
 	nb := math.Ceil(float64(window) / float64(granularity))
 	return &WeightedFloat64Buckets{
 		TimedFloat64Buckets: NewTimedFloat64Buckets(window, granularity),
-		smoothingCoeff:     computeDecayMultiplier(nb),
+		smoothingCoeff:      computeDecayMultiplier(nb),
 	}
 }
 
