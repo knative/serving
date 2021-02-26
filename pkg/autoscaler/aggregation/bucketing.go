@@ -25,15 +25,6 @@ import (
 )
 
 type (
-	// TimedBuckets is the generic interface for various implementations
-	// of timed buckets.
-	TimedBuckets interface {
-		WindowAverage(time.Time) float64
-		Record(time.Time, float64)
-		ResizeWindow(w time.Duration)
-		IsEmpty(time.Time) bool
-	}
-
 	// TimedFloat64Buckets keeps buckets that have been collected at a certain time.
 	TimedFloat64Buckets struct {
 		bucketsMutex sync.RWMutex
