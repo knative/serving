@@ -86,7 +86,7 @@ func TestHTTPProbeSuccess(t *testing.T) {
 		HTTPGetAction: action,
 	}
 
-        // Connecting to the server should work
+	// Connecting to the server should work
 	if err := HTTPProbe(context.Background(), config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
 	}
