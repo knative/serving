@@ -91,17 +91,11 @@ const (
 
 	// DomainMappingLabelKey is the label key attached to Ingress resources to indicate
 	// which DomainMapping triggered their creation.
-	DomainMappingLabelKey = GroupName + "/domainmapping"
+	DomainMappingLabelKey = GroupName + "/domainMapping"
 
 	// ConfigurationGenerationLabelKey is the label key attached to a Revision indicating the
 	// metadata generation of the Configuration that created this revision
 	ConfigurationGenerationLabelKey = GroupName + "/configurationGeneration"
-
-	// ForceUpgradeAnnotationKey is the annotation which was added to resources
-	// upgraded from v1alpha1.
-	// This annotation is no longer used since v1alpha1 was removed, but
-	// must continue to be allowed since it may be present on existing resources.
-	ForceUpgradeAnnotationKey = GroupName + "/forceUpgrade"
 
 	// CreatorAnnotation is the annotation key to describe the user that
 	// created the resource.

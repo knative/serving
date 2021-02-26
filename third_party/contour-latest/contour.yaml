@@ -65,6 +65,11 @@ data:
     #   determine which XDS Server implementation to utilize in Contour.
     #   xds-server-type: contour
     #
+    # Specify the gateway-api Gateway Contour should watch.
+    # gateway:
+    #   name: contour
+    #   namespace: contour-external
+    #
     # should contour expect to be running inside a k8s cluster
     # incluster: true
     #
@@ -79,6 +84,13 @@ data:
     tls:
     # minimum TLS version that Contour will negotiate
     # minimum-protocol-version: "1.2"
+    # TLS ciphers to be supported by Envoy TLS listeners when negotiating
+    # TLS 1.2.
+    # cipher-suites:
+    # - '[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]'
+    # - '[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]'
+    # - 'ECDHE-ECDSA-AES256-GCM-SHA384'
+    # - 'ECDHE-RSA-AES256-GCM-SHA384'
     # Defines the Kubernetes name/namespace matching a secret to use
     # as the fallback certificate when requests which don't match the
     # SNI defined for a vhost.
@@ -134,6 +146,7 @@ data:
     #   connection-idle-timeout: 60s
     #   stream-idle-timeout: 5m
     #   max-connection-duration: infinity
+    #   delayed-close-timeout: 1s
     #   connection-shutdown-grace-period: 5s
     #
     # Envoy cluster settings.
@@ -141,12 +154,32 @@ data:
     #   configure the cluster dns lookup family
     #   valid options are: auto (default), v4, v6
     #   dns-lookup-family: auto
+    #
+    # Envoy network settings.
+    # network:
+    #   Configure the number of additional ingress proxy hops from the
+    #   right side of the x-forwarded-for HTTP header to trust.
+    #   num-trusted-hops: 0
+    #
+    # Configure an optional global rate limit service.
+    # rateLimitService:
+    #   Identifies the extension service defining the rate limit service,
+    #   formatted as <namespace>/<name>.
+    #   extensionService: projectcontour/ratelimit
+    #   Defines the rate limit domain to pass to the rate limit service.
+    #   Acts as a container for a set of rate limit definitions within
+    #   the RLS.
+    #   domain: contour
+    #   Defines whether to allow requests to proceed when the rate limit
+    #   service fails to respond with a valid rate limit decision within
+    #   the timeout defined on the extension service.
+    #   failOpen: false
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: extensionservices.projectcontour.io
   labels:
@@ -403,7 +436,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: httpproxies.projectcontour.io
   labels:
@@ -639,6 +672,52 @@ spec:
                       rateLimitPolicy:
                         description: The policy for rate limiting on the route.
                         properties:
+                          global:
+                            description: Global defines global rate limiting parameters, i.e. parameters defining descriptors that are sent to an external rate limit service (RLS) for a rate limit decision on each request.
+                            properties:
+                              descriptors:
+                                description: Descriptors defines the list of descriptors that will be generated and sent to the rate limit service. Each descriptor contains 1+ key-value pair entries.
+                                items:
+                                  description: RateLimitDescriptor defines a list of key-value pair generators.
+                                  properties:
+                                    entries:
+                                      description: Entries is the list of key-value pair generators.
+                                      items:
+                                        description: RateLimitDescriptorEntry is a key-value pair generator. Exactly one field on this struct must be non-nil.
+                                        properties:
+                                          genericKey:
+                                            description: GenericKey defines a descriptor entry with a static key and value.
+                                            properties:
+                                              key:
+                                                description: Key defines the key of the descriptor entry. If not set, the key is set to "generic_key".
+                                                type: string
+                                              value:
+                                                description: Value defines the value of the descriptor entry.
+                                                minLength: 1
+                                                type: string
+                                            type: object
+                                          remoteAddress:
+                                            description: RemoteAddress defines a descriptor entry with a key of "remote_address" and a value equal to the client's IP address (from x-forwarded-for).
+                                            type: object
+                                          requestHeader:
+                                            description: RequestHeader defines a descriptor entry that's populated only if a given header is present on the request. The descriptor key is static, and the descriptor value is equal to the value of the header.
+                                            properties:
+                                              descriptorKey:
+                                                description: DescriptorKey defines the key to use on the descriptor entry.
+                                                minLength: 1
+                                                type: string
+                                              headerName:
+                                                description: HeaderName defines the name of the header to look for on the request.
+                                                minLength: 1
+                                                type: string
+                                            type: object
+                                        type: object
+                                      minItems: 1
+                                      type: array
+                                  type: object
+                                minItems: 1
+                                type: array
+                            type: object
                           local:
                             description: Local defines local rate limiting parameters, i.e. parameters for rate limiting that occurs within each Envoy pod as requests are handled.
                             properties:
@@ -1161,6 +1240,52 @@ spec:
                     rateLimitPolicy:
                       description: The policy for rate limiting on the virtual host.
                       properties:
+                        global:
+                          description: Global defines global rate limiting parameters, i.e. parameters defining descriptors that are sent to an external rate limit service (RLS) for a rate limit decision on each request.
+                          properties:
+                            descriptors:
+                              description: Descriptors defines the list of descriptors that will be generated and sent to the rate limit service. Each descriptor contains 1+ key-value pair entries.
+                              items:
+                                description: RateLimitDescriptor defines a list of key-value pair generators.
+                                properties:
+                                  entries:
+                                    description: Entries is the list of key-value pair generators.
+                                    items:
+                                      description: RateLimitDescriptorEntry is a key-value pair generator. Exactly one field on this struct must be non-nil.
+                                      properties:
+                                        genericKey:
+                                          description: GenericKey defines a descriptor entry with a static key and value.
+                                          properties:
+                                            key:
+                                              description: Key defines the key of the descriptor entry. If not set, the key is set to "generic_key".
+                                              type: string
+                                            value:
+                                              description: Value defines the value of the descriptor entry.
+                                              minLength: 1
+                                              type: string
+                                          type: object
+                                        remoteAddress:
+                                          description: RemoteAddress defines a descriptor entry with a key of "remote_address" and a value equal to the client's IP address (from x-forwarded-for).
+                                          type: object
+                                        requestHeader:
+                                          description: RequestHeader defines a descriptor entry that's populated only if a given header is present on the request. The descriptor key is static, and the descriptor value is equal to the value of the header.
+                                          properties:
+                                            descriptorKey:
+                                              description: DescriptorKey defines the key to use on the descriptor entry.
+                                              minLength: 1
+                                              type: string
+                                            headerName:
+                                              description: HeaderName defines the name of the header to look for on the request.
+                                              minLength: 1
+                                              type: string
+                                          type: object
+                                      type: object
+                                    minItems: 1
+                                    type: array
+                                type: object
+                              minItems: 1
+                              type: array
+                          type: object
                         local:
                           description: Local defines local rate limiting parameters, i.e. parameters for rate limiting that occurs within each Envoy pod as requests are handled.
                           properties:
@@ -1375,6 +1500,29 @@ spec:
                           ip:
                             description: IP is set for load-balancer ingress points that are IP based (typically GCE or OpenStack load-balancers)
                             type: string
+                          ports:
+                            description: Ports is a list of records of service ports If used, every port defined in the service should have an entry in it
+                            items:
+                              properties:
+                                error:
+                                  description: 'Error is to record the problem with the service port The format of the error shall comply with the following rules: - built-in error values shall be specified in this file and those shall use   CamelCase names - cloud provider specific error values must have names that comply with the   format foo.example.com/CamelCase. --- The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)'
+                                  maxLength: 316
+                                  pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                                  type: string
+                                port:
+                                  description: Port is the port number of the service port of which status is recorded here
+                                  format: int32
+                                  type: integer
+                                protocol:
+                                  default: TCP
+                                  description: 'Protocol is the protocol of the service port of which status is recorded here The supported values are: "TCP", "UDP", "SCTP"'
+                                  type: string
+                              required:
+                                - port
+                                - protocol
+                              type: object
+                            type: array
+                            x-kubernetes-list-type: atomic
                         type: object
                       type: array
                   type: object
@@ -1398,7 +1546,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
   labels:
@@ -1628,7 +1776,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1.12.0
+  name: contour-certgen-v1.13.0
   namespace: contour-external
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -1641,7 +1789,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:34e99ad3df332ed6216b0d4acd9dc18b9b050eab9cd506a87718b5e4e73da35e
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7923f24f99965cda151a96ca5b0dc20c5a5664eecfef6dc34265c2c17e836821
           imagePullPolicy: Always
           command:
             - contour
@@ -1712,6 +1860,14 @@ rules:
       - customresourcedefinitions
     verbs:
       - list
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingressclasses
+    verbs:
+      - get
+      - list
+      - watch
   - apiGroups:
       - networking.k8s.io
     resources:
@@ -1868,7 +2024,7 @@ spec:
             - --contour-key-file=/certs/tls.key
             - --config-path=/config/contour.yaml
           command: ["contour"]
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:34e99ad3df332ed6216b0d4acd9dc18b9b050eab9cd506a87718b5e4e73da35e
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7923f24f99965cda151a96ca5b0dc20c5a5664eecfef6dc34265c2c17e836821
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -1957,7 +2113,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:34e99ad3df332ed6216b0d4acd9dc18b9b050eab9cd506a87718b5e4e73da35e
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7923f24f99965cda151a96ca5b0dc20c5a5664eecfef6dc34265c2c17e836821
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2036,7 +2192,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:34e99ad3df332ed6216b0d4acd9dc18b9b050eab9cd506a87718b5e4e73da35e
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7923f24f99965cda151a96ca5b0dc20c5a5664eecfef6dc34265c2c17e836821
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -2128,6 +2284,11 @@ data:
     #   determine which XDS Server implementation to utilize in Contour.
     #   xds-server-type: contour
     #
+    # Specify the gateway-api Gateway Contour should watch.
+    # gateway:
+    #   name: contour
+    #   namespace: contour-internal
+    #
     # should contour expect to be running inside a k8s cluster
     # incluster: true
     #
@@ -2142,6 +2303,13 @@ data:
     tls:
     # minimum TLS version that Contour will negotiate
     # minimum-protocol-version: "1.2"
+    # TLS ciphers to be supported by Envoy TLS listeners when negotiating
+    # TLS 1.2.
+    # cipher-suites:
+    # - '[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]'
+    # - '[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]'
+    # - 'ECDHE-ECDSA-AES256-GCM-SHA384'
+    # - 'ECDHE-RSA-AES256-GCM-SHA384'
     # Defines the Kubernetes name/namespace matching a secret to use
     # as the fallback certificate when requests which don't match the
     # SNI defined for a vhost.
@@ -2197,6 +2365,7 @@ data:
     #   connection-idle-timeout: 60s
     #   stream-idle-timeout: 5m
     #   max-connection-duration: infinity
+    #   delayed-close-timeout: 1s
     #   connection-shutdown-grace-period: 5s
     #
     # Envoy cluster settings.
@@ -2204,6 +2373,26 @@ data:
     #   configure the cluster dns lookup family
     #   valid options are: auto (default), v4, v6
     #   dns-lookup-family: auto
+    #
+    # Envoy network settings.
+    # network:
+    #   Configure the number of additional ingress proxy hops from the
+    #   right side of the x-forwarded-for HTTP header to trust.
+    #   num-trusted-hops: 0
+    #
+    # Configure an optional global rate limit service.
+    # rateLimitService:
+    #   Identifies the extension service defining the rate limit service,
+    #   formatted as <namespace>/<name>.
+    #   extensionService: projectcontour/ratelimit
+    #   Defines the rate limit domain to pass to the rate limit service.
+    #   Acts as a container for a set of rate limit definitions within
+    #   the RLS.
+    #   domain: contour
+    #   Defines whether to allow requests to proceed when the rate limit
+    #   service fails to respond with a valid rate limit decision within
+    #   the timeout defined on the extension service.
+    #   failOpen: false
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -2248,7 +2437,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1.12.0
+  name: contour-certgen-v1.13.0
   namespace: contour-internal
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -2261,7 +2450,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:34e99ad3df332ed6216b0d4acd9dc18b9b050eab9cd506a87718b5e4e73da35e
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7923f24f99965cda151a96ca5b0dc20c5a5664eecfef6dc34265c2c17e836821
           imagePullPolicy: Always
           command:
             - contour
@@ -2381,7 +2570,7 @@ spec:
             - --contour-key-file=/certs/tls.key
             - --config-path=/config/contour.yaml
           command: ["contour"]
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:34e99ad3df332ed6216b0d4acd9dc18b9b050eab9cd506a87718b5e4e73da35e
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7923f24f99965cda151a96ca5b0dc20c5a5664eecfef6dc34265c2c17e836821
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2470,7 +2659,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:34e99ad3df332ed6216b0d4acd9dc18b9b050eab9cd506a87718b5e4e73da35e
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7923f24f99965cda151a96ca5b0dc20c5a5664eecfef6dc34265c2c17e836821
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2549,7 +2738,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:34e99ad3df332ed6216b0d4acd9dc18b9b050eab9cd506a87718b5e4e73da35e
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:7923f24f99965cda151a96ca5b0dc20c5a5664eecfef6dc34265c2c17e836821
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:

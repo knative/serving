@@ -81,7 +81,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		timeoutFunc    TimeoutFunc
+		timeout        time.Duration
 		handler        func(mux *sync.Mutex, writeErrors chan error) http.Handler
 		timeoutMessage string
 		wantStatus     int
@@ -89,8 +89,8 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantWriteError bool
 		wantPanic      bool
 	}{{
-		name:        "all good",
-		timeoutFunc: StaticTimeoutFunc(longTimeout),
+		name:    "all good",
+		timeout: longTimeout,
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte("hi"))
@@ -99,8 +99,8 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantStatus: http.StatusOK,
 		wantBody:   "hi",
 	}, {
-		name:        "custom timeout message",
-		timeoutFunc: StaticTimeoutFunc(immediateTimeout),
+		name:    "custom timeout message",
+		timeout: immediateTimeout,
 		handler: func(mux *sync.Mutex, writeErrors chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				mux.Lock()
@@ -114,8 +114,8 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantBody:       "request timeout",
 		wantWriteError: true,
 	}, {
-		name:        "propagate panic",
-		timeoutFunc: StaticTimeoutFunc(longTimeout),
+		name:    "propagate panic",
+		timeout: longTimeout,
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				panic(http.ErrAbortHandler)
@@ -125,8 +125,8 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantBody:   "request timeout",
 		wantPanic:  true,
 	}, {
-		name:        "timeout before panic",
-		timeoutFunc: StaticTimeoutFunc(immediateTimeout),
+		name:    "timeout before panic",
+		timeout: immediateTimeout,
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				time.Sleep(1 * time.Second)
@@ -145,7 +145,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 			var reqMux sync.Mutex
 			writeErrors := make(chan error, 1)
 			rr := httptest.NewRecorder()
-			handler := NewTimeToFirstByteTimeoutHandler(test.handler(&reqMux, writeErrors), test.timeoutMessage, test.timeoutFunc)
+			handler := NewTimeToFirstByteTimeoutHandler(test.handler(&reqMux, writeErrors), test.timeoutMessage, test.timeout)
 
 			defer func() {
 				if test.wantPanic {

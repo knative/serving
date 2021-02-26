@@ -42,14 +42,12 @@ func TestProbeHandler(t *testing.T) {
 		method:         http.MethodPost,
 	}, {
 		label:          "filter a POST request containing probe header, even if probe is for a different target",
-		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: queue.Name}),
-		passed:         false,
+		headers:        http.Header{network.ProbeHeaderName: []string{queue.Name}},
 		expectedStatus: http.StatusBadRequest,
 		method:         http.MethodPost,
 	}, {
 		label:          "filter a POST request containing probe header",
-		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: activator.Name}),
-		passed:         false,
+		headers:        http.Header{network.ProbeHeaderName: []string{activator.Name}},
 		expectedStatus: http.StatusOK,
 		method:         http.MethodPost,
 	}, {
@@ -60,19 +58,18 @@ func TestProbeHandler(t *testing.T) {
 		method:         http.MethodGet,
 	}, {
 		label:          "filter a GET request containing probe header, with wrong target system",
-		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: "not-empty"}),
-		passed:         false,
+		headers:        http.Header{network.ProbeHeaderName: []string{"not-empty"}},
 		expectedStatus: http.StatusBadRequest,
 		method:         http.MethodGet,
 	}, {
 		label:          "filter a GET request containing probe header",
-		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: activator.Name}),
+		headers:        http.Header{network.ProbeHeaderName: []string{activator.Name}},
 		passed:         false,
 		expectedStatus: http.StatusOK,
 		method:         http.MethodGet,
 	}, {
 		label:          "forward a request containing empty retry header",
-		headers:        mapToHeader(map[string]string{network.ProbeHeaderName: ""}),
+		headers:        http.Header{network.ProbeHeaderName: []string{""}},
 		passed:         true,
 		expectedStatus: http.StatusOK,
 		method:         http.MethodPost,
@@ -108,24 +105,16 @@ func TestProbeHandler(t *testing.T) {
 	}
 }
 
-func mapToHeader(m map[string]string) http.Header {
-	h := http.Header{}
-	for k, v := range m {
-		h.Add(k, v)
-	}
-	return h
-}
-
 func BenchmarkProbeHandler(b *testing.B) {
 	tests := []struct {
 		label   string
 		headers http.Header
 	}{{
 		label:   "valid header name",
-		headers: mapToHeader(map[string]string{network.ProbeHeaderName: activator.Name}),
+		headers: http.Header{network.ProbeHeaderName: []string{activator.Name}},
 	}, {
 		label:   "invalid header name",
-		headers: mapToHeader(map[string]string{network.ProbeHeaderName: "not-empty"}),
+		headers: http.Header{network.ProbeHeaderName: []string{"some-other-cool-value"}},
 	}, {
 		label:   "empty header name",
 		headers: http.Header{},

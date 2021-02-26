@@ -165,12 +165,13 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 			ing = updated
 
 			// Advance the time by 5s.
-			fakeClock.SetTime(fakeClock.Now().Add(5 * time.Second))
+			const drift = 5
+			fakeClock.SetTime(fakeClock.Now().Add(drift * time.Second))
 
-			// 5s of the duration already spent.
-			totalDuration := float64(rd - 5)
+			// Drift seconds of the duration already spent.
+			totalDuration := float64(rd - drift)
 			// Step count is minimum of % points of traffic allocated to the config (1% already shifted).
-			steps := math.Min(totalDuration/5, allocatedTraffic-1)
+			steps := math.Min(totalDuration/drift, allocatedTraffic-1)
 			stepSize := math.Max(1, math.Round((allocatedTraffic-1)/steps)) // we round the step size.
 			stepDuration := time.Duration(int(totalDuration * float64(time.Second) / steps))
 
@@ -270,7 +271,7 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 				wasReenqueued = true
 				duration = d
 			}
-			ctx := updateContext(baseCtx, 311) // This should be ignored, since we set annotation.
+			ctx := updateContext(baseCtx, 311 /*rolloutDuration*/) // This should be ignored, since we set annotation.
 			_, ro, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress-class")
 			if err != nil {
 				t.Fatal("Unexpected error:", err)
@@ -326,12 +327,13 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 			ing = updated
 
 			// Advance the time by 5s.
-			fakeClock.SetTime(fakeClock.Now().Add(5 * time.Second))
+			const drift = 5
+			fakeClock.SetTime(fakeClock.Now().Add(drift * time.Second))
 
-			// 5s of the duration already spent.
-			totalDuration := float64(rd - 5)
+			// Drift seconds of the duration already spent.
+			totalDuration := float64(rd - drift)
 			// Step count is minimum of % points of traffic allocated to the config (1% already shifted).
-			steps := math.Min(totalDuration/5, allocatedTraffic-1)
+			steps := math.Min(totalDuration/drift, allocatedTraffic-1)
 			stepSize := math.Max(1, math.Round((allocatedTraffic-1)/steps)) // we round the step size.
 			stepDuration := time.Duration(int(totalDuration * float64(time.Second) / steps))
 

@@ -120,11 +120,10 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 
-	existingServices, err := c.getServices(route)
+	existingServiceNames, err := c.getPlaceholderServiceNames(route)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch existing services: %w", err)
 	}
-	existingServiceNames := resources.GetNames(existingServices)
 
 	ns := route.Namespace
 	names := make(sets.String, len(targets))
@@ -134,6 +133,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 
 	services := make([]*corev1.Service, 0, names.Len())
 	createdServiceNames := make(sets.String, names.Len())
+	// NB: we don't need to sort here, but it makes table tests work...
 	for _, name := range names.List() {
 		desiredService, err := resources.MakeK8sPlaceholderService(ctx, route, name)
 		if err != nil {
@@ -267,7 +267,7 @@ func (c *Reconciler) reconcileRollout(
 	if nextStepTime > 0 {
 		nextStepTime -= now
 		c.enqueueAfter(r, time.Duration(nextStepTime))
-		logger.Debug("Re-enqueuing after", zap.Duration("duration", time.Duration(nextStepTime)))
+		logger.Debug("Re-enqueuing after", zap.Duration("nextStepTime", time.Duration(nextStepTime)))
 	}
 
 	// Comparing and diffing isn't cheap so do it only if we're going

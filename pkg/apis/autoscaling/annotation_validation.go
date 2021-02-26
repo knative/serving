@@ -58,6 +58,7 @@ func ValidateAnnotations(ctx context.Context, config *autoscalerconfig.Config, a
 		Also(validateLastPodRetention(anns)).
 		Also(validateScaleDownDelay(anns)).
 		Also(validateMetric(anns)).
+		Also(validateAlgorithm(anns)).
 		Also(validateInitialScale(config, anns))
 }
 
@@ -65,6 +66,22 @@ func validateClass(annotations map[string]string) *apis.FieldError {
 	if c, ok := annotations[ClassAnnotationKey]; ok {
 		if strings.HasSuffix(c, domain) && c != KPA && c != HPA {
 			return apis.ErrInvalidValue(c, ClassAnnotationKey)
+		}
+	}
+	return nil
+}
+
+func validateAlgorithm(annotations map[string]string) *apis.FieldError {
+	// Not a KPA? Don't validate, custom autoscalers might have custom values.
+	if c := annotations[ClassAnnotationKey]; c != KPA {
+		return nil
+	}
+	if a := annotations[MetricAggregationAlgorithmKey]; a != "" {
+		switch a {
+		case MetricAggregationAlgorithmLinear, MetricAggregationAlgorithmWeightedExponential:
+			return nil
+		default:
+			return apis.ErrInvalidValue(a, MetricAggregationAlgorithmKey)
 		}
 	}
 	return nil

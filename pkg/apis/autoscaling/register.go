@@ -83,6 +83,28 @@ const (
 	// scale-to-zero-pod-retention-period global setting.
 	ScaleToZeroPodRetentionPeriodKey = GroupName + "/scaleToZeroPodRetentionPeriod"
 
+	// MetricAggregationAlgorithmKey is the annotation that can be used for selection
+	// of the algorithm to use for averaging metric data in the Autoscaler.
+	// Since autoscalers are a pluggable concept, this field is only validated
+	// for Revisions that are owned by Knative Pod Autoscaler.
+	// The algorithm will apply to both panic and stagble windows.
+	// NB: this is an Alpha feature and can be removed or modified
+	//     at any point.
+	// Possible values for KPA are:
+	// - empty/missing or "linear" — linear average over the whole
+	//   metric window (default);
+	// - weightedExponential — weighted average with exponential decay.
+	//   KPA will compute the decay multiplier automatically based on the window size
+	//   and it is at least 0.2. This algorithm might not utilize all the values
+	//   in the window, due to their coefficients being infinitesimal.
+	MetricAggregationAlgorithmKey = GroupName + "/metricAggregationAlgorithm"
+	// MetricAggregationAlgorithmLinear is the linear aggregation algorithm with all weights
+	// equal to 1.
+	MetricAggregationAlgorithmLinear = "linear"
+	// MetricAggregationAlgorithmWeightedExponential is the weighted aggregation algorithm
+	// with exponentially decaying weights.
+	MetricAggregationAlgorithmWeightedExponential = "weightedExponential"
+
 	// WindowAnnotationKey is the annotation to specify the time
 	// interval over which to calculate the average metric.  Larger
 	// values result in more smoothing. For example,

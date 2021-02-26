@@ -220,7 +220,7 @@ func main() {
 	}()
 
 	// Blocks until we actually receive a TERM signal or one of the servers
-	// exit unexpectedly. We fold both signals together because we only want
+	// exits unexpectedly. We fold both signals together because we only want
 	// to act on the first of those to reach here.
 	select {
 	case err := <-errCh:
@@ -291,7 +291,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	}
 	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = handler.NewTimeToFirstByteTimeoutHandler(composedHandler, "request timeout", handler.StaticTimeoutFunc(timeout))
+	composedHandler = handler.NewTimeToFirstByteTimeoutHandler(composedHandler, "request timeout", timeout)
 
 	if metricsSupported {
 		composedHandler = requestMetricsHandler(logger, composedHandler, env)

@@ -89,7 +89,6 @@ func autoDowngradingTransport(opt HTTPProbeConfigOptions) http.RoundTripper {
 
 var transport = func() *http.Transport {
 	t := http.DefaultTransport.(*http.Transport).Clone()
-	t.DisableKeepAlives = true
 	//nolint:gosec // We explicitly don't need to check certs here.
 	t.TLSClientConfig.InsecureSkipVerify = true
 	return t
