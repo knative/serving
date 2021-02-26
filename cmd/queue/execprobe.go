@@ -31,7 +31,6 @@ import (
 	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
-	"knative.dev/serving/pkg/queue/readiness"
 )
 
 const (
@@ -74,10 +73,6 @@ func standaloneProbeMain(timeout time.Duration, transport http.RoundTripper) (ex
 	if queueServingPort == 0 {
 		fmt.Fprintln(os.Stderr, "port must be a positive value, got 0")
 		return 1
-	}
-
-	if timeout == 0 {
-		timeout = readiness.PollTimeout
 	}
 
 	if err := probeQueueHealthPath(timeout, int(queueServingPort), transport); err != nil {

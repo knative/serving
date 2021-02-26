@@ -171,56 +171,38 @@ func fractionFromPercentage(m map[string]string, k string) (float64, bool) {
 	return value / 100, err == nil
 }
 
-func makeExecProbe(in *corev1.Probe) *corev1.Probe {
-	if in == nil || in.PeriodSeconds == 0 {
-		out := &corev1.Probe{
-			Handler: corev1.Handler{
-				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-period", "0"},
-				},
-			},
-			// The exec probe enables us to retry failed probes quickly to get sub-second
-			// resolution and achieve faster cold-starts.  However, for draining pods as
-			// part of the K8s lifecycle this period will bound the tail of how quickly
-			// we can remove a Pod's endpoint from the K8s service.
-			//
-			// The trade-off here is that exec probes cost CPU to run, and for idle pods
-			// (e.g. due to minScale) we see ~50m/{period} of idle CPU usage in the
-			// queue-proxy.  So while setting this to 1s results in slightly faster drains
-			// it also means that in the steady state the queue-proxy is consuming 10x
-			// more CPU due to probes than with a period of 10s.
-			//
-			// See also: https://github.com/knative/serving/issues/8147
-			PeriodSeconds: 10,
-			// We keep the connection open for a while because we're
-			// actively probing the user-container on that endpoint and
-			// thus don't want to be limited by K8s granularity here.
-			TimeoutSeconds: 10,
-		}
-
-		if in != nil {
-			out.InitialDelaySeconds = in.InitialDelaySeconds
-		}
-		return out
+func makeStartupExecProbe(in *corev1.Probe, progressDeadline time.Duration) *corev1.Probe {
+	if in != nil && in.PeriodSeconds > 0 {
+		// If the user opted-out of the aggressive probing optimisation we don't
+		// need to run a startup probe at all.
+		return nil
 	}
 
-	timeout := time.Second
-	if in.TimeoutSeconds > 1 {
-		timeout = time.Duration(in.TimeoutSeconds) * time.Second
-	}
-
-	return &corev1.Probe{
+	out := &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe-period", timeout.String()},
+				Command: []string{"/ko-app/queue", "-probe-timeout", progressDeadline.String()},
 			},
 		},
-		PeriodSeconds:       in.PeriodSeconds,
-		TimeoutSeconds:      int32(timeout.Seconds()),
-		SuccessThreshold:    in.SuccessThreshold,
-		FailureThreshold:    in.FailureThreshold,
-		InitialDelaySeconds: in.InitialDelaySeconds,
+		// We keep the connection open for a while because we're actively probing
+		// the user-container on that endpoint and thus don't want to be limited
+		// by K8s granularity here.
+		// The exec probe is run as a startup probe so the container will be killed
+		// and restarted if it fails. We use the ProgressDeadline as the timeout
+		// here to match the time we'll wait before killing the revision if it
+		// fails to go ready on initial deployment.
+		TimeoutSeconds: int32(progressDeadline.Seconds()),
+		// The probe itself retries aggressively so there's no point retrying here too.
+		FailureThreshold: 1,
+		SuccessThreshold: 1,
+		PeriodSeconds:    1,
 	}
+
+	if in != nil {
+		out.InitialDelaySeconds = in.InitialDelaySeconds
+	}
+
+	return out
 }
 
 // makeQueueContainer creates the container spec for the queue sidecar.
@@ -263,7 +245,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	// variable for this probe to use.
 	userProbe := container.ReadinessProbe.DeepCopy()
 	applyReadinessProbeDefaultsForExec(userProbe, userPort)
-	execProbe := makeExecProbe(userProbe)
+	execProbe := makeStartupExecProbe(userProbe, cfg.Deployment.ProgressDeadline)
 	userProbeJSON, err := readiness.EncodeProbe(userProbe)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize readiness probe: %w", err)
