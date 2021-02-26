@@ -48,7 +48,7 @@ func TestComputeDecayMultiplier(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(fmt.Sprint("nb=", tc.numBuckets), func(t *testing.T) {
-			if got, want := computeDecayMultiplier(tc.numBuckets), tc.want; math.Abs(got-want) > weightPrecision {
+			if got, want := computeSmoothingCoeff(tc.numBuckets), tc.want; math.Abs(got-want) > weightPrecision {
 				t.Errorf("Decay multiplier = %v, want: %v", got, want)
 			}
 		})
@@ -201,23 +201,23 @@ func TestTimedFloat64BucketsManyRepsWithNonMonotonicalOrder(t *testing.T) {
 
 func TestTimedFloat64BucketsWeightedAverage(t *testing.T) {
 	now := time.Now()
-	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
+	buckets := NewWeightedFloat64Buckets(5*time.Second, granularity)
 
 	buckets.Record(now, 2)
-	want := 2 * buckets.decayMultiplier // 2*dm = dm.
-	if got, want := buckets.WeightedAverage(now), want; got != want {
+	want := 2 * buckets.smoothingCoeff // 2*dm = dm.
+	if got, want := buckets.WindowAverage(now), want; got != want {
 		t.Errorf("WeightedAverage = %v, want: %v", got, want)
 	}
 
 	// Let's read one second in future, but no writes.
-	want *= (1 - buckets.decayMultiplier)
-	if got, want := buckets.WeightedAverage(now.Add(time.Second)), want; got != want {
+	want *= (1 - buckets.smoothingCoeff)
+	if got, want := buckets.WindowAverage(now.Add(time.Second)), want; got != want {
 		t.Errorf("WeightedAverage = %v, want: %v", got, want)
 	}
 	// Record some more data.
 	buckets.Record(now.Add(time.Second), 2)
-	want += 2 * buckets.decayMultiplier
-	if got, want := buckets.WeightedAverage(now.Add(time.Second)), want; got != want {
+	want += 2 * buckets.smoothingCoeff
+	if got, want := buckets.WindowAverage(now.Add(time.Second)), want; got != want {
 		t.Errorf("WeightedAverage = %v, want: %v", got, want)
 	}
 
@@ -226,18 +226,18 @@ func TestTimedFloat64BucketsWeightedAverage(t *testing.T) {
 		buckets.Record(now.Add(time.Duration(2+i)*time.Second), float64(i+2))
 	}
 	// Manually compute wanted average.
-	m := buckets.decayMultiplier
+	m := buckets.smoothingCoeff
 	want = 6*m +
 		5*m*(1-m) +
 		4*m*(1-m)*(1-m) +
 		3*m*(1-m)*(1-m)*(1-m) +
 		2*m*(1-m)*(1-m)*(1-m)*(1-m)
-	if got, want := buckets.WeightedAverage(now.Add(6*time.Second)), want; got != want {
+	if got, want := buckets.WindowAverage(now.Add(6*time.Second)), want; got != want {
 		t.Errorf("WeightedAverage = %v, want: %v", got, want)
 	}
 
 	// Read from an empty window.
-	if got, want := buckets.WeightedAverage(now.Add(16*time.Second)), 0.; got != want {
+	if got, want := buckets.WindowAverage(now.Add(16*time.Second)), 0.; got != want {
 		t.Errorf("WeightedAverage = %v, want: %v", got, want)
 	}
 }
@@ -375,13 +375,54 @@ func TestTimedFloat64BucketsHoles(t *testing.T) {
 	}
 }
 
+func TestWeightedFloat64BucketsResizeWindow(t *testing.T) {
+	startTime := time.Now()
+	buckets := NewWeightedFloat64Buckets(5*time.Second, granularity)
+
+	if got, want := buckets.smoothingCoeff, computeSmoothingCoeff(5); math.Abs(got-want) > weightPrecision {
+		t.Errorf("DecayMultipler = %v, want: %v", got, want)
+	}
+
+	// Fill the whole bucketing list with rollover.
+	buckets.Record(startTime, 1)
+	buckets.Record(startTime.Add(1*time.Second), 2)
+	buckets.Record(startTime.Add(2*time.Second), 3)
+	buckets.Record(startTime.Add(3*time.Second), 4)
+	buckets.Record(startTime.Add(4*time.Second), 5)
+	buckets.Record(startTime.Add(5*time.Second), 6)
+	now := startTime.Add(5 * time.Second)
+
+	sum := 0.
+	buckets.forEachBucket(now, func(t time.Time, b float64) {
+		sum += b
+	})
+	const wantInitial = 2. + 3 + 4 + 5 + 6
+	if got, want := sum, wantInitial; got != want {
+		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
+	}
+	if got, want := roundToNDigits(3, buckets.WindowAverage(now)), 5.811; /*computed a mano*/ got != want {
+		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
+	}
+
+	// Increase window. Most of the heavy lifting is delegated to regular buckets
+	// so just do a cursory check.
+	buckets.ResizeWindow(10 * time.Second)
+	if got, want := len(buckets.buckets), 10; got != want {
+		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
+	}
+	if got, want := buckets.window, 10*time.Second; got != want {
+		t.Fatalf("Resized bucket windows = %v, want: %v", got, want)
+	}
+
+	// And this is the main logic that was added in this type.
+	if got, want := buckets.smoothingCoeff, computeSmoothingCoeff(10); math.Abs(got-want) > weightPrecision {
+		t.Errorf("DecayMultipler = %v, want: %v", got, want)
+	}
+}
+
 func TestTimedFloat64BucketsResizeWindow(t *testing.T) {
 	startTime := time.Now()
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
-
-	if got, want := buckets.decayMultiplier, computeDecayMultiplier(5); math.Abs(got-want) > weightPrecision {
-		t.Errorf("DecayMultipler = %v, want: %v", got, want)
-	}
 
 	// Fill the whole bucketing list with rollover.
 	buckets.Record(startTime, 1)
@@ -411,9 +452,6 @@ func TestTimedFloat64BucketsResizeWindow(t *testing.T) {
 	}
 	if got, want := buckets.window, 10*time.Second; got != want {
 		t.Fatalf("Resized bucket windows = %v, want: %v", got, want)
-	}
-	if got, want := buckets.decayMultiplier, computeDecayMultiplier(10); math.Abs(got-want) > weightPrecision {
-		t.Errorf("DecayMultipler = %v, want: %v", got, want)
 	}
 
 	// Verify values were properly copied.
