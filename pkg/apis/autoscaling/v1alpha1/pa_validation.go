@@ -26,7 +26,7 @@ import (
 
 // Validate implements apis.Validatable interface.
 func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
-	return serving.ValidateObjectMetadata(ctx, pa.GetObjectMeta()).ViaField("metadata").
+	return serving.ValidateObjectMetadata(ctx, pa.GetObjectMeta(), true).ViaField("metadata").
 		Also(pa.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 }
 

@@ -35,10 +35,11 @@ import (
 
 func TestValidateObjectMetadata(t *testing.T) {
 	cases := []struct {
-		name       string
-		objectMeta metav1.Object
-		ctx        context.Context
-		expectErr  *apis.FieldError
+		name             string
+		objectMeta       metav1.Object
+		allowAutoscaling bool
+		ctx              context.Context
+		expectErr        *apis.FieldError
 	}{{
 		name: "invalid name - dots",
 		objectMeta: &metav1.ObjectMeta{
@@ -150,8 +151,9 @@ func TestValidateObjectMetadata(t *testing.T) {
 			},
 		},
 	}, {
-		name: "revision initial scale not parseable",
-		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
+		name:             "revision initial scale not parseable",
+		ctx:              config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
+		allowAutoscaling: true,
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
@@ -160,8 +162,9 @@ func TestValidateObjectMetadata(t *testing.T) {
 		},
 		expectErr: apis.ErrInvalidValue("invalid", "annotations."+autoscaling.InitialScaleAnnotationKey),
 	}, {
-		name: "negative revision initial scale",
-		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
+		name:             "negative revision initial scale",
+		ctx:              config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
+		allowAutoscaling: true,
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
@@ -170,8 +173,9 @@ func TestValidateObjectMetadata(t *testing.T) {
 		},
 		expectErr: apis.ErrInvalidValue("-2", "annotations."+autoscaling.InitialScaleAnnotationKey),
 	}, {
-		name: "cluster allows zero revision initial scale",
-		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
+		name:             "cluster allows zero revision initial scale",
+		ctx:              config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
+		allowAutoscaling: true,
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
@@ -179,7 +183,8 @@ func TestValidateObjectMetadata(t *testing.T) {
 			},
 		},
 	}, {
-		name: "cluster does not allows zero revision initial scale",
+		name:             "cluster does not allow zero revision initial scale",
+		allowAutoscaling: true,
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
@@ -187,6 +192,16 @@ func TestValidateObjectMetadata(t *testing.T) {
 			},
 		},
 		expectErr: apis.ErrInvalidValue("0", "annotations."+autoscaling.InitialScaleAnnotationKey),
+	}, {
+		name:             "autoscaling annotations on a resource that doesn't allow them",
+		allowAutoscaling: false,
+		objectMeta: &metav1.ObjectMeta{
+			GenerateName: "some-name",
+			Annotations: map[string]string{
+				autoscaling.InitialScaleAnnotationKey: "0",
+			},
+		},
+		expectErr: apis.ErrInvalidKeyName(autoscaling.InitialScaleAnnotationKey, "annotations", `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`),
 	}}
 
 	for _, c := range cases {
@@ -194,7 +209,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 			if c.ctx == nil {
 				c.ctx = config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: false}})
 			}
-			err := ValidateObjectMetadata(c.ctx, c.objectMeta)
+			err := ValidateObjectMetadata(c.ctx, c.objectMeta, c.allowAutoscaling)
 			if got, want := err.Error(), c.expectErr.Error(); got != want {
 				t.Errorf("\nGot:  %q\nwant: %q", got, want)
 			}

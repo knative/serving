@@ -30,12 +30,21 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 )
 
-// ValidateObjectMetadata validates that `metadata` stanza of the
+// ValidateObjectMetadata validates that the `metadata` stanza of the
 // resources is correct.
-func ValidateObjectMetadata(ctx context.Context, meta metav1.Object) *apis.FieldError {
-	return apis.ValidateObjectMetadata(meta).
-		Also(autoscaling.ValidateAnnotations(ctx, config.FromContextOrDefaults(ctx).Autoscaler, meta.GetAnnotations()).
-			ViaField("annotations"))
+// If `allowAutoscalingAnnotations` is true autoscaling annotations, if
+// present, are validated. If `allowAutoscalingAnnotations` is false
+// autoscaling annotations are validated not to be present.
+func ValidateObjectMetadata(ctx context.Context, meta metav1.Object, allowAutoscalingAnnotations bool) *apis.FieldError {
+	errs := apis.ValidateObjectMetadata(meta)
+
+	if allowAutoscalingAnnotations {
+		errs = errs.Also(autoscaling.ValidateAnnotations(ctx, config.FromContextOrDefaults(ctx).Autoscaler, meta.GetAnnotations()).ViaField("annotations"))
+	} else {
+		errs = errs.Also(ValidateHasNoAutoscalingAnnotation(meta.GetAnnotations()).ViaField("annotations"))
+	}
+
+	return errs
 }
 
 // ValidateRolloutDurationAnnotation validates the rollout duration annotation.

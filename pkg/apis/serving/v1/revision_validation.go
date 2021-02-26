@@ -32,7 +32,7 @@ import (
 
 // Validate ensures Revision is properly configured.
 func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta()).Also(
+	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta(), true).Also(
 		r.ValidateLabels().ViaField("labels")).ViaField("metadata")
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 
