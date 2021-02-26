@@ -62,11 +62,11 @@ type (
 	WeightedFloat64Buckets struct {
 		*TimedFloat64Buckets
 
-		// decayMultiplier contains the speed with which the importance
+		// smoothingCoeff contains the speed with which the importance
 		// of items in the past decays. The larger the faster weights decay.
 		// It is autocomputed from window size and weightPrecision constant
 		// and is bounded by minExponent below.
-		decayMultiplier float64
+		smoothingCoeff float64
 	}
 )
 
@@ -110,7 +110,7 @@ func NewWeightedFloat64Buckets(window, granularity time.Duration) *WeightedFloat
 	nb := math.Ceil(float64(window) / float64(granularity))
 	return &WeightedFloat64Buckets{
 		TimedFloat64Buckets: NewTimedFloat64Buckets(window, granularity),
-		decayMultiplier:     computeDecayMultiplier(nb),
+		smoothingCoeff:     computeDecayMultiplier(nb),
 	}
 }
 
@@ -160,13 +160,13 @@ func (t *WeightedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	totalB := len(t.buckets)
 	numB := len(t.buckets)
 
-	multiplier := t.decayMultiplier
+	multiplier := t.smoothingCoeff
 	// We start with 0es. But we know that we have _some_ data because
 	// IsEmpty returned false.
 	if now.After(t.lastWrite) {
 		numZ := now.Sub(t.lastWrite) / t.granularity
 		// Skip to this multiplier directly: m*(1-m)^(nz-1).
-		multiplier = multiplier * math.Pow(1-t.decayMultiplier, float64(numZ))
+		multiplier = multiplier * math.Pow(1-t.smoothingCoeff, float64(numZ))
 		// Reduce effective number of buckets.
 		numB -= int(numZ)
 	}
@@ -176,7 +176,7 @@ func (t *WeightedFloat64Buckets) WindowAverage(now time.Time) float64 {
 		effectiveIdx := (startIdx - i) % totalB
 		v := t.buckets[effectiveIdx] * multiplier
 		ret += v
-		multiplier *= (1 - t.decayMultiplier)
+		multiplier *= (1 - t.smoothingCoeff)
 		// TODO(vagababov): bail out if sm > weightPrecision?
 	}
 	return ret
@@ -306,7 +306,7 @@ func min(a, b int) int {
 // ResizeWindow implements window resizing for the weighted averaging buckets object.
 func (t *WeightedFloat64Buckets) ResizeWindow(w time.Duration) {
 	t.TimedFloat64Buckets.ResizeWindow(w)
-	t.decayMultiplier = computeDecayMultiplier(math.Ceil(float64(w) / float64(t.granularity)))
+	t.smoothingCoeff = computeDecayMultiplier(math.Ceil(float64(w) / float64(t.granularity)))
 }
 
 // ResizeWindow resizes the window. This is an O(N) operation,

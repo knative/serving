@@ -218,8 +218,8 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 }
 
 type (
-	// buckets is the client side abstraction for various bucket types.
-	buckets interface {
+	// windowAverager is the client side abstraction for various bucket types.
+	windowAverager interface {
 		Record(time.Time, float64)
 		ResizeWindow(time.Duration)
 		WindowAverage(time.Time) float64
@@ -234,10 +234,10 @@ type (
 		metric *autoscalingv1alpha1.Metric
 
 		// Fields relevant to metric collection in general.
-		concurrencyBuckets      buckets
-		concurrencyPanicBuckets buckets
-		rpsBuckets              buckets
-		rpsPanicBuckets         buckets
+		concurrencyBuckets      windowAverager
+		concurrencyPanicBuckets windowAverager
+		rpsBuckets              windowAverager
+		rpsPanicBuckets         windowAverager
 
 		// Fields relevant for metric scraping specifically.
 		scraper StatsScraper
@@ -266,11 +266,11 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 	// Pick the constructor to use to build the buckets.
 	// NB: this relies on the fact that aggregation algorithm is set on annotation of revision
 	// and as such is immutable.
-	bucketCtor := func(w time.Duration, g time.Duration) buckets {
+	bucketCtor := func(w time.Duration, g time.Duration) windowAverager {
 		return aggregation.NewTimedFloat64Buckets(w, g)
 	}
 	if metric.Annotations[autoscaling.MetricAggregationAlgorithmKey] == autoscaling.MetricAggregationAlgorithmWeightedExponential {
-		bucketCtor = func(w time.Duration, g time.Duration) buckets {
+		bucketCtor = func(w time.Duration, g time.Duration) windowAverager {
 			return aggregation.NewWeightedFloat64Buckets(w, g)
 		}
 	}

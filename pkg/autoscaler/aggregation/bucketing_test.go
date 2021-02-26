@@ -204,19 +204,19 @@ func TestTimedFloat64BucketsWeightedAverage(t *testing.T) {
 	buckets := NewWeightedFloat64Buckets(5*time.Second, granularity)
 
 	buckets.Record(now, 2)
-	want := 2 * buckets.decayMultiplier // 2*dm = dm.
+	want := 2 * buckets.smoothingCoeff // 2*dm = dm.
 	if got, want := buckets.WindowAverage(now), want; got != want {
 		t.Errorf("WeightedAverage = %v, want: %v", got, want)
 	}
 
 	// Let's read one second in future, but no writes.
-	want *= (1 - buckets.decayMultiplier)
+	want *= (1 - buckets.smoothingCoeff)
 	if got, want := buckets.WindowAverage(now.Add(time.Second)), want; got != want {
 		t.Errorf("WeightedAverage = %v, want: %v", got, want)
 	}
 	// Record some more data.
 	buckets.Record(now.Add(time.Second), 2)
-	want += 2 * buckets.decayMultiplier
+	want += 2 * buckets.smoothingCoeff
 	if got, want := buckets.WindowAverage(now.Add(time.Second)), want; got != want {
 		t.Errorf("WeightedAverage = %v, want: %v", got, want)
 	}
@@ -226,7 +226,7 @@ func TestTimedFloat64BucketsWeightedAverage(t *testing.T) {
 		buckets.Record(now.Add(time.Duration(2+i)*time.Second), float64(i+2))
 	}
 	// Manually compute wanted average.
-	m := buckets.decayMultiplier
+	m := buckets.smoothingCoeff
 	want = 6*m +
 		5*m*(1-m) +
 		4*m*(1-m)*(1-m) +
@@ -379,7 +379,7 @@ func TestWeightedFloat64BucketsResizeWindow(t *testing.T) {
 	startTime := time.Now()
 	buckets := NewWeightedFloat64Buckets(5*time.Second, granularity)
 
-	if got, want := buckets.decayMultiplier, computeDecayMultiplier(5); math.Abs(got-want) > weightPrecision {
+	if got, want := buckets.smoothingCoeff, computeDecayMultiplier(5); math.Abs(got-want) > weightPrecision {
 		t.Errorf("DecayMultipler = %v, want: %v", got, want)
 	}
 
@@ -415,7 +415,7 @@ func TestWeightedFloat64BucketsResizeWindow(t *testing.T) {
 	}
 
 	// And this is the main logic that was added in this type.
-	if got, want := buckets.decayMultiplier, computeDecayMultiplier(10); math.Abs(got-want) > weightPrecision {
+	if got, want := buckets.smoothingCoeff, computeDecayMultiplier(10); math.Abs(got-want) > weightPrecision {
 		t.Errorf("DecayMultipler = %v, want: %v", got, want)
 	}
 }
