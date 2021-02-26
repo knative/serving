@@ -185,7 +185,7 @@ func makeStartupExecProbe(in *corev1.Probe, progressDeadline time.Duration) *cor
 				// and restarted if it fails. We use the ProgressDeadline as the timeout
 				// to match the time we'll wait before killing the revision if it
 				// fails to go ready on initial deployment.
-				Command: []string{"/ko-app/queue", "-probe-period", progressDeadline.String()},
+				Command: []string{"/ko-app/queue", "-probe-timeout", progressDeadline.String()},
 			},
 		},
 		// The exec probe itself retries aggressively so there's no point retrying via Kubernetes too.

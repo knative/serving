@@ -80,7 +80,7 @@ var (
 		StartupProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-period", "1h34m38s"},
+					Command: []string{"/ko-app/queue", "-probe-timeout", "1h34m38s"},
 				},
 			},
 			PeriodSeconds:    1,

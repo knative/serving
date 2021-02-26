@@ -60,7 +60,7 @@ const (
 )
 
 var (
-	startupProbeTimeout = flag.Duration("probe-period", -1, "run startup probe with given timeout")
+	startupProbeTimeout = flag.Duration("probe-timeout", -1, "run startup probe with given timeout")
 
 	// This creates an abstract socket instead of an actual file.
 	unixSocketPath = "@/knative.dev/serving/queue.sock"
