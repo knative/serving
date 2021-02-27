@@ -51,6 +51,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecSecurityContext:  Disabled,
 		PodSpecTolerations:      Disabled,
 		TagHeaderBasedRouting:   Disabled,
+		AutoDetectHTTP2:         Disabled,
 	}
 }
 
@@ -68,7 +69,8 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-runtimeclassname", &nc.PodSpecRuntimeClassName),
 		asFlag("kubernetes.podspec-securitycontext", &nc.PodSpecSecurityContext),
 		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
-		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting)); err != nil {
+		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
+		asFlag("autodetect-http2", &nc.AutoDetectHTTP2)); err != nil {
 		return nil, err
 	}
 	return nc, nil
@@ -91,6 +93,7 @@ type Features struct {
 	PodSpecSecurityContext  Flag
 	PodSpecTolerations      Flag
 	TagHeaderBasedRouting   Flag
+	AutoDetectHTTP2         Flag
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.

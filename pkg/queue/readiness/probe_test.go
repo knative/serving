@@ -18,6 +18,7 @@ package readiness
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -50,7 +51,7 @@ func TestNewProbe(t *testing.T) {
 		},
 	}
 
-	p := NewProbe(v1p)
+	p := NewProbe(context.Background(), v1p)
 
 	if diff := cmp.Diff(p.Probe, v1p); diff != "" {
 		t.Error("NewProbe (-want, +got) =", diff)
@@ -62,7 +63,7 @@ func TestNewProbe(t *testing.T) {
 }
 
 func TestTCPFailure(t *testing.T) {
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
@@ -81,7 +82,7 @@ func TestTCPFailure(t *testing.T) {
 }
 
 func TestAggressiveFailureOnlyLogsOnce(t *testing.T) {
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    0, // Aggressive probe.
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
@@ -120,7 +121,7 @@ func TestAggressiveFailureNotLoggedOnSuccess(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    0, // Aggressive probe.
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
@@ -144,7 +145,7 @@ func TestAggressiveFailureNotLoggedOnSuccess(t *testing.T) {
 }
 
 func TestEmptyHandler(t *testing.T) {
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
@@ -158,7 +159,7 @@ func TestEmptyHandler(t *testing.T) {
 }
 
 func TestExecHandler(t *testing.T) {
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
@@ -179,7 +180,7 @@ func TestTCPSuccess(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
@@ -198,7 +199,7 @@ func TestTCPSuccess(t *testing.T) {
 }
 
 func TestHTTPFailureToConnect(t *testing.T) {
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
@@ -222,7 +223,7 @@ func TestHTTPBadResponse(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 	})
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   5,
 		SuccessThreshold: 1,
@@ -246,7 +247,7 @@ func TestHTTPSuccess(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   5,
 		SuccessThreshold: 1,
@@ -274,7 +275,7 @@ func TestHTTPManyParallel(t *testing.T) {
 		}
 	})
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   5,
 		SuccessThreshold: 1,
@@ -320,7 +321,7 @@ func TestHTTPTimeout(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
@@ -345,7 +346,7 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
@@ -375,7 +376,7 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -403,7 +404,7 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: threshold,
@@ -440,7 +441,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: threshold,
@@ -477,7 +478,7 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -507,7 +508,7 @@ func TestKnTCPProbeSuccess(t *testing.T) {
 	defer listener.Close()
 	addr := listener.Addr().(*net.TCPAddr)
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -526,7 +527,7 @@ func TestKnTCPProbeSuccess(t *testing.T) {
 }
 
 func TestKnUnimplementedProbe(t *testing.T) {
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -540,7 +541,7 @@ func TestKnUnimplementedProbe(t *testing.T) {
 }
 
 func TestKnTCPProbeFailure(t *testing.T) {
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -569,7 +570,7 @@ func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 	defer listener.Close()
 	addr := listener.Addr().(*net.TCPAddr)
 
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 3,
@@ -599,7 +600,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	addr := listener.Addr().(*net.TCPAddr)
 
 	var successThreshold int32 = 3
-	pb := NewProbe(&corev1.Probe{
+	pb := NewProbe(context.Background(), &corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: successThreshold,

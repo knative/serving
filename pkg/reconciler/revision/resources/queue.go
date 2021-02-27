@@ -247,8 +247,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	if cfg.Observability.EnableProfiling {
 		ports = append(ports, profilingPort)
 	}
-	// We need to configure only one serving port for the Queue proxy, since
-	// we know the protocol that is being used by this application.
+	// TODO(knative/serving/#4283): Eventually only one port should be needed.
 	servingPort := queueHTTPPort
 	if rev.GetProtocol() == pkgnet.ProtocolH2C {
 		servingPort = queueHTTP2Port

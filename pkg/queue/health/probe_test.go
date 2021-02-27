@@ -17,17 +17,22 @@ limitations under the License.
 package health
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	network "knative.dev/networking/pkg"
+	apicfg "knative.dev/serving/pkg/apis/config"
 )
 
 func TestTCPProbe(t *testing.T) {
@@ -81,8 +86,8 @@ func TestHTTPProbeSuccess(t *testing.T) {
 		HTTPGetAction: action,
 	}
 
-	// Connecting to the server should work.
-	if err := HTTPProbe(config); err != nil {
+	// Connecting to the server should work
+	if err := HTTPProbe(context.Background(), config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
 	}
 	if d := cmp.Diff(gotHeader, expectedHeader); d != "" {
@@ -96,8 +101,99 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	}
 	// Close the server so probing fails afterwards.
 	server.Close()
-	if err := HTTPProbe(config); err == nil {
+	if err := HTTPProbe(context.Background(), config); err == nil {
 		t.Error("Expected probe to fail but it didn't")
+	}
+}
+
+func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
+	ctx := context.Background()
+	cfg := apicfg.FromContextOrDefaults(ctx)
+	cfg.Features.AutoDetectHTTP2 = apicfg.Disabled
+	ctx = apicfg.ToContext(ctx, cfg)
+
+	h2cHeaders := map[string]string{
+		"Connection": "Upgrade, HTTP2-Settings",
+		"Upgrade":    "h2c",
+	}
+	expectedPath := "/health"
+	var callCount int32 = 0
+
+	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		count := atomic.AddInt32(&callCount, 1)
+		if count == 1 {
+			// This is the h2c handshake, we won't do anything.
+			for key, value := range h2cHeaders {
+				if r.Header.Get(key) == value {
+					t.Errorf("Key %v = %v was NOT supposed to be present in the request", key, value)
+				}
+			}
+		} else {
+			t.Errorf("Handler should only have one calls, this is call %d", count)
+		}
+	})
+
+	action := newHTTPGetAction(t, server.URL)
+	action.Path = expectedPath
+
+	config := HTTPProbeConfigOptions{
+		Timeout:       time.Second,
+		HTTPGetAction: action,
+	}
+	if err := HTTPProbe(ctx, config); err != nil {
+		t.Error("Expected probe to succeed but it failed with", err)
+	}
+	if count := atomic.LoadInt32(&callCount); count != 1 {
+		t.Errorf("Unexpected call count %d", count)
+	}
+}
+
+func TestHTTPProbeAutoHTTP2(t *testing.T) {
+	ctx := context.Background()
+	cfg := apicfg.FromContextOrDefaults(ctx)
+	cfg.Features.AutoDetectHTTP2 = apicfg.Enabled
+	ctx = apicfg.ToContext(ctx, cfg)
+
+	h2cHeaders := map[string]string{
+		"Connection": "Upgrade, HTTP2-Settings",
+		"Upgrade":    "h2c",
+	}
+	expectedPath := "/health"
+	var callCount int32 = 0
+
+	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		count := atomic.AddInt32(&callCount, 1)
+		if count == 1 {
+			// This is the h2c handshake, we won't do anything.
+			for key, value := range h2cHeaders {
+				if r.Header.Get(key) != value {
+					t.Errorf("Key %v = %v was supposed to be present in the request", key, value)
+				}
+			}
+		} else if count == 2 {
+			// This is the expected call. It should not have any of the h2c upgrade stuff, since the h2c test server will handle that for us.
+			for key, value := range h2cHeaders {
+				if r.Header.Get(key) == value {
+					t.Errorf("Key %v = %v was NOT supposed to be present in the request", key, value)
+				}
+			}
+		} else {
+			t.Errorf("Handler should only have two calls, this is call %d", count)
+		}
+	})
+
+	action := newHTTPGetAction(t, server.URL)
+	action.Path = expectedPath
+
+	config := HTTPProbeConfigOptions{
+		Timeout:       time.Second,
+		HTTPGetAction: action,
+	}
+	if err := HTTPProbe(ctx, config); err != nil {
+		t.Error("Expected probe to succeed but it failed with", err)
+	}
+	if count := atomic.LoadInt32(&callCount); count != 2 {
+		t.Errorf("Unexpected call count %d", count)
 	}
 }
 
@@ -112,13 +208,13 @@ func TestHTTPSchemeProbeSuccess(t *testing.T) {
 	}
 
 	// Connecting to the server should work
-	if err := HTTPProbe(config); err != nil {
+	if err := HTTPProbe(context.Background(), config); err != nil {
 		t.Error("Expected probe to succeed but failed with error", err)
 	}
 
 	// Close the server so probing fails afterwards
 	server.Close()
-	if err := HTTPProbe(config); err == nil {
+	if err := HTTPProbe(context.Background(), config); err == nil {
 		t.Error("Expected probe to fail but it didn't")
 	}
 }
@@ -137,7 +233,7 @@ func TestHTTPProbeTimeoutFailure(t *testing.T) {
 		Timeout:       1 * time.Millisecond,
 		HTTPGetAction: newHTTPGetAction(t, server.URL),
 	}
-	if err := HTTPProbe(config); err == nil {
+	if err := HTTPProbe(context.Background(), config); err == nil {
 		t.Error("Expected probe to fail but it succeeded")
 	}
 }
@@ -151,7 +247,7 @@ func TestHTTPProbeResponseStatusCodeFailure(t *testing.T) {
 		Timeout:       time.Second,
 		HTTPGetAction: newHTTPGetAction(t, server.URL),
 	}
-	if err := HTTPProbe(config); err == nil {
+	if err := HTTPProbe(context.Background(), config); err == nil {
 		t.Error("Expected probe to fail but it succeeded")
 	}
 }
@@ -160,7 +256,7 @@ func TestHTTPProbeResponseErrorFailure(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		HTTPGetAction: newHTTPGetAction(t, "http://localhost:0"),
 	}
-	if err := HTTPProbe(config); err == nil {
+	if err := HTTPProbe(context.Background(), config); err == nil {
 		t.Error("Expected probe to fail but it succeeded")
 	}
 }
@@ -198,6 +294,17 @@ func TestIsHTTPProbeShuttingDown(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newH2cTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
+	h2s := &http2.Server{}
+	t.Helper()
+	server := httptest.NewServer(h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler(w, r)
+	}), h2s))
+	t.Cleanup(server.Close)
+
+	return server
 }
 
 func newTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
