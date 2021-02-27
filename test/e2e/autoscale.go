@@ -208,6 +208,7 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 		append([]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
 				autoscaling.ClassAnnotationKey:             class,
+				autoscaling.MetricAggregationAlgorithmKey:  autoscaling.MetricAggregationAlgorithmWeightedExponential,
 				autoscaling.MetricAnnotationKey:            metric,
 				autoscaling.TargetAnnotationKey:            strconv.Itoa(target),
 				autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
