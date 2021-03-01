@@ -79,7 +79,7 @@ func NewController(
 
 	// Watch all the services that we have created.
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterControllerGVK(netv1alpha1.SchemeGroupVersion.WithKind("ServerlessService")),
+		FilterFunc: controller.FilterController(&netv1alpha1.ServerlessService{}),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 

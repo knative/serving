@@ -123,7 +123,7 @@ func newControllerWithOptions(
 	})
 
 	handleMatchingControllers := cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterControllerGK(v1.Kind("Revision")),
+		FilterFunc: controller.FilterController(&v1.Revision{}),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	}
 	deploymentInformer.Informer().AddEventHandler(handleMatchingControllers)

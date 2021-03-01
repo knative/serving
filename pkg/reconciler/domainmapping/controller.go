@@ -66,7 +66,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	domainmappingInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	handleControllerOf := cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterControllerGK(v1alpha1.Kind("DomainMapping")),
+		FilterFunc: controller.FilterController(&v1alpha1.DomainMapping{}),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	}
 	certificateInformer.Informer().AddEventHandler(handleControllerOf)
