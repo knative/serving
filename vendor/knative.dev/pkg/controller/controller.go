@@ -152,6 +152,13 @@ func FilterControllerGK(gk schema.GroupKind) func(obj interface{}) bool {
 	}
 }
 
+// FilterController makes it simple to create FilterFunc's for use with
+// cache.FilteringResourceEventHandler that filter based on the
+// controlling resource.
+func FilterController(r kmeta.OwnerRefable) func(obj interface{}) bool {
+	return FilterControllerGK(r.GetGroupVersionKind().GroupKind())
+}
+
 // FilterWithName makes it simple to create FilterFunc's for use with
 // cache.FilteringResourceEventHandler that filter based on a name.
 func FilterWithName(name string) func(obj interface{}) bool {
