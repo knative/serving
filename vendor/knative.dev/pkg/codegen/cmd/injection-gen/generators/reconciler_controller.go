@@ -271,6 +271,9 @@ func NewImpl(ctx {{.contextContext|raw}}, r Interface{{if .hasClass}}, classValu
 			rec.skipStatusUpdates = true
 		}
 		{{- end}}
+		if opts.DemoteFunc != nil {
+			rec.DemoteFunc = opts.DemoteFunc
+		}
 	}
 
 	rec.Recorder = createRecorder(ctx, agentName)
