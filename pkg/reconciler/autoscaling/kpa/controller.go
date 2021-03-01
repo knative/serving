@@ -107,7 +107,7 @@ func NewController(
 		},
 	})
 
-	onlyPAControlled := controller.FilterControllerGVK(autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"))
+	onlyPAControlled := controller.FilterController(&autoscalingv1alpha1.PodAutoscaler{})
 	handleMatchingControllers := cache.FilteringResourceEventHandler{
 		FilterFunc: pkgreconciler.ChainFilterFuncs(onlyKPAClass, onlyPAControlled),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
