@@ -18,7 +18,6 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.17.17
         - v1.18.15
         - v1.19.7
         - v1.20.2
@@ -33,11 +32,6 @@ jobs:
           # Map between K8s and KinD versions.
           # This is attempting to make it a bit clearer what's being tested.
           # See: https://github.com/kubernetes-sigs/kind/releases/tag/v0.9.0
-        - k8s-version: v1.17.17
-          kind-version: v0.10.0
-          kind-image-sha: sha256:7b6369d27eee99c7a85c48ffd60e11412dc3f373658bc59b7f4d530b7056823e
-          kingress: istio
-          cluster-suffix: c${{ github.run_id }}.local
         - k8s-version: v1.18.15
           kind-version: v0.10.0
           kind-image-sha: sha256:5c1b980c4d0e0e8e7eb9f36f7df525d079a96169c8a8f20d8bd108c0d0889cc4
@@ -46,7 +40,7 @@ jobs:
         - k8s-version: v1.19.7
           kind-version: v0.10.0
           kind-image-sha: sha256:a70639454e97a4b733f9d9b67e12c01f6b0297449d5b9cbbef87473458e26dca
-          kingress: contour
+          kingress: istio
           cluster-suffix: c${{ github.run_id }}.local
         - k8s-version: v1.20.2
           kind-version: v0.10.0

@@ -51,7 +51,7 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 			// This polls until we get a 200 with the right body.
 			assertServiceResourcesUpdated(c.T, clients, *names, url, test.PizzaPlanetText1)
 
-			prober = test.RunRouteProber(c.T.Logf, clients, url, test.AddRootCAtoTransport(context.Background(), c.T.Logf, clients, test.ServingFlags.HTTPS))
+			prober = test.RunRouteProber(c.Log.Infof, clients, url, test.AddRootCAtoTransport(context.Background(), c.T.Logf, clients, test.ServingFlags.HTTPS))
 		},
 		func(c pkgupgrade.Context) {
 			// Verify

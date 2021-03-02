@@ -65,7 +65,7 @@ func NewController(
 	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	handleControllerOf := cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterControllerGK(v1.Kind("Service")),
+		FilterFunc: controller.FilterController(&v1.Service{}),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	}
 	configurationInformer.Informer().AddEventHandler(handleControllerOf)

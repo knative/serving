@@ -111,6 +111,9 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 		if opts.SkipStatusUpdates {
 			rec.skipStatusUpdates = true
 		}
+		if opts.DemoteFunc != nil {
+			rec.DemoteFunc = opts.DemoteFunc
+		}
 	}
 
 	rec.Recorder = createRecorder(ctx, agentName)
