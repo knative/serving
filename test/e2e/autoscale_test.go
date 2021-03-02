@@ -38,6 +38,7 @@ import (
 )
 
 func TestAutoscaleUpDownUp(t *testing.T) {
+	t.Parallel()
 	for _, algo := range []string{
 		autoscaling.MetricAggregationAlgorithmLinear,
 		autoscaling.MetricAggregationAlgorithmWeightedExponential,
