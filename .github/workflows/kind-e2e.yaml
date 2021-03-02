@@ -192,6 +192,10 @@ jobs:
         # Be KinD to these tests.
         kubectl scale -nknative-serving deployment/chaosduck --replicas=0
 
+        # Setting deadline progress to a shorter value.
+        kubectl patch cm "config-deployment" -n "${SYSTEM_NAMESPACE}" \
+          -p '{"data":{"progressDeadline":"120s"}}'
+
     - name: Install Alpha Components
       if: contains(matrix.test-flags, '--enable-alpha')
       env:

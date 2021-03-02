@@ -17,6 +17,8 @@ limitations under the License.
 package installation
 
 import (
+	"os"
+
 	"knative.dev/hack/shell"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 )
@@ -47,6 +49,7 @@ func callShellFunction(funcName string) error {
 	}
 	exec := shell.NewExecutor(shell.ExecutorConfig{
 		ProjectLocation: loc,
+		Environ:         os.Environ(),
 	})
 	fn := shell.Function{
 		Script: shell.Script{
