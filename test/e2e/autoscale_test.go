@@ -39,17 +39,25 @@ import (
 
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
+	for _, algo := range []string{
+		autoscaling.MetricAggregationAlgorithmLinear,
+		autoscaling.MetricAggregationAlgorithmWeightedExponential,
+	} {
+		t.Run("aggregation-"+algo, func(t *testing.T) {
 
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
-		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.MetricAggregationAlgorithmKey: autoscaling.MetricAggregationAlgorithmWeightedExponential,
-		}))
-	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
+			ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+				rtesting.WithConfigAnnotations(map[string]string{
+					autoscaling.MetricAggregationAlgorithmKey: autoscaling.MetricAggregationAlgorithmWeightedExponential,
+				}))
+			test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
-	AssertAutoscaleUpToNumPods(ctx, 1, 2, time.After(60*time.Second), true /* quick */)
-	assertScaleDown(ctx)
-	AssertAutoscaleUpToNumPods(ctx, 0, 2, time.After(60*time.Second), true /* quick */)
+			AssertAutoscaleUpToNumPods(ctx, 1, 2, time.After(60*time.Second), true /* quick */)
+			assertScaleDown(ctx)
+			AssertAutoscaleUpToNumPods(ctx, 0, 2, time.After(60*time.Second), true /* quick */)
+		})
+	}
 }
+
 func TestAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
 	runAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.Concurrency)
@@ -87,18 +95,25 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
-	// When traffic increases, a knative app should scale up and sustain the scale
-	// as long as the traffic sustains, despite whether it is switching modes between
-	// normal and panic.
-	t.Parallel()
+	for _, algo := range []string{
+		autoscaling.MetricAggregationAlgorithmLinear,
+		autoscaling.MetricAggregationAlgorithmWeightedExponential,
+	} {
+		t.Run("aggregation-"+algo, func(t *testing.T) {
+			// When traffic increases, a knative app should scale up and sustain the scale
+			// as long as the traffic sustains, despite whether it is switching modes between
+			// normal and panic.
+			t.Parallel()
 
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
-		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.MetricAggregationAlgorithmKey: autoscaling.MetricAggregationAlgorithmWeightedExponential,
-		}))
-	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
+			ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+				rtesting.WithConfigAnnotations(map[string]string{
+					autoscaling.MetricAggregationAlgorithmKey: autoscaling.MetricAggregationAlgorithmWeightedExponential,
+				}))
+			test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
-	AssertAutoscaleUpToNumPods(ctx, 1, 10, time.After(2*time.Minute), false /* quick */)
+			AssertAutoscaleUpToNumPods(ctx, 1, 10, time.After(2*time.Minute), false /* quick */)
+		})
+	}
 }
 
 func TestTargetBurstCapacity(t *testing.T) {
