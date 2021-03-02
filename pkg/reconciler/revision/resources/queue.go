@@ -181,18 +181,15 @@ func makeStartupExecProbe(in *corev1.Probe, progressDeadline time.Duration) *cor
 	out := &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
+				// The exec probe is run as a startup probe so the container will be killed
+				// and restarted if it fails. We use the ProgressDeadline as the timeout
+				// to match the time we'll wait before killing the revision if it
+				// fails to go ready on initial deployment.
 				Command: []string{"/ko-app/queue", "-probe-period", progressDeadline.String()},
 			},
 		},
-		// We keep the connection open for a while because we're actively probing
-		// the user-container on that endpoint and thus don't want to be limited
-		// by K8s granularity here.
-		// The exec probe is run as a startup probe so the container will be killed
-		// and restarted if it fails. We use the ProgressDeadline as the timeout
-		// here to match the time we'll wait before killing the revision if it
-		// fails to go ready on initial deployment.
-		TimeoutSeconds: int32(progressDeadline.Seconds()),
-		// The probe itself retries aggressively so there's no point retrying here too.
+		// The exec probe itself retries aggressively so there's no point retrying via Kubernetes too.
+		TimeoutSeconds:   int32(progressDeadline.Seconds()),
 		FailureThreshold: 1,
 		SuccessThreshold: 1,
 		PeriodSeconds:    1,
