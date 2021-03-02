@@ -193,7 +193,7 @@ jobs:
         kubectl scale -nknative-serving deployment/chaosduck --replicas=0
 
         # Setting deadline progress to a shorter value.
-        kubectl patch cm "config-deployment" -n "${SYSTEM_NAMESPACE}" \
+        kubectl patch cm "config-deployment" -n knative-serving \
           -p '{"data":{"progressDeadline":"120s"}}'
 
     - name: Install Alpha Components
