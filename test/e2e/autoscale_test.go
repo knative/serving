@@ -40,7 +40,10 @@ import (
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
 
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.MetricAggregationAlgorithmKey: autoscaling.MetricAggregationAlgorithmWeightedExponential,
+		}))
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
 	AssertAutoscaleUpToNumPods(ctx, 1, 2, time.After(60*time.Second), true /* quick */)
@@ -89,7 +92,10 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// normal and panic.
 	t.Parallel()
 
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.MetricAggregationAlgorithmKey: autoscaling.MetricAggregationAlgorithmWeightedExponential,
+		}))
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
 	AssertAutoscaleUpToNumPods(ctx, 1, 10, time.After(2*time.Minute), false /* quick */)
