@@ -38,13 +38,12 @@ import (
 )
 
 func TestAutoscaleUpDownUp(t *testing.T) {
-	t.Parallel()
 	for _, algo := range []string{
 		autoscaling.MetricAggregationAlgorithmLinear,
 		autoscaling.MetricAggregationAlgorithmWeightedExponential,
 	} {
 		t.Run("aggregation-"+algo, func(t *testing.T) {
-
+			t.Parallel()
 			ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.MetricAggregationAlgorithmKey: autoscaling.MetricAggregationAlgorithmWeightedExponential,
