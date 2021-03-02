@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap/zapcore"
@@ -71,12 +72,14 @@ var (
 		InitialScale:          1,
 		AllowZeroInitialScale: false,
 	}
-	deploymentConfig deployment.Config
-	logConfig        logging.Config
-	obsConfig        metrics.ObservabilityConfig
-	traceConfig      tracingconfig.Config
-	defaults, _      = apicfg.NewDefaultsConfigFromMap(nil)
-	revCfg           = config.Config{
+	deploymentConfig = deployment.Config{
+		ProgressDeadline: 5678 * time.Second,
+	}
+	logConfig   logging.Config
+	obsConfig   metrics.ObservabilityConfig
+	traceConfig tracingconfig.Config
+	defaults, _ = apicfg.NewDefaultsConfigFromMap(nil)
+	revCfg      = config.Config{
 		Config: &apicfg.Config{
 			Autoscaler: &asConfig,
 			Defaults:   defaults,
@@ -102,6 +105,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		want corev1.Container
 	}{{
 		name: "autoscaler single",
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
 		rev: revision("bar", "foo",
 			withContainers(containers),
 			withContainerConcurrency(1)),
@@ -122,11 +128,13 @@ func TestMakeQueueContainer(t *testing.T) {
 				}},
 			}})),
 		dc: deployment.Config{
+			ProgressDeadline:  5678 * time.Second,
 			QueueSidecarImage: "alpine",
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Image = "alpine"
 			c.Ports = append(queueNonServingPorts, queueHTTP2Port)
+			c.ReadinessProbe.Handler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
 			c.Env = env(map[string]string{
 				"USER_PORT":          "1955",
 				"QUEUE_SERVING_PORT": "8013",
@@ -134,6 +142,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		}),
 	}, {
 		name: "service name in labels",
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
 		rev: revision("bar", "foo",
 			withContainers(containers),
 			func(revision *v1.Revision) {
@@ -148,6 +159,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		}),
 	}, {
 		name: "config owner as env var, zero concurrency",
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
 		rev: revision("blah", "baz",
 			withContainers(containers),
 			withContainerConcurrency(0),
@@ -170,6 +184,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		}),
 	}, {
 		name: "logging configuration as env var",
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
 		rev: revision("this", "log",
 			withContainers(containers)),
 		lc: logging.Config{
@@ -188,6 +205,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		}),
 	}, {
 		name: "container concurrency 10",
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
 		rev: revision("bar", "foo",
 			withContainers(containers),
 			withContainerConcurrency(10)),
@@ -200,6 +220,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		name: "request log configuration as env var",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
 		oc: metrics.ObservabilityConfig{
 			RequestLogTemplate:    "test template",
 			EnableProbeRequestLog: true,
@@ -214,6 +237,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		name: "disabled request log configuration as env var",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
 		oc: metrics.ObservabilityConfig{
 			RequestLogTemplate:    "test template",
 			EnableProbeRequestLog: false,
@@ -230,6 +256,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		name: "request metrics backend as env var",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
 		oc: metrics.ObservabilityConfig{
 			RequestMetricsBackend: "prometheus",
 		},
@@ -242,6 +271,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		name: "enable profiling",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
 		oc: metrics.ObservabilityConfig{EnableProfiling: true},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
@@ -251,6 +283,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		}),
 	}, {
 		name: "custom TimeoutSeconds",
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
 		rev: revision("bar", "foo",
 			withContainers(containers),
 			func(revision *v1.Revision) {
@@ -267,6 +302,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		rev: revision("bar", "foo",
 			withContainers(containers)),
 		dc: deployment.Config{
+			ProgressDeadline:       5678 * time.Second,
 			QueueSidecarCPURequest: &deployment.QueueSidecarCPURequestDefault,
 		},
 		want: queueContainer(func(c *corev1.Container) {
@@ -284,6 +320,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			QueueSidecarCPURequest:              resourcePtr(resource.MustParse("123m")),
 			QueueSidecarEphemeralStorageRequest: resourcePtr(resource.MustParse("456M")),
 			QueueSidecarMemoryLimit:             resourcePtr(resource.MustParse("789m")),
+			ProgressDeadline:                    5678 * time.Second,
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
@@ -302,6 +339,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		oc: metrics.ObservabilityConfig{
 			RequestMetricsBackend:   "opencensus",
 			MetricsCollectorAddress: "otel:55678",
+		},
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
@@ -353,6 +393,9 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		dc   deployment.Config
 	}{{
 		name: "resources percentage in annotations",
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
 		rev: revision("bar", "foo",
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
@@ -378,6 +421,9 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		}),
 	}, {
 		name: "resources percentage in annotations smaller than min allowed",
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
 		rev: revision("bar", "foo",
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
@@ -420,6 +466,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				}}
 			}),
 		dc: deployment.Config{
+			ProgressDeadline:       5678 * time.Second,
 			QueueSidecarCPURequest: resourcePtr(resource.MustParse("25m")),
 		},
 		want: queueContainer(func(c *corev1.Container) {
@@ -446,6 +493,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				}}
 			}),
 		dc: deployment.Config{
+			ProgressDeadline:       5678 * time.Second,
 			QueueSidecarCPURequest: resourcePtr(resource.MustParse("25m")),
 		},
 		want: queueContainer(func(c *corev1.Container) {
@@ -521,10 +569,15 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		c.Env = env(map[string]string{
 			"SERVING_READINESS_PROBE": string(wantProbeJSON),
 		})
+		c.StartupProbe = nil // User overrode periodSeconds so no exec probe needed.
 		c.ReadinessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
-				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-period", "10s"},
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+					HTTPHeaders: []corev1.HTTPHeader{{
+						Name:  network.ProbeHeaderName,
+						Value: queue.Name,
+					}},
 				},
 			},
 			PeriodSeconds:  1,
@@ -593,11 +646,17 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			"USER_PORT":               strconv.Itoa(userPort),
 			"SERVING_READINESS_PROBE": string(wantProbeJSON),
 		})
+		c.StartupProbe = nil // User overrode periodSeconds so no execprobe needed.
 		c.ReadinessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
-				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-period", "10s"},
-				}},
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+					HTTPHeaders: []corev1.HTTPHeader{{
+						Name:  network.ProbeHeaderName,
+						Value: queue.Name,
+					}},
+				},
+			},
 			PeriodSeconds:  2,
 			TimeoutSeconds: 10,
 		}
@@ -651,14 +710,37 @@ func TestTCPProbeGeneration(t *testing.T) {
 			},
 		},
 		want: queueContainer(func(c *corev1.Container) {
-			c.ReadinessProbe = &corev1.Probe{
+			c.StartupProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
-						Command: []string{"/ko-app/queue", "-probe-period", "0"},
+						Command: []string{"/ko-app/queue", "-probe-period", "1h34m38s"},
 					},
 				},
-				PeriodSeconds:  10,
-				TimeoutSeconds: 10,
+				// StartupProbe overrides the user's parameters because the
+				// actual probing happens inside the execprobe.
+				// The timeout seconds is set to the progress deadline to match the
+				// timeout on initial deployment.
+				TimeoutSeconds:   5678,
+				PeriodSeconds:    1,
+				SuccessThreshold: 1,
+				FailureThreshold: 1,
+			}
+			c.ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+						HTTPHeaders: []corev1.HTTPHeader{{
+							Name:  network.ProbeHeaderName,
+							Value: queue.Name,
+						}},
+					},
+				},
+				// The ReadinessProbe does not override the user's probe parameters.
+				// (The aggressive probing will have happened on startup, now
+				// we can probe at the user-requested/default interval).
+				PeriodSeconds:    0,
+				TimeoutSeconds:   0,
+				SuccessThreshold: 3,
 			}
 			c.Env = env(map[string]string{"USER_PORT": strconv.Itoa(userPort)})
 		}),
@@ -689,14 +771,20 @@ func TestTCPProbeGeneration(t *testing.T) {
 			TimeoutSeconds: 1,
 		},
 		want: queueContainer(func(c *corev1.Container) {
+			c.StartupProbe = nil // User overrode periodSeconds, no exec probe needed.
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
-					Exec: &corev1.ExecAction{
-						Command: []string{"/ko-app/queue", "-probe-period", "1s"},
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+						HTTPHeaders: []corev1.HTTPHeader{{
+							Name:  network.ProbeHeaderName,
+							Value: queue.Name,
+						}},
 					},
 				},
-				PeriodSeconds:  1,
-				TimeoutSeconds: 1,
+				PeriodSeconds: 1,
+				// Inherit Kubernetes default here rather than overriding as we need to do for exec probe.
+				TimeoutSeconds: 0,
 			}
 			c.Env = env(map[string]string{})
 		}),
@@ -737,10 +825,15 @@ func TestTCPProbeGeneration(t *testing.T) {
 			},
 		},
 		want: queueContainer(func(c *corev1.Container) {
+			c.StartupProbe = nil // User overrode periodSeconds, no exec probe needed.
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
-					Exec: &corev1.ExecAction{
-						Command: []string{"/ko-app/queue", "-probe-period", "15s"},
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+						HTTPHeaders: []corev1.HTTPHeader{{
+							Name:  network.ProbeHeaderName,
+							Value: queue.Name,
+						}},
 					},
 				},
 				PeriodSeconds:       2,
