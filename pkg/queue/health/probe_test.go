@@ -22,11 +22,11 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"go.uber.org/atomic"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	corev1 "k8s.io/api/core/v1"
@@ -117,10 +117,10 @@ func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
 		"Upgrade":    "h2c",
 	}
 	expectedPath := "/health"
-	var callCount int32 = 0
 
+	var callCount atomic.Int32
 	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		count := atomic.AddInt32(&callCount, 1)
+		count := callCount.Inc()
 		if count == 1 {
 			// This is the h2c handshake, we won't do anything.
 			for key, value := range h2cHeaders {
@@ -143,7 +143,7 @@ func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
 	if err := HTTPProbe(ctx, config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
 	}
-	if count := atomic.LoadInt32(&callCount); count != 1 {
+	if count := callCount.Load(); count != 1 {
 		t.Errorf("Unexpected call count %d", count)
 	}
 }
@@ -159,10 +159,10 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 		"Upgrade":    "h2c",
 	}
 	expectedPath := "/health"
-	var callCount int32 = 0
+	var callCount atomic.Int32
 
 	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		count := atomic.AddInt32(&callCount, 1)
+		count := callCount.Inc()
 		if count == 1 {
 			// This is the h2c handshake, we won't do anything.
 			for key, value := range h2cHeaders {
@@ -192,7 +192,7 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 	if err := HTTPProbe(ctx, config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
 	}
-	if count := atomic.LoadInt32(&callCount); count != 2 {
+	if count := callCount.Load(); count != 2 {
 		t.Errorf("Unexpected call count %d", count)
 	}
 }
