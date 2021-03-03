@@ -585,7 +585,7 @@ func NewSkipKey(key string) error {
 	return skipKeyError{key: key}
 }
 
-// permanentError is an error that is considered not transient.
+// skipKeyError is an error that indicates a key was skipped.
 // We should not re-queue keys when it returns with thus error in reconcile.
 type skipKeyError struct {
 	key string
