@@ -33,7 +33,6 @@ linters:
 
 linters-settings:
   depguard:
-    list-type: blacklist
     include-go-root: true
     packages:
       - sync/atomic
