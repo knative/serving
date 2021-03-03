@@ -425,6 +425,10 @@ function test_setup() {
     kubectl label namespace serving-tests-alt istio-injection=enabled
   fi
 
+  # Setting deadline progress to a shorter value.
+  kubectl patch cm "config-deployment" -n "${SYSTEM_NAMESPACE}" \
+    -p '{"data":{"progressDeadline":"120s"}}'
+
   echo ">> Uploading test images..."
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
 
