@@ -93,6 +93,11 @@ const (
 	// which DomainMapping triggered their creation.
 	DomainMappingLabelKey = GroupName + "/domainMapping"
 
+	// DomainMappingNamespaceLabelKey is the label key attached to Ingress
+	// resources created by a DomainMapping to indicate which namespace the
+	// DomainMapping was created in.
+	DomainMappingNamespaceLabelKey = GroupName + "/domainMappingNamespace"
+
 	// ConfigurationGenerationLabelKey is the label key attached to a Revision indicating the
 	// metadata generation of the Configuration that created this revision
 	ConfigurationGenerationLabelKey = GroupName + "/configurationGeneration"

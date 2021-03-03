@@ -220,7 +220,8 @@ func TestMakeIngress(t *testing.T) {
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.want.Labels = kmeta.UnionMaps(tc.dm.Labels, map[string]string{
-				serving.DomainMappingLabelKey: tc.dm.Name,
+				serving.DomainMappingLabelKey:          tc.dm.Name,
+				serving.DomainMappingNamespaceLabelKey: tc.dm.Namespace,
 			})
 			tc.want.OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(&tc.dm)}
 			got := *MakeIngress(&tc.dm,
