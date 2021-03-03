@@ -12,6 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Use this aggregated ClusterRole when you need readonly access to "Addressables"
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: addressable-resolver
+  labels:
+    serving.knative.dev/release: devel
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      duck.knative.dev/addressable: "true"
+rules: [] # Rules are automatically filled in by the controller manager.
+---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
