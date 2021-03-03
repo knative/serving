@@ -66,6 +66,8 @@ func newTestThrottler(ctx context.Context) *Throttler {
 }
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
+	t.Parallel()
+
 	logger := TestLogger(t)
 	rt := &revisionThrottler{
 		logger:               logger,
@@ -210,6 +212,7 @@ func makeTrackers(num, cc int) []*podTracker {
 }
 
 func TestThrottlerErrorNoRevision(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	servfake := fakeservingclient.Get(ctx)
 	revisions := fakerevisioninformer.Get(ctx)
@@ -260,6 +263,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 }
 
 func TestThrottlerErrorOneTimesOut(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	servfake := fakeservingclient.Get(ctx)
 	revisions := fakerevisioninformer.Get(ctx)
@@ -318,6 +322,7 @@ func sortedTrackers(trk []*podTracker) bool {
 }
 
 func TestThrottlerSuccesses(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		revision    *v1.Revision
@@ -406,7 +411,10 @@ func TestThrottlerSuccesses(t *testing.T) {
 		requests:  2,
 		wantDests: sets.NewString("129.0.0.1:1234"),
 	}} {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			servfake := fakeservingclient.Get(ctx)
 			fake := fakekubeclient.Get(ctx)
@@ -529,6 +537,7 @@ func trackerDestSet(ts []*podTracker) sets.String {
 }
 
 func TestPodAssignmentFinite(t *testing.T) {
+	t.Parallel()
 	// An e2e verification test of pod assignment and capacity
 	// computations.
 	logger := TestLogger(t)
@@ -585,6 +594,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 }
 
 func TestPodAssignmentInfinite(t *testing.T) {
+	t.Parallel()
 	logger := TestLogger(t)
 	revName := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 
@@ -631,6 +641,7 @@ func TestPodAssignmentInfinite(t *testing.T) {
 }
 
 func TestActivatorsIndexUpdate(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
 	fake := fakekubeclient.Get(ctx)
@@ -727,6 +738,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 }
 
 func TestMultipleActivators(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
 	fake := fakekubeclient.Get(ctx)
@@ -821,6 +833,7 @@ func TestMultipleActivators(t *testing.T) {
 }
 
 func TestInfiniteBreakerCreation(t *testing.T) {
+	t.Parallel()
 	// This test verifies that we use infiniteBreaker when CC==0.
 	tttl := newRevisionThrottler(types.NamespacedName{Namespace: "a", Name: "b"}, 0, /*cc*/
 		pkgnet.ServicePortNameHTTP1, queue.BreakerParams{}, TestLogger(t))
@@ -850,6 +863,7 @@ func (t *Throttler) try(ctx context.Context, requests int, try func(string) erro
 }
 
 func TestInfiniteBreaker(t *testing.T) {
+	t.Parallel()
 	b := &infiniteBreaker{
 		broadcast: make(chan struct{}),
 		logger:    TestLogger(t),
@@ -920,6 +934,7 @@ func TestInfiniteBreaker(t *testing.T) {
 }
 
 func TestInferIndex(t *testing.T) {
+	t.Parallel()
 	const myIP = "10.10.10.3"
 	tests := []struct {
 		label string
@@ -947,7 +962,9 @@ func TestInferIndex(t *testing.T) {
 		2,
 	}}
 	for _, test := range tests {
+		test := test
 		t.Run(test.label, func(t *testing.T) {
+			t.Parallel()
 			if got, want := inferIndex(test.ips, myIP), test.want; got != want {
 				t.Errorf("Index = %d, want: %d", got, want)
 			}
@@ -956,6 +973,7 @@ func TestInferIndex(t *testing.T) {
 }
 
 func TestPickIndices(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		l                   string
 		pods                int
@@ -1051,7 +1069,9 @@ func TestPickIndices(t *testing.T) {
 		wantE: 150,
 	}}
 	for _, test := range tests {
-		t.Run(test.l, func(tt *testing.T) {
+		test := test
+		t.Run(test.l, func(t *testing.T) {
+			t.Parallel()
 			bi, ei, rem := pickIndices(test.pods, test.idx, test.acts)
 			if got, want := bi, test.wantB; got != want {
 				t.Errorf("BeginIndex = %d, want: %d", got, want)
@@ -1067,6 +1087,7 @@ func TestPickIndices(t *testing.T) {
 }
 
 func TestAssignSlice(t *testing.T) {
+	t.Parallel()
 	opt := cmp.Comparer(func(a, b *podTracker) bool {
 		return a.dest == b.dest
 	})
@@ -1079,6 +1100,7 @@ func TestAssignSlice(t *testing.T) {
 		dest: "3",
 	}}
 	t.Run("notrackers", func(t *testing.T) {
+		t.Parallel()
 		got := assignSlice([]*podTracker{}, 0 /*selfIdx*/, 1 /*numAct*/, 42 /*cc*/)
 		if !cmp.Equal(got, []*podTracker{}, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
@@ -1086,6 +1108,7 @@ func TestAssignSlice(t *testing.T) {
 		}
 	})
 	t.Run("idx=1, na=1", func(t *testing.T) {
+		t.Parallel()
 		got := assignSlice(trackers, 1, 1, 1982)
 		if !cmp.Equal(got, trackers, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
@@ -1093,6 +1116,7 @@ func TestAssignSlice(t *testing.T) {
 		}
 	})
 	t.Run("idx=-1", func(t *testing.T) {
+		t.Parallel()
 		got := assignSlice(trackers, -1, 1, 1982)
 		if !cmp.Equal(got, trackers, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
@@ -1100,6 +1124,7 @@ func TestAssignSlice(t *testing.T) {
 		}
 	})
 	t.Run("idx=1", func(t *testing.T) {
+		t.Parallel()
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 3, 1984)
 		if !cmp.Equal(got, trackers[1:2], opt) {
@@ -1108,14 +1133,15 @@ func TestAssignSlice(t *testing.T) {
 		}
 	})
 	t.Run("len=1", func(t *testing.T) {
+		t.Parallel()
 		got := assignSlice(trackers[0:1], 1, 3, 1988)
 		if !cmp.Equal(got, trackers[0:1], opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
 				cmp.Diff(trackers[0:1], got, opt))
 		}
 	})
-
 	t.Run("idx=1, cc=5", func(t *testing.T) {
+		t.Parallel()
 		trackers := []*podTracker{{
 			dest: "1",
 			b:    queue.NewBreaker(testBreakerParams),
@@ -1138,6 +1164,7 @@ func TestAssignSlice(t *testing.T) {
 		}
 	})
 	t.Run("idx=1, cc=6", func(t *testing.T) {
+		t.Parallel()
 		trackers := []*podTracker{{
 			dest: "1",
 			b:    queue.NewBreaker(testBreakerParams),
