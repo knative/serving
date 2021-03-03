@@ -204,10 +204,10 @@ jobs:
       run: |
         ko apply --platform=all -PRf config/domain-mapping
 
-    - name: Wait for Webhook to be up
+    - name: Wait for components to be up
       run: |
         # We need the webhook to be up
-        kubectl wait pod --for=condition=Ready -n knative-serving  -l app=webhook
+        ktl wait --for=condition=Available deployment -n knative-serving --all
 
     - name: Install kingress provider (Contour)
       if: matrix.kingress == 'contour'
