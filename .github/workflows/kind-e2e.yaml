@@ -207,7 +207,7 @@ jobs:
     - name: Wait for components to be up
       run: |
         # We need the webhook to be up
-        ktl wait --for=condition=Available deployment -n knative-serving --all
+        kubectl wait --for=condition=Available deployment -n knative-serving --all
 
     - name: Install kingress provider (Contour)
       if: matrix.kingress == 'contour'
