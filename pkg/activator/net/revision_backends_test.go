@@ -115,6 +115,8 @@ func waitForRevisionBackendManager(t *testing.T, rbm *revisionBackendsManager) {
 }
 
 func TestRevisionWatcher(t *testing.T) {
+	t.Parallel()
+
 	logger := TestLogger(t)
 	for _, tc := range []struct {
 		name                  string
