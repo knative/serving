@@ -262,6 +262,7 @@ func TestSvcToSvcViaActivator(t *testing.T) {
 	clients := Setup(t)
 
 	for _, tc := range testInjection {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -310,6 +311,7 @@ func TestCallToPublicService(t *testing.T) {
 	}
 
 	for _, tc := range gatewayTestCases {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
