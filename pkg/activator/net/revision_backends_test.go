@@ -376,7 +376,9 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 	}} {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			fakeRT := activatortest.FakeRoundTripper{
 				ExpectHost:         testRevision,
 				ProbeHostResponses: tc.probeHostResponses,
@@ -516,6 +518,7 @@ func epNotReady(revL string, port int32, portName string, readyIps, notReadyIps 
 }
 
 func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
+	t.Parallel()
 	// Make sure we wait out all the jitter in the system.
 	for _, tc := range []struct {
 		name               string
@@ -682,7 +685,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		updateCnt: 1,
 	}} {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			fakeRT := activatortest.FakeRoundTripper{
 				ExpectHost:         testRevision,
 				ProbeHostResponses: tc.probeHostResponses,
@@ -755,6 +760,7 @@ func emptyDests() dests {
 }
 
 func TestCheckDestsReadyToNotReady(t *testing.T) {
+	t.Parallel()
 	// This test verifies the edge behaviour when a pod
 	// previously in the ready sed moved to non ready set
 	// and now must be re-probed.
@@ -896,6 +902,7 @@ func TestCheckDestsReadyToNotReady(t *testing.T) {
 }
 
 func TestCheckDests(t *testing.T) {
+	t.Parallel()
 	// This test covers some edge cases in `checkDests` which are next to impossible to
 	// test via tests above.
 
@@ -956,6 +963,7 @@ func TestCheckDests(t *testing.T) {
 }
 
 func TestCheckDestsSwinging(t *testing.T) {
+	t.Parallel()
 	// This test permits us to test the case when endpoints actually change
 	// underneath (e.g. pod crash/restart).
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
@@ -1144,6 +1152,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 }
 
 func TestRevisionDeleted(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
 	svc := privateSKSService(
@@ -1194,6 +1203,7 @@ func TestRevisionDeleted(t *testing.T) {
 }
 
 func TestServiceDoesNotExist(t *testing.T) {
+	t.Parallel()
 	// Tests when the service is not available.
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
@@ -1245,6 +1255,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 }
 
 func TestServiceMoreThanOne(t *testing.T) {
+	t.Parallel()
 	// Tests when the service is not available.
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
