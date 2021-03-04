@@ -45,7 +45,7 @@ const (
 )
 
 // As well as running as a long-running proxy server, the Queue Proxy can be
-// run as an exec probe if the `--probe-period` flag is passed.
+// run as an exec probe if the `--probe-timeout` flag is passed.
 //
 // In this mode, the exec probe (repeatedly) sends an HTTP request to the Queue
 // Proxy server with a Probe header. The handler for this probe request
