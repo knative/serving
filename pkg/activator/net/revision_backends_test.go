@@ -54,7 +54,7 @@ const (
 	testRevision  = "test-revision"
 
 	probeFreq     = 50 * time.Millisecond
-	updateTimeout = 8 * probeFreq
+	updateTimeout = 16 * probeFreq
 )
 
 // revisionCC1 - creates a revision with concurrency == 1.
