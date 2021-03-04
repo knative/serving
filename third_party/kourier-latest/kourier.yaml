@@ -18,7 +18,7 @@ metadata:
   name: kourier-system
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210303-60f07faa"
+    serving.knative.dev/release: "v20210304-79561211"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -42,7 +42,7 @@ metadata:
   namespace: kourier-system
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210303-60f07faa"
+    serving.knative.dev/release: "v20210304-79561211"
 data:
   envoy-bootstrap.yaml: |
     dynamic_resources:
@@ -59,35 +59,6 @@ data:
       cluster: kourier-knative
       id: 3scale-kourier-gateway
     static_resources:
-      listeners:
-        - name: stats_listener
-          address:
-            socket_address:
-              address: 0.0.0.0
-              port_value: 9000
-          filter_chains:
-            - filters:
-                - name: envoy.filters.network.http_connection_manager
-                  typed_config:
-                    "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-                    stat_prefix: stats_server
-                    http_filters:
-                      - name: envoy.filters.http.router
-                    route_config:
-                      virtual_hosts:
-                        - name: admin_interface
-                          domains:
-                            - "*"
-                          routes:
-                            - match:
-                                safe_regex:
-                                  google_re2: {}
-                                  regex: '/(certs|stats(/prometheus)?|server_info|clusters|listeners|ready)?'
-                                headers:
-                                  - name: ':method'
-                                    exact_match: GET
-                              route:
-                                cluster: service_stats
       clusters:
         - name: service_stats
           connect_timeout: 0.250s
@@ -142,7 +113,7 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210303-60f07faa"
+    serving.knative.dev/release: "v20210304-79561211"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -151,7 +122,7 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210303-60f07faa"
+    serving.knative.dev/release: "v20210304-79561211"
 rules:
   - apiGroups: [""]
     resources: ["events"]
@@ -178,7 +149,7 @@ metadata:
   name: 3scale-kourier
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210303-60f07faa"
+    serving.knative.dev/release: "v20210304-79561211"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -210,7 +181,7 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210303-60f07faa"
+    serving.knative.dev/release: "v20210304-79561211"
 spec:
   replicas: 1
   selector:
@@ -222,7 +193,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:c6c9482caaea909cde40081a9b8fe25eccfdceeadb17ee55c95b111083fde120
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:9c3d0e9fdf7ea37ded295fd0cee57aab293379758ae6cc9e2d61b52ae511a361
           name: kourier-control
           env:
             - name: CERTS_SECRET_NAMESPACE
@@ -258,7 +229,7 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210303-60f07faa"
+    serving.knative.dev/release: "v20210304-79561211"
 spec:
   ports:
     - name: grpc-xds
@@ -291,7 +262,7 @@ metadata:
   namespace: kourier-system
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210303-60f07faa"
+    serving.knative.dev/release: "v20210304-79561211"
 spec:
   selector:
     matchLabels:
@@ -333,7 +304,7 @@ spec:
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sh", "-c", "curl -X POST --unix /tmp/envoy.admin http://localhost/healthcheck/fail; sleep 15"]
+                command: ["/bin/sh", "-c", "sleep 15"]
           readinessProbe:
             httpGet:
               httpHeaders:
@@ -357,7 +328,7 @@ metadata:
   namespace: kourier-system
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210303-60f07faa"
+    serving.knative.dev/release: "v20210304-79561211"
 spec:
   ports:
     - name: http2
@@ -379,7 +350,7 @@ metadata:
   namespace: kourier-system
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210303-60f07faa"
+    serving.knative.dev/release: "v20210304-79561211"
 spec:
   ports:
     - name: http2
