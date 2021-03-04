@@ -586,7 +586,7 @@ func NewSkipKey(key string) error {
 }
 
 // skipKeyError is an error that indicates a key was skipped.
-// We should not re-queue keys when it returns with thus error in reconcile.
+// We should not re-queue keys when it returns this error from Reconcile.
 type skipKeyError struct {
 	key string
 }
