@@ -23,11 +23,10 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"text/template"
 	"time"
-	"unsafe"
 
+	"go.uber.org/atomic"
 	network "knative.dev/networking/pkg"
 )
 
@@ -39,7 +38,7 @@ type RequestLogHandler struct {
 	writer      io.Writer
 	// Uses an unsafe.Pointer combined with atomic operations to get the least
 	// contention possible.
-	template              unsafe.Pointer
+	template              atomic.Value
 	enableProbeRequestLog bool
 }
 
@@ -118,12 +117,12 @@ func (h *RequestLogHandler) SetTemplate(templateStr string) error {
 		}
 	}
 
-	atomic.StorePointer(&h.template, unsafe.Pointer(t))
+	h.template.Store(t)
 	return nil
 }
 
 func (h *RequestLogHandler) getTemplate() *template.Template {
-	return (*template.Template)(atomic.LoadPointer(&h.template))
+	return h.template.Load().(*template.Template)
 }
 
 func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
