@@ -71,8 +71,3 @@ issues:
     - text: "ST1000: at least one file in a package should have a package comment"
       linters:
         - stylecheck
-
-    # Uses atomic.StorePointer in request_log, for now.
-    - path: pkg/http
-      linters:
-        - depguard
