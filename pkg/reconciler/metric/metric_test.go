@@ -192,7 +192,7 @@ func TestReconcileWithCollector(t *testing.T) {
 	wf, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("StartInformers() =", err)
+		t.Fatal("RunInformers() =", err)
 	}
 
 	var eg errgroup.Group
