@@ -27,14 +27,15 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
-       _ "knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake"
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakesksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	fakepodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered"
+
+	fakefilteredpodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -1215,8 +1216,6 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	fakeDeciders := newTestDeciders()
-	// ctx = context.WithValue(ctx, filteredinformerfactory.LabelKey{}, []string{serving.RevisionUID})
-	// ctx = filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	ctl := NewController(ctx, watcher, fakeDeciders)
 
 	// Load default config
@@ -1331,7 +1330,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 
 	pod := makeReadyPods(1, testNamespace, testRevision)[0].(*corev1.Pod)
 	fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(ctx, pod, metav1.CreateOptions{})
-	fakepodsinformer.Get(ctx).Informer().GetIndexer().Add(pod)
+	fakefilteredpodsinformer.Get(ctx, serving.RevisionUID).Informer().GetIndexer().Add(pod)
 
 	newDeployment(ctx, t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
@@ -1393,7 +1392,7 @@ func TestUpdate(t *testing.T) {
 
 	pod := makeReadyPods(1, testNamespace, testRevision)[0].(*corev1.Pod)
 	fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(ctx, pod, metav1.CreateOptions{})
-	fakepodsinformer.Get(ctx).Informer().GetIndexer().Add(pod)
+	fakefilteredpodsinformer.Get(ctx, serving.RevisionUID).Informer().GetIndexer().Add(pod)
 
 	kpa := revisionresources.MakePA(rev)
 	kpa.SetDefaults(context.Background())
