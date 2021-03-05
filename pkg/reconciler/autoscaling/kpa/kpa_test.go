@@ -1280,12 +1280,13 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	})
 
 	// Wait for decider to be updated with the new values from the configMap.
+	want := concurrencyTargetAfterUpdate * defaultTU
 	cond := func(d *scaling.Decider) bool {
-		return d.Spec.TargetValue == concurrencyTargetAfterUpdate
+		return d.Spec.TargetValue == want
 	}
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, cond); err != nil {
 		t.Fatal("Failed to get decider:", err)
-	} else if got, want := decider.Spec.TargetValue, concurrencyTargetAfterUpdate*defaultTU; got != want {
+	} else if got := decider.Spec.TargetValue; got != want {
 		t.Fatalf("TargetValue = %f, want %f", got, want)
 	}
 }
