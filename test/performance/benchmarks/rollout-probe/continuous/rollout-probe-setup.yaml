@@ -40,6 +40,30 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
+  name: activator-with-cc-lin
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "100"
+        autoscaling.knative.dev/maxScale: "150"
+        # Always hook the activator in.
+        autoscaling.knative.dev/targetBurstCapacity: "-1"
+    spec:
+      containers:
+      - image: ko://knative.dev/serving/test/test_images/autoscale
+        resources:
+          requests:
+            cpu: 20m
+            memory: 20Mi
+          limits:
+            cpu: 50m
+            memory: 50Mi
+      containerConcurrency: 5
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
   name: queue-proxy-with-cc
 spec:
   template:
@@ -49,7 +73,6 @@ spec:
         autoscaling.knative.dev/maxScale: "150"
         # Only hook the activator in when scaled to zero.
         autoscaling.knative.dev/targetBurstCapacity: "0"
-        autoscaling.knative.dev/metricAggregationAlgorithm: "weightedExponential"
     spec:
       containers:
       - image: ko://knative.dev/serving/test/test_images/autoscale

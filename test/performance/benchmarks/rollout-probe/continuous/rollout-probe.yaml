@@ -35,7 +35,7 @@ kind: CronJob
 metadata:
   name: rollout-probe-activator-with-cc
 spec:
-  schedule: "0 2,8,14,20 * * *"
+  schedule: "0 1,31 * * *"
   jobTemplate:
     spec:
       parallelism: 1
@@ -71,12 +71,54 @@ spec:
           restartPolicy: Never
       backoffLimit: 0
 ---
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: rollout-probe-activator-with-cc
+spec:
+  schedule: "0 11,41 * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: rollout-probe
+            image: ko://knative.dev/serving/test/performance/benchmarks/rollout-probe/continuous
+            args: ["-target=activator-with-cc-lin", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-tests/test-infra/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
   name: rollout-probe-queue-with-cc
 spec:
-  schedule: "0 3,9,15,21 * * *"
+  schedule: "0 21,51 * * *"
   jobTemplate:
     spec:
       parallelism: 1
