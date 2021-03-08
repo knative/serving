@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -692,11 +693,27 @@ func RunInformers(stopCh <-chan struct{}, informers ...Informer) (func(), error)
 	}
 
 	for i, informer := range informers {
-		if ok := cache.WaitForCacheSync(stopCh, informer.HasSynced); !ok {
+		if ok := WaitForCacheSyncQuick(stopCh, informer.HasSynced); !ok {
 			return wg.Wait, fmt.Errorf("failed to wait for cache at index %d to sync", i)
 		}
 	}
 	return wg.Wait, nil
+}
+
+// WaitForCacheSyncQuick is the same as cache.WaitForCacheSync but with a much reduced
+// check-rate for the sync period.
+func WaitForCacheSyncQuick(stopCh <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+	err := wait.PollImmediateUntil(time.Millisecond,
+		func() (bool, error) {
+			for _, syncFunc := range cacheSyncs {
+				if !syncFunc() {
+					return false, nil
+				}
+			}
+			return true, nil
+		},
+		stopCh)
+	return err == nil
 }
 
 // StartAll kicks off all of the passed controllers with DefaultThreadsPerController.
