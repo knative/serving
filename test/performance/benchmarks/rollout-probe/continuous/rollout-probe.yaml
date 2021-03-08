@@ -75,7 +75,7 @@ spec:
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
-  name: rollout-probe-activator-with-cc
+  name: rollout-probe-activator-with-cc-lin
 spec:
   schedule: "0 11,41 * * *"
   jobTemplate:
