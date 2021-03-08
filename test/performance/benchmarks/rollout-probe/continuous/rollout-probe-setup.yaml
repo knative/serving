@@ -24,6 +24,7 @@ spec:
         autoscaling.knative.dev/maxScale: "150"
         # Always hook the activator in.
         autoscaling.knative.dev/targetBurstCapacity: "-1"
+        autoscaling.knative.dev/metricAggregationAlgorithm: "weightedExponential"
     spec:
       containers:
       - image: ko://knative.dev/serving/test/test_images/autoscale
@@ -48,6 +49,7 @@ spec:
         autoscaling.knative.dev/maxScale: "150"
         # Only hook the activator in when scaled to zero.
         autoscaling.knative.dev/targetBurstCapacity: "0"
+        autoscaling.knative.dev/metricAggregationAlgorithm: "weightedExponential"
     spec:
       containers:
       - image: ko://knative.dev/serving/test/test_images/autoscale
