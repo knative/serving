@@ -82,6 +82,6 @@ rotation, feel free to send a PR to remove yourself.
 | 2021-02-22 | [yanweiguo](https://github.com/yanweiguo)           |
 | 2021-03-01 | [dprotaso](https://github.com/dprotaso)             |
 | 2021-03-08 | [tcnghia](https://github.com/tcnghia)               |
-| 2021-03-15 | open                                                |
+| 2021-03-15 | [evankanderson](https://github.com/evankanderson)   |
 | 2021-03-22 | [ZhiminXiang](https://github.com/ZhiminXiang)       |
 | 2021-03-29 | [yanweiguo](https://github.com/yanweiguo)           |
