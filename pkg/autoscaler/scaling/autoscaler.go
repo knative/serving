@@ -277,23 +277,23 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	excessBCF := -1.
 	numAct := int32(MinActivators)
 	switch {
-	case a.deciderSpec.TargetBurstCapacity == 0:
+	case spec.TargetBurstCapacity == 0:
 		excessBCF = 0
 		// numAct stays at MinActivators, only needed to scale from 0.
-	case a.deciderSpec.TargetBurstCapacity > 0:
-		totCap := float64(originalReadyPodsCount) * a.deciderSpec.TotalValue
-		excessBCF = math.Floor(totCap - a.deciderSpec.TargetBurstCapacity - observedPanicValue)
+	case spec.TargetBurstCapacity > 0:
+		totCap := float64(originalReadyPodsCount) * spec.TotalValue
+		excessBCF = math.Floor(totCap - spec.TargetBurstCapacity - observedPanicValue)
 		numAct = int32(math.Max(MinActivators,
-			math.Ceil((totCap+a.deciderSpec.TargetBurstCapacity)/a.deciderSpec.ActivatorCapacity)))
-	case a.deciderSpec.TargetBurstCapacity == -1:
+			math.Ceil((totCap+spec.TargetBurstCapacity)/spec.ActivatorCapacity)))
+	case spec.TargetBurstCapacity == -1:
 		numAct = int32(math.Max(MinActivators,
-			math.Ceil(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue/a.deciderSpec.ActivatorCapacity)))
+			math.Ceil(float64(originalReadyPodsCount)*spec.TotalValue/spec.ActivatorCapacity)))
 	}
 
 	if debugEnabled {
 		desugared.Debug(fmt.Sprintf("PodCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f NumActivators=%d",
-			originalReadyPodsCount, a.deciderSpec.TotalValue, observedStableValue,
-			observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF, numAct))
+			originalReadyPodsCount, spec.TotalValue, observedStableValue,
+			observedPanicValue, spec.TargetBurstCapacity, excessBCF, numAct))
 	}
 
 	switch spec.ScalingMetric {
