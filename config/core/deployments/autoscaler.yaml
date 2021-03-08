@@ -52,11 +52,11 @@ spec:
 
         resources:
           requests:
-            cpu: 30m
-            memory: 40Mi
+            cpu: 100m
+            memory: 100Mi
           limits:
-            cpu: 300m
-            memory: 400Mi
+            cpu: 1000m
+            memory: 1000Mi
 
         env:
         - name: POD_NAME
