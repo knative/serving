@@ -2,13 +2,11 @@ aliases:
   serving-api-approvers:
   - dprotaso
   - markusthoemmes
-  - mattmoor
   - tcnghia
   - vagababov
   serving-api-reviewers:
   - dprotaso
   - markusthoemmes
-  - mattmoor
   - tcnghia
   - vagababov
   - whaught
@@ -18,13 +16,11 @@ aliases:
   - evankanderson
   - grantr
   - markusthoemmes
-  - mattmoor
   - tcnghia
 
   wg-leads:
   - dprotaso        # API
   - markusthoemmes  # Scaling
-  - mattmoor        # API
   - tcnghia         # Network
   - vagababov       # Scaling
 
@@ -34,7 +30,6 @@ aliases:
   - evankanderson   # TOC
   - grantr          # TOC
   - markusthoemmes  # Scaling/TOC
-  - mattmoor        # API/TOC
   - nak3            # Network
   - tcnghia         # Network/TOC
   - ZhiminXiang     # Network
