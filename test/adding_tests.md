@@ -27,7 +27,7 @@ In the [`test`](.) dir you will find several libraries in the `test` package you
 can use in your tests.
 
 This library exists partially in this directory and partially in
-[`knative/pkg/test`](https://github.com/knative/pkg/tree/master/test).
+[`knative/pkg/test`](https://github.com/knative/pkg/tree/main/test).
 
 The libs in this dir can:
 
@@ -37,7 +37,7 @@ The libs in this dir can:
 - [Verify resource state transitions](#verify-resource-state-transitions)
 - [Generate boilerplate CRDs](#generate-boilerplate-crds)
 
-See [`knative/pkg/test`](https://github.com/knative/pkg/tree/master/test) to:
+See [`knative/pkg/test`](https://github.com/knative/pkg/tree/main/test) to:
 
 - [Use common test flags](#use-common-test-flags)
 - Output logs
@@ -58,7 +58,7 @@ imagePath := strings.Join([]string{test.Flags.DockerRepo, image}, "/"))
 ```
 
 _See
-[e2e_flags.go](https://github.com/knative/pkg/blob/master/test/e2e_flags.go)._
+[e2e_flags.go](https://github.com/knative/pkg/blob/main/test/e2e_flags.go)._
 
 ### Get access to client objects
 
@@ -146,7 +146,7 @@ This function makes use of
 to determine if the ingress should be used or the domain should be used
 directly.
 
-_See [request.go](https://github.com/knative/pkg/blob/master/test/request.go)._
+_See [request.go](https://github.com/knative/pkg/blob/main/test/request.go)._
 
 If you need more low-level access to the http request or response against a
 deployed service, you can directly use the `SpoofingClient` that
@@ -165,7 +165,7 @@ resp, err := client.Poll(req, test.BodyMatches(expectedText))
 ```
 
 _See
-[spoof.go](https://github.com/knative/pkg/blob/master/test/spoof/spoof.go)._
+[spoof.go](https://github.com/knative/pkg/blob/main/test/spoof/spoof.go)._
 
 ### Check Knative Serving resources
 
@@ -217,14 +217,14 @@ _v1testing is alias for package `knative.dev/serving/pkg/testing/v1`_
 
 _For knative crd state, for example `Config`. You can see the code in
 [configuration.go](./v1/configuration.go). For kubernetes objects see
-[kube_checks.go](https://github.com/knative/pkg/blob/master/test/kube_checks.go)._
+[kube_checks.go](https://github.com/knative/pkg/blob/main/test/kube_checks.go)._
 
 ### Verify resource state transitions
 
 To use the [check functions](#check-knative-serving-resources) you must provide
 a function to check the state. Some of the expected transition states (as
 defined in
-[the Knative Serving spec](https://github.com/knative/docs/blob/master/docs/serving/spec/knative-api-specification-1.0.md))
+[the Knative Serving spec](https://github.com/knative/docs/blob/main/docs/serving/spec/knative-api-specification-1.0.md))
 , for example `v1/Revision` state, are expressed in function in
 [revision.go](./v1/revision.go).
 

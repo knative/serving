@@ -32,7 +32,7 @@ import (
 // references a container image. Revisions are created by updates to a
 // Configuration.
 //
-// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision
+// See also: https://github.com/knative/serving/blob/main/docs/spec/overview.md#revision
 type Revision struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

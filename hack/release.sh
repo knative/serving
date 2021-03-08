@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Documentation about this script and how to use it can be found
-# at https://github.com/knative/test-infra/tree/master/ci
+# at https://github.com/knative/test-infra/tree/main/ci
 
 source $(dirname $0)/../vendor/knative.dev/hack/release.sh
 

@@ -62,7 +62,7 @@ go test -v -tags=e2e -count=1 ./test/e2e
 
 Each performance test case in Knative serving is a benchmark, to run these
 benchmarks, please follow
-[dev.md](https://github.com/knative/serving/blob/master/test/performance/dev.md).
+[dev.md](https://github.com/knative/serving/blob/main/test/performance/dev.md).
 
 > As of now, only Googlers can run these benchmarks due to one issue of
 > [Mako](https://github.com/google/mako) - the benchmarking tool we use. Details
@@ -165,7 +165,7 @@ your existing [environment setup](../DEVELOPMENT.md#setup-your-environment).
 Tests importing [`knative.dev/serving/test`](#test-library) recognize these
 flags:
 
-- [All flags added by `knative/pkg/test`](https://github.com/knative/pkg/tree/master/test#flags)
+- [All flags added by `knative/pkg/test`](https://github.com/knative/pkg/tree/main/test#flags)
   such as:
   - [`--dockerrepo`](#overriding-docker-repo)
   - [`--tag`](#using-a-docker-tag)

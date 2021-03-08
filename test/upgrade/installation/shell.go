@@ -23,7 +23,7 @@ import (
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 )
 
-// Head installs Knative Serving from the HEAD of the master branch.
+// Head installs Knative Serving from the HEAD of the default branch.
 func Head() pkgupgrade.Operation {
 	return install("ServingHead", "install_head_reuse_ingress")
 }

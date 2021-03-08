@@ -73,7 +73,7 @@ var (
 	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
 	// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
 	// allowed.
-	// https://github.com/knative/serving/blob/master/docs/runtime-contract.md#inbound-network-connectivity
+	// https://github.com/knative/serving/blob/main/docs/runtime-contract.md#inbound-network-connectivity
 	validPortNames = sets.NewString(
 		"h2c",
 		"http1",

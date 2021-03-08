@@ -42,7 +42,7 @@ import (
 // 2) request with header "Knative-Serving-Tag: WrongHeader". This request should be routed to revision 2
 // as when header Knative-Serving-Tag does not match any revision tag, the request will fall back to the main Route.
 // In order to run this test, the tag hearder based routing feature needs to be turned on:
-// https://github.com/knative/serving/blob/master/config/core/configmaps/network.yaml#L115
+// https://github.com/knative/serving/blob/main/config/core/configmaps/network.yaml#L115
 func TestTagHeaderBasedRouting(t *testing.T) {
 	t.Parallel()
 

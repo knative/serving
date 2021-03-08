@@ -16,15 +16,15 @@ For creating new benchmarks, follow the steps:
 4. Write a `Go` program that runs the test and stores the result in
    [mako](##Writing-to-mako)
 5. (Optional)Create a
-   [setup.yaml](https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-setup.yaml)
+   [setup.yaml](https://github.com/knative/serving/blob/main/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-setup.yaml)
    that includes all the K8S and Knative objects needed to run the test.
 6. Create a
-   [cron.yaml](https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml)
+   [cron.yaml](https://github.com/knative/serving/blob/main/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml)
    that defines how to run and capture metrics as mentioned in
    [benchmark cronjobs](#Benchmark-cronjobs).
 7. Test and confirm the dev config works on your personal cluster.
 8. Add a
-   [cluster.yaml](https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/cluster.yaml)
+   [cluster.yaml](https://github.com/knative/serving/blob/main/test/performance/benchmarks/dataplane-probe/cluster.yaml)
    that includes the configuration information for a GKE cluster, which will be
    created to run this benchmark. If the file is not added, a minimum cluster
    will be created.
@@ -39,10 +39,10 @@ We will be using two
 [mako benchmarks](https://github.com/google/mako/blob/master/docs/GUIDE.md#preparing-your-benchmark)
 with the same config.
 
-1. [dev.config](https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/dev.config)
+1. [dev.config](https://github.com/knative/serving/blob/main/test/performance/benchmarks/dataplane-probe/dev.config)
    This will be only used for development and testing changes and will have less
    restrictions on who can write to the benchmark.
-2. [prod.config](https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/prod.config)
+2. [prod.config](https://github.com/knative/serving/blob/main/test/performance/benchmarks/dataplane-probe/prod.config)
    This will be used for looking at the state of the project and will be
    restricted to prod-only robots(and some admins).
 
@@ -51,28 +51,28 @@ with the same config.
 Every benchmark directory under `/test/performance/benchmarks` has a `kodata`
 directory and it should have four symlinks.
 
-1. [dev.config](https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/continuous/kodata/dev.config)
+1. [dev.config](https://github.com/knative/serving/blob/main/test/performance/benchmarks/dataplane-probe/continuous/kodata/dev.config)
    Points to the dev.config file in the bechmark directory.
 
    ```sh
    ln -r -s ./test/performance/benchmarks/dataplane-probe/dev.config test/performance/benchmarks/dataplane-probe/continuous/kodata/
    ```
 
-2. [prod.config](https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/continuous/kodata/prod.config)
+2. [prod.config](https://github.com/knative/serving/blob/main/test/performance/benchmarks/dataplane-probe/continuous/kodata/prod.config)
    Points to the prod.config file in the benchmark directory.
 
    ```sh
    ln -r -s ./test/performance/benchmarks/dataplane-probe/prod.config test/performance/benchmarks/dataplane-probe/continuous/kodata/
    ```
 
-3. [HEAD](https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/continuous/kodata/HEAD)
+3. [HEAD](https://github.com/knative/serving/blob/main/test/performance/benchmarks/dataplane-probe/continuous/kodata/HEAD)
    Points to `.git/HEAD`.
 
    ```sh
    ln -r -s .git/HEAD test/performance/benchmarks/dataplane-probe/continuous/kodata/
    ```
 
-4. [refs](https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/continuous/kodata/HEAD)
+4. [refs](https://github.com/knative/serving/blob/main/test/performance/benchmarks/dataplane-probe/continuous/kodata/HEAD)
    Points to `.git/refs`.
 
    ```sh
@@ -87,7 +87,7 @@ is running.
 ## Benchmark CronJobs
 
 Every benchmark will have one or more
-[cronjob](https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml)
+[cronjob](https://github.com/knative/serving/blob/main/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml)
 that defines how to run the benchmark SUT. In addition to the SUT container, we
 need to add the following:
 
@@ -154,7 +154,7 @@ metrics. To store these metrics in the test, follow these steps:
 ## Testing Existing Benchmarks
 
 For testing existing benchmarks, use
-[dev.md](https://github.com/knative/serving/blob/master/test/performance/dev.md)
+[dev.md](https://github.com/knative/serving/blob/main/test/performance/dev.md)
 
 ## Admins
 
