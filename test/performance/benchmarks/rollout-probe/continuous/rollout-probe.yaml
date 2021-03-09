@@ -71,7 +71,6 @@ spec:
           restartPolicy: Never
       backoffLimit: 0
 ---
----
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
