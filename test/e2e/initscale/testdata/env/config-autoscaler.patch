@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-autoscaler
+  namespace: ${SYSTEM_NAMESPACE}
+data:
+   allow-zero-initial-scale: "true"
+

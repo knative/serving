@@ -499,19 +499,6 @@ function toggle_feature() {
   sleep 30
 }
 
-function immediate_gc() {
-  echo -n "Setting config-gc to immediate garbage collection"
-  local DATA='{"data":{'`
-      `'"retain-since-create-time":"disabled",'`
-      `'"retain-since-last-active-time":"disabled",'`
-      `'"min-non-active-revisions":"0",'`
-      `'"max-non-active-revisions":"0"'`
-      `"}}"
-  kubectl patch cm "config-gc" -n "${SYSTEM_NAMESPACE}" -p "${DATA}"
-  echo "Waiting 30s for change to get picked up."
-  sleep 30
-}
-
 function scale_controlplane() {
   for deployment in "$@"; do
     # Make sure all pods run in leader-elected mode.

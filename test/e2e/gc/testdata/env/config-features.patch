@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-features
+  namespace: ${SYSTEM_NAMESPACE}
+data:
+  responsive-revision-gc: enabled
