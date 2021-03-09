@@ -27,6 +27,7 @@ require (
 	github.com/prometheus/client_golang v1.9.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/sirupsen/logrus v1.7.0 // indirect
+	github.com/spf13/cobra v1.1.1 // indirect
 	github.com/tsenart/vegeta/v12 v12.8.4
 	go.opencensus.io v0.22.6
 	go.uber.org/atomic v1.7.0
@@ -47,6 +48,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	k8s.io/api v0.19.7
 	k8s.io/apimachinery v0.19.7
+	k8s.io/cli-runtime v0.19.7
 	k8s.io/client-go v0.19.7
 	k8s.io/code-generator v0.19.7
 	k8s.io/gengo v0.0.0-20201214224949-b6c5ce23f027 // indirect
@@ -58,3 +60,7 @@ require (
 	knative.dev/pkg v0.0.0-20210311174826-40488532be3f
 	sigs.k8s.io/yaml v1.2.0
 )
+
+// Needed until kustomize is updated in the k8s repos:
+// https://github.com/kubernetes-sigs/kustomize/issues/1500
+replace github.com/go-openapi/spec => github.com/go-openapi/spec v0.19.3
