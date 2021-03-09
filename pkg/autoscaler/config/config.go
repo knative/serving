@@ -178,12 +178,12 @@ func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 
 	var minMaxScale int32 = 0
 	if lc.MaxScaleLimit > 0 {
-		// Default maxScale must be positive if maxScaleLimit is set.
+		// Default maxScale must be set if maxScaleLimit is set.
 		minMaxScale = 1
 	}
 
 	if lc.MaxScale < minMaxScale || (lc.MaxScaleLimit > 0 && lc.MaxScale > lc.MaxScaleLimit) {
-		return nil, fmt.Errorf("max-scale = %d, must be in [%d, max-scale-limit] range", minMaxScale, lc.MaxScale)
+		return nil, fmt.Errorf("max-scale = %d, must be in [%d, max-scale-limit] range", lc.MaxScale, minMaxScale)
 	}
 
 	if lc.MaxScaleLimit < 0 {
