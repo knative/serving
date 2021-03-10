@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-network
+  namespace: ${SYSTEM_NAMESPACE}
+  labels:
+    testing.knative.dev/optional: autoTLS
+data:
+  autoTLS: enabled

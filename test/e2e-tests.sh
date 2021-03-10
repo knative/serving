@@ -52,13 +52,6 @@ if (( MESH )); then
   parallelism="-parallel 1"
 fi
 
-if (( HTTPS )); then
-  use_https="--https"
-  toggle_feature autoTLS Enabled config-network
-  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/
-  add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-fi
-
 # Keep the bucket count in sync with test/ha/ha.go.
 kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
   --patch='{"data":{"buckets": "'${BUCKETS}'"}}' || fail_test
@@ -92,27 +85,28 @@ if [[ -z "${INGRESS_CLASS}" \
   || "${INGRESS_CLASS}" == "istio.ingress.networking.knative.dev" \
   || "${INGRESS_CLASS}" == "contour.ingress.networking.knative.dev" \
   || "${INGRESS_CLASS}" == "kourier.ingress.networking.knative.dev" ]]; then
-  alpha="--enable-alpha"
+  alpha="-enable-alpha"
 fi
 
-go_test_e2e -timeout=30m \
- ./test/conformance/api/... ./test/conformance/runtime/... \
- ./test/e2e \
-  ${parallelism} \
-  ${alpha} \
-  --enable-beta \
-  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
-
 if (( HTTPS )); then
-  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
-  toggle_feature autoTLS Disabled config-network
+  export KNATIVE_TEST_OPTIONAL_RESOURCES=autoTLS
+  use_https="-https"
 fi
 
 go_test_e2e -p 1 -exec "go run knative.dev/serving/test/cmd/runner" \
-  ./test/e2e/tagheader \
-  ./test/e2e/multicontainer \
-  ./test/e2e/initscale \
-  ./test/e2e/gc || failed=1
+  -timeout=30m \
+  ./test/conformance/... \
+  ./test/e2e/gc/... \
+  ./test/e2e/initscale/... \
+  ./test/e2e/multicontainer/... \
+  ./test/e2e/tagheader/... \
+  ./test/e2e/tagheader/... \
+  ${alpha} \
+  -enable-beta \
+  ${parallelism} \
+  "${use_https}" \
+  "-resolvabledomain=$(use_resolvable_domain)" \
+  "$(ingress_class)" || failed=1
 
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
