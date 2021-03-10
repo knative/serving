@@ -344,6 +344,13 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
+		name: "with max scale limit and zero default max scale",
+		input: map[string]string{
+			"max-scale":       "0",
+			"max-scale-limit": "11",
+		},
+		wantErr: true,
+	}, {
 		name: "with valid default max scale and max scale limit",
 		input: map[string]string{
 			"max-scale":       "10",
