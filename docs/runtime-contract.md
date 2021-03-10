@@ -145,7 +145,7 @@ to provide signalling to the container.
 ### Hooks
 
 Operation hooks
-[SHOULD NOT](https://github.com/knative/serving/blob/master/test/conformance/runtime/container_test.go)
+[SHOULD NOT](https://github.com/knative/serving/blob/main/test/conformance/runtime/container_test.go)
 be configurable by the Knative developer. Operators or platform providers MAY
 use hooks to implement their own lifecycle controls.
 
@@ -154,7 +154,7 @@ use hooks to implement their own lifecycle controls.
 #### File descriptors
 
 A read from the `stdin` file descriptor on the container
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/file_descriptor_test.go)
+[SHOULD](https://github.com/knative/serving/blob/main/test/conformance/runtime/file_descriptor_test.go)
 always result in `EOF`. The `stdout` and `stderr` file descriptors on the
 container SHOULD be collected and retained in a developer-accessible logging
 repository. (TODO:[docs#902](https://github.com/knative/docs/issues/902)).
@@ -185,11 +185,11 @@ environment SHOULD
 same port as HTTP/1.1. The developer MAY specify this port at deployment; if the
 developer does not specify a port, the platform provider MUST provide a default.
 Only one inbound `containerPort`
-[SHALL](https://github.com/knative/serving/blob/master/test/conformance/runtime/container_test.go)
+[SHALL](https://github.com/knative/serving/blob/main/test/conformance/runtime/container_test.go)
 be specified in the
 [`core.v1.Container`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#containerport-v1-core)
 specification. The `hostPort` parameter
-[SHOULD NOT](https://github.com/knative/serving/blob/master/test/conformance/runtime/container_test.go)
+[SHOULD NOT](https://github.com/knative/serving/blob/main/test/conformance/runtime/container_test.go)
 be set by the developer or the platform provider, as it can interfere with
 ingress autoscaling. Regardless of its source, the selected port will be made
 available in the `PORT` environment variable.
@@ -219,7 +219,7 @@ server process and client processes.
 
 As requests to the container will be proxied by the platform, all inbound
 request headers
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/header_test.go)
+[SHOULD](https://github.com/knative/serving/blob/main/test/conformance/runtime/header_test.go)
 be set to the same values as the incoming request. Some implementations MAY
 strip certain HTTP headers for security or other reasons; such implementations
 SHOULD document the set of stripped headers. Because the full set of HTTP
@@ -227,27 +227,27 @@ headers is constantly evolving, it is RECOMMENDED that platforms which strip
 headers define a common prefix which covers all headers removed by the platform.
 
 In addition, the following base set of HTTP/1.1 headers
-[MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/header_test.go)
+[MUST](https://github.com/knative/serving/blob/main/test/conformance/runtime/header_test.go)
 be set on the request:
 
 - `Host` - As specified by
   [RFC 7230 Section 5.4](https://tools.ietf.org/html/rfc7230#section-5.4)
 
 Also, the following proxy-specific request headers
-[MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/header_test.go)
+[MUST](https://github.com/knative/serving/blob/main/test/conformance/runtime/header_test.go)
 be set:
 
 - `Forwarded` - As specified by [RFC 7239](https://tools.ietf.org/html/rfc7239).
 
 Additionally, the following legacy headers
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/header_test.go)
+[SHOULD](https://github.com/knative/serving/blob/main/test/conformance/runtime/header_test.go)
 be set for compatibility with client software:
 
 - `X-Forwarded-For`
 - `X-Forwarded-Proto`
 
 In addition, the following headers
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/header_test.go)
+[SHOULD](https://github.com/knative/serving/blob/main/test/conformance/runtime/header_test.go)
 be set to enable tracing and observability features:
 
 - Trace headers - Platform providers SHOULD provide and document headers needed
@@ -269,7 +269,7 @@ If not provided, container startup and listening on the declared HTTP socket is
 considered sufficient to declare the container "ready" and "live" (see the probe
 definition below). If specified, liveness and readiness probes are REQUIRED to
 be of the `httpGet` or `tcpSocket` types, and
-[MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/container_test.go)
+[MUST](https://github.com/knative/serving/blob/main/test/conformance/runtime/container_test.go)
 target the inbound container port; platform providers SHOULD disallow other
 probe methods.
 
@@ -292,13 +292,13 @@ the probe succeeds.
 ##### Deployment probe
 
 On the initial deployment, platform providers
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/readiness_probe_test.go)
+[SHOULD](https://github.com/knative/serving/blob/main/test/conformance/runtime/readiness_probe_test.go)
 start an instance of the container to validate that the container is valid and
 will become ready. This startup
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/readiness_probe_test.go)
+[SHOULD](https://github.com/knative/serving/blob/main/test/conformance/runtime/readiness_probe_test.go)
 occur even if the container would not serve any user requests. If a container
 cannot satisfy the `readinessProbe` during deployment startup, the Revision
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/readiness_probe_test.go)
+[SHOULD](https://github.com/knative/serving/blob/main/test/conformance/runtime/readiness_probe_test.go)
 be marked as failed.
 
 Initial readiness probes allow the platform to avoid attempting to later
@@ -371,13 +371,13 @@ declarative fashion, and individual instances SHOULD NOT be interacted with or
 connected directly.
 
 - The `terminal` property
-  [SHOULD NOT](https://github.com/knative/serving/blob/master/test/conformance/runtime/filesystem_test.go)
+  [SHOULD NOT](https://github.com/knative/serving/blob/main/test/conformance/runtime/filesystem_test.go)
   be set to `true`.
 - The linux process specific properties MUST NOT be configurable by the
   developer, and MAY set by the operator or platform provider.
 
 The following environment variables
-[MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/envvars_test.go)
+[MUST](https://github.com/knative/serving/blob/main/test/conformance/runtime/envvars_test.go)
 be set:
 
 | Name   | Meaning                                                                                                                                             |
@@ -385,7 +385,7 @@ be set:
 | `PORT` | Ingress `containerPort` for ingress requests and health checks. See [Inbound network connectivity](#inbound-network-connectivity) for more details. |
 
 The following environment variables
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/envvars_test.go)
+[SHOULD](https://github.com/knative/serving/blob/main/test/conformance/runtime/envvars_test.go)
 be set:
 
 | Name              | Meaning                                                                                                          |
@@ -401,7 +401,7 @@ such variables will follow demonstrated usage and utility.
 
 Developers MAY specify that containers be run as a specific user or group ID
 using the `runAsUser` container property. If specified, the runtime
-[MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/user_test.go)
+[MUST](https://github.com/knative/serving/blob/main/test/conformance/runtime/user_test.go)
 run the container as the specified user ID if allowed by the platform (see
 below). If no `runAsUser` is specified, a platform-specific default SHALL be
 used. Platform Providers SHOULD document this default behavior.
@@ -409,7 +409,7 @@ used. Platform Providers SHOULD document this default behavior.
 Operators and Platform Providers MAY prohibit certain user IDs, such as `root`,
 from executing code. In this case, if the identity selected by the developer is
 invalid, the container execution
-[MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/container_test.go)
+[MUST](https://github.com/knative/serving/blob/main/test/conformance/runtime/container_test.go)
 be failed.
 
 ### Default Filesystems
@@ -423,7 +423,7 @@ developers might not have access to the container's filesystems (or the
 containers might be rapidly recycled), so log aggregation SHOULD be provided.
 
 In addition to the filesystems recommended in the OCI, the following filesystems
-[MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/filesystem_test.go)
+[MUST](https://github.com/knative/serving/blob/main/test/conformance/runtime/filesystem_test.go)
 be provided:
 
 | Mount      | Description                                                                                                                                                     |
@@ -458,17 +458,17 @@ Developers MUST NOT use OCI `devices` to request additional devices beyond the
 ### Control Groups
 
 Control group (cgroups) controllers
-[MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/cgroup_test.go)
+[MUST](https://github.com/knative/serving/blob/main/test/conformance/runtime/cgroup_test.go)
 be selected and configured by the operator or platform provider. The cgroup
 devices
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/cgroup_test.go)
+[SHOULD](https://github.com/knative/serving/blob/main/test/conformance/runtime/cgroup_test.go)
 be mounted as read-only.
 
 #### Memory and CPU limits
 
 The serverless platform MAY automatically adjust the resource limits (e.g. CPU)
 based on observed resource usage. The limits enforced to a container
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/cgroup_test.go)
+[SHOULD](https://github.com/knative/serving/blob/main/test/conformance/runtime/cgroup_test.go)
 be exposed in
 
 - `/sys/fs/cgroup/memory/memory.limit_in_bytes`
@@ -486,7 +486,7 @@ for this feature with the Kubernetes SIG-Node team.
 The sysctl parameter applies system-wide kernel parameter tuning, which could
 interfere with other workloads on the host system. This is not appropriate for a
 shared environment, and
-[SHOULD NOT](https://github.com/knative/serving/blob/master/test/conformance/runtime/sysctl_test.go)
+[SHOULD NOT](https://github.com/knative/serving/blob/main/test/conformance/runtime/sysctl_test.go)
 be exposed for developer tuning.
 
 ### Seccomp
@@ -530,7 +530,7 @@ be configurable by the developer.
 ### Posix-platform Hooks
 
 Operation hooks
-[SHOULD NOT](https://github.com/knative/serving/blob/master/test/conformance/runtime/container_test.go)
+[SHOULD NOT](https://github.com/knative/serving/blob/main/test/conformance/runtime/container_test.go)
 be configurable by the developer. Operators or platform providers MAY use hooks
 to implement their own lifecycle controls.
 

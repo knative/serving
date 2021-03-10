@@ -3,9 +3,9 @@
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/knative/serving)
 [![Go Report Card](https://goreportcard.com/badge/knative/serving)](https://goreportcard.com/report/knative/serving)
 [![Releases](https://img.shields.io/github/release-pre/knative/serving.svg?sort=semver)](https://github.com/knative/serving/releases)
-[![LICENSE](https://img.shields.io/github/license/knative/serving.svg)](https://github.com/knative/serving/blob/master/LICENSE)
+[![LICENSE](https://img.shields.io/github/license/knative/serving.svg)](https://github.com/knative/serving/blob/main/LICENSE)
 [![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://knative.slack.com)
-[![codecov](https://codecov.io/gh/knative/serving/branch/master/graph/badge.svg)](https://codecov.io/gh/knative/serving)
+[![codecov](https://codecov.io/gh/knative/serving/branch/main/graph/badge.svg)](https://codecov.io/gh/knative/serving)
 
 Knative Serving builds on Kubernetes to support deploying and serving of
 applications and functions as serverless containers. Serving is easy to get
@@ -23,7 +23,7 @@ For documentation on using Knative Serving, see the
 [Knative documentation site](https://www.knative.dev/docs).
 
 For documentation on the Knative Serving specification, see the
-[docs](https://github.com/knative/serving/tree/master/docs) folder of this
+[docs](https://github.com/knative/serving/tree/main/docs) folder of this
 repository.
 
 If you are interested in contributing, see [CONTRIBUTING.md](./CONTRIBUTING.md)

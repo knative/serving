@@ -167,7 +167,7 @@ func validateControlPlane(t *testing.T, clients *test.Clients, names test.Resour
 }
 
 // Validates labels on Revision, Configuration, and Route objects when created by a Service
-// see spec here: https://github.com/knative/serving/blob/master/docs/spec/spec.md#revision
+// see spec here: https://github.com/knative/serving/blob/main/docs/spec/spec.md#revision
 func validateLabelsPropagation(t testing.TB, objects v1test.ResourceObjects, names test.ResourceNames) error {
 	t.Log("Validate Labels on Revision Object")
 	revision := objects.Revision

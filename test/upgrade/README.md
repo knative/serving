@@ -26,13 +26,13 @@ At a high level, we want to do this:
 1. Test those resources, verify that we didn’t break anything.
 
 To achieve that, we utilize the
-[upgrade test framework](https://github.com/knative/pkg/tree/master/test/upgrade).
+[upgrade test framework](https://github.com/knative/pkg/tree/main/test/upgrade).
 The framework runs tests in the following phases:
 
 1. Install the latest release from GitHub.
 1. Run the `PreUpgrade` tests.
 1. Start the `Continual` tests.
-1. Install from the HEAD of the master branch.
+1. Install from the HEAD of the default branch.
 1. Run the `PostUpgrade` tests.
 1. Install the latest release from GitHub.
 1. Run the `PostDowngrade` tests.

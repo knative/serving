@@ -1,4 +1,4 @@
 # Client Conventions
 
 This document has been moved to the
-[Knative Client Repository](https://github.com/knative/client/tree/master/conventions).
+[Knative Client Repository](https://github.com/knative/client/tree/main/conventions).

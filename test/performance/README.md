@@ -13,7 +13,7 @@ supports constant rate and sine rate, but if you want to generate load at a
 different rate, you can write your own pacer by implementing
 [Pacer](https://github.com/tsenart/vegeta/blob/e04d9c0df8177e8633bff4afe7b39c2f3a9e7dea/lib/pacer.go#L10)
 interface. Custom pacer implementations used in Knative tests are under
-[pacers](https://github.com/knative/pkg/tree/master/test/vegeta/pacers).
+[pacers](https://github.com/knative/pkg/tree/main/test/vegeta/pacers).
 
 ## Benchmarking
 
@@ -21,4 +21,4 @@ Knative uses [mako](https://github.com/google/mako) for benchmarking. It
 provides a set of tools for metrics data storage, charting, statistical
 aggregation and performance regression analysis. To use it to create a benchmark
 for Knative and run it continuously, please refer to
-[Benchmarks.md](https://github.com/knative/serving/blob/master/test/performance/Benchmarks.md).
+[Benchmarks.md](https://github.com/knative/serving/blob/main/test/performance/Benchmarks.md).
