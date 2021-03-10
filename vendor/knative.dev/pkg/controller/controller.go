@@ -693,7 +693,7 @@ func RunInformers(stopCh <-chan struct{}, informers ...Informer) (func(), error)
 	}
 
 	for i, informer := range informers {
-		if ok := WaitForCacheSyncQuick(stopCh, informer.HasSynced); !ok {
+		if ok := cache.WaitForCacheSync(stopCh, informer.HasSynced); !ok {
 			return wg.Wait, fmt.Errorf("failed to wait for cache at index %d to sync", i)
 		}
 	}
@@ -702,6 +702,9 @@ func RunInformers(stopCh <-chan struct{}, informers ...Informer) (func(), error)
 
 // WaitForCacheSyncQuick is the same as cache.WaitForCacheSync but with a much reduced
 // check-rate for the sync period.
+//
+// TODO: Actually reenable this in our test-related code. Currently not used due to
+// https://github.com/kubernetes/kubernetes/issues/95372.
 func WaitForCacheSyncQuick(stopCh <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
 	err := wait.PollImmediateUntil(time.Millisecond,
 		func() (bool, error) {
