@@ -36,7 +36,6 @@ import (
 	fakeleaseinformer "knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
@@ -94,7 +93,7 @@ func TestForwarderReconcile(t *testing.T) {
 	service := fakeserviceinformer.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -185,7 +184,7 @@ func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 	kubeClient := fakekubeclient.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -226,7 +225,7 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 	kubeClient := fakekubeclient.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -268,7 +267,7 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 	endpoints := fakeendpointsinformer.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -317,7 +316,7 @@ func TestForwarderSkipReconciling(t *testing.T) {
 	kubeClient := fakekubeclient.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -405,7 +404,7 @@ func TestProcess(t *testing.T) {
 	kubeClient := fakekubeclient.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}

@@ -36,7 +36,6 @@ import (
 
 	fakepodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 
-	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/resources"
@@ -131,7 +130,7 @@ func checkBaseStat(t *testing.T, got Stat) {
 
 func TestPodDirectScrapeSuccess(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -164,7 +163,7 @@ func TestPodDirectScrapeSuccess(t *testing.T) {
 func TestPodDirectScrapeSomeFailButSuccess(t *testing.T) {
 	// For 5 pods, we need 4 successes.
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -204,7 +203,7 @@ func TestPodDirectScrapeNoneSucceed(t *testing.T) {
 		nil, nil, nil, nil,
 	})
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -234,7 +233,7 @@ func TestPodDirectScrapeNoneSucceed(t *testing.T) {
 
 func TestPodDirectScrapePodsExhausted(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -259,7 +258,7 @@ func TestPodDirectScrapePodsExhausted(t *testing.T) {
 
 func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -296,7 +295,7 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 	mesh := newTestScrapeClient(testStats, []error{nil})
 
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -328,7 +327,7 @@ func TestScrapeAllPodsOldPods(t *testing.T) {
 	testStats := testStatsWithTime(numP, youngPodCutOffDuration.Seconds() /*youngest*/)
 
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -362,7 +361,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 	testStats := testStatsWithTime(numP, youngPodCutOffDuration.Seconds()/2 /*youngest*/)
 
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -394,7 +393,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 
 func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -418,7 +417,7 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	errTest := errors.New("test")
 
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -457,7 +456,7 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 
 func TestMixedPodShuffle(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -503,7 +502,7 @@ func TestMixedPodShuffle(t *testing.T) {
 
 func TestOldPodShuffle(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -563,7 +562,7 @@ func TestOldPodShuffle(t *testing.T) {
 
 func TestOldPodsFallback(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)

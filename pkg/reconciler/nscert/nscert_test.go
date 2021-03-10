@@ -72,7 +72,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	t.Helper()
 
 	ctx, ccl, ifs := SetupFakeContextWithCancel(t)
-	wf, err := controller.RunInformers(ctx.Done(), ifs...)
+	wf, err := RunAndSyncInformers(ctx, ifs...)
 	if err != nil {
 		t.Fatal("Error starting informers:", err)
 	}
@@ -482,7 +482,7 @@ func TestDomainConfigDomain(t *testing.T) {
 			}
 
 			ctx, ccl, ifs := SetupFakeContextWithCancel(t)
-			wf, err := controller.RunInformers(ctx.Done(), ifs...)
+			wf, err := RunAndSyncInformers(ctx, ifs...)
 			if err != nil {
 				t.Fatal("Error starting informers:", err)
 			}

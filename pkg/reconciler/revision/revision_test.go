@@ -464,7 +464,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 	rev := testRevision(testPodSpec())
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -551,7 +551,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 	rev := testRevision(testPodSpec())
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -629,7 +629,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 	rev := testRevision(testPodSpec())
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -677,7 +677,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	rev := testRevision(testPodSpec())
 	servingClient := fakeservingclient.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Error starting informers:", err)
 	}

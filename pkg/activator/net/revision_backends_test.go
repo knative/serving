@@ -34,7 +34,6 @@ import (
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
@@ -405,7 +404,7 @@ func TestRevisionWatcher(t *testing.T) {
 				informer.Informer().GetIndexer().Add(svc)
 			}
 
-			waitInformers, err := controller.RunInformers(ctx.Done(), informer.Informer())
+			waitInformers, err := rtesting.RunAndSyncInformers(ctx, informer.Informer())
 			if err != nil {
 				t.Fatal("Failed to start informers:", err)
 			}
@@ -706,7 +705,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				serviceInformer.Informer().GetIndexer().Add(svc)
 			}
 
-			waitInformers, err := controller.RunInformers(ctx.Done(), endpointsInformer.Informer())
+			waitInformers, err := rtesting.RunAndSyncInformers(ctx, endpointsInformer.Informer())
 			if err != nil {
 				t.Fatal("Failed to start informers:", err)
 			}
@@ -769,7 +768,7 @@ func TestCheckDestsReadyToNotReady(t *testing.T) {
 	si := fakeserviceinformer.Get(ctx)
 	si.Informer().GetIndexer().Add(svc)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), si.Informer())
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, si.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -910,7 +909,7 @@ func TestCheckDests(t *testing.T) {
 	si := fakeserviceinformer.Get(ctx)
 	si.Informer().GetIndexer().Add(svc)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), si.Informer())
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, si.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -970,7 +969,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	si := fakeserviceinformer.Get(ctx)
 	si.Informer().GetIndexer().Add(svc)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), si.Informer())
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, si.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -1158,7 +1157,7 @@ func TestRevisionDeleted(t *testing.T) {
 	ei := fakeendpointsinformer.Get(ctx)
 	ep := ep(testRevision, 1234, "http", "128.0.0.1")
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ctx, ep, metav1.CreateOptions{})
-	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, ei.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -1200,7 +1199,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 	ei := fakeendpointsinformer.Get(ctx)
 	eps := ep(testRevision, 1234, "http", "128.0.0.1")
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ctx, eps, metav1.CreateOptions{})
-	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, ei.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -1251,7 +1250,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 	ei := fakeendpointsinformer.Get(ctx)
 	eps := ep(testRevision, 1234, "http", "128.0.0.1")
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ctx, eps, metav1.CreateOptions{})
-	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, ei.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}

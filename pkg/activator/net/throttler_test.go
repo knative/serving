@@ -37,7 +37,6 @@ import (
 	pkgnet "knative.dev/networking/pkg/apis/networking"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
-	"knative.dev/pkg/controller"
 	. "knative.dev/pkg/logging/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	_ "knative.dev/pkg/system/testing"
@@ -213,7 +212,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	servfake := fakeservingclient.Get(ctx)
 	revisions := fakerevisioninformer.Get(ctx)
-	waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, revisions.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -263,7 +262,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	servfake := fakeservingclient.Get(ctx)
 	revisions := fakerevisioninformer.Get(ctx)
-	waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, revisions.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -413,7 +412,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			revisions := fakerevisioninformer.Get(ctx)
 			endpoints := fakeendpointsinformer.Get(ctx)
 
-			waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(),
+			waitInformers, err := rtesting.RunAndSyncInformers(ctx, endpoints.Informer(),
 				revisions.Informer())
 			if err != nil {
 				t.Fatal("Failed to start informers:", err)
@@ -638,7 +637,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	servfake := fakeservingclient.Get(ctx)
 	revisions := revisioninformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, endpoints.Informer(), revisions.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
@@ -734,7 +733,7 @@ func TestMultipleActivators(t *testing.T) {
 	servfake := fakeservingclient.Get(ctx)
 	revisions := revisioninformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, endpoints.Informer(), revisions.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
