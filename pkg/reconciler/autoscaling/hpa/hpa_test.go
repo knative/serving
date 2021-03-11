@@ -94,7 +94,7 @@ func TestControllerCanReconcile(t *testing.T) {
 			},
 		}))
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}

@@ -30,7 +30,6 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	cfgmap "knative.dev/serving/pkg/apis/config"
@@ -98,7 +97,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}

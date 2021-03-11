@@ -29,7 +29,6 @@ import (
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 
@@ -80,7 +79,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		t.Fatal("Error creating private endpoints:", err)
 	}
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Error starting informers:", err)
 	}

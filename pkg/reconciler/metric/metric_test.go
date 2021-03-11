@@ -189,10 +189,10 @@ func TestReconcileWithCollector(t *testing.T) {
 	collector := &testCollector{}
 
 	ctl := NewController(ctx, configmap.NewStaticWatcher(), collector)
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("RunAndSyncInformers() =", err)
 	}
 
 	var eg errgroup.Group

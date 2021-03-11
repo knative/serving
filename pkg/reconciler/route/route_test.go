@@ -299,7 +299,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	ctx, informers, ctl, _, cf := newTestSetup(t)
-	wicb, err := controller.RunInformers(ctx.Done(), informers...)
+	wicb, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Error starting informers:", err)
 	}
@@ -1310,7 +1310,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 	for _, tc := range expectations {
 		t.Run(tc.expectedDomainSuffix, func(t *testing.T) {
 			ctx, ifs, ctl, watcher, cf := newTestSetup(t)
-			waitInformers, err := controller.RunInformers(ctx.Done(), ifs...)
+			waitInformers, err := RunAndSyncInformers(ctx, ifs...)
 			if err != nil {
 				t.Fatal("Failed to start informers:", err)
 			}
@@ -1467,7 +1467,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			servingClient := fakeservingclient.Get(ctx)
 			routeInformer := fakerouteinformer.Get(ctx)
 
-			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+			waitInformers, err := RunAndSyncInformers(ctx, informers...)
 			if err != nil {
 				t.Fatal("Failed to start informers:", err)
 			}

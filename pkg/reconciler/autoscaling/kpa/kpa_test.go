@@ -1229,7 +1229,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	})
 
 	grp := errgroup.Group{}
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("failed to start informers:", err)
 	}
@@ -1297,7 +1297,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 	fakeDeciders := newTestDeciders()
 	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders)
 
-	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
 		t.Fatal("RunInformers() =", err)
@@ -1440,7 +1440,7 @@ func TestUpdate(t *testing.T) {
 
 func TestControllerCreateError(t *testing.T) {
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
-	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
@@ -1481,7 +1481,7 @@ func TestControllerCreateError(t *testing.T) {
 
 func TestControllerUpdateError(t *testing.T) {
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
-	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
@@ -1522,7 +1522,7 @@ func TestControllerUpdateError(t *testing.T) {
 
 func TestControllerGetError(t *testing.T) {
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
-	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
@@ -1562,7 +1562,7 @@ func TestControllerGetError(t *testing.T) {
 
 func TestScaleFailure(t *testing.T) {
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
-	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}

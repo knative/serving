@@ -29,7 +29,6 @@ import (
 
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakesecretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 
@@ -147,7 +146,7 @@ func TestNotOwnedFailure(t *testing.T) {
 func setup(t *testing.T, secrets ...*corev1.Secret) (context.Context, *FakeAccessor) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Failed to start secret informer:", err)
 	}
