@@ -32,11 +32,11 @@ function microbenchmarks_run() {
   go test -bench=. -benchtime=$BENCH_RUN_TIME -count=$BENCH_RUN_COUNT -benchmem -run="^$" -v ./...   >> "$OUTPUT_FILE" || exit
 }
 
-# To run microbenchmarks on your machine and compare your revision with upstream/master:
+# To run microbenchmarks on your machine and compare your revision with upstream/main:
 #
 # git fetch upstream
 # source microbenchmarks.sh
-# microbenchmarks_run_and_compare upstream/master
+# microbenchmarks_run_and_compare upstream/main
 #
 # NOTE: Hypothetically we should run these microbenchmarks on a machine running only a kernel and a shell,
 # but this might be sometimes hard to achieve unless you have a spare computer to play with.
