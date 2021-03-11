@@ -161,7 +161,7 @@ func generateTraffic(
 			totalRequests++
 			if res.Code != http.StatusOK {
 				ctx.logf("Status = %d, want: 200", res.Code)
-				ctx.logf("URL: %s Start: %v End: %v, Duration: %v Error: %s Body:\n%s",
+				ctx.logf("URL: %q Start: %q End: %q Duration: %q Error: %q Body:\n%s",
 					res.URL, res.Timestamp, res.End(), res.Latency, res.Error, string(res.Body))
 				continue
 			}
