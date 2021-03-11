@@ -61,23 +61,22 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	grp := errgroup.Group{}
 
 	kubeClnt := fakekubeclient.Get(ctx)
+	epsInformer := fakeendpointsinformer.Get(ctx)
 
 	// Create activator endpoints.
 	aEps := activatorEndpoints(WithSubsets)
-	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Create(ctx, aEps, metav1.CreateOptions{}); err != nil {
-		t.Fatal("Error creating activator endpoints:", err)
-	}
+	kubeClnt.CoreV1().Endpoints(aEps.Namespace).Create(ctx, aEps, metav1.CreateOptions{})
+	epsInformer.Informer().GetIndexer().Add(aEps)
 
 	// Private endpoints are supposed to exist, since we're using selector mode for the service.
 	privEps := endpointspriv(ns1, sks1)
-	if _, err := kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(ctx, privEps, metav1.CreateOptions{}); err != nil {
-		t.Fatal("Error creating private endpoints:", err)
-	}
+	kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(ctx, privEps, metav1.CreateOptions{})
+	epsInformer.Informer().GetIndexer().Add(privEps)
+
 	// This is passive, so no endpoints.
 	privEps = endpointspriv(ns2, sks2, withOtherSubsets)
-	if _, err := kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(ctx, privEps, metav1.CreateOptions{}); err != nil {
-		t.Fatal("Error creating private endpoints:", err)
-	}
+	kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(ctx, privEps, metav1.CreateOptions{})
+	epsInformer.Informer().GetIndexer().Add(privEps)
 
 	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
@@ -123,9 +122,8 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	}
 
 	// Actively wait for the endpoints to change their value.
-	eps := fakeendpointsinformer.Get(ctx).Lister()
 	if err := wait.PollImmediate(25*time.Millisecond, 5*time.Second, func() (bool, error) {
-		ep, err := eps.Endpoints(ns1).Get(sks1)
+		ep, err := epsInformer.Lister().Endpoints(ns1).Get(sks1)
 		if err != nil {
 			return false, err
 		}
