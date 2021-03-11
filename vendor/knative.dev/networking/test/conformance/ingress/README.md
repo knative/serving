@@ -14,7 +14,7 @@ This directory contains Ingress conformance tests for Knative Ingress resource.
 
 ### Test environment
 
-1. [A running `Knative Serving` cluster.](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#prerequisites),
+1. [A running `Knative Serving` cluster.](https://github.com/knative/serving/blob/main/DEVELOPMENT.md#prerequisites),
    with the Ingress implementation of choice installed.
    ```bash
    # Set the Ingress class annotation to use in tests.
@@ -62,7 +62,7 @@ NOTE: this is only required when you run conformance/e2e tests locally with
 The [`upload-test-images.sh`](../../upload-test-images.sh) script can be used to
 build and push the test images used by the conformance and e2e tests. The script
 expects your environment to be setup as described in
-[DEVELOPMENT.md](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#install-requirements).
+[DEVELOPMENT.md](https://github.com/knative/serving/blob/main/DEVELOPMENT.md#install-requirements).
 
 To run the script for all end to end test images:
 
@@ -106,7 +106,7 @@ func TestYourIngressConformance(t *testing.T) {
 ### Running the tests from `net-istio` repository
 
 `net-istio` already invokes the `RunConformance` function in
-[`ingress_test.go`](https://github.com/knative-sandbox/net-istio/blob/master/test/conformance/ingress_test.go),
+[`ingress_test.go`](https://github.com/knative-sandbox/net-istio/blob/main/test/conformance/ingress_test.go),
 so it offers a convenient place to run the tests.
 
 If `INGRESS_CLASS` is already set, then you can simply `go test ingress_test.go`
