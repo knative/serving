@@ -73,6 +73,7 @@ aliases:
   - ZhiminXiang
   networking-reviewers:
   - andrew-su
+  - arturenault
   - JRBANCEL
   - markusthoemmes
   - nak3
