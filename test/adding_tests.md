@@ -164,8 +164,7 @@ resp, err := client.Do(req)
 resp, err := client.Poll(req, test.BodyMatches(expectedText))
 ```
 
-_See
-[spoof.go](https://github.com/knative/pkg/blob/main/test/spoof/spoof.go)._
+_See [spoof.go](https://github.com/knative/pkg/blob/main/test/spoof/spoof.go)._
 
 ### Check Knative Serving resources
 
