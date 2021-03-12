@@ -87,7 +87,7 @@ func TestDomainMappingHA(t *testing.T) {
 	var dm *v1alpha1.DomainMapping
 	if err := reconciler.RetryTestErrors(func(int) error {
 		dm, err = clients.ServingAlphaClient.DomainMappings.Create(ctx,
-			v1alpha1test.DomainMapping(svc.Service.Namespace, host, v1alpha1test.WithRef(svc.Service.Namespace, svc.Service.Name)),
+			v1alpha1test.DomainMapping(svc.Service.Namespace, host, v1alpha1test.KReference(svc.Service.Namespace, svc.Service.Name)),
 			metav1.CreateOptions{})
 		return err
 	}); err != nil {
@@ -143,7 +143,7 @@ func TestDomainMappingHA(t *testing.T) {
 	var altDm *v1alpha1.DomainMapping
 	if err := reconciler.RetryTestErrors(func(int) error {
 		altDm, err = altClients.ServingAlphaClient.DomainMappings.Create(ctx,
-			v1alpha1test.DomainMapping(altSvc.Service.Namespace, host, v1alpha1test.WithRef(altSvc.Service.Namespace, altSvc.Service.Name)),
+			v1alpha1test.DomainMapping(altSvc.Service.Namespace, host, v1alpha1test.KReference(altSvc.Service.Namespace, altSvc.Service.Name)),
 			metav1.CreateOptions{})
 		return err
 	}); err != nil {
