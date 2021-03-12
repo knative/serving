@@ -27,12 +27,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	pkgHa "knative.dev/pkg/test/ha"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1alpha1test "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
@@ -49,11 +49,11 @@ func TestDomainMappingHA(t *testing.T) {
 
 	ctx, clients := context.Background(), test.Setup(t)
 
-	if err := pkgTest.WaitForDeploymentScale(context.Background(), clients.KubeClient, domainmappingDeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
+	if err := pkgTest.WaitForDeploymentScale(ctx, clients.KubeClient, domainmappingDeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", domainmappingDeploymentName, test.ServingFlags.Replicas, err)
 	}
 
-	leaders, err := pkgHa.WaitForNewLeaders(context.Background(), t, clients.KubeClient, domainmappingDeploymentName, system.Namespace(), sets.NewString(), test.ServingFlags.Buckets)
+	leaders, err := pkgHa.WaitForNewLeaders(ctx, t, clients.KubeClient, domainmappingDeploymentName, system.Namespace(), sets.NewString(), test.ServingFlags.Buckets)
 	if err != nil {
 		t.Fatal("Failed to get leader:", err)
 	}
@@ -86,20 +86,9 @@ func TestDomainMappingHA(t *testing.T) {
 	// Point DomainMapping at our service.
 	var dm *v1alpha1.DomainMapping
 	if err := reconciler.RetryTestErrors(func(int) error {
-		dm, err = clients.ServingAlphaClient.DomainMappings.Create(ctx, &v1alpha1.DomainMapping{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      host,
-				Namespace: svc.Service.Namespace,
-			},
-			Spec: v1alpha1.DomainMappingSpec{
-				Ref: duckv1.KReference{
-					Namespace:  svc.Service.Namespace,
-					Name:       svc.Service.Name,
-					APIVersion: "serving.knative.dev/v1",
-					Kind:       "Service",
-				},
-			},
-		}, metav1.CreateOptions{})
+		dm, err = clients.ServingAlphaClient.DomainMappings.Create(ctx,
+			v1alpha1test.DomainMapping(svc.Service.Namespace, host, v1alpha1test.WithRef(svc.Service.Namespace, svc.Service.Name)),
+			metav1.CreateOptions{})
 		return err
 	}); err != nil {
 		t.Fatalf("Create(DomainMapping) = %v, expected no error", err)
@@ -111,12 +100,8 @@ func TestDomainMappingHA(t *testing.T) {
 
 	// Wait for DomainMapping to go Ready.
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		state, err := clients.ServingAlphaClient.DomainMappings.Get(context.Background(), dm.Name, metav1.GetOptions{})
-		if err != nil {
-			return true, err
-		}
-
-		return state.IsReady(), nil
+		state, err := clients.ServingAlphaClient.DomainMappings.Get(ctx, dm.Name, metav1.GetOptions{})
+		return state.IsReady(), err
 	})
 	if waitErr != nil {
 		t.Fatalf("The DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
@@ -125,17 +110,17 @@ func TestDomainMappingHA(t *testing.T) {
 	assertServiceEventuallyWorks(t, clients, names, &url.URL{Scheme: "http", Host: host}, test.PizzaPlanetText1, resolvableCustomDomain)
 
 	for _, leader := range leaders.List() {
-		if err := clients.KubeClient.CoreV1().Pods(system.Namespace()).Delete(context.Background(), leader,
+		if err := clients.KubeClient.CoreV1().Pods(system.Namespace()).Delete(ctx, leader,
 			metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 			t.Fatalf("Failed to delete pod %s: %v", leader, err)
 		}
-		if err := pkgTest.WaitForPodDeleted(context.Background(), clients.KubeClient, leader, system.Namespace()); err != nil {
+		if err := pkgTest.WaitForPodDeleted(ctx, clients.KubeClient, leader, system.Namespace()); err != nil {
 			t.Fatalf("Did not observe %s to actually be deleted: %v", leader, err)
 		}
 	}
 
 	// Wait for all of the old leaders to go away, and then for the right number to be back.
-	if _, err := pkgHa.WaitForNewLeaders(context.Background(), t, clients.KubeClient, domainmappingDeploymentName, system.Namespace(), leaders, test.ServingFlags.Buckets); err != nil {
+	if _, err := pkgHa.WaitForNewLeaders(ctx, t, clients.KubeClient, domainmappingDeploymentName, system.Namespace(), leaders, test.ServingFlags.Buckets); err != nil {
 		t.Fatal("Failed to find new leader:", err)
 	}
 
@@ -157,20 +142,9 @@ func TestDomainMappingHA(t *testing.T) {
 	// Create second domain mapping with same name in alt namespace - this will collide with the existing mapping.
 	var altDm *v1alpha1.DomainMapping
 	if err := reconciler.RetryTestErrors(func(int) error {
-		altDm, err = altClients.ServingAlphaClient.DomainMappings.Create(ctx, &v1alpha1.DomainMapping{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      host,
-				Namespace: altSvc.Service.Namespace,
-			},
-			Spec: v1alpha1.DomainMappingSpec{
-				Ref: duckv1.KReference{
-					Namespace:  altSvc.Service.Namespace,
-					Name:       altSvc.Service.Name,
-					APIVersion: "serving.knative.dev/v1",
-					Kind:       "Service",
-				},
-			},
-		}, metav1.CreateOptions{})
+		altDm, err = altClients.ServingAlphaClient.DomainMappings.Create(ctx,
+			v1alpha1test.DomainMapping(altSvc.Service.Namespace, host, v1alpha1test.WithRef(altSvc.Service.Namespace, altSvc.Service.Name)),
+			metav1.CreateOptions{})
 		return err
 	}); err != nil {
 		t.Fatalf("Create(DomainMapping) = %v, expected no error", err)
@@ -182,9 +156,9 @@ func TestDomainMappingHA(t *testing.T) {
 
 	// Second domain mapping should go to DomainMappingConditionDomainClaimed=false state.
 	waitErr = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		state, err := altClients.ServingAlphaClient.DomainMappings.Get(context.Background(), dm.Name, metav1.GetOptions{})
+		state, err := altClients.ServingAlphaClient.DomainMappings.Get(ctx, dm.Name, metav1.GetOptions{})
 		if err != nil {
-			return true, err
+			return false, err
 		}
 
 		return state.Generation == state.Status.ObservedGeneration &&
@@ -204,12 +178,8 @@ func TestDomainMappingHA(t *testing.T) {
 
 	// The second DomainMapping should now be able to claim the domain.
 	waitErr = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		state, err := altClients.ServingAlphaClient.DomainMappings.Get(context.Background(), altDm.Name, metav1.GetOptions{})
-		if err != nil {
-			return true, err
-		}
-
-		return state.IsReady(), nil
+		state, err := altClients.ServingAlphaClient.DomainMappings.Get(ctx, altDm.Name, metav1.GetOptions{})
+		return state.IsReady(), err
 	})
 	if waitErr != nil {
 		t.Fatalf("The second DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
