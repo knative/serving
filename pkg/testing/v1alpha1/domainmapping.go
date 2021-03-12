@@ -18,27 +18,22 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 type domainMappingOption func(dm *v1alpha1.DomainMapping)
 
-type refOption func(*duckv1.KReference)
-
-func WithRef(namespace, name string, opt ...refOption) domainMappingOption {
+// WithRef fills reference field in domainmapping.
+func WithRef(namespace, name string) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Spec.Ref.Namespace = namespace
 		dm.Spec.Ref.Name = name
 		dm.Spec.Ref.APIVersion = "serving.knative.dev/v1"
 		dm.Spec.Ref.Kind = "Service"
-
-		for _, o := range opt {
-			o(&dm.Spec.Ref)
-		}
 	}
 }
 
+// DomainMapping creates a domainmapping with domainMappingOption.
 func DomainMapping(namespace, name string, opt ...domainMappingOption) *v1alpha1.DomainMapping {
 	dm := &v1alpha1.DomainMapping{
 		ObjectMeta: metav1.ObjectMeta{
