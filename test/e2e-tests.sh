@@ -95,6 +95,8 @@ fi
 
 go_test_e2e -p 1 -exec "go run knative.dev/serving/test/cmd/runner" \
   -timeout=30m \
+  -run TestTagHeaderBasedRouting \
+  -count 10 \
   ./test/conformance/... \
   ./test/e2e/gc/... \
   ./test/e2e/initscale/... \
@@ -108,15 +110,15 @@ go_test_e2e -p 1 -exec "go run knative.dev/serving/test/cmd/runner" \
   "$(ingress_class)" || failed=1
 
 # Run scale tests.
-# Note that we use a very high -parallel because each ksvc is run as its own
-# sub-test. If this is not larger than the maximum scale tested then the test
-# simply cannot pass.
-go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
+# # Note that we use a very high -parallel because each ksvc is run as its own
+# # sub-test. If this is not larger than the maximum scale tested then the test
+# # simply cannot pass.
+# go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
 
-# Run HA tests separately as they're stopping core Knative Serving pods.
-# Define short -spoofinterval to ensure frequent probing while stopping pods.
-go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
-	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
+# # Run HA tests separately as they're stopping core Knative Serving pods.
+# # Define short -spoofinterval to ensure frequent probing while stopping pods.
+# go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
+# 	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
 
 (( failed )) && fail_test
 
