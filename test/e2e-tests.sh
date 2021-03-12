@@ -100,7 +100,6 @@ go_test_e2e -p 1 -exec "go run knative.dev/serving/test/cmd/runner" \
   ./test/e2e/initscale/... \
   ./test/e2e/multicontainer/... \
   ./test/e2e/tagheader/... \
-  ./test/e2e/tagheader/... \
   ${alpha} \
   -enable-beta \
   ${parallelism} \
