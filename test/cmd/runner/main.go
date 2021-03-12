@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
@@ -67,6 +68,8 @@ func run(args []string) (exitCode int) {
 		exitCode = 1
 		return
 	}
+
+	time.Sleep(10 * time.Second)
 
 	state, err = runTestBinary(ctx, args)
 	if err != nil {
