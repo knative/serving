@@ -36,10 +36,6 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/serving/pkg/apis/serving"
-
-	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
-	_ "knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake"
 )
 
 // SetupFakeContext sets up the the Context and the fake informers for the tests.
@@ -53,7 +49,6 @@ func SetupFakeContext(t testing.TB) (context.Context, []controller.Informer) {
 func SetupFakeContextWithCancel(t testing.TB) (context.Context, context.CancelFunc, []controller.Informer) {
 	ctx, c := context.WithCancel(logtesting.TestContextWithLogger(t))
 	ctx = controller.WithEventRecorder(ctx, record.NewFakeRecorder(1000))
-	ctx = filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	ctx, is := injection.Fake.SetupInformers(ctx, &rest.Config{})
 	return ctx, c, is
 }
