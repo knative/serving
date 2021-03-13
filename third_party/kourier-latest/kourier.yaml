@@ -18,7 +18,7 @@ metadata:
   name: kourier-system
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210311-74129975"
+    serving.knative.dev/release: "v20210312-d0124fe1"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -42,7 +42,7 @@ metadata:
   namespace: kourier-system
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210311-74129975"
+    serving.knative.dev/release: "v20210312-d0124fe1"
 data:
   envoy-bootstrap.yaml: |
     dynamic_resources:
@@ -113,7 +113,7 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210311-74129975"
+    serving.knative.dev/release: "v20210312-d0124fe1"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -122,7 +122,7 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210311-74129975"
+    serving.knative.dev/release: "v20210312-d0124fe1"
 rules:
   - apiGroups: [""]
     resources: ["events"]
@@ -149,7 +149,7 @@ metadata:
   name: 3scale-kourier
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210311-74129975"
+    serving.knative.dev/release: "v20210312-d0124fe1"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -181,7 +181,7 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210311-74129975"
+    serving.knative.dev/release: "v20210312-d0124fe1"
 spec:
   replicas: 1
   selector:
@@ -193,7 +193,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:f04026e993b01f14dd73a981e9a234912fbc9d517eb4aaa6dc7e3e43a7ff1ec9
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:97de76e1dde3de30e7daf3a8bbdf5ca532c174cd5242885445c96045d04c9e73
           name: kourier-control
           env:
             - name: CERTS_SECRET_NAMESPACE
@@ -229,7 +229,7 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210311-74129975"
+    serving.knative.dev/release: "v20210312-d0124fe1"
 spec:
   ports:
     - name: grpc-xds
@@ -262,7 +262,7 @@ metadata:
   namespace: kourier-system
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210311-74129975"
+    serving.knative.dev/release: "v20210312-d0124fe1"
 spec:
   selector:
     matchLabels:
@@ -328,7 +328,7 @@ metadata:
   namespace: kourier-system
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210311-74129975"
+    serving.knative.dev/release: "v20210312-d0124fe1"
 spec:
   ports:
     - name: http2
@@ -350,7 +350,7 @@ metadata:
   namespace: kourier-system
   labels:
     networking.knative.dev/ingress-provider: kourier
-    serving.knative.dev/release: "v20210311-74129975"
+    serving.knative.dev/release: "v20210312-d0124fe1"
 spec:
   ports:
     - name: http2
