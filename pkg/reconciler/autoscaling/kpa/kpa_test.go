@@ -1309,8 +1309,9 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 }
 
 func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
-	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-
+	ctx, cancel, informers := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
 	fakeDeciders := newTestDeciders()
 	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders)
 
@@ -1381,7 +1382,9 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	ctx, cancel, _ := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
 	t.Cleanup(cancel)
 
 	fakeDeciders := newTestDeciders()
@@ -1456,8 +1459,10 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestControllerCreateError(t *testing.T) {
-	ctx, cancel, infs := SetupFakeContextWithCancel(t)
-	waitInformers, err := RunAndSyncInformers(ctx, infs...)
+	ctx, cancel, infs := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
+	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
@@ -1497,8 +1502,10 @@ func TestControllerCreateError(t *testing.T) {
 }
 
 func TestControllerUpdateError(t *testing.T) {
-	ctx, cancel, infs := SetupFakeContextWithCancel(t)
-	waitInformers, err := RunAndSyncInformers(ctx, infs...)
+	ctx, cancel, infs := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
+	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
@@ -1538,8 +1545,10 @@ func TestControllerUpdateError(t *testing.T) {
 }
 
 func TestControllerGetError(t *testing.T) {
-	ctx, cancel, infs := SetupFakeContextWithCancel(t)
-	waitInformers, err := RunAndSyncInformers(ctx, infs...)
+	ctx, cancel, infs := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
+	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
