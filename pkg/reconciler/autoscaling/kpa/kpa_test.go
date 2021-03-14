@@ -35,6 +35,7 @@ import (
 
 	fakefilteredpodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	_ "knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -1212,7 +1213,9 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 }
 
 func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
-	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	ctx, cancel, informers := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
 	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	fakeDeciders := newTestDeciders()
