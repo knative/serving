@@ -27,6 +27,7 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
+	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	podscalable "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
@@ -468,7 +469,9 @@ func TestScaler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ctx, _ := SetupFakeContext(t)
+			ctx, _, _ := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+				return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+			})
 
 			dynamicClient := fakedynamicclient.Get(ctx)
 
@@ -569,7 +572,9 @@ func TestDisableScaleToZero(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ctx, _ := SetupFakeContext(t)
+			ctx, _, _ := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+				return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+			})
 
 			dynamicClient := fakedynamicclient.Get(ctx)
 

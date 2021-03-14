@@ -1587,8 +1587,15 @@ func TestControllerGetError(t *testing.T) {
 }
 
 func TestScaleFailure(t *testing.T) {
+<<<<<<< HEAD
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
 	waitInformers, err := RunAndSyncInformers(ctx, infs...)
+=======
+	ctx, cancel, infs := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
+	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+>>>>>>> b46c10616... fix more ut errors
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
