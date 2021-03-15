@@ -1462,7 +1462,7 @@ func TestControllerCreateError(t *testing.T) {
 	ctx, cancel, infs := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
 		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	})
-	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
@@ -1505,7 +1505,7 @@ func TestControllerUpdateError(t *testing.T) {
 	ctx, cancel, infs := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
 		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	})
-	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
@@ -1548,7 +1548,7 @@ func TestControllerGetError(t *testing.T) {
 	ctx, cancel, infs := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
 		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	})
-	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
@@ -1590,7 +1590,7 @@ func TestScaleFailure(t *testing.T) {
 	ctx, cancel, infs := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
 		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	})
-	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
