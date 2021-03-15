@@ -24,18 +24,15 @@ function install_istio() {
     echo "Got NET_ISTIO_COMMIT from ${1}: ${NET_ISTIO_COMMIT}"
   fi
 
-  # TODO: remove this when all the net-istio.yaml in use contain a commit ID
-  if [[ -z "${NET_ISTIO_COMMIT:-}" ]]; then
-    NET_ISTIO_COMMIT="8102cd3d32f05be1c58260a9717d532a4a6d2f60"
-    echo "Hard coded NET_ISTIO_COMMIT: ${NET_ISTIO_COMMIT}"
-  fi
+  NET_ISTIO_COMMIT="d26db7166290773428d11746586e3899e0aeed57"
+  echo "Hard coded NET_ISTIO_COMMIT: ${NET_ISTIO_COMMIT}"
 
   # And checkout the setup script based on that commit.
   local NET_ISTIO_DIR=$(mktemp -d)
   (
     cd $NET_ISTIO_DIR \
       && git init \
-      && git remote add origin https://github.com/knative-sandbox/net-istio.git \
+      && git remote add origin https://github.com/markusthoemmes/net-istio.git \
       && git fetch --depth 1 origin $NET_ISTIO_COMMIT \
       && git checkout FETCH_HEAD
   )
