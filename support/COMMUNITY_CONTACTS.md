@@ -38,7 +38,7 @@ community contact's duty (subject to change) is as followed:
   [unassigned issues / untriaged issues](https://github.com/knative/serving/issues?q=is%3Aopen+is%3Aissue+no%3Aassignee+no%3Amilestone)
   for unanswered questions.
 - Check Docs
-  [unassigned issues / untriaged issues](https://github.com/knative/docs/issues?q=is%3Aopen+is%3Aissue+no%3Aassignee+no%3Amilestone)
+  [unassigned issues / untriaged issues](https://github.com/knative/docs/issues?q=is%3Aopen+is%3Aissue+label%3Akind%2Fserving+label%3Atriage%2Fneeds-eng-input)
   for unanswered questions.
 - Answer relevant
   [Stack Overflow Questions](https://stackoverflow.com/questions/tagged/knative-serving?tab=Newest)
