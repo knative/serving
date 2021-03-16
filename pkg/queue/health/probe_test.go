@@ -18,6 +18,7 @@ package health
 
 import (
 	"context"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -158,17 +159,15 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 		"Connection": "Upgrade, HTTP2-Settings",
 		"Upgrade":    "h2c",
 	}
-	expectedPath := "/health"
-	var callCount atomic.Int32
 
+	var callCount atomic.Int32
 	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		count := callCount.Inc()
 		if count == 1 {
-			// This is the h2c handshake, we won't do anything.
-			for key, value := range h2cHeaders {
-				if r.Header.Get(key) != value {
-					t.Errorf("Key %v = %v was supposed to be present in the request", key, value)
-				}
+			// This is the h2c handshake, we want to see a disconnect.
+			_, err := ioutil.ReadAll(r.Body)
+			if !strings.Contains(err.Error(), "client disconnected") {
+				t.Errorf("Expected the H2C handshake client to disconnect but it didn't")
 			}
 		} else if count == 2 {
 			// This is the expected call. It should not have any of the h2c upgrade stuff, since the h2c test server will handle that for us.
@@ -183,7 +182,6 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 	})
 
 	action := newHTTPGetAction(t, server.URL)
-	action.Path = expectedPath
 
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
@@ -297,11 +295,10 @@ func TestIsHTTPProbeShuttingDown(t *testing.T) {
 }
 
 func newH2cTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
-	h2s := &http2.Server{}
 	t.Helper()
 	server := httptest.NewServer(h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handler(w, r)
-	}), h2s))
+	}), &http2.Server{}))
 	t.Cleanup(server.Close)
 
 	return server

@@ -17,6 +17,7 @@ limitations under the License.
 package health
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -26,6 +27,7 @@ import (
 	"net/url"
 	"time"
 
+	"golang.org/x/net/http2"
 	corev1 "k8s.io/api/core/v1"
 	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/pkg/network"
@@ -111,7 +113,10 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 		Timeout:   config.Timeout,
 	}
 	url := getURL(config)
-	req, err := http.NewRequest(http.MethodOptions, url.String(), nil)
+
+	// Write an HTTP2 Client Preface to behave correctly and move the connection along.
+	body := bytes.NewBufferString(http2.ClientPreface)
+	req, err := http.NewRequest(http.MethodOptions, url.String(), body)
 	if err != nil {
 		return 0, fmt.Errorf("error constructing probe request %w", err)
 	}
