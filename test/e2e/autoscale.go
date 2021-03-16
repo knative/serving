@@ -101,6 +101,26 @@ func (ctx *TestContext) SetLogger(logf logging.FormatLogger) {
 	ctx.logf = logf
 }
 
+// Autoscaler handles stopping the autoscale tests.
+type Autoscaler struct {
+	doneCh chan time.Time
+	errGrp *errgroup.Group
+}
+
+// Stop closes the autoscaler channel and waits for the group to finish.
+func (a *Autoscaler) Stop() error {
+	close(a.doneCh)
+	return a.errGrp.Wait()
+}
+
+// AssertAutoscaleNoError stops the autoscaler and verifies there's no error.
+func AssertAutoscaleNoError(ctx *TestContext, autoscaler *Autoscaler) {
+	ctx.t.Helper()
+	if err := autoscaler.Stop(); err != nil {
+		ctx.t.Error(err)
+	}
+}
+
 func getVegetaTarget(kubeClientset kubernetes.Interface, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
 	if resolvable {
 		return vegeta.Target{
@@ -365,25 +385,29 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 //    sustains there until the `done` channel sends a signal.
 func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
 	ctx.t.Helper()
-	wait := AutoscaleUpToNumPods(ctx, curPods, targetPods, done, quick)
-	if err := wait(); err != nil {
-		ctx.t.Fatal(err)
-	}
+	autoscaler := AutoscaleUpToNumPods(ctx, curPods, targetPods, quick)
+	<-done
+	AssertAutoscaleNoError(ctx, autoscaler)
 }
 
 // AutoscaleUpToNumPods starts the traffic for AssertAutoscaleUpToNumPods and returns
 // a function to wait for which will return any error from test execution.
 // Starting the routines is separated from waiting for easy re-use in other
 // places (e.g. upgrade tests).
-func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) func() error {
+func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, quick bool) *Autoscaler {
 	ctx.t.Helper()
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
 	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
 	maxPods := math.Ceil(math.Ceil(targetPods/ctx.targetUtilization) * 1.1)
 
-	stopChan := make(chan struct{})
 	var grp errgroup.Group
+	doneCh := make(chan time.Time)
+	stopChan := make(chan struct{})
+	autoscaler := &Autoscaler{
+		doneCh: doneCh,
+		errGrp: &grp,
+	}
 	grp.Go(func() error {
 		switch ctx.metric {
 		case autoscaling.RPS:
@@ -395,8 +419,8 @@ func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-
 
 	grp.Go(func() error {
 		defer close(stopChan)
-		return checkPodScale(ctx, targetPods, minPods, maxPods, done, quick)
+		return checkPodScale(ctx, targetPods, minPods, maxPods, doneCh, quick)
 	})
 
-	return grp.Wait
+	return autoscaler
 }
