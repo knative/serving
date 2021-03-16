@@ -1,4 +1,3 @@
 # Sample API Usage
 
-Serving client documentation can now be found in the
-[Knative Client Repository](https://github.com/knative/client).
+This file has been moved to the [Knative Specs Repository](https://github.com/knative/specs/blob/main/specs/serving/normative_examples.md)
