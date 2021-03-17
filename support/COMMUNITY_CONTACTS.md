@@ -34,9 +34,9 @@ community contact's duty (subject to change) is as followed:
 - Check the
   [knative-users@](https://groups.google.com/forum/#!forum/knative-users)
   mailing list and `@serving-help` on Slack for unanswered questions.
-- Check Serving
-  [unassigned issues / untriaged issues](https://github.com/knative/serving/issues?q=is%3Aopen+is%3Aissue+no%3Aassignee+no%3Amilestone)
-  for unanswered questions.
+- [Triage issues in the serving repo](./TRIAGE.md). Quick links:
+  - [Untriaged issues](https://github.com/knative/serving/issues?q=is%3Aissue+is%3Aopen+-label%3Atriage%2Faccepted+-label%3Atriage%2Fneeds-user-input)
+  - [User feedback issues updated more than 3 days ago](https://github.com/knative/serving/issues?q=is%3Aissue+is%3Aopen+label%3Atriage%2Fneeds-user-input+updated%3A%3C%3D2021-03-13) -- **YOU NEED TO UPDATE THE DATE IN THE QUERY**
 - Check Docs
   [unassigned issues / untriaged issues](https://github.com/knative/docs/issues?q=is%3Aopen+is%3Aissue+label%3Akind%2Fserving+label%3Atriage%2Fneeds-eng-input)
   for unanswered questions.
