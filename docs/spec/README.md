@@ -1,13 +1,3 @@
 # Knative Serving Specification
 
-The Knative Serving specifications have been moved. See the links below for
-document locations:
-
-- [Knative Serving API Specification](https://github.com/knative/docs/blob/main/docs/serving/spec/).
-- [Knative Serving Runtime Specification](https://github.com/knative/serving/blob/main/docs/runtime-contract.md)
-- [Knative Serving Conformance Tests](/test/conformance)
-
-Docs in this directory:
-
-- [Motivation and goals](motivation.md)
-- [Resource type overview](overview.md)
+This file has been moved to the [Knative Specs Repository](https://github.com/knative/specs/blob/main/specs/serving/README.md)
