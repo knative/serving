@@ -37,12 +37,15 @@ function teardown_test_resources() {
 # Parameters: $1..$n - any go test flags, then directories containing the tests to run.
 function go_test_e2e() {
   local go_test_args=()
+  [[ ! " $*" == *" -tags="* ]] && go_test_args+=("-tags=e2e")
+  [[ ! " $*" == *" -count="* ]] && go_test_args+=("-count=1")
+  [[ ! " $*" == *" -race"* ]] && go_test_args+=("-race")
+
   # Remove empty args as `go test` will consider it as running tests for the current directory, which is not expected.
   for arg in "$@"; do
     [[ -n "$arg" ]] && go_test_args+=("$arg")
   done
-  [[ ! " $*" == *" -tags="* ]] && go_test_args+=("-tags=e2e")
-  report_go_test -race -count=1 "${go_test_args[@]}"
+  report_go_test "${go_test_args[@]}"
 }
 
 # Setup the test cluster for running the tests.
@@ -69,8 +72,8 @@ function setup_test_cluster() {
   # Acquire cluster admin role for the current user.
   acquire_cluster_admin_role "${k8s_cluster}"
 
-  # Setup KO_DOCKER_REPO if it is a GKE cluster. Incorporate an element of 
-  # randomness to ensure that each run properly publishes images. Don't 
+  # Setup KO_DOCKER_REPO if it is a GKE cluster. Incorporate an element of
+  # randomness to ensure that each run properly publishes images. Don't
   # owerwrite KO_DOCKER_REPO if already set.
   [ -z "${KO_DOCKER_REPO}" ] && \
     [[ "${k8s_cluster}" =~ ^gke_.* ]] && \
