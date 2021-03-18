@@ -213,7 +213,8 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := v1alpha1.IngressSpec{
-		TLS: []v1alpha1.IngressTLS{},
+		HTTPOption: v1alpha1.HTTPOptionEnabled,
+		TLS:        []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test",
@@ -342,7 +343,8 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := v1alpha1.IngressSpec{
-		TLS: []v1alpha1.IngressTLS{},
+		HTTPOption: v1alpha1.HTTPOptionEnabled,
+		TLS:        []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test",
@@ -459,7 +461,8 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := v1alpha1.IngressSpec{
-		TLS: []v1alpha1.IngressTLS{},
+		HTTPOption: v1alpha1.HTTPOptionEnabled,
+		TLS:        []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test",
@@ -590,7 +593,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := v1alpha1.IngressSpec{
-		TLS: []v1alpha1.IngressTLS{},
+		HTTPOption: v1alpha1.HTTPOptionEnabled,
+		TLS:        []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test",
@@ -795,7 +799,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := v1alpha1.IngressSpec{
-		TLS: []v1alpha1.IngressTLS{},
+		HTTPOption: v1alpha1.HTTPOptionEnabled,
+		TLS:        []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test",
@@ -1003,7 +1008,8 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := v1alpha1.IngressSpec{
-		TLS: []v1alpha1.IngressTLS{},
+		HTTPOption: v1alpha1.HTTPOptionEnabled,
+		TLS:        []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test",
