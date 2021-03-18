@@ -209,7 +209,7 @@ function run_unit_tests() {
 
 # Default unit test runner that runs all go tests in the repo.
 function default_unit_test_runner() {
-  report_go_test -race ./...
+  report_go_test -race -count 1 ./...
 }
 
 # Run integration tests. If there's no `integration_tests` function, run the
