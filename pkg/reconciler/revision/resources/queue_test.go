@@ -735,10 +735,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 						}},
 					},
 				},
-				// The ReadinessProbe does not override the user's probe parameters.
-				// (The aggressive probing will have happened on startup, now
-				// we can probe at the user-requested/default interval).
-				PeriodSeconds:    0,
+				PeriodSeconds:    1,
 				TimeoutSeconds:   0,
 				SuccessThreshold: 3,
 			}
