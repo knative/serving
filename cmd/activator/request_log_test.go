@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	ltesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
@@ -126,7 +127,10 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 			resp := httptest.NewRecorder()
 			rs := string(uuid.NewUUID())
 			req := httptest.NewRequest(http.MethodPost, test.url, bytes.NewBufferString(rs))
-			ctx := activatorhandler.WithRevision(req.Context(), revision(true))
+
+			rev := revision(true)
+			revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
+			ctx := activatorhandler.WithRevisionAndID(req.Context(), rev, revID)
 			handler.ServeHTTP(resp, req.WithContext(ctx))
 
 			if got := buf.String(); got != test.want {
@@ -173,7 +177,8 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := activatorhandler.WithRevision(test.request.Context(), test.revision)
+			revID := types.NamespacedName{Namespace: test.revision.Namespace, Name: test.revision.Name}
+			ctx := activatorhandler.WithRevisionAndID(test.request.Context(), test.revision, revID)
 			request := test.request.WithContext(ctx)
 
 			got := requestLogTemplateInputGetter(request, test.response)

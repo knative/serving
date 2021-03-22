@@ -437,7 +437,7 @@ func TestConcurrencyReporterHandler(t *testing.T) {
 
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-	rCtx := WithRevID(context.Background(), rev1)
+	rCtx := WithRevisionAndID(context.Background(), nil, rev1)
 
 	// Send a few requests.
 	handler.ServeHTTP(resp, req.WithContext(rCtx))
@@ -644,7 +644,7 @@ func BenchmarkConcurrencyReporterHandler(b *testing.B) {
 			Name:      testRevName + strconv.Itoa(i),
 		}
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		reqs = append(reqs, req.WithContext(WithRevID(context.Background(), key)))
+		reqs = append(reqs, req.WithContext(WithRevisionAndID(context.Background(), nil, key)))
 
 		// Create revisions in the fake clients to trigger report logic.
 		rev := revision(key.Namespace, key.Name)

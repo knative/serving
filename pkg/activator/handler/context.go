@@ -23,6 +23,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -33,19 +34,38 @@ type (
 	revIDKey    struct{}
 )
 
-// WithRevision attaches the Revision object to the context.
-func WithRevision(ctx context.Context, rev *v1.Revision) context.Context {
-	return context.WithValue(ctx, revisionKey{}, rev)
+type revCtx struct {
+	context.Context
+	revision *v1.Revision
+	revID    types.NamespacedName
+}
+
+func (c *revCtx) String() string {
+	return fmt.Sprintf("revCtx(%s)", c.revID.String())
+}
+
+func (c *revCtx) Value(key interface{}) interface{} {
+	if key == (revisionKey{}) {
+		return c.revision
+	}
+	if key == (revIDKey{}) {
+		return c.revID
+	}
+	return c.Context.Value(key)
+}
+
+// WithRevisionAndID attaches the Revision and the ID to the context.
+func WithRevisionAndID(ctx context.Context, rev *v1.Revision, revID types.NamespacedName) context.Context {
+	return &revCtx{
+		Context:  ctx,
+		revision: rev,
+		revID:    revID,
+	}
 }
 
 // RevisionFrom retrieves the Revision object from the context.
 func RevisionFrom(ctx context.Context) *v1.Revision {
 	return ctx.Value(revisionKey{}).(*v1.Revision)
-}
-
-// WithRevID attaches the the revisionID to the context.
-func WithRevID(ctx context.Context, revID types.NamespacedName) context.Context {
-	return context.WithValue(ctx, revIDKey{}, revID)
 }
 
 // RevIDFrom retrieves the the revisionID from the context.
