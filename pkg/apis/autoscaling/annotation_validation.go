@@ -52,7 +52,7 @@ func getIntGE0(m map[string]string, k string) (int32, *apis.FieldError) {
 // ValidateAnnotations verifies the autoscaling annotations.
 func ValidateAnnotations(ctx context.Context, config *autoscalerconfig.Config, anns map[string]string) *apis.FieldError {
 	return validateClass(anns).
-		Also(validateMinMaxScale(ctx, config, anns)).
+		Also(validateMinMaxScale(config, anns)).
 		Also(validateFloats(anns)).
 		Also(validateWindow(anns)).
 		Also(validateLastPodRetention(anns)).
@@ -173,7 +173,7 @@ func validateWindow(annotations map[string]string) *apis.FieldError {
 	return nil
 }
 
-func validateMinMaxScale(ctx context.Context, config *autoscalerconfig.Config, annotations map[string]string) *apis.FieldError {
+func validateMinMaxScale(config *autoscalerconfig.Config, annotations map[string]string) *apis.FieldError {
 	min, errs := getIntGE0(annotations, MinScaleAnnotationKey)
 	max, err := getIntGE0(annotations, MaxScaleAnnotationKey)
 	errs = errs.Also(err)
@@ -184,21 +184,30 @@ func validateMinMaxScale(ctx context.Context, config *autoscalerconfig.Config, a
 			Paths:   []string{MaxScaleAnnotationKey, MinScaleAnnotationKey},
 		})
 	}
-	_, exists := annotations[MaxScaleAnnotationKey]
-	// If max scale annotation is not set but default MaxScale is set, then max scale will not be unlimited.
-	if !apis.IsInCreate(ctx) || config.MaxScaleLimit == 0 || (!exists && config.MaxScale > 0) {
-		return errs
+
+	if _, hasMaxScaleAnnotation := annotations[MaxScaleAnnotationKey]; hasMaxScaleAnnotation {
+		errs = errs.Also(validateMaxScaleWithinLimit(max, config.MaxScaleLimit))
 	}
-	if max > config.MaxScaleLimit {
-		errs = errs.Also(apis.ErrOutOfBoundsValue(
-			max, 1, config.MaxScaleLimit, MaxScaleAnnotationKey))
+
+	return errs
+}
+
+func validateMaxScaleWithinLimit(maxScale, maxScaleLimit int32) (errs *apis.FieldError) {
+	if maxScaleLimit == 0 {
+		return nil
 	}
-	if max == 0 {
+
+	if maxScale > maxScaleLimit {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(maxScale, 1, maxScaleLimit, MaxScaleAnnotationKey))
+	}
+
+	if maxScale == 0 {
 		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprint("maxScale=0 (unlimited), must be less than ", config.MaxScaleLimit),
+			Message: fmt.Sprint("maxScale=0 (unlimited), must be less than ", maxScaleLimit),
 			Paths:   []string{MaxScaleAnnotationKey},
 		})
 	}
+
 	return errs
 }
 

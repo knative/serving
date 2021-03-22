@@ -24,7 +24,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
@@ -34,7 +33,6 @@ func TestValidateAnnotations(t *testing.T) {
 		annotations   map[string]string
 		expectErr     string
 		configMutator func(*autoscalerconfig.Config)
-		isInCreate    bool
 	}{{
 		name:        "nil annotations",
 		annotations: nil,
@@ -102,7 +100,6 @@ func TestValidateAnnotations(t *testing.T) {
 		configMutator: func(config *autoscalerconfig.Config) {
 			config.MaxScaleLimit = 10
 		},
-		isInCreate:  true,
 		annotations: map[string]string{MaxScaleAnnotationKey: "11"},
 		expectErr:   "expected 1 <= 11 <= 10: " + MaxScaleAnnotationKey,
 	}, {
@@ -111,23 +108,14 @@ func TestValidateAnnotations(t *testing.T) {
 			config.MaxScaleLimit = 10
 			config.MaxScale = 11
 		},
-		isInCreate:  true,
 		annotations: map[string]string{MaxScaleAnnotationKey: "20"},
 		expectErr:   "expected 1 <= 20 <= 10: " + MaxScaleAnnotationKey,
-	}, {
-		name: "maxScale is greater than MaxScaleLimit when not in create",
-		configMutator: func(config *autoscalerconfig.Config) {
-			config.MaxScaleLimit = 10
-		},
-		isInCreate:  false,
-		annotations: map[string]string{MaxScaleAnnotationKey: "11"},
 	}, {
 		name: "maxScale is explicitly set to 0 when MaxScaleLimit and default MaxScale are set",
 		configMutator: func(config *autoscalerconfig.Config) {
 			config.MaxScaleLimit = 10
-			config.MaxScale = 11
+			config.MaxScale = 1
 		},
-		isInCreate:  true,
 		annotations: map[string]string{MaxScaleAnnotationKey: "0"},
 		expectErr:   "maxScale=0 (unlimited), must be less than 10: " + MaxScaleAnnotationKey,
 	}, {
@@ -136,20 +124,11 @@ func TestValidateAnnotations(t *testing.T) {
 			config.MaxScaleLimit = 10
 			config.MaxScale = 11
 		},
-		isInCreate: true,
-	}, {
-		name: "neither maxScale nor default MaxScale is set when MaxScaleLimit is set",
-		configMutator: func(config *autoscalerconfig.Config) {
-			config.MaxScaleLimit = 10
-		},
-		isInCreate: true,
-		expectErr:  "maxScale=0 (unlimited), must be less than 10: " + MaxScaleAnnotationKey,
 	}, {
 		name: "maxScale is less than MaxScaleLimit",
 		configMutator: func(config *autoscalerconfig.Config) {
 			config.MaxScaleLimit = 10
 		},
-		isInCreate:  true,
 		annotations: map[string]string{MaxScaleAnnotationKey: "9"},
 	}, {
 		name: "valid algorithm on KPA",
@@ -386,9 +365,6 @@ func TestValidateAnnotations(t *testing.T) {
 				c.configMutator(cfg)
 			}
 			ctx := context.Background()
-			if c.isInCreate {
-				ctx = apis.WithinCreate(ctx)
-			}
 			if got, want := ValidateAnnotations(ctx, cfg, c.annotations).Error(), c.expectErr; !reflect.DeepEqual(got, want) {
 				t.Errorf("\nErr = %q,\nwant: %q, diff(-want,+got):\n%s", got, want, cmp.Diff(want, got))
 			}
