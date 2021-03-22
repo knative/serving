@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
@@ -204,7 +205,7 @@ func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, 
 	revName := key.Name
 	revision, err := cr.rl.Revisions(ns).Get(revName)
 	if err != nil {
-		cr.logger.Errorw("Error while getting revision", zap.Any("revID", key), zap.Error(err))
+		cr.logger.Errorw("Error while getting revision", zap.String(logkey.Key, key.String()), zap.Error(err))
 		return
 	}
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
