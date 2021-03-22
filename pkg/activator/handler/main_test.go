@@ -73,10 +73,9 @@ func BenchmarkHandlerChain(b *testing.B) {
 	ah := New(ctx, fakeThrottler{}, rt, logger)
 	ah = concurrencyReporter.Handler(ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
-	ah = configStore.HTTPMiddleware(ah)
 	ah, _ = pkghttp.NewRequestLogHandler(ah, ioutil.Discard, "", nil, false)
 	ah = NewMetricHandler(activatorPodName, ah)
-	ah = NewContextHandler(ctx, ah)
+	ah = NewContextHandler(ctx, ah, configStore)
 	ah = &ProbeHandler{NextHandler: ah}
 	ah = network.NewProbeHandler(ah)
 	ah = &HealthHandler{HealthCheck: func() error { return nil }, NextHandler: ah, Logger: logger}
