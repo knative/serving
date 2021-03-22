@@ -31,7 +31,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	apistest "knative.dev/pkg/apis/testing"
 	"knative.dev/pkg/ptr"
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
 )
 
@@ -529,19 +529,19 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 	apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
 
 	// PodAutoscaler has no active condition, so we are just coming up.
-	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
 		Status: duckv1.Status{},
 	})
 	apistest.CheckConditionOngoing(r, RevisionConditionActive, t)
 
 	// PodAutoscaler becomes ready, making us active.
-	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
-				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
 				Status: corev1.ConditionTrue,
 			}, {
-				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
 				Status: corev1.ConditionTrue,
 			}},
 		},
@@ -550,13 +550,13 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, RevisionConditionReady, t)
 
 	// PodAutoscaler flipping back to Unknown causes Active become ongoing immediately.
-	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
-				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
 				Status: corev1.ConditionUnknown,
 			}, {
-				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
 				Status: corev1.ConditionTrue,
 			}},
 		},
@@ -565,13 +565,13 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, RevisionConditionReady, t)
 
 	// PodAutoscaler becoming unready makes Active false, but doesn't affect readiness.
-	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
-				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
 				Status: corev1.ConditionFalse,
 			}, {
-				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
 				Status: corev1.ConditionTrue,
 			}},
 		},
@@ -592,13 +592,13 @@ func TestPAResAvailableNoOverride(t *testing.T) {
 	r.MarkResourcesAvailableFalse("somehow", "somewhere")
 
 	// PodAutoscaler achieved initial scale.
-	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
-				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
 				Status: corev1.ConditionUnknown,
 			}, {
-				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
 				Status: corev1.ConditionTrue,
 			}},
 		},
@@ -617,14 +617,14 @@ func TestPropagateAutoscalerStatusNoProgress(t *testing.T) {
 	apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
 
 	// PodAutoscaler is not ready and initial scale was never attained.
-	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
 		ServiceName: "testRevision",
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
-				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
 				Status: corev1.ConditionFalse,
 			}, {
-				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
 				Status: corev1.ConditionUnknown,
 			}},
 		},
@@ -640,13 +640,13 @@ func TestPropagateAutoscalerStatusNoProgress(t *testing.T) {
 	r.MarkResourcesAvailableFalse("another-one", "bit-the-dust")
 
 	// And apply the status.
-	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
-				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
 				Status: corev1.ConditionFalse,
 			}, {
-				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
 				Status: corev1.ConditionUnknown,
 			}},
 		},
@@ -664,19 +664,19 @@ func TestPropagateAutoscalerStatusRace(t *testing.T) {
 	apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
 
 	// PodAutoscaler has no active condition, so we are just coming up.
-	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
 		Status: duckv1.Status{},
 	})
 	apistest.CheckConditionOngoing(r, RevisionConditionActive, t)
 
 	// The PodAutoscaler might have been ready but it's scaled down already.
-	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
-				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
 				Status: corev1.ConditionFalse,
 			}, {
-				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
 				Status: corev1.ConditionTrue,
 			}},
 		},

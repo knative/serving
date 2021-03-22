@@ -23,6 +23,7 @@ linters:
     - errorlint
     - golint
     - gosec
+    - importas
     - prealloc
     - stylecheck
     - tparallel
@@ -38,6 +39,8 @@ linters-settings:
       - sync/atomic
     packages-with-error-message:
       - sync/atomic: "please use type-safe atomics from go.uber.org/atomic"
+  importas:
+    autoscalingv1alpha1: knative.dev/serving/pkg/apis/autoscaling/v1alpha1
 
 issues:
   include:
