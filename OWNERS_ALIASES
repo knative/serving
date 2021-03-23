@@ -53,6 +53,7 @@ aliases:
   monitoring-reviewers:
   - mdemirhan
   - yanweiguo
+  - skonto
 
   productivity-approvers:
   - chaodaiG
