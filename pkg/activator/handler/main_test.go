@@ -27,7 +27,6 @@ import (
 	"knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/pkg/tracing"
 	"knative.dev/serving/pkg/activator"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
@@ -72,7 +71,7 @@ func BenchmarkHandlerChain(b *testing.B) {
 	// Make sure to update this if the activator's main file changes.
 	ah := New(ctx, fakeThrottler{}, rt, logger)
 	ah = concurrencyReporter.Handler(ah)
-	ah = tracing.HTTPSpanMiddleware(ah)
+	ah = NewTracingHandler(ah)
 	ah, _ = pkghttp.NewRequestLogHandler(ah, ioutil.Discard, "", nil, false)
 	ah = NewMetricHandler(activatorPodName, ah)
 	ah = NewContextHandler(ctx, ah, configStore)

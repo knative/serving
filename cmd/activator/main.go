@@ -177,7 +177,7 @@ func main() {
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	ah := activatorhandler.New(ctx, throttler, transport, logger)
 	ah = concurrencyReporter.Handler(ah)
-	ah = tracing.HTTPSpanMiddleware(ah)
+	ah = activatorhandler.NewTracingHandler(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
 		requestLogTemplateInputGetter, false /*enableProbeRequestLog*/)
 	if err != nil {
