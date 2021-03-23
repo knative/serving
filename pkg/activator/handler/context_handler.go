@@ -65,17 +65,15 @@ func (h *contextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	revID := types.NamespacedName{Namespace: namespace, Name: name}
-	logger := h.logger.With(zap.String(logkey.Key, revID.String()))
 
 	revision, err := h.revisionLister.Revisions(namespace).Get(name)
 	if err != nil {
-		logger.Errorw("Error while getting revision", zap.Error(err))
+		h.logger.Errorw("Error while getting revision", zap.String(logkey.Key, revID.String()), zap.Error(err))
 		sendError(err, w)
 		return
 	}
 
 	ctx := r.Context()
-	ctx = logging.WithLogger(ctx, logger)
 	ctx = WithRevision(ctx, revision)
 	ctx = WithRevID(ctx, revID)
 

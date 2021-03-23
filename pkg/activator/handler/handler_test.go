@@ -125,7 +125,7 @@ func TestActivationHandler(t *testing.T) {
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
-			handler := New(ctx, test.throttler, rt)
+			handler := New(ctx, test.throttler, rt, logging.FromContext(ctx))
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -164,7 +164,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	handler := New(ctx, fakeThrottler{}, rt)
+	handler := New(ctx, fakeThrottler{}, rt, logging.FromContext(ctx))
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -241,7 +241,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				oct.Finish()
 			}()
 
-			handler := New(ctx, fakeThrottler{}, rt)
+			handler := New(ctx, fakeThrottler{}, rt, logging.FromContext(ctx))
 
 			// Set up config store to populate context.
 			configStore := setupConfigStore(t, logging.FromContext(ctx))
@@ -311,7 +311,7 @@ func BenchmarkHandler(b *testing.B) {
 			}, nil
 		})
 
-		handler := New(ctx, fakeThrottler{}, rt)
+		handler := New(ctx, fakeThrottler{}, rt, logging.FromContext(ctx))
 
 		request := func() *http.Request {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
