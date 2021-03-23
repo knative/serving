@@ -29,26 +29,28 @@ import (
 )
 
 type (
-	revisionKey struct{}
-	revIDKey    struct{}
+	revCtxKey struct{}
 )
 
-// WithRevision attaches the Revision object to the context.
-func WithRevision(ctx context.Context, rev *v1.Revision) context.Context {
-	return context.WithValue(ctx, revisionKey{}, rev)
+type revCtx struct {
+	revision *v1.Revision
+	revID    types.NamespacedName
+}
+
+// WithRevisionAndID attaches the Revision and the ID to the context.
+func WithRevisionAndID(ctx context.Context, rev *v1.Revision, revID types.NamespacedName) context.Context {
+	return context.WithValue(ctx, revCtxKey{}, &revCtx{
+		revision: rev,
+		revID:    revID,
+	})
 }
 
 // RevisionFrom retrieves the Revision object from the context.
 func RevisionFrom(ctx context.Context) *v1.Revision {
-	return ctx.Value(revisionKey{}).(*v1.Revision)
-}
-
-// WithRevID attaches the the revisionID to the context.
-func WithRevID(ctx context.Context, revID types.NamespacedName) context.Context {
-	return context.WithValue(ctx, revIDKey{}, revID)
+	return ctx.Value(revCtxKey{}).(*revCtx).revision
 }
 
 // RevIDFrom retrieves the the revisionID from the context.
 func RevIDFrom(ctx context.Context) types.NamespacedName {
-	return ctx.Value(revIDKey{}).(types.NamespacedName)
+	return ctx.Value(revCtxKey{}).(*revCtx).revID
 }

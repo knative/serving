@@ -74,8 +74,7 @@ func (h *contextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	ctx = WithRevision(ctx, revision)
-	ctx = WithRevID(ctx, revID)
+	ctx = WithRevisionAndID(ctx, revision, revID)
 
 	h.nextHandler.ServeHTTP(w, r.WithContext(ctx))
 }
