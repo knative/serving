@@ -56,7 +56,6 @@ func WithZipkinExporter(reporterFact ZipkinReporterFactory, endpoint *zipkinmode
 		}
 
 		if oct.closer != nil {
-			// TODO(greghaynes) log this error
 			_ = oct.closer.Close()
 		}
 
