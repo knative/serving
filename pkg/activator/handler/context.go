@@ -37,7 +37,7 @@ type (
 type revCtx struct {
 	context.Context
 	revision *v1.Revision
-	revID    types.NamespacedName
+	revID    *types.NamespacedName
 }
 
 func (c *revCtx) String() string {
@@ -59,7 +59,7 @@ func WithRevisionAndID(ctx context.Context, rev *v1.Revision, revID types.Namesp
 	return &revCtx{
 		Context:  ctx,
 		revision: rev,
-		revID:    revID,
+		revID:    &revID,
 	}
 }
 
@@ -70,5 +70,5 @@ func RevisionFrom(ctx context.Context) *v1.Revision {
 
 // RevIDFrom retrieves the the revisionID from the context.
 func RevIDFrom(ctx context.Context) types.NamespacedName {
-	return ctx.Value(revIDKey{}).(types.NamespacedName)
+	return *ctx.Value(revIDKey{}).(*types.NamespacedName)
 }
