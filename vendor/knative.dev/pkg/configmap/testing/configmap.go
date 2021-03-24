@@ -31,7 +31,7 @@ import (
 
 // ConfigMapFromTestFile creates a v1.ConfigMap from a YAML file
 // It loads the YAML file from the testdata folder.
-func ConfigMapFromTestFile(t *testing.T, name string, allowed ...string) *corev1.ConfigMap {
+func ConfigMapFromTestFile(t testing.TB, name string, allowed ...string) *corev1.ConfigMap {
 	t.Helper()
 
 	cm, _ := ConfigMapsFromTestFile(t, name, allowed...)
@@ -42,7 +42,7 @@ func ConfigMapFromTestFile(t *testing.T, name string, allowed ...string) *corev1
 // file read from the testdata directory:
 // 1. The raw configmap read in.
 // 2. A second version of the configmap augmenting `data:` with what's parsed from the value of `_example:`
-func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*corev1.ConfigMap, *corev1.ConfigMap) {
+func ConfigMapsFromTestFile(t testing.TB, name string, allowed ...string) (*corev1.ConfigMap, *corev1.ConfigMap) {
 	t.Helper()
 
 	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", name))
@@ -53,7 +53,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 	var orig corev1.ConfigMap
 
 	// Use sigs.k8s.io/yaml since it reads json struct
-	// tags so things unmarshal properly
+	// tags so things unmarshal properly.
 	if err := yaml.Unmarshal(b, &orig); err != nil {
 		t.Fatal("yaml.Unmarshal() =", err)
 	}
@@ -76,7 +76,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 	// With the length and membership checks, we know that the keyspace matches.
 
 	exampleBody, hasExampleBody := orig.Data[configmap.ExampleKey]
-	// Check that exampleBody does not have lines that end in a trailing space,
+	// Check that exampleBody does not have lines that end in a trailing space.
 	for i, line := range strings.Split(exampleBody, "\n") {
 		if strings.TrimRightFunc(line, unicode.IsSpace) != line {
 			t.Errorf("line %d of %q example contains trailing spaces", i, name)
@@ -92,12 +92,12 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 		}
 	}
 
-	// Parse exampleBody into exemplar.Data
+	// Parse exampleBody into exemplar.Data.
 	exemplar := orig.DeepCopy()
 	if err := yaml.Unmarshal([]byte(exampleBody), &exemplar.Data); err != nil {
 		t.Fatal("yaml.Unmarshal() =", err)
 	}
-	// Augment the sample with actual configuration
+	// Augment the sample with actual configuration.
 	for k, v := range orig.Data {
 		if _, ok := exemplar.Data[k]; ok {
 			continue
