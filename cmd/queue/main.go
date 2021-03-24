@@ -296,7 +296,9 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	if metricsSupported {
 		composedHandler = requestMetricsHandler(logger, composedHandler, env)
 	}
-	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
+	if tracingEnabled {
+		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
+	}
 
 	composedHandler = health.ProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler)
 	composedHandler = network.NewProbeHandler(composedHandler)
