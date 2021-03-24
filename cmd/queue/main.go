@@ -67,12 +67,13 @@ var (
 )
 
 type config struct {
-	ContainerConcurrency   int    `split_words:"true" required:"true"`
-	QueueServingPort       string `split_words:"true" required:"true"`
-	UserPort               string `split_words:"true" required:"true"`
-	RevisionTimeoutSeconds int    `split_words:"true" required:"true"`
-	ServingReadinessProbe  string `split_words:"true" required:"true"`
-	EnableProfiling        bool   `split_words:"true"` // optional
+	ContainerConcurrency     int    `split_words:"true" required:"true"`
+	QueueServingPort         string `split_words:"true" required:"true"`
+	UserPort                 string `split_words:"true" required:"true"`
+	RevisionTimeoutSeconds   int    `split_words:"true" required:"true"`
+	ServingReadinessProbe    string `split_words:"true" required:"true"`
+	EnableProfiling          bool   `split_words:"true"` // optional
+	EnableHTTP2AutoDetection bool   `split_words:"true"` // optional
 
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
@@ -165,7 +166,7 @@ func main() {
 	}()
 
 	// Setup probe to run for checking user-application healthiness.
-	probe := buildProbe(ctx, logger, env.ServingReadinessProbe)
+	probe := buildProbe(logger, env)
 	healthState := health.NewState()
 
 	mainServer := buildServer(ctx, env, healthState, probe, stats, logger)
@@ -254,12 +255,15 @@ func main() {
 	}
 }
 
-func buildProbe(ctx context.Context, logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
-	coreProbe, err := readiness.DecodeProbe(probeJSON)
+func buildProbe(logger *zap.SugaredLogger, env config) *readiness.Probe {
+	coreProbe, err := readiness.DecodeProbe(env.ServingReadinessProbe)
 	if err != nil {
 		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
 	}
-	return readiness.NewProbe(ctx, coreProbe)
+	if env.EnableHTTP2AutoDetection {
+		return readiness.NewProbeWithHTTP2AutoDetection(coreProbe)
+	}
+	return readiness.NewProbe(coreProbe)
 }
 
 func buildServer(ctx context.Context, env config, healthState *health.State, rp *readiness.Probe, stats *network.RequestStats,
