@@ -116,7 +116,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 		}
 
 		t.Log("Test if service still works")
-		assertServiceEventuallyWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
+		assertServiceEventuallyWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1, test.ServingFlags.ResolvableDomain)
 
 		t.Logf("Wait for activator%d (%s) to vanish", i, activator.Name)
 		if err := pkgTest.WaitForPodDeleted(context.Background(), clients.KubeClient, activator.Name, system.Namespace()); err != nil {
