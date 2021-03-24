@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -66,7 +66,6 @@ func TestTracingHandler(t *testing.T) {
 			configStore.OnConfigChanged(cm)
 			ctx = configStore.ToContext(ctx)
 
-			// Create tracer with reporter recorder
 			reporter, co := tracetesting.FakeZipkinExporter()
 			oct := tracing.NewOpenCensusTracer(co)
 			t.Cleanup(func() {
