@@ -82,6 +82,7 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
 		HTTPGetAction: action,
+		MaxProtoMajor: 1,
 	}
 
 	// Connecting to the server should work
@@ -130,9 +131,9 @@ func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
 	action.Path = expectedPath
 
 	config := HTTPProbeConfigOptions{
-		Timeout:         time.Second,
-		HTTPGetAction:   action,
-		AutoDetectHTTP2: false,
+		Timeout:       time.Second,
+		HTTPGetAction: action,
+		MaxProtoMajor: 1,
 	}
 	if err := HTTPProbe(config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
@@ -177,9 +178,9 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 	action.Path = expectedPath
 
 	config := HTTPProbeConfigOptions{
-		Timeout:         time.Second,
-		HTTPGetAction:   action,
-		AutoDetectHTTP2: true,
+		Timeout:       time.Second,
+		HTTPGetAction: action,
+		MaxProtoMajor: 0,
 	}
 	if err := HTTPProbe(config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
@@ -197,6 +198,7 @@ func TestHTTPSchemeProbeSuccess(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
 		HTTPGetAction: newHTTPGetAction(t, server.URL),
+		MaxProtoMajor: 1,
 	}
 
 	// Connecting to the server should work
@@ -224,6 +226,7 @@ func TestHTTPProbeTimeoutFailure(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		Timeout:       1 * time.Millisecond,
 		HTTPGetAction: newHTTPGetAction(t, server.URL),
+		MaxProtoMajor: 1,
 	}
 	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it succeeded")
@@ -238,6 +241,7 @@ func TestHTTPProbeResponseStatusCodeFailure(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
 		HTTPGetAction: newHTTPGetAction(t, server.URL),
+		MaxProtoMajor: 1,
 	}
 	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it succeeded")
@@ -247,6 +251,7 @@ func TestHTTPProbeResponseStatusCodeFailure(t *testing.T) {
 func TestHTTPProbeResponseErrorFailure(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		HTTPGetAction: newHTTPGetAction(t, "http://localhost:0"),
+		MaxProtoMajor: 1,
 	}
 	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it succeeded")

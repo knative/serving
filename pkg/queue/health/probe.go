@@ -34,10 +34,9 @@ import (
 type HTTPProbeConfigOptions struct {
 	Timeout time.Duration
 	*corev1.HTTPGetAction
-	KubeMajor       string
-	KubeMinor       string
-	MaxProtoMajor   int
-	AutoDetectHTTP2 bool
+	KubeMajor     string
+	KubeMinor     string
+	MaxProtoMajor int
 }
 
 // TCPProbeConfigOptions holds the TCP probe config options
@@ -144,15 +143,12 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 
 // HTTPProbe checks that HTTP connection can be established to the address.
 func HTTPProbe(config HTTPProbeConfigOptions) error {
-	if !config.AutoDetectHTTP2 {
-		config.MaxProtoMajor = 1
-	}
-	// If we don't know if the connection supports HTTP2, we will try it.
-	// Once we get a non-error response, we won't try again.
-	// If maxProto is 0, container is not ready, so we don't know whether http2 is supported.
-	// If maxProto is 1, we know we're ready, but we also can't upgrade, so just return.
-	// If maxProto is 2, we know we can upgrade to http2
-	if config.AutoDetectHTTP2 && config.MaxProtoMajor == 0 {
+	if config.MaxProtoMajor == 0 {
+		// If we don't know if the connection supports HTTP2, we will try it.
+		// Once we get a non-error response, we won't try again.
+		// If maxProto is 0, container is not ready, so we don't know whether http2 is supported.
+		// If maxProto is 1, we know we're ready, but we also can't upgrade, so just return.
+		// If maxProto is 2, we know we can upgrade to http2
 		maxProto, err := http2UpgradeProbe(config)
 		if err != nil {
 			return fmt.Errorf("failed to run HTTP2 upgrade probe with error: %w", err)

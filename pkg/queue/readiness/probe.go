@@ -206,8 +206,13 @@ func (p *Probe) tcpProbe() error {
 // if the probe count is greater than success threshold and false if HTTP probe fails
 func (p *Probe) httpProbe() error {
 	config := health.HTTPProbeConfigOptions{
-		HTTPGetAction:   p.HTTPGet,
-		AutoDetectHTTP2: p.autoDetectHTTP2,
+		HTTPGetAction: p.HTTPGet,
+		MaxProtoMajor: 1,
+	}
+	if p.autoDetectHTTP2 {
+		// A value of 0 indicates that the prober should find out which version is
+		// supported.
+		config.MaxProtoMajor = 0
 	}
 
 	return p.doProbe(func(to time.Duration) error {
