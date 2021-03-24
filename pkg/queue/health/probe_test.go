@@ -149,6 +149,8 @@ func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
 }
 
 func TestHTTPProbeAutoHTTP2(t *testing.T) {
+	t.Skip("The test and the underlying behavior needs hardening, see #10962")
+
 	ctx := context.Background()
 	cfg := apicfg.FromContextOrDefaults(ctx)
 	cfg.Features.AutoDetectHTTP2 = apicfg.Enabled
