@@ -50,7 +50,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 	s := &Store{}
 
 	// Append an update function to run after a ConfigMap has updated to update the
-	// the current state of the Config.
+	// current state of the Config.
 	onAfterStore = append(onAfterStore, func(_ string, _ interface{}) {
 		s.current.Store(&Config{
 			Tracing: s.UntypedLoad(tracingconfig.ConfigName).(*tracingconfig.Config).DeepCopy(),
