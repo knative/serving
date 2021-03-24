@@ -83,6 +83,7 @@ var (
 		Config: &apicfg.Config{
 			Autoscaler: &asConfig,
 			Defaults:   defaults,
+			Features:   &apicfg.Features{},
 		},
 		Deployment:    &deploymentConfig,
 		Logging:       &logConfig,
@@ -102,6 +103,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		nc   network.Config
 		oc   metrics.ObservabilityConfig
 		dc   deployment.Config
+		fc   apicfg.Features
 		want corev1.Container
 	}{{
 		name: "autoscaler single",
@@ -349,6 +351,21 @@ func TestMakeQueueContainer(t *testing.T) {
 				"METRICS_COLLECTOR_ADDRESS":       "otel:55678",
 			})
 		}),
+	}, {
+		name: "HTTP2 autodetection enabled",
+		rev: revision("bar", "foo",
+			withContainers(containers)),
+		fc: apicfg.Features{
+			AutoDetectHTTP2: apicfg.Enabled,
+		},
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"ENABLE_HTTP2_AUTO_DETECTION": "true",
+			})
+		}),
 	}}
 
 	for _, test := range tests {
@@ -366,6 +383,9 @@ func TestMakeQueueContainer(t *testing.T) {
 				Logging:       &test.lc,
 				Observability: &test.oc,
 				Deployment:    &test.dc,
+				Config: &apicfg.Config{
+					Features: &test.fc,
+				},
 			}
 			got, err := makeQueueContainer(test.rev, cfg)
 			if err != nil {

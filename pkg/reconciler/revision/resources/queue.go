@@ -32,6 +32,7 @@ import (
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
+	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
@@ -269,7 +270,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		httpProbe.PeriodSeconds = 1
 	}
 
-	return &corev1.Container{
+	c := &corev1.Container{
 		Name:            QueueContainerName,
 		Image:           cfg.Deployment.QueueSidecarImage,
 		Resources:       createQueueResources(cfg.Deployment, rev.GetAnnotations(), container),
@@ -364,7 +365,17 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "METRICS_COLLECTOR_ADDRESS",
 			Value: cfg.Observability.MetricsCollectorAddress,
 		}},
-	}, nil
+	}
+
+	// Only add this if it's really enabled to avoid upgrade churn due to changing the deployment.
+	if cfg.Features.AutoDetectHTTP2 == apicfg.Enabled {
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
+			Value: "true",
+		})
+	}
+
+	return c, nil
 }
 
 func applyReadinessProbeDefaultsForExec(p *corev1.Probe, port int32) {

@@ -17,7 +17,6 @@ limitations under the License.
 package health
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -32,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	network "knative.dev/networking/pkg"
-	apicfg "knative.dev/serving/pkg/apis/config"
 )
 
 func TestTCPProbe(t *testing.T) {
@@ -84,10 +82,11 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
 		HTTPGetAction: action,
+		MaxProtoMajor: 1,
 	}
 
 	// Connecting to the server should work
-	if err := HTTPProbe(context.Background(), config); err != nil {
+	if err := HTTPProbe(config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
 	}
 	if d := cmp.Diff(gotHeader, expectedHeader); d != "" {
@@ -101,17 +100,12 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	}
 	// Close the server so probing fails afterwards.
 	server.Close()
-	if err := HTTPProbe(context.Background(), config); err == nil {
+	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it didn't")
 	}
 }
 
 func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
-	ctx := context.Background()
-	cfg := apicfg.FromContextOrDefaults(ctx)
-	cfg.Features.AutoDetectHTTP2 = apicfg.Disabled
-	ctx = apicfg.ToContext(ctx, cfg)
-
 	h2cHeaders := map[string]string{
 		"Connection": "Upgrade, HTTP2-Settings",
 		"Upgrade":    "h2c",
@@ -139,8 +133,9 @@ func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
 		HTTPGetAction: action,
+		MaxProtoMajor: 1,
 	}
-	if err := HTTPProbe(ctx, config); err != nil {
+	if err := HTTPProbe(config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
 	}
 	if count := callCount.Load(); count != 1 {
@@ -150,11 +145,6 @@ func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
 
 func TestHTTPProbeAutoHTTP2(t *testing.T) {
 	t.Skip("The test and the underlying behavior needs hardening, see #10962")
-
-	ctx := context.Background()
-	cfg := apicfg.FromContextOrDefaults(ctx)
-	cfg.Features.AutoDetectHTTP2 = apicfg.Enabled
-	ctx = apicfg.ToContext(ctx, cfg)
 
 	h2cHeaders := map[string]string{
 		"Connection": "Upgrade, HTTP2-Settings",
@@ -190,8 +180,9 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
 		HTTPGetAction: action,
+		MaxProtoMajor: 0,
 	}
-	if err := HTTPProbe(ctx, config); err != nil {
+	if err := HTTPProbe(config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
 	}
 	if count := callCount.Load(); count != 2 {
@@ -207,16 +198,17 @@ func TestHTTPSchemeProbeSuccess(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
 		HTTPGetAction: newHTTPGetAction(t, server.URL),
+		MaxProtoMajor: 1,
 	}
 
 	// Connecting to the server should work
-	if err := HTTPProbe(context.Background(), config); err != nil {
+	if err := HTTPProbe(config); err != nil {
 		t.Error("Expected probe to succeed but failed with error", err)
 	}
 
 	// Close the server so probing fails afterwards
 	server.Close()
-	if err := HTTPProbe(context.Background(), config); err == nil {
+	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it didn't")
 	}
 }
@@ -234,8 +226,9 @@ func TestHTTPProbeTimeoutFailure(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		Timeout:       1 * time.Millisecond,
 		HTTPGetAction: newHTTPGetAction(t, server.URL),
+		MaxProtoMajor: 1,
 	}
-	if err := HTTPProbe(context.Background(), config); err == nil {
+	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it succeeded")
 	}
 }
@@ -248,8 +241,9 @@ func TestHTTPProbeResponseStatusCodeFailure(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		Timeout:       time.Second,
 		HTTPGetAction: newHTTPGetAction(t, server.URL),
+		MaxProtoMajor: 1,
 	}
-	if err := HTTPProbe(context.Background(), config); err == nil {
+	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it succeeded")
 	}
 }
@@ -257,8 +251,9 @@ func TestHTTPProbeResponseStatusCodeFailure(t *testing.T) {
 func TestHTTPProbeResponseErrorFailure(t *testing.T) {
 	config := HTTPProbeConfigOptions{
 		HTTPGetAction: newHTTPGetAction(t, "http://localhost:0"),
+		MaxProtoMajor: 1,
 	}
-	if err := HTTPProbe(context.Background(), config); err == nil {
+	if err := HTTPProbe(config); err == nil {
 		t.Error("Expected probe to fail but it succeeded")
 	}
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package health
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/pkg/network"
-	apicfg "knative.dev/serving/pkg/apis/config"
 )
 
 // HTTPProbeConfigOptions holds the HTTP probe config options
@@ -144,18 +142,13 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 }
 
 // HTTPProbe checks that HTTP connection can be established to the address.
-func HTTPProbe(ctx context.Context, config HTTPProbeConfigOptions) error {
-	cfg := apicfg.FromContextOrDefaults(ctx)
-	autoDetect := cfg.Features.AutoDetectHTTP2
-	if autoDetect == apicfg.Disabled {
-		config.MaxProtoMajor = 1
-	}
-	// If we don't know if the connection supports HTTP2, we will try it.
-	// Once we get a non-error response, we won't try again.
-	// If maxProto is 0, container is not ready, so we don't know whether http2 is supported.
-	// If maxProto is 1, we know we're ready, but we also can't upgrade, so just return.
-	// If maxProto is 2, we know we can upgrade to http2
-	if autoDetect == apicfg.Enabled && config.MaxProtoMajor == 0 {
+func HTTPProbe(config HTTPProbeConfigOptions) error {
+	if config.MaxProtoMajor == 0 {
+		// If we don't know if the connection supports HTTP2, we will try it.
+		// Once we get a non-error response, we won't try again.
+		// If maxProto is 0, container is not ready, so we don't know whether http2 is supported.
+		// If maxProto is 1, we know we're ready, but we also can't upgrade, so just return.
+		// If maxProto is 2, we know we can upgrade to http2
 		maxProto, err := http2UpgradeProbe(config)
 		if err != nil {
 			return fmt.Errorf("failed to run HTTP2 upgrade probe with error: %w", err)

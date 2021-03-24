@@ -812,6 +812,7 @@ func reconcilerTestConfig() *config.Config {
 			Autoscaler: &autoscalerconfig.Config{
 				InitialScale: 1,
 			},
+			Features: &defaultconfig.Features{},
 		},
 		Deployment: testDeploymentConfig(),
 		Observability: &metrics.ObservabilityConfig{

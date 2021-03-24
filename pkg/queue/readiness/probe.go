@@ -17,7 +17,6 @@ limitations under the License.
 package readiness
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -40,10 +39,10 @@ const (
 // Probe wraps a corev1.Probe along with a count of consecutive, successful probes
 type Probe struct {
 	*corev1.Probe
-	count       int32
-	pollTimeout time.Duration   // To make tests not run for 10 seconds.
-	out         io.Writer       // To make tests not log errors in good cases.
-	ctx         context.Context // To enable feature flags support.
+	count           int32
+	pollTimeout     time.Duration // To make tests not run for 10 seconds.
+	out             io.Writer     // To make tests not log errors in good cases.
+	autoDetectHTTP2 bool          // Feature gate to enable HTTP2 auto-detection.
 
 	// Barrier sync to ensure only one probe is happening at the same time.
 	// When a probe is active `gv` will be non-nil.
@@ -78,13 +77,23 @@ func (gv *gateValue) read() bool {
 	return gv.result
 }
 
-// NewProbe returns a pointer a new Probe
-func NewProbe(ctx context.Context, v1p *corev1.Probe) *Probe {
+// NewProbe returns a pointer to a new Probe.
+func NewProbe(v1p *corev1.Probe) *Probe {
 	return &Probe{
 		Probe:       v1p,
 		pollTimeout: PollTimeout,
 		out:         os.Stderr,
-		ctx:         ctx,
+	}
+}
+
+// NewProbeWithHTTP2AutoDetection returns a pointer to a new Probe that has HTTP2
+// auto-detection enabled.
+func NewProbeWithHTTP2AutoDetection(v1p *corev1.Probe) *Probe {
+	return &Probe{
+		Probe:           v1p,
+		pollTimeout:     PollTimeout,
+		out:             os.Stderr,
+		autoDetectHTTP2: true,
 	}
 }
 
@@ -198,10 +207,16 @@ func (p *Probe) tcpProbe() error {
 func (p *Probe) httpProbe() error {
 	config := health.HTTPProbeConfigOptions{
 		HTTPGetAction: p.HTTPGet,
+		MaxProtoMajor: 1,
+	}
+	if p.autoDetectHTTP2 {
+		// A value of 0 indicates that the prober should find out which version is
+		// supported.
+		config.MaxProtoMajor = 0
 	}
 
 	return p.doProbe(func(to time.Duration) error {
 		config.Timeout = to
-		return health.HTTPProbe(p.ctx, config)
+		return health.HTTPProbe(config)
 	})
 }
