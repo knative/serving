@@ -37,11 +37,11 @@ import (
 // activator to enable us to see improvements that span handlers and to judge some of
 // the handlers that are not developed here.
 func BenchmarkHandlerChain(b *testing.B) {
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(&testing.T{})
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
 	b.Cleanup(cancel)
 
 	logger := logging.FromContext(ctx)
-	configStore := setupConfigStore(&testing.T{}, logger)
+	configStore := setupConfigStore(b, logger)
 	revision := revision(testNamespace, testRevName)
 	revisionInformer(ctx, revision)
 

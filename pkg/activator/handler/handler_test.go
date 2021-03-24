@@ -288,7 +288,7 @@ func revision(namespace, name string) *v1.Revision {
 	}
 }
 
-func setupConfigStore(t *testing.T, logger *zap.SugaredLogger) *activatorconfig.Store {
+func setupConfigStore(t testing.TB, logger *zap.SugaredLogger) *activatorconfig.Store {
 	configStore := activatorconfig.NewStore(logger)
 	tracingConfig := ConfigMapFromTestFile(t, tracingconfig.ConfigName)
 	configStore.OnConfigChanged(tracingConfig)
@@ -296,11 +296,11 @@ func setupConfigStore(t *testing.T, logger *zap.SugaredLogger) *activatorconfig.
 }
 
 func BenchmarkHandler(b *testing.B) {
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(&testing.T{})
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
 	b.Cleanup(cancel)
-	configStore := setupConfigStore(&testing.T{}, logging.FromContext(ctx))
+	configStore := setupConfigStore(b, logging.FromContext(ctx))
 
-	// bodyLength is in kilobytes.
+	// bodyLength is in Kilobytes.
 	for _, bodyLength := range [5]int{2, 16, 32, 64, 128} {
 		body := []byte(randomString(1024 * bodyLength))
 

@@ -111,7 +111,7 @@ func BenchmarkContextHandler(b *testing.B) {
 		label:        "context handler failure",
 		revisionName: "fake",
 	}}
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(&testing.T{})
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
 	defer cancel()
 	revision := revision(testNamespace, testRevName)
 	revisionInformer(ctx, revision)
