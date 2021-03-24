@@ -178,7 +178,6 @@ func main() {
 	ah := activatorhandler.New(ctx, throttler, transport, logger)
 	ah = concurrencyReporter.Handler(ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
-	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
 		requestLogTemplateInputGetter, false /*enableProbeRequestLog*/)
 	if err != nil {
@@ -189,7 +188,7 @@ func main() {
 	// NOTE: MetricHandler is being used as the outermost handler of the meaty bits. We're not interested in measuring
 	// the healthchecks or probes.
 	ah = activatorhandler.NewMetricHandler(env.PodName, ah)
-	ah = activatorhandler.NewContextHandler(ctx, ah)
+	ah = activatorhandler.NewContextHandler(ctx, ah, configStore)
 
 	// Network probe handlers.
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}

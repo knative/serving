@@ -18,8 +18,8 @@ package config
 
 import (
 	"context"
-	"net/http"
 
+	"go.uber.org/atomic"
 	"knative.dev/pkg/configmap"
 	tracingconfig "knative.dev/pkg/tracing/config"
 )
@@ -36,57 +36,38 @@ func FromContext(ctx context.Context) *Config {
 	return ctx.Value(cfgKey{}).(*Config)
 }
 
-func toContext(ctx context.Context, c *Config) context.Context {
-	return context.WithValue(ctx, cfgKey{}, c)
-}
-
 // Store loads/unloads our untyped configuration.
 // +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
+
+	// current is the current Config.
+	current atomic.Value
 }
 
 // NewStore creates a new configuration Store.
 func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
-	return &Store{
-		UntypedStore: configmap.NewUntypedStore(
-			"activator",
-			logger,
-			configmap.Constructors{
-				tracingconfig.ConfigName: tracingconfig.NewTracingConfigFromConfigMap,
-			},
-			onAfterStore...,
-		),
-	}
+	s := &Store{}
+
+	// Append an update function to run after a ConfigMap has updated to update the
+	// current state of the Config.
+	onAfterStore = append(onAfterStore, func(_ string, _ interface{}) {
+		s.current.Store(&Config{
+			Tracing: s.UntypedLoad(tracingconfig.ConfigName).(*tracingconfig.Config).DeepCopy(),
+		})
+	})
+	s.UntypedStore = configmap.NewUntypedStore(
+		"activator",
+		logger,
+		configmap.Constructors{
+			tracingconfig.ConfigName: tracingconfig.NewTracingConfigFromConfigMap,
+		},
+		onAfterStore...,
+	)
+	return s
 }
 
 // ToContext stores the configuration Store in the passed context.
 func (s *Store) ToContext(ctx context.Context) context.Context {
-	return toContext(ctx, s.Load())
-}
-
-// Load creates a Config for this store.
-func (s *Store) Load() *Config {
-	return &Config{
-		Tracing: s.UntypedLoad(tracingconfig.ConfigName).(*tracingconfig.Config).DeepCopy(),
-	}
-}
-
-type storeMiddleware struct {
-	store *Store
-	next  http.Handler
-}
-
-// ServeHTTP injects Config in to the context of the http request r.
-func (mw *storeMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := mw.store.ToContext(r.Context())
-	mw.next.ServeHTTP(w, r.WithContext(ctx))
-}
-
-// HTTPMiddleware is a middleware which stores the current config store in the request context.
-func (s *Store) HTTPMiddleware(next http.Handler) http.Handler {
-	return &storeMiddleware{
-		store: s,
-		next:  next,
-	}
+	return context.WithValue(ctx, cfgKey{}, s.current.Load())
 }

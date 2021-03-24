@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"knative.dev/pkg/logging"
 	network "knative.dev/pkg/network"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
@@ -36,6 +37,7 @@ func TestContextHandler(t *testing.T) {
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevName}
 	revision := revision(revID.Namespace, revID.Name)
 	revisionInformer(ctx, revision)
+	configStore := setupConfigStore(t, logging.FromContext(ctx))
 
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := RevisionFrom(r.Context()); got != revision {
@@ -47,7 +49,7 @@ func TestContextHandler(t *testing.T) {
 		}
 	})
 
-	handler := NewContextHandler(ctx, baseHandler)
+	handler := NewContextHandler(ctx, baseHandler, configStore)
 
 	t.Run("with headers", func(t *testing.T) {
 		resp := httptest.NewRecorder()
@@ -78,10 +80,11 @@ func TestContextHandlerError(t *testing.T) {
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevName}
 	revision := revision(revID.Namespace, revID.Name)
 	revisionInformer(ctx, revision)
+	configStore := setupConfigStore(t, logging.FromContext(ctx))
 
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
-	handler := NewContextHandler(ctx, baseHandler)
+	handler := NewContextHandler(ctx, baseHandler, configStore)
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
 	req.Header.Set(activator.RevisionHeaderNamespace, "foospace")
@@ -112,10 +115,11 @@ func BenchmarkContextHandler(b *testing.B) {
 	defer cancel()
 	revision := revision(testNamespace, testRevName)
 	revisionInformer(ctx, revision)
+	configStore := setupConfigStore(&testing.T{}, logging.FromContext(ctx))
 
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
-	handler := NewContextHandler(ctx, baseHandler)
+	handler := NewContextHandler(ctx, baseHandler, configStore)
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
 
