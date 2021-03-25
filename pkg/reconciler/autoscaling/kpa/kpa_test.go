@@ -1213,7 +1213,7 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 }
 
 func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
-	ctx, cancel, informers := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	})
 	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
@@ -1309,7 +1309,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 }
 
 func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
-	ctx, cancel, informers := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	})
 	fakeDeciders := newTestDeciders()
@@ -1382,7 +1382,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	ctx, cancel, _ := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+	ctx, cancel, _ := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	})
 	t.Cleanup(cancel)
@@ -1459,7 +1459,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestControllerCreateError(t *testing.T) {
-	ctx, cancel, infs := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+	ctx, cancel, infs := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	})
 	waitInformers, err := RunAndSyncInformers(ctx, infs...)
@@ -1502,7 +1502,7 @@ func TestControllerCreateError(t *testing.T) {
 }
 
 func TestControllerUpdateError(t *testing.T) {
-	ctx, cancel, infs := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+	ctx, cancel, infs := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	})
 	waitInformers, err := RunAndSyncInformers(ctx, infs...)
@@ -1545,7 +1545,7 @@ func TestControllerUpdateError(t *testing.T) {
 }
 
 func TestControllerGetError(t *testing.T) {
-	ctx, cancel, infs := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+	ctx, cancel, infs := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	})
 	waitInformers, err := RunAndSyncInformers(ctx, infs...)
@@ -1587,7 +1587,7 @@ func TestControllerGetError(t *testing.T) {
 }
 
 func TestScaleFailure(t *testing.T) {
-	ctx, cancel, infs := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+	ctx, cancel, infs := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	})
 	waitInformers, err := RunAndSyncInformers(ctx, infs...)

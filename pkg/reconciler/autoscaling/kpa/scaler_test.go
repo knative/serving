@@ -469,7 +469,7 @@ func TestScaler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ctx, _, _ := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+			ctx, _, _ := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 				return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 			})
 
@@ -572,7 +572,7 @@ func TestDisableScaleToZero(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ctx, _, _ := SetupFakeCustomizedContextWithCancel(t, func(ctx context.Context) context.Context {
+			ctx, _, _ := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 				return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 			})
 

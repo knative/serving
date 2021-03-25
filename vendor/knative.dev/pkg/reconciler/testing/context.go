@@ -39,29 +39,21 @@ import (
 )
 
 // SetupFakeContext sets up the the Context and the fake informers for the tests.
-func SetupFakeContext(t testing.TB) (context.Context, []controller.Informer) {
-	c, _, is := SetupFakeContextWithCancel(t)
+func SetupFakeContext(t testing.TB, fs ...func(context.Context) context.Context) (context.Context, []controller.Informer) {
+	c, _, is := SetupFakeContextWithCancel(t, fs...)
 	return c, is
 }
 
 // SetupFakeContextWithCancel sets up the the Context and the fake informers for the tests
 // The provided context can be canceled using provided callback.
-func SetupFakeContextWithCancel(t testing.TB) (context.Context, context.CancelFunc, []controller.Informer) {
+func SetupFakeContextWithCancel(t testing.TB, fs ...func(context.Context) context.Context) (context.Context, context.CancelFunc, []controller.Informer) {
 	ctx, c := context.WithCancel(logtesting.TestContextWithLogger(t))
 	ctx = controller.WithEventRecorder(ctx, record.NewFakeRecorder(1000))
+	for _, f := range fs {
+		ctx = f(ctx)
+	}
 	ctx, is := injection.Fake.SetupInformers(ctx, &rest.Config{})
 	return ctx, c, is
-}
-
-// SetupFakeCustomizedContextWithCancel sets up the the Context and the fake informers for the tests
-// The provided context can be canceled using provided callback.
-// The provided customizeCtxFunc() can be used to edit ctx before the SetupInformer steps
-func SetupFakeCustomizedContextWithCancel(t zaptest.TestingT, customizeCtxFunc func(context.Context) context.Context) (context.Context, context.CancelFunc, []controller.Informer) {
-        ctx, c := context.WithCancel(logtesting.TestContextWithLogger(t))
-        ctx = controller.WithEventRecorder(ctx, record.NewFakeRecorder(1000))
-        ctx = customizeCtxFunc(ctx)
-        ctx, is := injection.Fake.SetupInformers(ctx, &rest.Config{})
-        return ctx, c, is
 }
 
 // fakeClient is an interface capturing the two functions we need from fake clients.
