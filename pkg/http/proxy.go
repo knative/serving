@@ -26,44 +26,29 @@ import (
 
 // NewHeaderPruningReverseProxy returns a httputil.ReverseProxy that proxies
 // requests to the given targetHost after removing the headersToRemove.
-func NewHeaderPruningReverseProxy(targetHost string, headersToRemove []string) *httputil.ReverseProxy {
+// If hostOverride is not an empty string, the outgoing request's Host header will be
+// replaced with that explicit value and the passthrough loadbalancing header will be
+// set to enable pod-addressability.
+func NewHeaderPruningReverseProxy(target, hostOverride string, headersToRemove []string) *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"
-			req.URL.Host = targetHost
+			req.URL.Host = target
 
-			handleHeaders(req, headersToRemove)
+			if hostOverride != "" {
+				req.Host = hostOverride
+				req.Header.Add(networking.PassthroughLoadbalancingHeaderName, "true")
+			}
+
+			// Copied from httputil.NewSingleHostReverseProxy.
+			if _, ok := req.Header[network.UserAgentKey]; !ok {
+				// explicitly disable User-Agent so it's not set to default value
+				req.Header.Set(network.UserAgentKey, "")
+			}
+
+			for _, h := range headersToRemove {
+				req.Header.Del(h)
+			}
 		},
-	}
-}
-
-// NewPassthroughLbHeaderPruningReverseProxy returns a httputil.ReverseProxy that proxies
-// requests to the given targetHost after removing the headersToRemove.
-// It replaces the Host header with the given spoofedHost and sets the Knative
-// passthrough-lb header to allow it to address pods in specific mesh cases.
-func NewPassthroughLbHeaderPruningReverseProxy(targetHost, spoofedHost string, headersToRemove []string) *httputil.ReverseProxy {
-	return &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = "http"
-			req.URL.Host = targetHost
-			req.Host = spoofedHost
-
-			req.Header.Add(networking.PassthroughLoadbalancingHeaderName, "true")
-
-			handleHeaders(req, headersToRemove)
-		},
-	}
-}
-
-// handleHeaders handles generic mutation of the headers of the request, like defaulting
-// the User-Agent and removing a set of headers.
-func handleHeaders(req *http.Request, headersToRemove []string) {
-	if _, ok := req.Header[network.UserAgentKey]; !ok {
-		// explicitly disable User-Agent so it's not set to default value
-		req.Header.Set(network.UserAgentKey, "")
-	}
-
-	for _, h := range headersToRemove {
-		req.Header.Del(h)
 	}
 }
