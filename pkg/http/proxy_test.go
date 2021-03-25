@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	networking "knative.dev/networking/pkg"
 	"knative.dev/pkg/network"
 )
 
@@ -70,6 +71,83 @@ func TestNewHeaderPruningProxy(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			proxy := NewHeaderPruningReverseProxy(serverURL.Host, []string{
+				"header-to-remove-1",
+				"header-to-remove-2",
+			})
+
+			resp := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, test.url, nil)
+			req.Header = test.header
+
+			proxy.ServeHTTP(resp, req)
+
+			var proxiedHeaders http.Header
+			if err := json.NewDecoder(resp.Body).Decode(&proxiedHeaders); err != nil {
+				t.Fatalf("Decode = %v", err)
+			}
+
+			// Remove headers golang adds from consideration.
+			for _, k := range []string{"Accept-Encoding", "Content-Length", "X-Forwarded-For"} {
+				proxiedHeaders.Del(k)
+			}
+
+			if got, want := proxiedHeaders, test.expectHeaders; !cmp.Equal(want, got) {
+				t.Errorf("Got Headers=%v, want: %v; diff: %s", got, want, cmp.Diff(want, got))
+			}
+		})
+	}
+}
+
+func TestNewPassthroughLbHeaderPruningReverseProxy(t *testing.T) {
+	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Add("Host", r.Host) // Explicitly add the host header so we can assert.
+		if err := json.NewEncoder(w).Encode(r.Header); err != nil {
+			panic(err)
+		}
+	}
+
+	server := httptest.NewServer(handler)
+	serverURL, _ := url.Parse(server.URL)
+
+	defer server.Close()
+
+	tests := []struct {
+		name          string
+		url           string
+		host          string
+		header        http.Header
+		expectHeaders http.Header
+	}{{
+		name: "prunes activator headers, does not add user agent header",
+		url:  "http://example.com/",
+		host: "foo.bar",
+		header: http.Header{
+			"Header-Not-To-Remove": []string{"value"},
+			"Header-To-Remove-1":   []string{"some-value"},
+			"Header-To-Remove-2":   []string{"some-value"},
+		},
+		expectHeaders: http.Header{
+			"Host":                 []string{"foo.bar"},
+			"Header-Not-To-Remove": []string{"value"},
+			networking.PassthroughLoadbalancingHeaderName: []string{"true"},
+		},
+	}, {
+		name: "explicit user agent header not removed",
+		url:  "http://example.com/",
+		host: "bar.baz",
+		header: http.Header{
+			network.UserAgentKey: []string{"gold"},
+		},
+		expectHeaders: http.Header{
+			"Host":               []string{"bar.baz"},
+			network.UserAgentKey: []string{"gold"},
+			networking.PassthroughLoadbalancingHeaderName: []string{"true"},
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			proxy := NewPassthroughLbHeaderPruningReverseProxy(serverURL.Host, test.host, []string{
 				"header-to-remove-1",
 				"header-to-remove-2",
 			})

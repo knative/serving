@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 
+	networking "knative.dev/networking/pkg"
 	"knative.dev/pkg/network"
 )
 
@@ -31,15 +32,38 @@ func NewHeaderPruningReverseProxy(targetHost string, headersToRemove []string) *
 			req.URL.Scheme = "http"
 			req.URL.Host = targetHost
 
-			// Copied from httputil.NewSingleHostReverseProxy.
-			if _, ok := req.Header[network.UserAgentKey]; !ok {
-				// explicitly disable User-Agent so it's not set to default value
-				req.Header.Set(network.UserAgentKey, "")
-			}
-
-			for _, h := range headersToRemove {
-				req.Header.Del(h)
-			}
+			handleHeaders(req, headersToRemove)
 		},
+	}
+}
+
+// NewPassthroughLbHeaderPruningReverseProxy returns a httputil.ReverseProxy that proxies
+// requests to the given targetHost after removing the headersToRemove.
+// It replaces the Host header with the given spoofedHost and sets the Knative
+// passthrough-lb header to allow it to address pods in specific mesh cases.
+func NewPassthroughLbHeaderPruningReverseProxy(targetHost, spoofedHost string, headersToRemove []string) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
+		Director: func(req *http.Request) {
+			req.URL.Scheme = "http"
+			req.URL.Host = targetHost
+			req.Host = spoofedHost
+
+			req.Header.Add(networking.PassthroughLoadbalancingHeaderName, "true")
+
+			handleHeaders(req, headersToRemove)
+		},
+	}
+}
+
+// handleHeaders handles generic mutation of the headers of the request, like defaulting
+// the User-Agent and removing a set of headers.
+func handleHeaders(req *http.Request, headersToRemove []string) {
+	if _, ok := req.Header[network.UserAgentKey]; !ok {
+		// explicitly disable User-Agent so it's not set to default value
+		req.Header.Set(network.UserAgentKey, "")
+	}
+
+	for _, h := range headersToRemove {
+		req.Header.Del(h)
 	}
 }
