@@ -155,11 +155,6 @@ func TestMinScale(t *testing.T) {
 	if lr, err := waitForDesiredScale(clients, newServiceName, lt(minScale)); err != nil {
 		t.Fatalf("The revision %q scaled to %d > %d after not being routable anymore: %v", newRevName, lr, minScale, err)
 	}
-
-	revision, err = clients.ServingClient.Revisions.Get(context.Background(), newRevName, metav1.GetOptions{})
-	if replicas := revision.Status.ActualReplicas; err != nil || replicas >= minScale {
-		t.Fatalf("Expected actual replicas for revision %v to be less than %v but got %v, %v", revision.Name, minScale, replicas, err)
-	}
 }
 
 func gte(m int) func(int) bool {
