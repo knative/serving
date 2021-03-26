@@ -51,6 +51,12 @@ spec:
     - name: Reason
       type: string
       jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
+    - name: Actual Replicas
+      type: integer
+      jsonPath: ".status.actualReplicas"
+    - name: Desired Replicas
+      type: integer
+      jsonPath: ".status.desiredReplicas"
   names:
     kind: Revision
     plural: revisions
