@@ -75,6 +75,12 @@ func TestHelloWorld(t *testing.T) {
 	if val := revision.Labels[serving.ServiceLabelKey]; val != names.Service {
 		t.Fatalf("Got revision label service=%q, want=%q", val, names.Service)
 	}
+	if val := revision.Status.ActualReplicas; val != 1 {
+		t.Fatalf("ActualReplicas expected to be 1 but got %d", val)
+	}
+	if val := revision.Status.DesiredReplicas; val != 1 {
+		t.Fatalf("DesiredReplicas expected to be 1 but got %d", val)
+	}
 }
 
 func TestQueueSideCarResourceLimit(t *testing.T) {
@@ -135,6 +141,12 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 		}
 	} else {
 		t.Fatalf("Failed to get Service name from Revision label")
+	}
+	if val := revision.Status.ActualReplicas; val != 1 {
+		t.Fatalf("ActualReplicas expected to be 1 but got %d", val)
+	}
+	if val := revision.Status.DesiredReplicas; val != 1 {
+		t.Fatalf("DesiredReplicas expected to be 1 but got %d", val)
 	}
 
 	container, err := getContainer(clients.KubeClient, resources.Service.Name, "queue-proxy", resources.Service.Namespace)
