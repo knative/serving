@@ -101,6 +101,11 @@ func TestMinScale(t *testing.T) {
 		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", revName, lr, minScale)
 	}
 
+	revision, err := clients.ServingClient.Revisions.Get(context.Background(), revName, metav1.GetOptions{})
+	if replicas := revision.Status.ActualReplicas; err != nil || replicas != minScale {
+		t.Fatalf("Expected actual replicas for revision %v to be %v but got %v, %q", revision.Name, minScale, replicas, err)
+	}
+
 	t.Log("Updating configuration")
 	if _, err := v1test.PatchConfig(t, clients, cfg, rtesting.WithConfigEnv(corev1.EnvVar{Name: "FOO", Value: "BAR"})); err != nil {
 		t.Fatal("Failed to update Configuration:", err)
@@ -126,9 +131,19 @@ func TestMinScale(t *testing.T) {
 		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", newRevName, lr, minScale)
 	}
 
+	revision, err = clients.ServingClient.Revisions.Get(context.Background(), newRevName, metav1.GetOptions{})
+	if replicas := revision.Status.ActualReplicas; err != nil || replicas != minScale {
+		t.Fatalf("Expected actual replicas for revision %v to be %v but got %v, %v", revision.Name, minScale, replicas, err)
+	}
+
 	t.Log("Waiting for old revision to scale below minScale after being replaced")
 	if lr, err := waitForDesiredScale(clients, serviceName, lt(minScale)); err != nil {
 		t.Fatalf("The revision %q scaled to %d > %d after not being routable anymore: %v", revName, lr, minScale, err)
+	}
+
+	revision, err = clients.ServingClient.Revisions.Get(context.Background(), revName, metav1.GetOptions{})
+	if replicas := revision.Status.ActualReplicas; err != nil || replicas >= minScale {
+		t.Fatalf("Expected actual replicas for revision %v to be less than %v but got %v, %v", revision.Name, minScale, replicas, err)
 	}
 
 	t.Log("Deleting route", names.Route)
@@ -139,6 +154,11 @@ func TestMinScale(t *testing.T) {
 	t.Log("Waiting for new revision to scale below minScale when there is no route")
 	if lr, err := waitForDesiredScale(clients, newServiceName, lt(minScale)); err != nil {
 		t.Fatalf("The revision %q scaled to %d > %d after not being routable anymore: %v", newRevName, lr, minScale, err)
+	}
+
+	revision, err = clients.ServingClient.Revisions.Get(context.Background(), newRevName, metav1.GetOptions{})
+	if replicas := revision.Status.ActualReplicas; err != nil || replicas >= minScale {
+		t.Fatalf("Expected actual replicas for revision %v to be less than %v but got %v, %v", revision.Name, minScale, replicas, err)
 	}
 }
 
@@ -212,14 +232,17 @@ func privateServiceName(t *testing.T, clients *test.Clients, revisionName string
 // callback is never satisfied.
 func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) (latestReady int, err error) {
 	endpoints := clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace)
+	fmt.Println("SERVICENAME=>", serviceName)
 
 	// See https://github.com/knative/serving/issues/7727#issuecomment-706772507 for context.
 	return latestReady, wait.PollImmediate(250*time.Millisecond, 3*time.Minute, func() (bool, error) {
 		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
+		fmt.Println("ENDPOINT=>", endpoint.Name)
 		if err != nil {
 			return false, nil
 		}
 		latestReady = resources.ReadyAddressCount(endpoint)
+		fmt.Println("LATESTREADY=>", latestReady)
 		return cond(latestReady), nil
 	})
 }
