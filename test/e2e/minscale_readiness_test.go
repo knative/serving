@@ -232,17 +232,14 @@ func privateServiceName(t *testing.T, clients *test.Clients, revisionName string
 // callback is never satisfied.
 func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) (latestReady int, err error) {
 	endpoints := clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace)
-	fmt.Println("SERVICENAME=>", serviceName)
 
 	// See https://github.com/knative/serving/issues/7727#issuecomment-706772507 for context.
 	return latestReady, wait.PollImmediate(250*time.Millisecond, 3*time.Minute, func() (bool, error) {
 		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
-		fmt.Println("ENDPOINT=>", endpoint.Name)
 		if err != nil {
 			return false, nil
 		}
 		latestReady = resources.ReadyAddressCount(endpoint)
-		fmt.Println("LATESTREADY=>", latestReady)
 		return cond(latestReady), nil
 	})
 }
