@@ -276,7 +276,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 
-	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, activator.RevisionHeaders)
+	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders)
 	httpProxy.Transport = buildTransport(env, logger, maxIdleConns)
 	httpProxy.ErrorHandler = pkgnet.ErrorHandler(logger)
 	httpProxy.BufferPool = network.NewBufferPool()

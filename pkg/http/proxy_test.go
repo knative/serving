@@ -25,11 +25,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	networking "knative.dev/networking/pkg"
 	"knative.dev/pkg/network"
 )
 
 func TestNewHeaderPruningProxy(t *testing.T) {
 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Add("Host", r.Host) // Explicitly add the host header so we can assert.
 		if err := json.NewEncoder(w).Encode(r.Header); err != nil {
 			panic(err)
 		}
@@ -43,6 +45,7 @@ func TestNewHeaderPruningProxy(t *testing.T) {
 	tests := []struct {
 		name          string
 		url           string
+		host          string
 		header        http.Header
 		expectHeaders http.Header
 	}{{
@@ -54,6 +57,7 @@ func TestNewHeaderPruningProxy(t *testing.T) {
 			"Header-To-Remove-2":   []string{"some-value"},
 		},
 		expectHeaders: http.Header{
+			"Host":                 []string{"example.com"},
 			"Header-Not-To-Remove": []string{"value"},
 		},
 	}, {
@@ -63,13 +67,26 @@ func TestNewHeaderPruningProxy(t *testing.T) {
 			network.UserAgentKey: []string{"gold"},
 		},
 		expectHeaders: http.Header{
+			"Host":               []string{"example.com"},
 			network.UserAgentKey: []string{"gold"},
+		},
+	}, {
+		name: "overrides host header",
+		url:  "http://example.com/",
+		host: "foo.bar",
+		header: http.Header{
+			network.UserAgentKey: []string{"gold"},
+		},
+		expectHeaders: http.Header{
+			"Host": []string{"foo.bar"},
+			networking.PassthroughLoadbalancingHeaderName: []string{"true"},
+			network.UserAgentKey:                          []string{"gold"},
 		},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			proxy := NewHeaderPruningReverseProxy(serverURL.Host, []string{
+			proxy := NewHeaderPruningReverseProxy(serverURL.Host, test.host, []string{
 				"header-to-remove-1",
 				"header-to-remove-2",
 			})

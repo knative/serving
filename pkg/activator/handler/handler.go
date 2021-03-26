@@ -107,7 +107,7 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
 	// Set up the reverse proxy.
-	proxy := pkghttp.NewHeaderPruningReverseProxy(target, activator.RevisionHeaders)
+	proxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders)
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
 	if tracingEnabled {
