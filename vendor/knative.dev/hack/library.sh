@@ -156,6 +156,9 @@ function wait_until_object_does_not_exist() {
 }
 
 # Waits until all pods are running in the given namespace.
+# This function handles some edge cases that `kubectl wait` does not support,
+# and it provides nice debug info on the state of the pod if it failed,
+# that’s why we have this long bash function instead of using `kubectl wait`.
 # Parameters: $1 - namespace.
 function wait_until_pods_running() {
   echo -n "Waiting until all pods in namespace $1 are up"
