@@ -24,6 +24,10 @@ import (
 	"knative.dev/pkg/network"
 )
 
+// NoHostOverride signifies that no host overriding should be done and that the host
+// should be inferred from the target of the reverse-proxy.
+const NoHostOverride = ""
+
 // NewHeaderPruningReverseProxy returns a httputil.ReverseProxy that proxies
 // requests to the given targetHost after removing the headersToRemove.
 // If hostOverride is not an empty string, the outgoing request's Host header will be
@@ -35,7 +39,7 @@ func NewHeaderPruningReverseProxy(target, hostOverride string, headersToRemove [
 			req.URL.Scheme = "http"
 			req.URL.Host = target
 
-			if hostOverride != "" {
+			if hostOverride != NoHostOverride {
 				req.Host = hostOverride
 				req.Header.Add(networking.PassthroughLoadbalancingHeaderName, "true")
 			}
