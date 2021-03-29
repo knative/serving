@@ -768,6 +768,10 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 func withHTTP2Priv(svc *corev1.Service) {
 	svc.Spec.Ports[0].Name = "http2"
 	svc.Spec.Ports[0].TargetPort = intstr.FromInt(networking.BackendHTTP2Port)
+
+	svc.Spec.Ports[4].Name = "http2-istio"
+	svc.Spec.Ports[4].Port = networking.BackendHTTP2Port
+	svc.Spec.Ports[4].TargetPort = intstr.FromInt(networking.BackendHTTP2Port)
 }
 
 func withHTTP2(svc *corev1.Service) {
