@@ -21,6 +21,7 @@ limitations under the License.
 package config
 
 import (
+	pkg "knative.dev/networking/pkg"
 	tracingconfig "knative.dev/pkg/tracing/config"
 )
 
@@ -30,6 +31,11 @@ func (in *Config) DeepCopyInto(out *Config) {
 	if in.Tracing != nil {
 		in, out := &in.Tracing, &out.Tracing
 		*out = new(tracingconfig.Config)
+		**out = **in
+	}
+	if in.Network != nil {
+		in, out := &in.Network, &out.Network
+		*out = new(pkg.Config)
 		**out = **in
 	}
 	return
