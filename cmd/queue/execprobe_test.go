@@ -54,7 +54,7 @@ func TestProbeQueueNotReady(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 	})
 
-	err := probeQueueHealthPath(100*time.Millisecond, port, http.DefaultTransport)
+	err := probeQueueHealthPath(300*time.Millisecond, port, http.DefaultTransport)
 
 	if err == nil || err.Error() != "probe returned not ready" {
 		t.Error("Unexpected not ready error:", err)
