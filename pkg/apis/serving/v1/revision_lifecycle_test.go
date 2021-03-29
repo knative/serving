@@ -705,8 +705,8 @@ func TestPropagateAutoscalerStatusReplicas(t *testing.T) {
 		ps: autoscalingv1alpha1.PodAutoscalerStatus{
 			DesiredScale: ptr.Int32(-1),
 		},
-		wantActualReplicas:  -1,
-		wantDesiredReplicas: -1,
+		wantActualReplicas:  0,
+		wantDesiredReplicas: 0,
 	}}
 
 	for _, tc := range testCases {

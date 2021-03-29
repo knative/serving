@@ -172,9 +172,19 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodA
 	// Reflect the PA status in our own.
 	cond := ps.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionReady)
 
-	rs.ActualReplicas = ps.GetActualScale()
+	if actualScale := ps.GetActualScale(); actualScale != -1 {
+		rs.ActualReplicas = actualScale
+	} else {
+		rs.ActualReplicas = 0
+	}
+	//rs.ActualReplicas = ps.GetActualScale()
 
 	rs.DesiredReplicas = ps.GetDesiredScale()
+	if desiredScale := ps.GetDesiredScale(); desiredScale != -1 {
+		rs.DesiredReplicas = desiredScale
+	} else {
+		rs.DesiredReplicas = 0
+	}
 
 	if cond == nil {
 		rs.MarkActiveUnknown("Deploying", "")
