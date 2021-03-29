@@ -48,7 +48,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	. "knative.dev/pkg/configmap/testing"
 	"knative.dev/pkg/logging"
 	_ "knative.dev/pkg/system/testing"
 )
@@ -290,8 +289,7 @@ func revision(namespace, name string) *v1.Revision {
 
 func setupConfigStore(t testing.TB, logger *zap.SugaredLogger) *activatorconfig.Store {
 	configStore := activatorconfig.NewStore(logger)
-	tracingConfig := ConfigMapFromTestFile(t, tracingconfig.ConfigName)
-	configStore.OnConfigChanged(tracingConfig)
+	configStore.OnConfigChanged(tracingConfig(false))
 	return configStore
 }
 
