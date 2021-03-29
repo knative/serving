@@ -101,7 +101,7 @@ func tracingConfig(enabled bool) *corev1.ConfigMap {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "knative-serving",
-			Name:      "config-tracing",
+			Name:      config.ConfigName,
 		},
 		Data: map[string]string{
 			"backend": "none",

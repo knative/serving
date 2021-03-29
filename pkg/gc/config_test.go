@@ -28,7 +28,7 @@ import (
 )
 
 func TestOurConfig(t *testing.T) {
-	actual, example := ConfigMapsFromTestFile(t, "config-gc")
+	actual, example := ConfigMapsFromTestFile(t, ConfigName)
 	for _, tt := range []struct {
 		name string
 		fail bool
