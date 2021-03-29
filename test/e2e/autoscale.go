@@ -288,25 +288,25 @@ func assertScaleDown(ctx *TestContext) {
 	ctx.logf("Scaled down.")
 }
 
-func numberOfReadyPods(ctx *TestContext) (float64, error) {
+func numberOfReadyPods(ctx *TestContext) (float64, *corev1.Endpoints, error) {
 	// SKS name matches that of revision.
 	n := ctx.resources.Revision.Name
 	sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(context.Background(), n, metav1.GetOptions{})
 	if err != nil {
 		ctx.logf("Error getting SKS %q: %v", n, err)
-		return 0, fmt.Errorf("error retrieving sks %q: %w", n, err)
+		return 0, nil, fmt.Errorf("error retrieving sks %q: %w", n, err)
 	}
 	if sks.Status.PrivateServiceName == "" {
 		ctx.logf("SKS %s has not yet reconciled", n)
 		// Not an error, but no pods either.
-		return 0, nil
+		return 0, &corev1.Endpoints{}, nil
 	}
 	eps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(
 		context.Background(), sks.Status.PrivateServiceName, metav1.GetOptions{})
 	if err != nil {
-		return 0, fmt.Errorf("failed to get endpoints %s: %w", sks.Status.PrivateServiceName, err)
+		return 0, nil, fmt.Errorf("failed to get endpoints %s: %w", sks.Status.PrivateServiceName, err)
 	}
-	return float64(resources.ReadyAddressCount(eps)), nil
+	return float64(resources.ReadyAddressCount(eps)), eps, nil
 }
 
 func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done <-chan time.Time, quick bool) error {
@@ -319,7 +319,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 		case <-ticker.C:
 			// Each 2 second, check that the number of pods is at least `minPods`. `minPods` is increasing
 			// to verify that the number of pods doesn't go down while we are scaling up.
-			got, err := numberOfReadyPods(ctx)
+			got, endpoints, err := numberOfReadyPods(ctx)
 			if err != nil {
 				return err
 			}
@@ -327,6 +327,17 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			ctx.logf(mes)
 			// verify that the number of pods doesn't go down while we are scaling up.
 			if got < minPods {
+				listOpts := metav1.ListOptions{
+					LabelSelector: "serving.knative.dev/revision=" + ctx.resources.Revision.Name,
+				}
+				pods, err := ctx.clients.KubeClient.CoreV1().Pods(test.ServingNamespace).List(
+					context.Background(), listOpts)
+				if err != nil {
+					ctx.logf("Unable to list pods for debug: %s", err)
+				}
+				// Provide a full state report, because there's been flakiness here.
+				mes = fmt.Sprintf("%s\n\nEndpoints: %s\n\nPods:%s", mes, formatEndpointsForDebug(endpoints), formatPodsForDebug(pods.Items))
+
 				return errors.New("interim scale didn't fulfill constraints: " + mes)
 			}
 			// A quick test succeeds when the number of pods scales up to `targetPods`
@@ -343,13 +354,14 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 		case <-done:
 			// The test duration is over. Do a last check to verify that the number of pods is at `targetPods`
 			// (with a little room for de-flakiness).
-			got, err := numberOfReadyPods(ctx)
+			got, endpoints, err := numberOfReadyPods(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to fetch number of ready pods: %w", err)
 			}
 			mes := fmt.Sprintf("got %v replicas, expected between [%v, %v] replicas for revision %s",
 				got, targetPods-1, maxPods, ctx.resources.Revision.Name)
 			ctx.logf(mes)
+			mes = fmt.Sprintf("%s\n\nEndpoints: %s", mes, formatEndpointsForDebug(endpoints))
 			if got < targetPods-1 || got > maxPods {
 				return errors.New("final scale didn't fulfill constraints: " + mes)
 			}
@@ -399,4 +411,40 @@ func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-
 	})
 
 	return grp.Wait
+}
+
+func formatEndpointsForDebug(eps *corev1.Endpoints) string {
+	if eps == nil {
+		return "<nil Endpoint>"
+	}
+	items := make([]string, 0, len(eps.Subsets)+1)
+	items = append(items, fmt.Sprintf("%s", eps.Name))
+	for _, e := range eps.Subsets {
+		targets := make([]string, 0, len(e.Addresses))
+		for _, a := range e.Addresses {
+			targets = append(targets, a.TargetRef.Name)
+		}
+		items = append(items, fmt.Sprintf(" - %s\t%s", e.Ports[0].Name, strings.Join(targets, ", ")))
+	}
+	return strings.Join(items, "\n")
+}
+
+func formatPodsForDebug(pods []corev1.Pod) string {
+	items := make([]string, 0, len(pods))
+	for _, p := range pods {
+		count := 0
+		for _, s := range p.Status.ContainerStatuses {
+			if s.Ready {
+				count += 1
+			}
+		}
+		ready := "Not found"
+		for _, c := range p.Status.Conditions {
+			if c.Type == corev1.PodReady {
+				ready = string(c.Status)
+			}
+		}
+		items = append(items, fmt.Sprintf("%s\t%s\t%d", p.Name, ready, count))
+	}
+	return strings.Join(items, "\n")
 }
