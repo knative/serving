@@ -49,7 +49,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"knative.dev/pkg/logging"
-	_ "knative.dev/pkg/system/testing"
 )
 
 const (
