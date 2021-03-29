@@ -87,7 +87,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 	cms := []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "config-network",
+			Name:      network.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{

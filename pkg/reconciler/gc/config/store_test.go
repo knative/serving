@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	logtesting "knative.dev/pkg/logging/testing"
+	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/gc"
 
 	. "knative.dev/pkg/configmap/testing"
@@ -32,8 +33,8 @@ func TestStoreLoadWithContext(t *testing.T) {
 	ctx := logtesting.TestContextWithLogger(t)
 	store := NewStore(ctx)
 
-	gcConfig := ConfigMapFromTestFile(t, "config-gc")
-	featuresConfig := ConfigMapFromTestFile(t, "config-features")
+	gcConfig := ConfigMapFromTestFile(t, gc.ConfigName)
+	featuresConfig := ConfigMapFromTestFile(t, apicfg.FeaturesConfigName)
 
 	store.OnConfigChanged(gcConfig)
 	store.OnConfigChanged(featuresConfig)
