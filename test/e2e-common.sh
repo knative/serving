@@ -23,7 +23,6 @@ CERT_MANAGER_VERSION="latest"
 # Since default is istio, make default ingress as istio
 INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
 ISTIO_VERSION=""
-GLOO_VERSION=""
 KOURIER_VERSION=""
 AMBASSADOR_VERSION=""
 CONTOUR_VERSION=""
@@ -102,13 +101,6 @@ function parse_flags() {
       # Expect a list of comma-separated YAMLs.
       INSTALL_CUSTOM_YAMLS="${2//,/ }"
       readonly INSTALL_CUSTOM_YAMLS
-      return 2
-      ;;
-    --gloo-version)
-      # currently, the value of --gloo-version is ignored
-      # latest version of Gloo pinned in third_party will be installed
-      readonly GLOO_VERSION=$2
-      readonly INGRESS_CLASS="gloo.ingress.networking.knative.dev"
       return 2
       ;;
     --kourier-version)
@@ -242,9 +234,7 @@ function install_knative_serving_standard() {
 
   if [[ -z "${REUSE_INGRESS:-}" ]]; then
     echo ">> Installing Ingress"
-    if [[ -n "${GLOO_VERSION:-}" ]]; then
-      install_gloo || return 1
-    elif [[ -n "${KOURIER_VERSION:-}" ]]; then
+    if [[ -n "${KOURIER_VERSION:-}" ]]; then
       install_kourier || return 1
     elif [[ -n "${AMBASSADOR_VERSION:-}" ]]; then
       install_ambassador || return 1

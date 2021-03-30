@@ -81,20 +81,6 @@ function install_istio() {
   fi
 }
 
-function install_gloo() {
-  local INSTALL_GLOO_YAML="./third_party/gloo-latest/gloo.yaml"
-  echo "Gloo YAML: ${INSTALL_GLOO_YAML}"
-  echo ">> Bringing up Gloo"
-
-  kubectl apply -f ${INSTALL_GLOO_YAML} || return 1
-  UNINSTALL_LIST+=( "${INSTALL_GLOO_YAML}" )
-
-  echo ">> Patching Gloo"
-  # Scale replicas of the Gloo proxies to handle large qps
-  kubectl scale -n gloo-system deployment knative-external-proxy --replicas=6
-  kubectl scale -n gloo-system deployment knative-internal-proxy --replicas=6
-}
-
 function install_kourier() {
   local INSTALL_KOURIER_YAML="./third_party/kourier-latest/kourier.yaml"
   local YAML_NAME=$(mktemp -p $TMP_DIR --suffix=.$(basename "$1"))
@@ -172,14 +158,6 @@ function wait_until_ingress_running() {
   if [[ -n "${ISTIO_VERSION:-}" ]]; then
     wait_until_pods_running istio-system || return 1
     wait_until_service_has_external_http_address istio-system istio-ingressgateway || return 1
-  fi
-  if [[ -n "${GLOO_VERSION:-}" ]]; then
-    # we must set these override values to allow the test spoofing client to work with Gloo
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=knative-external-proxy
-    export GATEWAY_NAMESPACE_OVERRIDE=gloo-system
-    wait_until_pods_running gloo-system || return 1
-    wait_until_service_has_external_ip gloo-system knative-external-proxy
   fi
   if [[ -n "${KOURIER_VERSION:-}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Kourier
