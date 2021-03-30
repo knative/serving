@@ -28,8 +28,7 @@ import (
 
 var tracingConfig = &corev1.ConfigMap{
 	ObjectMeta: metav1.ObjectMeta{
-		Namespace: "knative-serving",
-		Name:      tracingconfig.ConfigName,
+		Name: tracingconfig.ConfigName,
 	},
 	Data: map[string]string{
 		"backend": "none",
@@ -50,8 +49,7 @@ func TestStore(t *testing.T) {
 
 	newConfig := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "knative-serving",
-			Name:      tracingconfig.ConfigName,
+			Name: tracingconfig.ConfigName,
 		},
 		Data: map[string]string{
 			"backend":         "zipkin",

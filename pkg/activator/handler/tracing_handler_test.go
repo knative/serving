@@ -100,8 +100,7 @@ func TestTracingHandler(t *testing.T) {
 func tracingConfig(enabled bool) *corev1.ConfigMap {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "knative-serving",
-			Name:      config.ConfigName,
+			Name: config.ConfigName,
 		},
 		Data: map[string]string{
 			"backend": "none",
