@@ -160,7 +160,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// Wait for two stable pods.
 	obsScale := 0.0
 	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
-		obsScale, err = numberOfReadyPods(ctx)
+		obsScale, _, err = numberOfReadyPods(ctx)
 		if err != nil {
 			return false, err
 		}

@@ -299,7 +299,12 @@ func numberOfReadyPods(ctx *TestContext) (float64, *corev1.Endpoints, error) {
 	if sks.Status.PrivateServiceName == "" {
 		ctx.logf("SKS %s has not yet reconciled", n)
 		// Not an error, but no pods either.
-		return 0, &corev1.Endpoints{}, nil
+		emptyEndpoints := &corev1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "NOT RECONCILED YET",
+			},
+		}
+		return 0, emptyEndpoints, nil
 	}
 	eps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(
 		context.Background(), sks.Status.PrivateServiceName, metav1.GetOptions{})
