@@ -230,7 +230,7 @@ func uniScalerFactoryFunc(podLister corev1listers.PodLister,
 }
 
 func statsScraperFactoryFunc(podLister corev1listers.PodLister) asmetrics.StatsScraperFactory {
-	return func(metric *autoscalingv1alpha1.Metric, logger *zap.SugaredLogger) (asmetrics.StatsScraper, error) {
+	return func(metric *autoscalingv1alpha1.Metric, usePassthroughLb bool, logger *zap.SugaredLogger) (asmetrics.StatsScraper, error) {
 		if metric.Spec.ScrapeTarget == "" {
 			return nil, nil
 		}
@@ -241,7 +241,7 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister) asmetrics.StatsS
 		}
 
 		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, revisionName)
-		return asmetrics.NewStatsScraper(metric, revisionName, podAccessor, logger), nil
+		return asmetrics.NewStatsScraper(metric, revisionName, podAccessor, usePassthroughLb, logger), nil
 	}
 }
 

@@ -145,27 +145,30 @@ type serviceScraper struct {
 	directClient scrapeClient
 	meshClient   scrapeClient
 
+	host     string
 	url      string
 	statsCtx context.Context
 	logger   *zap.SugaredLogger
 
-	podAccessor     resources.PodAccessor
-	podsAddressable bool
+	podAccessor      resources.PodAccessor
+	usePassthroughLb bool
+	podsAddressable  bool
 }
 
 // NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
 func NewStatsScraper(metric *autoscalingv1alpha1.Metric, revisionName string, podAccessor resources.PodAccessor,
-	logger *zap.SugaredLogger) StatsScraper {
+	usePassthroughLb bool, logger *zap.SugaredLogger) StatsScraper {
 	directClient := newHTTPScrapeClient(client)
 	meshClient := newHTTPScrapeClient(noKeepaliveClient)
-	return newServiceScraperWithClient(metric, revisionName, podAccessor, directClient, meshClient, logger)
+	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, directClient, meshClient, logger)
 }
 
 func newServiceScraperWithClient(
 	metric *autoscalingv1alpha1.Metric,
 	revisionName string,
 	podAccessor resources.PodAccessor,
+	usePassthroughLb bool,
 	directClient, meshClient scrapeClient,
 	logger *zap.SugaredLogger) *serviceScraper {
 	svcName := metric.Labels[serving.ServiceLabelKey]
@@ -174,13 +177,15 @@ func newServiceScraperWithClient(
 	ctx := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revisionName)
 
 	return &serviceScraper{
-		directClient:    directClient,
-		meshClient:      meshClient,
-		url:             urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
-		podAccessor:     podAccessor,
-		podsAddressable: true,
-		statsCtx:        ctx,
-		logger:          logger,
+		directClient:     directClient,
+		meshClient:       meshClient,
+		host:             metric.Spec.ScrapeTarget + "." + metric.ObjectMeta.Namespace,
+		url:              urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
+		podAccessor:      podAccessor,
+		podsAddressable:  true,
+		usePassthroughLb: usePassthroughLb,
+		statsCtx:         ctx,
+		logger:           logger,
 	}
 }
 
@@ -204,10 +209,11 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 		pkgmetrics.RecordBatch(s.statsCtx, scrapeTimeM.M(float64(scrapeTime.Milliseconds())))
 	}()
 
-	if s.podsAddressable {
+	if s.podsAddressable || s.usePassthroughLb {
 		stat, err := s.scrapePods(window)
-		// Some pods were scraped, but not enough.
-		if !errors.Is(err, errNoPodsScraped) {
+		// Return here if some pods were scraped, but not enough or if we're using a
+		// passthrough loadbalancer and want no fallback to service-scrape logic.
+		if !errors.Is(err, errNoPodsScraped) || s.usePassthroughLb {
 			return stat, err
 		}
 		// Else fall back to service scrape.
@@ -284,6 +290,12 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 				if err != nil {
 					return err
 				}
+
+				if s.usePassthroughLb {
+					req.Host = s.host
+					req.Header.Add("Knative-Direct-Lb", "true")
+				}
+
 				stat, err := s.directClient.Do(req)
 				if err == nil {
 					results <- stat
