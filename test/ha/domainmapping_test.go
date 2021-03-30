@@ -1,7 +1,7 @@
 // +build e2e
 
 /*
-Copyright 2021 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,47 +19,28 @@ limitations under the License.
 package ha
 
 import (
-	"fmt"
-
 	"context"
 	"net/url"
 	"testing"
 
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/reconciler"
-	"knative.dev/pkg/system"
-	pkgTest "knative.dev/pkg/test"
-	pkgHa "knative.dev/pkg/test/ha"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	v1alpha1test "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
+	"knative.dev/serving/test/conformance/api/shared"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
 
-const (
-	domainmappingDeploymentName = "domain-mapping"
-)
-
-func TestDomainMappingHA(t *testing.T) {
+func TestDomainMapping(t *testing.T) {
 	if !test.ServingFlags.EnableAlphaFeatures {
 		t.Skip("Alpha features not enabled")
 	}
 
+	t.Parallel()
 	ctx, clients := context.Background(), test.Setup(t)
-
-	if err := pkgTest.WaitForDeploymentScale(ctx, clients.KubeClient, domainmappingDeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
-		t.Fatalf("Deployment %s not scaled to %d: %v", domainmappingDeploymentName, test.ServingFlags.Replicas, err)
-	}
-
-	leaders, err := pkgHa.WaitForNewLeaders(ctx, t, clients.KubeClient, domainmappingDeploymentName, system.Namespace(), sets.NewString(), test.ServingFlags.Buckets)
-	if err != nil {
-		t.Fatal("Failed to get leader:", err)
-	}
-	t.Log("Got initial leader set:", leaders)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -88,9 +69,20 @@ func TestDomainMappingHA(t *testing.T) {
 	// Point DomainMapping at our service.
 	var dm *v1alpha1.DomainMapping
 	if err := reconciler.RetryTestErrors(func(int) error {
-		dm, err = clients.ServingAlphaClient.DomainMappings.Create(ctx,
-			v1alpha1test.DomainMapping(svc.Service.Namespace, host, v1alpha1test.KReference(svc.Service.Namespace, svc.Service.Name)),
-			metav1.CreateOptions{})
+		dm, err = clients.ServingAlphaClient.DomainMappings.Create(ctx, &v1alpha1.DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      host,
+				Namespace: svc.Service.Namespace,
+			},
+			Spec: v1alpha1.DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Namespace:  svc.Service.Namespace,
+					Name:       svc.Service.Name,
+					APIVersion: "serving.knative.dev/v1",
+					Kind:       "Service",
+				},
+			},
+		}, metav1.CreateOptions{})
 		return err
 	}); err != nil {
 		t.Fatalf("Create(DomainMapping) = %v, expected no error", err)
@@ -102,31 +94,21 @@ func TestDomainMappingHA(t *testing.T) {
 
 	// Wait for DomainMapping to go Ready.
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		state, err := clients.ServingAlphaClient.DomainMappings.Get(ctx, dm.Name, metav1.GetOptions{})
-		return state.IsReady(), err
+		state, err := clients.ServingAlphaClient.DomainMappings.Get(context.Background(), dm.Name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+
+		return state.IsReady(), nil
 	})
 	if waitErr != nil {
 		t.Fatalf("The DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
 	}
 
-	assertServiceEventuallyWorks(t, clients, names, &url.URL{Scheme: "http", Host: host}, test.PizzaPlanetText1, resolvableCustomDomain)
-
-	for _, leader := range leaders.List() {
-		if err := clients.KubeClient.CoreV1().Pods(system.Namespace()).Delete(ctx, leader,
-			metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
-			t.Fatalf("Failed to delete pod %s: %v", leader, err)
-		}
-		if err := pkgTest.WaitForPodDeleted(ctx, clients.KubeClient, leader, system.Namespace()); err != nil {
-			t.Fatalf("Did not observe %s to actually be deleted: %v", leader, err)
-		}
+	// Should be able to access the test image text via the mapped domain.
+	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}, resolvableCustomDomain); err != nil {
+		t.Errorf("CheckDistribution=%v, expected no error", err)
 	}
-
-	// Wait for all of the old leaders to go away, and then for the right number to be back.
-	if _, err := pkgHa.WaitForNewLeaders(ctx, t, clients.KubeClient, domainmappingDeploymentName, system.Namespace(), leaders, test.ServingFlags.Buckets); err != nil {
-		t.Fatal("Failed to find new leader:", err)
-	}
-
-	// Verify that after changing the leader we can still create a new domainmapping and the second DomainMapping collided with the first.
 
 	altClients := e2e.SetupAlternativeNamespace(t)
 	altNames := test.ResourceNames{
@@ -144,9 +126,20 @@ func TestDomainMappingHA(t *testing.T) {
 	// Create second domain mapping with same name in alt namespace - this will collide with the existing mapping.
 	var altDm *v1alpha1.DomainMapping
 	if err := reconciler.RetryTestErrors(func(int) error {
-		altDm, err = altClients.ServingAlphaClient.DomainMappings.Create(ctx,
-			v1alpha1test.DomainMapping(altSvc.Service.Namespace, host, v1alpha1test.KReference(altSvc.Service.Namespace, altSvc.Service.Name)),
-			metav1.CreateOptions{})
+		altDm, err = altClients.ServingAlphaClient.DomainMappings.Create(ctx, &v1alpha1.DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      host,
+				Namespace: altSvc.Service.Namespace,
+			},
+			Spec: v1alpha1.DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Namespace:  altSvc.Service.Namespace,
+					Name:       altSvc.Service.Name,
+					APIVersion: "serving.knative.dev/v1",
+					Kind:       "Service",
+				},
+			},
+		}, metav1.CreateOptions{})
 		return err
 	}); err != nil {
 		t.Fatalf("Create(DomainMapping) = %v, expected no error", err)
@@ -158,9 +151,9 @@ func TestDomainMappingHA(t *testing.T) {
 
 	// Second domain mapping should go to DomainMappingConditionDomainClaimed=false state.
 	waitErr = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		state, err := altClients.ServingAlphaClient.DomainMappings.Get(ctx, dm.Name, metav1.GetOptions{})
+		state, err := altClients.ServingAlphaClient.DomainMappings.Get(context.Background(), dm.Name, metav1.GetOptions{})
 		if err != nil {
-			return false, err
+			return true, err
 		}
 
 		return state.Generation == state.Status.ObservedGeneration &&
@@ -171,7 +164,9 @@ func TestDomainMappingHA(t *testing.T) {
 	}
 
 	// Because the second DomainMapping collided with the first, it should not have taken effect.
-	assertServiceEventuallyWorks(t, clients, names, &url.URL{Scheme: "http", Host: host}, test.PizzaPlanetText1, resolvableCustomDomain)
+	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}, resolvableCustomDomain); err != nil {
+		t.Errorf("CheckDistribution=%v, expected no error", err)
+	}
 
 	// Delete the first DomainMapping.
 	if err := clients.ServingAlphaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{}); err != nil {
@@ -180,14 +175,19 @@ func TestDomainMappingHA(t *testing.T) {
 
 	// The second DomainMapping should now be able to claim the domain.
 	waitErr = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		state, err := altClients.ServingAlphaClient.DomainMappings.Get(ctx, altDm.Name, metav1.GetOptions{})
-		fmt.Printf("The second DomainMapping %s was state \n%+v\n: %v", dm.Name, state, err)
-		return state.IsReady(), err
+		state, err := altClients.ServingAlphaClient.DomainMappings.Get(context.Background(), altDm.Name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+
+		return state.IsReady(), nil
 	})
 	if waitErr != nil {
 		t.Fatalf("The second DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
 	}
 
 	// The domain name should now point to the second service.
-	assertServiceEventuallyWorks(t, clients, names, &url.URL{Scheme: "http", Host: host}, test.PizzaPlanetText2, resolvableCustomDomain)
+	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText2}, resolvableCustomDomain); err != nil {
+		t.Errorf("CheckDistribution=%v, expected no error", err)
+	}
 }
