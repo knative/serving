@@ -95,13 +95,13 @@ if [[ -z "${INGRESS_CLASS}" \
   alpha="--enable-alpha"
 fi
 
-go_test_e2e -timeout=30m \
- ./test/conformance/api/... ./test/conformance/runtime/... \
- ./test/e2e \
-  ${parallelism} \
-  ${alpha} \
-  --enable-beta \
-  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+#go_test_e2e -timeout=30m \
+# ./test/conformance/api/... ./test/conformance/runtime/... \
+# ./test/e2e \
+#  ${parallelism} \
+#  ${alpha} \
+#  --enable-beta \
+#  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 if (( HTTPS )); then
   kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
