@@ -55,7 +55,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 		metricskey.ContainerName:          "queue-proxy",
 		metricskey.LabelResponseCode:      "200",
 		metricskey.LabelResponseCodeClass: "2xx",
-		//"tag":                             disabledTagName,
+		"route_tag":                       disabledTagName,
 	}
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
@@ -77,7 +77,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
 }
 
-/* func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
+func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	defer reset()
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
@@ -96,7 +96,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 		metricskey.ContainerName:          "queue-proxy",
 		metricskey.LabelResponseCode:      "200",
 		metricskey.LabelResponseCodeClass: "2xx",
-		"tag":                             "test-tag",
+		"route_tag":                       "test-tag",
 	}
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
@@ -116,7 +116,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 	req.Header.Del(network.TagHeaderName)
 	req.Header.Set(network.DefaultRouteHeaderName, "true")
 	handler.ServeHTTP(resp, req)
-	wantTags["tag"] = defaultTagName
+	wantTags["route_tag"] = defaultTagName
 	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 
 	reset()
@@ -124,7 +124,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 	req.Header.Set(network.TagHeaderName, "test-tag")
 	req.Header.Set(network.DefaultRouteHeaderName, "true")
 	handler.ServeHTTP(resp, req)
-	wantTags["tag"] = undefinedTagName
+	wantTags["route_tag"] = undefinedTagName
 	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 
 	reset()
@@ -132,9 +132,9 @@ func TestRequestMetricsHandler(t *testing.T) {
 	req.Header.Set(network.TagHeaderName, "test-tag")
 	req.Header.Set(network.DefaultRouteHeaderName, "false")
 	handler.ServeHTTP(resp, req)
-	wantTags["tag"] = "test-tag"
+	wantTags["route_tag"] = "test-tag"
 	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
-} */
+}
 
 func reset() {
 	metricstest.Unregister(
@@ -164,7 +164,7 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			metricskey.ContainerName:          "queue-proxy",
 			metricskey.LabelResponseCode:      "500",
 			metricskey.LabelResponseCodeClass: "5xx",
-			// "tag":                             disabledTagName,
+			"route_tag":                       disabledTagName,
 		}
 		wantResource := &resource.Resource{
 			Type: "knative_revision",
