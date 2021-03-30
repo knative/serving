@@ -128,7 +128,6 @@ func main() {
 		statsScraperFactoryFunc(podLister), logger)
 
 	// Set up scalers.
-	// uniScalerFactory depends endpointsInformer to be set.
 	multiScaler := scaling.NewMultiScaler(ctx.Done(),
 		uniScalerFactoryFunc(podLister, collector), logger)
 
