@@ -55,7 +55,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 		metricskey.ContainerName:          "queue-proxy",
 		metricskey.LabelResponseCode:      "200",
 		metricskey.LabelResponseCodeClass: "2xx",
-		//"tag":                             disabledTagName,
+		"tag":                             disabledTagName,
 	}
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
@@ -77,7 +77,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
 }
 
-/* func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
+func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	defer reset()
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
@@ -134,7 +134,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 	wantTags["tag"] = "test-tag"
 	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
-} */
+}
 
 func reset() {
 	metricstest.Unregister(
@@ -164,7 +164,7 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			metricskey.ContainerName:          "queue-proxy",
 			metricskey.LabelResponseCode:      "500",
 			metricskey.LabelResponseCodeClass: "5xx",
-			// "tag":                             disabledTagName,
+			"tag":                             disabledTagName,
 		}
 		wantResource := &resource.Resource{
 			Type: "knative_revision",
