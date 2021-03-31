@@ -593,7 +593,7 @@ func TestMetricCollectorError(t *testing.T) {
 }
 
 func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
-	return func(*autoscalingv1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error) {
+	return func(*autoscalingv1alpha1.Metric, bool, *zap.SugaredLogger) (StatsScraper, error) {
 		return scraper, err
 	}
 }
