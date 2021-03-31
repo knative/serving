@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -171,18 +172,19 @@ func TestDomainMappingHA(t *testing.T) {
 	// Because the second DomainMapping collided with the first, it should not have taken effect.
 	assertServiceEventuallyWorks(t, clients, names, &url.URL{Scheme: "http", Host: host}, test.PizzaPlanetText1, resolvableCustomDomain)
 
-	// Delete the first DomainMapping.
+	t.Log("Delete the first DomainMapping")
 	if err := clients.ServingAlphaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("Delete=%v, expected no error", err)
 	}
 
 	// The second DomainMapping should now be able to claim the domain.
+	var state *v1alpha1.DomainMapping
 	waitErr = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		state, err := altClients.ServingAlphaClient.DomainMappings.Get(ctx, altDm.Name, metav1.GetOptions{})
+		state, err = altClients.ServingAlphaClient.DomainMappings.Get(ctx, altDm.Name, metav1.GetOptions{})
 		return state.IsReady(), err
 	})
 	if waitErr != nil {
-		t.Fatalf("The second DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
+		t.Fatalf("The second DomainMapping %s was not marked as Ready: %v/n%s", dm.Name, waitErr, spew.Sdump(state))
 	}
 
 	// The domain name should now point to the second service.

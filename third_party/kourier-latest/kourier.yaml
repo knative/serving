@@ -193,7 +193,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: docker.io/markusthoemmes/kourier-b74c3918b7eee585f87df62ccd297dc8@sha256:ac2f32ed839f42156e040c829761a1adcb44ab8126219323af9243ff4d3bdee2
+        - image: docker.io/markusthoemmes/kourier-b74c3918b7eee585f87df62ccd297dc8@sha256:f51155847925ab353ccd2274e6d68310f7cd34abb7116c841b0b39e0e5e46dbc
           name: kourier-control
           env:
             - name: CERTS_SECRET_NAMESPACE
