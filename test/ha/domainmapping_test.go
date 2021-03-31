@@ -172,7 +172,8 @@ func TestDomainMappingHA(t *testing.T) {
 	assertServiceEventuallyWorks(t, clients, names, &url.URL{Scheme: "http", Host: host}, test.PizzaPlanetText1, resolvableCustomDomain)
 
 	// Delete the first DomainMapping.
-	if err := clients.ServingAlphaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{}); err != nil {
+	fg := metav1.DeletePropagationForeground
+	if err := clients.ServingAlphaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{PropagationPolicy: &fg}); err != nil {
 		t.Fatalf("Delete=%v, expected no error", err)
 	}
 
