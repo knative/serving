@@ -19,8 +19,6 @@ limitations under the License.
 package ha
 
 import (
-	"fmt"
-
 	"context"
 	"net/url"
 	"testing"
@@ -181,7 +179,6 @@ func TestDomainMappingHA(t *testing.T) {
 	// The second DomainMapping should now be able to claim the domain.
 	waitErr = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		state, err := altClients.ServingAlphaClient.DomainMappings.Get(ctx, altDm.Name, metav1.GetOptions{})
-		fmt.Printf("The second DomainMapping %s was state \n%+v\n: %v", dm.Name, state, err)
 		return state.IsReady(), err
 	})
 	if waitErr != nil {
