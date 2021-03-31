@@ -95,13 +95,13 @@ if [[ -z "${INGRESS_CLASS}" \
   alpha="--enable-alpha"
 fi
 
-go_test_e2e -timeout=30m \
- ./test/conformance/api/... ./test/conformance/runtime/... \
- ./test/e2e \
-  ${parallelism} \
-  ${alpha} \
-  --enable-beta \
-  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+#go_test_e2e -timeout=30m \
+# ./test/conformance/api/... ./test/conformance/runtime/... \
+# ./test/e2e \
+#  ${parallelism} \
+#  ${alpha} \
+#  --enable-beta \
+#  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 if (( HTTPS )); then
   kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
@@ -140,7 +140,7 @@ go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
 # Note that we use a very high -parallel because each ksvc is run as its own
 # sub-test. If this is not larger than the maximum scale tested then the test
 # simply cannot pass.
-go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
+#go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
 
 (( failed )) && fail_test
 
