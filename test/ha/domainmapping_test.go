@@ -176,6 +176,18 @@ func TestDomainMappingHA(t *testing.T) {
 		t.Fatalf("Delete=%v, expected no error", err)
 	}
 
+	// Poke the second DomainMapping to force a reconcile.
+	// TODO(markusthoemmes): Fix this in Kourier.
+	altDm, err = altClients.ServingAlphaClient.DomainMappings.Get(ctx, altDm.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Get=%v, expected no error", err)
+	}
+	altDm.Annotations["foo"] = "bar"
+	altDm, err = altClients.ServingAlphaClient.DomainMappings.Update(ctx, altDm, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Update=%v, expected no error", err)
+	}
+
 	// The second DomainMapping should now be able to claim the domain.
 	waitErr = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		state, err := altClients.ServingAlphaClient.DomainMappings.Get(ctx, altDm.Name, metav1.GetOptions{})
