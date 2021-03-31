@@ -172,21 +172,8 @@ func TestDomainMappingHA(t *testing.T) {
 	assertServiceEventuallyWorks(t, clients, names, &url.URL{Scheme: "http", Host: host}, test.PizzaPlanetText1, resolvableCustomDomain)
 
 	// Delete the first DomainMapping.
-	fg := metav1.DeletePropagationForeground
-	if err := clients.ServingAlphaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{PropagationPolicy: &fg}); err != nil {
+	if err := clients.ServingAlphaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("Delete=%v, expected no error", err)
-	}
-
-	// Poke the second DomainMapping to force a reconcile.
-	// TODO(markusthoemmes): Fix this in Kourier.
-	altDm, err = altClients.ServingAlphaClient.DomainMappings.Get(ctx, altDm.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Get=%v, expected no error", err)
-	}
-	altDm.Annotations["foo"] = "bar"
-	altDm, err = altClients.ServingAlphaClient.DomainMappings.Update(ctx, altDm, metav1.UpdateOptions{})
-	if err != nil {
-		t.Fatalf("Update=%v, expected no error", err)
 	}
 
 	// The second DomainMapping should now be able to claim the domain.
