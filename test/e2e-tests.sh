@@ -131,7 +131,7 @@ fi
 
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
-go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
+go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha -run TestDomainMappingHA \
             ${alpha} \
             --enable-beta \
 	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
