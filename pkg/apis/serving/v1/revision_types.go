@@ -158,9 +158,11 @@ type RevisionStatus struct {
 	// +optional
 	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty"`
 
-	// ActualReplicas reflects the PodAutoScalerStatus.ActualScale value in RevisionStatus.
+	// ActualReplicas reflects the amount of ready pods running this revision.
+	// +optional
 	ActualReplicas int32 `json:"actualReplicas,omitempty"`
-	// DesiredReplicas reflects the PodAutoScalerStatus.DesiredScale value in RevisionStatus.
+	// DesiredReplicas reflects the desired amount of pods running this revision.
+	// +optional
 	DesiredReplicas int32 `json:"desiredReplicas,omitempty"`
 }
 
