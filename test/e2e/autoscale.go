@@ -289,8 +289,7 @@ func assertScaleDown(ctx *TestContext) {
 }
 
 func numberOfReadyPods(ctx *TestContext) (float64, error) {
-	// Deployment name matches that of revision.
-	n := ctx.resources.Revision.Name
+	n := resourcenames.Deployment(ctx.resources.Revision)
 	deploy, err := ctx.clients.KubeClient.AppsV1().Deployments(test.ServingNamespace).Get(
 		context.Background(), n, metav1.GetOptions{})
 	if err != nil {
