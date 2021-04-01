@@ -31,6 +31,7 @@ import (
 
 	vegeta "github.com/tsenart/vegeta/v12/lib"
 	"golang.org/x/sync/errgroup"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +42,6 @@ import (
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
-	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -289,24 +289,31 @@ func assertScaleDown(ctx *TestContext) {
 }
 
 func numberOfReadyPods(ctx *TestContext) (float64, error) {
-	// SKS name matches that of revision.
-	n := ctx.resources.Revision.Name
-	sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(context.Background(), n, metav1.GetOptions{})
+	n := resourcenames.Deployment(ctx.resources.Revision)
+	deploy, err := ctx.clients.KubeClient.AppsV1().Deployments(test.ServingNamespace).Get(
+		context.Background(), n, metav1.GetOptions{})
 	if err != nil {
-		ctx.logf("Error getting SKS %q: %v", n, err)
-		return 0, fmt.Errorf("error retrieving sks %q: %w", n, err)
+		return 0, fmt.Errorf("failed to get deployment %s: %w", n, err)
 	}
-	if sks.Status.PrivateServiceName == "" {
-		ctx.logf("SKS %s has not yet reconciled", n)
-		// Not an error, but no pods either.
-		return 0, nil
+
+	var minAvailable, updated bool
+	for _, cond := range deploy.Status.Conditions {
+		switch cond.Type {
+		case appsv1.DeploymentAvailable:
+			minAvailable = cond.Status == corev1.ConditionStatus(metav1.ConditionTrue)
+		case appsv1.DeploymentProgressing:
+			updated = cond.Reason == "ReplicaSetUpdated"
+		}
 	}
-	eps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(
-		context.Background(), sks.Status.PrivateServiceName, metav1.GetOptions{})
-	if err != nil {
-		return 0, fmt.Errorf("failed to get endpoints %s: %w", sks.Status.PrivateServiceName, err)
+
+	if minAvailable && updated {
+		// Ref: #11092
+		// The deployment was updated and the update is being rolled out so we defensively
+		// pick the desired replicas to assert the autoscaling decisions.
+		return float64(*deploy.Spec.Replicas), nil
 	}
-	return float64(resources.ReadyAddressCount(eps)), nil
+	// Otherwise we pick the ready pods to assert maximum consistency for ramp up tests.
+	return float64(deploy.Status.ReadyReplicas), nil
 }
 
 func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done <-chan time.Time, quick bool) error {
