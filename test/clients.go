@@ -20,8 +20,12 @@ package test
 
 import (
 	"context"
+	"log"
+	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -202,6 +206,57 @@ func (clients *ServingClients) Delete(routes, configs, services []string) []erro
 	}
 
 	return errs
+}
+
+// WaitForDeletion returns an error if any of the resources take too long to fully terminate.
+func (clients *ServingClients) WaitForDeletion(routes, configs, services []string, timeout time.Duration) error {
+	toWait := map[string]struct {
+		names []string
+		get   func(string) (interface{}, error)
+	}{
+		"routes": {
+			names: routes,
+			get: func(name string) (interface{}, error) {
+				return clients.Routes.Get(context.Background(), name, metav1.GetOptions{})
+			},
+		},
+		"configs": {
+			names: configs,
+			get: func(name string) (interface{}, error) {
+				return clients.Configs.Get(context.Background(), name, metav1.GetOptions{})
+			},
+		},
+		"services": {
+			names: services,
+			get: func(name string) (interface{}, error) {
+				return clients.Services.Get(context.Background(), name, metav1.GetOptions{})
+			},
+		},
+	}
+	return wait.PollImmediate(time.Second*2, timeout, func() (bool, error) {
+		total := len(routes) + len(services) + len(configs)
+		for resourceType, resource := range toWait {
+			for _, name := range resource.names {
+				if name == "" {
+					total--
+					continue
+				}
+				_, err := resource.get(name)
+				if errors.IsNotFound(err) {
+					total--
+					continue
+				}
+				if err != nil {
+					return true, err
+				}
+				log.Printf("waiting on resource deletion for resource %s/%s", resourceType, name)
+			}
+		}
+		if total == 0 {
+			return true, nil // done
+		}
+		return false, nil
+	})
 }
 
 // BuildClientConfig builds client config for testing.

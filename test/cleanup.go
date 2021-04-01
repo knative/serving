@@ -67,6 +67,12 @@ func TearDown(clients *Clients, names *ResourceNames) {
 			[]string{names.Config},
 			[]string{names.Service},
 		)
+		clients.ServingClient.WaitForDeletion(
+			[]string{names.Route},
+			[]string{names.Config},
+			[]string{names.Service},
+			PollTimeout,
+		)
 	}
 }
 
