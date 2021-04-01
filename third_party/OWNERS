@@ -2,13 +2,13 @@
 
 approvers:
 # Istio
-- networking-approvers
+- networking-writers
 # Monitoring Configs
-- monitoring-approvers
+- serving-observability-writers
 
 
 reviewers:
 # Istio
 - networking-reviewers
 # Monitoring Configs
-- monitoring-reviewers
+- serving-observability-writers

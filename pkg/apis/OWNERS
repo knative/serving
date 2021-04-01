@@ -1,12 +1,8 @@
 # The OWNERS file is used by prow to automatically merge approved PRs.
 
 approvers:
-# TOC
-- evankanderson
-- mattmoor
-- vaikas
-# Serving WG Leads
-- dprotaso
+- technical-oversight-committee
+- api-core-wg-leads
 
 labels:
 - area/API
