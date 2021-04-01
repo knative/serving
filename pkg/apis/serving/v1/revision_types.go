@@ -157,6 +157,13 @@ type RevisionStatus struct {
 	// ref: http://bit.ly/image-digests
 	// +optional
 	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty"`
+
+	// ActualReplicas reflects the amount of ready pods running this revision.
+	// +optional
+	ActualReplicas int32 `json:"actualReplicas,omitempty"`
+	// DesiredReplicas reflects the desired amount of pods running this revision.
+	// +optional
+	DesiredReplicas int32 `json:"desiredReplicas,omitempty"`
 }
 
 // ContainerStatus holds the information of container name and image digest value
