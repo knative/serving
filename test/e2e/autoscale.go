@@ -29,6 +29,7 @@ import (
 
 	"knative.dev/pkg/test/logging"
 
+	"github.com/davecgh/go-spew/spew"
 	vegeta "github.com/tsenart/vegeta/v12/lib"
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
@@ -288,19 +289,19 @@ func assertScaleDown(ctx *TestContext) {
 	ctx.logf("Scaled down.")
 }
 
-func numberOfReadyPods(ctx *TestContext) (float64, error) {
+func numberOfReadyPods(ctx *TestContext) (float64, *appsv1.Deployment, error) {
 	n := resourcenames.Deployment(ctx.resources.Revision)
 	deploy, err := ctx.clients.KubeClient.AppsV1().Deployments(test.ServingNamespace).Get(
 		context.Background(), n, metav1.GetOptions{})
 	if err != nil {
-		return 0, fmt.Errorf("failed to get deployment %s: %w", n, err)
+		return 0, nil, fmt.Errorf("failed to get deployment %s: %w", n, err)
 	}
 
 	var minAvailable, updated bool
 	for _, cond := range deploy.Status.Conditions {
 		switch cond.Type {
 		case appsv1.DeploymentAvailable:
-			minAvailable = cond.Status == corev1.ConditionStatus(metav1.ConditionTrue)
+			minAvailable = cond.Status == corev1.ConditionTrue
 		case appsv1.DeploymentProgressing:
 			updated = cond.Reason == "ReplicaSetUpdated"
 		}
@@ -310,10 +311,11 @@ func numberOfReadyPods(ctx *TestContext) (float64, error) {
 		// Ref: #11092
 		// The deployment was updated and the update is being rolled out so we defensively
 		// pick the desired replicas to assert the autoscaling decisions.
-		return float64(*deploy.Spec.Replicas), nil
+		ctx.t.Logf("Deployment is being rolled, picking spec.replicas=%d", *deploy.Spec.Replicas)
+		return float64(*deploy.Spec.Replicas), deploy, nil
 	}
 	// Otherwise we pick the ready pods to assert maximum consistency for ramp up tests.
-	return float64(deploy.Status.ReadyReplicas), nil
+	return float64(deploy.Status.ReadyReplicas), deploy, nil
 }
 
 func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done <-chan time.Time, quick bool) error {
@@ -326,11 +328,12 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 		case <-ticker.C:
 			// Each 2 second, check that the number of pods is at least `minPods`. `minPods` is increasing
 			// to verify that the number of pods doesn't go down while we are scaling up.
-			got, err := numberOfReadyPods(ctx)
+			got, d, err := numberOfReadyPods(ctx)
 			if err != nil {
 				return err
 			}
-			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v", ctx.resources.Revision.Name, got, minPods)
+			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v\ndeployment state: %s",
+				ctx.resources.Revision.Name, got, minPods, spew.Sdump(d))
 			ctx.logf(mes)
 			// verify that the number of pods doesn't go down while we are scaling up.
 			if got < minPods {
@@ -350,12 +353,12 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 		case <-done:
 			// The test duration is over. Do a last check to verify that the number of pods is at `targetPods`
 			// (with a little room for de-flakiness).
-			got, err := numberOfReadyPods(ctx)
+			got, d, err := numberOfReadyPods(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to fetch number of ready pods: %w", err)
 			}
-			mes := fmt.Sprintf("got %v replicas, expected between [%v, %v] replicas for revision %s",
-				got, targetPods-1, maxPods, ctx.resources.Revision.Name)
+			mes := fmt.Sprintf("got %v replicas, expected between [%v, %v] replicas for revision %s\ndeployment state: %s",
+				got, targetPods-1, maxPods, ctx.resources.Revision.Name, spew.Sdump(d))
 			ctx.logf(mes)
 			if got < targetPods-1 || got > maxPods {
 				return errors.New("final scale didn't fulfill constraints: " + mes)
