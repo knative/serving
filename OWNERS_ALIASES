@@ -35,7 +35,7 @@ aliases:
   - skonto
   - yanweiguo
 
-  productivity-approvers:
+  productivity-writers:
   - chaodaiG
   - chizhg
   productivity-reviewers:
@@ -45,6 +45,10 @@ aliases:
   - steuhs
   - yt3liu
 
+  networking-wg-leads:
+  - ZhiminXiang
+  - nak3
+  - tcnghia
   networking-writers:
   - JRBANCEL
   - nak3
