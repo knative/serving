@@ -67,7 +67,9 @@ func updateRevisionLabels(rev, config metav1.Object) {
 		serving.ConfigurationUIDLabelKey,
 		serving.ServiceUIDLabelKey,
 	} {
-		labels[key] = RevisionLabelValueForKey(key, config)
+		if value := RevisionLabelValueForKey(key, config); value != "" {
+			labels[key] = value
+		}
 	}
 
 	rev.SetLabels(labels)
