@@ -64,9 +64,8 @@ func updateRevisionLabels(rev, config metav1.Object) {
 		serving.ConfigurationLabelKey,
 		serving.ServiceLabelKey,
 		serving.ConfigurationGenerationLabelKey,
-		// TODO: Add in 0.22 see: https://github.com/knative/serving/issues/10614
-		// serving.ConfigurationUIDLabelKey,
-		// serving.ServiceUIDLabelKey,
+		serving.ConfigurationUIDLabelKey,
+		serving.ServiceUIDLabelKey,
 	} {
 		labels[key] = RevisionLabelValueForKey(key, config)
 	}
