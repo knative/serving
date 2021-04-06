@@ -208,7 +208,8 @@ func (clients *ServingClients) Delete(routes, configs, services []string) []erro
 	return errs
 }
 
-// WaitForDeletion returns an error if any of the resources take too long to fully terminate.
+// WaitForDeletion repeatedly tries to fetch the given resources until they all return NotFound errors.
+// It returns an error if the timeout is reached.
 func (clients *ServingClients) WaitForDeletion(routes, configs, services []string, timeout time.Duration) error {
 	toWait := map[string]struct {
 		names []string
@@ -233,27 +234,22 @@ func (clients *ServingClients) WaitForDeletion(routes, configs, services []strin
 			},
 		},
 	}
-	return wait.PollImmediate(time.Second*2, timeout, func() (bool, error) {
-		total := len(routes) + len(services) + len(configs)
+	return wait.PollImmediate(PollInterval, timeout, func() (bool, error) {
 		for resourceType, resource := range toWait {
 			for _, name := range resource.names {
 				if name == "" {
-					total--
 					continue
 				}
 				_, err := resource.get(name)
 				if errors.IsNotFound(err) {
-					total--
 					continue
 				}
 				if err != nil {
 					return true, err
 				}
 				log.Printf("waiting on resource deletion for resource %s/%s", resourceType, name)
+				return false, nil
 			}
-		}
-		if total == 0 {
-			return true, nil // done
 		}
 		return false, nil
 	})
