@@ -1,85 +1,148 @@
-aliases:
-  serving-api-approvers:
-  - dprotaso
-  - markusthoemmes
-  - tcnghia
-  - vagababov
-  serving-api-reviewers:
-  - dprotaso
-  - markusthoemmes
-  - tcnghia
-  - vagababov
-  - whaught
-  - julz
+# This file is auto-generated from peribolos
 
-  toc:
+aliases:
+  api-core-wg-leads:
+  - dprotaso
+  autoscaling-wg-leads:
+  - markusthoemmes
+  - vagababov
+  channel-wg-leads:
+  - matzew
+  - slinkydeveloper
+  client-wg-leads:
+  - navidshaikh
+  - rhuss
+  client-writers:
+  - navidshaikh
+  - rhuss
+  conformance-wg-leads:
+  - tayarani
+  conformance-writers:
+  - tayarani
+  docs-wg-leads: []
+  docs-writers: []
+  eventing-triage:
+  - akashrv
+  - antoineco
+  - lberk
+  - n3wscott
+  - slinkydeveloper
+  - zhongduo
+  eventing-wg-leads:
+  - devguyio
+  - grantr
+  - lionelvillard
+  - vaikas
+  eventing-writers:
+  - akashrv
+  - antoineco
+  - devguyio
+  - grantr
+  - lberk
+  - lionelvillard
+  - matzew
+  - n3wscott
+  - slinkydeveloper
+  - vaikas
+  - zhongduo
+  knative-admin:
+  - RichieEscarez
+  - bsnchan
+  - duglin
+  - evankanderson
+  - grantr
+  - knative-prow-releaser-robot
+  - knative-prow-robot
+  - knative-test-reporter-robot
+  - markusthoemmes
+  - mbehrendt
+  - pmorie
+  - rhuss
+  - ronavn
+  - thisisnotapril
+  - vaikas
+  knative-milestone-maintainers:
+  - ImJasonH
+  - ZhiminXiang
+  - andrew-su
+  - aslom
+  - chaodaiG
+  - chizhg
+  - csantanapr
+  - evankanderson
+  - grantr
+  - igsong
+  - julz
+  - lionelvillard
+  - markusthoemmes
+  - n3wscott
+  - nak3
+  - navidshaikh
+  - nlopezgi
+  - rhuss
+  - shashwathi
+  - slinkydeveloper
+  - tanzeeb
+  - tcnghia
+  - vagababov
+  - vaikas
+  knative-release-leads:
+  - RichieEscarez
+  - evankanderson
+  - markusthoemmes
+  knative-robots:
+  - knative-prow-releaser-robot
+  - knative-prow-robot
+  - knative-test-reporter-robot
+  networking-wg-leads:
+  - ZhiminXiang
+  - nak3
+  - tcnghia
+  operations-wg-leads:
+  - houshengbo
+  operations-writers:
+  - houshengbo
+  productivity-wg-leads:
+  - chizhg
+  - n3wscott
+  productivity-writers:
+  - chizhg
+  - n3wscott
+  security-wg-leads:
+  - evankanderson
+  - julz
+  security-writers:
+  - evankanderson
+  - julz
+  serving-writers:
+  - ZhiminXiang
+  - dprotaso
+  - markusthoemmes
+  - nak3
+  - tcnghia
+  - vagababov
+  source-wg-leads:
+  - lionelvillard
+  - n3wscott
+  - vaikas
+  steering-committee:
+  - bsnchan
+  - mbehrendt
+  - pmorie
+  - thisisnotapril
+  - vaikas
+  technical-oversight-committee:
   - evankanderson
   - grantr
   - markusthoemmes
-  - tcnghia
-
-  wg-leads:
-  - dprotaso        # API
-  - markusthoemmes  # Scaling
-  - tcnghia         # Network
-  - vagababov       # Scaling
-
-  # TOC + WG leads
-  serving-wg-leads:
-  - dprotaso        # API
-  - evankanderson   # TOC
-  - grantr          # TOC
-  - markusthoemmes  # Scaling/TOC
-  - nak3            # Network
-  - tcnghia         # Network/TOC
-  - ZhiminXiang     # Network
-  - vagababov       # Scaling
-
-  autoscaling-approvers:
-  - julz
-  - markusthoemmes
-  - vagababov
-  - yanweiguo
-  autoscaling-reviewers:
-  - julz
-  - markusthoemmes
-  - taragu
-  - vagababov
-  - yanweiguo
-
-  monitoring-approvers:
-  - mdemirhan
-  - yanweiguo
-  monitoring-reviewers:
-  - mdemirhan
-  - yanweiguo
-  - skonto
-
-  productivity-approvers:
-  - chaodaiG
-  - chizhg
-  productivity-reviewers:
-  - chaodaiG
-  - coryrc
-  - chizhg
-  - steuhs
-  - yt3liu
-
-  networking-approvers:
-  - JRBANCEL
-  - markusthoemmes
-  - nak3
-  - tcnghia
-  - vagababov
-  - ZhiminXiang
-  networking-reviewers:
-  - andrew-su
-  - arturenault
-  - JRBANCEL
-  - markusthoemmes
-  - nak3
-  - shashwathi
-  - tcnghia
-  - vagababov
-  - yanweiguo
-  - ZhiminXiang
+  - rhuss
+  trademark-committee:
+  - bsnchan
+  - duglin
+  - ronavn
+  ux-wg-leads:
+  - csantanapr
+  - omerbensaadon
+  ux-writers:
+  - csantanapr
+  - omerbensaadon
