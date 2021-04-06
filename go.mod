@@ -51,7 +51,7 @@ require (
 	k8s.io/code-generator v0.19.7
 	k8s.io/gengo v0.0.0-20201214224949-b6c5ce23f027 // indirect
 	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
-	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
+	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009
 	knative.dev/caching v0.0.0-20210331063521-5691bb38d441
 	knative.dev/hack v0.0.0-20210325223819-b6ab329907d3
 	knative.dev/networking v0.0.0-20210331064822-999a7708876c
