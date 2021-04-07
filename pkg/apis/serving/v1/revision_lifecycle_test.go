@@ -684,3 +684,40 @@ func TestPropagateAutoscalerStatusRace(t *testing.T) {
 	apistest.CheckConditionFailed(r, RevisionConditionActive, t)
 	apistest.CheckConditionSucceeded(r, RevisionConditionReady, t)
 }
+
+func TestPropagateAutoscalerStatusReplicas(t *testing.T) {
+	r := RevisionStatus{}
+	testCases := []struct {
+		name                string
+		ps                  autoscalingv1alpha1.PodAutoscalerStatus
+		wantActualReplicas  int32
+		wantDesiredReplicas int32
+	}{{
+		name: "active PodAutoScaler",
+		ps: autoscalingv1alpha1.PodAutoscalerStatus{
+			ActualScale:  ptr.Int32(1),
+			DesiredScale: ptr.Int32(2),
+		},
+		wantActualReplicas:  1,
+		wantDesiredReplicas: 2,
+	}, {
+		name: "inactive PodAutoScaler",
+		ps: autoscalingv1alpha1.PodAutoscalerStatus{
+			DesiredScale: ptr.Int32(-1),
+		},
+		wantActualReplicas:  0,
+		wantDesiredReplicas: 0,
+	}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r.PropagateAutoscalerStatus(&tc.ps)
+			if r.ActualReplicas != tc.wantActualReplicas {
+				t.Errorf("Expected r.ActualReplicas to be %d but got %d", tc.wantActualReplicas, r.ActualReplicas)
+			}
+			if r.DesiredReplicas != tc.wantDesiredReplicas {
+				t.Errorf("Expected r.DesiredReplicas to be %d but got %d", tc.wantDesiredReplicas, r.DesiredReplicas)
+			}
+		})
+	}
+}

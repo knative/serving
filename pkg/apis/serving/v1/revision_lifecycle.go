@@ -22,6 +22,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/integer"
 
 	"knative.dev/pkg/apis"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -171,6 +172,10 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodAutoscalerStatus) {
 	// Reflect the PA status in our own.
 	cond := ps.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionReady)
+
+	rs.ActualReplicas = integer.Int32Max(ps.GetActualScale(), 0)
+	rs.DesiredReplicas = integer.Int32Max(ps.GetDesiredScale(), 0)
+
 	if cond == nil {
 		rs.MarkActiveUnknown("Deploying", "")
 		return
