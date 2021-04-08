@@ -190,6 +190,7 @@ var (
 		EnableServiceLinks:            ptr.Bool(false),
 	}
 
+	maxUnavailable    = intstr.FromInt(0)
 	defaultDeployment = &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "foo",
@@ -217,6 +218,12 @@ var (
 				},
 			},
 			ProgressDeadlineSeconds: ptr.Int32(0),
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxUnavailable: &maxUnavailable,
+				},
+			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
