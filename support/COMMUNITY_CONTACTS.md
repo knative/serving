@@ -67,7 +67,6 @@ rotation, feel free to send a PR to remove yourself.
 
 - [dprotaso](https://github.com/dprotaso)
 - [julz](https://github.com/julz)
-- [JRBANCEL](https://github.com/JRBANCEL)
 - [markusthoemmes](https://github.com/markusthoemmes)
 - [nak3](https://github.com/nak3)
 - [tcnghia](https://github.com/tcnghia)
