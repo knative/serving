@@ -174,6 +174,28 @@ data:
     #   service fails to respond with a valid rate limit decision within
     #   the timeout defined on the extension service.
     #   failOpen: false
+    #   Defines whether to include the X-RateLimit headers X-RateLimit-Limit,
+    #   X-RateLimit-Remaining, and X-RateLimit-Reset (as defined by the IETF
+    #   Internet-Draft linked below), on responses to clients when the Rate
+    #   Limit Service is consulted for a request.
+    #   ref. https://tools.ietf.org/id/draft-polli-ratelimit-headers-03.html
+    #   enableXRateLimitHeaders: false
+    #
+    # Global Policy settings.
+    # policy:
+    #   # Default headers to set on all requests (unless set/removed on the HTTPProxy object itself)
+    #   request-headers:
+    #     set:
+    #       # example: the hostname of the Envoy instance that proxied the request
+    #       X-Envoy-Hostname: %HOSTNAME%
+    #       # example: add a l5d-dst-override header to instruct Linkerd what service the request is destined for
+    #       l5d-dst-override: %CONTOUR_SERVICE_NAME%.%CONTOUR_NAMESPACE%.svc.cluster.local:%CONTOUR_SERVICE_PORT%
+    #   # default headers to set on all responses (unless set/removed on the HTTPProxy object itself)
+    #   response-headers:
+    #     set:
+    #       # example: Envoy flags that provide additional details about the response or connection
+    #       X-Envoy-Response-Flags: %RESPONSE_FLAGS%
+    #
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -239,7 +261,7 @@ spec:
                       type: string
                   type: object
                 protocol:
-                  description: Protocol may be used to specify (or override) the protocol used to reach this Service. Values may be tls, h2, h2c. If omitted, protocol-selection falls back on Service annotations.
+                  description: Protocol may be used to specify (or override) the protocol used to reach this Service. Values may be h2 or h2c. If omitted, protocol-selection falls back on Service annotations.
                   enum:
                     - h2
                     - h2c
@@ -1776,7 +1798,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1.13.1
+  name: contour-certgen-v1.14.0
   namespace: contour-external
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -1789,7 +1811,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:66ad2836beba0fb7dd59bcd0c479101c7497a5b1b3544445eb36f752df9b248a
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4ae9871951795bb7fde9056d931a98e20a6112a9823ca0fec9ee8ff5f0db3309
           imagePullPolicy: Always
           command:
             - contour
@@ -1834,6 +1856,14 @@ rules:
       - ""
     resources:
       - endpoints
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
     verbs:
       - get
       - list
@@ -1967,9 +1997,11 @@ spec:
     - port: 80
       name: http
       protocol: TCP
+      targetPort: 8080
     - port: 443
       name: https
       protocol: TCP
+      targetPort: 8443
   selector:
     app: envoy
   type: LoadBalancer
@@ -2017,14 +2049,12 @@ spec:
             - --incluster
             - --xds-address=0.0.0.0
             - --xds-port=8001
-            - --envoy-service-http-port=80
-            - --envoy-service-https-port=443
             - --contour-cafile=/certs/ca.crt
             - --contour-cert-file=/certs/tls.crt
             - --contour-key-file=/certs/tls.key
             - --config-path=/config/contour.yaml
           command: ["contour"]
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:66ad2836beba0fb7dd59bcd0c479101c7497a5b1b3544445eb36f752df9b248a
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4ae9871951795bb7fde9056d931a98e20a6112a9823ca0fec9ee8ff5f0db3309
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2113,7 +2143,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:66ad2836beba0fb7dd59bcd0c479101c7497a5b1b3544445eb36f752df9b248a
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4ae9871951795bb7fde9056d931a98e20a6112a9823ca0fec9ee8ff5f0db3309
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2152,11 +2182,11 @@ spec:
                   apiVersion: v1
                   fieldPath: metadata.name
           ports:
-            - containerPort: 80
+            - containerPort: 8080
               # hostPort: 80
               name: http
               protocol: TCP
-            - containerPort: 443
+            - containerPort: 8443
               # hostPort: 443
               name: https
               protocol: TCP
@@ -2192,7 +2222,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:66ad2836beba0fb7dd59bcd0c479101c7497a5b1b3544445eb36f752df9b248a
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4ae9871951795bb7fde9056d931a98e20a6112a9823ca0fec9ee8ff5f0db3309
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -2393,6 +2423,28 @@ data:
     #   service fails to respond with a valid rate limit decision within
     #   the timeout defined on the extension service.
     #   failOpen: false
+    #   Defines whether to include the X-RateLimit headers X-RateLimit-Limit,
+    #   X-RateLimit-Remaining, and X-RateLimit-Reset (as defined by the IETF
+    #   Internet-Draft linked below), on responses to clients when the Rate
+    #   Limit Service is consulted for a request.
+    #   ref. https://tools.ietf.org/id/draft-polli-ratelimit-headers-03.html
+    #   enableXRateLimitHeaders: false
+    #
+    # Global Policy settings.
+    # policy:
+    #   # Default headers to set on all requests (unless set/removed on the HTTPProxy object itself)
+    #   request-headers:
+    #     set:
+    #       # example: the hostname of the Envoy instance that proxied the request
+    #       X-Envoy-Hostname: %HOSTNAME%
+    #       # example: add a l5d-dst-override header to instruct Linkerd what service the request is destined for
+    #       l5d-dst-override: %CONTOUR_SERVICE_NAME%.%CONTOUR_NAMESPACE%.svc.cluster.local:%CONTOUR_SERVICE_PORT%
+    #   # default headers to set on all responses (unless set/removed on the HTTPProxy object itself)
+    #   response-headers:
+    #     set:
+    #       # example: Envoy flags that provide additional details about the response or connection
+    #       X-Envoy-Response-Flags: %RESPONSE_FLAGS%
+    #
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -2437,7 +2489,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1.13.1
+  name: contour-certgen-v1.14.0
   namespace: contour-internal
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -2450,7 +2502,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:66ad2836beba0fb7dd59bcd0c479101c7497a5b1b3544445eb36f752df9b248a
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4ae9871951795bb7fde9056d931a98e20a6112a9823ca0fec9ee8ff5f0db3309
           imagePullPolicy: Always
           command:
             - contour
@@ -2513,9 +2565,11 @@ spec:
     - port: 80
       name: http
       protocol: TCP
+      targetPort: 8080
     - port: 443
       name: https
       protocol: TCP
+      targetPort: 8443
   selector:
     app: envoy
   type: ClusterIP
@@ -2563,14 +2617,12 @@ spec:
             - --incluster
             - --xds-address=0.0.0.0
             - --xds-port=8001
-            - --envoy-service-http-port=80
-            - --envoy-service-https-port=443
             - --contour-cafile=/certs/ca.crt
             - --contour-cert-file=/certs/tls.crt
             - --contour-key-file=/certs/tls.key
             - --config-path=/config/contour.yaml
           command: ["contour"]
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:66ad2836beba0fb7dd59bcd0c479101c7497a5b1b3544445eb36f752df9b248a
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4ae9871951795bb7fde9056d931a98e20a6112a9823ca0fec9ee8ff5f0db3309
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2659,7 +2711,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:66ad2836beba0fb7dd59bcd0c479101c7497a5b1b3544445eb36f752df9b248a
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4ae9871951795bb7fde9056d931a98e20a6112a9823ca0fec9ee8ff5f0db3309
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2698,11 +2750,11 @@ spec:
                   apiVersion: v1
                   fieldPath: metadata.name
           ports:
-            - containerPort: 80
+            - containerPort: 8080
               # hostPort: 80
               name: http
               protocol: TCP
-            - containerPort: 443
+            - containerPort: 8443
               # hostPort: 443
               name: https
               protocol: TCP
@@ -2738,7 +2790,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:66ad2836beba0fb7dd59bcd0c479101c7497a5b1b3544445eb36f752df9b248a
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4ae9871951795bb7fde9056d931a98e20a6112a9823ca0fec9ee8ff5f0db3309
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
