@@ -65,9 +65,6 @@ const (
 	// customizations for networking features.
 	ConfigName = "config-network"
 
-	// DeprecatedDefaultIngressClassKey  Please use DefaultIngressClassKey instead.
-	DeprecatedDefaultIngressClassKey = "clusteringress.class"
-
 	// DefaultIngressClassKey is the name of the configuration entry
 	// that specifies the default Ingress.
 	DefaultIngressClassKey = "ingress.class"
@@ -301,7 +298,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	nc := defaultConfig()
 
 	if err := cm.Parse(data,
-		cm.AsString(DeprecatedDefaultIngressClassKey, &nc.DefaultIngressClass),
 		// New key takes precedence.
 		cm.AsString(DefaultIngressClassKey, &nc.DefaultIngressClass),
 		cm.AsString(DefaultCertificateClassKey, &nc.DefaultCertificateClass),
