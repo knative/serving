@@ -102,7 +102,6 @@ func TestMinScale(t *testing.T) {
 	}
 
 	revision, err := clients.ServingClient.Revisions.Get(context.Background(), revName, metav1.GetOptions{})
-
 	if err != nil {
 		t.Fatalf("An error occurred getting revision %v, %v", revName, err)
 	}
@@ -136,7 +135,6 @@ func TestMinScale(t *testing.T) {
 	}
 
 	revision, err = clients.ServingClient.Revisions.Get(context.Background(), newRevName, metav1.GetOptions{})
-
 	if err != nil {
 		t.Fatalf("An error occurred getting revision %v, %v", newRevName, err)
 	}
@@ -147,15 +145,6 @@ func TestMinScale(t *testing.T) {
 	t.Log("Waiting for old revision to scale below minScale after being replaced")
 	if lr, err := waitForDesiredScale(clients, serviceName, lt(minScale)); err != nil {
 		t.Fatalf("The revision %q scaled to %d > %d after not being routable anymore: %v", revName, lr, minScale, err)
-	}
-
-	revision, err = clients.ServingClient.Revisions.Get(context.Background(), revName, metav1.GetOptions{})
-
-	if err != nil {
-		t.Fatalf("An error occurred getting revision %v, %v", revName, err)
-	}
-	if replicas := revision.Status.ActualReplicas; err != nil || replicas >= minScale {
-		t.Fatalf("Expected actual replicas for revision %v to be less than %v but got %v", revision.Name, minScale, replicas)
 	}
 
 	t.Log("Deleting route", names.Route)
