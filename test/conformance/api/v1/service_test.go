@@ -319,7 +319,8 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		names.URL,
 		[]string{expectedFirstRev},
 		[]string{"latest", "current"},
-		[]string{expectedFirstRev, expectedFirstRev}); err != nil {
+		[]string{expectedFirstRev, expectedFirstRev},
+		names.Service); err != nil {
 		t.Fatal(err)
 	}
 
@@ -352,7 +353,8 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		names.URL,
 		[]string{expectedFirstRev},
 		[]string{"latest", "current"},
-		[]string{expectedSecondRev, expectedFirstRev}); err != nil {
+		[]string{expectedSecondRev, expectedFirstRev},
+		names.Service); err != nil {
 		t.Fatal(err)
 	}
 
@@ -405,7 +407,8 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		names.URL,
 		[]string{expectedFirstRev, expectedSecondRev},
 		[]string{"candidate", "latest", "current"},
-		[]string{expectedSecondRev, expectedSecondRev, expectedFirstRev}); err != nil {
+		[]string{expectedSecondRev, expectedSecondRev, expectedFirstRev},
+		names.Service); err != nil {
 		t.Fatal(err)
 	}
 
@@ -436,7 +439,8 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		names.URL,
 		[]string{expectedFirstRev, expectedSecondRev},
 		[]string{"latest", "candidate", "current"},
-		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev}); err != nil {
+		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev},
+		names.Service); err != nil {
 		t.Fatal(err)
 	}
 
@@ -481,7 +485,8 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		names.URL,
 		[]string{expectedFirstRev, expectedThirdRev},
 		[]string{"latest", "candidate", "current"},
-		[]string{expectedThirdRev, expectedThirdRev, expectedFirstRev}); err != nil {
+		[]string{expectedThirdRev, expectedThirdRev, expectedFirstRev},
+		names.Service); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -26,6 +26,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/serving"
@@ -49,12 +50,25 @@ func checkForExpectedResponses(ctx context.Context, t testing.TB, clients *test.
 }
 
 func validateDomains(t testing.TB, clients *test.Clients, baseDomain *url.URL,
-	baseExpected, trafficTargets, targetsExpected []string) error {
+	baseExpected, trafficTargets, targetsExpected []string, serviceName string) error {
+
+	service, err := clients.ServingClient.Services.Get(context.Background(), serviceName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("could not query service traffic status: %v", err)
+	}
 	subdomains := make([]*url.URL, len(trafficTargets))
 	for i, target := range trafficTargets {
-		subdomain, _ := url.Parse(baseDomain.String())
-		subdomain.Host = target + "-" + baseDomain.Host
-		subdomains[i] = subdomain
+		found := false
+		for _, traffic := range service.Status.Traffic {
+			if traffic.Tag == target {
+				subdomains[i] = traffic.URL.URL()
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("no subdomain found for target %s in service status", target)
+		}
 	}
 
 	g, egCtx := errgroup.WithContext(context.Background())
