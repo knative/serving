@@ -36,6 +36,11 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+type trafficExpectedPair struct {
+	traffic string
+	expected string
+}
+
 func checkForExpectedResponses(ctx context.Context, t testing.TB, clients *test.Clients, url *url.URL, expectedResponses ...string) error {
 	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
@@ -50,24 +55,24 @@ func checkForExpectedResponses(ctx context.Context, t testing.TB, clients *test.
 }
 
 func validateDomains(t testing.TB, clients *test.Clients, baseDomain *url.URL,
-	baseExpected, trafficTargets, targetsExpected []string, serviceName string) error {
+	baseExpected []string, trafficExpectedPairs []trafficExpectedPair, serviceName string) error {
 
 	service, err := clients.ServingClient.Services.Get(context.Background(), serviceName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not query service traffic status: %v", err)
 	}
-	subdomains := make([]*url.URL, len(trafficTargets))
-	for i, target := range trafficTargets {
+	subdomains := make([]*url.URL, len(trafficExpectedPairs))
+	for i, pair := range trafficExpectedPairs {
 		found := false
 		for _, traffic := range service.Status.Traffic {
-			if traffic.Tag == target {
+			if traffic.Tag == pair.traffic {
 				subdomains[i] = traffic.URL.URL()
 				found = true
 				break
 			}
 		}
 		if !found {
-			return fmt.Errorf("no subdomain found for target %s in service status", target)
+			return fmt.Errorf("no subdomain found for tag %s in service status", pair.traffic)
 		}
 	}
 
@@ -83,7 +88,7 @@ func validateDomains(t testing.TB, clients *test.Clients, baseDomain *url.URL,
 		i, s := i, s
 		g.Go(func() error {
 			t.Log("Checking updated route tags", s)
-			return checkForExpectedResponses(egCtx, t, clients, s, targetsExpected[i])
+			return checkForExpectedResponses(egCtx, t, clients, s, trafficExpectedPairs[i].expected)
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -103,7 +108,7 @@ func validateDomains(t testing.TB, clients *test.Clients, baseDomain *url.URL,
 		i, subdomain := i, subdomain
 		g.Go(func() error {
 			min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-			return shared.CheckDistribution(egCtx, t, clients, subdomain, test.ConcurrentRequests, min, []string{targetsExpected[i]}, test.ServingFlags.ResolvableDomain)
+			return shared.CheckDistribution(egCtx, t, clients, subdomain, test.ConcurrentRequests, min, []string{trafficExpectedPairs[i].expected}, test.ServingFlags.ResolvableDomain)
 		})
 	}
 	if err := g.Wait(); err != nil {

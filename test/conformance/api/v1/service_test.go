@@ -318,8 +318,16 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	if err := validateDomains(t, clients,
 		names.URL,
 		[]string{expectedFirstRev},
-		[]string{"latest", "current"},
-		[]string{expectedFirstRev, expectedFirstRev},
+		[]trafficExpectedPair{
+			{
+				traffic: "latest",
+				expected: expectedFirstRev,
+			},
+			{
+				traffic: "current",
+				expected: expectedFirstRev,
+			},
+		},
 		names.Service); err != nil {
 		t.Fatal(err)
 	}
@@ -352,8 +360,16 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	if err := validateDomains(t, clients,
 		names.URL,
 		[]string{expectedFirstRev},
-		[]string{"latest", "current"},
-		[]string{expectedSecondRev, expectedFirstRev},
+		[]trafficExpectedPair{
+			{
+				traffic: "latest",
+				expected: expectedSecondRev,
+			},
+			{
+				traffic: "current",
+				expected: expectedFirstRev,
+			},
+		},
 		names.Service); err != nil {
 		t.Fatal(err)
 	}
@@ -406,8 +422,20 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	if err := validateDomains(t, clients,
 		names.URL,
 		[]string{expectedFirstRev, expectedSecondRev},
-		[]string{"candidate", "latest", "current"},
-		[]string{expectedSecondRev, expectedSecondRev, expectedFirstRev},
+		[]trafficExpectedPair{
+			{
+				traffic: "candidate",
+				expected: expectedSecondRev,
+			},
+			{
+				traffic: "latest",
+				expected: expectedSecondRev,
+			},
+			{
+				traffic: "current",
+				expected: expectedFirstRev,
+			},
+		},
 		names.Service); err != nil {
 		t.Fatal(err)
 	}
@@ -438,8 +466,20 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	if err := validateDomains(t, clients,
 		names.URL,
 		[]string{expectedFirstRev, expectedSecondRev},
-		[]string{"latest", "candidate", "current"},
-		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev},
+		[]trafficExpectedPair{
+			{
+				traffic: "latest",
+				expected: expectedThirdRev,
+			},
+			{
+				traffic: "candidate",
+				expected: expectedSecondRev,
+			},
+			{
+				traffic: "current",
+				expected: expectedFirstRev,
+			},
+		},
 		names.Service); err != nil {
 		t.Fatal(err)
 	}
@@ -484,8 +524,20 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	if err := validateDomains(t, clients,
 		names.URL,
 		[]string{expectedFirstRev, expectedThirdRev},
-		[]string{"latest", "candidate", "current"},
-		[]string{expectedThirdRev, expectedThirdRev, expectedFirstRev},
+		[]trafficExpectedPair{
+			{
+				traffic: "latest",
+				expected: expectedThirdRev,
+			},
+			{
+				traffic: "candidate",
+				expected: expectedThirdRev,
+			},
+			{
+				traffic: "current",
+				expected: expectedFirstRev,
+			},
+		},
 		names.Service); err != nil {
 		t.Fatal(err)
 	}
