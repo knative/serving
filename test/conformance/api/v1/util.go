@@ -59,7 +59,7 @@ func validateDomains(t testing.TB, clients *test.Clients, baseDomain *url.URL,
 
 	service, err := clients.ServingClient.Services.Get(context.Background(), serviceName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("could not query service traffic status: %v", err)
+		return fmt.Errorf("could not query service traffic status: %w", err)
 	}
 	subdomains := make([]*url.URL, len(trafficExpectedPairs))
 	for i, pair := range trafficExpectedPairs {
