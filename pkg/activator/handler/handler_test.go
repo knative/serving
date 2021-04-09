@@ -25,6 +25,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -289,6 +290,7 @@ func revision(namespace, name string) *v1.Revision {
 func setupConfigStore(t testing.TB, logger *zap.SugaredLogger) *activatorconfig.Store {
 	configStore := activatorconfig.NewStore(logger)
 	configStore.OnConfigChanged(tracingConfig(false))
+	configStore.OnConfigChanged(networkConfig(false))
 	return configStore
 }
 
@@ -376,4 +378,15 @@ func (rr *responseRecorder) Write(p []byte) (int, error) {
 
 func (rr *responseRecorder) WriteHeader(code int) {
 	rr.code = code
+}
+
+func networkConfig(meshAddressabilityEnabled bool) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: network.ConfigName,
+		},
+		Data: map[string]string{
+			network.EnableMeshPodAddressabilityKey: strconv.FormatBool(meshAddressabilityEnabled),
+		},
+	}
 }

@@ -22,23 +22,36 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	network "knative.dev/networking/pkg"
 	ltesting "knative.dev/pkg/logging/testing"
 	tracingconfig "knative.dev/pkg/tracing/config"
 )
 
-var tracingConfig = &corev1.ConfigMap{
-	ObjectMeta: metav1.ObjectMeta{
-		Name: tracingconfig.ConfigName,
-	},
-	Data: map[string]string{
-		"backend": "none",
-	},
-}
+var (
+	tracingConfig = &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: tracingconfig.ConfigName,
+		},
+		Data: map[string]string{
+			"backend": "none",
+		},
+	}
+	networkConfig = &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: network.ConfigName,
+		},
+		Data: map[string]string{
+			network.EnableMeshPodAddressabilityKey: "true",
+		},
+	}
+)
 
 func TestStore(t *testing.T) {
 	logger := ltesting.TestLogger(t)
+
 	store := NewStore(logger)
 	store.OnConfigChanged(tracingConfig)
+	store.OnConfigChanged(networkConfig)
 
 	ctx := store.ToContext(context.Background())
 	cfg := FromContext(ctx)
@@ -70,6 +83,7 @@ func BenchmarkStoreToContext(b *testing.B) {
 	logger := ltesting.TestLogger(b)
 	store := NewStore(logger)
 	store.OnConfigChanged(tracingConfig)
+	store.OnConfigChanged(networkConfig)
 
 	b.Run("sequential", func(b *testing.B) {
 		for j := 0; j < b.N; j++ {
