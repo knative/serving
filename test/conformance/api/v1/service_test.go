@@ -320,11 +320,11 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		[]string{expectedFirstRev},
 		[]trafficExpectedPair{
 			{
-				traffic: "latest",
+				traffic:  "latest",
 				expected: expectedFirstRev,
 			},
 			{
-				traffic: "current",
+				traffic:  "current",
 				expected: expectedFirstRev,
 			},
 		},
@@ -362,11 +362,11 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		[]string{expectedFirstRev},
 		[]trafficExpectedPair{
 			{
-				traffic: "latest",
+				traffic:  "latest",
 				expected: expectedSecondRev,
 			},
 			{
-				traffic: "current",
+				traffic:  "current",
 				expected: expectedFirstRev,
 			},
 		},
@@ -424,15 +424,15 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		[]string{expectedFirstRev, expectedSecondRev},
 		[]trafficExpectedPair{
 			{
-				traffic: "candidate",
+				traffic:  "candidate",
 				expected: expectedSecondRev,
 			},
 			{
-				traffic: "latest",
+				traffic:  "latest",
 				expected: expectedSecondRev,
 			},
 			{
-				traffic: "current",
+				traffic:  "current",
 				expected: expectedFirstRev,
 			},
 		},
@@ -468,15 +468,15 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		[]string{expectedFirstRev, expectedSecondRev},
 		[]trafficExpectedPair{
 			{
-				traffic: "latest",
+				traffic:  "latest",
 				expected: expectedThirdRev,
 			},
 			{
-				traffic: "candidate",
+				traffic:  "candidate",
 				expected: expectedSecondRev,
 			},
 			{
-				traffic: "current",
+				traffic:  "current",
 				expected: expectedFirstRev,
 			},
 		},
@@ -526,15 +526,15 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		[]string{expectedFirstRev, expectedThirdRev},
 		[]trafficExpectedPair{
 			{
-				traffic: "latest",
+				traffic:  "latest",
 				expected: expectedThirdRev,
 			},
 			{
-				traffic: "candidate",
+				traffic:  "candidate",
 				expected: expectedThirdRev,
 			},
 			{
-				traffic: "current",
+				traffic:  "current",
 				expected: expectedFirstRev,
 			},
 		},

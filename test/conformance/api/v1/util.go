@@ -37,7 +37,7 @@ import (
 )
 
 type trafficExpectedPair struct {
-	traffic string
+	traffic  string
 	expected string
 }
 
