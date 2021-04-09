@@ -1,21 +1,10 @@
+# This file is auto-generated from peribolos
+
 aliases:
   api-core-wg-leads:
   - dprotaso
-  serving-writers:
-  - dprotaso
-  - markusthoemmes
-  - tcnghia
-  - vagababov
-  serving-reviewers:
-  - julz
-  - whaught
-
-  technical-oversight-committee:
-  - evankanderson
-  - grantr
-  - markusthoemmes
-  - tcnghia
-
+  autoscaling-reviewers:
+  - taragu
   autoscaling-wg-leads:
   - markusthoemmes
   - vagababov
@@ -24,37 +13,114 @@ aliases:
   - markusthoemmes
   - vagababov
   - yanweiguo
-  autoscaling-reviewers:
-  - taragu
-
-  serving-observability-writers:
-  - mdemirhan
-  - yanweiguo
-  serving-observability-reviewers:
-  - mdemirhan
-  - skonto
-  - yanweiguo
-
-  productivity-writers:
-  - chaodaiG
-  - chizhg
-  productivity-reviewers:
-  - chaodaiG
-  - coryrc
-  - chizhg
-  - steuhs
-  - yt3liu
-
-  networking-wg-leads:
+  channel-wg-leads:
+  - matzew
+  - slinkydeveloper
+  client-reviewers:
+  - itsmurugappan
+  client-wg-leads:
+  - navidshaikh
+  - rhuss
+  client-writers:
+  - dsimansk
+  - maximilien
+  - navidshaikh
+  - rhuss
+  conformance-wg-leads:
+  - tayarani
+  conformance-writers:
+  - tayarani
+  docs-reviewers:
+  - RichardJJG
+  - jonatasbaldin
+  - mpetason
+  - omerbensaadon
+  - snneji
+  docs-wg-leads: []
+  docs-writers:
+  - abrennan89
+  - carieshmarie
+  - richieescarez
+  eventing-reviewers:
+  - aslom
+  - nlopezgi
+  - tayarani
+  - tommyreddad
+  eventing-triage:
+  - akashrv
+  - antoineco
+  - lberk
+  - n3wscott
+  - slinkydeveloper
+  - zhongduo
+  eventing-wg-leads:
+  - devguyio
+  - grantr
+  - lionelvillard
+  - vaikas
+  eventing-writers:
+  - akashrv
+  - aliok
+  - antoineco
+  - devguyio
+  - grantr
+  - lberk
+  - lionelvillard
+  - matzew
+  - n3wscott
+  - pierDipi
+  - slinkydeveloper
+  - vaikas
+  - zhongduo
+  knative-admin:
+  - RichieEscarez
+  - bsnchan
+  - duglin
+  - evankanderson
+  - grantr
+  - knative-prow-releaser-robot
+  - knative-prow-robot
+  - knative-test-reporter-robot
+  - markusthoemmes
+  - mbehrendt
+  - pmorie
+  - rhuss
+  - ronavn
+  - thisisnotapril
+  - vaikas
+  knative-milestone-maintainers:
+  - ImJasonH
   - ZhiminXiang
+  - andrew-su
+  - aslom
+  - chaodaiG
+  - chizhg
+  - csantanapr
+  - evankanderson
+  - grantr
+  - igsong
+  - julz
+  - lionelvillard
+  - markusthoemmes
+  - n3wscott
   - nak3
-  - tcnghia
-  networking-writers:
-  - JRBANCEL
-  - nak3
+  - navidshaikh
+  - nlopezgi
+  - rhuss
+  - shashwathi
+  - slinkydeveloper
+  - tanzeeb
   - tcnghia
   - vagababov
-  - ZhiminXiang
+  - vaikas
+  knative-release-leads:
+  - RichieEscarez
+  - evankanderson
+  - markusthoemmes
+  knative-robots:
+  - knative-prow-releaser-robot
+  - knative-prow-robot
+  - knative-test-reporter-robot
   networking-reviewers:
   - JRBANCEL
   - ZhiminXiang
@@ -66,10 +132,117 @@ aliases:
   - tcnghia
   - vagababov
   - yanweiguo
-
-
-
-
-
-
-
+  networking-wg-leads:
+  - ZhiminXiang
+  - nak3
+  - tcnghia
+  networking-writers:
+  - JRBANCEL
+  - ZhiminXiang
+  - nak3
+  - tcnghia
+  - vagababov
+  operations-reviewers:
+  - Cynocracy
+  - aliok
+  - houshengbo
+  - jcrossley3
+  - markusthoemmes
+  - matzew
+  - n3wscott
+  - trshafer
+  operations-wg-leads:
+  - houshengbo
+  operations-writers:
+  - Cynocracy
+  - aliok
+  - houshengbo
+  - jcrossley3
+  - markusthoemmes
+  - matzew
+  - n3wscott
+  - trshafer
+  pkg-configmap-reviewers:
+  - dprotaso
+  - mattmoor
+  - mdemirhan
+  - vagababov
+  pkg-configmap-writers:
+  - dprotaso
+  - mattmoor
+  - mdemirhan
+  - vagababov
+  pkg-controller-reviewers:
+  - dprotaso
+  - grantr
+  - mattmoor
+  - tcnghia
+  - vagababov
+  - whaught
+  pkg-controller-writers:
+  - dprotaso
+  - grantr
+  - mattmoor
+  - tcnghia
+  - vagababov
+  productivity-reviewers:
+  - coryrc
+  - efiturri
+  - evankanderson
+  - peterfeifanchen
+  - steuhs
+  - yt3liu
+  productivity-wg-leads:
+  - chizhg
+  - n3wscott
+  productivity-writers:
+  - chaodaiG
+  - chizhg
+  - coryrc
+  - n3wscott
+  security-wg-leads:
+  - evankanderson
+  - julz
+  security-writers:
+  - evankanderson
+  - julz
+  serving-observability-reviewers:
+  - mdemirhan
+  - skonto
+  - yanweiguo
+  serving-observability-writers:
+  - mdemirhan
+  - yanweiguo
+  serving-reviewers:
+  - julz
+  - whaught
+  serving-writers:
+  - dprotaso
+  - markusthoemmes
+  - tcnghia
+  - vagababov
+  source-wg-leads:
+  - lionelvillard
+  - n3wscott
+  - vaikas
+  steering-committee:
+  - bsnchan
+  - mbehrendt
+  - pmorie
+  - thisisnotapril
+  - vaikas
+  technical-oversight-committee:
+  - evankanderson
+  - grantr
+  - markusthoemmes
+  - rhuss
+  trademark-committee:
+  - bsnchan
+  - duglin
+  - ronavn
+  ux-wg-leads:
+  - csantanapr
+  - omerbensaadon
+  ux-writers:
+  - csantanapr
+  - omerbensaadon
