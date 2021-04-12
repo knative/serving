@@ -31,6 +31,9 @@ func TestRule(t *testing.T) {
 	t.Parallel()
 	ctx, clients := context.Background(), test.Setup(t)
 
+	// Use a pre-split injected header to establish which rule we are sending traffic to.
+	const headerName = "Foo-Bar-Baz"
+
 	fooName, fooPort, _ := CreateRuntimeService(ctx, t, clients, networking.ServicePortNameHTTP1)
 	barName, barPort, _ := CreateRuntimeService(ctx, t, clients, networking.ServicePortNameHTTP1)
 
@@ -47,6 +50,11 @@ func TestRule(t *testing.T) {
 							ServicePort:      intstr.FromInt(fooPort),
 						},
 					}},
+					// Append different headers to each rule, which lets us identify
+					// which backend we hit.
+					AppendHeaders: map[string]string{
+						headerName: fooName,
+					},
 				}},
 			},
 		}, {
@@ -61,11 +69,21 @@ func TestRule(t *testing.T) {
 							ServicePort:      intstr.FromInt(barPort),
 						},
 					}},
+					AppendHeaders: map[string]string{
+						headerName: barName,
+					},
 				}},
 			},
 		}},
 	})
 
-	RuntimeRequest(ctx, t, client, "http://"+fooName+".example.com")
-	RuntimeRequest(ctx, t, client, "http://"+barName+".example.com")
+	ri := RuntimeRequest(ctx, t, client, "http://"+fooName+".example.com")
+	if got := ri.Request.Headers.Get(headerName); got != fooName {
+		t.Errorf("Header[Host] = %q, wanted %q", got, fooName)
+	}
+
+	ri = RuntimeRequest(ctx, t, client, "http://"+barName+".example.com")
+	if got := ri.Request.Headers.Get(headerName); got != barName {
+		t.Errorf("Header[Host] = %q, wanted %q", got, barName)
+	}
 }
