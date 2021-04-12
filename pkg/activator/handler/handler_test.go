@@ -185,6 +185,44 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	}
 }
 
+func TestActivationHandlerPassthroughLb(t *testing.T) {
+	interceptCh := make(chan *http.Request, 1)
+	rt := pkgnet.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		interceptCh <- r
+		fake := httptest.NewRecorder()
+		return fake.Result(), nil
+	})
+
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer cancel()
+
+	handler := New(ctx, fakeThrottler{}, rt, logging.FromContext(ctx))
+
+	writer := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+
+	// Set up config store to populate context.
+	configStore := activatorconfig.NewStore(logging.FromContext(ctx))
+	configStore.OnConfigChanged(tracingConfig(false))
+	configStore.OnConfigChanged(networkConfig(true))
+	ctx = configStore.ToContext(req.Context())
+	ctx = WithRevisionAndID(ctx, nil, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+
+	handler.ServeHTTP(writer, req.WithContext(ctx))
+
+	select {
+	case httpReq := <-interceptCh:
+		if got, want := httpReq.Host, "real-name-private.real-namespace"; got != want {
+			t.Errorf("Host = %q, want: %q", got, want)
+		}
+		if got, want := httpReq.Header.Get(network.PassthroughLoadbalancingHeaderName), "true"; got != want {
+			t.Errorf("Header %q = %q, want: %q", "Host", got, want)
+		}
+	case <-time.After(1 * time.Second):
+		t.Error("Timed out waiting for a request to be intercepted")
+	}
+}
+
 func TestActivationHandlerTraceSpans(t *testing.T) {
 	testcases := []struct {
 		name         string

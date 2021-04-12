@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	network "knative.dev/networking/pkg"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging/logkey"
 	pkgnet "knative.dev/pkg/network"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -68,7 +69,8 @@ func New(_ context.Context, t Throttler, transport http.RoundTripper, logger *za
 }
 
 func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	tracingEnabled := activatorconfig.FromContext(r.Context()).Tracing.Backend != tracingconfig.None
+	config := activatorconfig.FromContext(r.Context())
+	tracingEnabled := config.Tracing.Backend != tracingconfig.None
 
 	tryContext, trySpan := r.Context(), (*trace.Span)(nil)
 	if tracingEnabled {
@@ -83,7 +85,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if tracingEnabled {
 			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "activator_proxy")
 		}
-		a.proxyRequest(revID, w, r.WithContext(proxyCtx), dest, tracingEnabled)
+		a.proxyRequest(revID, w, r.WithContext(proxyCtx), dest, tracingEnabled, config.Network.EnableMeshPodAddressability)
 		proxySpan.End()
 
 		return nil
@@ -102,12 +104,17 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.ResponseWriter, r *http.Request, target string, tracingEnabled bool) {
+func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.ResponseWriter,
+	r *http.Request, target string, tracingEnabled bool, usePassthroughLb bool) {
 	network.RewriteHostIn(r)
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
 	// Set up the reverse proxy.
-	proxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders)
+	hostOverride := pkghttp.NoHostOverride
+	if usePassthroughLb {
+		hostOverride = kmeta.ChildName(revID.Name, "-private") + "." + revID.Namespace
+	}
+	proxy := pkghttp.NewHeaderPruningReverseProxy(target, hostOverride, activator.RevisionHeaders)
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
 	if tracingEnabled {
