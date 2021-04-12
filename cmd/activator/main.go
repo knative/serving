@@ -35,6 +35,7 @@ import (
 	"knative.dev/pkg/injection"
 	"knative.dev/serving/pkg/activator"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	network "knative.dev/networking/pkg"
@@ -140,9 +141,20 @@ func main() {
 	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d", env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 	transport := pkgnet.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 
+	// Fetch networking configuration to determine whether EnableMeshPodAddressability
+	// is enabled or not.
+	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, network.ConfigName, metav1.GetOptions{})
+	if err != nil {
+		logger.Fatalw("Failed to fetch network config", zap.Error(err))
+	}
+	networkConfig, err := network.NewConfigFromConfigMap(networkCM)
+	if err != nil {
+		logger.Fatalw("Failed to construct network config", zap.Error(err))
+	}
+
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
-	go throttler.Run(ctx, transport)
+	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(networking.ActivatorServiceName, env.PodIP, logger))
 

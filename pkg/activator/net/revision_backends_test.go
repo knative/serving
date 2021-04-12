@@ -125,6 +125,7 @@ func TestRevisionWatcher(t *testing.T) {
 		probeHostResponses    map[string][]activatortest.FakeResponse
 		initialClusterIPState bool
 		noPodAddressability   bool // This keeps the test defs shorter.
+		usePassthroughLb      bool
 	}{{
 		name:  "single healthy podIP",
 		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
@@ -374,6 +375,25 @@ func TestRevisionWatcher(t *testing.T) {
 				Err: errors.New("podIP transport error"),
 			}},
 		},
+	}, {
+		name:  "passthrough lb, clusterIP ready but no fallback",
+		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		clusterPort: corev1.ServicePort{
+			Name: "http",
+			Port: 1235,
+		},
+		noPodAddressability: true,
+		clusterIP:           "129.0.0.1",
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"128.0.0.1:1234": {{
+				Err: errors.New("podIP transport error"),
+			}},
+		},
+		usePassthroughLb: true,
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeRT := activatortest.FakeRoundTripper{
@@ -422,8 +442,8 @@ func TestRevisionWatcher(t *testing.T) {
 				destsCh,
 				rt,
 				informer.Lister(),
-				logger,
-			)
+				tc.usePassthroughLb, // usePassthroughLb
+				logger)
 			rw.clusterIPHealthy = tc.initialClusterIPState
 
 			var wg sync.WaitGroup
@@ -444,7 +464,7 @@ func TestRevisionWatcher(t *testing.T) {
 					t.Fatal("Timed out waiting for update event")
 				}
 			}
-			if got, want := rw.podsAddressable, !tc.noPodAddressability; got != want {
+			if got, want := rw.podsAddressable, !tc.noPodAddressability || tc.usePassthroughLb; got != want {
 				t.Errorf("Revision pod addressability = %v, want: %v", got, want)
 			}
 
@@ -710,7 +730,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				t.Fatal("Failed to start informers:", err)
 			}
 
-			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, probeFreq)
+			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, false /*usePassthroughLb*/, probeFreq)
 			defer func() {
 				cancel()
 				waitInformers()
@@ -1168,7 +1188,7 @@ func TestRevisionDeleted(t *testing.T) {
 	ri.Informer().GetIndexer().Add(rev)
 
 	fakeRT := activatortest.FakeRoundTripper{}
-	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), probeFreq)
+	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, probeFreq)
 	defer func() {
 		cancel()
 		waitInformers()
@@ -1224,7 +1244,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 			}},
 		},
 	}
-	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), probeFreq)
+	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, probeFreq)
 	defer func() {
 		cancel()
 		waitInformers()
@@ -1288,7 +1308,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 			}},
 		},
 	}
-	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), probeFreq)
+	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, probeFreq)
 	defer func() {
 		cancel()
 		waitInformers()

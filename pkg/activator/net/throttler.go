@@ -491,8 +491,8 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 }
 
 // Run starts the throttler and blocks until the context is done.
-func (t *Throttler) Run(ctx context.Context, probeTransport http.RoundTripper) {
-	rbm := newRevisionBackendsManager(ctx, probeTransport)
+func (t *Throttler) Run(ctx context.Context, probeTransport http.RoundTripper, usePassthroughLb bool) {
+	rbm := newRevisionBackendsManager(ctx, probeTransport, usePassthroughLb)
 	// Update channel is closed when ctx is done.
 	t.run(rbm.updates())
 }
