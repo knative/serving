@@ -151,7 +151,7 @@ func setup(certs []*v1alpha1.Certificate, t *testing.T) (context.Context, *FakeA
 
 	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
-		t.Fatal("failed to start informers:", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
