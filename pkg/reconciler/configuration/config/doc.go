@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +k8s:deepcopy-gen=package
-
 // Package config holds the typed objects that define the schemas for
 // ConfigMap objects that pertain to our API objects.
 package config

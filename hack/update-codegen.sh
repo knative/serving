@@ -84,17 +84,11 @@ ${GOPATH}/bin/deepcopy-gen \
   -O zz_generated.deepcopy \
   --go-header-file "${boilerplate}" \
   -i knative.dev/serving/pkg/apis/config \
-  -i knative.dev/serving/pkg/reconciler/gc/config \
-  -i knative.dev/serving/pkg/reconciler/revision/config \
   -i knative.dev/serving/pkg/reconciler/route/config \
-  -i knative.dev/serving/pkg/activator/config \
-  -i knative.dev/serving/pkg/autoscaler \
-  -i knative.dev/serving/pkg/autoscaler/config \
   -i knative.dev/serving/pkg/autoscaler/config/autoscalerconfig \
+  -i knative.dev/serving/pkg/autoscaler/scaling \
   -i knative.dev/serving/pkg/deployment \
-  -i knative.dev/serving/pkg/gc \
-  -i knative.dev/serving/pkg/logging \
-  -i knative.dev/serving/pkg/metrics
+  -i knative.dev/serving/pkg/gc
 
 group "Update deps post-codegen"
 

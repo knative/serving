@@ -29,7 +29,6 @@ import (
 type cfgKey struct{}
 
 // Config of the Autoscaler.
-// +k8s:deepcopy-gen=false
 type Config struct {
 	Autoscaler *autoscalerconfig.Config
 	Deployment *deployment.Config
@@ -47,7 +46,6 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 }
 
 // Store is configmap.UntypedStore based config store.
-// +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
 }

@@ -26,7 +26,6 @@ import (
 type cfgKey struct{}
 
 // Config holds the collection of configurations that we attach to contexts.
-// +k8s:deepcopy-gen=false
 type Config struct {
 	Defaults *cfgmap.Defaults
 	Features *cfgmap.Features
@@ -68,7 +67,6 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 }
 
 // Store is a typed wrapper around configmap.Untyped store to handle our configmaps.
-// +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
 }

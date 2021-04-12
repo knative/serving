@@ -1082,7 +1082,7 @@ func TestMakePodSpec(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := (&revCfg).DeepCopy()
+			cfg := revConfig()
 			cfg.Observability = &test.oc
 			if test.dc != nil {
 				cfg.Defaults = test.dc
@@ -1103,7 +1103,7 @@ var quantityComparer = cmp.Comparer(func(x, y resource.Quantity) bool {
 })
 
 func TestMissingProbeError(t *testing.T) {
-	if _, err := MakeDeployment(revision("bar", "foo"), &revCfg); err == nil {
+	if _, err := MakeDeployment(revision("bar", "foo"), revConfig()); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
@@ -1239,7 +1239,7 @@ func TestMakeDeployment(t *testing.T) {
 				test.acMutator(ac)
 			}
 			// Tested above so that we can rely on it here for brevity.
-			cfg := (&revCfg).DeepCopy()
+			cfg := revConfig()
 			cfg.Autoscaler = ac
 			cfg.Deployment = &test.dc
 			podSpec, err := makePodSpec(test.rev, cfg)

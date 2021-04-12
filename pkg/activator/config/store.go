@@ -39,7 +39,6 @@ func FromContext(ctx context.Context) *Config {
 }
 
 // Store loads/unloads our untyped configuration.
-// +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
 
