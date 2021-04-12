@@ -26,8 +26,7 @@ import (
 
 type cfgKey struct{}
 
-// Config of namespace controller
-// +k8s:deepcopy-gen=false
+// Config of the nscert controller.
 type Config struct {
 	Network *network.Config
 	Domain  *routecfg.Domain
@@ -45,8 +44,6 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 
 // Store is based on configmap.UntypedStore and is used to store and watch for
 // updates to configuration related to routes (currently only config-domain).
-//
-// +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
 }

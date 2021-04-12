@@ -79,18 +79,6 @@ var (
 	obsConfig   metrics.ObservabilityConfig
 	traceConfig tracingconfig.Config
 	defaults, _ = apicfg.NewDefaultsConfigFromMap(nil)
-	revCfg      = config.Config{
-		Config: &apicfg.Config{
-			Autoscaler: &asConfig,
-			Defaults:   defaults,
-			Features:   &apicfg.Features{},
-		},
-		Deployment:    &deploymentConfig,
-		Logging:       &logConfig,
-		Network:       &network.Config{},
-		Observability: &obsConfig,
-		Tracing:       &traceConfig,
-	}
 )
 
 const testProbeJSONTemplate = `{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`
@@ -527,7 +515,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := (&revCfg).DeepCopy()
+			cfg := revConfig()
 			cfg.Deployment = &test.dc
 			got, err := makeQueueContainer(test.rev, cfg)
 			if err != nil {
@@ -605,7 +593,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		}
 	})
 
-	got, err := makeQueueContainer(rev, &revCfg)
+	got, err := makeQueueContainer(rev, revConfig())
 	if err != nil {
 		t.Fatal("makeQueueContainer returned error")
 	}
@@ -682,7 +670,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		}
 	})
 
-	got, err := makeQueueContainer(rev, &revCfg)
+	got, err := makeQueueContainer(rev, revConfig())
 	if err != nil {
 		t.Fatal("makeQueueContainer returned error")
 	}
@@ -877,7 +865,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				Value: string(wantProbeJSON),
 			})
 
-			got, err := makeQueueContainer(testRev, &revCfg)
+			got, err := makeQueueContainer(testRev, revConfig())
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error")
 			}
@@ -962,4 +950,19 @@ func sortEnv(envs []corev1.EnvVar) {
 
 func resourcePtr(q resource.Quantity) *resource.Quantity {
 	return &q
+}
+
+func revConfig() *config.Config {
+	return &config.Config{
+		Config: &apicfg.Config{
+			Autoscaler: &asConfig,
+			Defaults:   defaults,
+			Features:   &apicfg.Features{},
+		},
+		Deployment:    &deploymentConfig,
+		Logging:       &logConfig,
+		Network:       &network.Config{},
+		Observability: &obsConfig,
+		Tracing:       &traceConfig,
+	}
 }

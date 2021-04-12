@@ -51,7 +51,6 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 }
 
 // Store is a typed wrapper around configmap.UntypedStore to handle our configmaps.
-// +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
 	apiStore *apiconfig.Store
