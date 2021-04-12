@@ -46,7 +46,7 @@ var (
 )
 
 // StatsScraperFactory creates a StatsScraper for a given Metric.
-type StatsScraperFactory func(*autoscalingv1alpha1.Metric, bool, *zap.SugaredLogger) (StatsScraper, error)
+type StatsScraperFactory func(*autoscalingv1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error)
 
 var emptyStat = Stat{}
 
@@ -61,7 +61,7 @@ type StatMessage struct {
 type Collector interface {
 	// CreateOrUpdate either creates a collection for the given metric or update it, should
 	// it already exist.
-	CreateOrUpdate(*autoscalingv1alpha1.Metric) error
+	CreateOrUpdate(metric *autoscalingv1alpha1.Metric) error
 	// Record allows stats to be captured that came from outside the Collector.
 	Record(key types.NamespacedName, now time.Time, stat Stat)
 	// Delete deletes a Metric and halts collection.
@@ -117,7 +117,7 @@ func (c *MetricCollector) CreateOrUpdate(metric *autoscalingv1alpha1.Metric) err
 		Name:      metric.Name,
 	}.String()))
 	// TODO(#10751): Thread the config in from the reconciler and set usePassthroughLb.
-	scraper, err := c.statsScraperFactory(metric, false /*usePassthroughLb*/, logger)
+	scraper, err := c.statsScraperFactory(metric, logger)
 	if err != nil {
 		return err
 	}
