@@ -1243,7 +1243,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	grp := errgroup.Group{}
 	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
-		t.Fatal("failed to start informers:", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -1312,7 +1312,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 
 	var eg errgroup.Group

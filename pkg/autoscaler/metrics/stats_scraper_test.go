@@ -133,7 +133,7 @@ func TestPodDirectScrapeSuccess(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -166,7 +166,7 @@ func TestPodDirectScrapeSomeFailButSuccess(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -206,7 +206,7 @@ func TestPodDirectScrapeNoneSucceed(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -236,7 +236,7 @@ func TestPodDirectScrapePodsExhausted(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -261,7 +261,7 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -298,7 +298,7 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -330,7 +330,7 @@ func TestScrapeAllPodsOldPods(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -364,7 +364,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -396,7 +396,7 @@ func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -420,7 +420,7 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -459,7 +459,7 @@ func TestMixedPodShuffle(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -505,7 +505,7 @@ func TestOldPodShuffle(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -565,7 +565,7 @@ func TestOldPodsFallback(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -626,7 +626,7 @@ func TestPodDirectPassthroughScrapeSuccess(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -660,7 +660,7 @@ func TestPodDirectPassthroughScrapeNoneSucceed(t *testing.T) {
 	wf, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("RunInformers() =", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
