@@ -270,13 +270,13 @@ type doReconcile func(ctx {{.contextContext|raw}}, o *{{.type|raw}}) {{.reconcil
 
 // reconcilerImpl implements controller.Reconciler for {{.type|raw}} resources.
 type reconcilerImpl struct {
-	// LeaderAwareFuncs is inlined to help us implement {{.reconcilerLeaderAware|raw}}
+	// LeaderAwareFuncs is inlined to help us implement {{.reconcilerLeaderAware|raw}}.
 	{{.reconcilerLeaderAwareFuncs|raw}}
 
 	// Client is used to write back status updates.
 	Client {{.clientsetInterface|raw}}
 
-	// Listers index properties about resources
+	// Listers index properties about resources.
 	Lister {{.resourceLister|raw}}
 
 	// Recorder is an event recorder for recording Event resources to the
@@ -305,7 +305,7 @@ type reconcilerImpl struct {
 	{{end}}
 }
 
-// Check that our Reconciler implements controller.Reconciler
+// Check that our Reconciler implements controller.Reconciler.
 var _ controller.Reconciler = (*reconcilerImpl)(nil)
 // Check that our generated Reconciler is always LeaderAware.
 var _ {{.reconcilerLeaderAware|raw}}  = (*reconcilerImpl)(nil)
