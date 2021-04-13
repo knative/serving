@@ -16,10 +16,6 @@
 
 source $(dirname $0)/e2e-common.sh
 
-function knative_setup() {
-  install_knative_serving
-}
-
 function setup_auto_tls_env_variables() {
   # DNS zone for the testing domain.
   export AUTO_TLS_TEST_DNS_ZONE="knative-e2e"

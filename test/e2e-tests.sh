@@ -27,12 +27,6 @@
 
 source $(dirname $0)/e2e-common.sh
 
-# Helper functions.
-
-function knative_setup() {
-  install_knative_serving
-}
-
 # Script entry point.
 
 # Skip installing istio as an add-on.
