@@ -1,0 +1,18 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+#@ load("helpers.lib.yaml", "subset")
+
+#@ def resources():
+#@   return [
+#@     subset(kind="Service", name="ambassador-admin"),
+#@     subset(kind="ServiceAccount", name="ambassador"),
+#@     subset(kind="Deployment", name="ambassador"),
+#@     subset(kind="Service", name="ambassador"),
+#@   ]
+#@ end
+
+#@overlay/match by=overlay.or_op(*resources()), expects=4
+---
+metadata:
+  #@overlay/match missing_ok=True
+  namespace: #@ data.values.serving.namespaces.system

@@ -39,7 +39,7 @@ function knative_setup() {
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
 # Pin to 1.18 since scale test is super flakey on 1.19
-initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --cluster-version=1.18
+initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.18
 
 # Run the tests
 header "Running tests"
@@ -59,31 +59,6 @@ if (( HTTPS )); then
   kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
-
-# Keep the bucket count in sync with test/ha/ha.go.
-kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
-  --patch='{"data":{"buckets": "'${BUCKETS}'"}}' || fail_test
-
-kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
-  --type "merge" \
-  --patch '{"spec": {"minReplicas": '${REPLICAS}', "maxReplicas": '${REPLICAS}'}}' || fail_test
-
-# Scale up all of the HA components in knative-serving.
-scale_controlplane "${HA_COMPONENTS[@]}"
-
-# Changing the bucket count and cycling the controllers will leave around stale
-# lease resources at the old sharding factor, so clean these up.
-kubectl -n ${SYSTEM_NAMESPACE} delete leases --all
-
-# Wait for a new leader Controller to prevent race conditions during service reconciliation.
-wait_for_leader_controller || fail_test
-
-# Dump the leases post-setup.
-header "Leaders"
-kubectl get lease -n "${SYSTEM_NAMESPACE}"
-
-# Give the controller time to sync with the rest of the system components.
-sleep 30
 
 # Run conformance and e2e tests.
 

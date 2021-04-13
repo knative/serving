@@ -1,0 +1,27 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+#
+#@ load("helpers.lib.yaml", "subset")
+
+#
+#@ def namespaces():
+#@   names = [
+#@    data.values.serving.namespaces.system,
+#@    data.values.serving.namespaces.test.default,
+#@    data.values.serving.namespaces.test.alternate,
+#@    data.values.serving.namespaces.test.tls,
+#@   ]
+#@   matches = []
+#@   for name in names:
+#@     matches.append(subset(namespace=name))
+#@   end
+#@   return overlay.or_op(*matches)
+#@ end
+
+#@overlay/match by=namespaces(), expects="1+"
+---
+#@overlay/match-child-defaults missing_ok=True
+metadata:
+  labels:
+    istio-injection: enabled
+

@@ -1,0 +1,38 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("helpers.lib.yaml", "system_configmap")
+
+#@overlay/match by=system_configmap("config-logging"), expects=1
+---
+#@overlay/match-child-defaults missing_ok=True
+data:
+  zap-logger-config: |
+    {
+      "level": "debug",
+      "development": false,
+      "outputPaths": ["stdout"],
+      "errorOutputPaths": ["stderr"], "encoding": "json",
+      "encoderConfig": {
+        "timeKey": "timestamp",
+        "levelKey": "severity",
+        "nameKey": "logger",
+        "callerKey": "caller",
+        "messageKey": "message",
+        "stacktraceKey": "stacktrace",
+        "lineEnding": "",
+        "levelEncoder": "",
+        "timeEncoder": "iso8601",
+        "durationEncoder": "",
+        "callerEncoder": ""
+      }
+    }
+
+  loglevel.controller: "debug"
+  loglevel.autoscaler: "debug"
+  loglevel.queueproxy: "debug"
+  loglevel.webhook: "debug"
+  loglevel.activator: "debug"
+  loglevel.hpaautoscaler: "debug"
+  loglevel.domainmapping: "debug"
+  loglevel.certcontroller: "debug"
+  loglevel.istiocontroller: "debug"
+  loglevel.nscontroller: "debug"

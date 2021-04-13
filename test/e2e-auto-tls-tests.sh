@@ -175,19 +175,7 @@ function delete_dns_record() {
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
 # Pin to 1.18 since scale test is super flakey on 1.19
-initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --cluster-version=1.18
-
-header "Enabling high-availability"
-
-scale_controlplane "${HA_COMPONENTS[@]}"
-
-# Wait for a new leader Controller to prevent race conditions during service reconciliation
-wait_for_leader_controller || failed=1
-
-# Dump the leases post-setup.
-header "Leaders"
-kubectl get lease -n "${SYSTEM_NAMESPACE}"
-
+initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.18
 
 # Run the tests
 header "Running tests"

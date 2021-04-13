@@ -1,0 +1,12 @@
+#@ load("@ytt:overlay", "overlay")
+
+#@data/values
+---
+serving:
+  #@overlay/match missing_ok=True
+  ha:
+    components:
+    #@overlay/append
+    - networking-istio
+    #@overlay/append
+    - istio-webhook

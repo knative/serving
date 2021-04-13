@@ -1,0 +1,23 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+#@ load("@ytt:yaml", "yaml")
+#@ load("helpers.lib.yaml", "subset", "serving_system_namespace")
+
+#@overlay/match by=subset(kind="Namespace", name="knative-serving"), expects="1+"
+---
+metadata:
+  name: #@ serving_system_namespace()
+
+
+#@ def rename_namespace(old, new):
+#@   def replace(left, right):
+#@      yaml_left = yaml.encode(left)
+#@      yaml_left = yaml_left.replace('namespace: %s' % old, 'namespace: %s' % new)
+#@      return yaml.decode(yaml_left)
+#@   end
+#@   return replace
+#@ end
+
+#@overlay/match by=overlay.all, expects="1+"
+#@overlay/replace via=rename_namespace("knative-serving", serving_system_namespace())
+---

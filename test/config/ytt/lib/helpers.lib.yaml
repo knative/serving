@@ -1,0 +1,36 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+
+#@ def label_subset(key, value):
+#@    return overlay.subset({"metadata": {"labels":{key:value}}})
+#@ end
+
+#@ def subset(kind="", name="", namespace=""):
+#@   subsets=[]
+#@   if kind != "":
+#@     subsets.append(overlay.subset({"kind":kind}))
+#@   end
+#@   if name != "":
+#@     subsets.append(overlay.subset({"metadata": {"name":name}}))
+#@   end
+#@   if namespace != "":
+#@     subsets.append(overlay.subset({"metadata": {"namespace":namespace}}))
+#@   end
+#@   return overlay.and_op(*subsets)
+#@ end
+
+#@ def system_resource(kind="", name=""):
+#@  return subset(kind=kind, name=name, namespace=serving_system_namespace())
+#@ end
+
+#@ def system_configmap(name=""):
+#@  return system_resource(kind="ConfigMap", name=name)
+#@ end
+#
+#@ def system_deployment(name=""):
+#@  return system_resource(kind="Deployment", name=name)
+#@ end
+
+#@ def serving_system_namespace():
+#@   return data.values.serving.namespaces.system
+#@ end

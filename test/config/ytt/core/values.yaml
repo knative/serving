@@ -1,0 +1,22 @@
+#@data/values
+---
+k8s:
+  cluster:
+    domain: cluster.local
+serving:
+  ingress_class: istio.ingress.networking.knative.dev
+  namespaces:
+    system: knative-serving
+    test:
+      default: serving-tests
+      alternate: serving-tests-alt
+      tls: tls
+  ha:
+    replicas: 3
+    buckets: 10
+    components:
+    - controller
+    - webhook
+    - autoscaler-hpa
+    - autoscaler
+    - domainmapping-webhook

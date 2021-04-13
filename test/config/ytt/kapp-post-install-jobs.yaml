@@ -1,0 +1,30 @@
+# kapp doesn't handle generateName
+#
+#@ load("@ytt:overlay", "overlay")
+
+#@ def has_generate_name(index, left, right):
+#@   return not("name" in left["metadata"]) and "generateName" in left["metadata"]
+#@ end
+
+#@ def generate_name(left, right):
+#@   return overlay.apply(left, right, set_name(left["generateName"]))
+#@ end
+
+#@ def set_name(generateName):
+#@overlay/match missing_ok=True
+name: #@ generateName+ "0"
+#@overlay/remove
+generateName: ~
+#@ end
+
+#@overlay/match by=has_generate_name, expects="1+"
+---
+#@overlay/replace via=generate_name
+metadata:
+  #@overlay/match missing_ok=True
+  #@overlay/match-child-defaults missing_ok=True
+  annotations:
+    kapp.k14s.io/update-strategy: "always-replace"
+    kapp.k14s.io/nonce: ""
+
+
