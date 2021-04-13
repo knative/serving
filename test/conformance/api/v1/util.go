@@ -63,18 +63,23 @@ func validateDomains(t testing.TB, clients *test.Clients, serviceName string,
 	}
 	baseDomain := service.Status.URL.URL()
 	subdomains := make([]*url.URL, len(tagExpectationPairs))
+	tagToTraffic := make(map[string]*url.URL)
+
+	for _, traffic := range service.Status.Traffic {
+		tagToTraffic[traffic.Tag] = traffic.URL.URL()
+	}
+
 	for i, pair := range tagExpectationPairs {
-		found := false
-		for _, traffic := range service.Status.Traffic {
-			if traffic.Tag == pair.tag {
-				subdomains[i] = traffic.URL.URL()
-				found = true
-				break
-			}
-		}
+		url, found := tagToTraffic[pair.tag]
 		if !found {
 			return fmt.Errorf("no subdomain found for tag %s in service status", pair.tag)
 		}
+		subdomains[i] = url
+		delete(tagToTraffic, pair.tag)
+	}
+
+	if len(tagToTraffic) != 0 {
+		return fmt.Errorf("unexpected tags were found in the service %v", tagToTraffic)
 	}
 
 	g, egCtx := errgroup.WithContext(context.Background())
