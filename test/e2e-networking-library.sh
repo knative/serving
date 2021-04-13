@@ -50,10 +50,9 @@ function install_istio() {
     ISTIO_PROFILE+="-no"
   fi
   ISTIO_PROFILE+="-mesh"
-  ISTIO_PROFILE+=".yaml"
 
   if [[ -n "${CLUSTER_DOMAIN:-}" ]]; then
-    sed -ie "s/cluster\.local/${CLUSTER_DOMAIN}/g" ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/${ISTIO_PROFILE}
+    sed -ie "s/cluster\.local/${CLUSTER_DOMAIN}/g" ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/${ISTIO_PROFILE}/istio.yaml
   fi
 
   echo ">> Installing Istio"
