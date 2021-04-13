@@ -176,10 +176,10 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 	if rw.usePassthroughLb {
 		options = append(options,
 			prober.WithHost(kmeta.ChildName(rw.rev.Name, "-private")+"."+rw.rev.Namespace),
-			prober.WithHeader("Knative-Direct-Lb", "true"))
+			prober.WithHeader(network.PassthroughLoadbalancingHeaderName, "true"))
 	}
 
-	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests passing.
+	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests pass.
 	return prober.Do(ctx, rw.transport, httpDest.String(), options...)
 }
 
