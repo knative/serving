@@ -174,6 +174,12 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 		prober.ExpectsStatusCodes([]int{http.StatusOK})}
 
 	if rw.usePassthroughLb {
+		// Add the passthrough header + force the Host header to point to the service
+		// we're targeting, to make sure ingress can correctly route it.
+		// We cannot set these headers unconditionally as the Host header will cause the
+		// request to be loadbalanced by ingress "silently" if passthrough LB is not
+		// configured, which will cause the request to "pass" but doesn't guarantee it
+		// actually lands on the correct pod, which breaks our state keeping.
 		options = append(options,
 			prober.WithHost(kmeta.ChildName(rw.rev.Name, "-private")+"."+rw.rev.Namespace),
 			prober.WithHeader(network.PassthroughLoadbalancingHeaderName, "true"))
