@@ -69,16 +69,22 @@ func TestHTTPScrapeClientScrapeHappyCaseWithOptionals(t *testing.T) {
 
 func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 	testCases := []struct {
-		name         string
-		responseCode int
-		responseType string
-		responseErr  error
-		stat         Stat
-		expectedErr  string
+		name            string
+		responseCode    int
+		responseType    string
+		responseErr     error
+		stat            Stat
+		expectedErr     string
+		expectedMeshErr bool
 	}{{
 		name:         "Non 200 return code",
 		responseCode: http.StatusForbidden,
 		expectedErr:  fmt.Sprintf("GET request for URL %q returned HTTP status 403", testURL),
+	}, {
+		name:            "503 return code",
+		responseCode:    meshErrorStatusCode,
+		expectedErr:     fmt.Sprintf("GET request for URL %q returned HTTP status 503", testURL),
+		expectedMeshErr: true,
 	}, {
 		name:         "Error got when sending request",
 		responseCode: http.StatusOK,
@@ -105,6 +111,9 @@ func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), test.expectedErr) {
 				t.Errorf("Error = %q, want to contain: %q", err.Error(), test.expectedErr)
+			}
+			if got := isMeshError(err); got != test.expectedMeshErr {
+				t.Errorf("isMeshError(err) = %v, expected %v", got, test.expectedMeshErr)
 			}
 		})
 	}

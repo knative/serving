@@ -192,11 +192,15 @@ func TestPodDirectScrapeSomeFailButSuccess(t *testing.T) {
 	}
 }
 
-func TestPodDirectScrapeNoneSucceed(t *testing.T) {
+func TestPodDirectScrapeAllFailWithMeshError(t *testing.T) {
 	testStats := testStatsWithTime(4, youngPodCutOffDuration.Seconds() /*youngest*/)
+	meshErr := errorWithStatusCode{
+		error:      errors.New("just meshing with you"),
+		statusCode: 503,
+	}
 	direct := newTestScrapeClient(testStats, []error{
-		// Pods fail.
-		errors.New("okay"), errors.New("okay"), errors.New("okay"), errors.New("okay"),
+		// Pods fail, and they're all potentially mesh-related errors.
+		meshErr, meshErr, meshErr, meshErr,
 	})
 	mesh := newTestScrapeClient(testStats, []error{
 		// Service succeeds.
@@ -228,6 +232,40 @@ func TestPodDirectScrapeNoneSucceed(t *testing.T) {
 
 	if scraper.podsAddressable {
 		t.Error("PodAddressable didn't switch to false")
+	}
+}
+
+func TestPodDirectScrapeSomeFailWithNonMeshError(t *testing.T) {
+	meshErr := errorWithStatusCode{
+		error:      errors.New("what a mesh"),
+		statusCode: 503,
+	}
+	nonMeshErr := errorWithStatusCode{
+		error:      errors.New("cant mesh with this"),
+		statusCode: 404,
+	}
+
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := RunAndSyncInformers(ctx, informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("RunInformers() =", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+	makePods(ctx, "pods-", 4, metav1.Now())
+
+	client := newTestScrapeClient(testStats, []error{meshErr, nonMeshErr, meshErr, meshErr})
+	scraper := serviceScraperForTest(ctx, t, client, nil /* mesh not used */, true /*podsAddressable*/, false /*passthroughLb*/)
+	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err == nil {
+		t.Fatal("Expected an error")
+	}
+
+	if !scraper.podsAddressable {
+		t.Error("PodAddressable switched to false")
 	}
 }
 
@@ -291,7 +329,7 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 	// acceptable.
 	testStats := testStatsWithTime(numP, 0. /*youngest*/)
 
-	direct := newTestScrapeClient(testStats, []error{errNoPodsScraped}) // fall back to service scrape
+	direct := newTestScrapeClient(testStats, []error{errDirectScrapingNotAvailable}) // fall back to service scrape
 	mesh := newTestScrapeClient(testStats, []error{nil})
 
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
@@ -337,7 +375,7 @@ func TestScrapeAllPodsOldPods(t *testing.T) {
 		wf()
 	})
 	makePods(ctx, "pods-", numP, metav1.Now())
-	direct := newTestScrapeClient(testStats, []error{errNoPodsScraped}) // fall back to service scrape
+	direct := newTestScrapeClient(testStats, []error{errDirectScrapingNotAvailable}) // fall back to service scrape
 	mesh := newTestScrapeClient(testStats, []error{nil})
 	scraper := serviceScraperForTest(ctx, t, direct, mesh, false /*podsAddressable*/, false /*passthroughLb*/)
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
@@ -373,7 +411,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 	makePods(ctx, "pods-", numP, metav1.Now())
 
 	// Scrape will set a timestamp bigger than this.
-	direct := newTestScrapeClient(testStats, []error{errNoPodsScraped}) // fall back to service scrape
+	direct := newTestScrapeClient(testStats, []error{errDirectScrapingNotAvailable}) // fall back to service scrape
 	mesh := newTestScrapeClient(testStats, []error{nil})
 	scraper := serviceScraperForTest(ctx, t, direct, mesh, false /*podsAddressable*/, false /*passthroughLb*/)
 

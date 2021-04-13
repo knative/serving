@@ -65,10 +65,10 @@ var (
 	// stat from an unscraped pod
 	ErrDidNotReceiveStat = errors.New("did not receive stat from an unscraped pod")
 
-	// Sentinel error to return from pod scraping routine, when we could not
-	// scrape even a single pod.
-	errNoPodsScraped = errors.New("no pods scraped")
-	errPodsExhausted = errors.New("pods exhausted")
+	// Sentinel error to return from pod scraping routine, when all pods fail
+	// with a 503 error code, indicating (most likely), that mesh is enabled.
+	errDirectScrapingNotAvailable = errors.New("all pod scrapes returned 503 error")
+	errPodsExhausted              = errors.New("pods exhausted")
 
 	scrapeTimeM = stats.Float64(
 		"scrape_time",
@@ -213,7 +213,7 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 		stat, err := s.scrapePods(window)
 		// Return here if some pods were scraped, but not enough or if we're using a
 		// passthrough loadbalancer and want no fallback to service-scrape logic.
-		if !errors.Is(err, errNoPodsScraped) || s.usePassthroughLb {
+		if !errors.Is(err, errDirectScrapingNotAvailable) || s.usePassthroughLb {
 			return stat, err
 		}
 		// Else fall back to service scrape.
@@ -271,6 +271,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 
 	grp, egCtx := errgroup.WithContext(context.Background())
 	idx := atomic.NewInt32(-1)
+	var sawNonMeshError atomic.Bool
 	// Start |sampleSize| threads to scan in parallel.
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
@@ -301,6 +302,11 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 					results <- stat
 					return nil
 				}
+
+				if !isMeshError(err) {
+					sawNonMeshError.Store(true)
+				}
+
 				s.logger.Infow("Failed scraping pod "+pods[myIdx], zap.Error(err))
 			}
 		})
@@ -312,15 +318,21 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 	// We only get here if one of the scrapers failed to scrape
 	// at least one pod.
 	if err != nil {
-		// Got some successful pods.
-		// TODO(vagababov): perhaps separate |pods| == 1 case here as well?
+		// Got some (but not enough) successful pods.
 		if len(results) > 0 {
 			s.logger.Warn("Too many pods failed scraping for meaningful interpolation")
 			return emptyStat, errPodsExhausted
 		}
+		// We didn't get any pods, but we don't want to fall back to service
+		// scraping because we saw an error which was not mesh-related.
+		if sawNonMeshError.Load() {
+			s.logger.Warn("0 pods scraped, but did not see a mesh-related error")
+			return emptyStat, errPodsExhausted
+		}
+		// No pods, and we only saw mesh-related errors, so infer that mesh must be
+		// enabled and fall back to service scraping.
 		s.logger.Warn("0 pods were successfully scraped out of ", strconv.Itoa(len(pods)))
-		// Didn't scrape a single pod, switch to service scraping.
-		return emptyStat, errNoPodsScraped
+		return emptyStat, errDirectScrapingNotAvailable
 	}
 
 	return computeAverages(results, sampleSizeF, frpc), nil

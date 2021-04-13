@@ -29,8 +29,18 @@ import (
 
 var errUnsupportedMetricType = errors.New("unsupported metric type")
 
+// meshErrorStatusCode is the HTTP status code returned when mesh is enabled
+// and direct pod access is attempted. This is used to distinguish potential
+// mesh errors from unrelated errors.
+const meshErrorStatusCode = http.StatusServiceUnavailable
+
 type httpScrapeClient struct {
 	httpClient *http.Client
+}
+
+type errorWithStatusCode struct {
+	error
+	statusCode int
 }
 
 var pool = sync.Pool{
@@ -53,12 +63,27 @@ func (c *httpScrapeClient) Do(req *http.Request) (Stat, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", req.URL.String(), resp.StatusCode)
+		return emptyStat, errorWithStatusCode{
+			error:      fmt.Errorf("GET request for URL %q returned HTTP status %v", req.URL.String(), resp.StatusCode),
+			statusCode: resp.StatusCode,
+		}
 	}
 	if resp.Header.Get("Content-Type") != network.ProtoAcceptContent {
 		return emptyStat, errUnsupportedMetricType
 	}
 	return statFromProto(resp.Body)
+}
+
+// isMeshError returns true if the error may have been caused by attempting to
+// access a pod directly when mesh is enabled.
+// TODO(julz) consider other tests, e.g. looking for upstream header in response.
+func isMeshError(err error) bool {
+	var errWithStatus errorWithStatusCode
+	if errors.As(err, &errWithStatus) {
+		return errWithStatus.statusCode == meshErrorStatusCode
+	}
+
+	return false
 }
 
 func statFromProto(body io.Reader) (Stat, error) {
