@@ -286,7 +286,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 
 	// If we have discovered that this revision cannot be probed directly
 	// do not spend time trying.
-	if rw.podsAddressable || rw.usePassthroughLb {
+	if rw.podsAddressable {
 		// reprobe set contains the targets that moved from ready to non-ready set.
 		// so they have to be re-probed.
 		reprobe := curDests.becameNonReady(prevDests)
