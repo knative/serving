@@ -24,7 +24,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	logtesting "knative.dev/pkg/logging/testing"
 
-	network "knative.dev/networking/pkg"
 	. "knative.dev/pkg/configmap/testing"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
@@ -35,10 +34,8 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
 	depConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
-	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
 	store.OnConfigChanged(autoscalerConfig)
 	store.OnConfigChanged(depConfig)
-	store.OnConfigChanged(networkConfig)
 	config := FromContext(store.ToContext(context.Background()))
 
 	wantAS, _ := autoscalerconfig.NewConfigFromConfigMap(autoscalerConfig)
@@ -49,11 +46,6 @@ func TestStoreLoadWithContext(t *testing.T) {
 	if !cmp.Equal(wantD, config.Deployment) {
 		t.Error("Deployment ConfigMap mismatch (-want, +got):", cmp.Diff(wantD, config.Deployment))
 	}
-
-	wantN, _ := network.NewConfigFromConfigMap(networkConfig)
-	if !cmp.Equal(wantN, config.Network) {
-		t.Error("Network ConfigMap mismatch (-want, +got):", cmp.Diff(wantN, config.Network))
-	}
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
@@ -62,7 +54,6 @@ func TestStoreImmutableConfig(t *testing.T) {
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName,
 		deployment.QueueSidecarImageKey))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
 
 	config := store.Load()
 	config.Autoscaler.MaxScaleUpRate = 100.0
