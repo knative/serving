@@ -58,7 +58,6 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
-	network "knative.dev/networking/pkg"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
@@ -147,11 +146,6 @@ func newConfigWatcher() configmap.Watcher {
 		},
 		Data: map[string]string{
 			deployment.QueueSidecarImageKey: "covid is here",
-		},
-	}, &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace(),
-			Name:      network.ConfigName,
 		},
 	})
 }
@@ -1232,12 +1226,6 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 		},
 		Data: map[string]string{
 			deployment.QueueSidecarImageKey: "i'm on a bike",
-		},
-	})
-	watcher.OnChange(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
-			Namespace: system.Namespace(),
 		},
 	})
 
