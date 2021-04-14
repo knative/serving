@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	network "knative.dev/networking/pkg"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging/logkey"
 	pkgnet "knative.dev/pkg/network"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -37,6 +36,7 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 )
 
 // Throttler is the interface that Handler calls to Try to proxy the user request.
@@ -112,7 +112,7 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	// Set up the reverse proxy.
 	hostOverride := pkghttp.NoHostOverride
 	if usePassthroughLb {
-		hostOverride = kmeta.ChildName(revID.Name, "-private") + "." + revID.Namespace
+		hostOverride = names.PrivateService(revID.Name) + "." + revID.Namespace
 	}
 	proxy := pkghttp.NewHeaderPruningReverseProxy(target, hostOverride, activator.RevisionHeaders)
 	proxy.BufferPool = a.bufferPool

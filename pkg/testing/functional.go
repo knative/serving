@@ -26,9 +26,9 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 )
 
 // PodAutoscalerOption is an option that can be applied to a PA.
@@ -386,7 +386,7 @@ func WithNumActivators(n int32) SKSOption {
 
 // WithPrivateService annotates SKS status with the private service name.
 func WithPrivateService(sks *netv1alpha1.ServerlessService) {
-	sks.Status.PrivateServiceName = kmeta.ChildName(sks.Name, "-private")
+	sks.Status.PrivateServiceName = names.PrivateService(sks.Name)
 }
 
 // WithSKSOwnersRemoved clears the owner references of this SKS resource.

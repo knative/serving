@@ -27,11 +27,11 @@ import (
 
 	pkgnet "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 )
 
 func sks(mod func(*v1alpha1.ServerlessService)) *v1alpha1.ServerlessService {
@@ -122,7 +122,7 @@ func svc(t networking.ServiceType, mods ...func(*corev1.Service)) *corev1.Servic
 }
 
 func privateSvcMod(s *corev1.Service) {
-	s.Name = kmeta.ChildName(s.Name, "-private")
+	s.Name = names.PrivateService(s.Name)
 	if s.Spec.Selector == nil {
 		s.Spec.Selector = map[string]string{
 			"app": "sadness",
