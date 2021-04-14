@@ -28,13 +28,13 @@ import (
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	rnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
 
-// TestActivatorOverload makes sure that activator can handle the load when scaling from 0.
+// TestActivatorOverload makes sure that activator can handle load when a revision is vastly overloaded.
 // We need to add a similar test for the User pod overload once the second part of overload handling is done.
 func TestActivatorOverload(t *testing.T) {
 	t.Parallel()
@@ -56,17 +56,19 @@ func TestActivatorOverload(t *testing.T) {
 
 	t.Log("Creating a service with run latest configuration.")
 	// Create a service with concurrency 1 that sleeps for N ms.
-	// Limit its maxScale to 10 containers, wait for the service to scale down and hit it with concurrent requests.
+	// Limit its maxScale to 10 containers and hit it with concurrent requests.
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		func(service *v1.Service) {
 			service.Spec.Template.Spec.ContainerConcurrency = ptr.Int64(1)
-			service.Spec.Template.Annotations = map[string]string{"autoscaling.knative.dev/maxScale": "10"}
+			service.Spec.Template.Annotations = map[string]string{
+				autoscaling.MaxScaleAnnotationKey:  "10",
+				autoscaling.TargetBurstCapacityKey: "-1",
+			}
 		})
 	if err != nil {
 		t.Fatal("Unable to create resources:", err)
 	}
 
-	// Make sure the service responds correctly before scaling to 0.
 	if _, err := pkgTest.WaitForEndpointState(
 		context.Background(),
 		clients.KubeClient,
@@ -78,11 +80,6 @@ func TestActivatorOverload(t *testing.T) {
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("Error probing %s: %v", resources.Route.Status.URL.URL(), err)
-	}
-
-	deploymentName := rnames.Deployment(resources.Revision)
-	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
-		t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
 
 	domain := resources.Route.Status.URL.Host
