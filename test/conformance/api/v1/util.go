@@ -26,6 +26,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/serving"
@@ -34,6 +35,11 @@ import (
 	"knative.dev/serving/test/conformance/api/shared"
 	v1test "knative.dev/serving/test/v1"
 )
+
+type tagExpectation struct {
+	tag              string
+	expectedResponse string
+}
 
 func checkForExpectedResponses(ctx context.Context, t testing.TB, clients *test.Clients, url *url.URL, expectedResponses ...string) error {
 	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS))
@@ -48,13 +54,32 @@ func checkForExpectedResponses(ctx context.Context, t testing.TB, clients *test.
 	return err
 }
 
-func validateDomains(t testing.TB, clients *test.Clients, baseDomain *url.URL,
-	baseExpected, trafficTargets, targetsExpected []string) error {
-	subdomains := make([]*url.URL, len(trafficTargets))
-	for i, target := range trafficTargets {
-		subdomain, _ := url.Parse(baseDomain.String())
-		subdomain.Host = target + "-" + baseDomain.Host
-		subdomains[i] = subdomain
+func validateDomains(t testing.TB, clients *test.Clients, serviceName string,
+	baseExpected []string, tagExpectationPairs []tagExpectation) error {
+
+	service, err := clients.ServingClient.Services.Get(context.Background(), serviceName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("could not query service traffic status: %w", err)
+	}
+	baseDomain := service.Status.URL.URL()
+	subdomains := make([]*url.URL, len(tagExpectationPairs))
+	tagToTraffic := make(map[string]*url.URL)
+
+	for _, traffic := range service.Status.Traffic {
+		tagToTraffic[traffic.Tag] = traffic.URL.URL()
+	}
+
+	for i, pair := range tagExpectationPairs {
+		url, found := tagToTraffic[pair.tag]
+		if !found {
+			return fmt.Errorf("no subdomain found for tag %s in service status", pair.tag)
+		}
+		subdomains[i] = url
+		delete(tagToTraffic, pair.tag)
+	}
+
+	if len(tagToTraffic) != 0 {
+		return fmt.Errorf("unexpected tags were found in the service %v", tagToTraffic)
 	}
 
 	g, egCtx := errgroup.WithContext(context.Background())
@@ -69,7 +94,7 @@ func validateDomains(t testing.TB, clients *test.Clients, baseDomain *url.URL,
 		i, s := i, s
 		g.Go(func() error {
 			t.Log("Checking updated route tags", s)
-			return checkForExpectedResponses(egCtx, t, clients, s, targetsExpected[i])
+			return checkForExpectedResponses(egCtx, t, clients, s, tagExpectationPairs[i].expectedResponse)
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -89,7 +114,7 @@ func validateDomains(t testing.TB, clients *test.Clients, baseDomain *url.URL,
 		i, subdomain := i, subdomain
 		g.Go(func() error {
 			min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-			return shared.CheckDistribution(egCtx, t, clients, subdomain, test.ConcurrentRequests, min, []string{targetsExpected[i]}, test.ServingFlags.ResolvableDomain)
+			return shared.CheckDistribution(egCtx, t, clients, subdomain, test.ConcurrentRequests, min, []string{tagExpectationPairs[i].expectedResponse}, test.ServingFlags.ResolvableDomain)
 		})
 	}
 	if err := g.Wait(); err != nil {

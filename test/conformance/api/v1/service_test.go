@@ -316,10 +316,15 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 
 	t.Log("Service traffic should go to the first revision and be available on two names traffic targets: 'current' and 'latest'")
 	if err := validateDomains(t, clients,
-		names.URL,
+		names.Service,
 		[]string{expectedFirstRev},
-		[]string{"latest", "current"},
-		[]string{expectedFirstRev, expectedFirstRev}); err != nil {
+		[]tagExpectation{{
+			tag:              "latest",
+			expectedResponse: expectedFirstRev,
+		}, {
+			tag:              "current",
+			expectedResponse: expectedFirstRev,
+		}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -349,10 +354,15 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 
 	t.Log("Since the Service is using release the Route will not be updated, but new revision will be available at 'latest'")
 	if err := validateDomains(t, clients,
-		names.URL,
+		names.Service,
 		[]string{expectedFirstRev},
-		[]string{"latest", "current"},
-		[]string{expectedSecondRev, expectedFirstRev}); err != nil {
+		[]tagExpectation{{
+			tag:              "latest",
+			expectedResponse: expectedSecondRev,
+		}, {
+			tag:              "current",
+			expectedResponse: expectedFirstRev,
+		}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -402,10 +412,18 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 
 	t.Log("Traffic should be split between the two revisions and available on three named traffic targets, 'current', 'candidate', and 'latest'")
 	if err := validateDomains(t, clients,
-		names.URL,
+		names.Service,
 		[]string{expectedFirstRev, expectedSecondRev},
-		[]string{"candidate", "latest", "current"},
-		[]string{expectedSecondRev, expectedSecondRev, expectedFirstRev}); err != nil {
+		[]tagExpectation{{
+			tag:              "candidate",
+			expectedResponse: expectedSecondRev,
+		}, {
+			tag:              "latest",
+			expectedResponse: expectedSecondRev,
+		}, {
+			tag:              "current",
+			expectedResponse: expectedFirstRev,
+		}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -433,10 +451,18 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 
 	t.Log("Traffic should remain between the two images, and the new revision should be available on the named traffic target 'latest'")
 	if err := validateDomains(t, clients,
-		names.URL,
+		names.Service,
 		[]string{expectedFirstRev, expectedSecondRev},
-		[]string{"latest", "candidate", "current"},
-		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev}); err != nil {
+		[]tagExpectation{{
+			tag:              "latest",
+			expectedResponse: expectedThirdRev,
+		}, {
+			tag:              "candidate",
+			expectedResponse: expectedSecondRev,
+		}, {
+			tag:              "current",
+			expectedResponse: expectedFirstRev,
+		}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -478,10 +504,18 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	}
 
 	if err := validateDomains(t, clients,
-		names.URL,
+		names.Service,
 		[]string{expectedFirstRev, expectedThirdRev},
-		[]string{"latest", "candidate", "current"},
-		[]string{expectedThirdRev, expectedThirdRev, expectedFirstRev}); err != nil {
+		[]tagExpectation{{
+			tag:              "latest",
+			expectedResponse: expectedThirdRev,
+		}, {
+			tag:              "candidate",
+			expectedResponse: expectedThirdRev,
+		}, {
+			tag:              "current",
+			expectedResponse: expectedFirstRev,
+		}}); err != nil {
 		t.Fatal(err)
 	}
 }
