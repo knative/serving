@@ -52,6 +52,7 @@ import (
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 )
 
 // revisionDestsUpdate contains the state of healthy l4 dests for talking to a revision and is the
@@ -111,25 +112,31 @@ type revisionWatcher struct {
 	// podsAddressable will be set to false if we cannot
 	// probe a pod directly, but its cluster IP has been successfully probed.
 	podsAddressable bool
+
+	// usePassthroughLb makes the probing use the passthrough lb headers to enable
+	// pod addressability even in meshes.
+	usePassthroughLb bool
 }
 
 func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol pkgnet.ProtocolType,
 	updateCh chan<- revisionDestsUpdate, destsCh chan dests,
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
+	usePassthroughLb bool,
 	logger *zap.SugaredLogger) *revisionWatcher {
 	ctx, cancel := context.WithCancel(ctx)
 	return &revisionWatcher{
-		stopCh:          ctx.Done(),
-		cancel:          cancel,
-		rev:             rev,
-		protocol:        protocol,
-		updateCh:        updateCh,
-		done:            make(chan struct{}),
-		transport:       transport,
-		destsCh:         destsCh,
-		serviceLister:   serviceLister,
-		podsAddressable: true, // By default we presume we can talk to pods directly.
-		logger:          logger.With(zap.String(logkey.Key, rev.String())),
+		stopCh:           ctx.Done(),
+		cancel:           cancel,
+		rev:              rev,
+		protocol:         protocol,
+		updateCh:         updateCh,
+		done:             make(chan struct{}),
+		transport:        transport,
+		destsCh:          destsCh,
+		serviceLister:    serviceLister,
+		podsAddressable:  true, // By default we presume we can talk to pods directly.
+		usePassthroughLb: usePassthroughLb,
+		logger:           logger.With(zap.String(logkey.Key, rev.String())),
 	}
 }
 
@@ -159,12 +166,27 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 		Host:   dest,
 		Path:   network.ProbePath,
 	}
-	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests passing.
-	return prober.Do(ctx, rw.transport, httpDest.String(),
+
+	options := []interface{}{
 		prober.WithHeader(network.ProbeHeaderName, queue.Name),
 		prober.WithHeader(network.UserAgentKey, network.ActivatorUserAgent),
 		prober.ExpectsBody(queue.Name),
-		prober.ExpectsStatusCodes([]int{http.StatusOK}))
+		prober.ExpectsStatusCodes([]int{http.StatusOK})}
+
+	if rw.usePassthroughLb {
+		// Add the passthrough header + force the Host header to point to the service
+		// we're targeting, to make sure ingress can correctly route it.
+		// We cannot set these headers unconditionally as the Host header will cause the
+		// request to be loadbalanced by ingress "silently" if passthrough LB is not
+		// configured, which will cause the request to "pass" but doesn't guarantee it
+		// actually lands on the correct pod, which breaks our state keeping.
+		options = append(options,
+			prober.WithHost(names.PrivateService(rw.rev.Name)+"."+rw.rev.Namespace),
+			prober.WithHeader(network.PassthroughLoadbalancingHeaderName, "true"))
+	}
+
+	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests pass.
+	return prober.Do(ctx, rw.transport, httpDest.String(), options...)
 }
 
 func (rw *revisionWatcher) getDest() (string, error) {
@@ -301,6 +323,12 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		}
 	}
 
+	if rw.usePassthroughLb {
+		// If passthrough lb is enabled we do not want to fall back to going via the
+		// clusterIP and instead want to exit early.
+		return
+	}
+
 	// If we failed to probe even a single pod, check the clusterIP.
 	// NB: We can't cache the IP address, since user might go rogue
 	// and delete the K8s service. We'll fix it, but the cluster IP will be different.
@@ -378,21 +406,22 @@ type revisionBackendsManager struct {
 	revisionWatchers    map[types.NamespacedName]*revisionWatcher
 	revisionWatchersMux sync.RWMutex
 
-	updateCh       chan revisionDestsUpdate
-	transport      http.RoundTripper
-	logger         *zap.SugaredLogger
-	probeFrequency time.Duration
+	updateCh         chan revisionDestsUpdate
+	transport        http.RoundTripper
+	usePassthroughLb bool
+	logger           *zap.SugaredLogger
+	probeFrequency   time.Duration
 }
 
 // NewRevisionBackendsManager returns a new RevisionBackendsManager with default
 // probe time out.
-func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper) *revisionBackendsManager {
-	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, defaultProbeFrequency)
+func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool) *revisionBackendsManager {
+	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, usePassthroughLb, defaultProbeFrequency)
 }
 
 // newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
 func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
-	probeFreq time.Duration) *revisionBackendsManager {
+	usePassthroughLb bool, probeFreq time.Duration) *revisionBackendsManager {
 	rbm := &revisionBackendsManager{
 		ctx:              ctx,
 		revisionLister:   revisioninformer.Get(ctx).Lister(),
@@ -400,6 +429,7 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		revisionWatchers: make(map[types.NamespacedName]*revisionWatcher),
 		updateCh:         make(chan revisionDestsUpdate),
 		transport:        tr,
+		usePassthroughLb: usePassthroughLb,
 		logger:           logging.FromContext(ctx),
 		probeFrequency:   probeFreq,
 	}
@@ -461,7 +491,7 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 		}
 
 		destsCh := make(chan dests)
-		rw := newRevisionWatcher(rbm.ctx, rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.logger)
+		rw := newRevisionWatcher(rbm.ctx, rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, rbm.logger)
 		rbm.revisionWatchers[rev] = rw
 		go rw.run(rbm.probeFrequency)
 		return rw, nil
