@@ -44,7 +44,6 @@ import (
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/reconciler"
@@ -53,6 +52,7 @@ import (
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 )
 
 // revisionDestsUpdate contains the state of healthy l4 dests for talking to a revision and is the
@@ -181,7 +181,7 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 		// configured, which will cause the request to "pass" but doesn't guarantee it
 		// actually lands on the correct pod, which breaks our state keeping.
 		options = append(options,
-			prober.WithHost(kmeta.ChildName(rw.rev.Name, "-private")+"."+rw.rev.Namespace),
+			prober.WithHost(names.PrivateService(rw.rev.Name)+"."+rw.rev.Namespace),
 			prober.WithHeader(network.PassthroughLoadbalancingHeaderName, "true"))
 	}
 
