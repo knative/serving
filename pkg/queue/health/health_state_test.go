@@ -67,79 +67,58 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		alive        bool
 		shuttingDown bool
 		prober       func() bool
-		isAggressive bool
 		wantStatus   int
 		wantBody     string
 	}{{
-		name:         "alive: true, K-Probe",
-		alive:        true,
-		isAggressive: false,
-		wantStatus:   http.StatusOK,
-		wantBody:     queue.Name,
+		name:       "alive: true, K-Probe",
+		alive:      true,
+		wantStatus: http.StatusOK,
+		wantBody:   queue.Name,
 	}, {
-		name:         "alive: false, prober: true, K-Probe",
-		prober:       func() bool { return true },
-		isAggressive: false,
-		wantStatus:   http.StatusOK,
-		wantBody:     queue.Name,
+		name:       "alive: false, prober: true, K-Probe",
+		prober:     func() bool { return true },
+		wantStatus: http.StatusOK,
+		wantBody:   queue.Name,
 	}, {
-		name:         "alive: false, prober: false, K-Probe",
-		prober:       func() bool { return false },
-		isAggressive: false,
-		wantStatus:   http.StatusServiceUnavailable,
+		name:       "alive: false, prober: false, K-Probe",
+		prober:     func() bool { return false },
+		wantStatus: http.StatusServiceUnavailable,
 	}, {
-		name:         "alive: false, no prober, K-Probe",
-		isAggressive: false,
-		wantStatus:   http.StatusOK,
-		wantBody:     queue.Name,
+		name:       "alive: false, no prober, K-Probe",
+		wantStatus: http.StatusOK,
+		wantBody:   queue.Name,
 	}, {
 		name:         "shuttingDown: true, K-Probe",
 		shuttingDown: true,
-		isAggressive: false,
 		wantStatus:   http.StatusGone,
 	}, {
-		name:         "no prober, shuttingDown: false",
-		isAggressive: true,
-		wantStatus:   http.StatusOK,
-		wantBody:     queue.Name,
+		name:       "no prober, shuttingDown: false",
+		wantStatus: http.StatusOK,
+		wantBody:   queue.Name,
 	}, {
 		name:         "prober: true, shuttingDown: true",
 		shuttingDown: true,
 		prober:       func() bool { return true },
-		isAggressive: true,
 		wantStatus:   http.StatusGone,
 	}, {
-		name:         "prober: true, shuttingDown: false",
-		prober:       func() bool { return true },
-		isAggressive: true,
-		wantStatus:   http.StatusOK,
-		wantBody:     queue.Name,
+		name:       "prober: true, shuttingDown: false",
+		prober:     func() bool { return true },
+		wantStatus: http.StatusOK,
+		wantBody:   queue.Name,
 	}, {
-		name:         "prober: false, shuttingDown: false",
-		prober:       func() bool { return false },
-		isAggressive: true,
-		wantStatus:   http.StatusServiceUnavailable,
+		name:       "prober: false, shuttingDown: false",
+		prober:     func() bool { return false },
+		wantStatus: http.StatusServiceUnavailable,
 	}, {
 		name:         "prober: false, shuttingDown: true",
 		shuttingDown: true,
 		prober:       func() bool { return false },
-		isAggressive: true,
 		wantStatus:   http.StatusGone,
 	}, {
-		name:         "alive: true, prober: false, shuttingDown: false",
-		alive:        true,
-		prober:       func() bool { return false },
-		isAggressive: true,
-		wantStatus:   http.StatusServiceUnavailable,
-	}, {
-		name:         "aggressive: false, alive: true, prober: false, shuttingDown: false",
-		alive:        true,
-		prober:       func() bool { return false },
-		isAggressive: false,
-		// The current behaviour is that if aggressive is false (ie probePeriod > 0),
-		// we actually don't probe once the first probe succeeds.
-		wantStatus: http.StatusOK,
-		wantBody:   queue.Name,
+		name:       "alive: true, prober: false, shuttingDown: false",
+		alive:      true,
+		prober:     func() bool { return false },
+		wantStatus: http.StatusServiceUnavailable,
 	}}
 
 	for _, test := range tests {
@@ -149,7 +128,7 @@ func TestHealthStateHealthHandler(t *testing.T) {
 			state.shuttingDown = test.shuttingDown
 
 			rr := httptest.NewRecorder()
-			state.HandleHealthProbe(test.prober, test.isAggressive, rr)
+			state.HandleHealthProbe(test.prober, rr)
 
 			if got, want := rr.Code, test.wantStatus; got != want {
 				t.Errorf("handler returned wrong status code: got %v want %v", got, want)
