@@ -162,7 +162,7 @@ type activatorPod struct {
 }
 
 func gatherBackingActivators(ctx context.Context, client kubernetes.Interface, namespace string, revs ...string) ([]activatorPod, error) {
-	var pods []activatorPod
+	podMap := make(map[string]activatorPod)
 
 	for _, rev := range revs {
 		endpoints := client.CoreV1().Endpoints(namespace)
@@ -177,12 +177,20 @@ func gatherBackingActivators(ctx context.Context, client kubernetes.Interface, n
 				if address.TargetRef == nil {
 					return nil, fmt.Errorf("%s service is not pointing to a pod", rev)
 				}
-				if !strings.HasPrefix(address.TargetRef.Name, activatorDeploymentName) {
+
+				name := address.TargetRef.Name
+				if !strings.HasPrefix(name, activatorDeploymentName) {
 					return nil, fmt.Errorf("%s service is not pointing to an activator pod but: %s", rev, address.TargetRef.Name)
 				}
-				pods = append(pods, activatorPod{name: address.TargetRef.Name, ip: address.IP})
+
+				podMap[name] = activatorPod{name: name, ip: address.IP}
 			}
 		}
+	}
+
+	pods := make([]activatorPod, 0, len(podMap))
+	for _, pod := range podMap {
+		pods = append(pods, pod)
 	}
 
 	return pods, nil
