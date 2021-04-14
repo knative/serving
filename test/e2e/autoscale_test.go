@@ -20,7 +20,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -30,8 +29,8 @@ import (
 
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -228,17 +227,7 @@ func TestFastScaleToZero(t *testing.T) {
 		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
 
-	epsL, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).List(context.Background(), metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s,%s=%s",
-			serving.RevisionLabelKey, ctx.resources.Revision.Name,
-			networking.ServiceTypeKey, networking.ServiceTypePrivate,
-		),
-	})
-	if err != nil || len(epsL.Items) == 0 {
-		t.Fatal("No endpoints or error:", err)
-	}
-
-	epsN := epsL.Items[0].Name
+	epsN := names.PrivateService(ctx.resources.Revision.Name)
 	t.Logf("Waiting for emptying of %q ", epsN)
 
 	// The first thing that happens when pods are starting to terminate
