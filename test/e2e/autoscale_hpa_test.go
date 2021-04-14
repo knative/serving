@@ -1,4 +1,4 @@
-// +build e2ehpa
+// +build e2e,hpa
 /*
 Copyright 2021 The Knative Authors
 
@@ -20,7 +20,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"knative.dev/pkg/test/spoof"
 	"strconv"
 	"strings"
 	"testing"
@@ -32,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
