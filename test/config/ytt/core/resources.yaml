@@ -18,7 +18,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: conformance-test-configmap
-  namespace: #@ data.values.serving.namespaces.test
+  namespace: #@ data.values.serving.namespaces.test.default
 data:
   testKey: testValue
 
@@ -27,7 +27,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: conformance-test-secret
-  namespace: #@ data.values.serving.namespaces.test
+  namespace: #@ data.values.serving.namespaces.test.default
 type: Opaque
 data:
   testKey: dGVzdFZhbHVl
