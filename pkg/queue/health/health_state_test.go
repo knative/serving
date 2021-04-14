@@ -131,6 +131,15 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		prober:       func() bool { return false },
 		isAggressive: true,
 		wantStatus:   http.StatusServiceUnavailable,
+	}, {
+		name:         "aggressive: false, alive: true, prober: false, shuttingDown: false",
+		alive:        true,
+		prober:       func() bool { return false },
+		isAggressive: false,
+		// The current behaviour is that if aggressive is false (ie probePeriod > 0),
+		// we actually don't probe once the first probe succeeds.
+		wantStatus: http.StatusOK,
+		wantBody:   queue.Name,
 	}}
 
 	for _, test := range tests {
