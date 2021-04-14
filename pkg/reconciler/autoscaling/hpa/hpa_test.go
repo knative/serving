@@ -63,6 +63,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/hpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 
 	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
@@ -133,10 +134,8 @@ func TestControllerCanReconcile(t *testing.T) {
 
 func TestReconcile(t *testing.T) {
 	retryAttempted := false
-	const (
-		deployName = testRevision + "-deployment"
-		privateSvc = testRevision + "-private"
-	)
+	deployName := testRevision + "-deployment"
+	privateSvc := names.PrivateService(testRevision)
 
 	table := TableTest{{
 		Name: "no op",

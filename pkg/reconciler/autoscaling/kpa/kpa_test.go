@@ -85,6 +85,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -171,7 +172,7 @@ type metricOption func(*autoscalingv1alpha1.Metric)
 
 func metric(ns, n string, opts ...metricOption) *autoscalingv1alpha1.Metric {
 	pa := kpa(ns, n)
-	m := aresources.MakeMetric(pa, kmeta.ChildName(n, "-private"), defaultConfig().Autoscaler)
+	m := aresources.MakeMetric(pa, names.PrivateService(n), defaultConfig().Autoscaler)
 	for _, o := range opts {
 		o(m)
 	}
@@ -222,12 +223,12 @@ func markResourceNotOwned(rType, name string) PodAutoscalerOption {
 func TestReconcile(t *testing.T) {
 	const (
 		deployName   = testRevision + "-deployment"
-		privateSvc   = testRevision + "-private"
 		defaultScale = 11
 		unknownScale = scaleUnknown
 		underscale   = defaultScale - 1
 		overscale    = defaultScale + 1
 	)
+	privateSvc := names.PrivateService(testRevision)
 
 	// Set up a default deployment with the appropriate scale so that we don't
 	// see patches to correct that scale.
