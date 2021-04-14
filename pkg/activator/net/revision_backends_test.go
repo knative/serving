@@ -44,6 +44,7 @@ import (
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 
 	. "knative.dev/pkg/logging/testing"
 )
@@ -84,11 +85,7 @@ func privateSKSService(revID types.NamespacedName, clusterIP string, ports []cor
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: revID.Namespace,
-			Name:      revID.Name,
-			Labels: map[string]string{
-				serving.RevisionLabelKey:  revID.Name,
-				networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
-			},
+			Name:      names.PrivateService(revID.Name),
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: clusterIP,

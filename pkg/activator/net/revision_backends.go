@@ -32,7 +32,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -52,6 +51,7 @@ import (
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 )
 
 // revisionDestsUpdate contains the state of healthy l4 dests for talking to a revision and is the
@@ -133,26 +133,6 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 	}
 }
 
-func (rw *revisionWatcher) getK8sPrivateService() (*corev1.Service, error) {
-	selector := labels.SelectorFromSet(labels.Set{
-		serving.RevisionLabelKey:  rw.rev.Name,
-		networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
-	})
-	svcList, err := rw.serviceLister.Services(rw.rev.Namespace).List(selector)
-	if err != nil {
-		return nil, err
-	}
-
-	switch len(svcList) {
-	case 0:
-		return nil, fmt.Errorf("found no private services for revision %q", rw.rev.String())
-	case 1:
-		return svcList[0], nil
-	default:
-		return nil, fmt.Errorf("found multiple private services matching revision %v", rw.rev)
-	}
-}
-
 func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error) {
 	httpDest := url.URL{
 		Scheme: "http",
@@ -168,7 +148,7 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 }
 
 func (rw *revisionWatcher) getDest() (string, error) {
-	svc, err := rw.getK8sPrivateService()
+	svc, err := rw.serviceLister.Services(rw.rev.Namespace).Get(names.PrivateService(rw.rev.Name))
 	if err != nil {
 		return "", err
 	}
