@@ -167,6 +167,7 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 		Path:   network.ProbePath,
 	}
 
+	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests pass.
 	options := []interface{}{
 		prober.WithHeader(network.ProbeHeaderName, queue.Name),
 		prober.WithHeader(network.UserAgentKey, network.ActivatorUserAgent),
@@ -185,7 +186,6 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 			prober.WithHeader(network.PassthroughLoadbalancingHeaderName, "true"))
 	}
 
-	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests pass.
 	return prober.Do(ctx, rw.transport, httpDest.String(), options...)
 }
 
