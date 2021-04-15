@@ -1,4 +1,5 @@
-// +build e2e,hpa
+// +build e2e
+// +build hpa
 
 /*
 Copyright 2021 The Knative Authors
