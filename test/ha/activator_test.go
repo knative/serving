@@ -44,7 +44,6 @@ import (
 
 const (
 	activatorDeploymentName = "activator"
-	activatorLabel          = "app=activator"
 	minProbes               = 400 // We want to send at least 400 requests.
 )
 
