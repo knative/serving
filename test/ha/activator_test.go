@@ -195,6 +195,7 @@ func waitForActivatorScale(ctx context.Context, client kubernetes.Interface) (in
 		if *d.Spec.Replicas < 2 {
 			return false, errors.New("spec.replicaCount should be > 1")
 		}
+		desiredScale = int(*d.Spec.Replicas)
 		for _, c := range d.Status.Conditions {
 			if c.Type == appsv1.DeploymentAvailable {
 				return c.Status == v1.ConditionTrue, nil
