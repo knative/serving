@@ -55,6 +55,8 @@ const (
 
 	probeFreq     = 50 * time.Millisecond
 	updateTimeout = 16 * probeFreq
+
+	meshErrorStatusCode = http.StatusServiceUnavailable
 )
 
 // revisionCC1 - creates a revision with concurrency == 1.
@@ -189,10 +191,10 @@ func TestRevisionWatcher(t *testing.T) {
 				Body: queue.Name,
 			}},
 			"128.0.0.1:1234": {{
-				Err: errors.New("clusterIP transport error"),
+				Code: meshErrorStatusCode,
 			}},
 			"128.0.0.2:1234": {{
-				Err: errors.New("clusterIP transport error"),
+				Code: meshErrorStatusCode,
 			}},
 		},
 	}, {
@@ -345,13 +347,13 @@ func TestRevisionWatcher(t *testing.T) {
 				Body: queue.Name,
 			}},
 			"128.0.0.1:1234": {{
-				Err: errors.New("podIP transport error"),
+				Code: meshErrorStatusCode,
 			}, {
-				Err: errors.New("podIP transport error"),
+				Code: meshErrorStatusCode,
 			}},
 		},
 	}, {
-		name:  "clusterIP  ready, no pod addressability",
+		name:  "clusterIP ready, no pod addressability",
 		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
@@ -369,7 +371,32 @@ func TestRevisionWatcher(t *testing.T) {
 				Body: queue.Name,
 			}},
 			"128.0.0.1:1234": {{
-				Err: errors.New("podIP transport error"),
+				Code: meshErrorStatusCode,
+			}},
+		},
+	}, {
+		name:  "clusterIP ready, pod fails with non-mesh error then succeeds",
+		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		clusterPort: corev1.ServicePort{
+			Name: "http",
+			Port: 1235,
+		},
+		noPodAddressability: false,
+		clusterIP:           "129.0.0.1",
+		expectUpdates: []revisionDestsUpdate{
+			{Dests: sets.NewString("128.0.0.1:1234")},
+		},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				// ClusterIP is healthy, but should not be used.
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"128.0.0.1:1234": {{
+				Code: http.StatusInternalServerError,
+			}, {
+				Code: http.StatusOK,
+				Body: queue.Name,
 			}},
 		},
 	}, {
@@ -387,7 +414,7 @@ func TestRevisionWatcher(t *testing.T) {
 				Body: queue.Name,
 			}},
 			"128.0.0.1:1234": {{
-				Err: errors.New("podIP transport error"),
+				Code: meshErrorStatusCode,
 			}},
 		},
 		usePassthroughLb: true,
@@ -626,6 +653,27 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			},
 		},
 		updateCnt: 2,
+	}, {
+		name:         "no pods available, but non-mesh-related error",
+		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
+		revisions: []*v1.Revision{
+			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
+		},
+		services: []*corev1.Service{
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
+				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
+		},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{ // Should not succeed by hitting this cluster IP.
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"128.0.0.1:1234": {{
+				Code: http.StatusNotFound, // Not 503 error, so should not cause fall-back to mesh.
+			}},
+		},
+		expectDests: map[types.NamespacedName]revisionDestsUpdate{},
+		updateCnt:   0,
 	}, {
 		name:         "no pod addressability",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
