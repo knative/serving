@@ -156,6 +156,14 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				Protocol:   corev1.ProtocolTCP,
 				Port:       networking.QueueAdminPort,
 				TargetPort: intstr.FromInt(networking.QueueAdminPort),
+			}, {
+				// When run with the Istio mesh and with the pod-addressability feature
+				// enabled, this mirrors the target port to the "outer" service port to
+				// instruct Istio to open the respective listener on the pod.
+				Name:       pkgnet.ServicePortName(sks.Spec.ProtocolType) + "-istio",
+				Protocol:   corev1.ProtocolTCP,
+				Port:       targetPort(sks).IntVal,
+				TargetPort: targetPort(sks),
 			}},
 			Selector: selector,
 		},

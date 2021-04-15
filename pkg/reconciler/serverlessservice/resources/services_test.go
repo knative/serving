@@ -144,6 +144,11 @@ func privateSvcMod(s *corev1.Service) {
 			Protocol:   corev1.ProtocolTCP,
 			Port:       networking.QueueAdminPort,
 			TargetPort: intstr.FromInt(networking.QueueAdminPort),
+		}, {
+			Name:       pkgnet.ServicePortNameHTTP1 + "-istio",
+			Protocol:   corev1.ProtocolTCP,
+			Port:       networking.BackendHTTPPort,
+			TargetPort: intstr.FromInt(networking.BackendHTTPPort),
 		}}...)
 }
 
@@ -412,6 +417,12 @@ func TestMakePrivateService(t *testing.T) {
 				Name:       pkgnet.ServicePortNameH2C,
 				Protocol:   corev1.ProtocolTCP,
 				Port:       pkgnet.ServiceHTTPPort,
+				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+			}
+			s.Spec.Ports[4] = corev1.ServicePort{
+				Name:       pkgnet.ServicePortNameH2C + "-istio",
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.BackendHTTP2Port,
 				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
 			}
 		}),
