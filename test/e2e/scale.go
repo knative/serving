@@ -98,7 +98,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			}
 
 			t.Cleanup(func() {
-				// Wait for all ksvcs to have been created before exitting the test.
+				// Wait for all ksvcs to have been created before exiting the test.
 				t.Log("Waiting for all to become ready")
 				wg.Wait()
 				pm.Stop()
@@ -154,8 +154,8 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					}),
 					rtesting.WithRevisionTimeoutSeconds(10))
 				if err != nil {
-					t.Error("CreateLatestService() =", err)
-					return fmt.Errorf("CreateLatestService() failed: %w", err)
+					t.Error("CreateService() =", err)
+					return fmt.Errorf("CreateService() failed: %w", err)
 				}
 
 				// Record the time it took to create the service.

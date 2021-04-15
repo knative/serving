@@ -192,7 +192,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				Image:   test.Runtime,
 			}
 			if svc, err := testv1.CreateService(t, clients, names, tc.options); err == nil {
-				t.Errorf("CreateLatestService = %v, want: error", spew.Sdump(svc))
+				t.Errorf("CreateService = %v, want: error", spew.Sdump(svc))
 			}
 		})
 	}
