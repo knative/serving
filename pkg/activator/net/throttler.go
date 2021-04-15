@@ -637,7 +637,7 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	rt.numActivators.Store(newNA)
 	rt.activatorIndex.Store(newAI)
 	rt.logger.Infof("This activator index is %d/%d was %d/%d",
-		rt.activatorIndex, rt.numActivators, newAI, newNA)
+		newAI, newNA, ai, na)
 	rt.updateCapacity(rt.backendCount)
 }
 
