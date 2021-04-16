@@ -199,8 +199,8 @@ func kpa(ns, n string, opts ...PodAutoscalerOption) *autoscalingv1alpha1.PodAuto
 	rev := newTestRevision(ns, n)
 	kpa := revisionresources.MakePA(rev)
 	kpa.Generation = 1
-	kpa.Annotations["autoscaling.knative.dev/class"] = "kpa.autoscaling.knative.dev"
-	kpa.Annotations["autoscaling.knative.dev/metric"] = "concurrency"
+	kpa.Annotations[autoscaling.ClassAnnotationKey] = "kpa.autoscaling.knative.dev"
+	kpa.Annotations[autoscaling.MetricAnnotationKey] = "concurrency"
 	kpa.Status.InitializeConditions()
 	for _, opt := range opts {
 		opt(kpa)
@@ -1837,7 +1837,7 @@ func TestResolveScrapeTarget(t *testing.T) {
 	}
 
 	tc = &testConfigStore{config: defaultConfig()}
-	pa.Annotations["autoscaling.knative.dev/targetBurstCapacity"] = "-1"
+	pa.Annotations[autoscaling.TargetBurstCapacityKey] = "-1"
 	if got, want := resolveScrapeTarget(tc.ToContext(context.Background()), pa), ""; got != want {
 		t.Errorf("reconcileMetricSN()= %s, want %s", got, want)
 	}
