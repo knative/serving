@@ -24,12 +24,15 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/semaphore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"knative.dev/pkg/pool"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/helpers"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -55,6 +58,8 @@ func abortOnTimeout(ctx context.Context) spoof.ResponseChecker {
 // ScaleToWithin creates `scale` services in parallel subtests and reports the
 // time taken to `latencies`.
 func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies Latencies) {
+	clients := Setup(t)
+
 	// These are the local (per-probe) and global (all probes) targets for the scale test.
 	// 95 = 19/20, so allow one failure within the minimum number of probes, but expect
 	// us to have 3 9s overall.
@@ -63,65 +68,44 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 		minProbes = 20
 	)
 
-	// wg tracks the number of ksvcs that we are still waiting to see become ready.
-	wg := sync.WaitGroup{}
+	var (
+		// createWg tracks the number of ksvcs that we are still waiting to see become ready.
+		createWg sync.WaitGroup
+		// checkWg tracks the number of checks we're still waiting to happen.
+		checkWg sync.WaitGroup
+	)
 
 	// Note the number of times we expect Done() to be called.
-	wg.Add(scale)
-	eg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */)
+	createWg.Add(scale)
+	checkWg.Add(scale)
+	sem := semaphore.NewWeighted(50) // limit the in-flight creates
+	errCh := make(chan error, scale)
 
-	t.Cleanup(func() {
-		// Wait for the ksvcs to all become ready (or fail)
-		wg.Wait()
-
-		// Wait for all of the service creations to complete (possibly in failure),
-		// and signal the done channel.
-		if err := eg.Wait(); err != nil {
-			t.Error("Wait() =", err)
-		}
-
-		// TODO(mattmoor): Check globalSLO if localSLO isn't 1.0
-	})
-
+	prefix := helpers.AppendRandomString(helpers.ObjectPrefixForTest(t))
 	for i := 0; i < scale; i++ {
 		// https://golang.org/doc/faq#closures_and_goroutines
 		i := i
-		t.Run(fmt.Sprintf("%03d-of-%03d", i, scale), func(t *testing.T) {
-			t.Parallel()
+		go func() {
+			defer checkWg.Done()
 
-			clients := Setup(t)
 			pm := test.NewProberManager(t.Logf, clients, minProbes, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 
 			names := test.ResourceNames{
-				Service: test.ObjectNameForTest(t),
+				Service: kmeta.ChildName(prefix, fmt.Sprintf("-%03d-of-%03d", i+1, scale)),
 				Image:   "helloworld",
 			}
 
-			t.Cleanup(func() {
-				// Wait for all ksvcs to have been created before exiting the test.
-				t.Log("Waiting for all to become ready")
-				wg.Wait()
-				pm.Stop()
+			if err := func() error {
+				defer createWg.Done()
 
-				pm.Foreach(func(u *url.URL, p test.Prober) {
-					if err := test.CheckSLO(localSLO, u.String(), p); err != nil {
-						t.Error("CheckSLO() =", err)
-					}
-				})
-
-				test.TearDown(clients, &names)
-			})
-
-			eg.Go(func() error {
 				ctx, cancel := context.WithTimeout(context.Background(), duration)
+				defer cancel()
 
-				// This go routine runs until the ksvc is ready, at which point we should note that
-				// our part is done.
-				defer func() {
-					wg.Done()
-					t.Logf("Reporting done!")
-					cancel()
-				}()
+				// Acquire a slot in the semaphore to throttle the in-flight creates.
+				if err := sem.Acquire(ctx, 1); err != nil {
+					return fmt.Errorf("%s: Acquire(): %w", names.Service, err)
+				}
+				defer sem.Release(1)
 
 				// Start the clock for various waypoints towards Service readiness.
 				start := time.Now()
@@ -143,7 +127,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 						},
 					}),
 					rtesting.WithConfigAnnotations(map[string]string{
-						"autoscaling.knative.dev/maxScale": "1",
+						autoscaling.MaxScaleAnnotationKey: "1",
 					}),
 					rtesting.WithReadinessProbe(&corev1.Probe{
 						Handler: corev1.Handler{
@@ -154,9 +138,9 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					}),
 					rtesting.WithRevisionTimeoutSeconds(10))
 				if err != nil {
-					t.Error("CreateService() =", err)
-					return fmt.Errorf("CreateService() failed: %w", err)
+					return fmt.Errorf("%s: CreateService(): %w", names.Service, err)
 				}
+				test.EnsureTearDown(t, clients, &names)
 
 				// Record the time it took to create the service.
 				latencies.Add("time-to-create", start)
@@ -175,8 +159,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				}, "ServiceUpdatedWithURL")
 
 				if err != nil {
-					t.Error("WaitForServiceState(w/ Domain) =", err)
-					return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
+					return fmt.Errorf("%s: WaitForServiceState(w/ Domain): %w", names.Service, err)
 				}
 
 				// Record the time it took to become ready.
@@ -191,8 +174,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					"WaitForEndpointToServeText",
 					test.ServingFlags.ResolvableDomain)
 				if err != nil {
-					t.Error("WaitForEndpointState(expected text) =", err)
-					return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
+					return fmt.Errorf("%s: WaitForEndpointState(expected text): %w", names.Service, err)
 				}
 
 				// Record the time it took to get back a 200 with the expected text.
@@ -203,7 +185,36 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 				t.Logf("%s is ready.", names.Service)
 				return nil
+			}(); err != nil {
+				errCh <- err
+				return
+			}
+
+			// Probe for the entire time, until all services are ready (or failed).
+			t.Log("Waiting for all services to become ready")
+			createWg.Wait()
+
+			pm.Stop()
+			pm.Foreach(func(u *url.URL, p test.Prober) {
+				if err := test.CheckSLO(localSLO, u.String(), p); err != nil {
+					errCh <- fmt.Errorf("%s: CheckSLO(): %w", names.Service, err)
+				}
 			})
-		})
+		}()
 	}
+
+	// Wait for all checks to finish
+	checkWg.Wait()
+	close(errCh)
+
+	failed := 0
+	for err := range errCh {
+		t.Error(err.Error())
+		failed++
+	}
+	if failed > 0 {
+		t.Errorf("%d services failed in total", failed)
+	}
+
+	// TODO(mattmoor): Check globalSLO if localSLO isn't 1.0
 }
