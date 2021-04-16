@@ -16,7 +16,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: addressable-resolver
+  # Named like this to avoid clashing with eventing's existing `addressable-resolver` role
+  # (which should be identical, but isn't guaranteed to be installed alongside serving).
+  name: knative-serving-aggregated-addressable-resolver
   labels:
     serving.knative.dev/release: devel
 aggregationRule:
