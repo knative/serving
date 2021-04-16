@@ -35,6 +35,7 @@ import (
 type digestResolver struct {
 	client    kubernetes.Interface
 	transport http.RoundTripper
+	userAgent string
 }
 
 const (
@@ -95,7 +96,7 @@ func (r *digestResolver) Resolve(
 		return "", nil
 	}
 
-	desc, err := remote.Head(tag, remote.WithContext(ctx), remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc))
+	desc, err := remote.Head(tag, remote.WithContext(ctx), remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc), remote.WithUserAgent(r.userAgent))
 	if err != nil {
 		return "", err
 	}

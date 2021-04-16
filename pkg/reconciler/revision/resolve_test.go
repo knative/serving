@@ -55,10 +55,13 @@ func mustDigest(t *testing.T, img v1.Image) v1.Hash {
 	return h
 }
 
-func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image) *httptest.Server {
+func fakeRegistry(t *testing.T, repo, username, password, ua string, img v1.Image) *httptest.Server {
 	manifestPath := fmt.Sprintf("/v2/%s/manifests/latest", repo)
 	const basicAuth = "Basic "
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got, want := r.Header.Get("User-Agent"), ua; !strings.Contains(got, want) {
+			t.Errorf("Header.Get(User-Agent) = %q, want Contains(%q)", got, want)
+		}
 		switch r.URL.Path {
 		case "/v2/":
 			// Issue a "Basic" auth challenge, so we can check the auth sent to the registry.
@@ -150,6 +153,7 @@ func TestResolve(t *testing.T) {
 		password     = "bar"
 		sname        = "secret"
 		expectedRepo = "booger/nose"
+		ua           = "unique-identifier"
 	)
 
 	img, err := random.Image(3, 1024)
@@ -158,7 +162,7 @@ func TestResolve(t *testing.T) {
 	}
 
 	// Stand up a fake registry.
-	server := fakeRegistry(t, expectedRepo, username, password, img)
+	server := fakeRegistry(t, expectedRepo, username, password, ua, img)
 	defer server.Close()
 	u, err := url.Parse(server.URL)
 	if err != nil {
@@ -195,7 +199,7 @@ func TestResolve(t *testing.T) {
 	})
 
 	// Resolve our tag on the fake registry to the digest of the random.Image().
-	dr := &digestResolver{client: client, transport: http.DefaultTransport}
+	dr := &digestResolver{client: client, transport: http.DefaultTransport, userAgent: ua}
 	opt := k8schain.Options{
 		Namespace:          ns,
 		ServiceAccountName: svcacct,

@@ -18,11 +18,13 @@ package revision
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"go.uber.org/zap"
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
 	imageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
+	"knative.dev/pkg/changeset"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -107,7 +109,14 @@ func newControllerWithOptions(
 		transport = rt
 	}
 
-	resolver := newBackgroundResolver(logger, &digestResolver{client: kubeclient.Get(ctx), transport: transport}, impl.EnqueueKey)
+	userAgent := "knative (serving)"
+	if commitID, err := changeset.Get(); err == nil {
+		userAgent = fmt.Sprintf("knative/%s (serving)", commitID)
+	} else {
+		logger.Info("Fetch GitHub commit ID from kodata failed", zap.Error(err))
+	}
+
+	resolver := newBackgroundResolver(logger, &digestResolver{client: kubeclient.Get(ctx), transport: transport, userAgent: userAgent}, impl.EnqueueKey)
 	resolver.Start(ctx.Done(), digestResolutionWorkers)
 	c.resolver = resolver
 
