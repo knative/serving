@@ -30,6 +30,7 @@ import (
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -143,7 +144,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 						},
 					}),
 					rtesting.WithConfigAnnotations(map[string]string{
-						"autoscaling.knative.dev/maxScale": "1",
+						autoscaling.MaxScaleAnnotationKey: "1",
 					}),
 					rtesting.WithReadinessProbe(&corev1.Probe{
 						Handler: corev1.Handler{
