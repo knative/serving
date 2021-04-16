@@ -20,13 +20,19 @@ package ha
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	pkgnet "knative.dev/pkg/network"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -39,7 +45,6 @@ import (
 
 const (
 	activatorDeploymentName = "activator"
-	activatorLabel          = "app=activator"
 	minProbes               = 400 // We want to send at least 400 requests.
 )
 
@@ -58,15 +63,15 @@ func TestActivatorHANonGraceful(t *testing.T) {
 // that we can scale from zero after activator restart.
 func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	clients := e2e.Setup(t)
+	ctx := context.Background()
 
 	podDeleteOptions := metav1.DeleteOptions{GracePeriodSeconds: gracePeriod}
 
-	if err := pkgTest.WaitForDeploymentScale(context.Background(), clients.KubeClient, activatorDeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
-		t.Fatalf("Deployment %s not scaled to %d: %v", activatorDeploymentName, test.ServingFlags.Replicas, err)
+	desiredScale, err := waitForActivatorScale(ctx, clients.KubeClient)
+	if err != nil {
+		t.Fatalf("Deployment %s not scaled > 1: %s", activatorDeploymentName, err)
 	}
-	activators, err := clients.KubeClient.CoreV1().Pods(system.Namespace()).List(context.Background(), metav1.ListOptions{
-		LabelSelector: activatorLabel,
-	})
+
 	if err != nil {
 		t.Fatal("Failed to get activator pods:", err)
 	}
@@ -90,24 +95,31 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	)
 	test.EnsureTearDown(t, clients, &namesScaleToZero)
 
-	t.Logf("Waiting for %s to scale to zero", namesScaleToZero.Revision)
-	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resourcesScaleToZero.Revision), clients); err != nil {
-		t.Fatal("Failed to scale to zero:", err)
-	}
-
 	t.Log("Starting prober")
 	prober := test.NewProberManager(t.Logf, clients, minProbes)
 	prober.Spawn(resources.Service.Status.URL.URL())
 	defer assertSLO(t, prober, slo)
 
-	for i, activator := range activators.Items {
-		t.Logf("Deleting activator%d (%s)", i, activator.Name)
-		if err := clients.KubeClient.CoreV1().Pods(system.Namespace()).Delete(context.Background(), activator.Name, podDeleteOptions); err != nil {
-			t.Fatalf("Failed to delete pod %s: %v", activator.Name, err)
+	activatorPods, err := gatherBackingActivators(ctx, clients.KubeClient, test.ServingNamespace, resources.Revision.Name, resourcesScaleToZero.Revision.Name)
+	if err != nil {
+		t.Fatal("failed to gather backing activators:", err)
+	}
+
+	t.Logf("Rolling %d activators", len(activatorPods))
+	i := 0
+	for name, ip := range activatorPods {
+		t.Logf("Waiting for %s to scale to zero", namesScaleToZero.Revision)
+		if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resourcesScaleToZero.Revision), clients); err != nil {
+			t.Fatal("Failed to scale to zero:", err)
+		}
+
+		t.Logf("Deleting activator%d (%s)", i, name)
+		if err := clients.KubeClient.CoreV1().Pods(system.Namespace()).Delete(ctx, name, podDeleteOptions); err != nil {
+			t.Fatalf("Failed to delete pod %s: %v", name, err)
 		}
 
 		// Wait for the killed activator to disappear from the knative service's endpoints.
-		if err := waitForEndpointsState(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, readyEndpointsDoNotContain(activator.Status.PodIP)); err != nil {
+		if err := waitForEndpointsState(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, readyEndpointsDoNotContain(ip)); err != nil {
 			t.Fatal("Failed to wait for the service to update its endpoints:", err)
 		}
 		if gracePeriod != nil && *gracePeriod == 0 {
@@ -118,18 +130,20 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 		t.Log("Test if service still works")
 		assertServiceEventuallyWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1, test.ServingFlags.ResolvableDomain)
 
-		t.Logf("Wait for activator%d (%s) to vanish", i, activator.Name)
-		if err := pkgTest.WaitForPodDeleted(context.Background(), clients.KubeClient, activator.Name, system.Namespace()); err != nil {
-			t.Fatalf("Did not observe %s to actually be deleted: %v", activator.Name, err)
+		t.Logf("Wait for activator%d (%s) to vanish", i, name)
+		if err := pkgTest.WaitForPodDeleted(ctx, clients.KubeClient, name, system.Namespace()); err != nil {
+			t.Fatalf("Did not observe %s to actually be deleted: %v", name, err)
 		}
 		// Check for the endpoint to appear in the activator's endpoints, since this revision may pick a subset of those endpoints.
-		if err := pkgTest.WaitForServiceEndpoints(context.Background(), clients.KubeClient, networking.ActivatorServiceName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
+		t.Logf("Wait for a new activator to spin up")
+		if err := pkgTest.WaitForServiceEndpoints(ctx, clients.KubeClient, networking.ActivatorServiceName, system.Namespace(), desiredScale); err != nil {
 			t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
 		}
 		if gracePeriod != nil && *gracePeriod == 0 {
 			t.Log("Allow the network to notice the new endpoint")
 			time.Sleep(pkgnet.DefaultDrainTimeout)
 		}
+		i++
 	}
 }
 
@@ -141,4 +155,64 @@ func assertSLO(t *testing.T, p test.Prober, slo float64) {
 	if err := test.CheckSLO(slo, t.Name(), p); err != nil {
 		t.Error("CheckSLO failed:", err)
 	}
+}
+
+type podIPs map[string]string
+
+func gatherBackingActivators(ctx context.Context, client kubernetes.Interface, namespace string, revs ...string) (podIPs, error) {
+	pods := make(podIPs)
+
+	for _, rev := range revs {
+		endpoints := client.CoreV1().Endpoints(namespace)
+		e, err := endpoints.Get(ctx, rev, metav1.GetOptions{})
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to gather %s endpoints: %w", rev, err)
+		}
+
+		for _, subset := range e.Subsets {
+			for _, address := range subset.Addresses {
+				if address.TargetRef == nil {
+					return nil, fmt.Errorf("%s service is not pointing to a pod", rev)
+				}
+
+				name := address.TargetRef.Name
+				if !strings.HasPrefix(name, activatorDeploymentName) {
+					return nil, fmt.Errorf("%s service is not pointing to an activator pod but: %s", rev, address.TargetRef.Name)
+				}
+
+				pods[name] = address.IP
+			}
+		}
+	}
+
+	return pods, nil
+}
+
+func waitForActivatorScale(ctx context.Context, client kubernetes.Interface) (int, error) {
+	desiredScale := 0
+	check := func(d *appsv1.Deployment) (bool, error) {
+		if *d.Spec.Replicas < 2 {
+			return false, errors.New("spec.replicaCount should be > 1")
+		}
+		desiredScale = int(*d.Spec.Replicas)
+		for _, c := range d.Status.Conditions {
+			if c.Type == appsv1.DeploymentAvailable {
+				return c.Status == v1.ConditionTrue, nil
+			}
+		}
+		return false, nil
+	}
+
+	err := pkgTest.WaitForDeploymentState(
+		ctx,
+		client,
+		activatorDeploymentName,
+		check,
+		"ActivatorIsScaled",
+		system.Namespace(),
+		time.Minute,
+	)
+
+	return desiredScale, err
 }
