@@ -49,22 +49,24 @@ type Throttler interface {
 type activationHandler struct {
 	transport        http.RoundTripper
 	tracingTransport http.RoundTripper
+	usePassthroughLb bool
 	throttler        Throttler
 	bufferPool       httputil.BufferPool
 	logger           *zap.SugaredLogger
 }
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(_ context.Context, t Throttler, transport http.RoundTripper, logger *zap.SugaredLogger) http.Handler {
+func New(_ context.Context, t Throttler, transport http.RoundTripper, usePassthroughLb bool, logger *zap.SugaredLogger) http.Handler {
 	return &activationHandler{
 		transport: transport,
 		tracingTransport: &ochttp.Transport{
 			Base:        transport,
 			Propagation: tracecontextb3.TraceContextB3Egress,
 		},
-		throttler:  t,
-		bufferPool: network.NewBufferPool(),
-		logger:     logger,
+		usePassthroughLb: usePassthroughLb,
+		throttler:        t,
+		bufferPool:       network.NewBufferPool(),
+		logger:           logger,
 	}
 }
 
@@ -85,7 +87,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if tracingEnabled {
 			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "activator_proxy")
 		}
-		a.proxyRequest(revID, w, r.WithContext(proxyCtx), dest, tracingEnabled, config.Network.EnableMeshPodAddressability)
+		a.proxyRequest(revID, w, r.WithContext(proxyCtx), dest, tracingEnabled, a.usePassthroughLb)
 		proxySpan.End()
 
 		return nil

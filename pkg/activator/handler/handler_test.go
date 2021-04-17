@@ -25,7 +25,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 	"time"
 
@@ -124,7 +123,7 @@ func TestActivationHandler(t *testing.T) {
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
-			handler := New(ctx, test.throttler, rt, logging.FromContext(ctx))
+			handler := New(ctx, test.throttler, rt, false /*usePassthroughLb*/, logging.FromContext(ctx))
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -163,7 +162,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	handler := New(ctx, fakeThrottler{}, rt, logging.FromContext(ctx))
+	handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx))
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -196,7 +195,7 @@ func TestActivationHandlerPassthroughLb(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	handler := New(ctx, fakeThrottler{}, rt, logging.FromContext(ctx))
+	handler := New(ctx, fakeThrottler{}, rt, true /*usePassthroughLb*/, logging.FromContext(ctx))
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -204,7 +203,6 @@ func TestActivationHandlerPassthroughLb(t *testing.T) {
 	// Set up config store to populate context.
 	configStore := activatorconfig.NewStore(logging.FromContext(ctx))
 	configStore.OnConfigChanged(tracingConfig(false))
-	configStore.OnConfigChanged(networkConfig(true))
 	ctx = configStore.ToContext(req.Context())
 	ctx = WithRevisionAndID(ctx, nil, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 
@@ -278,7 +276,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				oct.Finish()
 			}()
 
-			handler := New(ctx, fakeThrottler{}, rt, logging.FromContext(ctx))
+			handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx))
 
 			// Set up config store to populate context.
 			configStore := setupConfigStore(t, logging.FromContext(ctx))
@@ -328,7 +326,6 @@ func revision(namespace, name string) *v1.Revision {
 func setupConfigStore(t testing.TB, logger *zap.SugaredLogger) *activatorconfig.Store {
 	configStore := activatorconfig.NewStore(logger)
 	configStore.OnConfigChanged(tracingConfig(false))
-	configStore.OnConfigChanged(networkConfig(false))
 	return configStore
 }
 
@@ -348,7 +345,7 @@ func BenchmarkHandler(b *testing.B) {
 			}, nil
 		})
 
-		handler := New(ctx, fakeThrottler{}, rt, logging.FromContext(ctx))
+		handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx))
 
 		request := func() *http.Request {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -416,15 +413,4 @@ func (rr *responseRecorder) Write(p []byte) (int, error) {
 
 func (rr *responseRecorder) WriteHeader(code int) {
 	rr.code = code
-}
-
-func networkConfig(meshAddressabilityEnabled bool) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: network.ConfigName,
-		},
-		Data: map[string]string{
-			network.EnableMeshPodAddressabilityKey: strconv.FormatBool(meshAddressabilityEnabled),
-		},
-	}
 }

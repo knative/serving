@@ -64,7 +64,6 @@ func TestTracingHandler(t *testing.T) {
 
 			configStore := activatorconfig.NewStore(logging.FromContext(ctx))
 			configStore.OnConfigChanged(cm)
-			configStore.OnConfigChanged(networkConfig(false))
 			ctx = configStore.ToContext(ctx)
 
 			reporter, co := tracetesting.FakeZipkinExporter()
