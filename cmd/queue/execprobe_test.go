@@ -21,7 +21,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
@@ -42,7 +41,7 @@ func TestProbeQueueInvalidPort(t *testing.T) {
 }
 
 func TestProbeQueueConnectionFailure(t *testing.T) {
-	if err := probeQueueHealthPath(1, 12345, http.DefaultTransport); err == nil {
+	if err := probeQueueHealthPath(1, "12345", http.DefaultTransport); err == nil {
 		t.Error("Expected error, got nil")
 	}
 }
@@ -107,7 +106,7 @@ func TestProbeQueueReady(t *testing.T) {
 	})
 
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
-	os.Setenv(queuePortEnvVar, strconv.Itoa(port))
+	os.Setenv(queuePortEnvVar, port)
 
 	if rv := standaloneProbeMain(0 /*use default*/, nil); rv != 0 {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
@@ -132,7 +131,7 @@ func TestProbeQueueTimeout(t *testing.T) {
 	})
 
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
-	os.Setenv(queuePortEnvVar, strconv.Itoa(port))
+	os.Setenv(queuePortEnvVar, port)
 
 	if rv := standaloneProbeMain(300*time.Millisecond, nil); rv == 0 {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
@@ -154,11 +153,11 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 	})
 
 	if err := probeQueueHealthPath(readiness.PollTimeout, port, http.DefaultTransport); err != nil {
-		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
+		t.Errorf("probeQueueHealthPath(%s) = %s", port, err)
 	}
 }
 
-func newProbeTestServer(t *testing.T, f func(w http.ResponseWriter, r *http.Request)) (port int) {
+func newProbeTestServer(t *testing.T, f func(w http.ResponseWriter, r *http.Request)) (port string) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get(network.UserAgentKey) == network.QueueProxyUserAgent {
 			f(w, r)
@@ -171,10 +170,5 @@ func newProbeTestServer(t *testing.T, f func(w http.ResponseWriter, r *http.Requ
 		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
 	}
 
-	port, err = strconv.Atoi(u.Port())
-	if err != nil {
-		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
-	}
-
-	return port
+	return u.Port()
 }

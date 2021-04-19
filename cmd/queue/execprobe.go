@@ -24,7 +24,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -65,17 +64,7 @@ const (
 // initial readiness result much faster than the effective upstream Kubernetes
 // minimum of 1 second.
 func standaloneProbeMain(timeout time.Duration, transport http.RoundTripper) (exitCode int) {
-	queueServingPort, err := strconv.ParseUint(os.Getenv(queuePortEnvVar), 10, 16 /*ports are 16 bit*/)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "parse queue port:", err)
-		return 1
-	}
-	if queueServingPort == 0 {
-		fmt.Fprintln(os.Stderr, "port must be a positive value, got 0")
-		return 1
-	}
-
-	if err := probeQueueHealthPath(timeout, int(queueServingPort), transport); err != nil {
+	if err := probeQueueHealthPath(timeout, os.Getenv(queuePortEnvVar), transport); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -83,9 +72,8 @@ func standaloneProbeMain(timeout time.Duration, transport http.RoundTripper) (ex
 	return 0
 }
 
-func probeQueueHealthPath(timeout time.Duration, queueServingPort int, transport http.RoundTripper) error {
-	url := healthURLPrefix + strconv.Itoa(queueServingPort)
-
+func probeQueueHealthPath(timeout time.Duration, queueServingPort string, transport http.RoundTripper) error {
+	url := healthURLPrefix + queueServingPort
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("probe failed: error creating request: %w", err)
