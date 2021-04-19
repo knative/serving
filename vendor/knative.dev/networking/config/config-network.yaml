@@ -22,6 +22,7 @@ metadata:
   annotations:
     knative.dev/example-checksum: "15954d34"
 data:
+  enable-mesh-pod-addressability: "true"
   _example: |
     ################################
     #                              #

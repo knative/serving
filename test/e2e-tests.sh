@@ -51,16 +51,6 @@ parallelism=""
 use_https=""
 if (( MESH )); then
   parallelism="-parallel 1"
-
-  echo "Configuring mesh pod addressability"
-  kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-network --type=merge \
-    --patch='{"data":{"enable-mesh-pod-addressability": "true"}}' || fail_test
-
-  echo "Restarting activator and autoscalers to make them pick up the new setting"
-  kubectl -n "${SYSTEM_NAMESPACE}" delete pods -lapp=activator --grace-period=0
-  kubectl -n "${SYSTEM_NAMESPACE}" delete pods -lapp=autoscaler --grace-period=0
-
-  kubectl -n "${SYSTEM_NAMESPACE}" wait deployment/activator deployment/autoscaler --for=condition=Available
 fi
 
 if (( HTTPS )); then
