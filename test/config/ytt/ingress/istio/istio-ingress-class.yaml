@@ -1,0 +1,6 @@
+#@ load("@ytt:overlay", "overlay")
+
+#@data/values
+---
+serving:
+  ingress_class: istio.ingress.networking.knative.dev
