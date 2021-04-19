@@ -90,6 +90,10 @@ ${GOPATH}/bin/deepcopy-gen \
   -i knative.dev/serving/pkg/deployment \
   -i knative.dev/serving/pkg/gc
 
+group "Generating API reference docs"
+
+${REPO_ROOT_DIR}/hack/update-reference-docs.sh
+
 group "Update deps post-codegen"
 
 # Make sure our dependencies are up-to-date

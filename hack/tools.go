@@ -26,6 +26,10 @@ import (
 	// codegen: hack/generate-knative.sh
 	_ "knative.dev/pkg/hack"
 
+	// API reference docs generation.
+	_ "github.com/ahmetb/gen-crd-api-reference-docs"
+	_ "github.com/ahmetb/gen-crd-api-reference-docs/template"
+
 	// Migration job.
 	_ "knative.dev/pkg/apiextensions/storageversion/cmd/migrate"
 
