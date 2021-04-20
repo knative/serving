@@ -15,27 +15,27 @@ package mapper
 
 import "fmt"
 
-type TimerType string
+type ObserverType string
 
 const (
-	TimerTypeHistogram TimerType = "histogram"
-	TimerTypeSummary   TimerType = "summary"
-	TimerTypeDefault   TimerType = ""
+	ObserverTypeHistogram ObserverType = "histogram"
+	ObserverTypeSummary   ObserverType = "summary"
+	ObserverTypeDefault   ObserverType = ""
 )
 
-func (t *TimerType) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (t *ObserverType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var v string
 	if err := unmarshal(&v); err != nil {
 		return err
 	}
 
-	switch TimerType(v) {
-	case TimerTypeHistogram:
-		*t = TimerTypeHistogram
-	case TimerTypeSummary, TimerTypeDefault:
-		*t = TimerTypeSummary
+	switch ObserverType(v) {
+	case ObserverTypeHistogram:
+		*t = ObserverTypeHistogram
+	case ObserverTypeSummary, ObserverTypeDefault:
+		*t = ObserverTypeSummary
 	default:
-		return fmt.Errorf("invalid timer type '%s'", v)
+		return fmt.Errorf("invalid observer type '%s'", v)
 	}
 	return nil
 }

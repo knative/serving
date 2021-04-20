@@ -212,8 +212,15 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	original, err := getter.Get(s.name)
 
 	if errors.IsNotFound(err) {
-		// The resource may no longer exist, in which case we stop processing.
+		// The resource may no longer exist, in which case we stop processing and call
+		// the ObserveDeletion handler if appropriate.
 		logger.Debugf("Resource %q no longer exists", key)
+		if del, ok := r.reconciler.(reconciler.OnDeletionInterface); ok {
+			return del.ObserveDeletion(ctx, types.NamespacedName{
+				Namespace: s.namespace,
+				Name:      s.name,
+			})
+		}
 		return nil
 	} else if err != nil {
 		return err

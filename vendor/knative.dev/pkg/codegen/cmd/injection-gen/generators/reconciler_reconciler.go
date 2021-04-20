@@ -111,6 +111,7 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 		"reconcilerReconcilerEvent":      c.Universe.Type(types.Name{Package: "knative.dev/pkg/reconciler", Name: "ReconcilerEvent"}),
 		"reconcilerRetryUpdateConflicts": c.Universe.Function(types.Name{Package: "knative.dev/pkg/reconciler", Name: "RetryUpdateConflicts"}),
 		"reconcilerConfigStore":          c.Universe.Type(types.Name{Name: "ConfigStore", Package: "knative.dev/pkg/reconciler"}),
+		"reconcilerOnDeletionInterface":  c.Universe.Type(types.Name{Package: "knative.dev/pkg/reconciler", Name: "OnDeletionInterface"}),
 		// Deps
 		"clientsetInterface": c.Universe.Type(types.Name{Name: "Interface", Package: g.clientsetPkg}),
 		"resourceLister":     c.Universe.Type(types.Name{Name: g.listerName, Package: g.listerPkg}),
@@ -410,8 +411,15 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 	original, err := getter.Get(s.name)
 
 	if {{.apierrsIsNotFound|raw}}(err) {
-		// The resource may no longer exist, in which case we stop processing.
+		// The resource may no longer exist, in which case we stop processing and call
+		// the ObserveDeletion handler if appropriate.
 		logger.Debugf("Resource %q no longer exists", key)
+		if del, ok := r.reconciler.({{.reconcilerOnDeletionInterface|raw}}); ok {
+			return del.ObserveDeletion(ctx, {{.typesNamespacedName|raw}}{
+				Namespace: s.namespace,
+				Name: s.name,
+			})
+		}
 		return nil
 	} else if err != nil {
 		return err
