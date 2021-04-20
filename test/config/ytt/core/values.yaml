@@ -20,3 +20,4 @@ serving:
     - autoscaler-hpa
     - autoscaler
     - domainmapping-webhook
+    - domain-mapping
