@@ -25,10 +25,13 @@ import (
 	certificateinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	domainclaiminformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/clusterdomainclaim"
 	ingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress"
+	pkgapisduck "knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/client/injection/ducks/duck/v1/addressable"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/resolver"
+	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/domainmapping"
 	kindreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
@@ -72,7 +75,15 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	certificateInformer.Informer().AddEventHandler(handleControllerOf)
 	ingressInformer.Informer().AddEventHandler(handleControllerOf)
 
-	r.resolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
+	dmTracker := tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
+	dmInformerFactory := &pkgapisduck.CachedInformerFactory{
+		Delegate: &pkgapisduck.EnqueueInformerFactory{
+			Delegate:     addressable.Get(ctx),
+			EventHandler: controller.HandleAll(dmTracker.OnChanged),
+		},
+	}
+
+	r.resolver = resolver.NewURIResolverWithControllerContext(ctx, dmInformerFactory, dmTracker)
 
 	return impl
 }

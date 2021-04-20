@@ -2,6 +2,8 @@ module knative.dev/serving
 
 go 1.15
 
+replace knative.dev/pkg => ../pkg
+
 require (
 	github.com/Azure/azure-sdk-for-go v50.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.17 // indirect
