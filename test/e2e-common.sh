@@ -311,6 +311,7 @@ metadata:
     serving.knative.dev/release: devel
 data:
   ingress.class: ${INGRESS_CLASS}
+  enable-mesh-pod-addressability: "true"
 EOF
 
   echo ">> Turning on profiling.enable"
