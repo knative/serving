@@ -29,7 +29,7 @@ CONTOUR_VERSION=""
 CERTIFICATE_CLASS=""
 export RUN_HTTP01_AUTO_TLS_TESTS=0
 # Only build linux/amd64 bit images
-KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
+export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
 
 HTTPS=0
 export ENABLE_HA=0
@@ -268,20 +268,9 @@ function ko_flags() {
 # All generated YAMLs will be available and pointed by the corresponding
 # environment variables as set in /hack/generate-yamls.sh.
 function build_knative_from_source() {
-  local FULL_OUTPUT YAML_LIST LOG_OUTPUT ENV_OUTPUT
-  YAML_LIST="$(mktemp)"
-
-  # Generate manifests, capture environment variables pointing to the YAML files.
-  FULL_OUTPUT="$( \
-      source "$(dirname "${BASH_SOURCE[0]}")/../hack/generate-yamls.sh" "${REPO_ROOT_DIR}" "${YAML_LIST}" ; \
-      set | grep _YAML=/)"
-  LOG_OUTPUT="$(echo "${FULL_OUTPUT}" | grep -v _YAML=/)"
-  ENV_OUTPUT="$(echo "${FULL_OUTPUT}" | grep '^[_0-9A-Z]\+_YAML=/')"
-  [[ -z "${LOG_OUTPUT}" || -z "${ENV_OUTPUT}" ]] && fail_test "Error generating manifests"
-  # Only import the environment variables pointing to the YAML files.
-  echo "${LOG_OUTPUT}"
-  echo -e "Generated manifests:\n${ENV_OUTPUT}"
-  eval "${ENV_OUTPUT}"
+  YAML_ENV_FILES="$(mktemp)"
+  "${REPO_ROOT_DIR}/hack/generate-yamls.sh" "${REPO_ROOT_DIR}" "$(mktemp)" "${YAML_ENV_FILES}" || fail_test "failed to build"
+  source "${YAML_ENV_FILES}"
 }
 
 # Installs Knative Serving in the current cluster.
