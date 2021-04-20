@@ -303,7 +303,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 					return nil
 				}
 
-				if !isMeshError(err) {
+				if !isPotentialMeshError(err) {
 					sawNonMeshError.Store(true)
 				}
 
