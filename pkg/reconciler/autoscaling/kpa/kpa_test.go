@@ -1305,7 +1305,6 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 	}
 
 	var eg errgroup.Group
-	eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
 	defer func() {
 		cancel()
 		wf()
@@ -1328,6 +1327,10 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(ctx, kpa, metav1.CreateOptions{})
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+
+	// Start controller after creating initial resources so it observes a steady state.
+	eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
 
 	select {
 	case <-time.After(5 * time.Second):
