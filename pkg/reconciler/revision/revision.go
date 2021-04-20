@@ -62,8 +62,11 @@ type Reconciler struct {
 	resolver resolver
 }
 
-// Check that our Reconciler implements revisionreconciler.Interface
-var _ revisionreconciler.Interface = (*Reconciler)(nil)
+// Check that our Reconciler implements the necessary interfaces.
+var (
+	_ revisionreconciler.Interface      = (*Reconciler)(nil)
+	_ pkgreconciler.OnDeletionInterface = (*Reconciler)(nil)
+)
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (bool, error) {
 	if rev.Status.ContainerStatuses == nil {
@@ -179,4 +182,10 @@ func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revis
 	rev.Status.LogURL = strings.ReplaceAll(
 		config.Observability.LoggingURLTemplate,
 		"${REVISION_UID}", string(rev.UID))
+}
+
+// ObserveDeletion implements OnDeletionInterface.ObserveDeletion.
+func (c *Reconciler) ObserveDeletion(ctx context.Context, key types.NamespacedName) error {
+	c.resolver.Clear(key)
+	return nil
 }

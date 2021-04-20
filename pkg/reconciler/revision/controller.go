@@ -32,8 +32,6 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
@@ -123,13 +121,6 @@ func newControllerWithOptions(
 	// Set up an event handler for when the resource types of interest change
 	logger.Info("Setting up event handlers")
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
-	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: func(obj interface{}) {
-			if om, ok := obj.(metav1.Object); ok {
-				resolver.Clear(types.NamespacedName{Namespace: om.GetNamespace(), Name: om.GetName()})
-			}
-		},
-	})
 
 	handleMatchingControllers := cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterController(&v1.Revision{}),
