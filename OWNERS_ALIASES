@@ -35,6 +35,7 @@ aliases:
   - jonatasbaldin
   - mpetason
   - omerbensaadon
+  - pmbanugo
   - snneji
   docs-wg-leads: []
   docs-writers:
@@ -86,6 +87,7 @@ aliases:
   - pmorie
   - rhuss
   - ronavn
+  - tcnghia
   - thisisnotapril
   - vaikas
   knative-milestone-maintainers:
@@ -115,8 +117,8 @@ aliases:
   - vaikas
   knative-release-leads:
   - RichieEscarez
-  - evankanderson
-  - markusthoemmes
+  - tcnghia
+  - vaikas
   knative-robots:
   - knative-prow-releaser-robot
   - knative-prow-robot
@@ -218,13 +220,13 @@ aliases:
   - whaught
   serving-writers:
   - dprotaso
+  - julz
   - markusthoemmes
   - tcnghia
   - vagababov
   source-wg-leads:
   - lionelvillard
   - n3wscott
-  - vaikas
   steering-committee:
   - bsnchan
   - mbehrendt
