@@ -484,3 +484,13 @@ func PortNumberForName(sub corev1.EndpointSubset, portName string) (int32, error
 	}
 	return 0, fmt.Errorf("no port for name %q found", portName)
 }
+
+// IsPotentialMeshErrorResponse returns whether the HTTP response is compatible
+// with having been caused by attempting direct connection when mesh was
+// enabled. For example if we get a HTTP 404 status code it's safe to assume
+// mesh is not enabled even if a probe was otherwise unsuccessful. This is
+// useful to avoid falling back to ClusterIP when we see errors which are
+// unrelated to mesh being enabled.
+func IsPotentialMeshErrorResponse(resp *http.Response) bool {
+	return resp.StatusCode == http.StatusServiceUnavailable
+}

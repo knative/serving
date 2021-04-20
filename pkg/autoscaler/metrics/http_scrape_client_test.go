@@ -82,7 +82,7 @@ func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 		expectedErr:  fmt.Sprintf("GET request for URL %q returned HTTP status 403", testURL),
 	}, {
 		name:            "503 return code",
-		responseCode:    meshErrorStatusCode,
+		responseCode:    http.StatusServiceUnavailable,
 		expectedErr:     fmt.Sprintf("GET request for URL %q returned HTTP status 503", testURL),
 		expectedMeshErr: true,
 	}, {
@@ -112,7 +112,7 @@ func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 			if !strings.Contains(err.Error(), test.expectedErr) {
 				t.Errorf("Error = %q, want to contain: %q", err.Error(), test.expectedErr)
 			}
-			if got := isMeshError(err); got != test.expectedMeshErr {
+			if got := isPotentialMeshError(err); got != test.expectedMeshErr {
 				t.Errorf("isMeshError(err) = %v, expected %v", got, test.expectedMeshErr)
 			}
 		})
