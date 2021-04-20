@@ -50,8 +50,8 @@ fi
 if (( HTTPS )); then
   use_https="--https"
   toggle_feature autoTLS Enabled config-network
-  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/
-  add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/
+  add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
 
 # Run conformance and e2e tests.
@@ -74,7 +74,7 @@ go_test_e2e -timeout=30m \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" || failed=1
 
 if (( HTTPS )); then
-  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
+  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
   toggle_feature autoTLS Disabled config-network
 fi
 

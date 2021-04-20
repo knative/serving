@@ -162,10 +162,11 @@ function parse_flags() {
 #   config-istio.yaml is to be applied _after_ we install net-istio.yaml since
 #   it includes profile specific configuration
 #
-# > test resources                > $E2E_YAML_DIR/test/config
+# > test/config/**.yaml           > $E2E_YAML_DIR/serving/test/config
 #
-#   Test resources @ test/config/resources will go through a `ko` build phase
-#   and put at the test-resources directory
+#   These resources will be passed through `ko` if there exists a `ko://`
+#   strict reference. Secondly namespace overlays will be applied to place
+#   them in the correct
 #
 function knative_setup() {
   local head_dir="${E2E_YAML_DIR}/serving/HEAD/install"
@@ -239,14 +240,46 @@ function knative_setup() {
     fi
   fi
 
-  header "Staging Test Resources"
-  mkdir -p "${E2E_YAML_DIR}/test/config"
-
-  ko resolve $(ko_flags) -f "${REPO_ROOT_DIR}/test/config/chaosduck.yaml" \
-    > "${E2E_YAML_DIR}/test/config/chaosduck.yaml" \
-    || fail_test "failed to build chaosduck"
+  stage_test_resources
 
   install_knative_serving
+}
+
+function stage_test_resources() {
+  header "Staging Test Resources"
+
+  local source_dir="${REPO_ROOT_DIR}/test/config"
+  local target_dir="${E2E_YAML_DIR}/test/config"
+
+  mkdir -p "${target_dir}"
+
+  for file in $(find -L "${source_dir}" -type f -name "*.yaml"); do
+    if [[ "${file}" == *"test/config/ytt"* ]]; then
+      continue
+    fi
+    target="${file/${source_dir}/$target_dir}"
+    mkdir -p $(dirname $target)
+
+    if grep -Fq "ko://" "${file}"; then
+      local ko_target=$(mktemp)
+      echo building "${file/$REPO_ROOT_DIR/}"
+      ko resolve $(ko_flags) -f "${file}" > "${ko_target}" || fail_test "failed to build test resource"
+      file="${ko_target}"
+    fi
+
+    echo templating "${file/$REPO_ROOT_DIR/}" to "${target}"
+    overlay_system_namespace "${file}" > "${target}" || fail_test "failed to template"
+  done
+}
+
+function overlay_system_namespace() {
+    run_go_tool github.com/k14s/ytt/cmd/ytt ytt \
+      --ignore-unknown-comments  \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml" \
+      -f "${1}" \
+      --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}"
 }
 
 function ko_flags() {
@@ -282,10 +315,12 @@ function install_knative_serving() {
   local version="${1:-"HEAD"}"
 
   YTT_FILES=(
-    # Istio - see cluster_setup for how the files are staged
-    "${E2E_YAML_DIR}/serving/${version}/install"
-    "${REPO_ROOT_DIR}/test/config/ytt/values.yaml"
     "${REPO_ROOT_DIR}/test/config/ytt/lib"
+    "${REPO_ROOT_DIR}/test/config/ytt/values.yaml"
+
+    # see cluster_setup for how the files are staged
+    "${E2E_YAML_DIR}/serving/${version}/install"
+    "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml"
     "${REPO_ROOT_DIR}/test/config/ytt/core"
   )
 
@@ -336,10 +371,11 @@ function install_knative_serving() {
   # Post install jobs configuration
   run_go_tool github.com/k14s/ytt/cmd/ytt \
     ytt --ignore-unknown-comments \
-      -f ${SERVING_POST_INSTALL_JOBS_YAML} \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/post-install" \
+      -f ${SERVING_POST_INSTALL_JOBS_YAML} \
     --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}" \
     > "${ytt_post_install_result}" \
     || fail_test "failed to create post-install jobs configuration"

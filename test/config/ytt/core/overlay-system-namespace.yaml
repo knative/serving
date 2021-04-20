@@ -6,8 +6,3 @@
 ---
 metadata:
   name: #@ serving_system_namespace()
-
-
-#@overlay/match by=overlay.all, expects="1+"
-#@overlay/replace via=rename_namespace("knative-serving", serving_system_namespace())
----
