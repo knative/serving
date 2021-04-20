@@ -5,7 +5,7 @@ cloud.google.com/go/monitoring/apiv3
 cloud.google.com/go/trace/apiv2
 # contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d
 contrib.go.opencensus.io/exporter/ocagent
-# contrib.go.opencensus.io/exporter/prometheus v0.2.1-0.20200609204449-6bcf6f8577f0
+# contrib.go.opencensus.io/exporter/prometheus v0.3.0
 contrib.go.opencensus.io/exporter/prometheus
 # contrib.go.opencensus.io/exporter/stackdriver v0.13.5
 contrib.go.opencensus.io/exporter/stackdriver
@@ -296,7 +296,7 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/prometheus/statsd_exporter v0.15.0
+# github.com/prometheus/statsd_exporter v0.20.0
 github.com/prometheus/statsd_exporter/pkg/mapper
 github.com/prometheus/statsd_exporter/pkg/mapper/fsm
 # github.com/sirupsen/logrus v1.7.0
@@ -366,8 +366,7 @@ go.uber.org/zap/internal/exit
 go.uber.org/zap/internal/ztest
 go.uber.org/zap/zapcore
 go.uber.org/zap/zaptest
-# golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
-## explicit
+# golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 golang.org/x/crypto/cast5
 golang.org/x/crypto/openpgp
 golang.org/x/crypto/openpgp/armor
@@ -378,14 +377,14 @@ golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pkcs12
 golang.org/x/crypto/pkcs12/internal/rc2
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/lint v0.0.0-20200302205851-738671d3881b
+# golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5
 golang.org/x/lint
 golang.org/x/lint/golint
 # golang.org/x/mod v0.4.1
 ## explicit
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
+# golang.org/x/net v0.0.0-20210415231046-e915ea6b2b7d
 ## explicit
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
@@ -396,7 +395,7 @@ golang.org/x/net/http2/hpack
 golang.org/x/net/idna
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace
-# golang.org/x/oauth2 v0.0.0-20210402161424-2e8d93401602
+# golang.org/x/oauth2 v0.0.0-20210413134643-5e61552d6c78
 ## explicit
 golang.org/x/oauth2
 golang.org/x/oauth2/google
@@ -419,17 +418,15 @@ golang.org/x/sys/windows/svc/eventlog
 # golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
 ## explicit
 golang.org/x/term
-# golang.org/x/text v0.3.5
+# golang.org/x/text v0.3.6
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# golang.org/x/time v0.0.0-20201208040808-7e3f01d25324
-## explicit
+# golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 golang.org/x/time/rate
 # golang.org/x/tools v0.1.0
-## explicit
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/gcexportdata
 golang.org/x/tools/go/internal/gcimporter
@@ -484,7 +481,7 @@ google.golang.org/appengine/internal/socket
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/socket
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20201214200347-8c77b98c765d
+# google.golang.org/genproto v0.0.0-20210416161957-9910b6c460de
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/distribution
@@ -498,7 +495,7 @@ google.golang.org/genproto/googleapis/monitoring/v3
 google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/googleapis/type/calendarperiod
 google.golang.org/genproto/protobuf/field_mask
-# google.golang.org/grpc v1.36.1
+# google.golang.org/grpc v1.37.0
 ## explicit
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -533,6 +530,7 @@ google.golang.org/grpc/internal/buffer
 google.golang.org/grpc/internal/channelz
 google.golang.org/grpc/internal/credentials
 google.golang.org/grpc/internal/envconfig
+google.golang.org/grpc/internal/googlecloud
 google.golang.org/grpc/internal/grpclog
 google.golang.org/grpc/internal/grpcrand
 google.golang.org/grpc/internal/grpcsync
@@ -995,7 +993,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20210413050859-bfe63795ede2
+# knative.dev/caching v0.0.0-20210419160001-a6535156c89c
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1020,7 +1018,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20210413045200-a64b4beb7ef7
+# knative.dev/networking v0.0.0-20210419052800-90f951c89e35
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1055,7 +1053,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20210416161310-b80a1926251c
+# knative.dev/pkg v0.0.0-20210419184201-942c621ec54d
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
