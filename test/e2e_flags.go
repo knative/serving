@@ -38,7 +38,6 @@ type ServingEnvironmentFlags struct {
 	HTTPS               bool   // Indicates where the test service will be created with https
 	IngressClass        string // Indicates the class of Ingress provider to test.
 	CertificateClass    string // Indicates the class of Certificate provider to test.
-	SystemNamespace     string // Indicates the system namespace, in which Knative Serving is installed.
 	Buckets             int    // The number of reconciler buckets configured.
 	Replicas            int    // The number of controlplane replicas being run.
 	EnableAlphaFeatures bool   // Indicates whether we run tests for alpha features
