@@ -284,6 +284,7 @@ function install_knative_serving() {
   YTT_FILES=(
     # Istio - see cluster_setup for how the files are staged
     "${E2E_YAML_DIR}/serving/${version}/install"
+    "${REPO_ROOT_DIR}/test/config/ytt/values.yaml"
     "${REPO_ROOT_DIR}/test/config/ytt/lib"
     "${REPO_ROOT_DIR}/test/config/ytt/core"
   )
@@ -315,6 +316,7 @@ function install_knative_serving() {
 
   local kapp_name="$(basename "${E2E_SCRIPT%.*}")"
   local ytt_result=$(mktemp)
+  local ytt_post_install_result=$(mktemp)
   local ytt_flags=""
 
   for file in "${YTT_FILES[@]}"; do
@@ -330,11 +332,29 @@ function install_knative_serving() {
     > "${ytt_result}" \
     || fail_test "failed to create deployment configuration"
 
+
+  # Post install jobs configuration
+  run_go_tool github.com/k14s/ytt/cmd/ytt \
+    ytt --ignore-unknown-comments \
+      -f ${SERVING_POST_INSTALL_JOBS_YAML} \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/post-install" \
+    --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}" \
+    > "${ytt_post_install_result}" \
+    || fail_test "failed to create post-install jobs configuration"
+
+
   echo "serving config at ${ytt_result}"
+  echo "serving post-install config at ${ytt_post_install_result}"
 
   run_go_tool github.com/k14s/kapp/cmd/kapp \
       kapp deploy --yes --app "${kapp_name}" --file "${ytt_result}" \
         || fail_test "failed to setup knative"
+
+  run_go_tool github.com/k14s/kapp/cmd/kapp \
+      kapp deploy --yes --app "${kapp_name}-post-install" --file "${ytt_post_install_result}" \
+        || fail_test "failed to run serving post-install"
 
   echo "waiting for Ingress provider to be running..."
   wait_until_ingress_running || return 1
@@ -357,6 +377,9 @@ function use_resolvable_domain() {
 # Uninstalls Knative Serving from the current cluster.
 function knative_teardown() {
   local kapp_name="$(basename "${E2E_SCRIPT%.*}")"
+  run_go_tool github.com/k14s/kapp/cmd/kapp \
+      kapp delete --yes --app "${kapp_name}-post-install"
+
   run_go_tool github.com/k14s/kapp/cmd/kapp \
       kapp delete --yes --app "${kapp_name}"
 }

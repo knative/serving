@@ -1,4 +1,11 @@
 # kapp doesn't handle generateName
+# workaround source: https://github.com/vmware-tanzu/carvel-kapp/issues/76
+#
+# steps:
+#   - set the resource's name (generateName + "0")
+#   - remove generateName
+#   - use kapp annotations nonce and update-strategy to delete/recreate
+#     jobs when re-applying
 #
 #@ load("@ytt:overlay", "overlay")
 
