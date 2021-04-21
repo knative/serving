@@ -24,106 +24,182 @@ metadata:
 spec:
   group: serving.knative.dev
   versions:
-  - name: v1
-    served: true
-    storage: true
-    subresources:
-      status: {}
-    schema:
-      openAPIV3Schema:
-        type: object
-        x-kubernetes-preserve-unknown-fields: true
-        properties:
-          spec:
-            type: object
-            x-kubernetes-preserve-unknown-fields: true
-            properties:
-              template:
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
-                description: |
-                  A template for the current desired application state.
-                  Changes to `template` will cause a new Revision to be created as
-                  defined in the lifecycle section. The contents of the Service's
-                  RevisionTemplateSpec is used to create a corresponding Configuration.
-              traffic:
-                x-kubernetes-preserve-unknown-fields: true
-                type: array
-                description: |
-                  Traffic specifies how to distribute traffic over a
-                  collection of Revisions belonging to the Service. If traffic is
-                  empty or not provided, defaults to 100% traffic to the latest
-                  `Ready` Revision. The contents of the Service's TrafficTarget is
-                  used to create a corresponding Route.
-                items:
+    - name: v1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          description: "Service acts as a top-level container that manages a Route and Configuration which implement a network service. Service exists to provide a singular abstraction which can be access controlled, reasoned about, and which encapsulates software lifecycle decisions such as rollout policy and team resource ownership. Service acts only as an orchestrator of the underlying Routes and Configurations (much as a kubernetes Deployment orchestrates ReplicaSets), and its usage is optional but recommended. \n The Service's controller will track the statuses of its owned Configuration and Route, reflecting their statuses and conditions as its own. \n See also: https://github.com/knative/serving/blob/main/docs/spec/overview.md#service"
+          type: object
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: ServiceSpec represents the configuration for the Service object. A Service's specification is the union of the specifications for a Route and Configuration.  The Service restricts what can be expressed in these fields, e.g. the Route must reference the provided Configuration; however, these limitations also enable friendlier defaulting, e.g. Route never needs a Configuration name, and may be defaulted to the appropriate "run latest" spec.
+              type: object
+              properties:
+                template:
+                  description: Template holds the latest specification for the Revision to be stamped out.
                   type: object
-                  x-kubernetes-preserve-unknown-fields: true
                   properties:
-                    revisionName:
+                    metadata:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    spec:
+                      description: RevisionSpec holds the desired state of the Revision (from the client). Inlines assorted fields from Kubernetes' PodSpec.
+                      type: object
+                      properties:
+                        containerConcurrency:
+                          description: ContainerConcurrency specifies the maximum allowed in-flight (concurrent) requests per container of the Revision.  Defaults to `0` which means concurrency to the application is not limited, and the system decides the target concurrency for the autoscaler.
+                          type: integer
+                          format: int64
+                        timeoutSeconds:
+                          description: TimeoutSeconds is the maximum duration in seconds that the request routing layer will wait for a request delivered to a container to begin replying (send network traffic). If unspecified, a system default will be provided.
+                          type: integer
+                          format: int64
+                      x-kubernetes-preserve-unknown-fields: true
+                traffic:
+                  description: Traffic specifies how to distribute traffic over a collection of revisions and configurations.
+                  type: array
+                  items:
+                    description: TrafficTarget holds a single entry of the routing table for a Route.
+                    type: object
+                    properties:
+                      configurationName:
+                        description: ConfigurationName of a configuration to whose latest revision we will send this portion of traffic. When the "status.latestReadyRevisionName" of the referenced configuration changes, we will automatically migrate traffic from the prior "latest ready" revision to the new one.  This field is never set in Route's status, only its spec.  This is mutually exclusive with RevisionName.
+                        type: string
+                      latestRevision:
+                        description: LatestRevision may be optionally provided to indicate that the latest ready Revision of the Configuration should be used for this traffic target.  When provided LatestRevision must be true if RevisionName is empty; it must be false when RevisionName is non-empty.
+                        type: boolean
+                      percent:
+                        description: 'Percent indicates that percentage based routing should be used and the value indicates the percent of traffic that is be routed to this Revision or Configuration. `0` (zero) mean no traffic, `100` means all traffic. When percentage based routing is being used the follow rules apply: - the sum of all percent values must equal 100 - when not specified, the implied value for `percent` is zero for   that particular Revision or Configuration'
+                        type: integer
+                        format: int64
+                      revisionName:
+                        description: RevisionName of a specific revision to which to send this portion of traffic.  This is mutually exclusive with ConfigurationName.
+                        type: string
+                      tag:
+                        description: Tag is optionally used to expose a dedicated url for referencing this target exclusively.
+                        type: string
+                      url:
+                        description: URL displays the URL for accessing named traffic targets. URL is displayed in status, and is disallowed on spec. URL must contain a scheme (e.g. http://) and a hostname, but may not contain anything else (e.g. basic auth, url path, etc.)
+                        type: string
+            status:
+              description: ServiceStatus represents the Status stanza of the Service resource.
+              type: object
+              properties:
+                address:
+                  description: Address holds the information needed for a Route to be the target of an event.
+                  type: object
+                  properties:
+                    url:
                       type: string
-                      description: |
-                        A specific revision to which to send this portion
-                        of traffic.
-                        This is mutually exclusive with configurationName.
-                    configurationName:
-                      type: string
-                      description: |
-                        ConfigurationName of a configuration to whose latest revision we will send
-                        this portion of traffic. When the "status.latestReadyRevisionName" of the
-                        referenced configuration changes, we will automatically migrate traffic
-                        from the prior "latest ready" revision to the new one.  This field is never
-                        set in Route's status, only its spec.
-                        This is mutually exclusive with RevisionName.
-                    latestRevision:
-                      type: boolean
-                      description: |
-                        `latestRevision` may be optionally provided to indicate
-                        that the latest ready Revision of the Configuration should be used
-                        for this traffic target. When provided latestRevision MUST be true
-                        if revisionName is empty, and it MUST be false when revisionName is non-empty.
-                    tag:
-                      type: string
-                      description: |
-                        Tag is optionally used to expose a dedicated URL for
-                        referencing this target exclusively. The dedicated URL MUST include
-                        in it the string provided by tag.
-                    percent:
-                      type: integer
-                      description: |
-                        The percentage of requests which should be allocated
-                        from the main Route domain name to the specified `revisionName` or
-                        `configurationName`.
-                        All `percent` values in `traffic` MUST sum to 100.
-                      minimum: 0
-                      maximum: 100
-          status:
-            type: object
-            x-kubernetes-preserve-unknown-fields: true
-    additionalPrinterColumns:
-    - name: URL
-      type: string
-      jsonPath: .status.url
-    - name: LatestCreated
-      type: string
-      jsonPath: .status.latestCreatedRevisionName
-    - name: LatestReady
-      type: string
-      jsonPath: .status.latestReadyRevisionName
-    - name: Ready
-      type: string
-      jsonPath: ".status.conditions[?(@.type=='Ready')].status"
-    - name: Reason
-      type: string
-      jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
+                annotations:
+                  description: Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.
+                  type: object
+                  additionalProperties:
+                    type: string
+                conditions:
+                  description: Conditions the latest available observations of a resource's current state.
+                  type: array
+                  items:
+                    description: 'Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties'
+                    type: object
+                    required:
+                      - status
+                      - type
+                    properties:
+                      lastTransitionTime:
+                        description: LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).
+                        type: string
+                        format: date-time
+                      message:
+                        description: A human readable message indicating details about the transition.
+                        type: string
+                      reason:
+                        description: The reason for the condition's last transition.
+                        type: string
+                      severity:
+                        description: Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.
+                        type: string
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
+                        type: string
+                      type:
+                        description: Type of condition.
+                        type: string
+                latestCreatedRevisionName:
+                  description: LatestCreatedRevisionName is the last revision that was created from this Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
+                  type: string
+                latestReadyRevisionName:
+                  description: LatestReadyRevisionName holds the name of the latest Revision stamped out from this Configuration that has had its "Ready" condition become "True".
+                  type: string
+                observedGeneration:
+                  description: ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.
+                  type: integer
+                  format: int64
+                traffic:
+                  description: Traffic holds the configured traffic distribution. These entries will always contain RevisionName references. When ConfigurationName appears in the spec, this will hold the LatestReadyRevisionName that we last observed.
+                  type: array
+                  items:
+                    description: TrafficTarget holds a single entry of the routing table for a Route.
+                    type: object
+                    properties:
+                      configurationName:
+                        description: ConfigurationName of a configuration to whose latest revision we will send this portion of traffic. When the "status.latestReadyRevisionName" of the referenced configuration changes, we will automatically migrate traffic from the prior "latest ready" revision to the new one.  This field is never set in Route's status, only its spec.  This is mutually exclusive with RevisionName.
+                        type: string
+                      latestRevision:
+                        description: LatestRevision may be optionally provided to indicate that the latest ready Revision of the Configuration should be used for this traffic target.  When provided LatestRevision must be true if RevisionName is empty; it must be false when RevisionName is non-empty.
+                        type: boolean
+                      percent:
+                        description: 'Percent indicates that percentage based routing should be used and the value indicates the percent of traffic that is be routed to this Revision or Configuration. `0` (zero) mean no traffic, `100` means all traffic. When percentage based routing is being used the follow rules apply: - the sum of all percent values must equal 100 - when not specified, the implied value for `percent` is zero for   that particular Revision or Configuration'
+                        type: integer
+                        format: int64
+                      revisionName:
+                        description: RevisionName of a specific revision to which to send this portion of traffic.  This is mutually exclusive with ConfigurationName.
+                        type: string
+                      tag:
+                        description: Tag is optionally used to expose a dedicated url for referencing this target exclusively.
+                        type: string
+                      url:
+                        description: URL displays the URL for accessing named traffic targets. URL is displayed in status, and is disallowed on spec. URL must contain a scheme (e.g. http://) and a hostname, but may not contain anything else (e.g. basic auth, url path, etc.)
+                        type: string
+                url:
+                  description: URL holds the url that will distribute traffic over the provided traffic targets. It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}
+                  type: string
+      additionalPrinterColumns:
+        - name: URL
+          type: string
+          jsonPath: .status.url
+        - name: LatestCreated
+          type: string
+          jsonPath: .status.latestCreatedRevisionName
+        - name: LatestReady
+          type: string
+          jsonPath: .status.latestReadyRevisionName
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
   names:
     kind: Service
     plural: services
     singular: service
     categories:
-    - all
-    - knative
-    - serving
+      - all
+      - knative
+      - serving
     shortNames:
-    - kservice
-    - ksvc
+      - kservice
+      - ksvc
   scope: Namespaced

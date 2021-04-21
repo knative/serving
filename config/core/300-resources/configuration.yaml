@@ -23,41 +23,118 @@ metadata:
 spec:
   group: serving.knative.dev
   versions:
-  - name: v1
-    served: true
-    storage: true
-    subresources:
-      status: {}
-    schema:
-      openAPIV3Schema:
-        type: object
-        # this is a work around so we don't need to flush out the
-        # schema for each version at this time
-        #
-        # see issue: https://github.com/knative/serving/issues/912
-        x-kubernetes-preserve-unknown-fields: true
-    additionalPrinterColumns:
-    - name: LatestCreated
-      type: string
-      jsonPath: .status.latestCreatedRevisionName
-    - name: LatestReady
-      type: string
-      jsonPath: .status.latestReadyRevisionName
-    - name: Ready
-      type: string
-      jsonPath: ".status.conditions[?(@.type=='Ready')].status"
-    - name: Reason
-      type: string
-      jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
+    - name: v1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          description: 'Configuration represents the "floating HEAD" of a linear history of Revisions. Users create new Revisions by updating the Configuration''s spec. The "latest created" revision''s name is available under status, as is the "latest ready" revision''s name. See also: https://github.com/knative/serving/blob/main/docs/spec/overview.md#configuration'
+          type: object
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: ConfigurationSpec holds the desired state of the Configuration (from the client).
+              type: object
+              properties:
+                template:
+                  description: Template holds the latest specification for the Revision to be stamped out.
+                  type: object
+                  properties:
+                    metadata:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    spec:
+                      description: RevisionSpec holds the desired state of the Revision (from the client). Inlines assorted fields from Kubernetes' PodSpec.
+                      type: object
+                      properties:
+                        containerConcurrency:
+                          description: ContainerConcurrency specifies the maximum allowed in-flight (concurrent) requests per container of the Revision.  Defaults to `0` which means concurrency to the application is not limited, and the system decides the target concurrency for the autoscaler.
+                          type: integer
+                          format: int64
+                        timeoutSeconds:
+                          description: TimeoutSeconds is the maximum duration in seconds that the request routing layer will wait for a request delivered to a container to begin replying (send network traffic). If unspecified, a system default will be provided.
+                          type: integer
+                          format: int64
+                      x-kubernetes-preserve-unknown-fields: true
+            status:
+              description: ConfigurationStatus communicates the observed state of the Configuration (from the controller).
+              type: object
+              properties:
+                annotations:
+                  description: Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.
+                  type: object
+                  additionalProperties:
+                    type: string
+                conditions:
+                  description: Conditions the latest available observations of a resource's current state.
+                  type: array
+                  items:
+                    description: 'Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties'
+                    type: object
+                    required:
+                      - status
+                      - type
+                    properties:
+                      lastTransitionTime:
+                        description: LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).
+                        type: string
+                        format: date-time
+                      message:
+                        description: A human readable message indicating details about the transition.
+                        type: string
+                      reason:
+                        description: The reason for the condition's last transition.
+                        type: string
+                      severity:
+                        description: Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.
+                        type: string
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
+                        type: string
+                      type:
+                        description: Type of condition.
+                        type: string
+                latestCreatedRevisionName:
+                  description: LatestCreatedRevisionName is the last revision that was created from this Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
+                  type: string
+                latestReadyRevisionName:
+                  description: LatestReadyRevisionName holds the name of the latest Revision stamped out from this Configuration that has had its "Ready" condition become "True".
+                  type: string
+                observedGeneration:
+                  description: ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.
+                  type: integer
+                  format: int64
+      additionalPrinterColumns:
+        - name: LatestCreated
+          type: string
+          jsonPath: .status.latestCreatedRevisionName
+        - name: LatestReady
+          type: string
+          jsonPath: .status.latestReadyRevisionName
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
   names:
     kind: Configuration
     plural: configurations
     singular: configuration
     categories:
-    - all
-    - knative
-    - serving
+      - all
+      - knative
+      - serving
     shortNames:
-    - config
-    - cfg
+      - config
+      - cfg
   scope: Namespaced

@@ -94,6 +94,18 @@ group "Generating API reference docs"
 
 ${REPO_ROOT_DIR}/hack/update-reference-docs.sh
 
+group "Generate CRD schemas"
+# TODO: Drop patched version once URL issue is fixed.
+# See: https://github.com/kubernetes-sigs/controller-tools/issues/552.
+run_go_tool github.com/markusthoemmes/controller-tools/cmd/controller-gen controller-gen \
+  schemapatch:manifests=config/core/300-resources \
+  output:dir=config/core/300-resources \
+  paths=./pkg/apis/...
+
+# Roll back changes to vendored (and linked) CRDs.
+# TODO: Drop this once we have setup schema generation everywhere.
+git checkout -- vendor/knative.dev/networking/config
+
 group "Update deps post-codegen"
 
 # Make sure our dependencies are up-to-date

@@ -64,6 +64,7 @@ var (
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
 // Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190
 type RevisionTemplateSpec struct {
+	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
@@ -72,7 +73,11 @@ type RevisionTemplateSpec struct {
 }
 
 // RevisionSpec holds the desired state of the Revision (from the client).
+// Inlines assorted fields from Kubernetes' PodSpec.
+//
+// +kubebuilder:pruning:PreserveUnknownFields
 type RevisionSpec struct {
+	// +kubebuilder:validation:Schemaless
 	corev1.PodSpec `json:",inline"`
 
 	// ContainerConcurrency specifies the maximum allowed in-flight (concurrent)
