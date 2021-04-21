@@ -22,40 +22,40 @@ metadata:
 spec:
   group: autoscaling.internal.knative.dev
   versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-    subresources:
-      status: {}
-    schema:
-      openAPIV3Schema:
-        type: object
-        # this is a work around so we don't need to flush out the
-        # schema for each version at this time
-        #
-        # see issue: https://github.com/knative/serving/issues/912
-        x-kubernetes-preserve-unknown-fields: true
-    additionalPrinterColumns:
-    - name: DesiredScale
-      type: integer
-      jsonPath: ".status.desiredScale"
-    - name: ActualScale
-      type: integer
-      jsonPath: ".status.actualScale"
-    - name: Ready
-      type: string
-      jsonPath: ".status.conditions[?(@.type=='Ready')].status"
-    - name: Reason
-      type: string
-      jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          # this is a work around so we don't need to flush out the
+          # schema for each version at this time
+          #
+          # see issue: https://github.com/knative/serving/issues/912
+          x-kubernetes-preserve-unknown-fields: true
+      additionalPrinterColumns:
+        - name: DesiredScale
+          type: integer
+          jsonPath: ".status.desiredScale"
+        - name: ActualScale
+          type: integer
+          jsonPath: ".status.actualScale"
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
   names:
     kind: PodAutoscaler
     plural: podautoscalers
     singular: podautoscaler
     categories:
-    - knative-internal
-    - autoscaling
+      - knative-internal
+      - autoscaling
     shortNames:
-    - kpa
-    - pa
+      - kpa
+      - pa
   scope: Namespaced

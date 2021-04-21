@@ -22,45 +22,45 @@ metadata:
 spec:
   group: networking.internal.knative.dev
   versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-    subresources:
-      status: {}
-    schema:
-      openAPIV3Schema:
-        type: object
-        # this is a work around so we don't need to flush out the
-        # schema for each version at this time
-        #
-        # see issue: https://github.com/knative/serving/issues/912
-        x-kubernetes-preserve-unknown-fields: true
-    additionalPrinterColumns:
-    - name: Mode
-      type: string
-      jsonPath: ".spec.mode"
-    - name: Activators
-      type: integer
-      jsonPath: ".spec.numActivators"
-    - name: ServiceName
-      type: string
-      jsonPath: ".status.serviceName"
-    - name: PrivateServiceName
-      type: string
-      jsonPath: ".status.privateServiceName"
-    - name: Ready
-      type: string
-      jsonPath: ".status.conditions[?(@.type=='Ready')].status"
-    - name: Reason
-      type: string
-      jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          # this is a work around so we don't need to flush out the
+          # schema for each version at this time
+          #
+          # see issue: https://github.com/knative/serving/issues/912
+          x-kubernetes-preserve-unknown-fields: true
+      additionalPrinterColumns:
+        - name: Mode
+          type: string
+          jsonPath: ".spec.mode"
+        - name: Activators
+          type: integer
+          jsonPath: ".spec.numActivators"
+        - name: ServiceName
+          type: string
+          jsonPath: ".status.serviceName"
+        - name: PrivateServiceName
+          type: string
+          jsonPath: ".status.privateServiceName"
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
   names:
     kind: ServerlessService
     plural: serverlessservices
     singular: serverlessservice
     categories:
-    - knative-internal
-    - networking
+      - knative-internal
+      - networking
     shortNames:
-    - sks
+      - sks
   scope: Namespaced
