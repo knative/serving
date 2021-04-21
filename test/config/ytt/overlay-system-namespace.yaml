@@ -1,5 +1,18 @@
 #@ load("@ytt:overlay", "overlay")
-#@ load("helpers.lib.yaml", "subset", "rename_namespace", "serving_system_namespace")
+#@ load("@ytt:yaml", "yaml")
+#@ load("helpers.lib.yaml", "serving_system_namespace")
+
+#! We do a global replace since the namespace could be used
+#! really deep in config map's data value - ie. kourier-bootstrap
+
+#@ def rename_namespace(old, new):
+#@   def replace(left, right):
+#@      yaml_left = yaml.encode(left)
+#@      yaml_left = yaml_left.replace(old, new)
+#@      return yaml.decode(yaml_left)
+#@   end
+#@   return replace
+#@ end
 
 #@overlay/match by=overlay.all, expects="0+"
 #@overlay/replace via=rename_namespace("knative-serving", serving_system_namespace())
