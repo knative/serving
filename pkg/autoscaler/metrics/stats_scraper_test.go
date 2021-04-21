@@ -194,9 +194,9 @@ func TestPodDirectScrapeSomeFailButSuccess(t *testing.T) {
 
 func TestPodDirectScrapeAllFailWithMeshError(t *testing.T) {
 	testStats := testStatsWithTime(4, youngPodCutOffDuration.Seconds() /*youngest*/)
-	meshErr := errorWithStatusCode{
-		error:      errors.New("just meshing with you"),
-		statusCode: 503,
+	meshErr := scrapeError{
+		error:       errors.New("just meshing with you"),
+		mightBeMesh: true,
 	}
 	direct := newTestScrapeClient(testStats, []error{
 		// Pods fail, and they're all potentially mesh-related errors.
@@ -236,13 +236,13 @@ func TestPodDirectScrapeAllFailWithMeshError(t *testing.T) {
 }
 
 func TestPodDirectScrapeSomeFailWithNonMeshError(t *testing.T) {
-	meshErr := errorWithStatusCode{
-		error:      errors.New("what a mesh"),
-		statusCode: 503,
+	meshErr := scrapeError{
+		error:       errors.New("what a mesh"),
+		mightBeMesh: true,
 	}
-	nonMeshErr := errorWithStatusCode{
-		error:      errors.New("cant mesh with this"),
-		statusCode: 404,
+	nonMeshErr := scrapeError{
+		error:       errors.New("cant mesh with this"),
+		mightBeMesh: false,
 	}
 
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)

@@ -19,15 +19,12 @@ package metric
 import (
 	"context"
 
-	"go.uber.org/zap"
-	"k8s.io/client-go/tools/cache"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 )
 
@@ -50,17 +47,6 @@ func NewController(
 
 	// Watch all the Metric objects.
 	metricInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
-
-	metricInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: func(obj interface{}) {
-			accessor, err := kmeta.DeletionHandlingAccessor(obj)
-			if err != nil {
-				logger.Errorw("Error accessing object", zap.Error(err))
-				return
-			}
-			c.collector.Delete(accessor.GetNamespace(), accessor.GetName())
-		},
-	})
 
 	collector.Watch(impl.EnqueueKey)
 

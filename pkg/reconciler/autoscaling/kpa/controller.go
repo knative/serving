@@ -19,7 +19,6 @@ package kpa
 import (
 	"context"
 
-	"go.uber.org/zap"
 	"k8s.io/client-go/tools/cache"
 
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
@@ -33,7 +32,6 @@ import (
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -93,18 +91,6 @@ func NewController(
 	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKPAClass,
 		Handler:    controller.HandleAll(impl.Enqueue),
-	})
-
-	// When we see PodAutoscalers deleted, clean up the decider.
-	paInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: func(obj interface{}) {
-			accessor, err := kmeta.DeletionHandlingAccessor(obj)
-			if err != nil {
-				logger.Errorw("Error accessing object", zap.Error(err))
-				return
-			}
-			deciders.Delete(ctx, accessor.GetNamespace(), accessor.GetName())
-		},
 	})
 
 	onlyPAControlled := controller.FilterController(&autoscalingv1alpha1.PodAutoscaler{})

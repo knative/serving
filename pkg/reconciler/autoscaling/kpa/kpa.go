@@ -41,6 +41,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -69,8 +70,11 @@ type Reconciler struct {
 	scaler     *scaler
 }
 
-// Check that our Reconciler implements pareconciler.Interface
-var _ pareconciler.Interface = (*Reconciler)(nil)
+// Check that our Reconciler implements the necessary interfaces.
+var (
+	_ pareconciler.Interface            = (*Reconciler)(nil)
+	_ pkgreconciler.OnDeletionInterface = (*Reconciler)(nil)
+)
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) pkgreconciler.Event {
@@ -165,6 +169,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
 	computeStatus(ctx, pa, pc, logger)
+	return nil
+}
+
+// ObserveDeletion implements OnDeletionInterface.ObserveDeletion.
+func (c *Reconciler) ObserveDeletion(ctx context.Context, key types.NamespacedName) error {
+	c.deciders.Delete(ctx, key.Namespace, key.Name)
 	return nil
 }
 

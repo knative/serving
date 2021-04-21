@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 
@@ -32,8 +33,11 @@ type reconciler struct {
 	collector metrics.Collector
 }
 
-// Check that our Reconciler implements metricreconciler.Interface
-var _ metricreconciler.Interface = (*reconciler)(nil)
+// Check that our Reconciler implements the necessary interfaces.
+var (
+	_ metricreconciler.Interface        = (*reconciler)(nil)
+	_ pkgreconciler.OnDeletionInterface = (*reconciler)(nil)
+)
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *reconciler) ReconcileKind(_ context.Context, metric *v1alpha1.Metric) pkgreconciler.Event {
@@ -53,5 +57,10 @@ func (r *reconciler) ReconcileKind(_ context.Context, metric *v1alpha1.Metric) p
 	}
 
 	metric.Status.MarkMetricReady()
+	return nil
+}
+
+func (r *reconciler) ObserveDeletion(ctx context.Context, key types.NamespacedName) error {
+	r.collector.Delete(key.Namespace, key.Name)
 	return nil
 }
