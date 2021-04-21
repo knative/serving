@@ -36,21 +36,22 @@ import (
 )
 
 type dmConfig struct {
-	// ServiceName is the name of testing Knative Service.
+	// TLSServiceName is the name of testing Knative Service.
 	// It is not required for self-signed CA or for the HTTP01 challenge when wildcard domain
 	// is mapped to the Ingress IP.
 	TLSServiceName string `envconfig:"tls_service_name" required:"false"`
-	// CustomDomainSuffix is the custom domain used for the domainMapping
+	// CustomDomainSuffix is the custom domain used for the domainMapping.
 	CustomDomainSuffix string `envconfig:"custom_domain_suffix" required:"false"`
 }
 
 func TestDomainMappingAutoTLS(t *testing.T) {
+	t.Parallel()
+
 	var env dmConfig
 	if err := envconfig.Process("", &env); err != nil {
-		t.Fatalf("Failed to process environment variable: %v.", err)
+		t.Fatalf("Failed to process environment variable: %v", err)
 	}
 
-	t.Parallel()
 	ctx := context.Background()
 
 	clients := e2e.SetupWithNamespace(t, test.TLSNamespace)
@@ -73,7 +74,7 @@ func TestDomainMappingAutoTLS(t *testing.T) {
 			service.Annotations = map[string]string{"networking.knative.dev/disableAutoTLS": "True"}
 		})
 	if err != nil {
-		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+		t.Fatalf("Failed to create initial Service %q: %v", names.Service, err)
 	}
 
 	// Using fixed hostnames can lead to conflicts when multiple tests run at
@@ -114,22 +115,19 @@ func TestDomainMappingAutoTLS(t *testing.T) {
 
 	// Wait for DomainMapping to go Ready.
 	if waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		state, err := clients.ServingAlphaClient.DomainMappings.Get(context.Background(), dm.Name, metav1.GetOptions{})
-		if err != nil {
-			return true, err
-		}
+		state, err := clients.ServingAlphaClient.DomainMappings.Get(ctx, dm.Name, metav1.GetOptions{})
 
 		// DomainMapping can go Ready if only http is available.
 		// Hence the checking for the URL scheme to make sure it is ready for https
 		dmTLSReady := state.IsReady() && state.Status.URL != nil && state.Status.URL.Scheme == "https"
 
-		return dmTLSReady, nil
+		return dmTLSReady, err
 	}); waitErr != nil {
-		t.Fatalf("The DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
+		t.Fatalf("The DomainMapping %q was not marked as Ready: %v", dm.Name, waitErr)
 	}
 
 	certName := dm.Name
 	rootCAs := createRootCAs(t, clients, svc.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, svc, rootCAs)
-	ingress.RuntimeRequest(context.Background(), t, httpsClient, "https://"+host)
+	ingress.RuntimeRequest(ctx, t, httpsClient, "https://"+host)
 }
