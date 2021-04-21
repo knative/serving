@@ -48,4 +48,7 @@ import (
 
 	// For load testing
 	_ "github.com/tsenart/vegeta/v12"
+
+	// CRD schema gen
+	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
 )

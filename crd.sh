@@ -1,0 +1,3 @@
+#!/bin/bash
+
+go run ./vendor/sigs.k8s.io/controller-tools/cmd/controller-gen schemapatch:manifests=config/core/300-resources output:dir=config/core/300-resources paths=./pkg/apis/serving/v1/...

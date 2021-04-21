@@ -41,10 +41,10 @@ require (
 	gonum.org/v1/netlib v0.0.0-20190331212654-76723241ea4e // indirect
 	google.golang.org/api v0.36.0
 	google.golang.org/grpc v1.37.0
-	k8s.io/api v0.19.7
-	k8s.io/apimachinery v0.19.7
-	k8s.io/client-go v0.19.7
-	k8s.io/code-generator v0.19.7
+	k8s.io/api v0.20.2
+	k8s.io/apimachinery v0.20.2
+	k8s.io/client-go v0.20.2
+	k8s.io/code-generator v0.20.2
 	k8s.io/gengo v0.0.0-20201214224949-b6c5ce23f027 // indirect
 	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009
@@ -52,5 +52,15 @@ require (
 	knative.dev/hack v0.0.0-20210325223819-b6ab329907d3
 	knative.dev/networking v0.0.0-20210420090235-12abdf29c5ad
 	knative.dev/pkg v0.0.0-20210420053235-1afd04993622
+	sigs.k8s.io/controller-tools v0.5.0
 	sigs.k8s.io/yaml v1.2.0
+)
+
+replace (
+	k8s.io/api => k8s.io/api v0.19.7
+	k8s.io/apimachinery => k8s.io/apimachinery v0.19.7
+	k8s.io/client-go => k8s.io/client-go v0.19.7
+	k8s.io/code-generator => k8s.io/code-generator v0.19.7
+
+	sigs.k8s.io/controller-tools => github.com/markusthoemmes/controller-tools v0.0.0-20210421111752-8cff787692c1
 )
