@@ -6,6 +6,7 @@ metadata:
     service: ambassador-admin
     app.kubernetes.io/managed-by: getambassador.io
   name: ambassador-admin
+  namespace: ambassador
 spec:
   type: NodePort
   ports:
@@ -49,6 +50,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: ambassador
+  namespace: ambassador
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
@@ -67,6 +69,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ambassador
+  namespace: ambassador
 spec:
   replicas: 3
   selector:
