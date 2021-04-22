@@ -19,33 +19,34 @@
 source "$(dirname "${BASH_SOURCE[0]}")/../vendor/knative.dev/hack/e2e-tests.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/e2e-networking-library.sh"
 
-CERT_MANAGER_VERSION="latest"
+export CERT_MANAGER_VERSION="latest"
 # Since default is istio, make default ingress as istio
-INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
-ISTIO_VERSION="stable"
-KOURIER_VERSION=""
-AMBASSADOR_VERSION=""
-CONTOUR_VERSION=""
-CERTIFICATE_CLASS=""
+export INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
+export ISTIO_VERSION="stable"
+export KOURIER_VERSION=""
+export AMBASSADOR_VERSION=""
+export CONTOUR_VERSION=""
+export CERTIFICATE_CLASS=""
 export RUN_HTTP01_AUTO_TLS_TESTS=0
 # Only build linux/amd64 bit images
 export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
 
-HTTPS=0
+export HTTPS=0
 export ENABLE_HA=0
 export MESH=0
 
 # List of custom YAMLs to install, if specified (space-separated).
-INSTALL_CUSTOM_YAMLS=""
-YTT_FILES=()
+export INSTALL_CUSTOM_YAMLS=""
+export INSTALL_SERVING_VERSION="HEAD"
+export YTT_FILES=()
 
-export TMP_DIR
-TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)}"
+export TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)}"
+
 readonly E2E_YAML_DIR="${TMP_DIR}/e2e-yaml"
 readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
+
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
-export SYSTEM_NAMESPACE
-SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
+export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
 
 # Keep this in sync with test/ha/ha.go
 readonly REPLICAS=3
@@ -72,6 +73,10 @@ function parse_flags() {
     --version)
       [[ $2 =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be 'v[0-9].[0-9].[0-9]'"
       LATEST_SERVING_RELEASE_VERSION=$2
+      return 2
+      ;;
+    --install-latest-release)
+      INSTALL_SERVING_VERSION="latest-release"
       return 2
       ;;
     --cert-manager-version)
@@ -172,10 +177,14 @@ function knative_setup() {
   local head_dir="${E2E_YAML_DIR}/serving/HEAD/install"
   local head_post_install_dir="${E2E_YAML_DIR}/serving/HEAD/post-install"
   local version="${LATEST_SERVING_RELEASE_VERSION}"
-  local is_upgrade_test=0
+  local need_latest_version=0
 
   if [[ "$(basename "${E2E_SCRIPT}")" == "*upgrade*" ]]; then
-    is_upgrade_test=1
+    need_latest_version=1
+  fi
+
+  if [[ "${INSTALL_SERVING_VERSION}" == "latest-release" ]]; then
+    need_latest_version=1
   fi
 
   mkdir -p "${head_dir}"
@@ -197,7 +206,7 @@ function knative_setup() {
   fi
 
   # Download resources we need for upgrade tests
-  if (( is_upgrade_test )); then
+  if (( need_latest_version)); then
     header "Staging Serving ${LATEST_SERVING_RELEASE_VERSION}"
     local latest_dir="${E2E_YAML_DIR}/serving/latest-release/install"
     local latest_post_install_dir="${E2E_YAML_DIR}/serving/latest-release/post-install"
@@ -229,7 +238,7 @@ function knative_setup() {
     download_net_istio_yamls "${REPO_ROOT_DIR}/third_party/istio-latest/net-istio.yaml" "${istio_head_dir}"
 
     # Download istio resources we need for upgrade tests
-    if (( is_upgrade_test )); then
+    if (( need_latest_version )); then
       header "Staging Istio YAML (${LATEST_NET_ISTIO_RELEASE_VERSION})"
       mkdir -p "${istio_latest_dir}"
       local istio_latest_dir="${E2E_YAML_DIR}/istio/latest-release/install"
@@ -242,7 +251,7 @@ function knative_setup() {
 
   stage_test_resources
 
-  install_knative_serving
+  install "${INSTALL_SERVING_VERSION}"
 }
 
 function stage_test_resources() {
@@ -308,24 +317,29 @@ function build_knative_from_source() {
 # Installs Knative Serving in the current cluster.
 # If no parameters are passed, installs the current source-based build, unless custom
 # YAML files were passed using the --custom-yamls flag.
-# Parameters: $1 - Knative Serving version "HEAD" or "latest-release". Default is "HEAD".
-function install_knative_serving() {
+# Parameters: $1 - serving version "HEAD" or "latest-release". Default is "HEAD".
+# Parameters: $2 - ingress version "HEAD" or "latest-release". Default is "HEAD".
+#
+# TODO - ingress version toggle only works for istio
+# TODO - allow latest-release for cert-manager
+function install() {
   header "Installing Knative Serving"
-  local version="${1:-"HEAD"}"
+  local serving_version="${1:-"HEAD"}"
+  local ingress_version="${2:-"HEAD"}"
 
   YTT_FILES=(
     "${REPO_ROOT_DIR}/test/config/ytt/lib"
     "${REPO_ROOT_DIR}/test/config/ytt/values.yaml"
 
     # see cluster_setup for how the files are staged
-    "${E2E_YAML_DIR}/serving/${version}/install"
+    "${E2E_YAML_DIR}/serving/${serving_version}/install"
     "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml"
     "${REPO_ROOT_DIR}/test/config/ytt/core"
   )
 
   if is_ingress_class istio; then
     # Istio - see cluster_setup for how the files are staged
-    YTT_FILES+=("${E2E_YAML_DIR}/istio/${version}/install")
+    YTT_FILES+=("${E2E_YAML_DIR}/istio/${ingress_version}/install")
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/istio")
   else
     # Everything else follows convention
@@ -368,11 +382,11 @@ function install_knative_serving() {
 
   # Post install jobs configuration
   run_ytt \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/post-install" \
-      -f ${SERVING_POST_INSTALL_JOBS_YAML} \
+    -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
+    -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
+    -f "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml" \
+    -f "${REPO_ROOT_DIR}/test/config/ytt/post-install" \
+    -f "${E2E_YAML_DIR}/serving/${serving_version}/post-install" \
     --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}" \
     > "${ytt_post_install_result}" \
     || fail_test "failed to create post-install jobs configuration"
@@ -489,7 +503,7 @@ function immediate_gc() {
 function install_latest_release() {
   header "Installing Knative latest public release"
 
-  install_knative_serving latest-release \
+  install "${INSTALL_VERSION}" \
       || fail_test "Knative latest release installation failed"
 }
 
@@ -497,7 +511,8 @@ function install_head_reuse_ingress() {
   header "Installing Knative head release and reusing ingress"
   # Keep the existing ingress and do not upgrade it. The ingress upgrade
   # makes ongoing requests fail.
-  REUSE_INGRESS=true install_knative_serving || fail_test "Knative head release installation failed"
+  install HEAD latest-release \
+    || fail_test "Knative head release installation failed"
 }
 
 function run_kapp() {
