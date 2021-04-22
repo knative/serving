@@ -2110,6 +2110,20 @@ Service.</p>
 Knative Routes, and by Kubernetes Services.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>tlsSecret</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TlsSecret indicates the existing or expected tls secret that should be used for certificate generation.</p>
+<p>If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
+a new secret with the expected name to be used by the certificate.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -2198,6 +2212,20 @@ and <code>{name}</code> and <code>{namespace}</code> are the name and namespace 
 Service.</p>
 <p>This contract is satisfied by Knative types such as Knative Services and
 Knative Routes, and by Kubernetes Services.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tlsSecret</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TlsSecret indicates the existing or expected tls secret that should be used for certificate generation.</p>
+<p>If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
+a new secret with the expected name to be used by the certificate.</p>
 </td>
 </tr>
 </tbody>

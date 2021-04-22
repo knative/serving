@@ -88,7 +88,7 @@ type DomainMappingSpec struct {
 	// If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
 	// a new secret with the expected name to be used by the certificate.
 	// +optional
-	TlsSecret string `json:"tlsSecret,omitempty"`
+	TLSSecret string `json:"tlsSecret,omitempty"`
 }
 
 // DomainMappingStatus describes the current state of the DomainMapping.
