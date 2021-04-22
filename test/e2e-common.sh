@@ -273,8 +273,7 @@ function stage_test_resources() {
 }
 
 function overlay_system_namespace() {
-    run_go_tool github.com/k14s/ytt/cmd/ytt ytt \
-      --ignore-unknown-comments  \
+  run_ytt \
       -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml" \
@@ -361,16 +360,14 @@ function install_knative_serving() {
 
   # use ytt to wrangle the yaml & kapp to apply the resources
   # to the cluster and wait
-  run_go_tool github.com/k14s/ytt/cmd/ytt \
-    ytt --ignore-unknown-comments ${ytt_flags} \
+  run_ytt ${ytt_flags} \
     --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}" \
     > "${ytt_result}" \
     || fail_test "failed to create deployment configuration"
 
 
   # Post install jobs configuration
-  run_go_tool github.com/k14s/ytt/cmd/ytt \
-    ytt --ignore-unknown-comments \
+  run_ytt \
       -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml" \
@@ -384,12 +381,10 @@ function install_knative_serving() {
   echo "serving config at ${ytt_result}"
   echo "serving post-install config at ${ytt_post_install_result}"
 
-  run_go_tool github.com/k14s/kapp/cmd/kapp \
-      kapp deploy --yes --app "${kapp_name}" --file "${ytt_result}" \
+  run_kapp deploy --yes --app "${kapp_name}" --file "${ytt_result}" \
         || fail_test "failed to setup knative"
 
-  run_go_tool github.com/k14s/kapp/cmd/kapp \
-      kapp deploy --yes --app "${kapp_name}-post-install" --file "${ytt_post_install_result}" \
+  run_kapp deploy --yes --app "${kapp_name}-post-install" --file "${ytt_post_install_result}" \
         || fail_test "failed to run serving post-install"
 
   echo "waiting for Ingress provider to be running..."
@@ -413,11 +408,9 @@ function use_resolvable_domain() {
 # Uninstalls Knative Serving from the current cluster.
 function knative_teardown() {
   local kapp_name="$(basename "${E2E_SCRIPT%.*}")"
-  run_go_tool github.com/k14s/kapp/cmd/kapp \
-      kapp delete --yes --app "${kapp_name}-post-install"
 
-  run_go_tool github.com/k14s/kapp/cmd/kapp \
-      kapp delete --yes --app "${kapp_name}"
+  run_kapp delete --yes --app "${kapp_name}-post-install"
+  run_kapp delete --yes --app "${kapp_name}"
 }
 
 # Create test resources and images
@@ -505,4 +498,16 @@ function install_head_reuse_ingress() {
   # Keep the existing ingress and do not upgrade it. The ingress upgrade
   # makes ongoing requests fail.
   REUSE_INGRESS=true install_knative_serving || fail_test "Knative head release installation failed"
+}
+
+function run_kapp() {
+  # TODO drop the sha when kapp releases a version with the
+  # following bug fix included
+  #
+  # https://github.com/vmware-tanzu/carvel-kapp/pull/213
+  run_go_tool github.com/k14s/kapp/cmd/kapp@d5b8c43b5678 kapp "$@"
+}
+
+function run_ytt() {
+  run_go_tool github.com/k14s/ytt/cmd/ytt ytt --ignore-unknown-comments "$@"
 }
