@@ -91,12 +91,12 @@ type DomainMappingSpec struct {
 	// Knative Routes, and by Kubernetes Services.
 	Ref duckv1.KReference `json:"ref"`
 
-	// TLS indicates the existing tls secret that should be used for this domain.
+	// TlsSecret indicates the existing or expected tls secret that should be used for certificate generation.
 	//
-	// If defined it will use the tls secret with the given name assumed to exist
-	// in the same namespace as the domainmapping.
+	// If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
+	// a new secret with the expected name to be used by the certificate.
 	// +optional
-	TLS *SecretTLS `json:"tls,omitempty"`
+	TlsSecret string `json:"tlsSecret,omitempty"`
 }
 
 // DomainMappingStatus describes the current state of the DomainMapping.

@@ -31,6 +31,10 @@ import (
 // from the caller.
 func MakeCertificate(dm *v1alpha1.DomainMapping, certClass string) *networkingv1alpha1.Certificate {
 	certName := kmeta.ChildName(dm.GetName(), "")
+	secretName := certName
+	if dm.Spec.TlsSecret != "" {
+		secretName = dm.Spec.TlsSecret
+	}
 	return routeresources.MakeCertificate(
-		dm, serving.DomainMappingLabelKey, dm.Name, certName, certClass)
+		dm, serving.DomainMappingLabelKey, dm.Name, certName, certClass, secretName)
 }

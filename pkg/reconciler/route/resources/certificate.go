@@ -35,7 +35,7 @@ import (
 // MakeCertificate creates a Certificate, inheriting the certClass
 // annotations from the owner, as well as the namespaces. If owner
 // does not have a certClass, use the provided `certClass` parameter.
-func MakeCertificate(owner kmeta.OwnerRefableAccessor, ownerLabelKey string, dnsName string, certName string, certClass string) *networkingv1alpha1.Certificate {
+func MakeCertificate(owner kmeta.OwnerRefableAccessor, ownerLabelKey string, dnsName string, certName string, certClass string, secretName string) *networkingv1alpha1.Certificate {
 	return &networkingv1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            certName,
@@ -52,7 +52,7 @@ func MakeCertificate(owner kmeta.OwnerRefableAccessor, ownerLabelKey string, dns
 		},
 		Spec: networkingv1alpha1.CertificateSpec{
 			DNSNames:   []string{dnsName},
-			SecretName: certName,
+			SecretName: secretName,
 		},
 	}
 }
@@ -81,7 +81,7 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 		if tag != "" {
 			certName += fmt.Sprint("-", adler32.Checksum([]byte(tag)))
 		}
-		certs = append(certs, MakeCertificate(route, serving.RouteLabelKey, dnsName, certName, certClass))
+		certs = append(certs, MakeCertificate(route, serving.RouteLabelKey, dnsName, certName, certClass, certName))
 	}
 	return certs
 }

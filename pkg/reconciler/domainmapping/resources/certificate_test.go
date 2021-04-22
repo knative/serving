@@ -68,6 +68,37 @@ func TestMakeCertificate(t *testing.T) {
 			},
 		},
 	}, {
+		name: "reference existing tls secret",
+		dm: v1alpha1.DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "mapping.com",
+				Namespace: "the-namespace",
+			},
+			Spec: v1alpha1.DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Namespace: "the-namespace",
+					Name:      "the-name",
+				},
+				TlsSecret: "existing-secret",
+			},
+		},
+		want: networkingv1alpha1.Certificate{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "mapping.com",
+				Namespace:   "the-namespace",
+				Annotations: map[string]string{"networking.knative.dev/certificate.class": certClass},
+				Labels: map[string]string{
+					serving.DomainMappingLabelKey: "mapping.com",
+				},
+			},
+			Spec: networkingv1alpha1.CertificateSpec{
+				DNSNames: []string{
+					"mapping.com",
+				},
+				SecretName: "existing-secret",
+			},
+		},
+	}, {
 		name: "filter last-applied",
 		dm: v1alpha1.DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
