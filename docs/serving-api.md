@@ -2112,18 +2112,16 @@ Knative Routes, and by Kubernetes Services.</p>
 </tr>
 <tr>
 <td>
-<code>tls</code><br/>
+<code>tlsSecret</code><br/>
 <em>
-<a href="#serving.knative.dev/v1alpha1.SecretTLS">
-SecretTLS
-</a>
+string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>TLS indicates the existing tls secret that should be used for this domain.</p>
-<p>If defined it will use the tls secret with the given name assumed to exist
-in the same namespace as the domainmapping.</p>
+<p>TlsSecret indicates the existing or expected tls secret that should be used for certificate generation.</p>
+<p>If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
+a new secret with the expected name to be used by the certificate.</p>
 </td>
 </tr>
 </table>
@@ -2218,18 +2216,16 @@ Knative Routes, and by Kubernetes Services.</p>
 </tr>
 <tr>
 <td>
-<code>tls</code><br/>
+<code>tlsSecret</code><br/>
 <em>
-<a href="#serving.knative.dev/v1alpha1.SecretTLS">
-SecretTLS
-</a>
+string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>TLS indicates the existing tls secret that should be used for this domain.</p>
-<p>If defined it will use the tls secret with the given name assumed to exist
-in the same namespace as the domainmapping.</p>
+<p>TlsSecret indicates the existing or expected tls secret that should be used for certificate generation.</p>
+<p>If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
+a new secret with the expected name to be used by the certificate.</p>
 </td>
 </tr>
 </tbody>
