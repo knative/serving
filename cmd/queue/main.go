@@ -57,6 +57,11 @@ import (
 const (
 	// reportingPeriod is the interval of time between reporting stats by queue proxy.
 	reportingPeriod = 1 * time.Second
+
+	// Duration the /wait-for-drain handler should wait before returning.
+	// This is to give networking a little bit more time to remove the pod
+	// from its configuration and propagate that to all loadbalancers and nodes.
+	drainSleepDuration = 30 * time.Second
 )
 
 var (
@@ -232,8 +237,8 @@ func main() {
 	case <-ctx.Done():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		healthState.Shutdown(func() {
-			logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", pkgnet.DefaultDrainTimeout)
-			time.Sleep(pkgnet.DefaultDrainTimeout)
+			logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
+			time.Sleep(drainSleepDuration)
 
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
