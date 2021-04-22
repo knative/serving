@@ -1258,12 +1258,12 @@ k8s.io/legacy-cloud-providers v0.19.7/go.mod h1:dsZk4gH9QIwAtHQ8CK0Ps257xlfgoXE3
 k8s.io/utils v0.0.0-20200729134348-d5654de09c73/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 h1:0T5IaWHO3sJTEmCP6mUlBvMukxPKUQWqiI/YuiBNMiQ=
 k8s.io/utils v0.0.0-20210111153108-fddb29f9d009/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
-knative.dev/caching v0.0.0-20210420052935-509f22e9be93 h1:vgbKC3T3KwOX3xRDGQaCsHb9kkEzx+Rr7wDSHVfDzuY=
-knative.dev/caching v0.0.0-20210420052935-509f22e9be93/go.mod h1:L+V3pKHowFo77L/mT2uMBLhENWAzA93KCjfTCQYNhyk=
+knative.dev/caching v0.0.0-20210421155737-c2674e6d844e h1:MrIgwpmToKg8QgfZC7fcqN2mnpuZTrXVEA1vFokPBQY=
+knative.dev/caching v0.0.0-20210421155737-c2674e6d844e/go.mod h1:L+V3pKHowFo77L/mT2uMBLhENWAzA93KCjfTCQYNhyk=
 knative.dev/hack v0.0.0-20210325223819-b6ab329907d3 h1:km0Rrh0T9/wA2pivQm1hqSPVwgNgGCHC2WNn3GakZmE=
 knative.dev/hack v0.0.0-20210325223819-b6ab329907d3/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
-knative.dev/networking v0.0.0-20210420090235-12abdf29c5ad h1:XEjk5qIxc988ljNenQJ1PoU/sBpH07jZTV1giDTRsSk=
-knative.dev/networking v0.0.0-20210420090235-12abdf29c5ad/go.mod h1:GxdSPXU+eI7L50G8Nn5GlARFw8GuN/cnXroi9b5ACYo=
+knative.dev/networking v0.0.0-20210420125836-57bee6625a8a h1:9T5OYBFpp/OQJhIaSBWaeMPVRoEMBZf84HKBUptlZbY=
+knative.dev/networking v0.0.0-20210420125836-57bee6625a8a/go.mod h1:GxdSPXU+eI7L50G8Nn5GlARFw8GuN/cnXroi9b5ACYo=
 knative.dev/pkg v0.0.0-20210419184201-942c621ec54d/go.mod h1:UtcSLHy2XIz5blWoPTA40F87zk4O7erxkCwv+7Tsmws=
 knative.dev/pkg v0.0.0-20210420053235-1afd04993622 h1:wSyDPp/LuOLeDCpvUHgKXqb4DfmCEPelsaYzC0Fojm0=
 knative.dev/pkg v0.0.0-20210420053235-1afd04993622/go.mod h1:UtcSLHy2XIz5blWoPTA40F87zk4O7erxkCwv+7Tsmws=

@@ -55,6 +55,21 @@ func (i *Image) IsReady() bool {
 }
 
 // GetStatus retrieves the status of the Image. Implements the KRShaped interface.
-func (t *Image) GetStatus() *duckv1.Status {
-	return &t.Status.Status
+func (i *Image) GetStatus() *duckv1.Status {
+	return &i.Status.Status
+}
+
+// MarkImageNotReady marks the "ImageConditionReady" condition to unknown.
+func (is *ImageStatus) MarkReadyUnknown() {
+	condSet.Manage(is).MarkUnknown(ImageConditionReady, "Uninitialized", "Waiting for Resource to be ready")
+}
+
+// MarkImageReady marks the "ImageConditionReady" condition to unknown.
+func (is *ImageStatus) MarkReadyTrue() {
+	condSet.Manage(is).MarkTrue(ImageConditionReady)
+}
+
+// MarkImageFailed marks the "ImageConditionReady" condition to false.
+func (is *ImageStatus) MarkReadyFalse(reason, message string) {
+	condSet.Manage(is).MarkFalse(ImageConditionReady, reason, message)
 }
