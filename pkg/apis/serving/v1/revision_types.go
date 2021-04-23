@@ -77,7 +77,6 @@ type RevisionTemplateSpec struct {
 //
 // +kubebuilder:pruning:PreserveUnknownFields
 type RevisionSpec struct {
-	// +kubebuilder:validation:Schemaless
 	corev1.PodSpec `json:",inline"`
 
 	// ContainerConcurrency specifies the maximum allowed in-flight (concurrent)
