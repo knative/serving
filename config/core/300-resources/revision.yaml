@@ -567,6 +567,12 @@ spec:
                               path:
                                 description: Path to access on the HTTP server.
                                 type: string
+                              port:
+                                description: Name or number of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
+                                anyOf:
+                                  - type: integer
+                                  - type: string
+                                x-kubernetes-int-or-string: true
                               scheme:
                                 description: Scheme to use for connecting to the host. Defaults to HTTP.
                                 type: string
@@ -589,6 +595,12 @@ spec:
                               host:
                                 description: 'Optional: Host name to connect to, defaults to the pod IP.'
                                 type: string
+                              port:
+                                description: Number or name of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
+                                anyOf:
+                                  - type: integer
+                                  - type: string
+                                x-kubernetes-int-or-string: true
                           timeoutSeconds:
                             description: 'Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                             type: integer
@@ -663,6 +675,12 @@ spec:
                               path:
                                 description: Path to access on the HTTP server.
                                 type: string
+                              port:
+                                description: Name or number of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
+                                anyOf:
+                                  - type: integer
+                                  - type: string
+                                x-kubernetes-int-or-string: true
                               scheme:
                                 description: Scheme to use for connecting to the host. Defaults to HTTP.
                                 type: string
@@ -685,6 +703,12 @@ spec:
                               host:
                                 description: 'Optional: Host name to connect to, defaults to the pod IP.'
                                 type: string
+                              port:
+                                description: Number or name of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
+                                anyOf:
+                                  - type: integer
+                                  - type: string
+                                x-kubernetes-int-or-string: true
                           timeoutSeconds:
                             description: 'Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                             type: integer
@@ -1021,7 +1045,6 @@ spec:
                           secretName:
                             description: 'Name of the secret in the pod''s namespace to use. More info: https://kubernetes.io/docs/concepts/storage/volumes#secret'
                             type: string
-              x-kubernetes-preserve-unknown-fields: true
             status:
               description: RevisionStatus communicates the observed state of the Revision (from the controller).
               type: object
