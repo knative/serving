@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/atomic"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 
@@ -32,28 +33,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/util/workqueue"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 var (
 	errDigest    = errors.New("digest error")
-	fakeRevision = &v1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "rev",
-			Namespace: "ns",
-		},
-		Spec: v1.RevisionSpec{
-			PodSpec: corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Name:  "first",
-					Image: "first-image",
-				}, {
-					Name:  "second",
-					Image: "second-image",
-				}},
-			},
-		},
-	}
+	fakeRevision = rev("rev", "first-image", "second-image")
 )
 
 func TestResolveInBackground(t *testing.T) {
@@ -149,7 +135,7 @@ func TestResolveInBackground(t *testing.T) {
 			}
 
 			logger := logtesting.TestLogger(t)
-			subject := newBackgroundResolver(logger, tt.resolver, cb)
+			subject := newBackgroundResolver(logger, tt.resolver, workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()), cb)
 
 			stop := make(chan struct{})
 			done := subject.Start(stop, 10)
@@ -193,8 +179,61 @@ func TestResolveInBackground(t *testing.T) {
 	}
 }
 
+func TestRateLimit(t *testing.T) {
+	logger := logtesting.TestLogger(t)
+
+	var resolves atomic.Int32
+	var resolver resolveFunc = func(ctx context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
+		resolves.Inc()
+		return "", errors.New("failed")
+	}
+
+	queue := workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 5*time.Second))
+	subject := newBackgroundResolver(logger, resolver, queue, func(types.NamespacedName) {})
+
+	stop := make(chan struct{})
+	done := subject.Start(stop, 1)
+
+	defer func() {
+		close(stop)
+		<-done
+	}()
+
+	for i := 0; i < 5; i++ {
+		name := fmt.Sprint("rev", i)
+		subject.Resolve(rev(name, name+"img1", name+"img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+	}
+
+	// Rate limit base rate in this test is 1 second, so this should give time for at most 1 resolve.
+	time.Sleep(500 * time.Millisecond)
+
+	if r := resolves.Load(); r > 1 {
+		t.Fatalf("Expected resolves to be rate limited, but was called %d times", r)
+	}
+}
+
 type resolveFunc func(context.Context, string, k8schain.Options, sets.String) (string, error)
 
 func (r resolveFunc) Resolve(c context.Context, s string, o k8schain.Options, t sets.String) (string, error) {
 	return r(c, s, o, t)
+}
+
+func rev(name, firstImage, secondImage string) *v1.Revision {
+	return &v1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "ns",
+		},
+		Spec: v1.RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name:  "first",
+					Image: firstImage,
+				}, {
+					Name:  "second",
+					Image: secondImage,
+				}},
+			},
+		},
+	}
 }

@@ -42,6 +42,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/reconciler/revision/config"
+	"k8s.io/client-go/util/workqueue"
 )
 
 // digestResolutionWorkers is the number of image digest resolutions that can
@@ -114,7 +115,8 @@ func newControllerWithOptions(
 		logger.Info("Fetch GitHub commit ID from kodata failed", zap.Error(err))
 	}
 
-	resolver := newBackgroundResolver(logger, &digestResolver{client: kubeclient.Get(ctx), transport: transport, userAgent: userAgent}, impl.EnqueueKey)
+	digestResolveQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "digests")
+	resolver := newBackgroundResolver(logger, &digestResolver{client: kubeclient.Get(ctx), transport: transport, userAgent: userAgent}, digestResolveQueue, impl.EnqueueKey)
 	resolver.Start(ctx.Done(), digestResolutionWorkers)
 	c.resolver = resolver
 
