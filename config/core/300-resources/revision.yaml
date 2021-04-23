@@ -499,6 +499,9 @@ spec:
                               description: The ConfigMap to select from
                               type: object
                               properties:
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                  type: string
                                 optional:
                                   description: Specify whether the ConfigMap must be defined
                                   type: boolean
@@ -509,6 +512,9 @@ spec:
                               description: The Secret to select from
                               type: object
                               properties:
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                  type: string
                                 optional:
                                   description: Specify whether the Secret must be defined
                                   type: boolean
@@ -522,10 +528,48 @@ spec:
                         description: 'Periodic probe of container liveness. Container will be restarted if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                         type: object
                         properties:
+                          exec:
+                            description: One and only one of the following should be specified. Exec specifies the action to take.
+                            type: object
+                            properties:
+                              command:
+                                description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                                type: array
+                                items:
+                                  type: string
                           failureThreshold:
                             description: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1.
                             type: integer
                             format: int32
+                          httpGet:
+                            description: HTTPGet specifies the http request to perform.
+                            type: object
+                            properties:
+                              host:
+                                description: Host name to connect to, defaults to the pod IP. You probably want to set "Host" in httpHeaders instead.
+                                type: string
+                              httpHeaders:
+                                description: Custom headers to set in the request. HTTP allows repeated headers.
+                                type: array
+                                items:
+                                  description: HTTPHeader describes a custom header to be used in HTTP probes
+                                  type: object
+                                  required:
+                                    - name
+                                    - value
+                                  properties:
+                                    name:
+                                      description: The header field name
+                                      type: string
+                                    value:
+                                      description: The header field value
+                                      type: string
+                              path:
+                                description: Path to access on the HTTP server.
+                                type: string
+                              scheme:
+                                description: Scheme to use for connecting to the host. Defaults to HTTP.
+                                type: string
                           initialDelaySeconds:
                             description: 'Number of seconds after the container has started before liveness probes are initiated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                             type: integer
@@ -538,6 +582,13 @@ spec:
                             description: Minimum consecutive successes for the probe to be considered successful after having failed. Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.
                             type: integer
                             format: int32
+                          tcpSocket:
+                            description: 'TCPSocket specifies an action involving a TCP port. TCP hooks not yet supported TODO: implement a realistic TCP lifecycle hook'
+                            type: object
+                            properties:
+                              host:
+                                description: 'Optional: Host name to connect to, defaults to the pod IP.'
+                                type: string
                           timeoutSeconds:
                             description: 'Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                             type: integer
@@ -573,10 +624,48 @@ spec:
                         description: 'Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                         type: object
                         properties:
+                          exec:
+                            description: One and only one of the following should be specified. Exec specifies the action to take.
+                            type: object
+                            properties:
+                              command:
+                                description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                                type: array
+                                items:
+                                  type: string
                           failureThreshold:
                             description: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1.
                             type: integer
                             format: int32
+                          httpGet:
+                            description: HTTPGet specifies the http request to perform.
+                            type: object
+                            properties:
+                              host:
+                                description: Host name to connect to, defaults to the pod IP. You probably want to set "Host" in httpHeaders instead.
+                                type: string
+                              httpHeaders:
+                                description: Custom headers to set in the request. HTTP allows repeated headers.
+                                type: array
+                                items:
+                                  description: HTTPHeader describes a custom header to be used in HTTP probes
+                                  type: object
+                                  required:
+                                    - name
+                                    - value
+                                  properties:
+                                    name:
+                                      description: The header field name
+                                      type: string
+                                    value:
+                                      description: The header field value
+                                      type: string
+                              path:
+                                description: Path to access on the HTTP server.
+                                type: string
+                              scheme:
+                                description: Scheme to use for connecting to the host. Defaults to HTTP.
+                                type: string
                           initialDelaySeconds:
                             description: 'Number of seconds after the container has started before liveness probes are initiated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                             type: integer
@@ -589,6 +678,13 @@ spec:
                             description: Minimum consecutive successes for the probe to be considered successful after having failed. Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.
                             type: integer
                             format: int32
+                          tcpSocket:
+                            description: 'TCPSocket specifies an action involving a TCP port. TCP hooks not yet supported TODO: implement a realistic TCP lifecycle hook'
+                            type: object
+                            properties:
+                              host:
+                                description: 'Optional: Host name to connect to, defaults to the pod IP.'
+                                type: string
                           timeoutSeconds:
                             description: 'Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                             type: integer
@@ -761,9 +857,170 @@ spec:
                     required:
                       - name
                     properties:
+                      configMap:
+                        description: ConfigMap represents a configMap that should populate this volume
+                        type: object
+                        properties:
+                          defaultMode:
+                            description: 'Optional: mode bits used to set permissions on created files by default. Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511. YAML accepts both octal and decimal values, JSON requires decimal values for mode bits. Defaults to 0644. Directories within the path are not affected by this setting. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.'
+                            type: integer
+                            format: int32
+                          items:
+                            description: If unspecified, each key-value pair in the Data field of the referenced ConfigMap will be projected into the volume as a file whose name is the key and content is the value. If specified, the listed keys will be projected into the specified paths, and unlisted keys will not be present. If a key is specified which is not present in the ConfigMap, the volume setup will error unless it is marked optional. Paths must be relative and may not contain the '..' path or start with '..'.
+                            type: array
+                            items:
+                              description: Maps a string key to a path within a volume.
+                              type: object
+                              required:
+                                - key
+                                - path
+                              properties:
+                                key:
+                                  description: The key to project.
+                                  type: string
+                                mode:
+                                  description: 'Optional: mode bits used to set permissions on this file. Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511. YAML accepts both octal and decimal values, JSON requires decimal values for mode bits. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.'
+                                  type: integer
+                                  format: int32
+                                path:
+                                  description: The relative path of the file to map the key to. May not be an absolute path. May not contain the path element '..'. May not start with the string '..'.
+                                  type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the ConfigMap or its keys must be defined
+                            type: boolean
                       name:
                         description: 'Volume''s name. Must be a DNS_LABEL and unique within the pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                         type: string
+                      projected:
+                        description: Items for all in one resources secrets, configmaps, and downward API
+                        type: object
+                        required:
+                          - sources
+                        properties:
+                          defaultMode:
+                            description: Mode bits used to set permissions on created files by default. Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511. YAML accepts both octal and decimal values, JSON requires decimal values for mode bits. Directories within the path are not affected by this setting. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.
+                            type: integer
+                            format: int32
+                          sources:
+                            description: list of volume projections
+                            type: array
+                            items:
+                              description: Projection that may be projected along with other supported volume types
+                              type: object
+                              properties:
+                                configMap:
+                                  description: information about the configMap data to project
+                                  type: object
+                                  properties:
+                                    items:
+                                      description: If unspecified, each key-value pair in the Data field of the referenced ConfigMap will be projected into the volume as a file whose name is the key and content is the value. If specified, the listed keys will be projected into the specified paths, and unlisted keys will not be present. If a key is specified which is not present in the ConfigMap, the volume setup will error unless it is marked optional. Paths must be relative and may not contain the '..' path or start with '..'.
+                                      type: array
+                                      items:
+                                        description: Maps a string key to a path within a volume.
+                                        type: object
+                                        required:
+                                          - key
+                                          - path
+                                        properties:
+                                          key:
+                                            description: The key to project.
+                                            type: string
+                                          mode:
+                                            description: 'Optional: mode bits used to set permissions on this file. Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511. YAML accepts both octal and decimal values, JSON requires decimal values for mode bits. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.'
+                                            type: integer
+                                            format: int32
+                                          path:
+                                            description: The relative path of the file to map the key to. May not be an absolute path. May not contain the path element '..'. May not start with the string '..'.
+                                            type: string
+                                    name:
+                                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                      type: string
+                                    optional:
+                                      description: Specify whether the ConfigMap or its keys must be defined
+                                      type: boolean
+                                secret:
+                                  description: information about the secret data to project
+                                  type: object
+                                  properties:
+                                    items:
+                                      description: If unspecified, each key-value pair in the Data field of the referenced Secret will be projected into the volume as a file whose name is the key and content is the value. If specified, the listed keys will be projected into the specified paths, and unlisted keys will not be present. If a key is specified which is not present in the Secret, the volume setup will error unless it is marked optional. Paths must be relative and may not contain the '..' path or start with '..'.
+                                      type: array
+                                      items:
+                                        description: Maps a string key to a path within a volume.
+                                        type: object
+                                        required:
+                                          - key
+                                          - path
+                                        properties:
+                                          key:
+                                            description: The key to project.
+                                            type: string
+                                          mode:
+                                            description: 'Optional: mode bits used to set permissions on this file. Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511. YAML accepts both octal and decimal values, JSON requires decimal values for mode bits. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.'
+                                            type: integer
+                                            format: int32
+                                          path:
+                                            description: The relative path of the file to map the key to. May not be an absolute path. May not contain the path element '..'. May not start with the string '..'.
+                                            type: string
+                                    name:
+                                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                      type: string
+                                    optional:
+                                      description: Specify whether the Secret or its key must be defined
+                                      type: boolean
+                                serviceAccountToken:
+                                  description: information about the serviceAccountToken data to project
+                                  type: object
+                                  required:
+                                    - path
+                                  properties:
+                                    audience:
+                                      description: Audience is the intended audience of the token. A recipient of a token must identify itself with an identifier specified in the audience of the token, and otherwise should reject the token. The audience defaults to the identifier of the apiserver.
+                                      type: string
+                                    expirationSeconds:
+                                      description: ExpirationSeconds is the requested duration of validity of the service account token. As the token approaches expiration, the kubelet volume plugin will proactively rotate the service account token. The kubelet will start trying to rotate the token if the token is older than 80 percent of its time to live or if the token is older than 24 hours.Defaults to 1 hour and must be at least 10 minutes.
+                                      type: integer
+                                      format: int64
+                                    path:
+                                      description: Path is the path relative to the mount point of the file to project the token into.
+                                      type: string
+                      secret:
+                        description: 'Secret represents a secret that should populate this volume. More info: https://kubernetes.io/docs/concepts/storage/volumes#secret'
+                        type: object
+                        properties:
+                          defaultMode:
+                            description: 'Optional: mode bits used to set permissions on created files by default. Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511. YAML accepts both octal and decimal values, JSON requires decimal values for mode bits. Defaults to 0644. Directories within the path are not affected by this setting. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.'
+                            type: integer
+                            format: int32
+                          items:
+                            description: If unspecified, each key-value pair in the Data field of the referenced Secret will be projected into the volume as a file whose name is the key and content is the value. If specified, the listed keys will be projected into the specified paths, and unlisted keys will not be present. If a key is specified which is not present in the Secret, the volume setup will error unless it is marked optional. Paths must be relative and may not contain the '..' path or start with '..'.
+                            type: array
+                            items:
+                              description: Maps a string key to a path within a volume.
+                              type: object
+                              required:
+                                - key
+                                - path
+                              properties:
+                                key:
+                                  description: The key to project.
+                                  type: string
+                                mode:
+                                  description: 'Optional: mode bits used to set permissions on this file. Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511. YAML accepts both octal and decimal values, JSON requires decimal values for mode bits. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.'
+                                  type: integer
+                                  format: int32
+                                path:
+                                  description: The relative path of the file to map the key to. May not be an absolute path. May not contain the path element '..'. May not start with the string '..'.
+                                  type: string
+                          optional:
+                            description: Specify whether the Secret or its keys must be defined
+                            type: boolean
+                          secretName:
+                            description: 'Name of the secret in the pod''s namespace to use. More info: https://kubernetes.io/docs/concepts/storage/volumes#secret'
+                            type: string
               x-kubernetes-preserve-unknown-fields: true
             status:
               description: RevisionStatus communicates the observed state of the Revision (from the controller).
