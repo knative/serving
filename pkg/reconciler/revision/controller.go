@@ -33,6 +33,7 @@ import (
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -42,7 +43,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/reconciler/revision/config"
-	"k8s.io/client-go/util/workqueue"
 )
 
 // digestResolutionWorkers is the number of image digest resolutions that can
