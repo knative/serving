@@ -597,15 +597,10 @@ spec:
                                       path:
                                         description: Path to access on the HTTP server.
                                         type: string
-                                      port:
-                                        description: Name or number of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        x-kubernetes-int-or-string: true
                                       scheme:
                                         description: Scheme to use for connecting to the host. Defaults to HTTP.
                                         type: string
+                                    x-kubernetes-preserve-unknown-fields: true
                                   initialDelaySeconds:
                                     description: 'Number of seconds after the container has started before liveness probes are initiated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                     type: integer
@@ -625,12 +620,7 @@ spec:
                                       host:
                                         description: 'Optional: Host name to connect to, defaults to the pod IP.'
                                         type: string
-                                      port:
-                                        description: Number or name of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        x-kubernetes-int-or-string: true
+                                    x-kubernetes-preserve-unknown-fields: true
                                   timeoutSeconds:
                                     description: 'Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                     type: integer
@@ -658,6 +648,7 @@ spec:
                                       description: Protocol for port. Must be UDP, TCP, or SCTP. Defaults to "TCP".
                                       type: string
                                       default: TCP
+                                  x-kubernetes-preserve-unknown-fields: true
                                 x-kubernetes-list-map-keys:
                                   - containerPort
                                   - protocol
@@ -705,15 +696,10 @@ spec:
                                       path:
                                         description: Path to access on the HTTP server.
                                         type: string
-                                      port:
-                                        description: Name or number of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        x-kubernetes-int-or-string: true
                                       scheme:
                                         description: Scheme to use for connecting to the host. Defaults to HTTP.
                                         type: string
+                                    x-kubernetes-preserve-unknown-fields: true
                                   initialDelaySeconds:
                                     description: 'Number of seconds after the container has started before liveness probes are initiated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                     type: integer
@@ -733,12 +719,7 @@ spec:
                                       host:
                                         description: 'Optional: Host name to connect to, defaults to the pod IP.'
                                         type: string
-                                      port:
-                                        description: Number or name of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        x-kubernetes-int-or-string: true
+                                    x-kubernetes-preserve-unknown-fields: true
                                   timeoutSeconds:
                                     description: 'Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                     type: integer
@@ -814,6 +795,7 @@ spec:
                               workingDir:
                                 description: Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.
                                 type: string
+                            x-kubernetes-preserve-unknown-fields: true
                         enableServiceLinks:
                           description: 'EnableServiceLinks indicates whether information about services should be injected into pod''s environment variables, matching the syntax of Docker links. Optional: Defaults to true.'
                           type: boolean
@@ -1075,6 +1057,7 @@ spec:
                                   secretName:
                                     description: 'Name of the secret in the pod''s namespace to use. More info: https://kubernetes.io/docs/concepts/storage/volumes#secret'
                                     type: string
+                      x-kubernetes-preserve-unknown-fields: true
                 traffic:
                   description: Traffic specifies how to distribute traffic over a collection of revisions and configurations.
                   type: array
