@@ -2112,14 +2112,16 @@ Knative Routes, and by Kubernetes Services.</p>
 </tr>
 <tr>
 <td>
-<code>tlsSecret</code><br/>
+<code>tls</code><br/>
 <em>
-string
+<a href="#serving.knative.dev/v1alpha1.SecretTLS">
+SecretTLS
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>TlsSecret indicates the existing or expected tls secret that should be used for certificate generation.</p>
+<p>TLS indicates the existing or expected tls secret that should be used for certificate generation.</p>
 <p>If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
 a new secret with the expected name to be used by the certificate.</p>
 </td>
@@ -2216,14 +2218,16 @@ Knative Routes, and by Kubernetes Services.</p>
 </tr>
 <tr>
 <td>
-<code>tlsSecret</code><br/>
+<code>tls</code><br/>
 <em>
-string
+<a href="#serving.knative.dev/v1alpha1.SecretTLS">
+SecretTLS
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>TlsSecret indicates the existing or expected tls secret that should be used for certificate generation.</p>
+<p>TLS indicates the existing or expected tls secret that should be used for certificate generation.</p>
 <p>If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
 a new secret with the expected name to be used by the certificate.</p>
 </td>

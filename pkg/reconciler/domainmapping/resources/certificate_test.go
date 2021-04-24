@@ -79,7 +79,9 @@ func TestMakeCertificate(t *testing.T) {
 					Namespace: "the-namespace",
 					Name:      "the-name",
 				},
-				TLSSecret: "existing-secret",
+				TLS: &v1alpha1.SecretTLS{
+					SecretName: "existing-secret",
+				},
 			},
 		},
 		want: networkingv1alpha1.Certificate{
