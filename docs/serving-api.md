@@ -2112,14 +2112,16 @@ Knative Routes, and by Kubernetes Services.</p>
 </tr>
 <tr>
 <td>
-<code>tlsSecret</code><br/>
+<code>tls</code><br/>
 <em>
-string
+<a href="#serving.knative.dev/v1alpha1.SecretTLS">
+SecretTLS
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>TlsSecret indicates the existing or expected tls secret that should be used for certificate generation.</p>
+<p>TLS indicates the existing or expected tls secret that should be used for certificate generation.</p>
 <p>If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
 a new secret with the expected name to be used by the certificate.</p>
 </td>
@@ -2216,14 +2218,16 @@ Knative Routes, and by Kubernetes Services.</p>
 </tr>
 <tr>
 <td>
-<code>tlsSecret</code><br/>
+<code>tls</code><br/>
 <em>
-string
+<a href="#serving.knative.dev/v1alpha1.SecretTLS">
+SecretTLS
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>TlsSecret indicates the existing or expected tls secret that should be used for certificate generation.</p>
+<p>TLS indicates the existing or expected tls secret that should be used for certificate generation.</p>
 <p>If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
 a new secret with the expected name to be used by the certificate.</p>
 </td>
@@ -2287,6 +2291,36 @@ knative.dev/pkg/apis/duck/v1.Addressable
 <td>
 <em>(Optional)</em>
 <p>Address holds the information needed for a DomainMapping to be the target of an event.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.knative.dev/v1alpha1.SecretTLS">SecretTLS
+</h3>
+<p>
+(<em>Appears on:</em><a href="#serving.knative.dev/v1alpha1.DomainMappingSpec">DomainMappingSpec</a>)
+</p>
+<p>
+<p>SecretTLS wrapper for TLS SecretName.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>secretName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>SecretName is the name of a TLS secret.</p>
+<p>Either a existing secret in the cluster or the new secret to be created.</p>
 </td>
 </tr>
 </tbody>
