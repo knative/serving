@@ -27,13 +27,15 @@ export KOURIER_VERSION=""
 export AMBASSADOR_VERSION=""
 export CONTOUR_VERSION=""
 export CERTIFICATE_CLASS=""
-export RUN_HTTP01_AUTO_TLS_TESTS=0
 # Only build linux/amd64 bit images
 export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
 
+export RUN_HTTP01_AUTO_TLS_TESTS=0
 export HTTPS=0
 export ENABLE_HA=0
 export MESH=0
+export KIND=0
+export CLUSTER_DOMAIN=cluster.local
 
 # List of custom YAMLs to install, if specified (space-separated).
 export INSTALL_CUSTOM_YAMLS=""
@@ -101,9 +103,18 @@ function parse_flags() {
       readonly ENABLE_HA=1
       return 1
       ;;
+    --kind)
+      readonly KIND=1
+      return 1
+      ;;
     --https)
       readonly HTTPS=1
       return 1
+      ;;
+    --cluster-domain)
+      [[ -z "$2" ]] && fail_test "Missing argument to --cluster-domain"
+      readonly CLUSTER_DOMAIN="$2"
+      return 2
       ;;
     --custom-yamls)
       [[ -z "$2" ]] && fail_test "Missing argument to --custom-yamls"
@@ -174,9 +185,6 @@ function parse_flags() {
 #   them in the correct
 #
 function knative_setup() {
-  local head_dir="${E2E_YAML_DIR}/serving/HEAD/install"
-  local head_post_install_dir="${E2E_YAML_DIR}/serving/HEAD/post-install"
-  local version="${LATEST_SERVING_RELEASE_VERSION}"
   local need_latest_version=0
 
   if [[ "$(basename "${E2E_SCRIPT}")" == "*upgrade*" ]]; then
@@ -187,131 +195,30 @@ function knative_setup() {
     need_latest_version=1
   fi
 
-  mkdir -p "${head_dir}"
-  mkdir -p "${head_post_install_dir}"
-
   if [[ -z "${INSTALL_CUSTOM_YAMLS}" ]]; then
-    header "Building Serving HEAD"
-    build_knative_from_source
-
-    cp "${SERVING_CORE_YAML}" "${head_dir}"
-    cp "${SERVING_DOMAINMAPPING_YAML}" "${head_dir}"
-    cp "${SERVING_HPA_YAML}" "${head_dir}"
-    cp "${SERVING_POST_INSTALL_JOBS_YAML}" "${head_post_install_dir}"
+    stage_serving_head
   else
-    header "Staging Custom Install YAMLs"
-    for yaml in ${INSTALL_CUSTOM_YAMLS}; do
-      cp "${yaml}" "${head_dir}"
-    done
+    stage_serving_custom
   fi
 
   # Download resources we need for upgrade tests
   if (( need_latest_version )); then
-    header "Staging Serving ${LATEST_SERVING_RELEASE_VERSION}"
-    local latest_dir="${E2E_YAML_DIR}/serving/latest-release/install"
-    local latest_post_install_dir="${E2E_YAML_DIR}/serving/latest-release/post-install"
-
-    mkdir -p "${latest_dir}"
-    mkdir -p "${latest_post_install_dir}"
-
-    # Download the latest release of Knative Serving.
-    local url="https://github.com/knative/serving/releases/download/${version}"
-
-    wget "${url}/serving-core.yaml" -P "${latest_dir}" \
-      || fail_test "Unable to download latest knative/serving core file."
-
-    wget "${url}/serving-domainmapping.yaml" -P "${latest_dir}" \
-      || fail_test "Unable to download latest knative/serving domain mapping file."
-
-    wget "${url}/serving-hpa.yaml" -P "${latest_dir}" \
-      || fail_test "Unable to download latest knative/serving hpa file."
-
-    wget "${url}/serving-post-install-jobs.yaml" -P "${latest_post_install_dir}" \
-      || fail_test "Unable to download latest knative/serving post install file."
+    stage_serving_latest
   fi
 
   # Download Istio YAMLs
   if is_ingress_class istio; then
-    header "Staging Istio YAML (HEAD)"
-    local istio_head_dir="${E2E_YAML_DIR}/istio/HEAD/install"
-    mkdir -p "${istio_head_dir}"
-    download_net_istio_yamls "${REPO_ROOT_DIR}/third_party/istio-latest/net-istio.yaml" "${istio_head_dir}"
+    stage_istio_head
 
     # Download istio resources we need for upgrade tests
     if (( need_latest_version )); then
-      header "Staging Istio YAML (${LATEST_NET_ISTIO_RELEASE_VERSION})"
-      local istio_latest_dir="${E2E_YAML_DIR}/istio/latest-release/install"
-      mkdir -p "${istio_latest_dir}"
-
-      download_net_istio_yamls \
-        "https://github.com/knative-sandbox/net-istio/releases/download/${LATEST_NET_ISTIO_RELEASE_VERSION}/net-istio.yaml" \
-        "${istio_latest_dir}"
+      stage_istio_latest
     fi
   fi
 
   stage_test_resources
 
   install "${INSTALL_SERVING_VERSION}"
-}
-
-function stage_test_resources() {
-  header "Staging Test Resources"
-
-  local source_dir="${REPO_ROOT_DIR}/test/config"
-  local target_dir="${E2E_YAML_DIR}/test/config"
-
-  mkdir -p "${target_dir}"
-
-  for file in $(find -L "${source_dir}" -type f -name "*.yaml"); do
-    if [[ "${file}" == *"test/config/ytt"* ]]; then
-      continue
-    fi
-    target="${file/${source_dir}/$target_dir}"
-    mkdir -p $(dirname $target)
-
-    if grep -Fq "ko://" "${file}"; then
-      local ko_target=$(mktemp)
-      echo building "${file/$REPO_ROOT_DIR/}"
-      ko resolve $(ko_flags) -f "${file}" > "${ko_target}" || fail_test "failed to build test resource"
-      file="${ko_target}"
-    fi
-
-    echo templating "${file/$REPO_ROOT_DIR/}" to "${target}"
-    overlay_system_namespace "${file}" > "${target}" || fail_test "failed to template"
-  done
-}
-
-function overlay_system_namespace() {
-  run_ytt \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml" \
-      -f "${1}" \
-      --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}"
-}
-
-function ko_flags() {
-  local KO_YAML_FLAGS="-P"
-  local KO_FLAGS="${KO_FLAGS:-}"
-
-  [[ "${KO_DOCKER_REPO}" != gcr.io/* ]] && KO_YAML_FLAGS=""
-
-  if [[ "${KO_FLAGS}" != *"--platform"* ]]; then
-    KO_YAML_FLAGS="${KO_YAML_FLAGS} --platform=all"
-  fi
-
-  echo "${KO_YAML_FLAGS} ${KO_FLAGS}"
-}
-
-
-# Create all manifests required to install Knative Serving.
-# This will build everything from the current source.
-# All generated YAMLs will be available and pointed by the corresponding
-# environment variables as set in /hack/generate-yamls.sh.
-function build_knative_from_source() {
-  YAML_ENV_FILES="$(mktemp)"
-  "${REPO_ROOT_DIR}/hack/generate-yamls.sh" "${REPO_ROOT_DIR}" "$(mktemp)" "${YAML_ENV_FILES}" || fail_test "failed to build"
-  source "${YAML_ENV_FILES}"
 }
 
 # Installs Knative Serving in the current cluster.
@@ -324,6 +231,8 @@ function build_knative_from_source() {
 # TODO - allow latest-release for cert-manager
 function install() {
   header "Installing Knative Serving"
+
+  local ingress=${INGRESS_CLASS%%.*}
   local serving_version="${1:-"HEAD"}"
   local ingress_version="${2:-"HEAD"}"
 
@@ -345,7 +254,6 @@ function install() {
     # Everything else follows convention
 
     # Drops the ingress.networking.knative.dev suffix
-    local ingress=${INGRESS_CLASS%%.*}
     YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest")
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/${ingress}")
   fi
@@ -362,6 +270,13 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ha")
   fi
 
+  if (( KIND )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/core")
+    if [[ -f "${REPO_ROOT_DIR}/test/config/ytt/kind/ingress/${ingress}-kind.yaml" ]]; then
+     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/ingress/${ingress}-kind.yaml")
+    fi
+  fi
+
   local ytt_result=$(mktemp)
   local ytt_post_install_result=$(mktemp)
   local ytt_flags=""
@@ -375,6 +290,7 @@ function install() {
   # to the cluster and wait
   run_ytt ${ytt_flags} \
     --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}" \
+    --data-value k8s.cluster.domain="${CLUSTER_DOMAIN}" \
     > "${ytt_result}" \
     || fail_test "failed to create deployment configuration"
 
@@ -387,6 +303,7 @@ function install() {
     -f "${REPO_ROOT_DIR}/test/config/ytt/post-install" \
     -f "${E2E_YAML_DIR}/serving/${serving_version}/post-install" \
     --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}" \
+    --data-value k8s.cluster.domain="${CLUSTER_DOMAIN}" \
     > "${ytt_post_install_result}" \
     || fail_test "failed to create post-install jobs configuration"
 
@@ -400,8 +317,12 @@ function install() {
   run_kapp deploy --yes --app "serving-post-install" --file "${ytt_post_install_result}" \
         || fail_test "failed to run serving post-install"
 
-  echo "waiting for Ingress provider to be running..."
-  wait_until_ingress_running || return 1
+  if [[ $KIND  -eq 0 ]]; then
+    echo "waiting for Ingress provider to be running..."
+    wait_until_ingress_running || return 1
+  else
+    setup_ingress_env_vars
+  fi
 
   if (( ENABLE_HA )); then
     # # Changing the bucket count and cycling the controllers will leave around stale
@@ -512,14 +433,122 @@ function install_head_reuse_ingress() {
     || fail_test "Knative head release installation failed"
 }
 
+# Create all manifests required to install Knative Serving.
+# This will build everything from the current source.
+# All generated YAMLs will be available and pointed by the corresponding
+# environment variables as set in /hack/generate-yamls.sh.
+function build_knative_from_source() {
+  YAML_ENV_FILES="$(mktemp)"
+  "${REPO_ROOT_DIR}/hack/generate-yamls.sh" "${REPO_ROOT_DIR}" "$(mktemp)" "${YAML_ENV_FILES}" || fail_test "failed to build"
+  source "${YAML_ENV_FILES}"
+}
+
+function stage_serving_head() {
+  header "Building Serving HEAD"
+  build_knative_from_source
+
+  local head_dir="${E2E_YAML_DIR}/serving/HEAD/install"
+  local head_post_install_dir="${E2E_YAML_DIR}/serving/HEAD/post-install"
+
+  mkdir -p "${head_dir}"
+  mkdir -p "${head_post_install_dir}"
+
+  cp "${SERVING_CORE_YAML}" "${head_dir}"
+  cp "${SERVING_DOMAINMAPPING_YAML}" "${head_dir}"
+  cp "${SERVING_HPA_YAML}" "${head_dir}"
+  cp "${SERVING_POST_INSTALL_JOBS_YAML}" "${head_post_install_dir}"
+}
+
+function stage_serving_latest() {
+  header "Staging Serving ${LATEST_SERVING_RELEASE_VERSION}"
+  local latest_dir="${E2E_YAML_DIR}/serving/latest-release/install"
+  local latest_post_install_dir="${E2E_YAML_DIR}/serving/latest-release/post-install"
+  local version="${LATEST_SERVING_RELEASE_VERSION}"
+
+  mkdir -p "${latest_dir}"
+  mkdir -p "${latest_post_install_dir}"
+
+  # Download the latest release of Knative Serving.
+  local url="https://github.com/knative/serving/releases/download/${version}"
+
+  wget "${url}/serving-core.yaml" -P "${latest_dir}" \
+    || fail_test "Unable to download latest knative/serving core file."
+
+  wget "${url}/serving-domainmapping.yaml" -P "${latest_dir}" \
+    || fail_test "Unable to download latest knative/serving domain mapping file."
+
+  wget "${url}/serving-hpa.yaml" -P "${latest_dir}" \
+    || fail_test "Unable to download latest knative/serving hpa file."
+
+  wget "${url}/serving-post-install-jobs.yaml" -P "${latest_post_install_dir}" \
+    || fail_test "Unable to download latest knative/serving post install file."
+}
+
+function stage_serving_custom() {
+    header "Staging Custom Install YAMLs"
+    for yaml in ${INSTALL_CUSTOM_YAMLS}; do
+      cp "${yaml}" "${head_dir}"
+    done
+}
+
+function stage_test_resources() {
+  header "Staging Test Resources"
+
+  local source_dir="${REPO_ROOT_DIR}/test/config"
+  local target_dir="${E2E_YAML_DIR}/test/config"
+
+  mkdir -p "${target_dir}"
+
+  for file in $(find -L "${source_dir}" -type f -name "*.yaml"); do
+    if [[ "${file}" == *"test/config/ytt"* ]]; then
+      continue
+    fi
+    target="${file/${source_dir}/$target_dir}"
+    mkdir -p $(dirname $target)
+
+    if grep -Fq "ko://" "${file}"; then
+      local ko_target=$(mktemp)
+      echo building "${file/$REPO_ROOT_DIR/}"
+      ko resolve $(ko_flags) -f "${file}" > "${ko_target}" || fail_test "failed to build test resource"
+      file="${ko_target}"
+    fi
+
+    echo templating "${file/$REPO_ROOT_DIR/}" to "${target}"
+    overlay_system_namespace "${file}" > "${target}" || fail_test "failed to template"
+  done
+}
+
+function ko_flags() {
+  local KO_YAML_FLAGS="-P"
+  local KO_FLAGS="${KO_FLAGS:-}"
+
+  [[ "${KO_DOCKER_REPO}" != gcr.io/* ]] && KO_YAML_FLAGS=""
+
+  if [[ "${KO_FLAGS}" != *"--platform"* ]]; then
+    KO_YAML_FLAGS="${KO_YAML_FLAGS} --platform=all"
+  fi
+
+  echo "${KO_YAML_FLAGS} ${KO_FLAGS}"
+}
+
+function overlay_system_namespace() {
+  run_ytt \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml" \
+      -f "${1}" \
+      --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}"
+}
+
+function run_ytt() {
+  run_go_tool github.com/k14s/ytt/cmd/ytt ytt "$@"
+}
+
+
 function run_kapp() {
   # TODO drop the sha when kapp releases a version with the
   # following bug fix included
   #
   # https://github.com/vmware-tanzu/carvel-kapp/pull/213
   run_go_tool github.com/k14s/kapp/cmd/kapp@d5b8c43b5678 kapp "$@"
-}
-
-function run_ytt() {
-  run_go_tool github.com/k14s/ytt/cmd/ytt ytt "$@"
 }

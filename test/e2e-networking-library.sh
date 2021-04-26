@@ -18,6 +18,23 @@ function is_ingress_class() {
   [[ "${INGRESS_CLASS}" == *"${1}"* ]]
 }
 
+function stage_istio_head() {
+  header "Staging Istio YAML (HEAD)"
+  local istio_head_dir="${E2E_YAML_DIR}/istio/HEAD/install"
+  mkdir -p "${istio_head_dir}"
+  download_net_istio_yamls "${REPO_ROOT_DIR}/third_party/istio-latest/net-istio.yaml" "${istio_head_dir}"
+}
+
+function stage_istio_latest() {
+  header "Staging Istio YAML (${LATEST_NET_ISTIO_RELEASE_VERSION})"
+  local istio_latest_dir="${E2E_YAML_DIR}/istio/latest-release/install"
+  mkdir -p "${istio_latest_dir}"
+
+  download_net_istio_yamls \
+    "https://github.com/knative-sandbox/net-istio/releases/download/${LATEST_NET_ISTIO_RELEASE_VERSION}/net-istio.yaml" \
+    "${istio_latest_dir}"
+}
+
 function download_net_istio_yamls() {
   local net_istio_yaml="$1"
   local target_dir="$2"
@@ -61,7 +78,7 @@ function net_istio_file_url() {
   local file="$2"
 
   local profile="istio"
-  if [[ -n "${KIND:-}" ]]; then
+  if (( KIND )); then
     profile+="-kind"
   else
     profile+="-ci"
@@ -76,43 +93,51 @@ function net_istio_file_url() {
 }
 
 function wait_until_ingress_running() {
+  setup_ingress_env_vars
+
   if is_ingress_class istio; then
-    export GATEWAY_OVERRIDE=istio-ingressgateway
-    export GATEWAY_NAMESPACE_OVERRIDE=istio-system
     wait_until_pods_running istio-system || return 1
     wait_until_service_has_external_http_address istio-system istio-ingressgateway || return 1
   fi
   if is_ingress_class kourier; then
-    # we must set these override values to allow the test spoofing client to work with Kourier
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=kourier
-    export GATEWAY_NAMESPACE_OVERRIDE=kourier-system
     wait_until_pods_running kourier-system || return 1
     wait_until_service_has_external_http_address kourier-system kourier
   fi
   if is_ingress_class ambassador; then
-    # we must set these override values to allow the test spoofing client to work with Ambassador
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=ambassador
-    export GATEWAY_NAMESPACE_OVERRIDE=ambassador
     wait_until_pods_running ambassador || return 1
     wait_until_service_has_external_http_address ambassador ambassador
   fi
   if is_ingress_class contour; then
-    # we must set these override values to allow the test spoofing client to work with Contour
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=envoy
-    export GATEWAY_NAMESPACE_OVERRIDE=contour-external
     wait_until_pods_running contour-external || return 1
     wait_until_pods_running contour-internal || return 1
     wait_until_service_has_external_ip "${GATEWAY_NAMESPACE_OVERRIDE}" "${GATEWAY_OVERRIDE}"
   fi
   if is_ingress_class kong; then
-    # we must set these override values to allow the test spoofing client to work with Kong
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=kong-proxy
-    export GATEWAY_NAMESPACE_OVERRIDE=kong
     wait_until_pods_running kong || return 1
     wait_until_service_has_external_http_address kong kong-proxy
   fi
 }
+
+function setup_ingress_env_vars() {
+  if is_ingress_class istio; then
+    export GATEWAY_OVERRIDE=istio-ingressgateway
+    export GATEWAY_NAMESPACE_OVERRIDE=istio-system
+  fi
+  if is_ingress_class kourier; then
+    export GATEWAY_OVERRIDE=kourier
+    export GATEWAY_NAMESPACE_OVERRIDE=kourier-system
+  fi
+  if is_ingress_class ambassador; then
+    export GATEWAY_OVERRIDE=ambassador
+    export GATEWAY_NAMESPACE_OVERRIDE=ambassador
+  fi
+  if is_ingress_class contour; then
+    export GATEWAY_OVERRIDE=envoy
+    export GATEWAY_NAMESPACE_OVERRIDE=contour-external
+  fi
+  if is_ingress_class kong; then
+    export GATEWAY_OVERRIDE=kong-proxy
+    export GATEWAY_NAMESPACE_OVERRIDE=kong
+  fi
+}
+

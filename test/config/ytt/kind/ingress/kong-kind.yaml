@@ -1,0 +1,8 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("helpers.lib.yaml", "subset")
+
+#@overlay/match by=subset(kind="Deployment", name="ingress-kong")
+---
+spec:
+  #@overlay/match missing_ok=True
+  replicas: 1

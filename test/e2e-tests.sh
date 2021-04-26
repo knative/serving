@@ -33,7 +33,7 @@ source $(dirname $0)/e2e-common.sh
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
 # Pin to 1.18 since scale test is super flakey on 1.19
-initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.18
+initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.18 "$@"
 
 # Run the tests
 header "Running tests"
@@ -66,7 +66,8 @@ if [[ -z "${INGRESS_CLASS}" \
 fi
 
 go_test_e2e -timeout=30m \
- ./test/conformance/api/... ./test/conformance/runtime/... \
+ ./test/conformance/api/... \
+ ./test/conformance/runtime/... \
  ./test/e2e \
   ${parallelism} \
   ${alpha} \
@@ -99,6 +100,7 @@ go_test_e2e -timeout=2m ./test/e2e/gc || failed=1
 kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml
 toggle_feature responsive-revision-gc Disabled
 
+
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
 # sub-test. If this is not larger than the maximum scale tested then the test
@@ -108,9 +110,11 @@ go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
 go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
-            ${alpha} \
-            --enable-beta \
-	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
+  ${alpha} \
+  --enable-beta \
+  -replicas="${REPLICAS:-1}" \
+  -buckets="${BUCKETS:-1}" \
+  -spoofinterval="10ms" || failed=1
 
 (( failed )) && fail_test
 
