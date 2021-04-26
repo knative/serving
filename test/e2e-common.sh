@@ -240,8 +240,8 @@ function knative_setup() {
     # Download istio resources we need for upgrade tests
     if (( need_latest_version )); then
       header "Staging Istio YAML (${LATEST_NET_ISTIO_RELEASE_VERSION})"
-      mkdir -p "${istio_latest_dir}"
       local istio_latest_dir="${E2E_YAML_DIR}/istio/latest-release/install"
+      mkdir -p "${istio_latest_dir}"
 
       download_net_istio_yamls \
         "https://github.com/knative-sandbox/net-istio/releases/download/${LATEST_NET_ISTIO_RELEASE_VERSION}/net-istio.yaml" \

@@ -22,7 +22,7 @@ function download_net_istio_yamls() {
   local net_istio_yaml="$1"
   local target_dir="$2"
 
-  if [[ "${net_istio_yaml}" == "http*" ]]; then
+  if [[ "${net_istio_yaml}" == "http"* ]]; then
     wget "${net_istio_yaml}" -P "${target_dir}" \
       || fail_test "Unable to download istio file ${net_istio_yaml}"
   else
