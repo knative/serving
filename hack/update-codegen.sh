@@ -94,22 +94,6 @@ group "Generating API reference docs"
 
 ${REPO_ROOT_DIR}/hack/update-reference-docs.sh
 
-group "Generate CRD schemas"
-# We need a patched version because
-# 1. There's a bug that makes our URL types unusable
-#    see https://github.com/kubernetes-sigs/controller-tools/issues/560
-# 2. There's a missing feature to properly generate nested ObjectMeta
-#    see https://github.com/kubernetes-sigs/controller-tools/pull/563
-# 3. We need specialized logic to filter down the surface of PodSpec we allow in Knative.
-run_go_tool github.com/markusthoemmes/controller-tools/cmd/controller-gen@knative-specific controller-gen \
-  schemapatch:manifests=config/core/300-resources \
-  output:dir=config/core/300-resources \
-  paths=./pkg/apis/...
-
-# Roll back changes to vendored (and linked) CRDs.
-# TODO: Drop this once we have setup schema generation everywhere.
-git checkout -- vendor/knative.dev/networking/config
-
 group "Update deps post-codegen"
 
 # Make sure our dependencies are up-to-date
