@@ -206,7 +206,7 @@ function knative_setup() {
   fi
 
   # Download resources we need for upgrade tests
-  if (( need_latest_version)); then
+  if (( need_latest_version )); then
     header "Staging Serving ${LATEST_SERVING_RELEASE_VERSION}"
     local latest_dir="${E2E_YAML_DIR}/serving/latest-release/install"
     local latest_post_install_dir="${E2E_YAML_DIR}/serving/latest-release/post-install"
@@ -362,7 +362,6 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ha")
   fi
 
-  local kapp_name="$(basename "${E2E_SCRIPT%.*}")"
   local ytt_result=$(mktemp)
   local ytt_post_install_result=$(mktemp)
   local ytt_flags=""
@@ -395,10 +394,10 @@ function install() {
   echo "serving config at ${ytt_result}"
   echo "serving post-install config at ${ytt_post_install_result}"
 
-  run_kapp deploy --yes --app "${kapp_name}" --file "${ytt_result}" \
+  run_kapp deploy --yes --app serving --file "${ytt_result}" \
         || fail_test "failed to setup knative"
 
-  run_kapp deploy --yes --app "${kapp_name}-post-install" --file "${ytt_post_install_result}" \
+  run_kapp deploy --yes --app "serving-post-install" --file "${ytt_post_install_result}" \
         || fail_test "failed to run serving post-install"
 
   echo "waiting for Ingress provider to be running..."
@@ -421,10 +420,8 @@ function use_resolvable_domain() {
 
 # Uninstalls Knative Serving from the current cluster.
 function knative_teardown() {
-  local kapp_name="$(basename "${E2E_SCRIPT%.*}")"
-
-  run_kapp delete --yes --app "${kapp_name}-post-install"
-  run_kapp delete --yes --app "${kapp_name}"
+  run_kapp delete --yes --app "serving-post-install"
+  run_kapp delete --yes --app "serving"
 }
 
 # Create test resources and images
@@ -503,7 +500,7 @@ function immediate_gc() {
 function install_latest_release() {
   header "Installing Knative latest public release"
 
-  install "${INSTALL_VERSION}" \
+  install latest-release latest-release \
       || fail_test "Knative latest release installation failed"
 }
 
