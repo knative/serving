@@ -40,6 +40,8 @@ type dmConfig struct {
 	// It is not required for self-signed CA or for the HTTP01 challenge when wildcard domain
 	// is mapped to the Ingress IP.
 	TLSServiceName string `envconfig:"tls_service_name" required:"false"`
+	// TLSTestNamespace is the namespace of where the tls tests run.
+	TLSTestNamespace string `envconfig:"tls_test_namespace" required:"false"`
 	// CustomDomainSuffix is the custom domain used for the domainMapping.
 	CustomDomainSuffix string `envconfig:"custom_domain_suffix" required:"false"`
 }
@@ -83,6 +85,10 @@ func TestDomainMappingAutoTLS(t *testing.T) {
 
 	if env.CustomDomainSuffix != "" {
 		suffix = env.CustomDomainSuffix
+	}
+
+	if env.TLSTestNamespace != "" {
+		suffix = env.TLSTestNamespace + "." + suffix
 	}
 
 	host := "dm." + suffix
