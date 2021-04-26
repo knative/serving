@@ -22,7 +22,6 @@ import (
 	context "context"
 	json "encoding/json"
 	fmt "fmt"
-	reflect "reflect"
 
 	zap "go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
@@ -340,7 +339,7 @@ func (r *reconcilerImpl) updateStatus(ctx context.Context, existing *v1alpha1.Po
 		}
 
 		// If there's nothing to update, just return.
-		if reflect.DeepEqual(existing.Status, desired.Status) {
+		if equality.Semantic.DeepEqual(existing.Status, desired.Status) {
 			return nil
 		}
 
