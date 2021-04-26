@@ -18,9 +18,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-source $(dirname $0)/../vendor/knative.dev/hack/codegen-library.sh
-
-group "Generate CRD schemas"
 # Make sure you install the patched version of controller-gen from
 # https://github.com/markusthoemmes/controller-tools/tree/knative-specific
 #
