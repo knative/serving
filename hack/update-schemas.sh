@@ -33,7 +33,3 @@ group "Generate CRD schemas"
 controller-gen schemapatch:manifests=config/core/300-resources \
   output:dir=config/core/300-resources \
   paths=./pkg/apis/...
-
-# Roll back changes to vendored (and linked) CRDs.
-# TODO: Drop this once we have setup schema generation everywhere.
-git checkout -- vendor/knative.dev/networking/config
