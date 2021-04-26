@@ -73,7 +73,6 @@ type RevisionTemplateSpec struct {
 }
 
 // RevisionSpec holds the desired state of the Revision (from the client).
-// Inlines assorted fields from Kubernetes' PodSpec.
 type RevisionSpec struct {
 	corev1.PodSpec `json:",inline"`
 
