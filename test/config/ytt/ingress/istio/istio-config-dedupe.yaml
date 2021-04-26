@@ -1,9 +1,9 @@
-# The istio profile selected _may_ include a required config-istio.yaml
-# that we've downloaded.
-#
-# As a side-effect we end up with *two* configmap/config-istio resources
-# in our YAML. We want to keep the profile specific version - which is
-# the one with the 'serving.knative.dev/release: devel' label
+#! The istio profile selected _may_ include a required config-istio.yaml
+#! that we've downloaded.
+#!
+#! As a side-effect we end up with *two* configmap/config-istio resources
+#! in our YAML. We want to keep the profile specific version - which is
+#! the one with the 'serving.knative.dev/release: devel' label
 
 #@ load("@ytt:overlay", "overlay")
 #@ load("helpers.lib.yaml", "system_configmap")

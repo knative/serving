@@ -1,19 +1,19 @@
-# An istio issue causes the ingress pods to not start
-# see: https://github.com/istio/istio/issues/31084
-#
-# We work around this by hinting to kapp the order
-# these resources should be applied. Thus wait for
-# istio to be running before applying net-istio
-# customizations
-#
-# TODO - remove when it's fixed
+#! An istio issue causes the ingress pods to not start
+#! see: https://github.com/istio/istio/issues/31084
+#!
+#! We work around this by hinting to kapp the order
+#! these resources should be applied. Thus wait for
+#! istio to be running before applying net-istio
+#! customizations
+#!
+#! TODO - remove when it's fixed
 
 #@ load("@ytt:overlay", "overlay")
 #@ load("helpers.lib.yaml", "subset", "label_subset")
 
 
-# istio's yamls has some null values which ytt doesn't replace by default
-# so instead we remove them
+#! istio's yamls has some null values which ytt doesn't replace by default
+#! so instead we remove them
 #@overlay/match by=overlay.subset({"metadata":{"annotations":None}}), expects="1+"
 ---
 metadata:

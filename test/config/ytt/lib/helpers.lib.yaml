@@ -26,7 +26,7 @@
 #@ def system_configmap(name=""):
 #@  return system_resource(kind="ConfigMap", name=name)
 #@ end
-#
+
 #@ def system_deployment(name=""):
 #@  return system_resource(kind="Deployment", name=name)
 #@ end
@@ -34,3 +34,4 @@
 #@ def serving_system_namespace():
 #@   return data.values.serving.namespaces.system
 #@ end
+
