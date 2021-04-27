@@ -136,7 +136,7 @@ toggle_feature responsive-revision-gc Disabled
 go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
 
 # Run HPA tests
-go_test_e2e -v -tags=hpa -timeout=15m ./test/e2e || failed=1
+go test -v -timeout=15m -tags=hpa ./test/e2e
 
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
