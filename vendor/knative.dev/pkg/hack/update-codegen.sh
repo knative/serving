@@ -18,22 +18,19 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export GO111MODULE=on
+source $(dirname $0)/../vendor/knative.dev/hack/codegen-library.sh
+
 # If we run with -mod=vendor here, then generate-groups.sh looks for vendor files in the wrong place.
 export GOFLAGS=-mod=
 
-if [ -z "${GOPATH:-}" ]; then
-  export GOPATH=$(go env GOPATH)
-fi
-
-source $(dirname $0)/../vendor/knative.dev/hack/library.sh
-
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+echo "=== Update Codegen for $MODULE_NAME"
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
+
+group "Kubernetes Codegen"
 
 # Knative Injection
 ${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
@@ -60,8 +57,9 @@ VERSIONED_CLIENTSET_PKG="k8s.io/apiextensions-apiserver/pkg/client/clientset/cli
     --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
     --force-genreconciler-kinds "CustomResourceDefinition"
 
+group "Knative Codegen"
+
 # Only deepcopy the Duck types, as they are not real resources.
-chmod +x ${CODEGEN_PKG}/generate-groups.sh
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy" \
   knative.dev/pkg/client knative.dev/pkg/apis \
   "duck:v1alpha1,v1beta1,v1" \
@@ -81,6 +79,7 @@ go run k8s.io/code-generator/cmd/deepcopy-gen  --input-dirs \
   -O zz_generated.deepcopy \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
+group "Update deps post-codegen"
+
 # Make sure our dependencies are up-to-date
 ${REPO_ROOT_DIR}/hack/update-deps.sh
-

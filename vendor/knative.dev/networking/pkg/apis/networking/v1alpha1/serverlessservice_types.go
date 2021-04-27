@@ -103,7 +103,7 @@ type ServerlessServiceSpec struct {
 
 	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning pa/revision.
 	// serving imports networking, so just use string.
-	ProtocolType networking.ProtocolType
+	ProtocolType networking.ProtocolType `json:"protocolType"`
 
 	// NumActivators contains number of Activators that this revision should be
 	// assigned.

@@ -307,7 +307,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		var event *reconciler.ReconcilerEvent
 		if reconciler.EventAs(reconcileEvent, &event) {
 			logger.Infow("Returned an event", zap.Any("event", reconcileEvent))
-			r.Recorder.Eventf(resource, event.EventType, event.Reason, event.Format, event.Args...)
+			r.Recorder.Event(resource, event.EventType, event.Reason, event.Error())
 
 			// the event was wrapped inside an error, consider the reconciliation as failed
 			if _, isEvent := reconcileEvent.(*reconciler.ReconcilerEvent); !isEvent {
