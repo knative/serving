@@ -1,89 +1,226 @@
+# GENERATED FILE: edits made by hand will not be preserved.
 ---
+# Source: ambassador/templates/admin-service.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  labels:
-    service: ambassador-admin
-    app.kubernetes.io/managed-by: getambassador.io
   name: ambassador-admin
   namespace: ambassador
+  labels:
+    # Hard-coded label for Prometheus Operator ServiceMonitor
+    service: ambassador-admin
+    product: aes
+  annotations:
+    a8r.io/owner: Ambassador Labs
+    a8r.io/repository: github.com/datawire/ambassador
+    a8r.io/description: The Ambassador Edge Stack admin service for internal use and
+      health checks.
+    a8r.io/documentation: https://www.getambassador.io/docs/edge-stack/latest/
+    a8r.io/chat: http://a8r.io/Slack
+    a8r.io/bugs: https://github.com/datawire/ambassador/issues
+    a8r.io/support: https://www.getambassador.io/about-us/support/
+    a8r.io/dependencies: None
 spec:
   type: NodePort
   ports:
-  - name: ambassador-admin
-    port: 8877
-    targetPort: 8877
+  - port: 8877
+    targetPort: admin
+    protocol: TCP
+    name: ambassador-admin
+  - port: 8005
+    targetPort: 8005
+    protocol: TCP
+    name: ambassador-snapshot
   selector:
     service: ambassador
 ---
+# Source: ambassador/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: ambassador
-rules:
-- apiGroups: [""]
-  resources: [ "endpoints", "namespaces", "secrets", "services" ]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [ "getambassador.io" ]
-  resources: [ "*" ]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [ "getambassador.io" ]
-  resources: [ "mappings/status" ]
-  verbs: ["update"]
-- apiGroups: [ "apiextensions.k8s.io" ]
-  resources: [ "customresourcedefinitions" ]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [ "networking.internal.knative.dev" ]
-  resources: [ "clusteringresses", "ingresses" ]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [ "networking.internal.knative.dev" ]
-  resources: [ "ingresses/status", "clusteringresses/status" ]
-  verbs: ["update"]
-- apiGroups: [ "extensions", "networking.k8s.io" ]
-  resources: [ "ingresses", "ingressclasses" ]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [ "extensions", "networking.k8s.io" ]
-  resources: [ "ingresses/status" ]
-  verbs: ["update"]
+  labels:
+    product: aes
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      rbac.getambassador.io/role-group: ambassador
+rules: []
 ---
+# Source: ambassador/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: ambassador
   namespace: ambassador
+  labels:
+    product: aes
 ---
+# Source: ambassador/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: ambassador
+  labels:
+    product: aes
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: ambassador
 subjects:
-- kind: ServiceAccount
-  name: ambassador
+- name: ambassador
   namespace: ambassador
+  kind: ServiceAccount
 ---
+# Source: ambassador/templates/rbac.yaml
+# CRDs are cluster scoped resources, so they need to be in a cluster role,
+# even if ambassador is running in single namespace mode
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: ambassador-crd
+  labels:
+    product: aes
+    rbac.getambassador.io/role-group: ambassador
+rules:
+- apiGroups: [apiextensions.k8s.io]
+  resources: [customresourcedefinitions]
+  verbs: [get, list, watch, delete]
+---
+# Source: ambassador/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: ambassador-watch
+  labels:
+    product: aes
+    rbac.getambassador.io/role-group: ambassador
+rules:
+- apiGroups: ['']
+  resources:
+  - namespaces
+  - services
+  - secrets
+  - endpoints
+  verbs: [get, list, watch]
+
+- apiGroups: [getambassador.io]
+  resources: ['*']
+  verbs: [get, list, watch, update, patch, create, delete]
+
+- apiGroups: [getambassador.io]
+  resources: [mappings/status]
+  verbs: [update]
+
+- apiGroups: [networking.internal.knative.dev]
+  resources: [clusteringresses, ingresses]
+  verbs: [get, list, watch]
+
+- apiGroups: [networking.x-k8s.io]
+  resources: ['*']
+  verbs: [get, list, watch]
+
+- apiGroups: [networking.internal.knative.dev]
+  resources: [ingresses/status, clusteringresses/status]
+  verbs: [update]
+
+- apiGroups: [extensions, networking.k8s.io]
+  resources: [ingresses, ingressclasses]
+  verbs: [get, list, watch]
+
+- apiGroups: [extensions, networking.k8s.io]
+  resources: [ingresses/status]
+  verbs: [update]
+---
+# Source: ambassador/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ambassador
   namespace: ambassador
+  labels:
+    product: aes
 spec:
   replicas: 3
   selector:
     matchLabels:
       service: ambassador
+  strategy:
+    type: RollingUpdate
   template:
     metadata:
-      annotations:
-        consul.hashicorp.com/connect-inject: 'false'
-        sidecar.istio.io/inject: 'false'
       labels:
         service: ambassador
         app.kubernetes.io/managed-by: getambassador.io
+      annotations:
+        consul.hashicorp.com/connect-inject: 'false'
+        sidecar.istio.io/inject: 'false'
     spec:
+      terminationGracePeriodSeconds: 0
+      securityContext:
+        runAsUser: 8888
+      restartPolicy: Always
+      serviceAccountName: ambassador
+      volumes:
+      - name: ambassador-pod-info
+        downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+      containers:
+      - name: ambassador
+        image: docker.io/datawire/ambassador:1.13.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: https
+          containerPort: 8443
+        - name: admin
+          containerPort: 8877
+        env:
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: AMBASSADOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: AMBASSADOR_KNATIVE_SUPPORT
+          value: 'true'
+        - name: AMBASSADOR_FAST_RECONFIGURE
+          value: 'true'
+        - name: AMBASSADOR_DRAIN_TIME
+          value: '15'
+        securityContext:
+          allowPrivilegeEscalation: false
+        livenessProbe:
+          httpGet:
+            path: /ambassador/v0/check_alive
+            port: admin
+          failureThreshold: 3
+          initialDelaySeconds: 30
+          periodSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /ambassador/v0/check_ready
+            port: admin
+          failureThreshold: 3
+          initialDelaySeconds: 30
+          periodSeconds: 3
+        volumeMounts:
+        - name: ambassador-pod-info
+          mountPath: /tmp/ambassador-pod-info
+          readOnly: true
+        resources:
+          limits:
+            cpu: 2
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 1Gi
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -93,53 +230,152 @@ spec:
                   service: ambassador
               topologyKey: kubernetes.io/hostname
             weight: 100
+      imagePullSecrets: []
+      dnsPolicy: ClusterFirst
+      hostNetwork: false
+---
+# Source: ambassador/templates/ambassador-agent.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ambassador-agent
+  namespace: ambassador
+  labels:
+    product: aes
+---
+# Source: ambassador/templates/ambassador-agent.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: ambassador-agent
+  labels:
+    product: aes
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ambassador-agent
+subjects:
+- kind: ServiceAccount
+  name: ambassador-agent
+  namespace: ambassador
+---
+# Source: ambassador/templates/ambassador-agent.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: ambassador-agent
+  labels:
+    product: aes
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      rbac.getambassador.io/role-group: ambassador-agent
+rules: []
+---
+# Source: ambassador/templates/ambassador-agent.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: ambassador-agent-pods
+  labels:
+    rbac.getambassador.io/role-group: ambassador-agent
+    product: aes
+rules:
+- apiGroups: ['']
+  resources: [pods]
+  verbs: [get, list, watch]
+---
+# Source: ambassador/templates/ambassador-agent.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: ambassador-agent-rollouts
+  labels:
+    rbac.getambassador.io/role-group: ambassador-agent
+    product: aes
+rules:
+- apiGroups: [argoproj.io]
+  resources: [rollouts]
+  verbs: [get, list, watch]
+---
+# Source: ambassador/templates/ambassador-agent.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: ambassador-agent-applications
+  labels:
+    rbac.getambassador.io/role-group: ambassador-agent
+    product: aes
+rules:
+- apiGroups: [argoproj.io]
+  resources: [applications]
+  verbs: [get, list, watch]
+---
+# Source: ambassador/templates/ambassador-agent.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: ambassador-agent-config
+  namespace: ambassador
+  labels:
+    product: aes
+rules:
+- apiGroups: ['']
+  resources: [configmaps]
+  verbs: [get, list, watch]
+---
+# Source: ambassador/templates/ambassador-agent.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: ambassador-agent-config
+  namespace: ambassador
+  labels:
+    product: aes
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ambassador-agent-config
+subjects:
+- kind: ServiceAccount
+  name: ambassador-agent
+  namespace: ambassador
+---
+# Source: ambassador/templates/ambassador-agent.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ambassador-agent
+  namespace: ambassador
+  labels:
+    app.kubernetes.io/name: ambassador-agent
+    app.kubernetes.io/instance: ambassador
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ambassador-agent
+      app.kubernetes.io/instance: ambassador
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ambassador-agent
+        app.kubernetes.io/instance: ambassador
+    spec:
+      serviceAccountName: ambassador-agent
       containers:
-      - env:
-        - name: AMBASSADOR_KNATIVE_SUPPORT
-          value: "true"
-        - name: AMBASSADOR_NAMESPACE
+      - name: agent
+        image: docker.io/datawire/ambassador:1.13.1
+        imagePullPolicy: IfNotPresent
+        command: [agent]
+        env:
+        - name: AGENT_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: quay.io/datawire/ambassador:1.4.2
-        livenessProbe:
-          httpGet:
-            path: /ambassador/v0/check_alive
-            port: 8877
-          initialDelaySeconds: 30
-          periodSeconds: 3
-        name: ambassador
-        ports:
-        - containerPort: 8080
-          name: http
-        - containerPort: 8443
-          name: https
-        - containerPort: 8877
-          name: admin
-        readinessProbe:
-          httpGet:
-            path: /ambassador/v0/check_ready
-            port: 8877
-          initialDelaySeconds: 30
-          periodSeconds: 3
-        resources:
-          limits:
-            cpu: 1
-            memory: 400Mi
-          requests:
-            cpu: 200m
-            memory: 100Mi
-        volumeMounts:
-        - mountPath: /tmp/ambassador-pod-info
-          name: ambassador-pod-info
-      restartPolicy: Always
-      securityContext:
-        runAsUser: 8888
-      serviceAccountName: ambassador
-      volumes:
-      - downwardAPI:
-          items:
-          - fieldRef:
-              fieldPath: metadata.labels
-            path: labels
-        name: ambassador-pod-info
+        - name: AGENT_CONFIG_RESOURCE_NAME
+          value: ambassador-agent-cloud-token
+        - name: RPC_CONNECTION_ADDRESS
+          value: https://app.getambassador.io/
+        - name: AES_SNAPSHOT_URL
+          value: http://ambassador-admin.ambassador:8005/snapshot-external
