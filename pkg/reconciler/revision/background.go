@@ -74,7 +74,7 @@ type workItem struct {
 	index int
 }
 
-func newBackgroundResolver(logger *zap.SugaredLogger, resolver imageResolver, enqueue func(types.NamespacedName)) *backgroundResolver {
+func newBackgroundResolver(logger *zap.SugaredLogger, resolver imageResolver, queue workqueue.RateLimitingInterface, enqueue func(types.NamespacedName)) *backgroundResolver {
 	r := &backgroundResolver{
 		logger: logger,
 
@@ -82,9 +82,7 @@ func newBackgroundResolver(logger *zap.SugaredLogger, resolver imageResolver, en
 		enqueue:  enqueue,
 
 		results: make(map[types.NamespacedName]*resolveResult),
-		queue: workqueue.NewNamedRateLimitingQueue(
-			workqueue.DefaultControllerRateLimiter(),
-			"digests"),
+		queue:   queue,
 	}
 
 	return r
@@ -180,7 +178,7 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 	for i := range rev.Spec.Containers {
 		image := rev.Spec.Containers[i].Image
 
-		r.queue.Add(&workItem{
+		r.queue.AddRateLimited(&workItem{
 			result:  r.results[name],
 			timeout: timeout,
 			name:    rev.Spec.Containers[i].Name,
