@@ -113,8 +113,6 @@ toggle_feature tag-header-based-routing Enabled
 go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
 toggle_feature tag-header-based-routing Disabled
 
-go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
-
 # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go).
 toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
 go_test_e2e -timeout=2m ./test/e2e/initscale || failed=1
