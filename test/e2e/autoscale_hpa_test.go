@@ -1,4 +1,3 @@
-// +build e2e
 // +build hpa
 
 /*
@@ -82,6 +81,9 @@ func setupHPASvc(t *testing.T, class, metric string, target int) *TestContext {
 					corev1.ResourceCPU:    resource.MustParse("30m"),
 					corev1.ResourceMemory: resource.MustParse("20Mi"),
 				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU: resource.MustParse("300m"),
+				},
 			}),
 		}...)
 	if err != nil {
@@ -111,21 +113,14 @@ func setupHPASvc(t *testing.T, class, metric string, target int) *TestContext {
 		metric:      metric,
 	}
 }
-func assertHPAAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
-	ctx.t.Helper()
-	wait := autoscaleHPAUpToNumPods(ctx, curPods, targetPods, done, quick)
-	if err := wait(); err != nil {
-		ctx.t.Fatal(err)
-	}
-}
 
-func autoscaleHPAUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) func() error {
+func assertHPAAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
 	ctx.t.Helper()
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
 	grp.Go(func() error {
-		return generateTrafficAtFixedRPSWithCPULoad(ctx, int(targetPods*5), stopChan)
+		return generateTrafficAtFixedConcurrencyWithCPULoad(ctx, 100, stopChan)
 	})
 
 	grp.Go(func() error {
@@ -133,18 +128,24 @@ func autoscaleHPAUpToNumPods(ctx *TestContext, curPods, targetPods float64, done
 		return checkPodScale(ctx, targetPods, minPods, maxPods, done, quick)
 	})
 
-	return grp.Wait
+	if err := grp.Wait(); err != nil {
+		ctx.t.Fatal(err)
+	}
 }
 
-func generateTrafficAtFixedRPSWithCPULoad(ctx *TestContext, rps int, stopChan chan struct{}) error {
-	pacer := vegeta.ConstantPacer{Freq: rps, Per: time.Second}
-	attacker := vegeta.NewAttacker(vegeta.Timeout(0)) // No timeout is enforced at all.
+func generateTrafficAtFixedConcurrencyWithCPULoad(ctx *TestContext, concurrency int, stopChan chan struct{}) error {
+	pacer := vegeta.ConstantPacer{} // Sends requests as quickly as possible, capped by MaxWorkers below.
+	attacker := vegeta.NewAttacker(
+		vegeta.Timeout(0), // No timeout is enforced at all.
+		vegeta.Workers(uint64(concurrency)),
+		vegeta.MaxWorkers(uint64(concurrency)))
 	target, err := getVegetaTarget(
 		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, "prime", primeNum)
 	if err != nil {
 		return fmt.Errorf("error creating vegeta target: %w", err)
 	}
-	ctx.logf("Maintaining %v RPS.", rps)
+
+	ctx.logf("Maintaining %d concurrent requests.", concurrency)
 	return generateTraffic(ctx, attacker, pacer, stopChan, target)
 }
 
@@ -153,7 +154,6 @@ func assertScaleDownToOne(ctx *TestContext) {
 	if err := waitForScaleToOne(ctx.t, deploymentName, ctx.clients); err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
-	// Account for the case where scaling up uses all available pods.
 	ctx.logf("Wait for all pods to terminate.")
 
 	if err := pkgTest.WaitForPodListState(
