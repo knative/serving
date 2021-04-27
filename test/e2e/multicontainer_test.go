@@ -28,14 +28,13 @@ import (
 	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
 
 func TestMultiContainer(t *testing.T) {
 	t.Parallel()
 
-	clients := e2e.Setup(t)
+	clients := Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
