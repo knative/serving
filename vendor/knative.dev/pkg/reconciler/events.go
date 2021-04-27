@@ -96,5 +96,5 @@ func (e *ReconcilerEvent) As(target interface{}) bool {
 // Error returns the string that is formed by using the format string with the
 // provided args.
 func (e *ReconcilerEvent) Error() string {
-	return fmt.Sprintf(e.Format, e.Args...)
+	return fmt.Errorf(e.Format, e.Args...).Error()
 }
