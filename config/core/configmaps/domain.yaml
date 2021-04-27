@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "74c3fc6a"
+    knative.dev/example-checksum: "81552d0b"
 data:
   _example: |
     ################################
@@ -53,7 +53,7 @@ data:
     # will not be exposed through Ingress. You can define your own label
     # selector to assign that domain suffix to your Route here, or you can set
     # the label
-    #    "serving.knative.dev/visibility=cluster-local"
+    #    "networking.knative.dev/visibility=cluster-local"
     # to achieve the same effect.  This shows how to make routes having
     # the label app=secret only exposed to the local cluster.
     svc.cluster.local: |
