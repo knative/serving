@@ -92,32 +92,6 @@ function net_istio_file_url() {
   echo "https://raw.githubusercontent.com/knative-sandbox/net-istio/${sha}/third_party/istio-${ISTIO_VERSION}/${profile}/${file}"
 }
 
-function wait_until_ingress_running() {
-  setup_ingress_env_vars
-
-  if is_ingress_class istio; then
-    wait_until_pods_running istio-system || return 1
-    wait_until_service_has_external_http_address istio-system istio-ingressgateway || return 1
-  fi
-  if is_ingress_class kourier; then
-    wait_until_pods_running kourier-system || return 1
-    wait_until_service_has_external_http_address kourier-system kourier
-  fi
-  if is_ingress_class ambassador; then
-    wait_until_pods_running ambassador || return 1
-    wait_until_service_has_external_http_address ambassador ambassador
-  fi
-  if is_ingress_class contour; then
-    wait_until_pods_running contour-external || return 1
-    wait_until_pods_running contour-internal || return 1
-    wait_until_service_has_external_ip "${GATEWAY_NAMESPACE_OVERRIDE}" "${GATEWAY_OVERRIDE}"
-  fi
-  if is_ingress_class kong; then
-    wait_until_pods_running kong || return 1
-    wait_until_service_has_external_http_address kong kong-proxy
-  fi
-}
-
 function setup_ingress_env_vars() {
   if is_ingress_class istio; then
     export GATEWAY_OVERRIDE=istio-ingressgateway

@@ -312,12 +312,7 @@ function install() {
   run_kapp deploy --yes --app serving-post-install --file "${ytt_post_install_result}" \
         || fail_test "failed to run serving post-install"
 
-  if [[ $KIND  -eq 0 ]]; then
-    echo "waiting for Ingress provider to be running..."
-    wait_until_ingress_running || return 1
-  else
-    setup_ingress_env_vars
-  fi
+  setup_ingress_env_vars
 
   if (( ENABLE_HA )); then
     # # Changing the bucket count and cycling the controllers will leave around stale
