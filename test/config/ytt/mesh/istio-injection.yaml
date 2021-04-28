@@ -2,7 +2,6 @@
 #@ load("@ytt:data", "data")
 #@ load("helpers.lib.yaml", "subset")
 
-#
 #@ def namespaces():
 #@   names = [
 #@    data.values.serving.namespaces.system,
