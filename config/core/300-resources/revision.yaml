@@ -23,12 +23,45 @@ metadata:
     knative.dev/crd-install: "true"
 spec:
   group: serving.knative.dev
+  names:
+    kind: Revision
+    plural: revisions
+    singular: revision
+    categories:
+      - all
+      - knative
+      - serving
+    shortNames:
+      - rev
+  scope: Namespaced
   versions:
     - name: v1
       served: true
       storage: true
       subresources:
         status: {}
+      additionalPrinterColumns:
+        - name: Config Name
+          type: string
+          jsonPath: ".metadata.labels['serving\\.knative\\.dev/configuration']"
+        - name: K8s Service Name
+          type: string
+          jsonPath: ".status.serviceName"
+        - name: Generation
+          type: string # int in string form :(
+          jsonPath: ".metadata.labels['serving\\.knative\\.dev/configurationGeneration']"
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
+        - name: Actual Replicas
+          type: integer
+          jsonPath: ".status.actualReplicas"
+        - name: Desired Replicas
+          type: integer
+          jsonPath: ".status.desiredReplicas"
       schema:
         openAPIV3Schema:
           description: "Revision is an immutable snapshot of code and configuration.  A revision references a container image. Revisions are created by updates to a Configuration. \n See also: https://github.com/knative/serving/blob/main/docs/spec/overview.md#revision"
@@ -43,7 +76,7 @@ spec:
             metadata:
               type: object
             spec:
-              description: RevisionSpec holds the desired state of the Revision (from the client). Inlines assorted fields from Kubernetes' PodSpec.
+              description: RevisionSpec holds the desired state of the Revision (from the client).
               type: object
               required:
                 - containers
@@ -1100,36 +1133,3 @@ spec:
                 serviceName:
                   description: 'ServiceName holds the name of a core Kubernetes Service resource that load balances over the pods backing this Revision. Deprecated: revision service name is effectively equal to the revision name, as per #10540. 0.23 — stop populating 0.25 — remove.'
                   type: string
-      additionalPrinterColumns:
-        - name: Config Name
-          type: string
-          jsonPath: ".metadata.labels['serving\\.knative\\.dev/configuration']"
-        - name: K8s Service Name
-          type: string
-          jsonPath: ".status.serviceName"
-        - name: Generation
-          type: string # int in string form :(
-          jsonPath: ".metadata.labels['serving\\.knative\\.dev/configurationGeneration']"
-        - name: Ready
-          type: string
-          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
-        - name: Reason
-          type: string
-          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
-        - name: Actual Replicas
-          type: integer
-          jsonPath: ".status.actualReplicas"
-        - name: Desired Replicas
-          type: integer
-          jsonPath: ".status.desiredReplicas"
-  names:
-    kind: Revision
-    plural: revisions
-    singular: revision
-    categories:
-      - all
-      - knative
-      - serving
-    shortNames:
-      - rev
-  scope: Namespaced

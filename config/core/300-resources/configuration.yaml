@@ -24,12 +24,37 @@ metadata:
     duck.knative.dev/podspecable: "true"
 spec:
   group: serving.knative.dev
+  names:
+    kind: Configuration
+    plural: configurations
+    singular: configuration
+    categories:
+      - all
+      - knative
+      - serving
+    shortNames:
+      - config
+      - cfg
+  scope: Namespaced
   versions:
     - name: v1
       served: true
       storage: true
       subresources:
         status: {}
+      additionalPrinterColumns:
+        - name: LatestCreated
+          type: string
+          jsonPath: .status.latestCreatedRevisionName
+        - name: LatestReady
+          type: string
+          jsonPath: .status.latestReadyRevisionName
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
       schema:
         openAPIV3Schema:
           description: 'Configuration represents the "floating HEAD" of a linear history of Revisions. Users create new Revisions by updating the Configuration''s spec. The "latest created" revision''s name is available under status, as is the "latest ready" revision''s name. See also: https://github.com/knative/serving/blob/main/docs/spec/overview.md#configuration'
@@ -72,7 +97,7 @@ spec:
                           type: string
                       x-kubernetes-preserve-unknown-fields: true
                     spec:
-                      description: RevisionSpec holds the desired state of the Revision (from the client). Inlines assorted fields from Kubernetes' PodSpec.
+                      description: RevisionSpec holds the desired state of the Revision (from the client).
                       type: object
                       required:
                         - containers
@@ -1107,28 +1132,3 @@ spec:
                   description: ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.
                   type: integer
                   format: int64
-      additionalPrinterColumns:
-        - name: LatestCreated
-          type: string
-          jsonPath: .status.latestCreatedRevisionName
-        - name: LatestReady
-          type: string
-          jsonPath: .status.latestReadyRevisionName
-        - name: Ready
-          type: string
-          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
-        - name: Reason
-          type: string
-          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
-  names:
-    kind: Configuration
-    plural: configurations
-    singular: configuration
-    categories:
-      - all
-      - knative
-      - serving
-    shortNames:
-      - config
-      - cfg
-  scope: Namespaced

@@ -24,12 +24,33 @@ metadata:
     duck.knative.dev/addressable: "true"
 spec:
   group: serving.knative.dev
+  names:
+    kind: Route
+    plural: routes
+    singular: route
+    categories:
+      - all
+      - knative
+      - serving
+    shortNames:
+      - rt
+  scope: Namespaced
   versions:
     - name: v1
       served: true
       storage: true
       subresources:
         status: {}
+      additionalPrinterColumns:
+        - name: URL
+          type: string
+          jsonPath: .status.url
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
       schema:
         openAPIV3Schema:
           description: 'Route is responsible for configuring ingress over a collection of Revisions. Some of the Revisions a Route distributes traffic over may be specified by referencing the Configuration responsible for creating them; in these cases the Route is additionally responsible for monitoring the Configuration for "latest ready revision" changes, and smoothly rolling out latest revisions. See also: https://github.com/knative/serving/blob/main/docs/spec/overview.md#route'
@@ -40,16 +61,17 @@ spec:
               type: string
             kind:
               description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-              type: string
-            metadata:
-              type: object
-            spec:
-              description: Spec holds the desired state of the Route (from the client).
-              type: object
-              properties:
-                traffic:
-                  description: Traffic specifies how to distribute traffic over a collection of revisions and configurations.
-                  type: array
+              type: string  names:
+    kind: Route
+    plural: routes
+    singular: route
+    categories:
+      - all
+      - knative
+      - serving
+    shortNames:
+      - rt
+  scope: Namespaced
                   items:
                     description: TrafficTarget holds a single entry of the routing table for a Route.
                     type: object
@@ -150,24 +172,3 @@ spec:
                 url:
                   description: URL holds the url that will distribute traffic over the provided traffic targets. It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}
                   type: string
-      additionalPrinterColumns:
-        - name: URL
-          type: string
-          jsonPath: .status.url
-        - name: Ready
-          type: string
-          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
-        - name: Reason
-          type: string
-          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
-  names:
-    kind: Route
-    plural: routes
-    singular: route
-    categories:
-      - all
-      - knative
-      - serving
-    shortNames:
-      - rt
-  scope: Namespaced

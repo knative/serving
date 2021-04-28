@@ -25,12 +25,40 @@ metadata:
     duck.knative.dev/podspecable: "true"
 spec:
   group: serving.knative.dev
+  names:
+    kind: Service
+    plural: services
+    singular: service
+    categories:
+      - all
+      - knative
+      - serving
+    shortNames:
+      - kservice
+      - ksvc
+  scope: Namespaced
   versions:
     - name: v1
       served: true
       storage: true
       subresources:
         status: {}
+      additionalPrinterColumns:
+        - name: URL
+          type: string
+          jsonPath: .status.url
+        - name: LatestCreated
+          type: string
+          jsonPath: .status.latestCreatedRevisionName
+        - name: LatestReady
+          type: string
+          jsonPath: .status.latestReadyRevisionName
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
       schema:
         openAPIV3Schema:
           description: "Service acts as a top-level container that manages a Route and Configuration which implement a network service. Service exists to provide a singular abstraction which can be access controlled, reasoned about, and which encapsulates software lifecycle decisions such as rollout policy and team resource ownership. Service acts only as an orchestrator of the underlying Routes and Configurations (much as a kubernetes Deployment orchestrates ReplicaSets), and its usage is optional but recommended. \n The Service's controller will track the statuses of its owned Configuration and Route, reflecting their statuses and conditions as its own. \n See also: https://github.com/knative/serving/blob/main/docs/spec/overview.md#service"
@@ -73,7 +101,7 @@ spec:
                           type: string
                       x-kubernetes-preserve-unknown-fields: true
                     spec:
-                      description: RevisionSpec holds the desired state of the Revision (from the client). Inlines assorted fields from Kubernetes' PodSpec.
+                      description: RevisionSpec holds the desired state of the Revision (from the client).
                       type: object
                       required:
                         - containers
@@ -1169,31 +1197,3 @@ spec:
                 url:
                   description: URL holds the url that will distribute traffic over the provided traffic targets. It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}
                   type: string
-      additionalPrinterColumns:
-        - name: URL
-          type: string
-          jsonPath: .status.url
-        - name: LatestCreated
-          type: string
-          jsonPath: .status.latestCreatedRevisionName
-        - name: LatestReady
-          type: string
-          jsonPath: .status.latestReadyRevisionName
-        - name: Ready
-          type: string
-          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
-        - name: Reason
-          type: string
-          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
-  names:
-    kind: Service
-    plural: services
-    singular: service
-    categories:
-      - all
-      - knative
-      - serving
-    shortNames:
-      - kservice
-      - ksvc
-  scope: Namespaced
