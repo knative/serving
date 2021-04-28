@@ -117,8 +117,7 @@ function parse_flags() {
       ;;
     --custom-yamls)
       [[ -z "$2" ]] && fail_test "Missing argument to --custom-yamls"
-      # Expect a list of comma-separated YAMLs.
-      INSTALL_CUSTOM_YAMLS="${2//,/ }"
+      INSTALL_CUSTOM_YAMLS="${2}"
       readonly INSTALL_CUSTOM_YAMLS
       return 2
       ;;
@@ -449,6 +448,22 @@ function stage_serving_head() {
   cp "${SERVING_POST_INSTALL_JOBS_YAML}" "${head_post_install_dir}"
 }
 
+function stage_serving_custom() {
+  source "${INSTALL_CUSTOM_YAMLS}"
+
+  local head_dir="${E2E_YAML_DIR}/serving/HEAD/install"
+  local head_post_install_dir="${E2E_YAML_DIR}/serving/HEAD/post-install"
+
+  mkdir -p "${head_dir}"
+  mkdir -p "${head_post_install_dir}"
+
+  cp "${SERVING_CORE_YAML}" "${head_dir}"
+  cp "${SERVING_DOMAINMAPPING_YAML}" "${head_dir}"
+  cp "${SERVING_HPA_YAML}" "${head_dir}"
+  cp "${SERVING_POST_INSTALL_JOBS_YAML}" "${head_post_install_dir}"
+}
+
+
 function stage_serving_latest() {
   header "Staging Serving ${LATEST_SERVING_RELEASE_VERSION}"
   local latest_dir="${E2E_YAML_DIR}/serving/latest-release/install"
@@ -472,13 +487,6 @@ function stage_serving_latest() {
 
   wget "${url}/serving-post-install-jobs.yaml" -P "${latest_post_install_dir}" \
     || fail_test "Unable to download latest knative/serving post install file."
-}
-
-function stage_serving_custom() {
-    header "Staging Custom Install YAMLs"
-    for yaml in ${INSTALL_CUSTOM_YAMLS}; do
-      cp "${yaml}" "${head_dir}"
-    done
 }
 
 function stage_test_resources() {
