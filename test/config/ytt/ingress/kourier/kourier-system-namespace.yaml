@@ -1,0 +1,18 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:yaml", "yaml")
+#@ load("helpers.lib.yaml", "serving_system_namespace", "subset")
+
+#@ def rename_namespace(old, new):
+#@   def replace(left, right):
+#@      yaml_left = yaml.encode(left)
+#@      yaml_left = yaml_left.replace(old, new)
+#@      return yaml.decode(yaml_left)
+#@   end
+#@   return replace
+#@ end
+
+#@overlay/match by=subset(kind="ConfigMap", name="kourier-bootstrap")
+---
+data:
+  #@overlay/replace via=rename_namespace("knative-serving", serving_system_namespace())
+  envoy-bootstrap.yaml: ~ #! this value is ignored
