@@ -44,7 +44,7 @@ type backgroundResolver struct {
 
 	queue workqueue.RateLimitingInterface
 
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	results map[types.NamespacedName]*resolveResult
 }
 
@@ -202,9 +202,9 @@ func (r *backgroundResolver) processWorkItem(item workItem) {
 
 	// We need to acquire the result under lock since it's theoretically possible
 	// for a Clear to race with this and try to delete the result from the map.
-	r.mu.Lock()
+	r.mu.RLock()
 	result := r.results[item.revision]
-	r.mu.Unlock()
+	r.mu.RUnlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), item.timeout)
 	defer cancel()
