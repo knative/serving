@@ -11,7 +11,7 @@
 #@   ]
 #@   matches = []
 #@   for name in names:
-#@     matches.append(subset(namespace=name))
+#@     matches.append(subset(name=name, kind="Namespace"))
 #@   end
 #@   return overlay.or_op(*matches)
 #@ end
