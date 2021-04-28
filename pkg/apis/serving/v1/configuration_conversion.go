@@ -25,6 +25,7 @@ import (
 
 // ConvertTo implements apis.Convertible
 func (source *Configuration) ConvertTo(_ context.Context, sink apis.Convertible) error {
+
 	return fmt.Errorf("v1 is the highest known version, got: %T", sink)
 }
 
