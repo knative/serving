@@ -248,15 +248,11 @@ function install() {
   if is_ingress_class istio; then
     # Istio - see cluster_setup for how the files are staged
     YTT_FILES+=("${E2E_YAML_DIR}/istio/${ingress_version}/install")
-    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/istio")
   else
-    # Everything else follows convention
-
-    # Drops the ingress.networking.knative.dev suffix
     YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest")
-    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/${ingress}")
   fi
 
+  YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/${ingress}")
   YTT_FILES+=("${REPO_ROOT_DIR}/third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml")
   YTT_FILES+=("${REPO_ROOT_DIR}/third_party/cert-manager-${CERT_MANAGER_VERSION}/net-certmanager.yaml")
 
@@ -271,9 +267,7 @@ function install() {
 
   if (( KIND )); then
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/core")
-    if [[ -f "${REPO_ROOT_DIR}/test/config/ytt/kind/ingress/${ingress}-kind.yaml" ]]; then
-     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/ingress/${ingress}-kind.yaml")
-    fi
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/ingress/${ingress}-kind.yaml")
   fi
 
   local ytt_result=$(mktemp)
@@ -281,8 +275,10 @@ function install() {
   local ytt_flags=""
 
   for file in "${YTT_FILES[@]}"; do
-    echo "including ${file}"
-    ytt_flags+=" -f ${file}"
+    if [[ -f "${file}" ]] || [[ -d "${file}" ]]; then
+      echo "including ${file}"
+      ytt_flags+=" -f ${file}"
+    fi
   done
 
   # use ytt to wrangle the yaml & kapp to apply the resources
@@ -313,7 +309,7 @@ function install() {
   run_kapp deploy --yes --app serving --file "${ytt_result}" \
         || fail_test "failed to setup knative"
 
-  run_kapp deploy --yes --app "serving-post-install" --file "${ytt_post_install_result}" \
+  run_kapp deploy --yes --app serving-post-install --file "${ytt_post_install_result}" \
         || fail_test "failed to run serving post-install"
 
   if [[ $KIND  -eq 0 ]]; then
