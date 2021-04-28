@@ -61,17 +61,16 @@ spec:
               type: string
             kind:
               description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-              type: string  names:
-    kind: Route
-    plural: routes
-    singular: route
-    categories:
-      - all
-      - knative
-      - serving
-    shortNames:
-      - rt
-  scope: Namespaced
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: Spec holds the desired state of the Route (from the client).
+              type: object
+              properties:
+                traffic:
+                  description: Traffic specifies how to distribute traffic over a collection of revisions and configurations.
+                  type: array
                   items:
                     description: TrafficTarget holds a single entry of the routing table for a Route.
                     type: object
