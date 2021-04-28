@@ -45,7 +45,6 @@ export YTT_FILES=()
 export TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)}"
 
 readonly E2E_YAML_DIR="${TMP_DIR}/e2e-yaml"
-readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
 export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
