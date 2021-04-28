@@ -18,7 +18,6 @@ package e2e
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -332,12 +331,11 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 				maxPods = math.Ceil(originalMaxPods * 1.2)
 			}
 
-			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v\ndeployment state: %s",
-				ctx.resources.Revision.Name, got, minPods, spew.Sdump(d))
+			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v", ctx.resources.Revision.Name, got, minPods)
 			ctx.logf(mes)
 			// verify that the number of pods doesn't go down while we are scaling up.
 			if got < minPods {
-				return errors.New("interim scale didn't fulfill constraints: " + mes)
+				return fmt.Errorf("interim scale didn't fulfill constraints: %s\ndeployment state: %s", mes, spew.Sdump(d))
 			}
 			// A quick test succeeds when the number of pods scales up to `targetPods`
 			// (and, as an extra check, no more than `maxPods`).
@@ -365,11 +363,10 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 				maxPods = math.Ceil(originalMaxPods * 1.2)
 			}
 
-			mes := fmt.Sprintf("got %v replicas, expected between [%v, %v] replicas for revision %s\ndeployment state: %s",
-				got, targetPods-1, maxPods, ctx.resources.Revision.Name, spew.Sdump(d))
+			mes := fmt.Sprintf("revision %q #replicas: %v, want between [%v, %v]", ctx.resources.Revision.Name, got, targetPods-1, maxPods)
 			ctx.logf(mes)
 			if got < targetPods-1 || got > maxPods {
-				return errors.New("final scale didn't fulfill constraints: " + mes)
+				return fmt.Errorf("final scale didn't fulfill constraints: %s\ndeployment state: %s", mes, spew.Sdump(d))
 			}
 			return nil
 		}
