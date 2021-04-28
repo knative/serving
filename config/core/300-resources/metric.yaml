@@ -23,12 +23,27 @@ metadata:
     knative.dev/crd-install: "true"
 spec:
   group: autoscaling.internal.knative.dev
+  names:
+    kind: Metric
+    plural: metrics
+    singular: metric
+    categories:
+      - knative-internal
+      - autoscaling
+  scope: Namespaced
   versions:
     - name: v1alpha1
       served: true
       storage: true
       subresources:
         status: {}
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
       schema:
         openAPIV3Schema:
           description: Metric represents a resource to configure the metric collector with.
@@ -110,11 +125,3 @@ spec:
         - name: Reason
           type: string
           jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
-  names:
-    kind: Metric
-    plural: metrics
-    singular: metric
-    categories:
-      - knative-internal
-      - autoscaling
-  scope: Namespaced

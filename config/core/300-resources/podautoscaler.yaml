@@ -23,12 +23,36 @@ metadata:
     knative.dev/crd-install: "true"
 spec:
   group: autoscaling.internal.knative.dev
+  names:
+    kind: PodAutoscaler
+    plural: podautoscalers
+    singular: podautoscaler
+    categories:
+      - knative-internal
+      - autoscaling
+    shortNames:
+      - kpa
+      - pa
+  scope: Namespaced
   versions:
     - name: v1alpha1
       served: true
       storage: true
       subresources:
         status: {}
+      additionalPrinterColumns:
+        - name: DesiredScale
+          type: integer
+          jsonPath: ".status.desiredScale"
+        - name: ActualScale
+          type: integer
+          jsonPath: ".status.actualScale"
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
       schema:
         openAPIV3Schema:
           description: 'PodAutoscaler is a Knative abstraction that encapsulates the interface by which Knative components instantiate autoscalers.  This definition is an abstraction that may be backed by multiple definitions.  For more information, see the Knative Pluggability presentation: https://docs.google.com/presentation/d/10KWynvAJYuOEWy69VBa6bHJVCqIsz1TNdEKosNvcpPY/edit'
@@ -131,27 +155,3 @@ spec:
                 serviceName:
                   description: ServiceName is the K8s Service name that serves the revision, scaled by this PA. The service is created and owned by the ServerlessService object owned by this PA.
                   type: string
-      additionalPrinterColumns:
-        - name: DesiredScale
-          type: integer
-          jsonPath: ".status.desiredScale"
-        - name: ActualScale
-          type: integer
-          jsonPath: ".status.actualScale"
-        - name: Ready
-          type: string
-          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
-        - name: Reason
-          type: string
-          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
-  names:
-    kind: PodAutoscaler
-    plural: podautoscalers
-    singular: podautoscaler
-    categories:
-      - knative-internal
-      - autoscaling
-    shortNames:
-      - kpa
-      - pa
-  scope: Namespaced
