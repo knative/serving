@@ -44,7 +44,7 @@ type backgroundResolver struct {
 
 	queue workqueue.RateLimitingInterface
 
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	results map[types.NamespacedName]*resolveResult
 }
 
@@ -66,8 +66,8 @@ type resolveResult struct {
 // workItem is a single task submitted to the queue, to resolve a single image
 // for a resolveResult.
 type workItem struct {
-	result  *resolveResult
-	timeout time.Duration
+	revision types.NamespacedName
+	timeout  time.Duration
 
 	name  string
 	image string
@@ -105,9 +105,9 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 					return
 				}
 
-				rrItem, ok := item.(*workItem)
+				rrItem, ok := item.(workItem)
 				if !ok {
-					r.logger.Fatalf("Unexpected work item type: want: %T, got: %T", &workItem{}, item)
+					r.logger.Fatalf("Unexpected work item type: want: %T, got: %T", workItem{}, item)
 				}
 
 				r.processWorkItem(rrItem)
@@ -178,12 +178,12 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 	for i := range rev.Spec.Containers {
 		image := rev.Spec.Containers[i].Image
 
-		r.queue.AddRateLimited(&workItem{
-			result:  r.results[name],
-			timeout: timeout,
-			name:    rev.Spec.Containers[i].Name,
-			image:   image,
-			index:   i,
+		r.queue.AddRateLimited(workItem{
+			revision: name,
+			timeout:  timeout,
+			name:     rev.Spec.Containers[i].Name,
+			image:    image,
+			index:    i,
 		})
 	}
 }
@@ -191,7 +191,7 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 // processWorkItem runs a single image digest resolution and stores the result
 // in the resolveResult. If this completes the work for the revision, the
 // completionCallback is called.
-func (r *backgroundResolver) processWorkItem(item *workItem) {
+func (r *backgroundResolver) processWorkItem(item workItem) {
 	defer func() {
 		// NOTE: right now we do not retry failing items, but if we were
 		// `Forget` should be called only in case of a success
@@ -200,10 +200,20 @@ func (r *backgroundResolver) processWorkItem(item *workItem) {
 		r.queue.Done(item)
 	}()
 
+	// We need to acquire the result under lock since it's theoretically possible
+	// for a Clear to race with this and try to delete the result from the map.
+	r.mu.RLock()
+	result := r.results[item.revision]
+	r.mu.RUnlock()
+
+	if result == nil {
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), item.timeout)
 	defer cancel()
 
-	resolvedDigest, resolveErr := r.resolver.Resolve(ctx, item.image, item.result.opt, item.result.registriesToSkip)
+	resolvedDigest, resolveErr := r.resolver.Resolve(ctx, item.image, result.opt, result.registriesToSkip)
 
 	// lock after the resolve because we don't want to block parallel resolves,
 	// just storing the result.
@@ -213,25 +223,25 @@ func (r *backgroundResolver) processWorkItem(item *workItem) {
 	// If we're already ready we don't want to callback twice.
 	// This can happen if an image resolve completes but we've already reported
 	// an error from another image in the result.
-	if item.result.ready() {
+	if result.ready() {
 		return
 	}
 
 	if resolveErr != nil {
-		item.result.statuses = nil
-		item.result.err = fmt.Errorf("%s: %w", v1.RevisionContainerMissingMessage(item.image, "failed to resolve image to digest"), resolveErr)
-		item.result.completionCallback()
+		result.statuses = nil
+		result.err = fmt.Errorf("%s: %w", v1.RevisionContainerMissingMessage(item.image, "failed to resolve image to digest"), resolveErr)
+		result.completionCallback()
 		return
 	}
 
-	item.result.remaining--
-	item.result.statuses[item.index] = v1.ContainerStatus{
+	result.remaining--
+	result.statuses[item.index] = v1.ContainerStatus{
 		Name:        item.name,
 		ImageDigest: resolvedDigest,
 	}
 
-	if item.result.ready() {
-		item.result.completionCallback()
+	if result.ready() {
+		result.completionCallback()
 	}
 }
 
@@ -242,9 +252,6 @@ func (r *backgroundResolver) Clear(name types.NamespacedName) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// delete the map entry, the result can still be accessed via the pointer in
-	// the workItem so processWorkItem doesn't care about this, but once the
-	// workItem is done the result will be GC-ed.
 	delete(r.results, name)
 }
 
