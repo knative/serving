@@ -206,6 +206,10 @@ func (r *backgroundResolver) processWorkItem(item workItem) {
 	result := r.results[item.revision]
 	r.mu.RUnlock()
 
+	if result == nil {
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), item.timeout)
 	defer cancel()
 
