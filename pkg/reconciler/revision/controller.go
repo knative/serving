@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
 	imageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
 	"knative.dev/pkg/changeset"
@@ -116,7 +117,12 @@ func newControllerWithOptions(
 		logger.Info("Fetch GitHub commit ID from kodata failed", zap.Error(err))
 	}
 
-	digestResolveQueue := workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(20*time.Millisecond, 30*time.Minute), "digests")
+	digestResolveQueue := workqueue.NewNamedRateLimitingQueue(workqueue.NewMaxOfRateLimiter(
+		workqueue.NewItemExponentialFailureRateLimiter(20*time.Millisecond, 30*time.Minute),
+		// 10 qps, 100 bucket size.  This is only for retry speed and its only the overall factor (not per item)
+		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
+	), "digests")
+
 	resolver := newBackgroundResolver(logger, &digestResolver{client: kubeclient.Get(ctx), transport: transport, userAgent: userAgent}, digestResolveQueue, impl.EnqueueKey)
 	resolver.Start(ctx.Done(), digestResolutionWorkers)
 	c.resolver = resolver
