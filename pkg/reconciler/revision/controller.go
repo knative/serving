@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"go.uber.org/zap"
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
@@ -115,7 +116,7 @@ func newControllerWithOptions(
 		logger.Info("Fetch GitHub commit ID from kodata failed", zap.Error(err))
 	}
 
-	digestResolveQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "digests")
+	digestResolveQueue := workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(20*time.Millisecond, 30*time.Minute), "digests")
 	resolver := newBackgroundResolver(logger, &digestResolver{client: kubeclient.Get(ctx), transport: transport, userAgent: userAgent}, digestResolveQueue, impl.EnqueueKey)
 	resolver.Start(ctx.Done(), digestResolutionWorkers)
 	c.resolver = resolver
