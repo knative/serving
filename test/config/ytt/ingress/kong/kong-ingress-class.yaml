@@ -3,4 +3,4 @@
 #@data/values
 ---
 serving:
-  ingress_class: kong.ingress.networking.knative.dev
+  ingress_class: kong
