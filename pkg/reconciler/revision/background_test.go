@@ -254,7 +254,7 @@ func TestRateLimitPerItem(t *testing.T) {
 	if took := time.Since(start); took < 500*time.Millisecond {
 		// Per-item time is 50ms, so after 4 cycles of back-off should take at least 500ms.
 		// (Otherwise will take only ~200ms)
-		t.Fatal("Expected second resolve to take longer than 500ms, but took", took)
+		t.Fatal("Expected resolves to take longer than 500ms, but took", took)
 	}
 
 	subject.Forget(types.NamespacedName{Name: "rev", Namespace: "ns"})
