@@ -296,6 +296,15 @@ function main() {
       echo ">> docker version"
       docker version
     fi
+    if type java > /dev/null; then
+      echo ">> java version"
+      java -version
+      echo "JAVA_HOME: $JAVA_HOME"
+    fi
+    if type mvn > /dev/null; then
+      echo ">> maven version"
+      mvn --version
+    fi
   fi
 
   [[ -z $1 ]] && set -- "--all-tests"
