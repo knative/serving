@@ -172,7 +172,6 @@ flags:
   - [`--ingressendpoint`](#using-a-custom-ingress-endpoint)
 - [`--resolvabledomain`](#using-a-resolvable-domain)
 - [`--https`](#using-https)
-- [`--ingressClass`](#using-ingress-class)
 
 ### Overriding docker repo
 
@@ -246,8 +245,3 @@ export GATEWAY_NAMESPACE_OVERRIDE=kourier-system
 ### Using https
 
 You can use the `--https` flag to have all tests run with https.
-
-### Using ingress class
-
-The `--ingressClass` argument lets you specify the ingress class. The default
-value is `istio.ingress.networking.knative.dev`.
