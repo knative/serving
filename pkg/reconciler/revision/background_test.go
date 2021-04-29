@@ -245,7 +245,7 @@ func TestRateLimitPerItem(t *testing.T) {
 		}
 
 		<-enqueue
-		resolution, err = subject.Resolve(rev("rev", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		_, err = subject.Resolve(rev("rev", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err == nil {
 			t.Fatalf("Expected Resolve to fail")
 		}
