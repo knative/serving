@@ -194,6 +194,7 @@ header "Running tests"
 
 failed=0
 
+ktl get peerauthentication.security.istio.io -A -o yaml
 kubectl get pods -A
 kubectl get pods -n "${SYSTEM_NAMESPACE}" -o yaml
 
