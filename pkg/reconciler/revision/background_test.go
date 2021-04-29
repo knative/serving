@@ -251,7 +251,7 @@ func TestRateLimitPerItem(t *testing.T) {
 		}
 	}
 
-	if took := time.Now().Sub(start); took < 600*time.Millisecond {
+	if took := time.Since(start); took < 600*time.Millisecond {
 		// Per-item time is 50ms, so after 4 cycles of back-off should take at least 600ms.
 		// (Otherwise will take only ~200ms)
 		t.Fatal("Expected second resolve to take longer than 600ms, but took", took)
@@ -266,7 +266,7 @@ func TestRateLimitPerItem(t *testing.T) {
 	}
 
 	<-enqueue
-	if took := time.Now().Sub(start); took > 500*time.Millisecond {
+	if took := time.Since(start); took > 500*time.Millisecond {
 		t.Fatal("Expected Forget to remove revision from rate limiter, but took", took)
 	}
 }
