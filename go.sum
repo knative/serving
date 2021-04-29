@@ -1260,7 +1260,6 @@ k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 h1:0T5IaWHO3sJTEmCP6mUlBvMukxPKU
 k8s.io/utils v0.0.0-20210111153108-fddb29f9d009/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 knative.dev/caching v0.0.0-20210428140754-1fab472d2faf h1:rFELGpFuUEd5uCulBcmqBYfx6i1kaUWiw9mF81d2sbg=
 knative.dev/caching v0.0.0-20210428140754-1fab472d2faf/go.mod h1:CLQDWuBhkGnC3Pq/3G56qMP14dPt+Y4QmBEe3it44HM=
-knative.dev/hack v0.0.0-20210427190353-86f9adc0c8e2 h1:gWUzTKUjMzXBMpkadqWdxIHlkSOuczsP1fD2qtyjge4=
 knative.dev/hack v0.0.0-20210427190353-86f9adc0c8e2/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
 knative.dev/hack v0.0.0-20210428122153-93ad9129c268 h1:lBIj9Epd9UQ55NEaHzAdY/UZbuaegCdGPKVC2+Z68Q0=
 knative.dev/hack v0.0.0-20210428122153-93ad9129c268/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
