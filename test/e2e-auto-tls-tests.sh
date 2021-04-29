@@ -194,6 +194,9 @@ header "Running tests"
 
 failed=0
 
+kubectl get pods -A
+kubectl get pods -n "${SYSTEM_NAMESPACE}" -o yaml
+
 # Auto TLS E2E tests mutate the cluster and must be ran separately
 # because they need auto-tls and cert-manager specific configurations
 subheader "Setup auto tls"
