@@ -177,6 +177,7 @@ function delete_dns_record() {
 # Pin to 1.18 since scale test is super flakey on 1.19
 initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --cluster-version=1.18
 
+disable_chaosduck
 header "Enabling high-availability"
 
 scale_controlplane "${HA_COMPONENTS[@]}"
