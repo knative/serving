@@ -22,8 +22,6 @@ package test
 import (
 	"flag"
 
-	network "knative.dev/networking/pkg"
-
 	// Load the generic flags of knative.dev/pkg too.
 	_ "knative.dev/pkg/test"
 )
@@ -36,8 +34,6 @@ type ServingEnvironmentFlags struct {
 	ResolvableDomain    bool   // Resolve Route controller's `domainSuffix`
 	CustomDomain        string // Indicaates the `domainSuffix` for custom domain test.
 	HTTPS               bool   // Indicates where the test service will be created with https
-	IngressClass        string // Indicates the class of Ingress provider to test.
-	CertificateClass    string // Indicates the class of Certificate provider to test.
 	Buckets             int    // The number of reconciler buckets configured.
 	Replicas            int    // The number of controlplane replicas being run.
 	EnableAlphaFeatures bool   // Indicates whether we run tests for alpha features
@@ -74,24 +70,6 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 			"Set this flag to true to run all tests with https.")
 	} else {
 		f.HTTPS = fl.Value.(flag.Getter).Get().(bool)
-	}
-
-	if fl := flag.Lookup("ingressClass"); fl == nil {
-		flag.StringVar(&f.IngressClass,
-			"ingressClass",
-			network.IstioIngressClassName,
-			"Set this flag to the ingress class to test against.")
-	} else {
-		f.IngressClass = fl.Value.String()
-	}
-
-	if fl := flag.Lookup("certificateClass"); fl == nil {
-		flag.StringVar(&f.CertificateClass,
-			"certificateClass",
-			network.CertManagerCertificateClassName,
-			"Set this flag to the certificate class to test against.")
-	} else {
-		f.IngressClass = fl.Value.String()
 	}
 
 	if fl := flag.Lookup("buckets"); fl == nil {

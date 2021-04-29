@@ -336,24 +336,6 @@ function use_resolvable_domain() {
   echo "false"
 }
 
-# Check if we should specify --ingressClass
-function ingress_class() {
-  if [[ -z "${INGRESS_CLASS}" ]]; then
-    echo ""
-  else
-    echo "--ingressClass=${INGRESS_CLASS}"
-  fi
-}
-
-# Check if we should specify --certificateClass
-function certificate_class() {
-  if [[ -z "${CERTIFICATE_CLASS}" ]]; then
-    echo ""
-  else
-    echo "--certificateClass=${CERTIFICATE_CLASS}"
-  fi
-}
-
 # Uninstalls Knative Serving from the current cluster.
 function knative_teardown() {
   if [[ -z "${INSTALL_CUSTOM_YAMLS}" && -z "${UNINSTALL_LIST[@]}" ]]; then
