@@ -239,7 +239,7 @@ func TestRateLimitPerItem(t *testing.T) {
 	start := time.Now()
 	revision := rev("rev", "img1", "img2")
 	for i := 0; i < 4; i++ {
-		subject.Clear(types.NamespacedName{Name: "rev", Namespace: "ns"})
+		subject.Clear(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
 		resolution, err := subject.Resolve(revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err != nil || resolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
@@ -273,10 +273,10 @@ func TestRateLimitPerItem(t *testing.T) {
 	})
 
 	t.Run("Forget clears per-item rate limit", func(t *testing.T) {
-		subject.Forget(types.NamespacedName{Name: "rev", Namespace: "ns"})
+		subject.Forget(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
 
 		start = time.Now()
-		resolution, err := subject.Resolve(rev("rev", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		resolution, err := subject.Resolve(revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err != nil || resolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
 		}
