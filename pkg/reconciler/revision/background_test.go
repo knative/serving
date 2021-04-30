@@ -215,9 +215,7 @@ func TestRateLimitGlobal(t *testing.T) {
 func TestRateLimitPerItem(t *testing.T) {
 	logger := logtesting.TestLogger(t)
 
-	var resolves atomic.Int32
 	var resolver resolveFunc = func(ctx context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
-		resolves.Inc()
 		return "", errors.New("failed")
 	}
 
