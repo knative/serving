@@ -29,7 +29,7 @@ CONTOUR_VERSION=""
 CERTIFICATE_CLASS=""
 export RUN_HTTP01_AUTO_TLS_TESTS=0
 # Only build linux/amd64 bit images
-KO_FLAGS="--platform=linux/amd64"
+KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
 
 HTTPS=0
 export MESH=0
