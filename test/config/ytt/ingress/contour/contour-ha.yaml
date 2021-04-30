@@ -1,0 +1,10 @@
+#@ load("@ytt:overlay", "overlay")
+
+#@data/values
+---
+serving:
+  #@overlay/match missing_ok=True
+  ha:
+    components:
+    #@overlay/append
+    - contour-ingress-controller

@@ -37,12 +37,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/e2e-common.sh"
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
 # Pin to 1.18 since scale test is super flakey on 1.19
-initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --cluster-version=1.18
-
-# We haven't configured these deployments for high-availability,
-# so disable the chaos duck.
-# TODO(mattmoor): Reconsider this after 0.17 cuts.
-disable_chaosduck
+initialize "$@" --skip-istio-addon  --min-nodes=4 --max-nodes=4 --cluster-version=1.18 \
+  --install-latest-release
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=30m

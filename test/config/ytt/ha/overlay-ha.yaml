@@ -1,0 +1,23 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+#@ load("helpers.lib.yaml", "system_deployment", "system_configmap")
+
+#@ def ha_components():
+#@  components = []
+#@  for component in data.values.serving.ha.components:
+#@    components.append(system_deployment(name=component))
+#@  end
+#@  return overlay.or_op(*components)
+#@ end
+
+#@overlay/match by=ha_components(), expects="1+"
+---
+spec:
+  #@overlay/match missing_ok=True
+  replicas: #@ data.values.serving.ha.replicas
+
+#@overlay/match by=system_configmap("config-leader-election"), expects=1
+---
+data:
+  #@overlay/match missing_ok=True
+  buckets: #@ str(data.values.serving.ha.buckets)

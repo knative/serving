@@ -1,0 +1,14 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("helpers.lib.yaml", "subset")
+
+#@overlay/match by=subset(name="envoy", kind="DaemonSet"), expects=2
+---
+spec:
+  template:
+    spec:
+      containers:
+        #@overlay/match by="name"
+        - name: envoy
+          args:
+            #@overlay/match by=lambda index,left,right: left.find("log-level") != -1
+            - --log-level debug

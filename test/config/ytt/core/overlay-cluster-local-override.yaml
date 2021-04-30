@@ -1,0 +1,16 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:yaml", "yaml")
+#@ load("@ytt:data", "data")
+
+#@ def rename_cluster_domain(old, new):
+#@   def replace(left, right):
+#@      yaml_left = yaml.encode(left)
+#@      yaml_left = yaml_left.replace(old, new)
+#@      return yaml.decode(yaml_left)
+#@   end
+#@   return replace
+#@ end
+
+#@overlay/match by=overlay.all, expects="1+"
+#@overlay/replace via=rename_cluster_domain("cluster.local", data.values.k8s.cluster.domain)
+---

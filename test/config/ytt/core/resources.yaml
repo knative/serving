@@ -1,0 +1,33 @@
+#@ load("@ytt:data", "data")
+
+#@ namespaces = [
+#@   data.values.serving.namespaces.test.default,
+#@   data.values.serving.namespaces.test.alternate,
+#@   data.values.serving.namespaces.test.tls,
+#@ ]
+
+#@ for namespace in namespaces:
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: #@ namespace
+#@ end
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: conformance-test-configmap
+  namespace: #@ data.values.serving.namespaces.test.default
+data:
+  testKey: testValue
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: conformance-test-secret
+  namespace: #@ data.values.serving.namespaces.test.default
+type: Opaque
+data:
+  testKey: dGVzdFZhbHVl

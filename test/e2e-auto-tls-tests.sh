@@ -16,10 +16,6 @@
 
 source $(dirname $0)/e2e-common.sh
 
-function knative_setup() {
-  install_knative_serving
-}
-
 function setup_auto_tls_env_variables() {
   # DNS zone for the testing domain.
   export AUTO_TLS_TEST_DNS_ZONE="knative-e2e"
@@ -92,12 +88,12 @@ function setup_http01_auto_tls() {
 
   if [[ -z "${MESH}" ]]; then
     echo "Install cert-manager no-mesh ClusterIssuer"
-    kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/issuer.yaml
+    kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/issuer.yaml
   else
     echo "Install cert-manager mesh ClusterIssuer"
-    kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/mesh-issuer.yaml
+    kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/mesh-issuer.yaml
   fi
-  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/config-certmanager.yaml
+  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/config-certmanager.yaml
   setup_dns_record
 }
 
@@ -108,7 +104,7 @@ function setup_selfsigned_per_ksvc_auto_tls() {
   export TLS_SERVICE_NAME="self-per-ksvc"
 
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
-  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
+  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
 }
 
 function setup_selfsigned_per_namespace_auto_tls() {
@@ -123,7 +119,7 @@ function setup_selfsigned_per_namespace_auto_tls() {
   export NAMESPACE_WITH_CERT=""${TLS_TEST_NAMESPACE}""
   go run ./test/e2e/autotls/config/disablenscert
 
-  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
+  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
 
   # SERVING_NSCERT_YAML is set in build_knative_from_source function
   # when building knative.
@@ -132,9 +128,7 @@ function setup_selfsigned_per_namespace_auto_tls() {
     echo "Error: variable SERVING_NSCERT_YAML is not set."
     exit 1
   fi
-  local YAML_NAME=${TMP_DIR}/${SERVING_NSCERT_YAML##*/}
-  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_NSCERT_YAML} > ${YAML_NAME}
-  kubectl apply -f ${YAML_NAME}
+  overlay_system_namespace "${SERVING_NSCERT_YAML}" | kubectl apply -f -
 }
 
 function cleanup_per_selfsigned_namespace_auto_tls() {
@@ -146,7 +140,7 @@ function cleanup_per_selfsigned_namespace_auto_tls() {
   kubectl delete -f ${SERVING_NSCERT_YAML} --ignore-not-found=true
 
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
-  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found=true
+  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found=true
 }
 
 function setup_dns_record() {
@@ -175,19 +169,7 @@ function delete_dns_record() {
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
 # Pin to 1.18 since scale test is super flakey on 1.19
-initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --cluster-version=1.18
-
-header "Enabling high-availability"
-
-scale_controlplane "${HA_COMPONENTS[@]}"
-
-# Wait for a new leader Controller to prevent race conditions during service reconciliation
-wait_for_leader_controller || failed=1
-
-# Dump the leases post-setup.
-header "Leaders"
-kubectl get lease -n "${SYSTEM_NAMESPACE}"
-
+initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.18
 
 # Run the tests
 header "Running tests"
@@ -203,7 +185,7 @@ add_trap "cleanup_auto_tls_common" EXIT SIGKILL SIGTERM SIGQUIT
 subheader "Auto TLS test for per-ksvc certificate provision using self-signed CA"
 setup_selfsigned_per_ksvc_auto_tls
 go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
-kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
+kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
 
 subheader "Auto TLS test for per-namespace certificate provision using self-signed CA"
 setup_selfsigned_per_namespace_auto_tls
@@ -216,7 +198,7 @@ if [[ ${RUN_HTTP01_AUTO_TLS_TESTS} -eq 1 ]]; then
   setup_http01_auto_tls
   add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
   go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
-  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
+  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/
   delete_dns_record
 fi
 

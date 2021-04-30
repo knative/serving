@@ -1,0 +1,20 @@
+#! The istio profile selected _may_ include a required config-istio.yaml
+#! that we've downloaded.
+#!
+#! As a side-effect we end up with *two* configmap/config-istio resources
+#! in our YAML. We want to keep the profile specific version - which is
+#! the one with the 'serving.knative.dev/release: devel' label
+
+#@ load("@ytt:overlay", "overlay")
+#@ load("helpers.lib.yaml", "system_configmap")
+
+#@ def keep_only_devel(left, right):
+#@   if left["metadata"]["labels"]["serving.knative.dev/release"] == "devel":
+#@     return left
+#@   end
+#@ end
+
+#@overlay/match by=system_configmap("config-istio"), when="2+"
+#@overlay/replace via=keep_only_devel
+---
+

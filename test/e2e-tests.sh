@@ -27,19 +27,13 @@
 
 source $(dirname $0)/e2e-common.sh
 
-# Helper functions.
-
-function knative_setup() {
-  install_knative_serving
-}
-
 # Script entry point.
 
 # Skip installing istio as an add-on.
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
 # Pin to 1.18 since scale test is super flakey on 1.19
-initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --cluster-version=1.18
+initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.18 "$@"
 
 # Run the tests
 header "Running tests"
@@ -56,34 +50,9 @@ fi
 if (( HTTPS )); then
   use_https="--https"
   toggle_feature autoTLS Enabled config-network
-  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/
-  add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/
+  add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
-
-# Keep the bucket count in sync with test/ha/ha.go.
-kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
-  --patch='{"data":{"buckets": "'${BUCKETS}'"}}' || fail_test
-
-kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
-  --type "merge" \
-  --patch '{"spec": {"minReplicas": '${REPLICAS}', "maxReplicas": '${REPLICAS}'}}' || fail_test
-
-# Scale up all of the HA components in knative-serving.
-scale_controlplane "${HA_COMPONENTS[@]}"
-
-# Changing the bucket count and cycling the controllers will leave around stale
-# lease resources at the old sharding factor, so clean these up.
-kubectl -n ${SYSTEM_NAMESPACE} delete leases --all
-
-# Wait for a new leader Controller to prevent race conditions during service reconciliation.
-wait_for_leader_controller || fail_test
-
-# Dump the leases post-setup.
-header "Leaders"
-kubectl get lease -n "${SYSTEM_NAMESPACE}"
-
-# Give the controller time to sync with the rest of the system components.
-sleep 30
 
 # Run conformance and e2e tests.
 
@@ -97,7 +66,8 @@ if [[ -z "${INGRESS_CLASS}" \
 fi
 
 go_test_e2e -timeout=30m \
- ./test/conformance/api/... ./test/conformance/runtime/... \
+ ./test/conformance/api/... \
+ ./test/conformance/runtime/... \
  ./test/e2e \
   ${parallelism} \
   ${alpha} \
@@ -105,7 +75,7 @@ go_test_e2e -timeout=30m \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" || failed=1
 
 if (( HTTPS )); then
-  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
+  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
   toggle_feature autoTLS Disabled config-network
 fi
 
@@ -130,6 +100,7 @@ go_test_e2e -timeout=2m ./test/e2e/gc || failed=1
 kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml
 toggle_feature responsive-revision-gc Disabled
 
+
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
 # sub-test. If this is not larger than the maximum scale tested then the test
@@ -139,9 +110,11 @@ go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
 go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
-            ${alpha} \
-            --enable-beta \
-	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
+  ${alpha} \
+  --enable-beta \
+  -replicas="${REPLICAS:-1}" \
+  -buckets="${BUCKETS:-1}" \
+  -spoofinterval="10ms" || failed=1
 
 (( failed )) && fail_test
 

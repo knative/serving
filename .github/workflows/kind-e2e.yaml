@@ -55,7 +55,7 @@ jobs:
 
     env:
       GOPATH: ${{ github.workspace }}
-      GO111MODULE: off
+      GO111MODULE: on
       GOFLAGS: -tags=nostackdriver
       # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
       # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
@@ -170,112 +170,31 @@ jobs:
         # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
         sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
 
-    - name: Install Knative Serving
-      env:
-        GO111MODULE: on
-        GOFLAGS: -mod=vendor
+    - name: Install Serving & Ingress
+      working-directory: ./src/knative.dev/serving
       run: |
-        set -o pipefail
+        source ./test/e2e-common.sh
 
-        kubectl apply -f config/core/300-imagecache.yaml
+        KIND=1
+        INGRESS_CLASS="${{ matrix.kingress }}.ingress.networking.knative.dev"
+        CLUSTER_DOMAIN="${{ matrix.cluster-suffix }}"
 
-        # Build and Publish our containers to the docker daemon (including test assets)
-        ko apply --platform=linux/amd64 -PRf config/core
-        ko apply --platform=linux/amd64 -Pf test/config/
+        knative_setup
+        test_setup
 
-        # Have Serving use the kingress option.
-        kubectl patch configmap/config-network \
-          --namespace knative-serving \
-          --type merge \
-          --patch '{"data":{"ingress.class":"${{ matrix.kingress }}.ingress.networking.knative.dev"}}'
+        echo "INGRESS_CLASS=$INGRESS_CLASS" >> $GITHUB_ENV
+        echo "CLUSTER_DOMAIN=$CLUSTER_DOMAIN" >> $GITHUB_ENV
+        echo "SYSTEM_NAMESPACE=$SYSTEM_NAMESPACE" >> $GITHUB_ENV
+        echo "GATEWAY_OVERRIDE=$GATEWAY_OVERRIDE" >> $GITHUB_ENV
+        echo "GATEWAY_NAMESPACE_OVERRIDE=$GATEWAY_NAMESPACE_OVERRIDE" >> $GITHUB_ENV
 
-        # Be KinD to these tests.
-        kubectl scale -nknative-serving deployment/chaosduck --replicas=0
-
-        # Setting deadline progress to a shorter value.
-        kubectl patch cm "config-deployment" -n knative-serving \
-          -p '{"data":{"progressDeadline":"120s"}}'
-
-    - name: Install Alpha Components
-      if: contains(matrix.test-flags, '--enable-alpha')
-      env:
-        GO111MODULE: on
-        GOFLAGS: -mod=vendor
-      run: |
-        ko apply --platform=all -PRf config/domain-mapping
-
-    - name: Wait for components to be up
-      run: |
-        # We need the webhook to be up
-        kubectl wait --for=condition=Available deployment -n knative-serving --all
-
-    - name: Install kingress provider (Contour)
-      if: matrix.kingress == 'contour'
-      run: |
-        set -o pipefail
-
-        # Apply a kingress option.
-        ko resolve -f third_party/contour-latest | \
-          sed 's/LoadBalancer/NodePort/g' | \
-          sed 's/imagePullPolicy:/# DISABLED: imagePullPolicy:/g' | \
-          kubectl apply -f -
-
-        # This tells the tests what namespace to look in for our kingress LB.
-        echo "GATEWAY_OVERRIDE=envoy" >> $GITHUB_ENV
-        echo "GATEWAY_NAMESPACE_OVERRIDE=contour-external" >> $GITHUB_ENV
-
-    - name: Install kingress provider (Kourier)
-      if: matrix.kingress == 'kourier'
-      run: |
-        set -o pipefail
-
-        # Apply a kingress option.
-        ko resolve -f third_party/kourier-latest | \
-          sed 's/LoadBalancer/NodePort/g' | \
-          kubectl apply -f -
-
-        # This tells the tests what namespace to look in for our kingress LB.
-        echo "GATEWAY_OVERRIDE=kourier" >> $GITHUB_ENV
-        echo "GATEWAY_NAMESPACE_OVERRIDE=kourier-system" >> $GITHUB_ENV
-
-    - name: Install kingress provider (Istio)
-      if: matrix.kingress == 'istio'
-      run: |
-        set -o pipefail
-
-        source test/e2e-networking-library.sh
-
-        PATCHED_YAML=$(mktemp)
-        ko resolve -f third_party/istio-latest/net-istio.yaml > $PATCHED_YAML
-
-        # TODO: figure out how to use e2e-common.sh directly even if no
-        # custom namespace is used here.
-        TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
-        KNATIVE_DEFAULT_NAMESPACE="knative-serving"
-        SYSTEM_NAMESPACE=$KNATIVE_DEFAULT_NAMESPACE
-        export KIND=true
-        export CLUSTER_DOMAIN="${{ matrix.cluster-suffix }}"
-        install_istio $PATCHED_YAML
-
-        echo "GATEWAY_NAMESPACE_OVERRIDE=istio-system" >> $GITHUB_ENV
-
-    - name: Upload Test Images
-      run: |
-        # Build and Publish our test images to the docker daemon.
-        ./test/upload-test-images.sh
-
-    - name: Wait for Serving and KIngress to be up
-      run: |
-        kubectl wait pod --for=condition=Ready -n knative-serving -l '!job-name'
-        kubectl wait pod --for=condition=Ready -n "${GATEWAY_NAMESPACE_OVERRIDE}" -l '!job-name'
-
-    - name: Run e2e Tests
+    - name: Run Test
+      working-directory: ./src/knative.dev/serving
       run: |
         set -x
 
         # Exclude the control-plane node, which doesn't seem to expose the nodeport service.
         IPS=( $(kubectl get nodes -lkubernetes.io/hostname!=kind-control-plane -ojsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}') )
-
         # Run the tests tagged as e2e on the KinD cluster.
         go test -race -count=1 -timeout=20m -tags=e2e ${{ matrix.test-suite }} \
            --ingressendpoint="${IPS[0]}" \

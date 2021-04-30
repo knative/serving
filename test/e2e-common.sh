@@ -19,37 +19,39 @@
 source "$(dirname "${BASH_SOURCE[0]}")/../vendor/knative.dev/hack/e2e-tests.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/e2e-networking-library.sh"
 
-CERT_MANAGER_VERSION="latest"
+export CERT_MANAGER_VERSION="latest"
 # Since default is istio, make default ingress as istio
-INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
-ISTIO_VERSION=""
-KOURIER_VERSION=""
-AMBASSADOR_VERSION=""
-CONTOUR_VERSION=""
-CERTIFICATE_CLASS=""
-export RUN_HTTP01_AUTO_TLS_TESTS=0
+export INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
+export ISTIO_VERSION="stable"
+export KOURIER_VERSION=""
+export AMBASSADOR_VERSION=""
+export CONTOUR_VERSION=""
+export CERTIFICATE_CLASS=""
 # Only build linux/amd64 bit images
-KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
+export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
 
-HTTPS=0
+export RUN_HTTP01_AUTO_TLS_TESTS=0
+export HTTPS=0
+export ENABLE_HA=0
 export MESH=0
+export KIND=0
+export CLUSTER_DOMAIN=cluster.local
 
 # List of custom YAMLs to install, if specified (space-separated).
-INSTALL_CUSTOM_YAMLS=""
+export INSTALL_CUSTOM_YAMLS=""
+export INSTALL_SERVING_VERSION="HEAD"
+export YTT_FILES=()
 
-UNINSTALL_LIST=()
-export TMP_DIR
-TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)}"
-readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
+export TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)}"
+
+readonly E2E_YAML_DIR="${TMP_DIR}/e2e-yaml"
+
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
-export SYSTEM_NAMESPACE
-SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
-
+export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
 
 # Keep this in sync with test/ha/ha.go
 readonly REPLICAS=3
 readonly BUCKETS=10
-HA_COMPONENTS=()
 
 # Latest serving release. If user does not supply this as a flag, the latest
 # tagged release on the current branch will be used.
@@ -74,6 +76,10 @@ function parse_flags() {
       LATEST_SERVING_RELEASE_VERSION=$2
       return 2
       ;;
+    --install-latest-release)
+      INSTALL_SERVING_VERSION="latest-release"
+      return 2
+      ;;
     --cert-manager-version)
       [[ $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
       readonly CERT_MANAGER_VERSION=$2
@@ -92,14 +98,26 @@ function parse_flags() {
       readonly MESH=0
       return 1
       ;;
+    --enable-ha)
+      readonly ENABLE_HA=1
+      return 1
+      ;;
+    --kind)
+      readonly KIND=1
+      return 1
+      ;;
     --https)
       readonly HTTPS=1
       return 1
       ;;
+    --cluster-domain)
+      [[ -z "$2" ]] && fail_test "Missing argument to --cluster-domain"
+      readonly CLUSTER_DOMAIN="$2"
+      return 2
+      ;;
     --custom-yamls)
       [[ -z "$2" ]] && fail_test "Missing argument to --custom-yamls"
-      # Expect a list of comma-separated YAMLs.
-      INSTALL_CUSTOM_YAMLS="${2//,/ }"
+      INSTALL_CUSTOM_YAMLS="${2}"
       readonly INSTALL_CUSTOM_YAMLS
       return 2
       ;;
@@ -140,193 +158,167 @@ function parse_flags() {
   return 0
 }
 
-# Create all manifests required to install Knative Serving.
-# This will build everything from the current source.
-# All generated YAMLs will be available and pointed by the corresponding
-# environment variables as set in /hack/generate-yamls.sh.
-function build_knative_from_source() {
-  local FULL_OUTPUT YAML_LIST LOG_OUTPUT ENV_OUTPUT
-  YAML_LIST="$(mktemp)"
+# Gather all the YAML we require to run all our tests.
+# We stage these files into ${E2E_YAML_DIR}
+#
+# > serving built from HEAD       > $E2E_YAML_DIR/serving/HEAD/install
+#                                 > $E2E_YAML_DIR/serving/HEAD/post-install
+#
+# > serving latest-release        > $E2E_YAML_DIR/serving/latest-release/install
+#                                 > $E2E_YAML_DIR/serving/latest-release/post-install
+#
+# > net-istio HEAD                > $E2E_YAML_DIR/istio/HEAD/install
+# > net-istio latest-release      > $E2E_YAML_DIR/istio/latest-release/install
+#
+#   We download istio.yaml for our given test profile (ie. mesh on kind).
+#   The files downloaded are istio.yaml & config-istio.yaml.
+#
+#   config-istio.yaml is to be applied _after_ we install net-istio.yaml since
+#   it includes profile specific configuration
+#
+# > test/config/**.yaml           > $E2E_YAML_DIR/serving/test/config
+#
+#   These resources will be passed through `ko` if there exists a `ko://`
+#   strict reference. Secondly namespace overlays will be applied to place
+#   them in the correct
+#
+function knative_setup() {
+  local need_latest_version=0
 
-  # Generate manifests, capture environment variables pointing to the YAML files.
-  FULL_OUTPUT="$( \
-      source "$(dirname "${BASH_SOURCE[0]}")/../hack/generate-yamls.sh" "${REPO_ROOT_DIR}" "${YAML_LIST}" ; \
-      set | grep _YAML=/)"
-  LOG_OUTPUT="$(echo "${FULL_OUTPUT}" | grep -v _YAML=/)"
-  ENV_OUTPUT="$(echo "${FULL_OUTPUT}" | grep '^[_0-9A-Z]\+_YAML=/')"
-  [[ -z "${LOG_OUTPUT}" || -z "${ENV_OUTPUT}" ]] && fail_test "Error generating manifests"
-  # Only import the environment variables pointing to the YAML files.
-  echo "${LOG_OUTPUT}"
-  echo -e "Generated manifests:\n${ENV_OUTPUT}"
-  eval "${ENV_OUTPUT}"
+  if [[ "$(basename "${E2E_SCRIPT}")" == "*upgrade*" ]]; then
+    need_latest_version=1
+  fi
+
+  if [[ "${INSTALL_SERVING_VERSION}" == "latest-release" ]]; then
+    need_latest_version=1
+  fi
+
+  if [[ -z "${INSTALL_CUSTOM_YAMLS}" ]]; then
+    stage_serving_head
+  else
+    stage_serving_custom
+  fi
+
+  # Download resources we need for upgrade tests
+  if (( need_latest_version )); then
+    stage_serving_latest
+  fi
+
+  # Download Istio YAMLs
+  if is_ingress_class istio; then
+    stage_istio_head
+
+    # Download istio resources we need for upgrade tests
+    if (( need_latest_version )); then
+      stage_istio_latest
+    fi
+  fi
+
+  stage_test_resources
+
+  install "${INSTALL_SERVING_VERSION}"
 }
 
 # Installs Knative Serving in the current cluster.
 # If no parameters are passed, installs the current source-based build, unless custom
 # YAML files were passed using the --custom-yamls flag.
-# Parameters: $1 - Knative Serving version "HEAD" or "latest-release". Default is "HEAD".
-#             $2 - Knative Monitoring YAML file (optional)
-function install_knative_serving() {
-  local version=${1:-"HEAD"}
-  if [[ -z "${INSTALL_CUSTOM_YAMLS}" ]]; then
-    install_knative_serving_standard "$version" "${2:-}"
-    return
-  fi
-  echo ">> Installing Knative serving from custom YAMLs"
-  echo "Custom YAML files: ${INSTALL_CUSTOM_YAMLS}"
-  for yaml in ${INSTALL_CUSTOM_YAMLS}; do
-    local YAML_NAME=${TMP_DIR}/${yaml##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${yaml} > ${YAML_NAME}
-    echo "Installing '${YAML_NAME}'"
-    kubectl create -f "${YAML_NAME}" || return 1
-  done
-}
+# Parameters: $1 - serving version "HEAD" or "latest-release". Default is "HEAD".
+# Parameters: $2 - ingress version "HEAD" or "latest-release". Default is "HEAD".
+#
+# TODO - ingress version toggle only works for istio
+# TODO - allow latest-release for cert-manager
+function install() {
+  header "Installing Knative Serving"
 
-# Installs Knative Serving in the current cluster.
-# If no parameters are passed, installs the current source-based build.
-# Parameters: $1 - Knative Serving version "HEAD" or "latest-release".
-#             $2 - Knative Monitoring YAML file (optional)
-function install_knative_serving_standard() {
-  echo ">> Creating ${SYSTEM_NAMESPACE} namespace if it does not exist"
-  kubectl get ns ${SYSTEM_NAMESPACE} || kubectl create namespace ${SYSTEM_NAMESPACE}
+  local ingress=${INGRESS_CLASS%%.*}
+  local serving_version="${1:-"HEAD"}"
+  local ingress_version="${2:-"HEAD"}"
+
+  YTT_FILES=(
+    "${REPO_ROOT_DIR}/test/config/ytt/lib"
+    "${REPO_ROOT_DIR}/test/config/ytt/values.yaml"
+
+    # see cluster_setup for how the files are staged
+    "${E2E_YAML_DIR}/serving/${serving_version}/install"
+    "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml"
+    "${REPO_ROOT_DIR}/test/config/ytt/core"
+  )
+
+  if is_ingress_class istio; then
+    # Istio - see cluster_setup for how the files are staged
+    YTT_FILES+=("${E2E_YAML_DIR}/istio/${ingress_version}/install")
+  else
+    YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest")
+  fi
+
+  YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/${ingress}")
+  YTT_FILES+=("${REPO_ROOT_DIR}/third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml")
+  YTT_FILES+=("${REPO_ROOT_DIR}/third_party/cert-manager-${CERT_MANAGER_VERSION}/net-certmanager.yaml")
+
   if (( MESH )); then
-    kubectl label namespace ${SYSTEM_NAMESPACE} istio-injection=enabled
-  fi
-  # Delete the test namespace
-  add_trap "kubectl delete namespace ${SYSTEM_NAMESPACE} --ignore-not-found=true" SIGKILL SIGTERM SIGQUIT
-
-  echo ">> Installing Knative CRD"
-  SERVING_RELEASE_YAML=""
-  SERVING_POST_INSTALL_JOBS_YAML=""
-  if [[ "$1" == "HEAD" ]]; then
-    # If we need to build from source, then kick that off first.
-    build_knative_from_source
-
-    echo "CRD YAML: ${SERVING_CRD_YAML}"
-    kubectl apply -f "${SERVING_CRD_YAML}" || return 1
-    UNINSTALL_LIST+=( "${SERVING_CRD_YAML}" )
-
-    echo "DOMAIN MAPPING CRD YAML: ${SERVING_DOMAINMAPPING_CRD_YAML}"
-    kubectl apply -f "${SERVING_DOMAINMAPPING_CRD_YAML}" || return 1
-    UNINSTALL_LIST+=( "${SERVING_DOMAINMAPPING_CRD_YAML}" )
-  else
-    # Download the latest release of Knative Serving.
-    local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
-
-    local SERVING_RELEASE_YAML=${TMP_DIR}/"serving-${LATEST_SERVING_RELEASE_VERSION}.yaml"
-    local SERVING_POST_INSTALL_JOBS_YAML=${TMP_DIR}/"serving-${LATEST_SERVING_RELEASE_VERSION}-post-install-jobs.yaml"
-
-    wget "${url}/serving-crds.yaml" -O "${SERVING_RELEASE_YAML}" \
-      || fail_test "Unable to download latest knative/serving CRD file."
-    wget "${url}/serving-core.yaml" -O ->> "${SERVING_RELEASE_YAML}" \
-      || fail_test "Unable to download latest knative/serving core file."
-    # TODO - switch to upgrade yaml (SERVING_POST_INSTALL_JOBS_YAML) after 0.16 is released
-    wget "${url}/serving-storage-version-migration.yaml" -O "${SERVING_POST_INSTALL_JOBS_YAML}" \
-      || fail_test "Unable to download latest knative/serving post install file."
-
-    # Replace the default system namespace with the test's system namespace.
-    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_RELEASE_YAML}
-    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_POST_INSTALL_JOBS_YAML}
-
-    echo "Knative YAML: ${SERVING_RELEASE_YAML}"
-    ko apply -f "${SERVING_RELEASE_YAML}" --selector=knative.dev/crd-install=true || return 1
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/mesh")
   fi
 
-  if [[ -z "${REUSE_INGRESS:-}" ]]; then
-    echo ">> Installing Ingress"
-    if [[ -n "${KOURIER_VERSION:-}" ]]; then
-      install_kourier || return 1
-    elif [[ -n "${AMBASSADOR_VERSION:-}" ]]; then
-      install_ambassador || return 1
-    elif [[ -n "${CONTOUR_VERSION:-}" ]]; then
-      install_contour || return 1
-    elif [[ -n "${KONG_VERSION:-}" ]]; then
-      install_kong || return 1
-    else
-      if [[ "$1" == "HEAD" ]]; then
-        install_istio "./third_party/istio-latest/net-istio.yaml" || return 1
-      else
-        # Download the latest release of net-istio.
-        local url="https://github.com/knative/net-istio/releases/download/${LATEST_NET_ISTIO_RELEASE_VERSION}"
-        local yaml="net-istio.yaml"
-        local YAML_NAME=${TMP_DIR}/"net-istio-${LATEST_NET_ISTIO_RELEASE_VERSION}.yaml"
-        wget "${url}/${yaml}" -O "${YAML_NAME}" \
-          || fail_test "Unable to download latest knative/net-istio release."
-        echo "net-istio YAML: ${YAML_NAME}"
-        install_istio $YAML_NAME || return 1
-      fi
+  if (( ENABLE_HA )); then
+    YTT_FILES+=("${E2E_YAML_DIR}/test/config/chaosduck.yaml")
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ha")
+  fi
+
+  if (( KIND )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/core")
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/ingress/${ingress}-kind.yaml")
+  fi
+
+  local ytt_result=$(mktemp)
+  local ytt_post_install_result=$(mktemp)
+  local ytt_flags=""
+
+  for file in "${YTT_FILES[@]}"; do
+    if [[ -f "${file}" ]] || [[ -d "${file}" ]]; then
+      echo "including ${file}"
+      ytt_flags+=" -f ${file}"
     fi
+  done
+
+  # use ytt to wrangle the yaml & kapp to apply the resources
+  # to the cluster and wait
+  run_ytt ${ytt_flags} \
+    --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}" \
+    --data-value k8s.cluster.domain="${CLUSTER_DOMAIN}" \
+    > "${ytt_result}" \
+    || fail_test "failed to create deployment configuration"
+
+
+  # Post install jobs configuration
+  run_ytt \
+    -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
+    -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
+    -f "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml" \
+    -f "${REPO_ROOT_DIR}/test/config/ytt/post-install" \
+    -f "${E2E_YAML_DIR}/serving/${serving_version}/post-install" \
+    --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}" \
+    --data-value k8s.cluster.domain="${CLUSTER_DOMAIN}" \
+    > "${ytt_post_install_result}" \
+    || fail_test "failed to create post-install jobs configuration"
+
+
+  echo "serving config at ${ytt_result}"
+  echo "serving post-install config at ${ytt_post_install_result}"
+
+  run_kapp deploy --yes --app serving --file "${ytt_result}" \
+        || fail_test "failed to setup knative"
+
+  run_kapp deploy --yes --app serving-post-install --file "${ytt_post_install_result}" \
+        || fail_test "failed to run serving post-install"
+
+  setup_ingress_env_vars
+
+  if (( ENABLE_HA )); then
+    # # Changing the bucket count and cycling the controllers will leave around stale
+    # # lease resources at the old sharding factor, so clean these up.
+    # kubectl -n ${SYSTEM_NAMESPACE} delete leases --all
+    wait_for_leader_controller || return 1
   fi
-
-  echo ">> Installing Cert-Manager"
-  readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
-  echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
-  # We skip installing cert-manager if it has been installed as "kubectl apply" will be stuck when
-  # cert-manager has been installed. https://github.com/jetstack/cert-manager/issues/3367
-  kubectl get ns cert-manager || kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
-  UNINSTALL_LIST+=( "${INSTALL_CERT_MANAGER_YAML}" )
-  readonly NET_CERTMANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/net-certmanager.yaml"
-  echo "net-certmanager YAML: ${NET_CERTMANAGER_YAML}"
-  local CERT_YAML_NAME=${TMP_DIR}/${NET_CERTMANAGER_YAML##*/}
-  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${NET_CERTMANAGER_YAML} > ${CERT_YAML_NAME}
-  kubectl apply \
-      -f "${CERT_YAML_NAME}" || return 1
-  UNINSTALL_LIST+=( "${CERT_YAML_NAME}" )
-
-  echo ">> Installing Knative serving"
-  HA_COMPONENTS+=( "controller" "webhook" "autoscaler-hpa" "autoscaler" "domain-mapping" "domainmapping-webhook" )
-  if [[ "$1" == "HEAD" ]]; then
-    local CORE_YAML_NAME=${TMP_DIR}/${SERVING_CORE_YAML##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_CORE_YAML} > ${CORE_YAML_NAME}
-    local HPA_YAML_NAME=${TMP_DIR}/${SERVING_HPA_YAML##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_HPA_YAML} > ${HPA_YAML_NAME}
-    local DOMAINMAPPING_YAML_NAME=${TMP_DIR}/${SERVING_DOMAINMAPPING_YAML##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_DOMAINMAPPING_YAML} > ${DOMAINMAPPING_YAML_NAME}
-    local POST_INSTALL_JOBS_YAML_NAME=${TMP_DIR}/${SERVING_POST_INSTALL_JOBS_YAML##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_POST_INSTALL_JOBS_YAML} > ${POST_INSTALL_JOBS_YAML_NAME}
-
-    echo "Knative YAML: ${CORE_YAML_NAME} and ${HPA_YAML_NAME} and ${DOMAINMAPPING_YAML_NAME}"
-    kubectl apply \
-	    -f "${CORE_YAML_NAME}" \
-	    -f "${DOMAINMAPPING_YAML_NAME}" \
-	    -f "${HPA_YAML_NAME}" || return 1
-    UNINSTALL_LIST+=( "${CORE_YAML_NAME}" "${HPA_YAML_NAME}" "${DOMAINMAPPING_YAML_NAME}" )
-    kubectl create -f ${POST_INSTALL_JOBS_YAML_NAME}
-  else
-    echo "Knative YAML: ${SERVING_RELEASE_YAML}"
-    # We use ko because it has better filtering support for CRDs.
-    ko apply -f "${SERVING_RELEASE_YAML}" || return 1
-    ko create -f "${SERVING_POST_INSTALL_JOBS_YAML}" || return 1
-    UNINSTALL_LIST+=( "${SERVING_RELEASE_YAML}" )
-  fi
-
-  echo ">> Configuring the default Ingress: ${INGRESS_CLASS}"
-  cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-network
-  namespace: ${SYSTEM_NAMESPACE}
-  labels:
-    serving.knative.dev/release: devel
-data:
-  ingress.class: ${INGRESS_CLASS}
-EOF
-
-  echo ">> Turning on profiling.enable"
-  cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-observability
-  namespace: ${SYSTEM_NAMESPACE}
-data:
-  profiling.enable: "true"
-EOF
-
-  echo ">> Patching activator HPA"
-  # We set min replicas to 15 for testing multiple activator pods.
-  kubectl -n ${SYSTEM_NAMESPACE} patch hpa activator --patch '{"spec":{"minReplicas":15}}' || return 1
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has
@@ -338,35 +330,12 @@ function use_resolvable_domain() {
 
 # Uninstalls Knative Serving from the current cluster.
 function knative_teardown() {
-  if [[ -z "${INSTALL_CUSTOM_YAMLS}" && -z "${UNINSTALL_LIST[@]}" ]]; then
-    echo "install_knative_serving() was not called, nothing to uninstall"
-    return 0
-  fi
-  if [[ -n "${INSTALL_CUSTOM_YAMLS}" ]]; then
-    echo ">> Uninstalling Knative serving from custom YAMLs"
-    for yaml in ${INSTALL_CUSTOM_YAMLS}; do
-      echo "Uninstalling '${yaml}'"
-      kubectl delete --ignore-not-found=true -f "${yaml}" || return 1
-    done
-  else
-    echo ">> Uninstalling Knative serving"
-    for i in ${!UNINSTALL_LIST[@]}; do
-	# We uninstall elements in the reverse of the order they were installed.
-	local YAML="${UNINSTALL_LIST[$(( ${#array[@]} - $i ))]}"
-	echo ">> Bringing down YAML: ${YAML}"
-	kubectl delete --ignore-not-found=true -f "${YAML}" || return 1
-    done
-  fi
+  run_kapp delete --yes --app "serving-post-install"
+  run_kapp delete --yes --app "serving"
 }
 
 # Create test resources and images
 function test_setup() {
-  echo ">> Replacing ${KNATIVE_DEFAULT_NAMESPACE} with the actual namespace for Knative Serving..."
-  local TEST_DIR=${TMP_DIR}/test
-  mkdir -p ${TEST_DIR}
-  cp -r test/* ${TEST_DIR}
-  find ${TEST_DIR} -type f -name "*.yaml" -exec sed -i "s/${KNATIVE_DEFAULT_NAMESPACE}/${SYSTEM_NAMESPACE}/g" {} +
-
   echo ">> Setting up logging..."
 
   # Install kail if needed.
@@ -380,54 +349,8 @@ function test_setup() {
   # Clean up kail so it doesn't interfere with job shutting down
   add_trap "kill $kail_pid || true" EXIT
 
-  # Capture lease changes
-  kubectl get lease -A -w -o yaml > ${ARTIFACTS}/leases-$(basename ${E2E_SCRIPT}).log &
-  local leases_pid=$!
-  # Clean up the lease logging so it doesn't interfere with job shutting down
-  add_trap "kill $leases_pid || true" EXIT
-
-  echo ">> Waiting for Serving components to be running..."
-  wait_until_pods_running ${SYSTEM_NAMESPACE} || return 1
-
-  local TEST_CONFIG_DIR=${TEST_DIR}/config
-  echo ">> Creating test resources (${TEST_CONFIG_DIR}/)"
-  ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/ || return 1
-  if (( MESH )); then
-    kubectl label namespace serving-tests istio-injection=enabled
-    kubectl label namespace serving-tests-alt istio-injection=enabled
-  fi
-
-  # Setting deadline progress to a shorter value.
-  kubectl patch cm "config-deployment" -n "${SYSTEM_NAMESPACE}" \
-    -p '{"data":{"progressDeadline":"120s"}}'
-
   echo ">> Uploading test images..."
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
-
-  echo ">> Waiting for Cert Manager components to be running..."
-  wait_until_pods_running cert-manager || return 1
-
-  echo ">> Waiting for Ingress provider to be running..."
-  wait_until_ingress_running || return 1
-}
-
-# Apply the logging config for testing. This should be called after test_setup has been triggered.
-function test_logging_config_setup() {
-  echo ">> Setting up test logging config..."
-  ko apply ${KO_FLAGS} -f ${TMP_DIR}/test/config/config-logging.yaml || return 1
-}
-
-# Delete test resources
-function test_teardown() {
-  local TEST_CONFIG_DIR=${TMP_DIR}/test/config
-  echo ">> Removing test resources (${TEST_CONFIG_DIR}/)"
-  ko delete --ignore-not-found=true --now -f ${TEST_CONFIG_DIR}/
-
-  echo ">> Ensuring test namespaces are clean"
-  kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests
-  kubectl delete --ignore-not-found --now --timeout 60s namespace serving-tests
-  kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests-alt
-  kubectl delete --ignore-not-found --now --timeout 60s namespace serving-tests-alt
 }
 
 # Dump more information when test fails.
@@ -484,47 +407,146 @@ function immediate_gc() {
   sleep 30
 }
 
-function scale_controlplane() {
-  for deployment in "$@"; do
-    # Make sure all pods run in leader-elected mode.
-    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0 || fail_test
-    # Give it time to kill the pods.
-    sleep 5
-    # Scale up components for HA tests
-    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas="${REPLICAS}" || fail_test
-  done
-}
-
-function disable_chaosduck() {
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=0 || fail_test
-}
-
-function enable_chaosduck() {
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=1 || fail_test
-}
-
 function install_latest_release() {
   header "Installing Knative latest public release"
 
-  install_knative_serving latest-release \
+  install latest-release latest-release \
       || fail_test "Knative latest release installation failed"
-  test_logging_config_setup
-
-  wait_until_pods_running ${SYSTEM_NAMESPACE}
-  wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
 }
 
 function install_head_reuse_ingress() {
   header "Installing Knative head release and reusing ingress"
   # Keep the existing ingress and do not upgrade it. The ingress upgrade
   # makes ongoing requests fail.
-  REUSE_INGRESS=true install_knative_serving || fail_test "Knative head release installation failed"
-  test_logging_config_setup
-
-  wait_until_pods_running ${SYSTEM_NAMESPACE}
-  wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
+  install HEAD latest-release \
+    || fail_test "Knative head release installation failed"
 }
 
-function knative_setup() {
-  install_latest_release
+# Create all manifests required to install Knative Serving.
+# This will build everything from the current source.
+# All generated YAMLs will be available and pointed by the corresponding
+# environment variables as set in /hack/generate-yamls.sh.
+function build_knative_from_source() {
+  YAML_ENV_FILES="$(mktemp)"
+  "${REPO_ROOT_DIR}/hack/generate-yamls.sh" "${REPO_ROOT_DIR}" "$(mktemp)" "${YAML_ENV_FILES}" || fail_test "failed to build"
+  source "${YAML_ENV_FILES}"
+}
+
+function stage_serving_head() {
+  header "Building Serving HEAD"
+  build_knative_from_source
+
+  local head_dir="${E2E_YAML_DIR}/serving/HEAD/install"
+  local head_post_install_dir="${E2E_YAML_DIR}/serving/HEAD/post-install"
+
+  mkdir -p "${head_dir}"
+  mkdir -p "${head_post_install_dir}"
+
+  cp "${SERVING_CORE_YAML}" "${head_dir}"
+  cp "${SERVING_DOMAINMAPPING_YAML}" "${head_dir}"
+  cp "${SERVING_HPA_YAML}" "${head_dir}"
+  cp "${SERVING_POST_INSTALL_JOBS_YAML}" "${head_post_install_dir}"
+}
+
+function stage_serving_custom() {
+  source "${INSTALL_CUSTOM_YAMLS}"
+
+  local head_dir="${E2E_YAML_DIR}/serving/HEAD/install"
+  local head_post_install_dir="${E2E_YAML_DIR}/serving/HEAD/post-install"
+
+  mkdir -p "${head_dir}"
+  mkdir -p "${head_post_install_dir}"
+
+  cp "${SERVING_CORE_YAML}" "${head_dir}"
+  cp "${SERVING_DOMAINMAPPING_YAML}" "${head_dir}"
+  cp "${SERVING_HPA_YAML}" "${head_dir}"
+  cp "${SERVING_POST_INSTALL_JOBS_YAML}" "${head_post_install_dir}"
+}
+
+
+function stage_serving_latest() {
+  header "Staging Serving ${LATEST_SERVING_RELEASE_VERSION}"
+  local latest_dir="${E2E_YAML_DIR}/serving/latest-release/install"
+  local latest_post_install_dir="${E2E_YAML_DIR}/serving/latest-release/post-install"
+  local version="${LATEST_SERVING_RELEASE_VERSION}"
+
+  mkdir -p "${latest_dir}"
+  mkdir -p "${latest_post_install_dir}"
+
+  # Download the latest release of Knative Serving.
+  local url="https://github.com/knative/serving/releases/download/${version}"
+
+  wget "${url}/serving-core.yaml" -P "${latest_dir}" \
+    || fail_test "Unable to download latest knative/serving core file."
+
+  wget "${url}/serving-domainmapping.yaml" -P "${latest_dir}" \
+    || fail_test "Unable to download latest knative/serving domain mapping file."
+
+  wget "${url}/serving-hpa.yaml" -P "${latest_dir}" \
+    || fail_test "Unable to download latest knative/serving hpa file."
+
+  wget "${url}/serving-post-install-jobs.yaml" -P "${latest_post_install_dir}" \
+    || fail_test "Unable to download latest knative/serving post install file."
+}
+
+function stage_test_resources() {
+  header "Staging Test Resources"
+
+  local source_dir="${REPO_ROOT_DIR}/test/config"
+  local target_dir="${E2E_YAML_DIR}/test/config"
+
+  mkdir -p "${target_dir}"
+
+  for file in $(find -L "${source_dir}" -type f -name "*.yaml"); do
+    if [[ "${file}" == *"test/config/ytt"* ]]; then
+      continue
+    fi
+    target="${file/${source_dir}/$target_dir}"
+    mkdir -p $(dirname $target)
+
+    if grep -Fq "ko://" "${file}"; then
+      local ko_target=$(mktemp)
+      echo building "${file/$REPO_ROOT_DIR/}"
+      ko resolve $(ko_flags) -f "${file}" > "${ko_target}" || fail_test "failed to build test resource"
+      file="${ko_target}"
+    fi
+
+    echo templating "${file/$REPO_ROOT_DIR/}" to "${target}"
+    overlay_system_namespace "${file}" > "${target}" || fail_test "failed to template"
+  done
+}
+
+function ko_flags() {
+  local KO_YAML_FLAGS="-P"
+  local KO_FLAGS="${KO_FLAGS:-}"
+
+  [[ "${KO_DOCKER_REPO}" != gcr.io/* ]] && KO_YAML_FLAGS=""
+
+  if [[ "${KO_FLAGS}" != *"--platform"* ]]; then
+    KO_YAML_FLAGS="${KO_YAML_FLAGS} --platform=all"
+  fi
+
+  echo "${KO_YAML_FLAGS} ${KO_FLAGS}"
+}
+
+function overlay_system_namespace() {
+  run_ytt \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml" \
+      -f "${1}" \
+      --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}"
+}
+
+function run_ytt() {
+  run_go_tool github.com/k14s/ytt/cmd/ytt ytt "$@"
+}
+
+
+function run_kapp() {
+  # TODO drop the sha when kapp releases a version with the
+  # following bug fix included
+  #
+  # https://github.com/vmware-tanzu/carvel-kapp/pull/213
+  run_go_tool github.com/k14s/kapp/cmd/kapp@d5b8c43b5678 kapp "$@"
 }

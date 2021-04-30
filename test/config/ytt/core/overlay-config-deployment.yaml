@@ -1,0 +1,8 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("helpers.lib.yaml", "system_configmap")
+
+#@overlay/match by=system_configmap("config-deployment"), expects=1
+---
+#@overlay/match-child-defaults missing_ok=True
+data:
+  progressDeadline: "120s"
