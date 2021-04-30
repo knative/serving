@@ -177,12 +177,12 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 		},
 	}
 
-	for i := range rev.Spec.Containers {
+	for i, container := range rev.Spec.Containers {
 		item := workItem{
 			revision: name,
 			timeout:  timeout,
-			name:     rev.Spec.Containers[i].Name,
-			image:    rev.Spec.Containers[i].Image,
+			name:     container.Name,
+			image:    container.Image,
 			index:    i,
 		}
 

@@ -237,15 +237,16 @@ func TestRateLimitPerItem(t *testing.T) {
 	}()
 
 	start := time.Now()
+	revision := rev("rev", "img1", "img2")
 	for i := 0; i < 4; i++ {
 		subject.Clear(types.NamespacedName{Name: "rev", Namespace: "ns"})
-		resolution, err := subject.Resolve(rev("rev", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		resolution, err := subject.Resolve(revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err != nil || resolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
 		}
 
 		<-enqueue
-		_, err = subject.Resolve(rev("rev", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		_, err = subject.Resolve(revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err == nil {
 			t.Fatalf("Expected Resolve to fail")
 		}
@@ -257,18 +258,34 @@ func TestRateLimitPerItem(t *testing.T) {
 		t.Fatal("Expected resolves to take longer than 500ms, but took", took)
 	}
 
-	subject.Forget(types.NamespacedName{Name: "rev", Namespace: "ns"})
+	t.Run("Does not affect other revisions", func(t *testing.T) {
+		start := time.Now()
 
-	start = time.Now()
-	resolution, err := subject.Resolve(rev("rev", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
-	if err != nil || resolution != nil {
-		t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
-	}
+		resolution, err := subject.Resolve(rev("another-revision", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		if err != nil || resolution != nil {
+			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
+		}
 
-	<-enqueue
-	if took := time.Since(start); took > 500*time.Millisecond {
-		t.Fatal("Expected Forget to remove revision from rate limiter, but took", took)
-	}
+		<-enqueue
+		if took := time.Since(start); took > 500*time.Millisecond {
+			t.Fatal("Expected per-item limit not to affect other revisions, but took", took)
+		}
+	})
+
+	t.Run("Forget clears per-item rate limit", func(t *testing.T) {
+		subject.Forget(types.NamespacedName{Name: "rev", Namespace: "ns"})
+
+		start = time.Now()
+		resolution, err := subject.Resolve(rev("rev", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		if err != nil || resolution != nil {
+			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
+		}
+
+		<-enqueue
+		if took := time.Since(start); took > 500*time.Millisecond {
+			t.Fatal("Expected Forget to remove revision from rate limiter, but took", took)
+		}
+	})
 }
 
 type resolveFunc func(context.Context, string, k8schain.Options, sets.String) (string, error)
