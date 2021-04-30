@@ -327,6 +327,13 @@ EOF
   echo ">> Patching activator HPA"
   # We set min replicas to 15 for testing multiple activator pods.
   kubectl -n ${SYSTEM_NAMESPACE} patch hpa activator --patch '{"spec":{"minReplicas":15}}' || return 1
+
+  mkdir -p "${ARTIFACTS}/install/"
+
+  for yaml in "${UNINSTALL_LIST[@]}"; do
+    echo ">> Copy: ${yaml}"
+    cp "${yaml}" "${ARTIFACTS}/install/$(basename ${yaml})"
+  done
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has
