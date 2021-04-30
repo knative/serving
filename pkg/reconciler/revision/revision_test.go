@@ -234,7 +234,8 @@ func (r *nopResolver) Resolve(rev *v1.Revision, _ k8schain.Options, _ sets.Strin
 	}}, nil
 }
 
-func (r *nopResolver) Clear(types.NamespacedName) {}
+func (r *nopResolver) Clear(types.NamespacedName)  {}
+func (r *nopResolver) Forget(types.NamespacedName) {}
 
 func testPodSpec() corev1.PodSpec {
 	return corev1.PodSpec{
@@ -328,7 +329,8 @@ func (r *notResolvedYetResolver) Resolve(_ *v1.Revision, _ k8schain.Options, _ s
 	return nil, nil
 }
 
-func (r *notResolvedYetResolver) Clear(types.NamespacedName) {}
+func (r *notResolvedYetResolver) Clear(types.NamespacedName)  {}
+func (r *notResolvedYetResolver) Forget(types.NamespacedName) {}
 
 type errorResolver struct {
 	err     error
@@ -342,6 +344,8 @@ func (r *errorResolver) Resolve(_ *v1.Revision, _ k8schain.Options, _ sets.Strin
 func (r *errorResolver) Clear(types.NamespacedName) {
 	r.cleared = true
 }
+
+func (r *errorResolver) Forget(types.NamespacedName) {}
 
 func TestResolutionFailed(t *testing.T) {
 	// Unconditionally return this error during resolution.

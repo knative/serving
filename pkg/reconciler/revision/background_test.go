@@ -179,7 +179,7 @@ func TestResolveInBackground(t *testing.T) {
 	}
 }
 
-func TestRateLimit(t *testing.T) {
+func TestRateLimitGlobal(t *testing.T) {
 	logger := logtesting.TestLogger(t)
 
 	var resolves atomic.Int32
@@ -210,6 +210,80 @@ func TestRateLimit(t *testing.T) {
 	if r := resolves.Load(); r > 1 {
 		t.Fatalf("Expected resolves to be rate limited, but was called %d times", r)
 	}
+}
+
+func TestRateLimitPerItem(t *testing.T) {
+	logger := logtesting.TestLogger(t)
+
+	var resolver resolveFunc = func(ctx context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
+		return "", errors.New("failed")
+	}
+
+	queue := workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(50*time.Millisecond, 5*time.Second))
+
+	enqueue := make(chan struct{})
+	subject := newBackgroundResolver(logger, resolver, queue, func(types.NamespacedName) {
+		enqueue <- struct{}{}
+	})
+
+	stop := make(chan struct{})
+	done := subject.Start(stop, 1)
+
+	defer func() {
+		close(stop)
+		<-done
+	}()
+
+	start := time.Now()
+	revision := rev("rev", "img1", "img2")
+	for i := 0; i < 4; i++ {
+		subject.Clear(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
+		resolution, err := subject.Resolve(revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		if err != nil || resolution != nil {
+			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
+		}
+
+		<-enqueue
+		_, err = subject.Resolve(revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		if err == nil {
+			t.Fatalf("Expected Resolve to fail")
+		}
+	}
+
+	if took := time.Since(start); took < 500*time.Millisecond {
+		// Per-item time is 50ms, so after 4 cycles of back-off should take at least 500ms.
+		// (Otherwise will take only ~200ms)
+		t.Fatal("Expected resolves to take longer than 500ms, but took", took)
+	}
+
+	t.Run("Does not affect other revisions", func(t *testing.T) {
+		start := time.Now()
+
+		resolution, err := subject.Resolve(rev("another-revision", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		if err != nil || resolution != nil {
+			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
+		}
+
+		<-enqueue
+		if took := time.Since(start); took > 500*time.Millisecond {
+			t.Fatal("Expected per-item limit not to affect other revisions, but took", took)
+		}
+	})
+
+	t.Run("Forget clears per-item rate limit", func(t *testing.T) {
+		subject.Forget(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
+
+		start = time.Now()
+		resolution, err := subject.Resolve(revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		if err != nil || resolution != nil {
+			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
+		}
+
+		<-enqueue
+		if took := time.Since(start); took > 500*time.Millisecond {
+			t.Fatal("Expected Forget to remove revision from rate limiter, but took", took)
+		}
+	})
 }
 
 type resolveFunc func(context.Context, string, k8schain.Options, sets.String) (string, error)

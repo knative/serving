@@ -55,6 +55,7 @@ type resolveResult struct {
 	opt                k8schain.Options
 	registriesToSkip   sets.String
 	completionCallback func()
+	workItems          []workItem
 
 	// these fields can be written concurrently, so should only be accessed while
 	// holding the backgroundResolver mutex.
@@ -170,21 +171,23 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 		registriesToSkip: registriesToSkip,
 		statuses:         make([]v1.ContainerStatus, len(rev.Spec.Containers)),
 		remaining:        len(rev.Spec.Containers),
+		workItems:        make([]workItem, len(rev.Spec.Containers)),
 		completionCallback: func() {
 			r.enqueue(name)
 		},
 	}
 
-	for i := range rev.Spec.Containers {
-		image := rev.Spec.Containers[i].Image
-
-		r.queue.AddRateLimited(workItem{
+	for i, container := range rev.Spec.Containers {
+		item := workItem{
 			revision: name,
 			timeout:  timeout,
-			name:     rev.Spec.Containers[i].Name,
-			image:    image,
+			name:     container.Name,
+			image:    container.Image,
 			index:    i,
-		})
+		}
+
+		r.results[name].workItems[i] = item
+		r.queue.AddRateLimited(item)
 	}
 }
 
@@ -192,13 +195,7 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 // in the resolveResult. If this completes the work for the revision, the
 // completionCallback is called.
 func (r *backgroundResolver) processWorkItem(item workItem) {
-	defer func() {
-		// NOTE: right now we do not retry failing items, but if we were
-		// `Forget` should be called only in case of a success
-		// (or if we abandon the item).
-		r.queue.Forget(item)
-		r.queue.Done(item)
-	}()
+	defer r.queue.Done(item)
 
 	// We need to acquire the result under lock since it's theoretically possible
 	// for a Clear to race with this and try to delete the result from the map.
@@ -219,6 +216,11 @@ func (r *backgroundResolver) processWorkItem(item workItem) {
 	// just storing the result.
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	// If we succeeded we can stop remembering the item for back-off purposes.
+	if resolveErr == nil {
+		r.queue.Forget(item)
+	}
 
 	// If we're already ready we don't want to callback twice.
 	// This can happen if an image resolve completes but we've already reported
@@ -246,11 +248,29 @@ func (r *backgroundResolver) processWorkItem(item workItem) {
 }
 
 // Clear removes any cached results for the revision. This should be called
-// when the revision is deleted or once the revision's ContainerStatus has been
-// set.
+// once the revision's ContainerStatus has been set.
 func (r *backgroundResolver) Clear(name types.NamespacedName) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	delete(r.results, name)
+}
+
+// Forget removes the revision from the rate limiter and removes any cached
+// results for the revision. It should be called when the revision is deleted
+// or marked permanently failed.
+func (r *backgroundResolver) Forget(name types.NamespacedName) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	result := r.results[name]
+	if result == nil {
+		return
+	}
+
+	for _, item := range result.workItems {
+		r.queue.Forget(item)
+	}
 
 	delete(r.results, name)
 }

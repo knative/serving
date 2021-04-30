@@ -46,6 +46,7 @@ import (
 type resolver interface {
 	Resolve(*v1.Revision, k8schain.Options, sets.String, time.Duration) ([]v1.ContainerStatus, error)
 	Clear(types.NamespacedName)
+	Forget(types.NamespacedName)
 }
 
 // Reconciler implements controller.Reconciler for Revision resources.
@@ -186,6 +187,6 @@ func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revis
 
 // ObserveDeletion implements OnDeletionInterface.ObserveDeletion.
 func (c *Reconciler) ObserveDeletion(ctx context.Context, key types.NamespacedName) error {
-	c.resolver.Clear(key)
+	c.resolver.Forget(key)
 	return nil
 }
