@@ -31,6 +31,8 @@ export RUN_HTTP01_AUTO_TLS_TESTS=0
 # Only build linux/amd64 bit images
 KO_FLAGS="--platform=linux/amd64"
 
+readonly SCALE_CHAOSDUCK_TO_ZERO="${SCALE_CHAOSDUCK_TO_ZERO:-0}"
+
 HTTPS=0
 export MESH=0
 
@@ -396,6 +398,8 @@ function test_setup() {
     kubectl label namespace serving-tests istio-injection=enabled
     kubectl label namespace serving-tests-alt istio-injection=enabled
   fi
+
+  if (( SCALE_CHAOSDUCK_TO_ZERO )); then disable_chaosduck; fi
 
   # Setting deadline progress to a shorter value.
   kubectl patch cm "config-deployment" -n "${SYSTEM_NAMESPACE}" \
