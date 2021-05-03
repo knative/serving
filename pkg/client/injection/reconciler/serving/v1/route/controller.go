@@ -54,6 +54,15 @@ const (
 func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsFn) *controller.Impl {
 	logger := logging.FromContext(ctx)
 
+	ctrType := reflect.TypeOf(r).Elem()
+	ctrTypeName := fmt.Sprintf("%s.%s", ctrType.PkgPath(), ctrType.Name())
+	ctrTypeName = strings.ReplaceAll(ctrTypeName, "/", ".")
+
+	logger = logger.With(
+		zap.String(logkey.ControllerType, ctrTypeName),
+		zap.String(logkey.Kind, "serving.knative.dev.Route"),
+	)
+
 	// Check the options function input. It should be 0 or 1.
 	if len(optionsFns) > 1 {
 		logger.Fatal("Up to one options function is supported, found: ", len(optionsFns))
@@ -65,7 +74,12 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 
 	rec := &reconcilerImpl{
 		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
+			DemoteFunc: func(bkt reconciler.Bucket) {
+				logger.Info("demote bucket ", bkt.Name())
+			},
 			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
+				logger.Info("promote bucket ", bkt.Name())
+
 				all, err := lister.List(labels.Everything())
 				if err != nil {
 					return err
@@ -85,15 +99,6 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 		reconciler:    r,
 		finalizerName: defaultFinalizerName,
 	}
-
-	ctrType := reflect.TypeOf(r).Elem()
-	ctrTypeName := fmt.Sprintf("%s.%s", ctrType.PkgPath(), ctrType.Name())
-	ctrTypeName = strings.ReplaceAll(ctrTypeName, "/", ".")
-
-	logger = logger.With(
-		zap.String(logkey.ControllerType, ctrTypeName),
-		zap.String(logkey.Kind, "serving.knative.dev.Route"),
-	)
 
 	impl := controller.NewImpl(rec, logger, ctrTypeName)
 	agentName := defaultControllerAgentName
