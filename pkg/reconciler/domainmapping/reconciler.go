@@ -199,7 +199,7 @@ func certClass(ctx context.Context) string {
 }
 
 func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
-	if !autoTLSEnabled(ctx, dm) {
+	if !autoTLSEnabled(ctx, dm) && dm.Spec.TLS == nil {
 		dm.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
 		return nil, nil, nil
 	}
