@@ -145,7 +145,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					}),
 					rtesting.WithConfigAnnotations(map[string]string{
 						autoscaling.MaxScaleAnnotationKey: "1",
-						autoscaling.MinScaleAnnotationKey: "1",
 					}),
 					rtesting.WithReadinessProbe(&corev1.Probe{
 						Handler: corev1.Handler{
