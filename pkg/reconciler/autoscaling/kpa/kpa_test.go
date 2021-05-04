@@ -1347,7 +1347,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 		if err != nil {
 			return true, err
 		}
-		return newKPA.IsReady(), nil
+		return newKPA.IsReady() && newKPA.Status.GetDesiredScale() == 1, nil
 	}); err != nil {
 		t.Fatal("PA failed to become ready:", err)
 	}
