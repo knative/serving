@@ -105,6 +105,12 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 		go func() {
 			defer wg.Done()
 			for {
+				start := time.Now()
+				defer func() {
+					end := time.Now()
+					r.logger.Info("process item duration", end.Sub(start).String())
+				}()
+
 				item, shutdown := r.queue.Get()
 				if shutdown {
 					return
@@ -222,8 +228,11 @@ func (r *backgroundResolver) processWorkItem(item workItem) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), item.timeout)
 	defer cancel()
-
+	start := time.Now()
 	resolvedDigest, resolveErr := r.resolver.Resolve(ctx, item.image, result.opt, result.registriesToSkip)
+	end := time.Now()
+
+	r.logger.Info("duration to resolve", item.image, end.Sub(start).String())
 
 	// lock after the resolve because we don't want to block parallel resolves,
 	// just storing the result.
@@ -246,6 +255,7 @@ func (r *backgroundResolver) processWorkItem(item workItem) {
 		result.statuses = nil
 		result.err = fmt.Errorf("%s: %w", v1.RevisionContainerMissingMessage(item.image, "failed to resolve image to digest"), resolveErr)
 		result.completionCallback()
+		r.logger.Info("signal error", item.image, result.err)
 		return
 	}
 
@@ -255,6 +265,7 @@ func (r *backgroundResolver) processWorkItem(item workItem) {
 	}
 
 	if result.ready() {
+		r.logger.Info("signal completion", item.image)
 		result.completionCallback()
 	}
 }
