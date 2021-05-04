@@ -193,6 +193,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	// If we are not the leader, and we don't implement either ReadOnly
 	// observer interfaces, then take a fast-path out.
 	if s.isNotLeaderNorObserver() {
+		logger.Info("not a leader or observer skipping key: ", key)
 		return controller.NewSkipKey(key)
 	}
 
@@ -213,7 +214,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	if errors.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing and call
 		// the ObserveDeletion handler if appropriate.
-		logger.Debugf("Resource %q no longer exists", key)
+		logger.Infof("Resource %q no longer exists", key)
 		if del, ok := r.reconciler.(reconciler.OnDeletionInterface); ok {
 			return del.ObserveDeletion(ctx, types.NamespacedName{
 				Namespace: s.namespace,
@@ -222,6 +223,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		}
 		return nil
 	} else if err != nil {
+		logger.Infof("error getting resource %q: %s", key, err)
 		return err
 	}
 
@@ -233,6 +235,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	name, do := s.reconcileMethodFor(resource)
 	// Append the target method to the logger.
 	logger = logger.With(zap.String("targetMethod", name))
+	logger.Info("method ", name)
 	switch name {
 	case reconciler.DoReconcileKind:
 		// Set and update the finalizer on resource if r.reconciler
@@ -267,6 +270,8 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		reconcileEvent = do(ctx, resource)
 
 	}
+
+	logger.Info("reconcile result", reconcileEvent)
 
 	// Synchronize the status.
 	switch {

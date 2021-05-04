@@ -179,7 +179,6 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versio
 // Reconcile implements controller.Reconciler
 func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
-	logger.Info("Reconcile")
 
 	// Initialize the reconciler state. This will convert the namespace/name
 	// string into a distinct namespace and name, determine if this instance of
@@ -194,7 +193,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	// If we are not the leader, and we don't implement either ReadOnly
 	// observer interfaces, then take a fast-path out.
 	if s.isNotLeaderNorObserver() {
-		logger.Info("not a leader or observer")
+		logger.Info("not a leader or observer skipping key: ", key)
 		return controller.NewSkipKey(key)
 	}
 
@@ -224,7 +223,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		}
 		return nil
 	} else if err != nil {
-		logger.Info("err getting resource", err)
+		logger.Infof("error getting resource %q: %s", key, err)
 		return err
 	}
 
@@ -236,8 +235,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	name, do := s.reconcileMethodFor(resource)
 	// Append the target method to the logger.
 	logger = logger.With(zap.String("targetMethod", name))
-	logger.Info("method", name)
-
+	logger.Info("method ", name)
 	switch name {
 	case reconciler.DoReconcileKind:
 		// Set and update the finalizer on resource if r.reconciler

@@ -52,12 +52,11 @@ const (
 // the provided Interface and optional Finalizer methods. OptionsFn is used to return
 // controller.Options to be used by the internal reconciler.
 func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsFn) *controller.Impl {
-	logger := logging.FromContext(ctx)
-
 	ctrType := reflect.TypeOf(r).Elem()
 	ctrTypeName := fmt.Sprintf("%s.%s", ctrType.PkgPath(), ctrType.Name())
 	ctrTypeName = strings.ReplaceAll(ctrTypeName, "/", ".")
 
+	logger := logging.FromContext(ctx)
 	logger = logger.With(
 		zap.String(logkey.ControllerType, ctrTypeName),
 		zap.String(logkey.Kind, "serving.knative.dev.Route"),
@@ -79,7 +78,6 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 			},
 			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
 				logger.Info("promote bucket ", bkt.Name())
-
 				all, err := lister.List(labels.Everything())
 				if err != nil {
 					return err

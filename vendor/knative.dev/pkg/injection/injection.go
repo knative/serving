@@ -19,8 +19,11 @@ package injection
 import (
 	"context"
 
+	"github.com/davecgh/go-spew/spew"
+	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -61,6 +64,23 @@ func EnableInjectionOrDie(ctx context.Context, cfg *rest.Config) (context.Contex
 		logging.FromContext(ctx).Info("Starting informers...")
 		if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
 			logging.FromContext(ctx).Fatalw("Failed to start informers", zap.Error(err))
+		}
+
+		logger := logging.FromContext(ctx)
+
+		for _, informer := range informers {
+			i := informer.(cache.SharedInformer)
+			i.AddEventHandler(cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					logger.Info("add ", spew.Sdump(obj))
+				},
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					logger.Infof("update ", spew.Sdump(newObj), "\n", cmp.Diff(oldObj, newObj))
+				},
+				DeleteFunc: func(obj interface{}) {
+					logger.Info("delete ", spew.Sdump(obj))
+				},
+			})
 		}
 	}
 }

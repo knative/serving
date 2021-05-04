@@ -55,7 +55,15 @@ const (
 // the provided Interface and optional Finalizer methods. OptionsFn is used to return
 // controller.Options to be used by the internal reconciler.
 func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...controller.OptionsFn) *controller.Impl {
+	ctrType := reflect.TypeOf(r).Elem()
+	ctrTypeName := fmt.Sprintf("%s.%s", ctrType.PkgPath(), ctrType.Name())
+	ctrTypeName = strings.ReplaceAll(ctrTypeName, "/", ".")
+
 	logger := logging.FromContext(ctx)
+	logger = logger.With(
+		zap.String(logkey.ControllerType, ctrTypeName),
+		zap.String(logkey.Kind, "autoscaling.internal.knative.dev.PodAutoscaler"),
+	)
 
 	// Check the options function input. It should be 0 or 1.
 	if len(optionsFns) > 1 {
@@ -68,7 +76,11 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 
 	rec := &reconcilerImpl{
 		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
+			DemoteFunc: func(bkt reconciler.Bucket) {
+				logger.Info("demote bucket ", bkt.Name())
+			},
 			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
+				logger.Info("promote bucket ", bkt.Name())
 				all, err := lister.List(labels.Everything())
 				if err != nil {
 					return err
@@ -89,15 +101,6 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 		finalizerName: defaultFinalizerName,
 		classValue:    classValue,
 	}
-
-	ctrType := reflect.TypeOf(r).Elem()
-	ctrTypeName := fmt.Sprintf("%s.%s", ctrType.PkgPath(), ctrType.Name())
-	ctrTypeName = strings.ReplaceAll(ctrTypeName, "/", ".")
-
-	logger = logger.With(
-		zap.String(logkey.ControllerType, ctrTypeName),
-		zap.String(logkey.Kind, "autoscaling.internal.knative.dev.PodAutoscaler"),
-	)
 
 	impl := controller.NewImpl(rec, logger, ctrTypeName)
 	agentName := defaultControllerAgentName
