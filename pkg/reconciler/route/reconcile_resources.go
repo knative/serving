@@ -26,6 +26,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/yaml.v2"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -50,26 +51,31 @@ func (c *Reconciler) reconcileIngress(
 	ingressClass string,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (*netv1alpha1.Ingress, *traffic.Rollout, error) {
+	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 	var effectiveRO *traffic.Rollout
 
 	ingress, err := c.ingressLister.Ingresses(r.Namespace).Get(names.Ingress(r))
 	if apierrs.IsNotFound(err) {
+		logger.Info("ingress not found")
 		desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, acmeChallenges...)
 		if err != nil {
 			return nil, nil, err
 		}
 		ingress, err = c.netclient.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
 		if err != nil {
+			logger.Info("ingress created failed")
 			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
 			return nil, nil, fmt.Errorf("failed to create Ingress: %w", err)
 		}
 
+		logger.Info("ingress created")
 		recorder.Eventf(r, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.GetName())
 		return ingress, tc.BuildRollout(), nil
 	} else if err != nil {
 		return nil, nil, err
 	} else {
+		logger.Info("making ingress with rollout")
 		// Ingress exists. We need to compute the rollout spec diff.
 		effectiveRO = c.reconcileRollout(ctx, r, tc, ingress)
 		desired, err := resources.MakeIngressWithRollout(ctx, r, tc, effectiveRO,
@@ -94,6 +100,7 @@ func (c *Reconciler) reconcileIngress(
 			origin.Annotations = desired.Annotations
 			origin.Labels = desired.Labels
 
+			logger.Info("updating ingress with rollout")
 			updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(
 				ctx, origin, metav1.UpdateOptions{})
 			if err != nil {
@@ -176,6 +183,9 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Route, services []*corev1.Service, ingress *netv1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
+
+	data, _ := yaml.Marshal(ingress)
+	logger.Info(data)
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	for _, service := range services {
