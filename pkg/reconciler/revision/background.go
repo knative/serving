@@ -59,9 +59,13 @@ type resolveResult struct {
 
 	// these fields can be written concurrently, so should only be accessed while
 	// holding the backgroundResolver mutex.
-	statuses  []v1.ContainerStatus
-	err       error
-	remaining int
+
+	// statuses is a map of container index to resolved status. This is a map
+	// rather than an array so that we can easily determine when we have received
+	// all the digests that we want (by comparing length to `want`).
+	statuses map[int]v1.ContainerStatus
+	want     int
+	err      error
 }
 
 // workItem is a single task submitted to the queue, to resolve a single image
@@ -160,7 +164,16 @@ func (r *backgroundResolver) Resolve(rev *v1.Revision, opt k8schain.Options, reg
 	}
 
 	ret := r.results[name]
-	return ret.statuses, ret.err
+	if ret.err != nil {
+		return nil, ret.err
+	}
+
+	array := make([]v1.ContainerStatus, len(rev.Spec.Containers))
+	for k, v := range ret.statuses {
+		array[k] = v
+	}
+
+	return array, ret.err
 }
 
 // addWorkItems adds a digest resolve item to the queue for each container in the revision.
@@ -169,8 +182,8 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 	r.results[name] = &resolveResult{
 		opt:              opt,
 		registriesToSkip: registriesToSkip,
-		statuses:         make([]v1.ContainerStatus, len(rev.Spec.Containers)),
-		remaining:        len(rev.Spec.Containers),
+		statuses:         make(map[int]v1.ContainerStatus),
+		want:             len(rev.Spec.Containers),
 		workItems:        make([]workItem, len(rev.Spec.Containers)),
 		completionCallback: func() {
 			r.enqueue(name)
@@ -236,7 +249,6 @@ func (r *backgroundResolver) processWorkItem(item workItem) {
 		return
 	}
 
-	result.remaining--
 	result.statuses[item.index] = v1.ContainerStatus{
 		Name:        item.name,
 		ImageDigest: resolvedDigest,
@@ -276,5 +288,5 @@ func (r *backgroundResolver) Forget(name types.NamespacedName) {
 }
 
 func (r *resolveResult) ready() bool {
-	return r.remaining == 0 || r.err != nil
+	return len(r.statuses) == r.want || r.err != nil
 }
