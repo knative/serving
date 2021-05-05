@@ -17,8 +17,8 @@ require (
 	github.com/go-openapi/spec v0.20.2 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.5
-	github.com/google/go-containerregistry v0.4.1-0.20210128200529-19c2b639fab1
-	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210129212729-5c4818de4025
+	github.com/google/go-containerregistry v0.5.0
+	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210430144454-9cf3ed4ac182
 	github.com/google/gofuzz v1.2.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/googleapis/gnostic v0.5.3 // indirect
