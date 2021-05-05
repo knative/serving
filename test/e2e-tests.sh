@@ -111,7 +111,7 @@ go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
   -buckets="${BUCKETS:-1}" \
   -spoofinterval="10ms" || failed=1
 
-(( failed )) && fail_test
+fail_test
 
 # Remove the kail log file if the test flow passes.
 # This is for preventing too many large log files to be uploaded to GCS in CI.
