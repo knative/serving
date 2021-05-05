@@ -75,7 +75,7 @@ func EnableInjectionOrDie(ctx context.Context, cfg *rest.Config) (context.Contex
 					logger.Info("add ", spew.Sdump(obj))
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
-					logger.Infof("update ", spew.Sdump(newObj), "\n", cmp.Diff(oldObj, newObj))
+					logger.Info("update ", spew.Sdump(newObj), "\n", cmp.Diff(oldObj, newObj))
 				},
 				DeleteFunc: func(obj interface{}) {
 					logger.Info("delete ", spew.Sdump(obj))
