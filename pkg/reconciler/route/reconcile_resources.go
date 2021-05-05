@@ -185,7 +185,7 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 	ns := route.Namespace
 
 	data, _ := yaml.Marshal(ingress)
-	logger.Info(data)
+	logger.Info(string(data))
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	for _, service := range services {
