@@ -505,7 +505,7 @@ function stage_test_resources() {
     mkdir -p $(dirname $target)
 
     if grep -Fq "ko://" "${file}"; then
-      local ko_target=$(mktemp)
+      local ko_target="$(mktemp -d)/$(basename $file)"
       echo building "${file/$REPO_ROOT_DIR/}"
       ko resolve $(ko_flags) -f "${file}" > "${ko_target}" || fail_test "failed to build test resource"
       file="${ko_target}"
