@@ -105,12 +105,6 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 		go func() {
 			defer wg.Done()
 			for {
-				start := time.Now()
-				defer func() {
-					end := time.Now()
-					r.logger.Info("process item duration", end.Sub(start).String())
-				}()
-
 				item, shutdown := r.queue.Get()
 				if shutdown {
 					return
@@ -121,7 +115,11 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 					r.logger.Fatalf("Unexpected work item type: want: %T, got: %T", workItem{}, item)
 				}
 
+				start := time.Now()
 				r.processWorkItem(rrItem)
+				end := time.Now()
+				r.logger.Info("process item duration ", end.Sub(start).String())
+
 			}
 		}()
 	}

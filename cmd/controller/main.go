@@ -18,6 +18,9 @@ package main
 
 import (
 	// The set of controllers this controller process runs.
+	"context"
+	"os"
+
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/gc"
 	"knative.dev/serving/pkg/reconciler/labeler"
@@ -29,8 +32,6 @@ import (
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
-
-	"os"
 
 	texporter "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace"
 	"go.opentelemetry.io/otel"
@@ -58,15 +59,35 @@ func main() {
 		panic("no google cloud project env var")
 	}
 
-	exporter, err := texporter.NewExporter(texporter.WithProjectID(projectID))
+	// Create exporter and trace provider pipeline, and register provider.
+	_, shutdown, err := texporter.InstallNewPipeline(
+		[]texporter.Option{
+			// optional exporter options
+			texporter.WithProjectID(projectID),
+		},
+		// This example code uses sdktrace.AlwaysSample sampler to sample all traces.
+		// In a production environment or high QPS setup please use ProbabilitySampler
+		// set at the desired probability.
+		// Example:
+		// sdktrace.WithConfig(sdktrace.Config {
+		//     DefaultSampler: sdktrace.ProbabilitySampler(0.0001),
+		// })
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		// other optional provider options
+	)
 
 	if err != nil {
 		panic("texporter.NewExporter: " + err.Error())
 	}
-	defer exporter.Shutdown(ctx) // flushes any pending spans
 
-	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
-	otel.SetTracerProvider(tp)
+	defer shutdown()
+
+	tracer := otel.GetTracerProvider().Tracer("example.com/trace")
+	err = func(ctx context.Context) error {
+		ctx, span := tracer.Start(ctx, "foo")
+		defer span.End()
+		return nil
+	}(ctx)
 
 	sharedmain.MainWithContext(ctx, "controller", ctors...)
 }
