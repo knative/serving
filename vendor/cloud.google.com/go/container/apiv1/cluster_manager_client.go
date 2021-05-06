@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC
+// Copyright 2021 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@ type ClusterManagerCallOptions struct {
 	GetOperation            []gax.CallOption
 	CancelOperation         []gax.CallOption
 	GetServerConfig         []gax.CallOption
+	GetJSONWebKeys          []gax.CallOption
 	ListNodePools           []gax.CallOption
 	GetNodePool             []gax.CallOption
 	CreateNodePool          []gax.CallOption
@@ -76,8 +77,9 @@ func defaultClusterManagerClientOptions() []option.ClientOption {
 	return []option.ClientOption{
 		internaloption.WithDefaultEndpoint("container.googleapis.com:443"),
 		internaloption.WithDefaultMTLSEndpoint("container.mtls.googleapis.com:443"),
+		internaloption.WithDefaultAudience("https://container.googleapis.com/"),
+		internaloption.WithDefaultScopes(DefaultAuthScopes()...),
 		option.WithGRPCDialOption(grpc.WithDisableServiceConfig()),
-		option.WithScopes(DefaultAuthScopes()...),
 		option.WithGRPCDialOption(grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(math.MaxInt32))),
 	}
@@ -168,6 +170,7 @@ func defaultClusterManagerCallOptions() *ClusterManagerCallOptions {
 				})
 			}),
 		},
+		GetJSONWebKeys: []gax.CallOption{},
 		ListNodePools: []gax.CallOption{
 			gax.WithRetry(func() gax.Retryer {
 				return gax.OnCodes([]codes.Code{
@@ -344,7 +347,8 @@ func (c *ClusterManagerClient) GetCluster(ctx context.Context, req *containerpb.
 // Compute Engine instances.
 //
 // By default, the cluster is created in the project’s
-// default network (at https://cloud.google.com/compute/docs/networks-and-firewalls#networks).
+// default
+// network (at https://cloud.google.com/compute/docs/networks-and-firewalls#networks).
 //
 // One firewall is added for the cluster. After cluster creation,
 // the Kubelet creates routes for each node to allow the containers
@@ -507,6 +511,9 @@ func (c *ClusterManagerClient) SetAddonsConfig(ctx context.Context, req *contain
 }
 
 // SetLocations sets the locations for a specific cluster.
+// Deprecated. Use
+// projects.locations.clusters.update (at https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.clusters/update)
+// instead.
 func (c *ClusterManagerClient) SetLocations(ctx context.Context, req *containerpb.SetLocationsRequest, opts ...gax.CallOption) (*containerpb.Operation, error) {
 	if _, ok := ctx.Deadline(); !ok && !c.disableDeadlines {
 		cctx, cancel := context.WithTimeout(ctx, 45000*time.Millisecond)
@@ -680,6 +687,26 @@ func (c *ClusterManagerClient) GetServerConfig(ctx context.Context, req *contain
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
 		var err error
 		resp, err = c.clusterManagerClient.GetServerConfig(ctx, req, settings.GRPC...)
+		return err
+	}, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// GetJSONWebKeys gets the public component of the cluster signing keys in
+// JSON Web Key format.
+// This API is not yet intended for general use, and is not available for all
+// clusters.
+func (c *ClusterManagerClient) GetJSONWebKeys(ctx context.Context, req *containerpb.GetJSONWebKeysRequest, opts ...gax.CallOption) (*containerpb.GetJSONWebKeysResponse, error) {
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", url.QueryEscape(req.GetParent())))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
+	opts = append(c.CallOptions.GetJSONWebKeys[0:len(c.CallOptions.GetJSONWebKeys):len(c.CallOptions.GetJSONWebKeys)], opts...)
+	var resp *containerpb.GetJSONWebKeysResponse
+	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
+		var err error
+		resp, err = c.clusterManagerClient.GetJSONWebKeys(ctx, req, settings.GRPC...)
 		return err
 	}, opts...)
 	if err != nil {

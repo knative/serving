@@ -1,0 +1,178 @@
+{
+  "schema": "1.0",
+  "comment": "This file maps proto services/RPCs to the corresponding library clients/methods.",
+  "language": "go",
+  "protoPackage": "google.container.v1",
+  "libraryPackage": "cloud.google.com/go/container/apiv1",
+  "services": {
+    "ClusterManager": {
+      "clients": {
+        "grpc": {
+          "libraryClient": "ClusterManagerClient",
+          "rpcs": {
+            "CancelOperation": {
+              "methods": [
+                "CancelOperation"
+              ]
+            },
+            "CompleteIPRotation": {
+              "methods": [
+                "CompleteIPRotation"
+              ]
+            },
+            "CreateCluster": {
+              "methods": [
+                "CreateCluster"
+              ]
+            },
+            "CreateNodePool": {
+              "methods": [
+                "CreateNodePool"
+              ]
+            },
+            "DeleteCluster": {
+              "methods": [
+                "DeleteCluster"
+              ]
+            },
+            "DeleteNodePool": {
+              "methods": [
+                "DeleteNodePool"
+              ]
+            },
+            "GetCluster": {
+              "methods": [
+                "GetCluster"
+              ]
+            },
+            "GetJSONWebKeys": {
+              "methods": [
+                "GetJSONWebKeys"
+              ]
+            },
+            "GetNodePool": {
+              "methods": [
+                "GetNodePool"
+              ]
+            },
+            "GetOperation": {
+              "methods": [
+                "GetOperation"
+              ]
+            },
+            "GetServerConfig": {
+              "methods": [
+                "GetServerConfig"
+              ]
+            },
+            "ListClusters": {
+              "methods": [
+                "ListClusters"
+              ]
+            },
+            "ListNodePools": {
+              "methods": [
+                "ListNodePools"
+              ]
+            },
+            "ListOperations": {
+              "methods": [
+                "ListOperations"
+              ]
+            },
+            "ListUsableSubnetworks": {
+              "methods": [
+                "ListUsableSubnetworks"
+              ]
+            },
+            "RollbackNodePoolUpgrade": {
+              "methods": [
+                "RollbackNodePoolUpgrade"
+              ]
+            },
+            "SetAddonsConfig": {
+              "methods": [
+                "SetAddonsConfig"
+              ]
+            },
+            "SetLabels": {
+              "methods": [
+                "SetLabels"
+              ]
+            },
+            "SetLegacyAbac": {
+              "methods": [
+                "SetLegacyAbac"
+              ]
+            },
+            "SetLocations": {
+              "methods": [
+                "SetLocations"
+              ]
+            },
+            "SetLoggingService": {
+              "methods": [
+                "SetLoggingService"
+              ]
+            },
+            "SetMaintenancePolicy": {
+              "methods": [
+                "SetMaintenancePolicy"
+              ]
+            },
+            "SetMasterAuth": {
+              "methods": [
+                "SetMasterAuth"
+              ]
+            },
+            "SetMonitoringService": {
+              "methods": [
+                "SetMonitoringService"
+              ]
+            },
+            "SetNetworkPolicy": {
+              "methods": [
+                "SetNetworkPolicy"
+              ]
+            },
+            "SetNodePoolAutoscaling": {
+              "methods": [
+                "SetNodePoolAutoscaling"
+              ]
+            },
+            "SetNodePoolManagement": {
+              "methods": [
+                "SetNodePoolManagement"
+              ]
+            },
+            "SetNodePoolSize": {
+              "methods": [
+                "SetNodePoolSize"
+              ]
+            },
+            "StartIPRotation": {
+              "methods": [
+                "StartIPRotation"
+              ]
+            },
+            "UpdateCluster": {
+              "methods": [
+                "UpdateCluster"
+              ]
+            },
+            "UpdateMaster": {
+              "methods": [
+                "UpdateMaster"
+              ]
+            },
+            "UpdateNodePool": {
+              "methods": [
+                "UpdateNodePool"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -8,6 +8,7 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.9.10 // indirect
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
+	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace v0.20.0
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210420163308-c1402a70e2f1
 	github.com/aws/aws-sdk-go v1.37.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
@@ -16,6 +17,7 @@ require (
 	github.com/emicklei/go-restful v2.15.0+incompatible // indirect
 	github.com/go-openapi/spec v0.20.2 // indirect
 	github.com/gogo/protobuf v1.3.2
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.5.5
 	github.com/google/go-containerregistry v0.5.0
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210430144454-9cf3ed4ac182
@@ -30,19 +32,23 @@ require (
 	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/tsenart/vegeta/v12 v12.8.4
 	go.opencensus.io v0.23.0
+	go.opentelemetry.io/otel v0.20.0
+	go.opentelemetry.io/otel/sdk v0.20.0
 	go.uber.org/atomic v1.7.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/goleak v1.1.10
 	go.uber.org/zap v1.16.0
-	golang.org/x/mod v0.4.1 // indirect
-	golang.org/x/net v0.0.0-20210415231046-e915ea6b2b7d
-	golang.org/x/oauth2 v0.0.0-20210413134643-5e61552d6c78
+	golang.org/x/net v0.0.0-20210505214959-0714010a04ed
+	golang.org/x/oauth2 v0.0.0-20210427180440-81ed05c6b58c
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6 // indirect
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	gonum.org/v1/netlib v0.0.0-20190331212654-76723241ea4e // indirect
-	google.golang.org/api v0.36.0
+	google.golang.org/api v0.46.0
+	google.golang.org/genproto v0.0.0-20210505142820-a42aa055cf76 // indirect
 	google.golang.org/grpc v1.37.0
+	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.19.7
 	k8s.io/apimachinery v0.19.7
 	k8s.io/client-go v0.19.7

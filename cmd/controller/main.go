@@ -29,6 +29,13 @@ import (
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+
+	"os"
+
+	texporter "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"knative.dev/pkg/signals"
 )
 
 var ctors = []injection.ControllerConstructor{
@@ -42,5 +49,24 @@ var ctors = []injection.ControllerConstructor{
 }
 
 func main() {
-	sharedmain.Main("controller", ctors...)
+
+	ctx := signals.NewContext()
+
+	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
+
+	if projectID == "" {
+		panic("no google cloud project env var")
+	}
+
+	exporter, err := texporter.NewExporter(texporter.WithProjectID(projectID))
+
+	if err != nil {
+		panic("texporter.NewExporter: " + err.Error())
+	}
+	defer exporter.Shutdown(ctx) // flushes any pending spans
+
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+	otel.SetTracerProvider(tp)
+
+	sharedmain.MainWithContext(ctx, "controller", ctors...)
 }
