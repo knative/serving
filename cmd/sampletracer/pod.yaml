@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sample-tracer
+spec:
+  containers:
+    - name: web
+      image: ko://knative.dev/serving/cmd/sampletracer
+      env:
+      - name: GOOGLE_CLOUD_PROJECT
+        value: REPLACEME

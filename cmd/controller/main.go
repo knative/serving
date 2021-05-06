@@ -51,14 +51,10 @@ var ctors = []injection.ControllerConstructor{
 
 func main() {
 
-	ctx := signals.NewContext()
-
 	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
-
 	if projectID == "" {
 		panic("no google cloud project env var")
 	}
-
 	// Create exporter and trace provider pipeline, and register provider.
 	_, shutdown, err := texporter.InstallNewPipeline(
 		[]texporter.Option{
@@ -82,9 +78,11 @@ func main() {
 
 	defer shutdown()
 
-	tracer := otel.GetTracerProvider().Tracer("example.com/trace")
+	ctx := signals.NewContext()
+
+	tracer := otel.GetTracerProvider().Tracer("knative.dev/trace")
 	err = func(ctx context.Context) error {
-		ctx, span := tracer.Start(ctx, "foo")
+		ctx, span := tracer.Start(ctx, "foo2")
 		defer span.End()
 		return nil
 	}(ctx)

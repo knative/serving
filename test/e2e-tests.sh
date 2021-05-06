@@ -33,8 +33,7 @@ source $(dirname $0)/e2e-common.sh
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
 # Pin to 1.18 since scale test is super flakey on 1.19
-initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha "$@" \
-  --cluster-version 1.18
+initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.18 "$@"
 
 # Run the tests
 header "Running tests"
@@ -111,7 +110,7 @@ go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
   -buckets="${BUCKETS:-1}" \
   -spoofinterval="10ms" || failed=1
 
-fail_test
+(( failed )) && fail_test
 
 # Remove the kail log file if the test flow passes.
 # This is for preventing too many large log files to be uploaded to GCS in CI.
