@@ -32,6 +32,9 @@ import (
 )
 
 func TestMultiContainer(t *testing.T) {
+	if !test.ServingFlags.EnableBetaFeatures {
+		t.Skip()
+	}
 	t.Parallel()
 
 	clients := Setup(t)
