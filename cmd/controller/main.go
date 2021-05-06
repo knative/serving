@@ -18,7 +18,7 @@ package main
 
 import (
 	// The set of controllers this controller process runs.
-	"context"
+
 	"os"
 
 	"knative.dev/serving/pkg/reconciler/configuration"
@@ -35,7 +35,9 @@ import (
 
 	texporter "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/semconv"
 	"knative.dev/pkg/signals"
 )
 
@@ -69,6 +71,11 @@ func main() {
 		//     DefaultSampler: sdktrace.ProbabilitySampler(0.0001),
 		// })
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithResource(resource.NewWithAttributes(
+			semconv.ServiceNameKey.String("controller"),
+			semconv.ServiceInstanceIDKey.String(os.Getenv("POD_NAME")),
+			semconv.K8SPodNameKey.String(os.Getenv("POD_NAME")),
+		)),
 		// other optional provider options
 	)
 
@@ -78,14 +85,8 @@ func main() {
 
 	defer shutdown()
 
+	otel.GetTracerProvider()
+
 	ctx := signals.NewContext()
-
-	tracer := otel.GetTracerProvider().Tracer("knative.dev/trace")
-	err = func(ctx context.Context) error {
-		ctx, span := tracer.Start(ctx, "foo2")
-		defer span.End()
-		return nil
-	}(ctx)
-
 	sharedmain.MainWithContext(ctx, "controller", ctors...)
 }

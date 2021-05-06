@@ -58,6 +58,7 @@ func (g *reconcilerControllerGenerator) Namers(c *generator.Context) namer.NameS
 
 func (g *reconcilerControllerGenerator) Imports(c *generator.Context) (imports []string) {
 	imports = append(imports, g.imports.ImportLines()...)
+	imports = append(imports, "go.opentelemetry.io/otel")
 	return
 }
 
@@ -201,11 +202,17 @@ const (
 	{{end}}
 )
 
+
+
 // NewImpl returns a {{.controllerImpl|raw}} that handles queuing and feeding work from
 // the queue through an implementation of {{.controllerReconciler|raw}}, delegating to
 // the provided Interface and optional Finalizer methods. OptionsFn is used to return
 // {{.controllerOptions|raw}} to be used by the internal reconciler.
 func NewImpl(ctx {{.contextContext|raw}}, r Interface{{if .hasClass}}, classValue string{{end}}, optionsFns ...{{.controllerOptionsFn|raw}}) *{{.controllerImpl|raw}} {
+	ctrType := {{.reflectTypeOf|raw}}(r).Elem()
+	ctrTypeName := {{.fmtSprintf|raw}}("%s.%s", ctrType.PkgPath(), ctrType.Name())
+	ctrTypeName = {{.stringsReplaceAll|raw}}(ctrTypeName, "/", ".")
+
 	logger := {{.loggingFromContext|raw}}(ctx)
 
 	// Check the options function input. It should be 0 or 1.
@@ -218,6 +225,8 @@ func NewImpl(ctx {{.contextContext|raw}}, r Interface{{if .hasClass}}, classValu
 	lister := {{.type|lowercaseSingular}}Informer.Lister()
 
 	rec := &reconcilerImpl{
+		Tracer: otel.GetTracerProvider().Tracer(ctrTypeName),
+
 		LeaderAwareFuncs: {{.reconcilerLeaderAwareFuncs|raw}}{
 			PromoteFunc: func(bkt {{.reconcilerBucket|raw}}, enq func({{.reconcilerBucket|raw}}, {{.typesNamespacedName|raw}})) error {
 				all, err := lister.List({{.labelsEverything|raw}}())
@@ -241,9 +250,7 @@ func NewImpl(ctx {{.contextContext|raw}}, r Interface{{if .hasClass}}, classValu
 		{{if .hasClass}}classValue: classValue,{{end}}
 	}
 
-	ctrType := {{.reflectTypeOf|raw}}(r).Elem()
-	ctrTypeName := {{.fmtSprintf|raw}}("%s.%s", ctrType.PkgPath(), ctrType.Name())
-	ctrTypeName = {{.stringsReplaceAll|raw}}(ctrTypeName, "/", ".")
+
 
 	logger = logger.With(
 			{{.zapString|raw}}({{.logkeyControllerType|raw}}, ctrTypeName),

@@ -24,6 +24,7 @@ import (
 	reflect "reflect"
 	strings "strings"
 
+	"go.opentelemetry.io/otel"
 	zap "go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -52,6 +53,10 @@ const (
 // the provided Interface and optional Finalizer methods. OptionsFn is used to return
 // controller.Options to be used by the internal reconciler.
 func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsFn) *controller.Impl {
+	ctrType := reflect.TypeOf(r).Elem()
+	ctrTypeName := fmt.Sprintf("%s.%s", ctrType.PkgPath(), ctrType.Name())
+	ctrTypeName = strings.ReplaceAll(ctrTypeName, "/", ".")
+
 	logger := logging.FromContext(ctx)
 
 	// Check the options function input. It should be 0 or 1.
@@ -64,6 +69,8 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 	lister := configurationInformer.Lister()
 
 	rec := &reconcilerImpl{
+		Tracer: otel.GetTracerProvider().Tracer(ctrTypeName),
+
 		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
 			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
 				all, err := lister.List(labels.Everything())
@@ -85,10 +92,6 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 		reconciler:    r,
 		finalizerName: defaultFinalizerName,
 	}
-
-	ctrType := reflect.TypeOf(r).Elem()
-	ctrTypeName := fmt.Sprintf("%s.%s", ctrType.PkgPath(), ctrType.Name())
-	ctrTypeName = strings.ReplaceAll(ctrTypeName, "/", ".")
 
 	logger = logger.With(
 		zap.String(logkey.ControllerType, ctrTypeName),

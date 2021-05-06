@@ -23,6 +23,8 @@ import (
 	json "encoding/json"
 	fmt "fmt"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	zap "go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	equality "k8s.io/apimachinery/pkg/api/equality"
@@ -95,6 +97,8 @@ type reconcilerImpl struct {
 
 	// Listers index properties about resources.
 	Lister autoscalingv1alpha1.PodAutoscalerLister
+
+	Tracer trace.Tracer
 
 	// Recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
@@ -181,23 +185,28 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versio
 }
 
 // Reconcile implements controller.Reconciler
-func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
+func (r *reconcilerImpl) Reconcile(ctx context.Context, resourceKey string) error {
+	ctx, span := r.Tracer.Start(ctx, "Reconcile", trace.WithAttributes(
+		attribute.String("key", resourceKey),
+	))
+	defer span.End()
+
 	logger := logging.FromContext(ctx)
 
 	// Initialize the reconciler state. This will convert the namespace/name
 	// string into a distinct namespace and name, determine if this instance of
 	// the reconciler is the leader, and any additional interfaces implemented
 	// by the reconciler. Returns an error is the resource key is invalid.
-	s, err := newState(key, r)
+	s, err := newState(resourceKey, r)
 	if err != nil {
-		logger.Error("Invalid resource key: ", key)
+		logger.Error("Invalid resource key: ", resourceKey)
 		return nil
 	}
 
 	// If we are not the leader, and we don't implement either ReadOnly
 	// observer interfaces, then take a fast-path out.
 	if s.isNotLeaderNorObserver() {
-		return controller.NewSkipKey(key)
+		return controller.NewSkipKey(resourceKey)
 	}
 
 	// If configStore is set, attach the frozen configuration to the context.
@@ -217,7 +226,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	if errors.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing and call
 		// the ObserveDeletion handler if appropriate.
-		logger.Debugf("Resource %q no longer exists", key)
+		logger.Debugf("Resource %q no longer exists", resourceKey)
 		if del, ok := r.reconciler.(reconciler.OnDeletionInterface); ok {
 			return del.ObserveDeletion(ctx, types.NamespacedName{
 				Namespace: s.namespace,
