@@ -74,7 +74,7 @@ type DomainMappingList struct {
 type SecretTLS struct {
 	// SecretName is the name of a TLS secret.
 	//
-	// An existing tls secret.
+	// An existing secret in the cluster.
 	SecretName string `json:"secretName"`
 }
 

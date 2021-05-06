@@ -2320,7 +2320,7 @@ string
 </td>
 <td>
 <p>SecretName is the name of a TLS secret.</p>
-<p>An existing tls secret.</p>
+<p>An existing secret in the cluster.</p>
 </td>
 </tr>
 </tbody>
