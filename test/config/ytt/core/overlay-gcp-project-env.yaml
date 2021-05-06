@@ -1,0 +1,18 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+#@ load("helpers.lib.yaml", "system_deployment")
+
+#@overlay/match by=system_deployment(name="controller"), expects=1
+---
+spec:
+  template:
+    spec:
+      containers:
+      #@overlay/match by="name"
+      - name: controller
+        env:
+        #@overlay/match by="name"
+        - name: GOOGLE_CLOUD_PROJECT
+          value: #@ data.values.gcp_project
+          
+     

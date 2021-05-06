@@ -1,5 +1,6 @@
 #@data/values
 ---
+gcp_project: ""
 k8s:
   cluster:
     domain: cluster.local

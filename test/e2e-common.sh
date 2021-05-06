@@ -285,6 +285,7 @@ function install() {
   run_ytt ${ytt_flags} \
     --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}" \
     --data-value k8s.cluster.domain="${CLUSTER_DOMAIN}" \
+    --data-value gcp_project="${E2E_PROJECT_ID}" \
     > "${ytt_result}" \
     || fail_test "failed to create deployment configuration"
 
