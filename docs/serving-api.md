@@ -2121,9 +2121,9 @@ SecretTLS
 </td>
 <td>
 <em>(Optional)</em>
-<p>TLS indicates the existing or expected tls secret that should be used for certificate generation.</p>
-<p>If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
-a new secret with the expected name to be used by the certificate.</p>
+<p>TLS indicates the existing tls secret that should be used for this domain.</p>
+<p>If defined it will use the tls secret with the given name assumed to exist
+in the same namespace as the domainmapping.</p>
 </td>
 </tr>
 </table>
@@ -2227,9 +2227,9 @@ SecretTLS
 </td>
 <td>
 <em>(Optional)</em>
-<p>TLS indicates the existing or expected tls secret that should be used for certificate generation.</p>
-<p>If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
-a new secret with the expected name to be used by the certificate.</p>
+<p>TLS indicates the existing tls secret that should be used for this domain.</p>
+<p>If defined it will use the tls secret with the given name assumed to exist
+in the same namespace as the domainmapping.</p>
 </td>
 </tr>
 </tbody>
@@ -2320,7 +2320,7 @@ string
 </td>
 <td>
 <p>SecretName is the name of a TLS secret.</p>
-<p>An existing secret in the cluster.</p>
+<p>An existing tls secret.</p>
 </td>
 </tr>
 </tbody>
