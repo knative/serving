@@ -78,7 +78,6 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-runtimeclassname": "Enabled",
 			"kubernetes.podspec-securitycontext":  "Enabled",
 			"kubernetes.podspec-tolerations":      "Enabled",
-			"responsive-revision-gc":              "Enabled",
 			"tag-header-based-routing":            "Enabled",
 		},
 	}, {
