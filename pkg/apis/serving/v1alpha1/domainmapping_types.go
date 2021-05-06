@@ -74,7 +74,7 @@ type DomainMappingList struct {
 type SecretTLS struct {
 	// SecretName is the name of a TLS secret.
 	//
-	// An existing secret in the cluster.
+	// An existing tls secret.
 	SecretName string `json:"secretName"`
 }
 
@@ -91,10 +91,10 @@ type DomainMappingSpec struct {
 	// Knative Routes, and by Kubernetes Services.
 	Ref duckv1.KReference `json:"ref"`
 
-	// TLS indicates the existing or expected tls secret that should be used for certificate generation.
+	// TLS indicates the existing tls secret that should be used for this domain.
 	//
-	// If defined it will use the existing tls secret with the given name, otherwise it will attempt to create
-	// a new secret with the expected name to be used by the certificate.
+	// If defined it will use the tls secret with the given name assumed to exist
+	// in the same namespace as the domainmapping.
 	// +optional
 	TLS *SecretTLS `json:"tls,omitempty"`
 }
