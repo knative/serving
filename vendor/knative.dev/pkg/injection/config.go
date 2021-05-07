@@ -21,11 +21,14 @@ import (
 	"flag"
 	"log"
 	"math"
+	"net/http"
 	"os"
 	"sync"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	k8stransport "k8s.io/client-go/transport"
 	"k8s.io/klog"
 )
 
@@ -84,6 +87,24 @@ func ParseAndGetRESTConfigOrDie() *rest.Config {
 
 	cfg.Burst = env.Burst
 	cfg.QPS = float32(env.QPS)
+
+	tsCfg, err := cfg.TransportConfig()
+	if err != nil {
+		panic(err)
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig, err = k8stransport.TLSConfigFor(tsCfg)
+	if err != nil {
+		panic(err)
+	}
+
+	cfg.Transport = otelhttp.NewTransport(transport)
+	cfg.WrapTransport = tsCfg.WrapTransport
+	cfg.Dial = tsCfg.Dial
+
+	cfg.TLSClientConfig = rest.TLSClientConfig{}
+	cfg.AuthProvider = nil
+	cfg.ExecProvider = nil
 
 	return cfg
 }
