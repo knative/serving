@@ -15,6 +15,7 @@ require (
 	github.com/docker/cli v20.10.2+incompatible // indirect
 	github.com/docker/docker v20.10.2+incompatible // indirect
 	github.com/emicklei/go-restful v2.15.0+incompatible // indirect
+	github.com/felixge/httpsnoop v1.0.2 // indirect
 	github.com/go-openapi/spec v0.20.2 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -32,8 +33,10 @@ require (
 	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/tsenart/vegeta/v12 v12.8.4
 	go.opencensus.io v0.23.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.20.0
 	go.opentelemetry.io/otel v0.20.0
 	go.opentelemetry.io/otel/sdk v0.20.0
+	go.opentelemetry.io/otel/trace v0.20.0
 	go.uber.org/atomic v1.7.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/goleak v1.1.10

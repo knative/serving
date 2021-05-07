@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -74,25 +76,33 @@ func MakeErrorStatus(reason string, args ...interface{}) *admissionv1.AdmissionR
 }
 
 func admissionHandler(rootLogger *zap.SugaredLogger, stats StatsReporter, c AdmissionController, synced <-chan struct{}) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := c.(StatelessAdmissionController); ok {
-			// Stateless admission controllers do not require Informers to have
-			// finished syncing before Admit is called.
-		} else {
-			// Don't allow admission control requests through until we have been
-			// notified that informers have been synchronized.
-			<-synced
-		}
+	tracer := otel.GetTracerProvider().Tracer("serving.knative.dev/webhook")
 
-		var ttStart = time.Now()
+	return func(w http.ResponseWriter, r *http.Request) {
 		logger := rootLogger
-		logger.Infof("Webhook ServeHTTP request=%#v", r)
+
+		ctx, span := tracer.Start(r.Context(), "Admission")
+		defer span.End()
 
 		var review admissionv1.AdmissionReview
-		if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
-			http.Error(w, fmt.Sprint("could not decode body:", err), http.StatusBadRequest)
+
+		err := func(ctx context.Context) error {
+			_, cspan := tracer.Start(ctx, "Decode")
+			defer cspan.End()
+			if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
+				logger.Error("Failed to decode request", zap.Error(err))
+				http.Error(w, fmt.Sprint("could not decode body:", err), http.StatusBadRequest)
+				return err
+			}
+			return nil
+		}(ctx)
+
+		if err != nil {
 			return
 		}
+
+		span.SetAttributes(attribute.String("key", review.Request.Namespace+"/"+review.Request.Name))
+		span.SetAttributes(attribute.String("path", r.URL.EscapedPath()))
 
 		logger = logger.With(
 			logkey.Kind, review.Request.Kind.String(),
@@ -100,10 +110,24 @@ func admissionHandler(rootLogger *zap.SugaredLogger, stats StatsReporter, c Admi
 			logkey.Name, review.Request.Name,
 			logkey.Operation, string(review.Request.Operation),
 			logkey.Resource, review.Request.Resource.String(),
-			logkey.SubResource, review.Request.SubResource,
-			logkey.UserInfo, fmt.Sprint(review.Request.UserInfo))
+			logkey.SubResource, review.Request.SubResource)
 
-		ctx := logging.WithLogger(r.Context(), logger)
+		logger.Info("admission")
+
+		if _, ok := c.(StatelessAdmissionController); ok {
+			// Stateless admission controllers do not require Informers to have
+			// finished syncing before Admit is called.
+		} else {
+			logger.Info("waiting to informers sync")
+			// Don't allow admission control requests through until we have been
+			// notified that informers have been synchronized.
+			<-synced
+			logger.Info("informers synced")
+		}
+
+		var ttStart = time.Now()
+
+		ctx = logging.WithLogger(ctx, logger)
 
 		response := admissionv1.AdmissionReview{
 			// Use the same type meta as the request - this is required by the K8s API
@@ -112,7 +136,14 @@ func admissionHandler(rootLogger *zap.SugaredLogger, stats StatsReporter, c Admi
 			TypeMeta: review.TypeMeta,
 		}
 
-		reviewResponse := c.Admit(ctx, review.Request)
+		var reviewResponse *admissionv1.AdmissionResponse
+
+		func(ctx context.Context) {
+			_, cspan := tracer.Start(ctx, "Admit")
+			defer cspan.End()
+			reviewResponse = c.Admit(ctx, review.Request)
+		}(ctx)
+
 		var patchType string
 		if reviewResponse.PatchType != nil {
 			patchType = string(*reviewResponse.PatchType)
@@ -131,8 +162,18 @@ func admissionHandler(rootLogger *zap.SugaredLogger, stats StatsReporter, c Admi
 		logger.Infof("remote admission controller audit annotations=%#v", reviewResponse.AuditAnnotations)
 		logger.Debugf("AdmissionReview patch={ type: %s, body: %s }", patchType, string(reviewResponse.Patch))
 
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			http.Error(w, fmt.Sprint("could not encode response:", err), http.StatusInternalServerError)
+		err = func(ctx context.Context) error {
+			_, cspan := tracer.Start(ctx, "Encode")
+			defer cspan.End()
+
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				http.Error(w, fmt.Sprint("could not encode response:", err), http.StatusInternalServerError)
+				return err
+			}
+			return nil
+		}(ctx)
+
+		if err != nil {
 			return
 		}
 

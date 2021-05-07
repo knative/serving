@@ -26,6 +26,7 @@ import (
 	"time"
 
 	// Injection stuff
+
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	kubeinformerfactory "knative.dev/pkg/injection/clients/namespacedkube/informers/factory"
 	"knative.dev/pkg/network/handlers"

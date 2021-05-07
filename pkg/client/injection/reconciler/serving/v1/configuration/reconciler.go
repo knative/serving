@@ -108,6 +108,8 @@ type reconcilerImpl struct {
 	// +optional
 	configStore reconciler.ConfigStore
 
+	controllerType string
+
 	// reconciler is the implementation of the business logic of the resource.
 	reconciler Interface
 
@@ -184,6 +186,7 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versio
 func (r *reconcilerImpl) Reconcile(ctx context.Context, resourceKey string) error {
 	ctx, span := r.Tracer.Start(ctx, "Reconcile", trace.WithAttributes(
 		attribute.String("key", resourceKey),
+		attribute.String("ctrl", r.controllerType),
 	))
 	defer span.End()
 

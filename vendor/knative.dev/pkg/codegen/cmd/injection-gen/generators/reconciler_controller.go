@@ -226,6 +226,7 @@ func NewImpl(ctx {{.contextContext|raw}}, r Interface{{if .hasClass}}, classValu
 
 	rec := &reconcilerImpl{
 		Tracer: otel.GetTracerProvider().Tracer(ctrTypeName),
+		controllerType: ctrTypeName,
 
 		LeaderAwareFuncs: {{.reconcilerLeaderAwareFuncs|raw}}{
 			PromoteFunc: func(bkt {{.reconcilerBucket|raw}}, enq func({{.reconcilerBucket|raw}}, {{.typesNamespacedName|raw}})) error {

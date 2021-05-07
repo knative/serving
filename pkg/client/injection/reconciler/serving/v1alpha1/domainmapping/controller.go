@@ -69,7 +69,8 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 	lister := domainmappingInformer.Lister()
 
 	rec := &reconcilerImpl{
-		Tracer: otel.GetTracerProvider().Tracer(ctrTypeName),
+		Tracer:         otel.GetTracerProvider().Tracer(ctrTypeName),
+		controllerType: ctrTypeName,
 
 		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
 			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {

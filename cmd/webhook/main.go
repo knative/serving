@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"os"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/configmap"
@@ -33,6 +34,11 @@ import (
 	"knative.dev/pkg/webhook/resourcesemantics"
 	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
+
+	texporter "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/semconv"
 
 	// resource validation types
 	net "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -152,6 +158,38 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 }
 
 func main() {
+	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
+	if projectID == "" {
+		panic("no google cloud project env var")
+	}
+	// Create exporter and trace provider pipeline, and register provider.
+	_, shutdown, err := texporter.InstallNewPipeline(
+		[]texporter.Option{
+			// optional exporter options
+			texporter.WithProjectID(projectID),
+		},
+		// This example code uses sdktrace.AlwaysSample sampler to sample all traces.
+		// In a production environment or high QPS setup please use ProbabilitySampler
+		// set at the desired probability.
+		// Example:
+		// sdktrace.WithConfig(sdktrace.Config {
+		//     DefaultSampler: sdktrace.ProbabilitySampler(0.0001),
+		// })
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithResource(resource.NewWithAttributes(
+			semconv.ServiceNameKey.String("controller"),
+			semconv.ServiceInstanceIDKey.String(os.Getenv("POD_NAME")),
+			semconv.K8SPodNameKey.String(os.Getenv("POD_NAME")),
+		)),
+		// other optional provider options
+	)
+
+	if err != nil {
+		panic("texporter.NewExporter: " + err.Error())
+	}
+
+	defer shutdown()
+
 	// Set up a signal context with our webhook options
 	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
 		ServiceName: webhook.NameFromEnv(),
