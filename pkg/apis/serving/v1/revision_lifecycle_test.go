@@ -18,6 +18,7 @@ package v1
 
 import (
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -690,33 +691,50 @@ func TestPropagateAutoscalerStatusReplicas(t *testing.T) {
 	testCases := []struct {
 		name                string
 		ps                  autoscalingv1alpha1.PodAutoscalerStatus
-		wantActualReplicas  int32
-		wantDesiredReplicas int32
+		wantActualReplicas  *int32
+		wantDesiredReplicas *int32
 	}{{
 		name: "active PodAutoScaler",
 		ps: autoscalingv1alpha1.PodAutoscalerStatus{
 			ActualScale:  ptr.Int32(1),
 			DesiredScale: ptr.Int32(2),
 		},
-		wantActualReplicas:  1,
-		wantDesiredReplicas: 2,
+		wantActualReplicas:  ptr.Int32(1),
+		wantDesiredReplicas: ptr.Int32(2),
 	}, {
 		name: "inactive PodAutoScaler",
 		ps: autoscalingv1alpha1.PodAutoscalerStatus{
 			DesiredScale: ptr.Int32(-1),
 		},
-		wantActualReplicas:  0,
-		wantDesiredReplicas: 0,
+		wantActualReplicas:  nil,
+		wantDesiredReplicas: ptr.Int32(-1),
 	}}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			r.PropagateAutoscalerStatus(&tc.ps)
-			if r.ActualReplicas != tc.wantActualReplicas {
-				t.Errorf("Expected r.ActualReplicas to be %d but got %d", tc.wantActualReplicas, r.ActualReplicas)
+
+			wantActual, gotActual := "nil", "nil"
+			if tc.wantActualReplicas != nil {
+				wantActual = strconv.Itoa(int(*tc.wantActualReplicas))
 			}
-			if r.DesiredReplicas != tc.wantDesiredReplicas {
-				t.Errorf("Expected r.DesiredReplicas to be %d but got %d", tc.wantDesiredReplicas, r.DesiredReplicas)
+			if r.ActualReplicas != nil {
+				gotActual = strconv.Itoa(int(*r.ActualReplicas))
+			}
+			if wantActual != gotActual {
+				t.Errorf("Expected r.ActualReplicas to be %s but got %s", wantActual, gotActual)
+			}
+
+			wantDesired, gotDesired := "nil", "nil"
+			if tc.wantDesiredReplicas != nil {
+				wantDesired = strconv.Itoa(int(*tc.wantDesiredReplicas))
+			}
+			if r.DesiredReplicas != nil {
+				gotDesired = strconv.Itoa(int(*r.DesiredReplicas))
+			}
+
+			if wantDesired != gotDesired {
+				t.Errorf("Expected r.DesiredReplicas to be %s but got %s", wantDesired, gotDesired)
 			}
 		})
 	}

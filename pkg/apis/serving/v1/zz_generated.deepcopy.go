@@ -251,6 +251,16 @@ func (in *RevisionStatus) DeepCopyInto(out *RevisionStatus) {
 		*out = make([]ContainerStatus, len(*in))
 		copy(*out, *in)
 	}
+	if in.ActualReplicas != nil {
+		in, out := &in.ActualReplicas, &out.ActualReplicas
+		*out = new(int32)
+		**out = **in
+	}
+	if in.DesiredReplicas != nil {
+		in, out := &in.DesiredReplicas, &out.DesiredReplicas
+		*out = new(int32)
+		**out = **in
+	}
 	return
 }
 
