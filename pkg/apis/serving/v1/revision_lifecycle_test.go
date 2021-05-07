@@ -707,7 +707,7 @@ func TestPropagateAutoscalerStatusReplicas(t *testing.T) {
 			DesiredScale: ptr.Int32(-1),
 		},
 		wantActualReplicas:  nil,
-		wantDesiredReplicas: ptr.Int32(-1),
+		wantDesiredReplicas: nil,
 	}}
 
 	for _, tc := range testCases {
