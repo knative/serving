@@ -56,10 +56,19 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 	}
 
 	u := url.URL{Scheme: "ws", Host: net.JoinHostPort(address, mapper("80")), Path: "/"}
+	if test.ServingFlags.HTTPS {
+		u = url.URL{Scheme: "wss", Host: net.JoinHostPort(address, mapper("443")), Path: "/"}
+	}
+
 	var conn *websocket.Conn
 	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
 		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
-		c, resp, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Host": {domain}})
+		dialer := websocket.DefaultDialer
+		if test.ServingFlags.HTTPS {
+			dialer.TLSClientConfig = test.TLSClientConfig(context.Background(), t.Logf, clients)
+		}
+
+		c, resp, err := dialer.Dial(u.String(), http.Header{"Host": {domain}})
 		if err == nil {
 			t.Log("WebSocket connection established.")
 			conn = c

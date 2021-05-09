@@ -72,6 +72,13 @@ func AddRootCAtoTransport(ctx context.Context, logf logging.FormatLogger, client
 			return transport
 		}
 	}
+	return func(transport *http.Transport) *http.Transport {
+		transport.TLSClientConfig = TLSClientConfig(ctx, logf, clients)
+		return transport
+	}
+}
+
+func TLSClientConfig(ctx context.Context, logf logging.FormatLogger, clients *Clients) *tls.Config {
 	rootCAs, _ := x509.SystemCertPool()
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
@@ -79,10 +86,7 @@ func AddRootCAtoTransport(ctx context.Context, logf logging.FormatLogger, client
 	if !rootCAs.AppendCertsFromPEM(PemDataFromSecret(ctx, logf, clients, caSecretNamespace, caSecretName)) {
 		logf("Failed to add the certificate to the root CA")
 	}
-	return func(transport *http.Transport) *http.Transport {
-		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
-		return transport
-	}
+	return &tls.Config{RootCAs: rootCAs}
 }
 
 // PemDataFromSecret gets pem data from secret.
