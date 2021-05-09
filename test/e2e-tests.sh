@@ -65,7 +65,7 @@ if [[ -z "${INGRESS_CLASS}" \
   alpha="--enable-alpha"
 fi
 
-TEST_OPTIONS="${alpha} --enable-beta --resolvabledomain=$(use_resolvable_domain) ${use_https}"
+TEST_OPTIONS="${TEST_OPTIONS:-${alpha} --enable-beta --resolvabledomain=$(use_resolvable_domain) ${use_https}}"
 
 go_test_e2e -timeout=30m \
  ./test/conformance/api/... \
