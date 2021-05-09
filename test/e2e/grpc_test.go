@@ -33,6 +33,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -64,12 +65,18 @@ func hasPort(u string) bool {
 	return err == nil
 }
 
-func dial(host, domain string) (*grpc.ClientConn, error) {
+func dial(ctx *TestContext, host, domain string) (*grpc.ClientConn, error) {
 	if !hasPort(host) {
 		host = net.JoinHostPort(host, defaultPort)
 	}
 	if !hasPort(domain) {
 		domain = net.JoinHostPort(domain, defaultPort)
+	}
+
+	secureOpt := grpc.WithInsecure()
+	if test.ServingFlags.HTTPS {
+		cred := credentials.NewTLS(test.TLSClientConfig(context.Background(), ctx.t.Logf, ctx.clients))
+		secureOpt = grpc.WithTransportCredentials(cred)
 	}
 
 	if host != domain {
@@ -78,7 +85,7 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 		return grpc.Dial(
 			host,
 			grpc.WithAuthority(domain),
-			grpc.WithInsecure(),
+			secureOpt,
 			// Retrying DNS errors to avoid .xip.io issues.
 			grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 		)
@@ -86,7 +93,7 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 	// This is a more preferred usage of the go-grpc client.
 	return grpc.Dial(
 		host,
-		grpc.WithInsecure(),
+		secureOpt,
 		// Retrying DNS errors to avoid .xip.io issues.
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 	)
@@ -96,7 +103,7 @@ func unaryTest(ctx *TestContext, host, domain string) {
 	ctx.t.Helper()
 	ctx.t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 	const want = "Hello!"
-	got, err := pingGRPC(host, domain, want)
+	got, err := pingGRPC(ctx, host, domain, want)
 	if err != nil {
 		ctx.t.Fatal("gRPC ping =", err)
 	}
@@ -150,7 +157,7 @@ func loadBalancingTest(ctx *TestContext, host, domain string) {
 				case <-stopChan:
 					return nil
 				default:
-					got, err := pingGRPC(host, domain, wantPrefix)
+					got, err := pingGRPC(ctx, host, domain, wantPrefix)
 					if err != nil {
 						return fmt.Errorf("ping gRPC error: %w", err)
 					}
@@ -190,7 +197,7 @@ func loadBalancingTest(ctx *TestContext, host, domain string) {
 	}
 }
 
-func generateGRPCTraffic(concurrentRequests int, host, domain string, stopChan chan struct{}) error {
+func generateGRPCTraffic(ctx *TestContext, concurrentRequests int, host, domain string, stopChan chan struct{}) error {
 	var grp errgroup.Group
 
 	for i := 0; i < concurrentRequests; i++ {
@@ -202,7 +209,7 @@ func generateGRPCTraffic(concurrentRequests int, host, domain string, stopChan c
 					return nil
 				default:
 					want := fmt.Sprintf("Hello! stream:%d request: %d", i, j)
-					got, err := pingGRPC(host, domain, want)
+					got, err := pingGRPC(ctx, host, domain, want)
 
 					if err != nil {
 						return fmt.Errorf("ping gRPC error: %w", err)
@@ -220,8 +227,8 @@ func generateGRPCTraffic(concurrentRequests int, host, domain string, stopChan c
 	return nil
 }
 
-func pingGRPC(host, domain, message string) (string, error) {
-	conn, err := dial(host, domain)
+func pingGRPC(ctx *TestContext, host, domain, message string) (string, error) {
+	conn, err := dial(ctx, host, domain)
 	if err != nil {
 		return "", err
 	}
@@ -251,7 +258,7 @@ func assertGRPCAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float6
 	var grp errgroup.Group
 
 	grp.Go(func() error {
-		return generateGRPCTraffic(int(targetPods*grpcContainerConcurrency), host, domain, stopChan)
+		return generateGRPCTraffic(ctx, int(targetPods*grpcContainerConcurrency), host, domain, stopChan)
 	})
 
 	grp.Go(func() error {
@@ -267,7 +274,7 @@ func assertGRPCAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float6
 func streamTest(tc *TestContext, host, domain string) {
 	tc.t.Helper()
 	tc.t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
-	conn, err := dial(host, domain)
+	conn, err := dial(tc, host, domain)
 	if err != nil {
 		tc.t.Fatal("Fail to dial:", err)
 	}
@@ -357,7 +364,11 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		if err != nil {
 			t.Fatal("Could not get service endpoint:", err)
 		}
-		host = net.JoinHostPort(addr, mapper("80"))
+		if test.ServingFlags.HTTPS {
+			host = net.JoinHostPort(addr, mapper("443"))
+		} else {
+			host = net.JoinHostPort(addr, mapper("80"))
+		}
 	}
 
 	f(&TestContext{
