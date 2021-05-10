@@ -87,6 +87,7 @@ spec:
         # sorted out.
         - "-disable=webhook"
         - "-disable=domainmapping-webhook"
+        - "-disable=net-certmanager-webhook"
         # Currently the new owner of Autoscaler needs time to build the
         # metrics status so some e2e tests are expected to fail if the
         # owner pod crashes.
