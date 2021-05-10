@@ -398,6 +398,8 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, resourceKey stri
 		return nil
 	}
 
+	span.SetAttributes(attribute.Bool("leader", s.IsLeader))
+
 	// If we are not the leader, and we don't implement either ReadOnly
 	// observer interfaces, then take a fast-path out.
 	if s.isNotLeaderNorObserver() {
