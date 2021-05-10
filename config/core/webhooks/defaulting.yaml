@@ -30,30 +30,22 @@ webhooks:
   timeoutSeconds: 10
   rules:
   - apiGroups:
-    - "*.knative.dev"
+    - autoscaling.internal.knative.dev
+    - networking.internal.knative.dev
+    - serving.knative.dev
     apiVersions:
-    - v1alpha1
-    - v1
+    - "*"
     operations:
     - CREATE
     - UPDATE
     scope: "*"
     resources:
     - metrics
-    - metrics/status
     - podautoscalers
-    - podautoscalers/status
     - certificates
-    - certificates/status
     - ingresses
-    - ingresses/status
     - serverlessservices
-    - serverlessservices/status
     - configurations
-    - configurations/status
     - revisions
-    - revisions/status
     - routes
-    - routes/status
     - services
-    - services/status
