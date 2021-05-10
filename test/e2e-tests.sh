@@ -65,6 +65,9 @@ if [[ -z "${INGRESS_CLASS}" \
   alpha="--enable-alpha"
 fi
 
+# Remove "local-gateway.mesh: mesh" to verify
+kubectl patch configmap/config-istio -n ${SYSTEM_NAMESPACE} --type='json' --patch='[{"op": "remove", "path": "/data/local-gateway.mesh"}]' 
+
 go_test_e2e -timeout=30m \
  ./test/conformance/api/... \
  ./test/conformance/runtime/... \
