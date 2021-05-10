@@ -202,6 +202,8 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, resourceKey string) erro
 		return nil
 	}
 
+	span.SetAttributes(attribute.Bool("leader", s.isLeader))
+
 	// If we are not the leader, and we don't implement either ReadOnly
 	// observer interfaces, then take a fast-path out.
 	if s.isNotLeaderNorObserver() {
@@ -225,6 +227,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, resourceKey string) erro
 	if errors.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing and call
 		// the ObserveDeletion handler if appropriate.
+		span.SetAttributes(attribute.Bool("notfound", true))
 		logger.Debugf("Resource %q no longer exists", resourceKey)
 		if del, ok := r.reconciler.(reconciler.OnDeletionInterface); ok {
 			return del.ObserveDeletion(ctx, types.NamespacedName{
@@ -239,6 +242,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, resourceKey string) erro
 
 	// Don't modify the informers copy.
 	resource := original.DeepCopy()
+	span.SetAttributes(attribute.Bool("deleted", !resource.GetDeletionTimestamp().IsZero()))
 
 	var reconcileEvent reconciler.Event
 
