@@ -371,6 +371,10 @@ spec:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+        # This must be outside of the mesh to probe the gateways.
+        # NOTE: this is allowed here and not elsewhere because
+        # this is the Istio controller, and so it may be Istio-aware.
+        sidecar.istio.io/inject: "false"
       labels:
         app: networking-istio
         serving.knative.dev/release: "v20210507-3d937cfe"
