@@ -18,7 +18,6 @@ package v1
 
 import (
 	"sort"
-	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -714,27 +713,12 @@ func TestPropagateAutoscalerStatusReplicas(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r.PropagateAutoscalerStatus(&tc.ps)
 
-			wantActual, gotActual := "nil", "nil"
-			if tc.wantActualReplicas != nil {
-				wantActual = strconv.Itoa(int(*tc.wantActualReplicas))
-			}
-			if r.ActualReplicas != nil {
-				gotActual = strconv.Itoa(int(*r.ActualReplicas))
-			}
-			if wantActual != gotActual {
-				t.Errorf("Expected r.ActualReplicas to be %s but got %s", wantActual, gotActual)
+			if !cmp.Equal(tc.wantActualReplicas, r.ActualReplicas) {
+				t.Errorf("r.ActualReplicas replicas wasn't as expected, (-want, +got):\n%s", cmp.Diff(tc.wantActualReplicas, r.ActualReplicas))
 			}
 
-			wantDesired, gotDesired := "nil", "nil"
-			if tc.wantDesiredReplicas != nil {
-				wantDesired = strconv.Itoa(int(*tc.wantDesiredReplicas))
-			}
-			if r.DesiredReplicas != nil {
-				gotDesired = strconv.Itoa(int(*r.DesiredReplicas))
-			}
-
-			if wantDesired != gotDesired {
-				t.Errorf("Expected r.DesiredReplicas to be %s but got %s", wantDesired, gotDesired)
+			if !cmp.Equal(tc.wantDesiredReplicas, r.DesiredReplicas) {
+				t.Errorf("r.DesiredReplicas replicas wasn't as expected, (-want, +got):\n%s", cmp.Diff(tc.wantDesiredReplicas, r.DesiredReplicas))
 			}
 		})
 	}
