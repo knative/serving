@@ -21,26 +21,27 @@ import (
 	"errors"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/client/injection/ducks/duck/v1/addressable"
+	"knative.dev/pkg/controller"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/types"
-
 	"knative.dev/pkg/apis"
 	pkgapisduck "knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/tracker"
-
-	"knative.dev/pkg/client/injection/ducks/duck/v1/addressable"
 )
 
 // URIResolver resolves Destinations and ObjectReferences into a URI.
 type URIResolver struct {
-	tracker         tracker.Interface
-	informerFactory pkgapisduck.InformerFactory
+	tracker       tracker.Interface
+	listerFactory func(schema.GroupVersionResource) (cache.GenericLister, error)
 }
 
 // NewURIResolver constructs a new URIResolver with context and a callback
@@ -49,11 +50,17 @@ func NewURIResolver(ctx context.Context, callback func(types.NamespacedName)) *U
 	ret := &URIResolver{}
 
 	ret.tracker = tracker.New(callback, controller.GetTrackerLease(ctx))
-	ret.informerFactory = &pkgapisduck.CachedInformerFactory{
+
+	informerFactory := &pkgapisduck.CachedInformerFactory{
 		Delegate: &pkgapisduck.EnqueueInformerFactory{
 			Delegate:     addressable.Get(ctx),
 			EventHandler: controller.HandleAll(ret.tracker.OnChanged),
 		},
+	}
+
+	ret.listerFactory = func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+		_, l, err := informerFactory.Get(ctx, gvr)
+		return l, err
 	}
 
 	return ret
@@ -163,7 +170,7 @@ func (r *URIResolver) URIFromObjectReference(ctx context.Context, ref *corev1.Ob
 		return url, nil
 	}
 
-	_, lister, err := r.informerFactory.Get(ctx, gvr)
+	lister, err := r.listerFactory(gvr)
 	if err != nil {
 		return nil, apierrs.NewNotFound(gvr.GroupResource(), "Lister")
 	}
