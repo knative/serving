@@ -269,7 +269,7 @@ func TestSvcToSvcViaActivator(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			if mesh && !tc.InjectA {
+			if mesh && !tc.injectA {
 				t.Skip("In MESH mode with mTLS STRICT, service-to-service calls fail when the httpproxy isn't injected.")
 			}
 
