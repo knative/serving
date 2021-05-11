@@ -19,6 +19,7 @@ limitations under the License.
 package runtime
 
 import (
+	"fmt"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -63,28 +64,38 @@ func TestProbeRuntime(t *testing.T) {
 
 	for _, tc := range testCases {
 		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			names := test.ResourceNames{
-				Service: test.ObjectNameForTest(t),
-				Image:   test.Runtime,
+		for _, period := range []int32{0, 1} {
+			period := period
+			name := tc.name
+			if period > 0 {
+				// period > 0 opts out of the custom knative startup probing behaviour.
+				name = fmt.Sprintf("%s-period=%d", name, period)
 			}
 
-			test.EnsureTearDown(t, clients, &names)
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				names := test.ResourceNames{
+					Service: test.ObjectNameForTest(t),
+					Image:   test.Runtime,
+				}
 
-			t.Log("Creating a new Service")
-			resources, err := v1test.CreateServiceReady(t, clients, &names,
-				v1opts.WithReadinessProbe(
-					&corev1.Probe{
-						Handler: tc.handler,
-					}))
-			if err != nil {
-				t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
-			}
-			// Check if scaling down works even if access from liveness probe exists.
-			if err := shared.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
-				t.Fatal("Could not scale to zero:", err)
-			}
-		})
+				test.EnsureTearDown(t, clients, &names)
+
+				t.Log("Creating a new Service")
+				resources, err := v1test.CreateServiceReady(t, clients, &names,
+					v1opts.WithReadinessProbe(
+						&corev1.Probe{
+							Handler:       tc.handler,
+							PeriodSeconds: period,
+						}))
+				if err != nil {
+					t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+				}
+				// Check if scaling down works even if access from liveness probe exists.
+				if err := shared.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
+					t.Fatal("Could not scale to zero:", err)
+				}
+			})
+		}
 	}
 }
