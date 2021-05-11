@@ -43,23 +43,23 @@ import (
 const (
 	cpuTarget             = 75
 	targetPods            = 5
+	concurrency           = 10
 	scaleUpTimeout        = 3 * time.Minute
 	scaleToMinimumTimeout = 10 * time.Minute // 5 minutes is the default window for hpa to calculate if should scale down
-	minimumReplicas       = 1
 	minPods               = 1.0
 	maxPods               = 10.0
-	primeNum              = 500000
+	primeNum              = 1000000
 )
 
 func TestHPAAutoscaleUpDownUp(t *testing.T) {
-	ctx := setupHPASvc(t, autoscaling.HPA, autoscaling.CPU, cpuTarget)
+	ctx := setupHPASvc(t, autoscaling.CPU, cpuTarget)
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
-	assertHPAAutoscaleUpToNumPods(ctx, minimumReplicas, targetPods, time.After(scaleUpTimeout), true /* quick */)
+	assertHPAAutoscaleUpToNumPods(ctx, targetPods, time.After(scaleUpTimeout), true /* quick */)
 	assertScaleDownToOne(ctx)
-	assertHPAAutoscaleUpToNumPods(ctx, minimumReplicas, targetPods, time.After(scaleUpTimeout), true /* quick */)
+	assertHPAAutoscaleUpToNumPods(ctx, targetPods, time.After(scaleUpTimeout), true /* quick */)
 }
 
-func setupHPASvc(t *testing.T, class, metric string, target int) *TestContext {
+func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
 	t.Helper()
 	clients := Setup(t)
 
@@ -71,10 +71,9 @@ func setupHPASvc(t *testing.T, class, metric string, target int) *TestContext {
 	resources, err := v1test.CreateServiceReady(t, clients, names,
 		[]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
-				autoscaling.ClassAnnotationKey:    class,
+				autoscaling.ClassAnnotationKey:    autoscaling.HPA,
 				autoscaling.MetricAnnotationKey:   metric,
 				autoscaling.TargetAnnotationKey:   strconv.Itoa(target),
-				autoscaling.MinScaleAnnotationKey: fmt.Sprintf("%d", minimumReplicas),
 				autoscaling.MaxScaleAnnotationKey: fmt.Sprintf("%d", int(maxPods)),
 			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
@@ -114,13 +113,13 @@ func setupHPASvc(t *testing.T, class, metric string, target int) *TestContext {
 	}
 }
 
-func assertHPAAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
+func assertHPAAutoscaleUpToNumPods(ctx *TestContext, targetPods float64, done <-chan time.Time, quick bool) {
 	ctx.t.Helper()
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
 	grp.Go(func() error {
-		return generateTrafficAtFixedConcurrencyWithCPULoad(ctx, 100, stopChan)
+		return generateTrafficAtFixedConcurrencyWithCPULoad(ctx, concurrency, stopChan)
 	})
 
 	grp.Go(func() error {
