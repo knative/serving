@@ -167,12 +167,10 @@ aliases:
   pkg-configmap-reviewers:
   - dprotaso
   - mattmoor
-  - mdemirhan
   - vagababov
   pkg-configmap-writers:
   - dprotaso
   - mattmoor
-  - mdemirhan
   - vagababov
   pkg-controller-reviewers:
   - dprotaso
@@ -209,11 +207,9 @@ aliases:
   - evankanderson
   - julz
   serving-observability-reviewers:
-  - mdemirhan
   - skonto
   - yanweiguo
   serving-observability-writers:
-  - mdemirhan
   - yanweiguo
   serving-reviewers:
   - julz
