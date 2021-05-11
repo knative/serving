@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -323,7 +324,7 @@ func TestCallToPublicService(t *testing.T) {
 
 			cancel := logstream.Start(t)
 			defer cancel()
-			testProxyToHelloworld(t, clients, tc.url, true /* inject */, tc.accessibleExternally)
+			testProxyToHelloworld(t, clients, tc.url, true /*inject*/, tc.accessibleExternally)
 		})
 	}
 }
