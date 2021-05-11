@@ -28,3 +28,24 @@ webhooks:
   sideEffects: None
   name: webhook.serving.knative.dev
   timeoutSeconds: 10
+  rules:
+  - apiGroups:
+    - autoscaling.internal.knative.dev
+    - networking.internal.knative.dev
+    - serving.knative.dev
+    apiVersions:
+    - "*"
+    operations:
+    - CREATE
+    - UPDATE
+    scope: "*"
+    resources:
+    - metrics
+    - podautoscalers
+    - certificates
+    - ingresses
+    - serverlessservices
+    - configurations
+    - revisions
+    - routes
+    - services
