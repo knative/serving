@@ -20,6 +20,7 @@ import (
 	// The set of controllers this controller process runs.
 
 	"os"
+	"strings"
 
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/gc"
@@ -37,6 +38,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/semconv"
+	oteltrace "go.opentelemetry.io/otel/trace"
 	"knative.dev/pkg/signals"
 )
 
@@ -68,7 +70,7 @@ func main() {
 		// sdktrace.WithConfig(sdktrace.Config {
 		//     DefaultSampler: sdktrace.ProbabilitySampler(0.0001),
 		// })
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithSampler(customSampler{}),
 		sdktrace.WithResource(resource.NewWithAttributes(
 			semconv.ServiceNameKey.String("controller"),
 			semconv.ServiceInstanceIDKey.String(os.Getenv("POD_NAME")),
@@ -85,4 +87,26 @@ func main() {
 
 	ctx := signals.NewContext()
 	sharedmain.MainWithContext(ctx, "controller", ctors...)
+}
+
+type customSampler struct{}
+
+func (as customSampler) ShouldSample(p sdktrace.SamplingParameters) sdktrace.SamplingResult {
+	for _, attribute := range p.Attributes {
+		if attribute.Key == "http.url" && strings.Contains(attribute.Value.AsString(), "watch=true") {
+			return sdktrace.SamplingResult{
+				Decision:   sdktrace.Drop,
+				Tracestate: oteltrace.SpanContextFromContext(p.ParentContext).TraceState(),
+			}
+		}
+	}
+
+	return sdktrace.SamplingResult{
+		Decision:   sdktrace.RecordAndSample,
+		Tracestate: oteltrace.SpanContextFromContext(p.ParentContext).TraceState(),
+	}
+}
+
+func (as customSampler) Description() string {
+	return "controller-sampler"
 }

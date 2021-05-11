@@ -179,7 +179,11 @@ func admissionHandler(rootLogger *zap.SugaredLogger, stats StatsReporter, c Admi
 
 		if stats != nil {
 			// Only report valid requests
-			stats.ReportRequest(review.Request, response.Response, time.Since(ttStart))
+			func(ctx context.Context) {
+				_, cspan := tracer.Start(ctx, "stats")
+				defer cspan.End()
+				stats.ReportRequest(review.Request, response.Response, time.Since(ttStart))
+			}(ctx)
 		}
 	}
 }
