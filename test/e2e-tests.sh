@@ -65,34 +65,34 @@ if [[ -z "${INGRESS_CLASS}" \
   alpha="--enable-alpha"
 fi
 
-go_test_e2e -timeout=30m \
- ./test/conformance/api/... \
- ./test/conformance/runtime/... \
- ./test/e2e \
-  ${parallelism} \
-  ${alpha} \
-  --enable-beta \
-  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" || failed=1
+# go_test_e2e -timeout=30m \
+#  ./test/conformance/api/... \
+#  ./test/conformance/runtime/... \
+#  ./test/e2e \
+#   ${parallelism} \
+#   ${alpha} \
+#   --enable-beta \
+#   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" || failed=1
 
 if (( HTTPS )); then
   kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
   toggle_feature autoTLS Disabled config-network
 fi
 
-toggle_feature tag-header-based-routing Enabled
-go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
-toggle_feature tag-header-based-routing Disabled
+# toggle_feature tag-header-based-routing Enabled
+# go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
+# toggle_feature tag-header-based-routing Disabled
 
-# Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go).
-toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
-go_test_e2e -timeout=2m ./test/e2e/initscale || failed=1
-toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
+# # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go).
+# toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
+# go_test_e2e -timeout=2m ./test/e2e/initscale || failed=1
+# toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
 
-kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > ${TMP_DIR}/config-gc.yaml
-add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml" SIGKILL SIGTERM SIGQUIT
-immediate_gc
-go_test_e2e -timeout=2m ./test/e2e/gc || failed=1
-kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml
+# kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > ${TMP_DIR}/config-gc.yaml
+# add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml" SIGKILL SIGTERM SIGQUIT
+# immediate_gc
+# go_test_e2e -timeout=2m ./test/e2e/gc || failed=1
+# kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml
 
 
 # Run scale tests.
@@ -101,14 +101,14 @@ kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.ya
 # simply cannot pass.
 go_test_e2e -timeout=20m -parallel=300 ./test/scale || failed=1
 
-# Run HA tests separately as they're stopping core Knative Serving pods.
-# Define short -spoofinterval to ensure frequent probing while stopping pods.
-go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
-  ${alpha} \
-  --enable-beta \
-  -replicas="${REPLICAS:-1}" \
-  -buckets="${BUCKETS:-1}" \
-  -spoofinterval="10ms" || failed=1
+# # Run HA tests separately as they're stopping core Knative Serving pods.
+# # Define short -spoofinterval to ensure frequent probing while stopping pods.
+# go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
+#   ${alpha} \
+#   --enable-beta \
+#   -replicas="${REPLICAS:-1}" \
+#   -buckets="${BUCKETS:-1}" \
+#   -spoofinterval="10ms" || failed=1
 
 (( failed )) && fail_test
 
