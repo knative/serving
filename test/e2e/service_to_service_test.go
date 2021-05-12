@@ -262,14 +262,12 @@ func TestSvcToSvcViaActivator(t *testing.T) {
 
 	clients := Setup(t)
 
-	mesh, _ := strconv.ParseBool(os.Getenv("MESH"))
-
 	for _, tc := range testInjection {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			if mesh && !tc.injectA {
+			if test.ServingFlags.Mesh && !tc.injectA {
 				t.Skip("In MESH mode with mTLS STRICT, service-to-service calls fail when the httpproxy isn't injected.")
 			}
 

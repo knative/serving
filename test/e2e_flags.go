@@ -38,6 +38,7 @@ type ServingEnvironmentFlags struct {
 	Replicas            int    // The number of controlplane replicas being run.
 	EnableAlphaFeatures bool   // Indicates whether we run tests for alpha features
 	EnableBetaFeatures  bool   // Indicates whether we run tests for beta features
+	Mesh                bool   // Indicates whether we're running tests in Mesh mode
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -106,6 +107,15 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 			"Set this flag to run tests against beta features")
 	} else {
 		f.EnableBetaFeatures = fl.Value.(flag.Getter).Get().(bool)
+	}
+
+	if fl := flag.Lookup("mesh"); fl == nil {
+		flag.BoolVar(&f.Mesh,
+			"mesh",
+			false,
+			"Set this flag if running tests in mesh mode")
+	} else {
+		f.Mesh = fl.Value.(flag.Getter).Get().(bool)
 	}
 
 	return &f
