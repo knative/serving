@@ -96,6 +96,9 @@ kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.ya
 # simply cannot pass.
 go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} || failed=1
 
+# Run HPA tests
+go_test_e2e -timeout=15m -tags=hpa ./test/e2e || failed=1
+
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
 go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
