@@ -419,9 +419,6 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
-		if err := clients.KubeClient.CoreV1().Secrets(test.ServingNamespace).Delete(context.Background(), secret.Name, metav1.DeleteOptions{}); err != nil {
-			t.Error("Secrets().Delete() =", err)
-		}
 	})
 
 	const tokenPath = "token"
