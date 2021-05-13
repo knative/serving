@@ -46,13 +46,13 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 		address string
 	)
 
-	address, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient, pkgTest.Flags.IngressEndpoint)
-	if err != nil {
-		return nil, err
-	}
-	if test.ServingFlags.ResolvableDomain {
-		address = domain
-		mapper = func(in string) string { return in }
+	address = domain
+	mapper := func(in string) string { return in }
+	if !test.ServingFlags.ResolvableDomain {
+		address, mapper, err = ingress.GetIngressEndpoint(context.Background(), clients.KubeClient, pkgTest.Flags.IngressEndpoint)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	u := url.URL{Scheme: "ws", Host: net.JoinHostPort(address, mapper("80")), Path: "/"}

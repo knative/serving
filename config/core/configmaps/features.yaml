@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "2cf73688"
+    knative.dev/example-checksum: "1bbf8144"
 data:
   _example: |-
     ################################
@@ -114,13 +114,6 @@ data:
     #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
     # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-dry-run
     kubernetes.podspec-dryrun: "allowed"
-
-    # Indicates whether new responsive garbage collection is enabled. This
-    # feature labels revisions in real-time as they become referenced and
-    # dereferenced by Routes. This allows us to reap revisions shortly after
-    # they are no longer active.
-    # See: https://knative.dev/docs/serving/feature-flags/#responsive-revision-garbage-collector
-    responsive-revision-gc: "enabled"
 
     # Controls whether tag header based routing feature are enabled or not.
     # 1. Enabled: enabling tag header based routing

@@ -105,7 +105,7 @@ func TestMinScale(t *testing.T) {
 	if err != nil {
 		t.Fatalf("An error occurred getting revision %v, %v", revName, err)
 	}
-	if replicas := revision.Status.ActualReplicas; replicas != minScale {
+	if replicas := *revision.Status.ActualReplicas; replicas != minScale {
 		t.Fatalf("Expected actual replicas for revision %v to be %v but got %v", revision.Name, minScale, replicas)
 	}
 
@@ -138,7 +138,7 @@ func TestMinScale(t *testing.T) {
 	if err != nil {
 		t.Fatalf("An error occurred getting revision %v, %v", newRevName, err)
 	}
-	if replicas := revision.Status.ActualReplicas; replicas != minScale {
+	if replicas := *revision.Status.ActualReplicas; replicas != minScale {
 		t.Fatalf("Expected actual replicas for revision %v to be %v but got %v", revision.Name, minScale, replicas)
 	}
 

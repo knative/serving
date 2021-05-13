@@ -230,7 +230,7 @@ If you have configured your cluster to use a resolvable domain, you can use the
 `--resolvabledomain` flag to indicate that the test should make requests
 directly against `Route.Status.Domain` and does not need to spoof the `Host`.
 
-### Overriding the gateway used for spoofing
+### Overriding the gateway used for spoofing
 
 If you are using an ingress provider other than Istio, and have not set up a
 resolvable domain (above), you will also need to set the `GATEWAY_OVERRIDE` and
