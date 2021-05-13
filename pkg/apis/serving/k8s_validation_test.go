@@ -1286,6 +1286,17 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrDisallowedFields("securityContext.runAsGroup"),
 	}, {
+		name: "not allowed to add a security context capability",
+		c: corev1.Container{
+			Image: "foo",
+			SecurityContext: &corev1.SecurityContext{
+				Capabilities: &corev1.Capabilities{
+					Add: []corev1.Capability{"all"},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("securityContext.capabilities.add"),
+	}, {
 		name: "too large uid",
 		c: corev1.Container{
 			Image: "foo",

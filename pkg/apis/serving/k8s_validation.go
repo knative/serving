@@ -447,11 +447,20 @@ func validateResources(resources *corev1.ResourceRequirements) *apis.FieldError 
 	return apis.CheckDisallowedFields(*resources, *ResourceRequirementsMask(resources))
 }
 
+func validateCapabilities(cap *corev1.Capabilities) *apis.FieldError {
+	if cap == nil {
+		return nil
+	}
+	return apis.CheckDisallowedFields(*cap, *CapabilitiesMask(cap))
+}
+
 func validateSecurityContext(ctx context.Context, sc *corev1.SecurityContext) *apis.FieldError {
 	if sc == nil {
 		return nil
 	}
 	errs := apis.CheckDisallowedFields(*sc, *SecurityContextMask(ctx, sc))
+
+	errs = errs.Also(validateCapabilities(sc.Capabilities).ViaField("capabilities"))
 
 	if sc.RunAsUser != nil {
 		uid := *sc.RunAsUser
