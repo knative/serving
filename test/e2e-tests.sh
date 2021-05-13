@@ -89,6 +89,22 @@ immediate_gc
 go_test_e2e -timeout=2m ./test/e2e/gc ${TEST_OPTIONS} || failed=1
 kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml
 
+function wait_for_cleanup() {
+    set +x
+    echo "Waiting for cleanup"
+    local count=$(kubectl get knative,knative-internal -A -o name  | wc -l)
+
+    # We count down till one (queue proxy image is cached)
+    while [[ $count -gt 1 ]]; do
+        sleep 5
+        count=$(kubectl get knative,knative-internal -A -o name  | wc -l)
+        echo "$count resources remaining..."
+    done
+    set -x
+}
+
+wait_for_cleanup
+
 
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
