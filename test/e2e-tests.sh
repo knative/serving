@@ -90,16 +90,14 @@ go_test_e2e -timeout=2m ./test/e2e/gc ${TEST_OPTIONS} || failed=1
 kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml
 
 function wait_for_cleanup() {
-    set +x
     echo "Waiting for cleanup"
     local count=$(kubectl get knative,knative-internal -A -o name  | wc -l)
 
     while [[ $count -gt 10 ]]; do
         sleep 5
         count=$(kubectl get knative,knative-internal -A -o name  | wc -l)
-        echo "$count resources remaining..."
+        echo "$(date) $count resources remaining..."
     done
-    set -x
 }
 
 wait_for_cleanup
