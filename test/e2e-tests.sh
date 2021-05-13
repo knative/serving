@@ -94,8 +94,7 @@ function wait_for_cleanup() {
     echo "Waiting for cleanup"
     local count=$(kubectl get knative,knative-internal -A -o name  | wc -l)
 
-    # We count down till one (queue proxy image is cached)
-    while [[ $count -gt 1 ]]; do
+    while [[ $count -gt 10 ]]; do
         sleep 5
         count=$(kubectl get knative,knative-internal -A -o name  | wc -l)
         echo "$count resources remaining..."
