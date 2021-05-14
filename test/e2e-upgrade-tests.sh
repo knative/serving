@@ -37,7 +37,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/e2e-common.sh"
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
 # Pin to 1.18 since scale test is super flakey on 1.19
-initialize "$@" --skip-istio-addon  --min-nodes=4 --max-nodes=4 --cluster-version=1.19.9 \
+initialize "$@" --skip-istio-addon  --min-nodes=4 --max-nodes=4 --cluster-version=1.19.9-gke.1400 \
   --install-latest-release
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
