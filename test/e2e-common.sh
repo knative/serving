@@ -183,6 +183,7 @@ function parse_flags() {
 #   them in the correct
 #
 function knative_setup() {
+  git checkout 568f0ca837f7e26f54f81421eb4135304793d8a9
   local need_latest_version=0
 
   if [[ "$(basename "${E2E_SCRIPT}")" == "*upgrade*" ]]; then
