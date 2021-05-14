@@ -32,8 +32,7 @@ source $(dirname $0)/e2e-common.sh
 # Skip installing istio as an add-on.
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
-# Pin to 1.18 since scale test is super flakey on 1.19
-initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.18 "$@"
+initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha "$@"
 
 # Run the tests
 header "Running tests"
