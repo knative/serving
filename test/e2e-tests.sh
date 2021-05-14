@@ -78,10 +78,10 @@ toggle_feature tag-header-based-routing Enabled
 go_test_e2e -timeout=2m ./test/e2e/tagheader ${TEST_OPTIONS} || failed=1
 toggle_feature tag-header-based-routing Disabled
 
-# # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go).
-# toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
-# go_test_e2e -timeout=2m ./test/e2e/initscale ${TEST_OPTIONS} || failed=1
-# toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
+# Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go).
+toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
+go_test_e2e -timeout=2m ./test/e2e/initscale ${TEST_OPTIONS} || failed=1
+toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
 
 # kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > ${TMP_DIR}/config-gc.yaml
 # add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml" SIGKILL SIGTERM SIGQUIT
