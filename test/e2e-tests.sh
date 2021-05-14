@@ -74,9 +74,9 @@ go_test_e2e -timeout=30m \
   ${parallelism} \
   ${TEST_OPTIONS} || failed=1
 
-# toggle_feature tag-header-based-routing Enabled
-# go_test_e2e -timeout=2m ./test/e2e/tagheader ${TEST_OPTIONS} || failed=1
-# toggle_feature tag-header-based-routing Disabled
+toggle_feature tag-header-based-routing Enabled
+go_test_e2e -timeout=2m ./test/e2e/tagheader ${TEST_OPTIONS} || failed=1
+toggle_feature tag-header-based-routing Disabled
 
 # # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go).
 # toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
