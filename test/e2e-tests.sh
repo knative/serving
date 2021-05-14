@@ -67,12 +67,12 @@ fi
 
 TEST_OPTIONS="${TEST_OPTIONS:-${alpha} --enable-beta --resolvabledomain=$(use_resolvable_domain) ${use_https}}"
 
-# go_test_e2e -timeout=30m \
-#  ./test/conformance/api/... \
-#  ./test/conformance/runtime/... \
-#  ./test/e2e \
-#   ${parallelism} \
-#   ${TEST_OPTIONS} || failed=1
+go_test_e2e -timeout=30m \
+ ./test/conformance/api/... \
+ ./test/conformance/runtime/... \
+ ./test/e2e \
+  ${parallelism} \
+  ${TEST_OPTIONS} || failed=1
 
 # toggle_feature tag-header-based-routing Enabled
 # go_test_e2e -timeout=2m ./test/e2e/tagheader ${TEST_OPTIONS} || failed=1
@@ -120,10 +120,10 @@ go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} || failed=1
 #   -buckets="${BUCKETS:-1}" \
 #   -spoofinterval="10ms" || failed=1
 
-# if (( HTTPS )); then
-#   kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
-#   toggle_feature autoTLS Disabled config-network
-# fi
+if (( HTTPS )); then
+  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
+  toggle_feature autoTLS Disabled config-network
+fi
 
 (( failed )) && fail_test
 
