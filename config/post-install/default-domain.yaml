@@ -34,7 +34,7 @@ spec:
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: ko://knative.dev/serving/cmd/default-domain
-        args: ["-magic-dns=xip.io"]
+        args: ["-magic-dns=sslip.io"]
         ports:
         - name: http
           containerPort: 8080
