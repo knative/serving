@@ -89,9 +89,11 @@ const (
 	// which Service they are created.
 	ServiceLabelKey = GroupName + "/service"
 
-	// DomainMappingLabelKey is the label key attached to Ingress resources to indicate
+	// DomainMappingUIDLabelKey is the label key attached to Ingress resources to indicate
 	// which DomainMapping triggered their creation.
-	DomainMappingLabelKey = GroupName + "/domainMapping"
+	// This uses a uid rather than a name because domain mapping names can exceed
+	// a label's 63 character limit.
+	DomainMappingUIDLabelKey = GroupName + "/domainMappingUID"
 
 	// DomainMappingNamespaceLabelKey is the label key attached to Ingress
 	// resources created by a DomainMapping to indicate which namespace the

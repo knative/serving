@@ -887,7 +887,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 						networking.CertificateClassAnnotationKey: "the-cert-class",
 					},
 					Labels: map[string]string{
-						serving.DomainMappingLabelKey: "becomes.ready.run",
+						serving.DomainMappingUIDLabelKey: "becomes.ready.run",
 					},
 				},
 				Spec: netv1alpha1.CertificateSpec{
@@ -1029,7 +1029,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 						networking.CertificateClassAnnotationKey: "the-cert-class",
 					},
 					Labels: map[string]string{
-						serving.DomainMappingLabelKey: "challenged.com",
+						serving.DomainMappingUIDLabelKey: "challenged.com",
 					},
 				},
 				Spec: netv1alpha1.CertificateSpec{
