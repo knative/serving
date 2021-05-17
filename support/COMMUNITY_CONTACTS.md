@@ -76,7 +76,7 @@ rotation, feel free to send a PR to remove yourself.
 
 # Schedule
 
-See [a machine-readable schedule here](schedule.rotation). The format is:
+See [a machine-readable schedule here](support.rotation). The format is:
 
 ```
 # comment lines are okay
