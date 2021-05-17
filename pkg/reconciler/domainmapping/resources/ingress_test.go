@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	network "knative.dev/networking/pkg"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -45,6 +46,7 @@ func TestMakeIngress(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "mapping.com",
 				Namespace: "the-namespace",
+				UID:       types.UID("the-uid"),
 				Annotations: map[string]string{
 					"some.annotation":                  "some.value",
 					corev1.LastAppliedConfigAnnotation: "blah",
@@ -95,6 +97,7 @@ func TestMakeIngress(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "mapping.com",
 				Namespace: "the-namespace",
+				UID:       types.UID("the-uid"),
 				Annotations: map[string]string{
 					"some.annotation":                  "some.value",
 					corev1.LastAppliedConfigAnnotation: "blah",
@@ -153,6 +156,7 @@ func TestMakeIngress(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "mapping.com",
 				Namespace: "the-namespace",
+				UID:       types.UID("the-uid"),
 				Annotations: map[string]string{
 					"some.annotation":                  "some.value",
 					corev1.LastAppliedConfigAnnotation: "blah",
@@ -220,8 +224,8 @@ func TestMakeIngress(t *testing.T) {
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.want.Labels = kmeta.UnionMaps(tc.dm.Labels, map[string]string{
-				serving.DomainMappingLabelKey:          tc.dm.Name,
-				serving.DomainMappingNamespaceLabelKey: tc.dm.Namespace,
+				serving.DomainMappingUIDLabelKey:       "the-uid",
+				serving.DomainMappingNamespaceLabelKey: "the-namespace",
 			})
 			tc.want.OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(&tc.dm)}
 			got := *MakeIngress(&tc.dm,

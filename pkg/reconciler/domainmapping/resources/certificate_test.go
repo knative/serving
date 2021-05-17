@@ -57,7 +57,7 @@ func TestMakeCertificate(t *testing.T) {
 				Namespace:   "the-namespace",
 				Annotations: map[string]string{"networking.knative.dev/certificate.class": certClass},
 				Labels: map[string]string{
-					serving.DomainMappingLabelKey: "mapping.com",
+					serving.DomainMappingUIDLabelKey: "mapping.com",
 				},
 			},
 			Spec: networkingv1alpha1.CertificateSpec{
@@ -94,7 +94,7 @@ func TestMakeCertificate(t *testing.T) {
 					"others": "kept",
 				},
 				Labels: map[string]string{
-					serving.DomainMappingLabelKey: "mapping.com",
+					serving.DomainMappingUIDLabelKey: "mapping.com",
 				},
 			},
 			Spec: networkingv1alpha1.CertificateSpec{
