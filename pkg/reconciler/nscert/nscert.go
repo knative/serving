@@ -53,7 +53,7 @@ type reconciler struct {
 
 // Check that our Reconciler implements namespacereconciler.Interface
 var _ namespacereconciler.Interface = (*reconciler)(nil)
-var domainTemplateRegex *regexp.Regexp = regexp.MustCompile(`^\*\..+$`)
+var domainTemplateRegex = regexp.MustCompile(`^\*\..+$`)
 
 func certClass(ctx context.Context, r *corev1.Namespace) string {
 	if class := r.Annotations[networking.CertificateClassAnnotationKey]; class != "" {

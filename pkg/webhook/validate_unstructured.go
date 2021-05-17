@@ -110,8 +110,5 @@ func validateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 		}
 	}
 
-	if err := validatePodSpec(ctx, templ.Spec, namespace, mode); err != nil {
-		return err
-	}
-	return nil
+	return validatePodSpec(ctx, templ.Spec, namespace, mode)
 }
