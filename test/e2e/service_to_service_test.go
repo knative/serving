@@ -154,11 +154,8 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	if err != nil {
 		t.Fatal("Unexpected error when sending request to helloworld:", err)
 	}
-	expectedStatus := http.StatusNotFound
-	if accessibleExternal {
-		expectedStatus = http.StatusOK
-	}
-	if got, want := response.StatusCode, expectedStatus; got != want {
+
+	if got, want := response.StatusCode, http.StatusOK; got != want {
 		t.Errorf("helloworld response StatusCode = %v, want %v", got, want)
 	}
 }
