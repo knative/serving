@@ -5,3 +5,4 @@ approvers:
 - api-core-wg-leads
 - autoscaling-wg-leads
 - networking-wg-leads
+- knative-release-leads
