@@ -50,7 +50,6 @@ import (
 const (
 	grpcContainerConcurrency = 1
 	grpcMinScale             = 3
-	defaultPort              = "80"
 )
 
 type grpcTest func(*TestContext, string, string)
@@ -66,6 +65,10 @@ func hasPort(u string) bool {
 }
 
 func dial(ctx *TestContext, host, domain string) (*grpc.ClientConn, error) {
+	defaultPort := "80"
+	if test.ServingFlags.HTTPS {
+		defaultPort = "443"
+	}
 	if !hasPort(host) {
 		host = net.JoinHostPort(host, defaultPort)
 	}
@@ -75,26 +78,28 @@ func dial(ctx *TestContext, host, domain string) (*grpc.ClientConn, error) {
 
 	secureOpt := grpc.WithInsecure()
 	if test.ServingFlags.HTTPS {
-		cred := credentials.NewTLS(test.TLSClientConfig(context.Background(), ctx.t.Logf, ctx.clients))
-		secureOpt = grpc.WithTransportCredentials(cred)
+		tlsConfig := test.TLSClientConfig(context.Background(), ctx.t.Logf, ctx.clients)
+		tlsConfig.ServerName = strings.Split(domain, ":")[0] // Set ServerName for pseudo hostname with TLS.
+		secureOpt = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 	}
 
-	if host != domain {
+	if host != domain && !test.ServingFlags.HTTPS {
 		// The host to connect and the domain accepted differ.
 		// We need to do grpc.WithAuthority(...) here.
 		return grpc.Dial(
 			host,
 			grpc.WithAuthority(domain),
-			secureOpt,
-			// Retrying DNS errors to avoid .xip.io issues.
+			grpc.WithInsecure(),
+			// Retrying DNS errors to avoid .sslip.io issues.
 			grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 		)
 	}
+
 	// This is a more preferred usage of the go-grpc client.
 	return grpc.Dial(
 		host,
 		secureOpt,
-		// Retrying DNS errors to avoid .xip.io issues.
+		// Retrying DNS errors to avoid .sslip.io issues.
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 	)
 }

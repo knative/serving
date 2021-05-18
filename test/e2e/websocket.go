@@ -66,6 +66,7 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 		dialer := websocket.DefaultDialer
 		if test.ServingFlags.HTTPS {
 			dialer.TLSClientConfig = test.TLSClientConfig(context.Background(), t.Logf, clients)
+			dialer.TLSClientConfig.ServerName = domain // Set ServerName for pseudo hostname with TLS.
 		}
 
 		c, resp, err := dialer.Dial(u.String(), http.Header{"Host": {domain}})
