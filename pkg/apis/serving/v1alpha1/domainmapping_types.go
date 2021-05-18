@@ -76,6 +76,10 @@ type SecretTLS struct {
 	//
 	// An existing tls secret.
 	SecretName string `json:"secretName"`
+	// SecretNamespace is the namespace of the existing TLS secret.
+	//
+	// Namespace of the existing secret, if missing the namespace of the domainmapping is assumed.
+	SecretNamespace string `json:"secretNamespace"`
 }
 
 // DomainMappingSpec describes the DomainMapping the user wishes to exist.

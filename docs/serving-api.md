@@ -2323,6 +2323,18 @@ string
 <p>An existing tls secret.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>secretNamespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>SecretNamespace is the namespace of the existing TLS secret.</p>
+<p>Namespace of the existing secret, if missing the namespace of the domainmapping is assumed.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr/>
