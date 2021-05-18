@@ -181,7 +181,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 	}
 }
 
-func TestWebSocketBlueGreenRoute(t *testing.T) {
+func TestWebSocketBlueGreen(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
