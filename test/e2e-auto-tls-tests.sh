@@ -176,6 +176,17 @@ header "Running tests"
 
 failed=0
 
+# Currently only Istio, Contour and Kourier implement the alpha features.
+alpha=""
+if [[ -z "${INGRESS_CLASS}" \
+  || "${INGRESS_CLASS}" == "istio.ingress.networking.knative.dev" \
+  || "${INGRESS_CLASS}" == "contour.ingress.networking.knative.dev" \
+  || "${INGRESS_CLASS}" == "kourier.ingress.networking.knative.dev" ]]; then
+  alpha="--enable-alpha"
+fi
+
+AUTO_TLS_TEST_OPTIONS="${AUTO_TLS_TEST_OPTIONS:-${alpha} --enable-beta}"
+
 # Auto TLS E2E tests mutate the cluster and must be ran separately
 # because they need auto-tls and cert-manager specific configurations
 subheader "Setup auto tls"
@@ -184,20 +195,20 @@ add_trap "cleanup_auto_tls_common" EXIT SIGKILL SIGTERM SIGQUIT
 
 subheader "Auto TLS test for per-ksvc certificate provision using self-signed CA"
 setup_selfsigned_per_ksvc_auto_tls
-go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
+go_test_e2e -timeout=10m ./test/e2e/autotls/ ${AUTO_TLS_TEST_OPTIONS} || failed=1
 kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
 
 subheader "Auto TLS test for per-namespace certificate provision using self-signed CA"
 setup_selfsigned_per_namespace_auto_tls
 add_trap "cleanup_per_selfsigned_namespace_auto_tls" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
+go_test_e2e -timeout=10m ./test/e2e/autotls/ ${AUTO_TLS_TEST_OPTIONS} || failed=1
 cleanup_per_selfsigned_namespace_auto_tls
 
 if [[ ${RUN_HTTP01_AUTO_TLS_TESTS} -eq 1 ]]; then
   subheader "Auto TLS test for per-ksvc certificate provision using HTTP01 challenge"
   setup_http01_auto_tls
   add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
-  go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
+  go_test_e2e -timeout=10m ./test/e2e/autotls/ ${AUTO_TLS_TEST_OPTIONS} || failed=1
   kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/
   delete_dns_record
 fi
