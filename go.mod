@@ -50,9 +50,9 @@ require (
 	k8s.io/gengo v0.0.0-20201214224949-b6c5ce23f027 // indirect
 	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
-	knative.dev/caching v0.0.0-20210512050647-922782660f7c
+	knative.dev/caching v0.0.0-20210518062915-3c39f8fd811a
 	knative.dev/hack v0.0.0-20210428122153-93ad9129c268
-	knative.dev/networking v0.0.0-20210512050647-ace2d3306f0b
-	knative.dev/pkg v0.0.0-20210510175900-4564797bf3b7
+	knative.dev/networking v0.0.0-20210519080815-4a780203e35b
+	knative.dev/pkg v0.0.0-20210518131015-67897f4ec290
 	sigs.k8s.io/yaml v1.2.0
 )
