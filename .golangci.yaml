@@ -21,10 +21,10 @@ linters:
     - asciicheck
     - depguard
     - errorlint
-    - golint
     - gosec
     - importas
     - prealloc
+    - revive
     - stylecheck
     - tparallel
     - unconvert
@@ -58,7 +58,7 @@ issues:
     - path: test
       text: "context.Context should be the first"
       linters:
-        - golint
+        - revive
 
     # Allow source and sink receivers in conversion code for clarity.
     - path: _conversion\.go
@@ -68,7 +68,7 @@ issues:
     - path: _conversion\.go
       text: "receiver name"
       linters:
-        - golint
+        - revive
 
     # This check has quite a few false positives where there isn't much value in the package comment.
     - text: "ST1000: at least one file in a package should have a package comment"

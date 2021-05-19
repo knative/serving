@@ -47,7 +47,7 @@ func decodeTemplate(val interface{}) (*v1.RevisionTemplateSpec, error) {
 	return templ, nil
 }
 
-func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string, mode DryRunMode) *apis.FieldError {
+func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string, mode DryRunMode) error {
 	om := metav1.ObjectMeta{
 		GenerateName: "dry-run-validation",
 		Namespace:    namespace,
@@ -71,7 +71,7 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string, 
 }
 
 // dryRunPodSpec makes a dry-run call to k8s to validate the podspec
-func dryRunPodSpec(ctx context.Context, pod *corev1.Pod, mode DryRunMode) *apis.FieldError {
+func dryRunPodSpec(ctx context.Context, pod *corev1.Pod, mode DryRunMode) error {
 	logger := logging.FromContext(ctx)
 	client := kubeclient.Get(ctx)
 

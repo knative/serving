@@ -223,7 +223,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 	default: // Active=False
 		var (
 			err error
-			r   bool = true
+			r   = true
 		)
 
 		if resolveTBC(ctx, pa) != -1 {
