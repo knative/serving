@@ -24,6 +24,7 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -44,14 +45,16 @@ import (
 type components map[string]sets.String
 
 var (
-	disabledComponents kflag.StringSet
-	tributePeriod      time.Duration = 20 * time.Second
-	tributeFactor                    = 2.0
+	disabledComponents      kflag.StringSet
+	disabledComponentsRegex kflag.StringSet
+	tributePeriod           = 20 * time.Second
+	tributeFactor           = 2.0
 )
 
 func init() {
 	// Note that we don't explicitly call flag.Parse() because ParseAndGetConfigOrDie below does this already.
 	flag.Var(&disabledComponents, "disable", "A repeatable flag to disable chaos for certain components.")
+	flag.Var(&disabledComponentsRegex, "disableRegex", "A repeatable flag to disable chaos for components matching one of the passed regexes.")
 	flag.DurationVar(&tributePeriod, "period", tributePeriod, "How frequently to terminate a leader pod per component (this is the base duration used with the jitter factor from -factor).")
 	flag.Float64Var(&tributeFactor, "factor", tributeFactor, "The jitter factor to apply to the period.")
 }
@@ -116,10 +119,24 @@ func quack(ctx context.Context, kc kubernetes.Interface, component string, leade
 	return kc.CoreV1().Pods(system.Namespace()).Delete(ctx, tribute, metav1.DeleteOptions{})
 }
 
+// matchesAny returns true if any of the given regexes matches the given string.
+func matchesAny(regexes []*regexp.Regexp, str string) bool {
+	for _, re := range regexes {
+		if re.MatchString(str) {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
 	ctx, _ := injection.EnableInjectionOrDie(signals.NewContext(), nil)
-
 	kc := kubeclient.Get(ctx)
+
+	regexes := make([]*regexp.Regexp, 0, len(disabledComponentsRegex.Value))
+	for re := range disabledComponentsRegex.Value {
+		regexes = append(regexes, regexp.MustCompile(re))
+	}
 
 	// Until we are shutdown, build up an index of components and kill
 	// of a leader at the specified frequency.
@@ -132,9 +149,10 @@ func main() {
 
 		eg, ctx := errgroup.WithContext(ctx)
 		for name, leaders := range components {
-			if disabledComponents.Value.Has(name) {
+			if disabledComponents.Value.Has(name) || matchesAny(regexes, name) {
 				continue
 			}
+
 			name, leaders := name, leaders
 			eg.Go(func() error {
 				return quack(ctx, kc, name, leaders)
