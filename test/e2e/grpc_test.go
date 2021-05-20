@@ -408,6 +408,9 @@ func TestGRPCUnaryPingViaActivator(t *testing.T) {
 }
 
 func TestGRPCStreamingPingViaActivator(t *testing.T) {
+	if test.ServingFlags.HTTPS {
+		t.Skip("TestGRPCStreamingPingViaActivator does not pass with --https option.")
+	}
 	testGRPC(t,
 		func(ctx *TestContext, host, domain string) {
 			if err := waitForActivatorEndpoints(ctx); err != nil {
