@@ -63,7 +63,10 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 	var conn *websocket.Conn
 	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
 		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
-		dialer := &websocket.Dialer{}
+		dialer := &websocket.Dialer{
+			Proxy:            http.ProxyFromEnvironment,
+			HandshakeTimeout: 45 * time.Second,
+		}
 		if test.ServingFlags.HTTPS {
 			dialer.TLSClientConfig = test.TLSClientConfig(context.Background(), t.Logf, clients)
 			dialer.TLSClientConfig.ServerName = domain // Set ServerName for pseudo hostname with TLS.
