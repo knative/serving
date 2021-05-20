@@ -79,15 +79,12 @@ spec:
 
         args:
         # Disable chaos on the Istio components.
-        - "-disable=istio-webhook"
         - "-disable=networking-istio"
         # Disable chaos on Kourier components.
         - "-disable=3scale-kourier-control"
         # Disable chaos on webhooks until https://github.com/knative/pkg/issues/1509 is
         # sorted out.
-        - "-disable=webhook"
-        - "-disable=domainmapping-webhook"
-        - "-disable=net-certmanager-webhook"
+        - "-disableRegex=.*webhook.*"
         # Currently the new owner of Autoscaler needs time to build the
         # metrics status so some e2e tests are expected to fail if the
         # owner pod crashes.
