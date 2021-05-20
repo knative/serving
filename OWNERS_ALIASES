@@ -56,7 +56,6 @@ aliases:
   - zhongduo
   eventing-wg-leads:
   - devguyio
-  - grantr
   - lionelvillard
   - vaikas
   eventing-writers:
@@ -64,7 +63,6 @@ aliases:
   - aliok
   - antoineco
   - devguyio
-  - grantr
   - lberk
   - lionelvillard
   - matzew
@@ -78,9 +76,9 @@ aliases:
   - bsnchan
   - duglin
   - evankanderson
-  - grantr
   - knative-prow-releaser-robot
   - knative-prow-robot
+  - knative-prow-updater-robot
   - knative-test-reporter-robot
   - markusthoemmes
   - mbehrendt
@@ -99,7 +97,6 @@ aliases:
   - chizhg
   - csantanapr
   - evankanderson
-  - grantr
   - igsong
   - julz
   - lionelvillard
@@ -122,6 +119,7 @@ aliases:
   knative-robots:
   - knative-prow-releaser-robot
   - knative-prow-robot
+  - knative-prow-updater-robot
   - knative-test-reporter-robot
   networking-reviewers:
   - JRBANCEL
@@ -174,14 +172,12 @@ aliases:
   - vagababov
   pkg-controller-reviewers:
   - dprotaso
-  - grantr
   - mattmoor
   - tcnghia
   - vagababov
   - whaught
   pkg-controller-writers:
   - dprotaso
-  - grantr
   - mattmoor
   - tcnghia
   - vagababov
@@ -231,7 +227,6 @@ aliases:
   - vaikas
   technical-oversight-committee:
   - evankanderson
-  - grantr
   - markusthoemmes
   - rhuss
   trademark-committee:
