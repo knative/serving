@@ -25,6 +25,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	ntest "knative.dev/networking/test"
 	"knative.dev/networking/test/conformance/ingress"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/reconciler"
@@ -47,7 +48,7 @@ type dmConfig struct {
 }
 
 func TestDomainMappingAutoTLS(t *testing.T) {
-	if !test.ServingFlags.EnableAlphaFeatures {
+	if !ntest.NetworkingFlags.EnableAlphaFeatures {
 		t.Skip("Alpha features not enabled")
 	}
 	t.Parallel()
