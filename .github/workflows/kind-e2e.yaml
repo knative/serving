@@ -2,7 +2,7 @@ name: KinD e2e tests
 
 on:
   pull_request:
-    branches: [ 'main', 'master' ]
+    branches: [ 'main', 'release-*' ]
 
 defaults:
   run:
