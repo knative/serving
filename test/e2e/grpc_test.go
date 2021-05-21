@@ -83,21 +83,9 @@ func dial(ctx *TestContext, host, domain string) (*grpc.ClientConn, error) {
 		secureOpt = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 	}
 
-	if host != domain && !test.ServingFlags.HTTPS {
-		// The host to connect and the domain accepted differ.
-		// We need to do grpc.WithAuthority(...) here.
-		return grpc.Dial(
-			host,
-			grpc.WithAuthority(domain),
-			grpc.WithInsecure(),
-			// Retrying DNS errors to avoid .sslip.io issues.
-			grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
-		)
-	}
-
-	// This is a more preferred usage of the go-grpc client.
 	return grpc.Dial(
 		host,
+		grpc.WithAuthority(domain),
 		secureOpt,
 		// Retrying DNS errors to avoid .sslip.io issues.
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
