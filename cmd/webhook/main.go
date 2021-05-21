@@ -43,7 +43,7 @@ import (
 	// config validation constructors
 	network "knative.dev/networking/pkg"
 	tracingconfig "knative.dev/pkg/tracing/config"
-	defaultconfig "knative.dev/serving/pkg/apis/config"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
@@ -77,7 +77,7 @@ var callbacks = map[schema.GroupVersionKind]validation.Callback{
 
 func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
-	store := defaultconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
+	store := apisconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
 	store.WatchConfigs(cmw)
 
 	return defaulting.NewAdmissionController(ctx,
@@ -101,7 +101,7 @@ func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 
 func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
-	store := defaultconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
+	store := apisconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
 	store.WatchConfigs(cmw)
 
 	return validation.NewAdmissionController(ctx,
@@ -137,16 +137,17 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 
 		// The configmaps to validate.
 		configmap.Constructors{
-			tracingconfig.ConfigName:         tracingconfig.NewTracingConfigFromConfigMap,
-			autoscalerconfig.ConfigName:      autoscalerconfig.NewConfigFromConfigMap,
-			gc.ConfigName:                    gc.NewConfigFromConfigMapFunc(ctx),
-			network.ConfigName:               network.NewConfigFromConfigMap,
-			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
-			metrics.ConfigMapName():          metrics.NewObservabilityConfigFromConfigMap,
-			logging.ConfigMapName():          logging.NewConfigFromConfigMap,
-			leaderelection.ConfigMapName():   leaderelection.NewConfigFromConfigMap,
-			domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
-			defaultconfig.DefaultsConfigName: defaultconfig.NewDefaultsConfigFromConfigMap,
+			tracingconfig.ConfigName:       tracingconfig.NewTracingConfigFromConfigMap,
+			autoscalerconfig.ConfigName:    autoscalerconfig.NewConfigFromConfigMap,
+			gc.ConfigName:                  gc.NewConfigFromConfigMapFunc(ctx),
+			network.ConfigName:             network.NewConfigFromConfigMap,
+			deployment.ConfigName:          deployment.NewConfigFromConfigMap,
+			apisconfig.FeaturesConfigName:  apisconfig.NewFeaturesConfigFromConfigMap,
+			metrics.ConfigMapName():        metrics.NewObservabilityConfigFromConfigMap,
+			logging.ConfigMapName():        logging.NewConfigFromConfigMap,
+			leaderelection.ConfigMapName(): leaderelection.NewConfigFromConfigMap,
+			domainconfig.DomainConfigName:  domainconfig.NewDomainFromConfigMap,
+			apisconfig.DefaultsConfigName:  apisconfig.NewDefaultsConfigFromConfigMap,
 		},
 	)
 }
