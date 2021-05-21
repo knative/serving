@@ -122,9 +122,7 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 // (3) sends a message, and
 // (4) verifies that we receive back the same message.
 func TestWebSocket(t *testing.T) {
-	if !test.ServingFlags.HTTPS {
-		t.Parallel()
-	}
+	t.Parallel()
 
 	clients := Setup(t)
 
@@ -148,9 +146,7 @@ func TestWebSocket(t *testing.T) {
 
 // and with -1 as target burst capacity and then validates that we can still serve.
 func TestWebSocketViaActivator(t *testing.T) {
-	if !test.ServingFlags.HTTPS {
-		t.Parallel()
-	}
+	t.Parallel()
 
 	clients := Setup(t)
 
@@ -186,9 +182,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 }
 
 func TestWebSocketBlueGreenRoute(t *testing.T) {
-	if !test.ServingFlags.HTTPS {
-		t.Parallel()
-	}
+	t.Parallel()
 	clients := test.Setup(t)
 
 	svcName := test.ObjectNameForTest(t)
