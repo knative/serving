@@ -78,7 +78,7 @@ function parse_flags() {
       ;;
     --install-latest-release)
       INSTALL_SERVING_VERSION="latest-release"
-      return 2
+      return 1
       ;;
     --cert-manager-version)
       [[ $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
