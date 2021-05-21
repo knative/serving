@@ -2121,9 +2121,7 @@ SecretTLS
 </td>
 <td>
 <em>(Optional)</em>
-<p>TLS indicates the existing tls secret that should be used for this domain.</p>
-<p>If defined it will use the tls secret with the given name assumed to exist
-in the same namespace as the domainmapping.</p>
+<p>TLS allows the DomainMapping to terminate TLS traffic with an existing secret.</p>
 </td>
 </tr>
 </table>
@@ -2227,9 +2225,7 @@ SecretTLS
 </td>
 <td>
 <em>(Optional)</em>
-<p>TLS indicates the existing tls secret that should be used for this domain.</p>
-<p>If defined it will use the tls secret with the given name assumed to exist
-in the same namespace as the domainmapping.</p>
+<p>TLS allows the DomainMapping to terminate TLS traffic with an existing secret.</p>
 </td>
 </tr>
 </tbody>
@@ -2319,8 +2315,7 @@ string
 </em>
 </td>
 <td>
-<p>SecretName is the name of a TLS secret.</p>
-<p>An existing tls secret.</p>
+<p>SecretName is the name of the existing secret used to terminate TLS traffic.</p>
 </td>
 </tr>
 <tr>
@@ -2331,8 +2326,7 @@ string
 </em>
 </td>
 <td>
-<p>SecretNamespace is the namespace of the existing TLS secret.</p>
-<p>Namespace of the existing secret, if missing the namespace of the domainmapping is assumed.</p>
+<p>SecretNamespace is the namespace of the existing secret used to terminate SSL traffic. If empty the namespace of the DomainMapping is assumed.</p>
 </td>
 </tr>
 </tbody>

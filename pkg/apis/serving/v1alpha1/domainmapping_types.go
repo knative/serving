@@ -72,13 +72,9 @@ type DomainMappingList struct {
 
 // SecretTLS wrapper for TLS SecretName.
 type SecretTLS struct {
-	// SecretName is the name of a TLS secret.
-	//
-	// An existing tls secret.
+	// SecretName is the name of the existing secret used to terminate TLS traffic.
 	SecretName string `json:"secretName"`
-	// SecretNamespace is the namespace of the existing TLS secret.
-	//
-	// Namespace of the existing secret, if missing the namespace of the domainmapping is assumed.
+	// SecretNamespace is the namespace of the existing secret used to terminate SSL traffic. If empty the namespace of the DomainMapping is assumed.
 	SecretNamespace string `json:"secretNamespace"`
 }
 
@@ -95,10 +91,7 @@ type DomainMappingSpec struct {
 	// Knative Routes, and by Kubernetes Services.
 	Ref duckv1.KReference `json:"ref"`
 
-	// TLS indicates the existing tls secret that should be used for this domain.
-	//
-	// If defined it will use the tls secret with the given name assumed to exist
-	// in the same namespace as the domainmapping.
+	// TLS allows the DomainMapping to terminate TLS traffic with an existing secret.
 	// +optional
 	TLS *SecretTLS `json:"tls,omitempty"`
 }
