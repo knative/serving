@@ -205,7 +205,7 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]net
 			namespace = dm.Spec.TLS.SecretNamespace
 		}
 		// Assume the provided certificate is ready
-		dm.Status.MarkCertificateReady("")
+		dm.Status.MarkCertificateNotRequired(v1alpha1.TLSCertificateProvidedExternally)
 		dm.Status.URL.Scheme = "https"
 		return []netv1alpha1.IngressTLS{
 			{

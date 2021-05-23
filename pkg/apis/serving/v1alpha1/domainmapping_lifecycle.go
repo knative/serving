@@ -62,7 +62,8 @@ const (
 	// AutoTLSNotEnabledMessage is the message which is set on the
 	// DomainMappingConditionCertificateProvisioned condition when it is set to True
 	// because AutoTLS was not enabled.
-	AutoTLSNotEnabledMessage = "autoTLS is not enabled"
+	AutoTLSNotEnabledMessage         = "autoTLS is not enabled"
+	TLSCertificateProvidedExternally = "TLS certificate was provided externally"
 )
 
 // MarkTLSNotEnabled sets DomainMappingConditionCertificateProvisioned to true when
@@ -70,6 +71,11 @@ const (
 func (dms *DomainMappingStatus) MarkTLSNotEnabled(msg string) {
 	domainMappingCondSet.Manage(dms).MarkTrueWithReason(DomainMappingConditionCertificateProvisioned,
 		"TLSNotEnabled", msg)
+}
+
+func (dms *DomainMappingStatus) MarkCertificateNotRequired(msg string) {
+	domainMappingCondSet.Manage(dms).MarkTrueWithReason(DomainMappingConditionCertificateProvisioned,
+		"CertificateExternallyProvided", msg)
 }
 
 // MarkCertificateReady marks the DomainMappingConditionCertificateProvisioned
