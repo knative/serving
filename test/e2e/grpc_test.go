@@ -324,8 +324,14 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 
 	t.Log("Creating service for grpc-ping")
 
+	svcName := test.ObjectNameForTest(t)
+	// Long name hits this issue https://github.com/knative-sandbox/net-certmanager/issues/214
+	if t.Name() == "TestGRPCStreamingPingViaActivator" {
+		svcName = test.AppendRandomString("grpc-streaming-pig-act")
+	}
+
 	names := &test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
+		Service: svcName,
 		Image:   "grpc-ping",
 	}
 
@@ -396,9 +402,6 @@ func TestGRPCUnaryPingViaActivator(t *testing.T) {
 }
 
 func TestGRPCStreamingPingViaActivator(t *testing.T) {
-	if test.ServingFlags.HTTPS {
-		t.Skip("TestGRPCStreamingPingViaActivator does not pass with --https option.")
-	}
 	testGRPC(t,
 		func(ctx *TestContext, host, domain string) {
 			if err := waitForActivatorEndpoints(ctx); err != nil {
