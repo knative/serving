@@ -221,6 +221,9 @@ func TestReconcile(t *testing.T) {
 		unknownScale = scaleUnknown
 		underscale   = defaultScale - 1
 		overscale    = defaultScale + 1
+
+		defaultAct = 3 // 1-10 ready pods + 200 TBC
+		scaledAct  = 4 // 11 or 12 ready pods + 200 TBC
 	)
 	privateSvc := names.PrivateService(testRevision)
 
@@ -274,7 +277,8 @@ func TestReconcile(t *testing.T) {
 		)
 	}
 
-	defaultSKS := sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady)
+	defaultSKS := sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(defaultAct))
+	defaultProxySKS := sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithNumActivators(defaultAct))
 	defaultMetric := metric(testNamespace, testRevision)
 
 	underscaledReady := makeReadyPods(underscale, testNamespace, testRevision)
@@ -306,7 +310,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
 				markScaleTargetInitialized, WithPAMetricsService(privateSvc),
 				withScales(1, defaultScale), WithPAStatusService(testRevision), WithObservedGeneration(1)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			defaultSKS,
 			metric(testNamespace, testRevision),
 			defaultDeployment, defaultReady},
 	}, {
@@ -460,7 +464,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, WithTraffic, WithPAMetricsService(privateSvc),
 				withScales(0, defaultScale), WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService,
-				WithPrivateService),
+				WithPrivateService, WithNumActivators(scaledAct)),
 			metric(testNamespace, testRevision),
 			defaultDeployment},
 			preciseReady...),
@@ -476,7 +480,8 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, WithPASKSNotReady(""),
 				WithBufferedTraffic, WithPAMetricsService(privateSvc), withScales(0, unknownScale),
 				WithObservedGeneration(1)),
-			defaultSKS, defaultDeployment, metric(testNamespace, testRevision),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(minActivators)),
+			defaultDeployment, metric(testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, WithPASKSReady, WithPAStatusService(testRevision),
@@ -726,8 +731,7 @@ func TestReconcile(t *testing.T) {
 				WithObservedGeneration(1)),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithSKSReady,
-				WithDeployRef(deployName), WithProxyMode),
+			Object: defaultProxySKS,
 		}},
 	}, {
 		Name: "scaling to 0, but not stable for long enough, so no-op",
@@ -760,8 +764,7 @@ func TestReconcile(t *testing.T) {
 				WithObservedGeneration(1)),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithSKSReady,
-				WithDeployRef(deployName), WithProxyMode),
+			Object: defaultProxySKS,
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
@@ -779,7 +782,7 @@ func TestReconcile(t *testing.T) {
 		Objects: append([]runtime.Object{
 			inactiveKPAMinScale(underscale), underscaledDeployment,
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode,
-				WithPubService, WithPrivateService),
+				WithPubService, WithPrivateService, WithNumActivators(defaultAct)),
 			defaultMetric,
 		}, underscaledReady...),
 	}, {
@@ -791,7 +794,7 @@ func TestReconcile(t *testing.T) {
 		Objects: append([]runtime.Object{
 			inactiveKPAMinScale(underscale), underscaledDeployment,
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode,
-				WithPubService, WithPrivateService),
+				WithPubService, WithPrivateService, WithNumActivators(defaultAct)),
 			defaultMetric,
 		}, underscaledReady...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -802,7 +805,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithDeployRef(deployName),
-				WithPubService, WithPrivateService),
+				WithPubService, WithPrivateService, WithNumActivators(defaultAct)),
 		}},
 	}, {
 		Name: "underscaled, PA activating",
@@ -841,11 +844,11 @@ func TestReconcile(t *testing.T) {
 			decider(testNamespace, testRevision, 0 /*wantScale*/, 0 /* ebc */)),
 		Objects: append([]runtime.Object{
 			inactiveKPAMinScale(overscale), overscaledDeployment,
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithNumActivators(scaledAct)),
 			defaultMetric,
 		}, overscaledReady...),
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(scaledAct)),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			minScalePatch,
@@ -861,11 +864,11 @@ func TestReconcile(t *testing.T) {
 			decider(testNamespace, testRevision, 1 /*wantScale*/, 0 /* ebc */)),
 		Objects: append([]runtime.Object{
 			inactiveKPAMinScale(overscale), overscaledDeployment,
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithNumActivators(scaledAct)),
 			defaultMetric,
 		}, overscaledReady...),
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(scaledAct)),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			minScalePatch,
@@ -882,7 +885,8 @@ func TestReconcile(t *testing.T) {
 				0 /* ebc */)),
 		Objects: append([]runtime.Object{
 			activeKPAMinScale(overscale, overscale), overscaledDeployment,
-			defaultSKS, defaultMetric,
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(scaledAct)),
+			defaultMetric,
 		}, overscaledReady...),
 	}, {
 		Name: "over maxScale, need to scale down, PA active",
@@ -893,7 +897,8 @@ func TestReconcile(t *testing.T) {
 				0 /* ebc */)),
 		Objects: append([]runtime.Object{
 			activeKPAMinScale(overscale, overscale), overscaledDeployment,
-			defaultSKS, defaultMetric,
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(scaledAct)),
+			defaultMetric,
 		}, overscaledReady...),
 		WantPatches: []clientgotesting.PatchActionImpl{
 			minScalePatch,
@@ -926,27 +931,9 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
 				markScaleTargetInitialized, WithPAMetricsService(privateSvc),
 				withScales(1, defaultScale), WithPAStatusService(testRevision), WithObservedGeneration(1)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			defaultProxySKS,
 			metric(testNamespace, testRevision),
 			defaultDeployment, defaultReady},
-	}, {
-		Name: "steady, proxy mode, many activators requested",
-		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey{},
-			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
-				-42 /* ebc */)),
-		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
-				markScaleTargetInitialized, WithPAMetricsService(privateSvc),
-				withScales(1, defaultScale), WithPAStatusService(testRevision), WithObservedGeneration(1)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName),
-				WithProxyMode, WithSKSReady, WithNumActivators(4)),
-			metric(testNamespace, testRevision),
-			defaultDeployment, defaultReady},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithDeployRef(deployName),
-				WithProxyMode, WithSKSReady, WithNumActivators(1982)),
-		}},
 	}, {
 		Name: "traffic increased, no longer enough burst capacity",
 		Key:  key,
@@ -975,14 +962,12 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
 				WithPAMetricsService(privateSvc), withScales(1, defaultScale),
 				WithPAStatusService(testRevision), WithObservedGeneration(1)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithProxyMode,
-				WithNumActivators(3)),
+			defaultProxySKS,
 			metric(testNamespace, testRevision),
 			defaultDeployment,
 			defaultReady},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithSKSReady,
-				WithDeployRef(deployName), WithNumActivators(2)),
+			Object: defaultSKS,
 		}},
 	}, {
 		Name: "initial scale > minScale, have not reached initial scale, PA still activating",
@@ -994,7 +979,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, WithPASKSReady, WithBufferedTraffic,
 				withScales(defaultScale, defaultScale), WithReachabilityReachable,
 				withMinScale(defaultScale), withInitialScale(20), WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithNumActivators(scaledAct)),
 			defaultMetric, defaultDeployment,
 		}, makeReadyPods(defaultScale, testNamespace, testRevision)...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1020,7 +1005,7 @@ func TestReconcile(t *testing.T) {
 				withScales(20, defaultScale), withInitialScale(20), WithReachabilityReachable,
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 			),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithNumActivators(scaledAct)),
 			defaultMetric,
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(defaultScale)
@@ -1118,7 +1103,7 @@ func TestReconcile(t *testing.T) {
 				WithReachabilityReachable, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 				WithPASKSReady,
 			),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithNumActivators(defaultAct)),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(2)
