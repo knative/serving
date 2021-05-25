@@ -90,10 +90,6 @@ type DeciderStatus struct {
 	// If this number is negative: Activator will be threaded in
 	// the request path by the PodAutoscaler controller.
 	ExcessBurstCapacity int32
-
-	// NumActivators is the computed number of activators
-	// necessary to back the revision.
-	NumActivators int32
 }
 
 // ScaleResult holds the scale result of the UniScaler evaluation cycle.
@@ -103,16 +99,13 @@ type ScaleResult struct {
 	// ExcessBurstCapacity is computed headroom of the revision taking into
 	// the account target burst capacity.
 	ExcessBurstCapacity int32
-	// NumActivators is the number of activators required to back this revision.
-	NumActivators int32
 	// ScaleValid specifies whether this scale result is valid, i.e. whether
 	// Autoscaler had all the necessary information to compute a suggestion.
 	ScaleValid bool
 }
 
 var invalidSR = ScaleResult{
-	ScaleValid:    false,
-	NumActivators: MinActivators,
+	ScaleValid: false,
 }
 
 // UniScaler records statistics for a particular Decider and proposes the scale for the Decider's target based on those statistics.
@@ -162,10 +155,6 @@ func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
 	defer sr.mux.Unlock()
 	if sr.decider.Status.DesiredScale != sRes.DesiredPodCount {
 		sr.decider.Status.DesiredScale = sRes.DesiredPodCount
-		ret = true
-	}
-	if sr.decider.Status.NumActivators != sRes.NumActivators {
-		sr.decider.Status.NumActivators = sRes.NumActivators
 		ret = true
 	}
 

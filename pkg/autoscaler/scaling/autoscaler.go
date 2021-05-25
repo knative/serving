@@ -37,9 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// MinActivators is the minimum number of activators a revision will get.
-const MinActivators = 2
-
 type podCounter interface {
 	ReadyCount() (int, error)
 }
@@ -259,41 +256,26 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		}
 	}
 
-	// Here we compute two numbers: excess burst capacity and number of activators
-	// for subsetting.
-	// - the excess burst capacity is based on panic value, since we don't want to
-	//   be making knee-jerk decisions about Activator in the request path.
-	//   Negative EBC means that the deployment does not have enough capacity to serve
-	//   the desired burst off hand.
-	//   EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
-	// - number of activators is based on total capacity and TargetBurstCapacity values.
-	//   if tbc==0, then activators are in play only for scale from 0 and the revision gets
-	//   the default number.
-	//   if tbc > 0, then revision gets number of activators to support total capacity and
-	//   tbc additional units.
-	//   if tbc==-1, then revision gets the number of activators needed to support total capacity.
-	//   With default target utilization of 0.7, we're overprovisioning number of needed activators
-	//   by rate of 1/0.7=1.42.
+	// Compute excess burst capacity
+	//
+	// the excess burst capacity is based on panic value, since we don't want to
+	// be making knee-jerk decisions about Activator in the request path.
+	// Negative EBC means that the deployment does not have enough capacity to serve
+	// the desired burst off hand.
+	// EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
 	excessBCF := -1.
-	numAct := int32(MinActivators)
 	switch {
 	case spec.TargetBurstCapacity == 0:
 		excessBCF = 0
-		// numAct stays at MinActivators, only needed to scale from 0.
 	case spec.TargetBurstCapacity > 0:
 		totCap := float64(originalReadyPodsCount) * spec.TotalValue
 		excessBCF = math.Floor(totCap - spec.TargetBurstCapacity - observedPanicValue)
-		numAct = int32(math.Max(MinActivators,
-			math.Ceil((totCap+spec.TargetBurstCapacity)/spec.ActivatorCapacity)))
-	case spec.TargetBurstCapacity == -1:
-		numAct = int32(math.Max(MinActivators,
-			math.Ceil(float64(originalReadyPodsCount)*spec.TotalValue/spec.ActivatorCapacity)))
 	}
 
 	if debugEnabled {
-		desugared.Debug(fmt.Sprintf("PodCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f NumActivators=%d",
+		desugared.Debug(fmt.Sprintf("PodCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f",
 			originalReadyPodsCount, spec.TotalValue, observedStableValue,
-			observedPanicValue, spec.TargetBurstCapacity, excessBCF, numAct))
+			observedPanicValue, spec.TargetBurstCapacity, excessBCF))
 	}
 
 	switch spec.ScalingMetric {
@@ -318,7 +300,6 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	return ScaleResult{
 		DesiredPodCount:     desiredPodCount,
 		ExcessBurstCapacity: int32(excessBCF),
-		NumActivators:       numAct,
 		ScaleValid:          true,
 	}
 }
