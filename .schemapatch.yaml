@@ -1,0 +1,169 @@
+k8s.io/api/core/v1.Volume:
+  allowedFields:
+    - Name
+    - VolumeSource
+k8s.io/api/core/v1.VolumeSource:
+  allowedFields:
+    - Secret
+    - ConfigMap
+    - Projected
+k8s.io/api/core/v1.VolumeProjection:
+  allowedFields:
+    - Secret
+    - ConfigMap
+    - ServiceAccountToken
+k8s.io/api/core/v1.ConfigMapProjection:
+  allowedFields:
+    - LocalObjectReference
+    - Items
+    - Optional
+k8s.io/api/core/v1.SecretProjection:
+  allowedFields:
+    - LocalObjectReference
+    - Items
+    - Optional
+k8s.io/api/core/v1.ServiceAccountTokenProjection:
+  allowedFields:
+    - Audience
+    - ExpirationSeconds
+    - Path
+k8s.io/api/core/v1.KeyToPath:
+  allowedFields:
+    - Key
+    - Path
+    - Mode
+k8s.io/api/core/v1.PodSpec:
+  preserveUnknownFields: true
+  allowedFields:
+    - ServiceAccountName
+    - Containers
+    - Volumes
+    - ImagePullSecrets
+    - EnableServiceLinks
+k8s.io/api/core/v1.Container:
+  preserveUnknownFields: true
+  allowedFields:
+    - Name
+    - Args
+    - Command
+    - Env
+    - WorkingDir
+    - EnvFrom
+    - Image
+    - ImagePullPolicy
+    - LivenessProbe
+    - Ports
+    - ReadinessProbe
+    - Resources
+    - SecurityContext
+    - TerminationMessagePath
+    - TerminationMessagePolicy
+    - VolumeMounts
+  fieldOverrides:
+    Name:
+      optional: true
+    Ports:
+      optional: true
+k8s.io/api/core/v1.VolumeMount:
+  allowedFields:
+    - Name
+    - ReadOnly
+    - MountPath
+    - SubPath
+k8s.io/api/core/v1.Probe:
+  allowedFields:
+    - Handler
+    - InitialDelaySeconds
+    - TimeoutSeconds
+    - PeriodSeconds
+    - SuccessThreshold
+    - FailureThreshold
+  fieldOverrides:
+    PeriodSeconds:
+      description: "How often (in seconds) to perform the probe."
+k8s.io/api/core/v1.Handler:
+  allowedFields:
+    - Exec
+    - HTTPGet
+    - TCPSocket
+k8s.io/api/core/v1.ExecAction:
+  allowedFields:
+    - Command
+k8s.io/api/core/v1.HTTPGetAction:
+  preserveUnknownFields: true
+  allowedFields:
+    - Host
+    - Path
+    - Scheme
+    - HTTPHeaders
+k8s.io/api/core/v1.TCPSocketAction:
+  preserveUnknownFields: true
+  allowedFields:
+    - Host
+k8s.io/api/core/v1.ContainerPort:
+  preserveUnknownFields: true
+  allowedFields:
+    - ContainerPort
+    - Name
+    - Protocol
+k8s.io/api/core/v1.EnvVar:
+  allowedFields:
+    - Name
+    - Value
+    - ValueFrom
+k8s.io/api/core/v1.EnvVarSource:
+  preserveUnknownFields: true
+  allowedFields:
+    - ConfigMapKeyRef
+    - SecretKeyRef
+k8s.io/api/core/v1.LocalObjectReference:
+  allowedFields:
+    - Name
+k8s.io/api/core/v1.ConfigMapKeySelectorMask:
+  allowedFields:
+    - Key
+    - Optional
+    - LocalObjectReference
+k8s.io/api/core/v1.SecretKeySelectorMask:
+  allowedFields:
+    - Key
+    - Optional
+    - LocalObjectReference
+k8s.io/api/core/v1.ConfigMapEnvSource:
+  allowedFields:
+    - Optional
+    - LocalObjectReference
+k8s.io/api/core/v1.SecretEnvSource:
+  allowedFields:
+    - Optional
+    - LocalObjectReference
+k8s.io/api/core/v1.EnvFromSource:
+  allowedFields:
+    - Prefix
+    - ConfigMapRef
+    - SecretRef
+k8s.io/api/core/v1.ResourceRequirementsMask:
+  allowedFields:
+    - Limits
+    - Requests
+k8s.io/api/core/v1.PodSecurityContext:
+  allowedFields:
+    - RunAsUser
+    - RunAsGroup
+    - RunAsNonRoot
+    - FSGroup
+    - SupplementalGroups
+k8s.io/api/core/v1.SecurityContext:
+  preserveUnknownFields: true
+  allowedFields:
+    - RunAsUser
+    - ReadOnlyRootFilesystem
+    - Capabilities
+k8s.io/api/core/v1.Capabilities:
+  allowedFields:
+    - Drop
+k8s.io/api/core/v1.ObjectReference:
+  allowedFields:
+    - APIVersion
+    - Kind
+    - Name
