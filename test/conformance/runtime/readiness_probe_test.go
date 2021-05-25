@@ -21,11 +21,11 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	pkgtest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -101,26 +101,19 @@ func TestProbeRuntime(t *testing.T) {
 				}
 
 				// Once the service reports ready we should immediately be able to curl it.
-				client, err := pkgtest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, resources.Route.Status.URL.URL().Host,
-					test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
-				if err != nil {
-					t.Fatal("Create spoofing client:", err)
-				}
-
 				url := resources.Route.Status.URL.URL()
 				url.Path = "/healthz"
-				req, err := http.NewRequest(http.MethodGet, url.String(), nil)
-				if err != nil {
-					t.Fatal("NewRequest:", err)
-				}
-
-				resp, err := client.Do(req)
-				if err != nil {
-					t.Fatal("GET ready service:", err)
-				}
-
-				if want, got := test.HelloWorldText, string(resp.Body); want != got {
-					t.Fatalf("Expected body to be %q but was %q:", want, got)
+				if _, err = pkgtest.WaitForEndpointState(
+					context.Background(),
+					clients.KubeClient,
+					t.Logf,
+					url,
+					v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText))),
+					"readinessIsReady",
+					test.ServingFlags.ResolvableDomain,
+					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+				); err != nil {
+					t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
 				}
 
 				// Check if scaling down works even if access from liveness probe exists.
