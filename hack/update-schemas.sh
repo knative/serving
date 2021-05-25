@@ -24,9 +24,7 @@ set -o pipefail
 # We need a patched version because
 # 1. There's a bug that makes our URL types unusable
 #    see https://github.com/kubernetes-sigs/controller-tools/issues/560
-# 2. There's a missing feature to properly generate nested ObjectMeta
-#    see https://github.com/kubernetes-sigs/controller-tools/pull/563
-# 3. We need specialized logic to filter down the surface of PodSpec we allow in Knative.
-controller-gen schemapatch:manifests=config/core/300-resources \
+# 2. We need specialized logic to filter down the surface of PodSpec we allow in Knative.
+controller-gen schemapatch:manifests=config/core/300-resources,generateEmbeddedObjectMeta=true \
   output:dir=config/core/300-resources \
   paths=./pkg/apis/...
