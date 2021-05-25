@@ -90,6 +90,13 @@ func withPodSpecSecurityContextEnabled() configOption {
 	}
 }
 
+func withContainerSpecAddCapabilitiesEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.ContainerSpecAddCapabilities = config.Enabled
+		return cfg
+	}
+}
+
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1296,6 +1303,18 @@ func TestContainerValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrDisallowedFields("securityContext.capabilities.add"),
+	}, {
+		name: "allowed to add a security context capability when gate is enabled",
+		c: corev1.Container{
+			Image: "foo",
+			SecurityContext: &corev1.SecurityContext{
+				Capabilities: &corev1.Capabilities{
+					Add: []corev1.Capability{"all"},
+				},
+			},
+		},
+		cfgOpts: []configOption{withContainerSpecAddCapabilitiesEnabled()},
+		want:    nil,
 	}, {
 		name: "too large uid",
 		c: corev1.Container{

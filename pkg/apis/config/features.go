@@ -41,17 +41,18 @@ const (
 
 func defaultFeaturesConfig() *Features {
 	return &Features{
-		MultiContainer:          Enabled,
-		PodSpecAffinity:         Disabled,
-		PodSpecDryRun:           Allowed,
-		PodSpecHostAliases:      Disabled,
-		PodSpecFieldRef:         Disabled,
-		PodSpecNodeSelector:     Disabled,
-		PodSpecRuntimeClassName: Disabled,
-		PodSpecSecurityContext:  Disabled,
-		PodSpecTolerations:      Disabled,
-		TagHeaderBasedRouting:   Disabled,
-		AutoDetectHTTP2:         Disabled,
+		MultiContainer:               Enabled,
+		PodSpecAffinity:              Disabled,
+		PodSpecDryRun:                Allowed,
+		PodSpecHostAliases:           Disabled,
+		PodSpecFieldRef:              Disabled,
+		PodSpecNodeSelector:          Disabled,
+		PodSpecRuntimeClassName:      Disabled,
+		PodSpecSecurityContext:       Disabled,
+		ContainerSpecAddCapabilities: Disabled,
+		PodSpecTolerations:           Disabled,
+		TagHeaderBasedRouting:        Disabled,
+		AutoDetectHTTP2:              Disabled,
 	}
 }
 
@@ -68,6 +69,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-nodeselector", &nc.PodSpecNodeSelector),
 		asFlag("kubernetes.podspec-runtimeclassname", &nc.PodSpecRuntimeClassName),
 		asFlag("kubernetes.podspec-securitycontext", &nc.PodSpecSecurityContext),
+		asFlag("kubernetes.containerspec-addcapabilities", &nc.ContainerSpecAddCapabilities),
 		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
 		asFlag("autodetect-http2", &nc.AutoDetectHTTP2)); err != nil {
@@ -83,17 +85,18 @@ func NewFeaturesConfigFromConfigMap(config *corev1.ConfigMap) (*Features, error)
 
 // Features specifies which features are allowed by the webhook.
 type Features struct {
-	MultiContainer          Flag
-	PodSpecAffinity         Flag
-	PodSpecDryRun           Flag
-	PodSpecFieldRef         Flag
-	PodSpecHostAliases      Flag
-	PodSpecNodeSelector     Flag
-	PodSpecRuntimeClassName Flag
-	PodSpecSecurityContext  Flag
-	PodSpecTolerations      Flag
-	TagHeaderBasedRouting   Flag
-	AutoDetectHTTP2         Flag
+	MultiContainer               Flag
+	PodSpecAffinity              Flag
+	PodSpecDryRun                Flag
+	PodSpecFieldRef              Flag
+	PodSpecHostAliases           Flag
+	PodSpecNodeSelector          Flag
+	PodSpecRuntimeClassName      Flag
+	PodSpecSecurityContext       Flag
+	ContainerSpecAddCapabilities Flag
+	PodSpecTolerations           Flag
+	TagHeaderBasedRouting        Flag
+	AutoDetectHTTP2              Flag
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.
