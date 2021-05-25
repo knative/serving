@@ -31,6 +31,7 @@ const (
 	targetUtilization    = 0.7
 	curPods              = 1
 	targetPods           = 10
+	trafficSettleTime    = 10 * time.Second
 )
 
 // AutoscaleSustainingTest checks that when traffic increases a knative app
@@ -49,6 +50,9 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 				}))
 			ctx.SetLogger(c.Log.Infof)
 			wait = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
+
+			// Allow the traffic and scale to settle before starting the upgrade.
+			time.Sleep(trafficSettleTime)
 		},
 		func(c pkgupgrade.Context) {
 			test.EnsureTearDown(c.T, ctx.Clients(), ctx.Names())
@@ -77,6 +81,9 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 				}))
 			ctx.SetLogger(c.Log.Infof)
 			wait = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
+
+			// Allow the traffic and scale to settle before starting the upgrade.
+			time.Sleep(trafficSettleTime)
 		},
 		func(c pkgupgrade.Context) {
 			test.EnsureTearDown(c.T, ctx.Clients(), ctx.Names())
