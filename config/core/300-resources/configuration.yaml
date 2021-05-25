@@ -405,6 +405,16 @@ spec:
                                 description: 'Security options the pod should run with. More info: https://kubernetes.io/docs/concepts/policy/security-context/ More info: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/'
                                 type: object
                                 properties:
+                                  capabilities:
+                                    description: The capabilities to add/drop when running containers. Defaults to the default set of capabilities granted by the container runtime.
+                                    type: object
+                                    properties:
+                                      drop:
+                                        description: Removed capabilities
+                                        type: array
+                                        items:
+                                          description: Capability represent POSIX capabilities type
+                                          type: string
                                   readOnlyRootFilesystem:
                                     description: Whether this container has a read-only root filesystem. Default is false.
                                     type: boolean
@@ -412,16 +422,6 @@ spec:
                                     description: The UID to run the entrypoint of the container process. Defaults to user specified in image metadata if unspecified. May also be set in PodSecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
                                     type: integer
                                     format: int64
-                                  capabilities:
-                                    description: 'Optional: The capabilities to add/drop when running containers. Defaults to the default set of capabilities granted by the container runtime.'
-                                    type: object
-                                    properties:
-                                      drop:
-                                        description: 'Optional: Removed capabilities'
-                                        type: array
-                                        items:
-                                          description: POSIX capabilities type
-                                          type: string
                                 x-kubernetes-preserve-unknown-fields: true
                               terminationMessagePath:
                                 description: 'Optional: Path at which the file to which the container''s termination message will be written is mounted into the container''s filesystem. Message written is intended to be brief final status, such as an assertion failure message. Will be truncated by the node if greater than 4096 bytes. The total message length across all containers will be limited to 12kb. Defaults to /dev/termination-log. Cannot be updated.'
