@@ -88,7 +88,7 @@ func TestReconcile(t *testing.T) {
 		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
 		WantCreates: []runtime.Object{
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
-			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", nil /* tls */),
+			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "first-reconcile.com"),
@@ -188,7 +188,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target", withAPIVersionKind("v1", "Service")))),
 			resources.MakeIngress(
 				domainMapping("default", "first-reconcile.com", withRef("default", "target", withAPIVersionKind("v1", "Service"))),
-				"target", "target.default.svc.cluster.local", "the-ingress-class", nil /* tls */),
+				"target", "target.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "first-reconcile.com"),
@@ -337,7 +337,7 @@ func TestReconcile(t *testing.T) {
 			),
 		}},
 		WantCreates: []runtime.Object{
-			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", nil /* tls */),
+			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "first-reconcile.com"),
@@ -436,7 +436,7 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			resources.MakeDomainClaim(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"))),
 			resources.MakeIngress(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target")),
-				"the-target-svc", "the-target-svc.default.svc.cluster.local", "overridden-ingress-class", nil /* tls */),
+				"the-target-svc", "the-target-svc.default.svc.cluster.local", "overridden-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "ingressclass.first-reconcile.com"),
@@ -451,7 +451,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			ksvc("default", "changed", "changed.default.svc.cluster.local", ""),
 			domainMapping("default", "ingress-exists.org", withRef("default", "changed")),
-			resources.MakeIngress(domainMapping("default", "ingress-exists.org", withRef("default", "changed")), "previous", "previous.default.svc.cluster.local", "the-ingress-class", nil /* tls */),
+			resources.MakeIngress(domainMapping("default", "ingress-exists.org", withRef("default", "changed")), "previous", "previous.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 			resources.MakeDomainClaim(domainMapping("default", "ingress-exists.org", withRef("default", "changed"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -687,6 +687,7 @@ func TestReconcile(t *testing.T) {
 					Network: &network.Config{
 						DefaultIngressClass:           "the-ingress-class",
 						AutocreateClusterDomainClaims: true,
+						HTTPProtocol:                  network.HTTPEnabled,
 					},
 				},
 			}},
@@ -745,7 +746,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 		}},
 		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
 		WantCreates: []runtime.Object{
-			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", nil /* tls */),
+			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "first-reconcile.com"),
@@ -815,6 +816,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 					Network: &network.Config{
 						DefaultIngressClass:           "the-ingress-class",
 						AutocreateClusterDomainClaims: false,
+						HTTPProtocol:                  network.HTTPEnabled,
 					},
 				},
 			}},
@@ -841,7 +843,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 				withURL("http", "first.reconcile.io"),
 				withAddress("http", "first.reconcile.io"),
 			), "the-cert-class"),
-			ingress(domainMapping("default", "first.reconcile.io", withRef("default", "ready")), "the-ingress-class"),
+			ingress(domainMapping("default", "first.reconcile.io", withRef("default", "ready")), "the-ingress-class", withIngressHTTPOption(netv1alpha1.HTTPOptionRedirected)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "first.reconcile.io",
@@ -1124,6 +1126,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 						DefaultIngressClass:     "the-ingress-class",
 						DefaultCertificateClass: "the-cert-class",
 						AutoTLS:                 true,
+						HTTPProtocol:            network.HTTPRedirected,
 					},
 				},
 			}},
@@ -1342,7 +1345,7 @@ func ingress(dm *v1alpha1.DomainMapping, ingressClass string, opt ...IngressOpti
 }
 
 func ingressWithChallenges(dm *v1alpha1.DomainMapping, ingressClass string, challenges []netv1alpha1.HTTP01Challenge, opt ...IngressOption) *netv1alpha1.Ingress {
-	ing := resources.MakeIngress(dm, dm.Spec.Ref.Name, dm.Spec.Ref.Name+"."+dm.Spec.Ref.Namespace+".svc.cluster.local", ingressClass, nil /* tls */, challenges...)
+	ing := resources.MakeIngress(dm, dm.Spec.Ref.Name, dm.Spec.Ref.Name+"."+dm.Spec.Ref.Namespace+".svc.cluster.local", ingressClass, netv1alpha1.HTTPOptionEnabled, nil /* tls */, challenges...)
 	for _, o := range opt {
 		o(ing)
 	}
@@ -1364,6 +1367,12 @@ func withIngressReady(ing *netv1alpha1.Ingress) {
 	)
 
 	ing.Status = status
+}
+
+func withIngressHTTPOption(httpOpt netv1alpha1.HTTPOption) IngressOption {
+	return func(ing *netv1alpha1.Ingress) {
+		ing.Spec.HTTPOption = httpOpt
+	}
 }
 
 func ksvc(ns, name, host, path string) *servingv1.Service {

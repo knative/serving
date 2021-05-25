@@ -117,9 +117,21 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 		return err
 	}
 
+	// Set HTTPOption via config-network.
+	var httpOption netv1alpha1.HTTPOption
+	switch config.FromContext(ctx).Network.HTTPProtocol {
+	case networkingpkg.HTTPEnabled:
+		httpOption = netv1alpha1.HTTPOptionEnabled
+	case networkingpkg.HTTPRedirected:
+		httpOption = netv1alpha1.HTTPOptionRedirected
+	// This will be deprecated soon
+	case networkingpkg.HTTPDisabled:
+		httpOption = ""
+	}
+
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
 	logger.Debugf("Mapping %s to ref %s/%s (host: %q, svc: %q)", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name, targetHost, targetBackendSvc)
-	desired := resources.MakeIngress(dm, targetBackendSvc, targetHost, ingressClass, tls, acmeChallenges...)
+	desired := resources.MakeIngress(dm, targetBackendSvc, targetHost, ingressClass, httpOption, tls, acmeChallenges...)
 	ingress, err := r.reconcileIngress(ctx, dm, desired)
 	if err != nil {
 		return err
