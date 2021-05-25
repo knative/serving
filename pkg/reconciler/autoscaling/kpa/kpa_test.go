@@ -1837,3 +1837,76 @@ func withInitialScale(initScale int) PodAutoscalerOption {
 		)
 	}
 }
+
+func TestComputeActivatorNum(t *testing.T) {
+	cases := []struct {
+		name    string
+		pods    int
+		decider *scaling.Decider
+		want    int32
+	}{{
+		name: "default",
+		pods: 0,
+		decider: &scaling.Decider{
+			Spec: scaling.DeciderSpec{
+				TotalValue:          100,
+				TargetBurstCapacity: 200,
+				ActivatorCapacity:   100,
+			},
+		},
+		want: minActivators,
+	}, {
+		name: "1 pod",
+		pods: 1,
+		decider: &scaling.Decider{
+			Spec: scaling.DeciderSpec{
+				TotalValue:          100,
+				TargetBurstCapacity: 200,
+				ActivatorCapacity:   100,
+			},
+		},
+		want: 3,
+	}, {
+		name: "tbc = 0",
+		pods: 100,
+		decider: &scaling.Decider{
+			Spec: scaling.DeciderSpec{
+				TotalValue:          100,
+				TargetBurstCapacity: 0,
+				ActivatorCapacity:   100,
+			},
+		},
+		want: minActivators,
+	}, {
+		name: "tbc = -1",
+		pods: 5,
+		decider: &scaling.Decider{
+			Spec: scaling.DeciderSpec{
+				TotalValue:          100,
+				TargetBurstCapacity: -1,
+				ActivatorCapacity:   100,
+			},
+		},
+		want: 5,
+	}, {
+		name: "many pods",
+		pods: 15,
+		decider: &scaling.Decider{
+			Spec: scaling.DeciderSpec{
+				TotalValue:          100,
+				TargetBurstCapacity: 200,
+				ActivatorCapacity:   100,
+			},
+		},
+		want: 17,
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := computeNumActivators(c.pods, c.decider)
+			if got != c.want {
+				t.Errorf("computeNumActivators() = %d, want %d", got, c.want)
+			}
+		})
+	}
+}
