@@ -69,6 +69,7 @@ func TestMakeIngress(t *testing.T) {
 				},
 			},
 			Spec: netv1alpha1.IngressSpec{
+				HTTPOption: netv1alpha1.HTTPOptionEnabled,
 				Rules: []netv1alpha1.IngressRule{{
 					Hosts:      []string{"mapping.com"},
 					Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -124,6 +125,7 @@ func TestMakeIngress(t *testing.T) {
 				},
 			},
 			Spec: netv1alpha1.IngressSpec{
+				HTTPOption: netv1alpha1.HTTPOptionEnabled,
 				Rules: []netv1alpha1.IngressRule{{
 					Hosts:      []string{"mapping.com"},
 					Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -189,6 +191,7 @@ func TestMakeIngress(t *testing.T) {
 				},
 			},
 			Spec: netv1alpha1.IngressSpec{
+				HTTPOption: netv1alpha1.HTTPOptionEnabled,
 				Rules: []netv1alpha1.IngressRule{{
 					Hosts:      []string{"mapping.com"},
 					Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -230,6 +233,7 @@ func TestMakeIngress(t *testing.T) {
 			tc.want.OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(&tc.dm)}
 			got := *MakeIngress(&tc.dm,
 				"the-target-svc", "the-rewrite-host", "the-ingress-class",
+				netv1alpha1.HTTPOptionEnabled,
 				tc.tls, tc.acmeChallenges...)
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("Unexpected Ingress (-want, +got):\n%s", diff)
