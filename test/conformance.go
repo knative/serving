@@ -43,6 +43,7 @@ const (
 	PizzaPlanet1        = "pizzaplanetv1"
 	PizzaPlanet2        = "pizzaplanetv2"
 	Protocols           = "protocols"
+	Readiness           = "readiness"
 	Runtime             = "runtime"
 	SingleThreadedImage = "singlethreaded"
 	Timeout             = "timeout"
