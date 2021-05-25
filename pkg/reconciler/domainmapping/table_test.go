@@ -898,7 +898,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 				},
 				Status: readyCertStatus(),
 			},
-			ingress(domainMapping("default", "becomes.ready.run", withRef("default", "ready")), "the-ingress-class", withIngressReady),
+			ingress(domainMapping("default", "becomes.ready.run", withRef("default", "ready")), "the-ingress-class", withIngressReady, withIngressHTTPOption(netv1alpha1.HTTPOptionRedirected)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "becomes.ready.run",
@@ -913,11 +913,13 @@ func TestReconcileTLSEnabled(t *testing.T) {
 			),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: ingress(domainMapping("default", "becomes.ready.run", withRef("default", "ready")), "the-ingress-class", withIngressReady, withIngressTLS(netv1alpha1.IngressTLS{
-				Hosts:           []string{"becomes.ready.run"},
-				SecretName:      "becomes.ready.run",
-				SecretNamespace: "default",
-			})),
+			Object: ingress(domainMapping("default", "becomes.ready.run", withRef("default", "ready")), "the-ingress-class", withIngressReady,
+				withIngressHTTPOption(netv1alpha1.HTTPOptionRedirected),
+				withIngressTLS(netv1alpha1.IngressTLS{
+					Hosts:           []string{"becomes.ready.run"},
+					SecretName:      "becomes.ready.run",
+					SecretNamespace: "default",
+				})),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "becomes.ready.run"),
@@ -1016,7 +1018,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 				withAddress("http", "challenged.com"),
 			),
 			resources.MakeDomainClaim(domainMapping("default", "challenged.com", withRef("default", "ready"))),
-			ingress(domainMapping("default", "challenged.com", withRef("default", "ready")), "the-ingress-class", withIngressReady),
+			ingress(domainMapping("default", "challenged.com", withRef("default", "ready")), "the-ingress-class", withIngressReady, withIngressHTTPOption(netv1alpha1.HTTPOptionRedirected)),
 			&netv1alpha1.Certificate{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "challenged.com",
@@ -1098,7 +1100,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 					ServiceName:      "cm-solver",
 					ServicePort:      intstr.FromInt(8090),
 					ServiceNamespace: "default",
-				}}, withIngressReady),
+				}}, withIngressReady, withIngressHTTPOption(netv1alpha1.HTTPOptionRedirected)),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "challenged.com"),
