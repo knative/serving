@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -32,17 +31,6 @@ func main() {
 	port, isSet := os.LookupEnv("PORT")
 	if !isSet {
 		log.Fatal("Environment variable PORT is not set.")
-	}
-
-	// This is an option for exec readiness probe test.
-	flag.Parse()
-	args := flag.Args()
-	if len(args) > 0 && args[0] == "probe" {
-		url := "http://localhost:" + port
-		if _, err := http.Get(url); err != nil {
-			log.Fatal("Failed to probe ", err)
-		}
-		return
 	}
 
 	mux := http.NewServeMux()
