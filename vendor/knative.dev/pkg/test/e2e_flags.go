@@ -65,6 +65,7 @@ func initializeFlags() *EnvironmentFlags {
 	return f
 }
 
+// SetupLoggingFlags initializes a logger for tests.
 // TODO(coryrc): Remove once other repos are moved to call logging.InitializeLogger() directly
 func SetupLoggingFlags() {
 	logging.InitializeLogger()

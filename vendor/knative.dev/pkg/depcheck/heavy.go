@@ -17,6 +17,8 @@ limitations under the License.
 package depcheck
 
 var (
+	// KnownHeavyDependencies is a list of dependencies that are known to increase the
+	// binary's size by a lot.
 	KnownHeavyDependencies = []string{
 		"k8s.io/apimachinery/pkg/api/apitesting/fuzzer",
 

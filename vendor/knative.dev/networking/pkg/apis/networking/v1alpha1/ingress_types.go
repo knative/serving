@@ -116,10 +116,11 @@ type IngressSpec struct {
 type HTTPOption string
 
 const (
-	// The knative ingress will be able to serve HTTP connections.
+	// HTTPOptionEnabled defines that the knative ingress will be able to serve HTTP
+	// connections.
 	HTTPOptionEnabled HTTPOption = "Enabled"
-	// The knative will return redirection HTTP status for the clients,
-	// asking the clients to redirect their requests to HTTPS.
+	// HTTPOptionRedirected defines that the knative will return redirection HTTP status
+	// for the clients, asking the clients to redirect their requests to HTTPS.
 	HTTPOptionRedirected HTTPOption = "Redirected"
 )
 

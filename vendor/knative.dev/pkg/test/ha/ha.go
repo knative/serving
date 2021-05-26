@@ -98,7 +98,8 @@ func WaitForNewLeaders(ctx context.Context, t *testing.T, client *test.KubeClien
 	return leaders, err
 }
 
-// DEPRECATED WaitForNewLeader waits until the holder of the given lease is different from the previousLeader.
+// WaitForNewLeader waits until the holder of the given lease is different from the previousLeader.
+// DEPRECATED: Use WaitForNewLeaders.
 func WaitForNewLeader(ctx context.Context, client *test.KubeClient, lease, namespace, previousLeader string) (string, error) {
 	span := logging.GetEmitableSpan(ctx, "WaitForNewLeader/"+lease)
 	defer span.End()
