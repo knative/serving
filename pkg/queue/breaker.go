@@ -26,8 +26,6 @@ import (
 )
 
 var (
-	// ErrRelease indicates that release was called more often than acquire.
-	ErrRelease = errors.New("semaphore release error: returned tokens must be <= acquired tokens")
 	// ErrRequestQueueFull indicates the breaker queue depth was exceeded.
 	ErrRequestQueueFull = errors.New("pending request queue full")
 )
@@ -135,7 +133,7 @@ func (b *Breaker) Reserve(ctx context.Context) (func(), bool) {
 // Maybe conditionally executes thunk based on the Breaker concurrency
 // and queue parameters. If the concurrency limit and queue capacity are
 // already consumed, Maybe returns immediately without calling thunk. If
-// the thunk was executed, Maybe returns true, else false.
+// the thunk was executed, Maybe returns nil, else error.
 func (b *Breaker) Maybe(ctx context.Context, thunk func()) error {
 	if !b.tryAcquirePending() {
 		return ErrRequestQueueFull
