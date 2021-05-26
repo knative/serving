@@ -130,7 +130,7 @@ func WaitForPodDeleted(ctx context.Context, client kubernetes.Interface, name, n
 	return nil
 }
 
-// WaitForServiceHasAtLeastOneEndpoint polls the status of the specified Service
+// WaitForServiceEndpoints polls the status of the specified Service
 // from client every interval until number of service endpoints = numOfEndpoints
 func WaitForServiceEndpoints(ctx context.Context, client kubernetes.Interface, svcName string, svcNamespace string, numOfEndpoints int) error {
 	endpointsService := client.CoreV1().Endpoints(svcNamespace)

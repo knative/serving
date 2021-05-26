@@ -24,7 +24,7 @@ import (
 	"knative.dev/pkg/tracing/config"
 )
 
-// FakeZipkineExporter is intended to capture the testing boilerplate of building
+// FakeZipkinExporter is intended to capture the testing boilerplate of building
 // up the ConfigOption to pass NewOpenCensusTracer and expose a mechanism for examining
 // the traces it would have reported.  To set it up, use something like:
 //    reporter, co := FakeZipkinExporter()

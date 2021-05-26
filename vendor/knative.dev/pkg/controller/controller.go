@@ -477,7 +477,8 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 	return nil
 }
 
-// DEPRECATED use RunContext instead.
+// Run runs the controller.
+// DEPRECATED: Use RunContext instead.
 func (c *Impl) Run(threadiness int, stopCh <-chan struct{}) error {
 	// Create a context that is cancelled when the stopCh is called.
 	ctx, cancel := context.WithCancel(context.Background())

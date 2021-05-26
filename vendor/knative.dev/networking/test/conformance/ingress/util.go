@@ -793,6 +793,7 @@ func UpdateIngressReady(ctx context.Context, t *testing.T, clients *test.Clients
 	}
 }
 
+// CreateTLSSecret creates a secret with TLS certs in the serving namespace.
 // This is based on https://golang.org/src/crypto/tls/generate_cert.go
 func CreateTLSSecret(ctx context.Context, t *testing.T, clients *test.Clients, hosts []string) (string, context.CancelFunc) {
 	return CreateTLSSecretWithCertPool(ctx, t, clients, hosts, test.ServingNamespace, rootCAs)
