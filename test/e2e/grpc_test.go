@@ -317,7 +317,9 @@ func streamTest(tc *TestContext, host, domain string) {
 
 func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 	t.Helper()
-	t.Parallel()
+	if !test.ServingFlags.HTTPS {
+		t.Parallel()
+	}
 
 	// Setup
 	clients := Setup(t)
