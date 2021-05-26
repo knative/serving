@@ -27,21 +27,23 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
-
-	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakesksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	fakepodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
+	fakefilteredpodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	servingclient "knative.dev/serving/pkg/client/injection/client"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	fakemetricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+
+	networkingclient "knative.dev/networking/pkg/client/injection/client"
+	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
+	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -1189,7 +1191,9 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 }
 
 func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
-	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
 	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	fakeDeciders := newTestDeciders()
@@ -1277,8 +1281,9 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 }
 
 func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
-	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-
+	ctx, cancel, informers := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
 	fakeDeciders := newTestDeciders()
 	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders)
 
@@ -1300,7 +1305,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 
 	pod := makeReadyPods(1, testNamespace, testRevision)[0].(*corev1.Pod)
 	fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(ctx, pod, metav1.CreateOptions{})
-	fakepodsinformer.Get(ctx).Informer().GetIndexer().Add(pod)
+	fakefilteredpodsinformer.Get(ctx, serving.RevisionUID).Informer().GetIndexer().Add(pod)
 
 	newDeployment(ctx, t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
@@ -1352,7 +1357,9 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
 	t.Cleanup(cancel)
 
 	fakeDeciders := newTestDeciders()
@@ -1366,7 +1373,7 @@ func TestUpdate(t *testing.T) {
 
 	pod := makeReadyPods(1, testNamespace, testRevision)[0].(*corev1.Pod)
 	fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(ctx, pod, metav1.CreateOptions{})
-	fakepodsinformer.Get(ctx).Informer().GetIndexer().Add(pod)
+	fakefilteredpodsinformer.Get(ctx, serving.RevisionUID).Informer().GetIndexer().Add(pod)
 
 	kpa := revisionresources.MakePA(rev)
 	kpa.SetDefaults(context.Background())
@@ -1427,7 +1434,9 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestControllerCreateError(t *testing.T) {
-	ctx, cancel, infs := SetupFakeContextWithCancel(t)
+	ctx, cancel, infs := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
 	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
@@ -1468,7 +1477,9 @@ func TestControllerCreateError(t *testing.T) {
 }
 
 func TestControllerUpdateError(t *testing.T) {
-	ctx, cancel, infs := SetupFakeContextWithCancel(t)
+	ctx, cancel, infs := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
 	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
@@ -1509,7 +1520,9 @@ func TestControllerUpdateError(t *testing.T) {
 }
 
 func TestControllerGetError(t *testing.T) {
-	ctx, cancel, infs := SetupFakeContextWithCancel(t)
+	ctx, cancel, infs := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
 	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
@@ -1549,7 +1562,9 @@ func TestControllerGetError(t *testing.T) {
 }
 
 func TestScaleFailure(t *testing.T) {
-	ctx, cancel, infs := SetupFakeContextWithCancel(t)
+	ctx, cancel, infs := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
 	waitInformers, err := RunAndSyncInformers(ctx, infs...)
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
