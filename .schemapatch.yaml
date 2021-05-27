@@ -33,7 +33,7 @@ k8s.io/api/core/v1.KeyToPath:
     - Path
     - Mode
 k8s.io/api/core/v1.PodSpec:
-  preserveUnknownFields: true
+  preserveUnknownFields: true # for feature flagged fields
   allowedFields:
     - ServiceAccountName
     - Containers
@@ -41,7 +41,7 @@ k8s.io/api/core/v1.PodSpec:
     - ImagePullSecrets
     - EnableServiceLinks
 k8s.io/api/core/v1.Container:
-  preserveUnknownFields: true
+  preserveUnknownFields: true # for backwards compat field defaulting
   allowedFields:
     - Name
     - Args
@@ -90,18 +90,18 @@ k8s.io/api/core/v1.ExecAction:
   allowedFields:
     - Command
 k8s.io/api/core/v1.HTTPGetAction:
-  preserveUnknownFields: true
+  preserveUnknownFields: true # for backwards compat field defaulting
   allowedFields:
     - Host
     - Path
     - Scheme
     - HTTPHeaders
 k8s.io/api/core/v1.TCPSocketAction:
-  preserveUnknownFields: true
+  preserveUnknownFields: true # for backwards compat field defaulting
   allowedFields:
     - Host
 k8s.io/api/core/v1.ContainerPort:
-  preserveUnknownFields: true
+  preserveUnknownFields: true # for backwards compat field defaulting
   allowedFields:
     - ContainerPort
     - Name
@@ -112,7 +112,7 @@ k8s.io/api/core/v1.EnvVar:
     - Value
     - ValueFrom
 k8s.io/api/core/v1.EnvVarSource:
-  preserveUnknownFields: true
+  preserveUnknownFields: true # for feature flagged fields
   allowedFields:
     - ConfigMapKeyRef
     - SecretKeyRef
@@ -154,7 +154,7 @@ k8s.io/api/core/v1.PodSecurityContext:
     - FSGroup
     - SupplementalGroups
 k8s.io/api/core/v1.SecurityContext:
-  preserveUnknownFields: true
+  preserveUnknownFields: true # for feature flagged fields
   allowedFields:
     - RunAsUser
     - ReadOnlyRootFilesystem
