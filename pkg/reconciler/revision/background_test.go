@@ -183,7 +183,7 @@ func TestRateLimitGlobal(t *testing.T) {
 	logger := logtesting.TestLogger(t)
 
 	var resolves atomic.Int32
-	var resolver resolveFunc = func(ctx context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
+	var resolver resolveFunc = func(_ context.Context, _ string, _ k8schain.Options, _ sets.String) (string, error) {
 		resolves.Inc()
 		return "", errors.New("failed")
 	}
@@ -236,7 +236,7 @@ func TestRateLimitPerItem(t *testing.T) {
 
 	start := time.Now()
 	revision := rev("rev", "img1", "img2")
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 5; i++ {
 		subject.Clear(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
 		resolution, err := subject.Resolve(revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err != nil || resolution != nil {
@@ -250,10 +250,10 @@ func TestRateLimitPerItem(t *testing.T) {
 		}
 	}
 
-	if took := time.Since(start); took < 500*time.Millisecond {
-		// Per-item time is 50ms, so after 4 cycles of back-off should take at least 500ms.
-		// (Otherwise will take only ~200ms)
-		t.Fatal("Expected resolves to take longer than 500ms, but took", took)
+	if took := time.Since(start); took < 600*time.Millisecond {
+		// Per-item time is 50ms, so after 5 cycles of back-off should take at least 800ms.
+		// (Otherwise will take only ~250ms)
+		t.Fatal("Expected resolves to take longer than 600ms, but took", took)
 	}
 
 	t.Run("Does not affect other revisions", func(t *testing.T) {
