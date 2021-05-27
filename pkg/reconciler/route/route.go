@@ -361,9 +361,13 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1.Route, 
 	if err != nil {
 		return err
 	}
+	scheme := "http"
+	if useHTTPS(config.FromContext(ctx).Network.HTTPProtocol) {
+		scheme = "https"
+	}
 
 	route.Status.URL = &apis.URL{
-		Scheme: "http",
+		Scheme: scheme,
 		Host:   host,
 	}
 
@@ -474,4 +478,13 @@ func wildcardCertMatches(ctx context.Context, domains []string, cert *netv1alpha
 	}
 
 	return true
+}
+
+func useHTTPS(httpProtocol network.HTTPProtocol) bool {
+	switch httpProtocol {
+	case network.HTTPDisabled, network.HTTPRedirected:
+		return true
+	default:
+		return false
+	}
 }
