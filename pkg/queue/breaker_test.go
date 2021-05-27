@@ -125,13 +125,13 @@ func TestBreakerOverload(t *testing.T) {
 	reqs.request()
 	reqs.expectFailure(t)
 
-	// The remainer should succeed.
+	// The remainder should succeed.
 	reqs.processSuccessfully(t)
 	reqs.processSuccessfully(t)
 }
 
 func TestBreakerQueueing(t *testing.T) {
-	params := BreakerParams{QueueDepth: 2, MaxConcurrency: 1, InitialCapacity: 0}
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params) // Breaker capacity = 2
 	reqs := newRequestor(b)
 
