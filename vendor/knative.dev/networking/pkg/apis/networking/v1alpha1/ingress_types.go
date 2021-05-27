@@ -152,16 +152,6 @@ type IngressTLS struct {
 
 	// SecretNamespace is the namespace of the secret used to terminate SSL traffic.
 	SecretNamespace string `json:"secretNamespace,omitempty"`
-
-	// ServerCertificate identifies the certificate filename in the secret.
-	// Defaults to `tls.crt`.
-	// +optional
-	DeprecatedServerCertificate string `json:"serverCertificate,omitempty"`
-
-	// PrivateKey identifies the private key filename in the secret.
-	// Defaults to `tls.key`.
-	// +optional
-	DeprecatedPrivateKey string `json:"privateKey,omitempty"`
 }
 
 // IngressRule represents the rules mapping the paths under a specified host to
