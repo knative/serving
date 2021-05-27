@@ -62,6 +62,10 @@ func TestProbeRuntime(t *testing.T) {
 		},
 	}, {
 		name: "exec",
+		env: []corev1.EnvVar{{
+			Name:  "STARTUP_DELAY",
+			Value: "10s",
+		}},
 		handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"/ko-app/readiness", "probe"},

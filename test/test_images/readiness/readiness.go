@@ -33,10 +33,14 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 	if len(args) > 0 && args[0] == "probe" {
-		if _, err := http.Get(os.ExpandEnv("http://localhost:$PORT/")); err != nil {
+		resp, err := http.Get(os.ExpandEnv("http://localhost:$PORT/healthz"))
+		if err != nil {
 			log.Fatal("Failed to probe ", err)
 		}
-		return
+		if resp.StatusCode > 299 {
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
 	// HTTP Probe.
