@@ -200,18 +200,13 @@ func certClass(ctx context.Context) string {
 
 func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
 	if dm.Spec.TLS != nil {
-		namespace := dm.Namespace
-		if dm.Spec.TLS.SecretNamespace != "" {
-			namespace = dm.Spec.TLS.SecretNamespace
-		}
-		// Assume the provided certificate is ready
 		dm.Status.MarkCertificateNotRequired(v1alpha1.TLSCertificateProvidedExternally)
 		dm.Status.URL.Scheme = "https"
 		return []netv1alpha1.IngressTLS{
 			{
 				Hosts:           []string{dm.Name},
 				SecretName:      dm.Spec.TLS.SecretName,
-				SecretNamespace: namespace,
+				SecretNamespace: dm.Namespace,
 			},
 		}, nil, nil
 	}

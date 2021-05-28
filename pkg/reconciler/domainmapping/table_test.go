@@ -1108,6 +1108,47 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "challenged.com"),
 		},
+	}, {
+		Name: "TLS secret provided",
+		Key:  "default/certificateless.com",
+		Objects: []runtime.Object{
+			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			domainMapping("default", "certificateless.com",
+				withTLSSecret("tls-secret"),
+				withRef("default", "ready"),
+				withURL("https", "certificateless.com"),
+				withAddress("https", "certificateless.com"),
+			),
+			resources.MakeDomainClaim(domainMapping("default", "certificateless.com", withRef("default", "ready"))),
+		},
+		WantCreates: []runtime.Object{
+			ingress(domainMapping("default", "certificateless.com", withRef("default", "ready")), "the-ingress-class", withIngressTLS(netv1alpha1.IngressTLS{
+				Hosts:           []string{"certificateless.com"},
+				SecretName:      "tls-secret",
+				SecretNamespace: "default",
+			})),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "certificateless.com",
+				withRef("default", "ready"),
+				withURL("https", "certificateless.com"),
+				withAddress("https", "certificateless.com"),
+				withTLSSecret("tls-secret"),
+				withCertificateReady,
+				withDomainClaimed,
+				withReferenceResolved,
+				withCertificateNotRequired,
+				withIngressNotConfigured,
+				withInitDomainMappingConditions,
+			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "certificateless.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "certificateless.com"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "certificateless.com"),
+		},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -1274,6 +1315,18 @@ func withPropagatedStatus(status netv1alpha1.IngressStatus) domainMappingOption 
 	return func(r *v1alpha1.DomainMapping) {
 		r.Status.PropagateIngressStatus(status)
 	}
+}
+
+func withTLSSecret(secretName string) domainMappingOption {
+	return func(r *v1alpha1.DomainMapping) {
+		r.Spec.TLS = &v1alpha1.SecretTLS{
+			SecretName: secretName,
+		}
+	}
+}
+
+func withCertificateNotRequired(dm *v1alpha1.DomainMapping) {
+	dm.Status.MarkCertificateNotRequired(v1alpha1.TLSCertificateProvidedExternally)
 }
 
 func withInitDomainMappingConditions(dm *v1alpha1.DomainMapping) {

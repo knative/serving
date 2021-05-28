@@ -74,8 +74,6 @@ type DomainMappingList struct {
 type SecretTLS struct {
 	// SecretName is the name of the existing secret used to terminate TLS traffic.
 	SecretName string `json:"secretName"`
-	// SecretNamespace is the namespace of the existing secret used to terminate SSL traffic. If empty the namespace of the DomainMapping is assumed.
-	SecretNamespace string `json:"secretNamespace"`
 }
 
 // DomainMappingSpec describes the DomainMapping the user wishes to exist.

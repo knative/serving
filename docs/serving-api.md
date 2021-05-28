@@ -2318,17 +2318,6 @@ string
 <p>SecretName is the name of the existing secret used to terminate TLS traffic.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>secretNamespace</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>SecretNamespace is the namespace of the existing secret used to terminate SSL traffic. If empty the namespace of the DomainMapping is assumed.</p>
-</td>
-</tr>
 </tbody>
 </table>
 <hr/>

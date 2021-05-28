@@ -115,8 +115,7 @@ func TestBYOCertificate(t *testing.T) {
 				Namespace:  ksvc.Service.Namespace,
 				Kind:       "Service",
 			}, TLS: &v1alpha1.SecretTLS{
-				SecretName:      secret.Name,
-				SecretNamespace: secret.Namespace,
+				SecretName: secret.Name,
 			}},
 		Status: v1alpha1.DomainMappingStatus{},
 	}
