@@ -55,3 +55,5 @@ require (
 	knative.dev/pkg v0.0.0-20210526081028-980a33719a10
 	sigs.k8s.io/yaml v1.2.0
 )
+
+replace knative.dev/pkg => github.com/dprotaso/pkg v0.0.0-20210528181229-14682b09cc1e

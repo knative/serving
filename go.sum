@@ -205,6 +205,8 @@ github.com/docker/go-units v0.3.3/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDD
 github.com/docker/go-units v0.4.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
 github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96/go.mod h1:Qh8CwZgvJUkLughtfhJv5dyTYa91l1fOUCrgjqmcifM=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
+github.com/dprotaso/pkg v0.0.0-20210528181229-14682b09cc1e h1:LqqzJWc/TSqdrmV2ealuczLpWydwb7ZScWYnW47iSi4=
+github.com/dprotaso/pkg v0.0.0-20210528181229-14682b09cc1e/go.mod h1:nOD9XjvR+UuO1fHZSaOhfTWDCIz06crh1qQppgZDzR0=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/eapache/go-resiliency v1.1.0/go.mod h1:kFI+JgMyC7bLPUVY133qvEBtVayf5mFgVsvEsIPBvNs=
@@ -1273,8 +1275,6 @@ knative.dev/hack v0.0.0-20210428122153-93ad9129c268 h1:lBIj9Epd9UQ55NEaHzAdY/UZb
 knative.dev/hack v0.0.0-20210428122153-93ad9129c268/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
 knative.dev/networking v0.0.0-20210526142327-c90fe70eb354 h1:3qt3rmWuRVWrQcTFT+voKJgRcMxypKLi9d1vjSemakM=
 knative.dev/networking v0.0.0-20210526142327-c90fe70eb354/go.mod h1:jHERS/qCx8Tpd06GJaUSlYuz8WMXwifpG2yZE9Ir7BQ=
-knative.dev/pkg v0.0.0-20210526081028-980a33719a10 h1:4tC0TcIx4EU6PCcRwdIiCWuKI3vpOgpQUrF1nUeF1t8=
-knative.dev/pkg v0.0.0-20210526081028-980a33719a10/go.mod h1:nOD9XjvR+UuO1fHZSaOhfTWDCIz06crh1qQppgZDzR0=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=

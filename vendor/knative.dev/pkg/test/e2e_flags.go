@@ -22,12 +22,11 @@ package test
 import (
 	"bytes"
 	"flag"
-	"os/user"
-	"path/filepath"
 	"text/template"
 
-	"knative.dev/pkg/injection"
-	testflags "knative.dev/pkg/test/flags"
+	"k8s.io/client-go/tools/clientcmd"
+	env "knative.dev/pkg/environment"
+	testenv "knative.dev/pkg/test/environment"
 	"knative.dev/pkg/test/logging"
 )
 
@@ -41,25 +40,21 @@ var (
 // EnvironmentFlags define the flags that are needed to run the e2e tests.
 // Deprecated: use test/flags.Flags() or injection.Flags()
 type EnvironmentFlags struct {
-	*injection.Environment
-	*testflags.TestEnvironment
+	env.ClientConfig
+	testenv.TestClientConfig
 }
 
 func initializeFlags() *EnvironmentFlags {
 	f := new(EnvironmentFlags)
 
-	testflags.InitFlags(flag.CommandLine)
-
-	f.TestEnvironment = testflags.Flags()
-	f.Environment = injection.Flags()
+	f.ClientConfig.InitFlags(flag.CommandLine)
+	f.TestClientConfig.InitFlags(flag.CommandLine)
 
 	// We want to do this defaulting for tests only. The flags are reused between tests
 	// and production code and we want to make sure that production code defaults to
 	// the in-cluster config correctly.
-	if f.Environment.Kubeconfig == "" {
-		if usr, err := user.Current(); err == nil {
-			f.Environment.Kubeconfig = filepath.Join(usr.HomeDir, ".kube", "config")
-		}
+	if f.Kubeconfig == "" {
+		f.Kubeconfig = clientcmd.RecommendedHomeFile
 	}
 
 	return f
@@ -73,7 +68,7 @@ func SetupLoggingFlags() {
 
 // ImagePath is a helper function to transform an image name into an image reference that can be pulled.
 func ImagePath(name string) string {
-	tpl, err := template.New("image").Parse(testflags.Flags().ImageTemplate)
+	tpl, err := template.New("image").Parse(Flags.ImageTemplate)
 	if err != nil {
 		panic("could not parse image template: " + err.Error())
 	}
@@ -84,9 +79,9 @@ func ImagePath(name string) string {
 		Name       string
 		Tag        string
 	}{
-		Repository: testflags.Flags().DockerRepo,
+		Repository: Flags.DockerRepo,
 		Name:       name,
-		Tag:        testflags.Flags().Tag,
+		Tag:        Flags.Tag,
 	}); err != nil {
 		panic("could not apply the image template: " + err.Error())
 	}

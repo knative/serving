@@ -1062,7 +1062,7 @@ knative.dev/networking/test/conformance/ingress
 knative.dev/networking/test/defaultsystem
 knative.dev/networking/test/test_images/grpc-ping/proto
 knative.dev/networking/test/types
-# knative.dev/pkg v0.0.0-20210526081028-980a33719a10
+# knative.dev/pkg v0.0.0-20210526081028-980a33719a10 => github.com/dprotaso/pkg v0.0.0-20210528181229-14682b09cc1e
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1110,6 +1110,7 @@ knative.dev/pkg/configmap/informer
 knative.dev/pkg/configmap/testing
 knative.dev/pkg/controller
 knative.dev/pkg/depcheck
+knative.dev/pkg/environment
 knative.dev/pkg/hack
 knative.dev/pkg/hash
 knative.dev/pkg/injection
@@ -1142,7 +1143,7 @@ knative.dev/pkg/signals
 knative.dev/pkg/system
 knative.dev/pkg/system/testing
 knative.dev/pkg/test
-knative.dev/pkg/test/flags
+knative.dev/pkg/test/environment
 knative.dev/pkg/test/ghutil
 knative.dev/pkg/test/ha
 knative.dev/pkg/test/helpers
@@ -1181,3 +1182,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit
 sigs.k8s.io/yaml
+# knative.dev/pkg => github.com/dprotaso/pkg v0.0.0-20210528181229-14682b09cc1e
