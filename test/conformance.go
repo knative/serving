@@ -25,6 +25,7 @@ import (
 	_ "knative.dev/serving/test/defaultsystem"
 
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/logstream"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
@@ -70,15 +71,26 @@ const (
 )
 
 // Setup creates client to run Knative Service requests
-func Setup(t testing.TB) *Clients {
+func Setup(t testing.TB, namespace ...string) *Clients {
 	t.Helper()
+	logging.InitializeLogger()
 
 	cancel := logstream.Start(t)
 	t.Cleanup(cancel)
 
-	clients, err := NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, ServingNamespace)
+	cfg, err := pkgTest.Flags.GetRESTConfig()
 	if err != nil {
-		t.Fatal("Couldn't initialize clients", "error", err.Error())
+		t.Fatal("Couldn't get REST config", "error", err)
+	}
+
+	ns := ServingNamespace
+	if len(namespace) > 0 {
+		ns = namespace[0]
+	}
+
+	clients, err := NewClients(cfg, ns)
+	if err != nil {
+		t.Fatal("Couldn't initialize clients", "error", err)
 	}
 	return clients
 }

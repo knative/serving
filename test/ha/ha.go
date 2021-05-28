@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
@@ -76,7 +77,7 @@ func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names tes
 	}
 }
 
-func waitForEndpointsState(client *pkgTest.KubeClient, svcName, svcNamespace string, inState func(*corev1.Endpoints) (bool, error)) error {
+func waitForEndpointsState(client kubernetes.Interface, svcName, svcNamespace string, inState func(*corev1.Endpoints) (bool, error)) error {
 	endpointsService := client.CoreV1().Endpoints(svcNamespace)
 
 	return wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {

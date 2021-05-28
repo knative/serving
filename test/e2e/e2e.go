@@ -36,7 +36,6 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -49,31 +48,13 @@ import (
 
 // Setup creates the client objects needed in the e2e tests.
 func Setup(t *testing.T) *test.Clients {
-	return SetupWithNamespace(t, test.ServingNamespace)
+	return test.Setup(t)
 }
 
 // SetupAlternativeNamespace creates the client objects needed in e2e tests
 // under the alternative namespace.
 func SetupAlternativeNamespace(t *testing.T) *test.Clients {
-	return SetupWithNamespace(t, test.AlternativeServingNamespace)
-}
-
-// SetupWithNamespace creates the client objects needed in the e2e tests under the specified namespace.
-func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
-	t.Helper()
-	pkgTest.SetupLoggingFlags()
-
-	cancel := logstream.Start(t)
-	t.Cleanup(cancel)
-
-	clients, err := test.NewClients(
-		pkgTest.Flags.Kubeconfig,
-		pkgTest.Flags.Cluster,
-		namespace)
-	if err != nil {
-		t.Fatal("Couldn't initialize clients:", err)
-	}
-	return clients
+	return test.Setup(t, test.AlternativeServingNamespace)
 }
 
 // autoscalerCM returns the current autoscaler config map deployed to the

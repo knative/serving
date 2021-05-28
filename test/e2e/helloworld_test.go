@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/serving"
@@ -157,7 +158,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 }
 
 // Container returns container for given Pod and Container in the namespace
-func getContainer(client *pkgTest.KubeClient, podName, containerName, namespace string) (corev1.Container, error) {
+func getContainer(client kubernetes.Interface, podName, containerName, namespace string) (corev1.Container, error) {
 	pods := client.CoreV1().Pods(namespace)
 	podList, err := pods.List(context.Background(), metav1.ListOptions{})
 	if err != nil {

@@ -30,7 +30,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
 
@@ -58,7 +57,7 @@ func TestDomainMappingAutoTLS(t *testing.T) {
 
 	ctx := context.Background()
 
-	clients := e2e.SetupWithNamespace(t, test.TLSNamespace)
+	clients := test.Setup(t, test.TLSNamespace)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),

@@ -28,11 +28,11 @@ import (
 	"time"
 
 	v1 "k8s.io/api/apps/v1"
-	"knative.dev/pkg/injection"
 
 	"github.com/google/mako/go/quickstore"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
+	"knative.dev/pkg/environment"
 	"knative.dev/pkg/test/mako"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/serving"
@@ -62,14 +62,6 @@ const (
 	helloWorldImage          = "helloworld"
 	waitToServe              = 2 * time.Minute
 )
-
-func clientsFromConfig() (*test.Clients, error) {
-	cfg, err := injection.GetRESTConfig("", "")
-	if err != nil {
-		return nil, fmt.Errorf("error building kubeconfig: %w", err)
-	}
-	return test.NewClientsFromConfig(cfg, testNamespace)
-}
 
 func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects, func(), error) {
 	testNames := make([]*test.ResourceNames, count)
@@ -276,8 +268,16 @@ func testScaleFromZero(clients *test.Clients, count int) {
 }
 
 func main() {
+	env := environment.ClientConfig{}
+	env.InitFlags(flag.CommandLine)
 	flag.Parse()
-	clients, err := clientsFromConfig()
+
+	cfg, err := env.GetRESTConfig()
+	if err != nil {
+		log.Fatalf("failed to get kubeconfig %s", err)
+	}
+
+	clients, err := test.NewClients(cfg, testNamespace)
 	if err != nil {
 		log.Fatal("Failed to setup clients: ", err)
 	}

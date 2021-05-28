@@ -18,15 +18,16 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 
 	"github.com/kelseyhightower/envconfig"
-	"knative.dev/pkg/injection"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/pkg/environment"
 	test "knative.dev/serving/test"
 )
 
@@ -41,11 +42,16 @@ func main() {
 		log.Fatal("Failed to process environment variable: ", err)
 	}
 
-	cfg, err := injection.GetRESTConfig("", "")
+	clientConf := environment.ClientConfig{}
+	clientConf.InitFlags(flag.CommandLine)
+	flag.Parse()
+
+	cfg, err := clientConf.GetRESTConfig()
 	if err != nil {
-		log.Fatal("Failed to build config: ", err)
+		log.Fatalf("failed to get kubeconfig %s", err)
 	}
-	clients, err := test.NewClientsFromConfig(cfg, test.ServingNamespace)
+
+	clients, err := test.NewClients(cfg, test.ServingNamespace)
 	if err != nil {
 		log.Fatal("Failed to create clients: ", err)
 	}
