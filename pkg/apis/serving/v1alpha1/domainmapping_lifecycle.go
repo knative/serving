@@ -62,7 +62,9 @@ const (
 	// AutoTLSNotEnabledMessage is the message which is set on the
 	// DomainMappingConditionCertificateProvisioned condition when it is set to True
 	// because AutoTLS was not enabled.
-	AutoTLSNotEnabledMessage         = "autoTLS is not enabled"
+	AutoTLSNotEnabledMessage = "autoTLS is not enabled"
+	// TLSCertificateProvidedExternally indicates that a TLS secret won't be created or managed
+	// instead a reference to an existing TLS secret should have been provided in the DomainMapping spec
 	TLSCertificateProvidedExternally = "TLS certificate was provided externally"
 )
 
