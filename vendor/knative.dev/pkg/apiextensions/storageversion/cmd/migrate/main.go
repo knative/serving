@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"knative.dev/pkg/apiextensions/storageversion"
+	"knative.dev/pkg/environment"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
 )
@@ -34,7 +35,16 @@ func main() {
 	logger := setupLogger()
 	defer logger.Sync()
 
-	config := configOrDie()
+	env := environment.ClientConfig{}
+	env.InitFlags(flag.CommandLine)
+
+	flag.Parse()
+
+	config, err := env.GetRESTConfig()
+	if err != nil {
+		logger.Fatalf("failed to get kubeconfig %s", err)
+	}
+
 	grs, err := parseResources(flag.Args())
 	if err != nil {
 		logger.Fatal(err)
