@@ -74,6 +74,7 @@ aliases:
   knative-admin:
   - RichieEscarez
   - bsnchan
+  - dprotaso
   - duglin
   - evankanderson
   - knative-prow-releaser-robot
@@ -81,11 +82,11 @@ aliases:
   - knative-prow-updater-robot
   - knative-test-reporter-robot
   - markusthoemmes
+  - matzew
   - mbehrendt
   - pmorie
   - rhuss
   - ronavn
-  - tcnghia
   - thisisnotapril
   - vaikas
   knative-milestone-maintainers:
@@ -114,8 +115,8 @@ aliases:
   - vaikas
   knative-release-leads:
   - RichieEscarez
-  - tcnghia
-  - vaikas
+  - dprotaso
+  - matzew
   knative-robots:
   - knative-prow-releaser-robot
   - knative-prow-robot
@@ -182,12 +183,12 @@ aliases:
   - tcnghia
   - vagababov
   productivity-reviewers:
-  - coryrc
+  - albertomilan
   - efiturri
   - evankanderson
-  - peterfeifanchen
+  - gerardo-lc
+  - joshua-bone
   - steuhs
-  - yt3liu
   productivity-wg-leads:
   - chizhg
   - n3wscott
