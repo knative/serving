@@ -1122,11 +1122,13 @@ func TestReconcileTLSEnabled(t *testing.T) {
 			resources.MakeDomainClaim(domainMapping("default", "certificateless.com", withRef("default", "ready"))),
 		},
 		WantCreates: []runtime.Object{
-			ingress(domainMapping("default", "certificateless.com", withRef("default", "ready")), "the-ingress-class", withIngressTLS(netv1alpha1.IngressTLS{
-				Hosts:           []string{"certificateless.com"},
-				SecretName:      "tls-secret",
-				SecretNamespace: "default",
-			})),
+			ingress(domainMapping("default", "certificateless.com", withRef("default", "ready")), "the-ingress-class",
+				withIngressHTTPOption(netv1alpha1.HTTPOptionRedirected),
+				withIngressTLS(netv1alpha1.IngressTLS{
+					Hosts:           []string{"certificateless.com"},
+					SecretName:      "tls-secret",
+					SecretNamespace: "default",
+				})),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: domainMapping("default", "certificateless.com",
@@ -1134,12 +1136,12 @@ func TestReconcileTLSEnabled(t *testing.T) {
 				withURL("https", "certificateless.com"),
 				withAddress("https", "certificateless.com"),
 				withTLSSecret("tls-secret"),
+				withInitDomainMappingConditions,
 				withCertificateReady,
 				withDomainClaimed,
 				withReferenceResolved,
 				withCertificateNotRequired,
 				withIngressNotConfigured,
-				withInitDomainMappingConditions,
 			),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
