@@ -26,8 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 
-	"knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 )
 
@@ -50,7 +50,7 @@ func extractDeployment(pod string) string {
 
 // GetLeaders collects all of the leader pods from the specified deployment.
 // GetLeaders will return duplicate pods by design.
-func GetLeaders(ctx context.Context, t *testing.T, client *test.KubeClient, deploymentName, namespace string) ([]string, error) {
+func GetLeaders(ctx context.Context, t *testing.T, client kubernetes.Interface, deploymentName, namespace string) ([]string, error) {
 	leases, err := client.CoordinationV1().Leases(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error getting leases for deployment %q: %w", deploymentName, err)
@@ -73,7 +73,7 @@ func GetLeaders(ctx context.Context, t *testing.T, client *test.KubeClient, depl
 
 // WaitForNewLeaders waits until the collection of current leaders consists of "n" leaders
 // which do not include the specified prior leaders.
-func WaitForNewLeaders(ctx context.Context, t *testing.T, client *test.KubeClient, deploymentName, namespace string, previousLeaders sets.String, n int) (sets.String, error) {
+func WaitForNewLeaders(ctx context.Context, t *testing.T, client kubernetes.Interface, deploymentName, namespace string, previousLeaders sets.String, n int) (sets.String, error) {
 	span := logging.GetEmitableSpan(ctx, "WaitForNewLeaders/"+deploymentName)
 	defer span.End()
 
@@ -100,7 +100,7 @@ func WaitForNewLeaders(ctx context.Context, t *testing.T, client *test.KubeClien
 
 // WaitForNewLeader waits until the holder of the given lease is different from the previousLeader.
 // DEPRECATED: Use WaitForNewLeaders.
-func WaitForNewLeader(ctx context.Context, client *test.KubeClient, lease, namespace, previousLeader string) (string, error) {
+func WaitForNewLeader(ctx context.Context, client kubernetes.Interface, lease, namespace, previousLeader string) (string, error) {
 	span := logging.GetEmitableSpan(ctx, "WaitForNewLeader/"+lease)
 	defer span.End()
 	var leader string
