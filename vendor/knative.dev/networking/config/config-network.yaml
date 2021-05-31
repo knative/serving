@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "15954d34"
+    knative.dev/example-checksum: "386cf23d"
 data:
   _example: |
     ################################
@@ -101,7 +101,7 @@ data:
     # It requires autoTLS to be enabled.
     # 1. Enabled: The Knative ingress will be able to serve HTTP connection.
     # 2. Disabled: The Knative ingress will reject HTTP traffic.
-    # 3. Redirected: The Knative ingress will send a 302 redirect for all
+    # 3. Redirected: The Knative ingress will send a 301 redirect for all
     # http connections, asking the clients to use HTTPS.
     httpProtocol: "Enabled"
 
