@@ -1057,11 +1057,6 @@ knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serve
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/prober
-knative.dev/networking/test
-knative.dev/networking/test/conformance/ingress
-knative.dev/networking/test/defaultsystem
-knative.dev/networking/test/test_images/grpc-ping/proto
-knative.dev/networking/test/types
 # knative.dev/pkg v0.0.0-20210531134432-803d2ba3ba15
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
