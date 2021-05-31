@@ -25,9 +25,8 @@ import (
 	"time"
 )
 
-// TestEnvironment define the config that are needed to run the e2e tests.
-type TestEnvironment struct {
-	Cluster              string        // K8s cluster (defaults to cluster in kubeconfig)
+// TestClientConfig defines propertis about the test environment
+type TestClientConfig struct {
 	Namespace            string        // K8s namespace (blank by default, to be overwritten by test suite)
 	IngressEndpoint      string        // Host to use for ingress endpoint
 	ImageTemplate        string        // Template to build the image reference (defaults to {{.Repository}}/{{.Name}}:{{.Tag}})
@@ -37,43 +36,25 @@ type TestEnvironment struct {
 	SpoofRequestTimeout  time.Duration // SpoofRequestTimeout is the timeout for polling requests in SpoofingClient
 }
 
-var f *TestEnvironment
-
 // InitFlags is for explicitly initializing the flags.
-func InitFlags(flagset *flag.FlagSet) {
-	if flagset == nil {
-		flagset = flag.CommandLine
-	}
-
-	f = new(TestEnvironment)
-
-	flagset.StringVar(&f.Cluster, "cluster", "",
-		"Provide the cluster to test against. Defaults to the current cluster in kubeconfig.")
-
-	flagset.StringVar(&f.Namespace, "namespace", "",
+func (c *TestClientConfig) InitFlags(fs *flag.FlagSet) {
+	fs.StringVar(&c.Namespace, "namespace", "",
 		"Provide the namespace you would like to use for these tests.")
 
-	flagset.StringVar(&f.IngressEndpoint, "ingressendpoint", "", "Provide a static endpoint url to the ingress server used during tests.")
+	fs.StringVar(&c.IngressEndpoint, "ingressendpoint", "", "Provide a static endpoint url to the ingress server used during tests.")
 
-	flagset.StringVar(&f.ImageTemplate, "imagetemplate", "{{.Repository}}/{{.Name}}:{{.Tag}}",
+	fs.StringVar(&c.ImageTemplate, "imagetemplate", "{{.Repository}}/{{.Name}}:{{.Tag}}",
 		"Provide a template to generate the reference to an image from the test. Defaults to `{{.Repository}}/{{.Name}}:{{.Tag}}`.")
 
-	flagset.DurationVar(&f.SpoofRequestInterval, "spoofinterval", 1*time.Second,
+	fs.DurationVar(&c.SpoofRequestInterval, "spoofinterval", 1*time.Second,
 		"Provide an interval between requests for the SpoofingClient")
 
-	flagset.DurationVar(&f.SpoofRequestTimeout, "spooftimeout", 5*time.Minute,
+	fs.DurationVar(&c.SpoofRequestTimeout, "spooftimeout", 5*time.Minute,
 		"Provide a request timeout for the SpoofingClient")
 
 	defaultRepo := os.Getenv("KO_DOCKER_REPO")
-	flagset.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
+	fs.StringVar(&c.DockerRepo, "dockerrepo", defaultRepo,
 		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $KO_DOCKER_REPO")
 
-	flagset.StringVar(&f.Tag, "tag", "latest", "Provide the version tag for the test images.")
-}
-
-// Flags returns the command line flags or defaults for settings in the user's
-// environment. See TestEnvironment for a list of supported fields.
-// Caller must call InitFlags() and flags.Parse() before calling Flags().
-func Flags() *TestEnvironment {
-	return f
+	fs.StringVar(&c.Tag, "tag", "latest", "Provide the version tag for the test images.")
 }
