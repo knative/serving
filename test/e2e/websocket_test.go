@@ -198,11 +198,9 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	clients := test.Setup(t)
 
 	svcName := test.ObjectNameForTest(t)
-	// TODO: 64+ bytes domain name hits the cert-manager issue
-	// https://github.com/knative-sandbox/net-certmanager/issues/214
-	suffixLen := len(test.ServingNamespace) + len("example.com")
-	if test.ServingFlags.HTTPS && len(svcName)+suffixLen > 63 {
-		svcName = test.AppendRandomString(svcName[:63-suffixLen])
+	// Long name hits this issue https://github.com/knative-sandbox/net-certmanager/issues/214
+	if test.ServingFlags.HTTPS {
+		svcName = test.AppendRandomString("web-socket-blue-green")
 	}
 
 	names := test.ResourceNames{
