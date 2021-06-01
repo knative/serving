@@ -30,8 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/networking/pkg/apis/networking"
-	ntest "knative.dev/networking/test"
-	"knative.dev/networking/test/conformance/ingress"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/spoof"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -83,7 +81,7 @@ func TestTLSDisabledWithAnnotation(t *testing.T) {
 	}
 
 	httpClient := createHTTPClient(t, clients, objects)
-	ingress.RuntimeRequest(context.Background(), t, httpClient, objects.Route.Status.URL.String())
+	RuntimeRequest(context.Background(), t, httpClient, objects.Route.Status.URL.String())
 }
 
 func testAutoTLS(t *testing.T) {
@@ -114,7 +112,7 @@ func testAutoTLS(t *testing.T) {
 	certName := getCertificateName(t, clients, objects)
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
-	ingress.RuntimeRequest(context.Background(), t, httpsClient, objects.Service.Status.URL.String())
+	RuntimeRequest(context.Background(), t, httpsClient, objects.Service.Status.URL.String())
 
 	t.Run("Tag route", func(t *testing.T) {
 		// Probe main URL while we update the route
@@ -161,7 +159,7 @@ func testAutoTLS(t *testing.T) {
 		}
 		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 		for _, traffic := range route.Status.Traffic {
-			ingress.RuntimeRequest(context.Background(), t, httpsClient, traffic.URL.String())
+			RuntimeRequest(context.Background(), t, httpsClient, traffic.URL.String())
 		}
 	})
 }
@@ -229,9 +227,7 @@ func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.Reso
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
-	dialer := ingress.CreateDialContext(context.Background(), t, ing, &ntest.Clients{
-		KubeClient: clients.KubeClient,
-	})
+	dialer := CreateDialContext(context.Background(), t, ing, clients)
 	tlsConfig := &tls.Config{
 		RootCAs: rootCAs,
 	}
@@ -248,9 +244,7 @@ func createHTTPClient(t *testing.T, clients *test.Clients, objects *v1test.Resou
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
-	dialer := ingress.CreateDialContext(context.Background(), t, ing, &ntest.Clients{
-		KubeClient: clients.KubeClient,
-	})
+	dialer := CreateDialContext(context.Background(), t, ing, clients)
 	return &http.Client{
 		Transport: &http.Transport{
 			DialContext:     dialer,

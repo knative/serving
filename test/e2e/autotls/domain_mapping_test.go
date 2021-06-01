@@ -25,8 +25,6 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	ntest "knative.dev/networking/test"
-	"knative.dev/networking/test/conformance/ingress"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -48,7 +46,7 @@ type dmConfig struct {
 }
 
 func TestDomainMappingAutoTLS(t *testing.T) {
-	if !ntest.NetworkingFlags.EnableAlphaFeatures {
+	if !test.ServingFlags.EnableAlphaFeatures {
 		t.Skip("Alpha features not enabled")
 	}
 	t.Parallel()
@@ -139,5 +137,5 @@ func TestDomainMappingAutoTLS(t *testing.T) {
 	certName := dm.Name
 	rootCAs := createRootCAs(t, clients, svc.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, svc, rootCAs)
-	ingress.RuntimeRequest(ctx, t, httpsClient, "https://"+host)
+	RuntimeRequest(ctx, t, httpsClient, "https://"+host)
 }
