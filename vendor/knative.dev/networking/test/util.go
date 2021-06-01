@@ -53,7 +53,12 @@ func Setup(t testing.TB) *Clients {
 	cancel := logstream.Start(t)
 	t.Cleanup(cancel)
 
-	clients, err := NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, ServingNamespace)
+	cfg, err := pkgTest.Flags.GetRESTConfig()
+	if err != nil {
+		t.Fatal("couldn't get REST config:", err)
+	}
+
+	clients, err := NewClientsFromConfig(cfg, ServingNamespace)
 	if err != nil {
 		t.Fatal("Couldn't initialize clients", "error", err.Error())
 	}
