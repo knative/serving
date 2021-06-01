@@ -334,9 +334,11 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 	t.Log("Creating service for grpc-ping")
 
 	svcName := test.ObjectNameForTest(t)
-	// Long name hits this issue https://github.com/knative-sandbox/net-certmanager/issues/214
-	if t.Name() == "TestGRPCStreamingPingViaActivator" {
-		svcName = test.AppendRandomString("grpc-streaming-pig-act")
+	// TODO: 64+ bytes domain name hits the cert-manager issue
+	// https://github.com/knative-sandbox/net-certmanager/issues/214
+	suffixLen := len(test.ServingNamespace) + len("example.com")
+	if test.ServingFlags.HTTPS && len(svcName)+suffixLen > 63 {
+		svcName = test.AppendRandomString(svcName[:63-suffixLen])
 	}
 
 	names := &test.ResourceNames{
