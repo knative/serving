@@ -25,7 +25,8 @@ set -o pipefail
 # 1. There's a bug that makes our URL types unusable
 #    see https://github.com/kubernetes-sigs/controller-tools/issues/560
 # 2. We need specialized logic to filter down the surface of PodSpec we allow in Knative.
-#    The respective config for this is in `.schemapatch.yaml`
-controller-gen schemapatch:manifests=config/core/300-resources,generateEmbeddedObjectMeta=true \
+#    The respective config for this is in `schemapatch-config.yaml`
+SCHEMAPATCH_CONFIG_FILE="$(dirname $0)/schemapatch-config.yaml" controller-gen \
+  schemapatch:manifests=config/core/300-resources,generateEmbeddedObjectMeta=true \
   output:dir=config/core/300-resources \
   paths=./pkg/apis/...

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Note: Please update the `.schemapatch.yaml` and run `hack/update-schemas.sh` whenever
+// Note: Please update `hack/schemapatch-config.yaml` and run `hack/update-schemas.sh` whenever
 // fields are added or removed here.
 
 package serving

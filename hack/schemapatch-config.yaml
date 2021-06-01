@@ -1,3 +1,5 @@
+# This is the config file for schema generation via controller-tool's schemapatch
+# command. It's used by update-schemas.sh.
 k8s.io/api/core/v1.Volume:
   allowedFields:
     - Name
