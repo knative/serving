@@ -39,5 +39,6 @@ SCHEMAPATCH_CONFIG_FILE="$(dirname $0)/schemapatch-config.yaml" controller-gen \
 
 # Restore linked CRDs.
 for link in $links; do
-  mv "$link.bkp" "$(readlink -f "$link")"
+  cat "$link.bkp" > "$link"
+  rm "$link.bkp"
 done
