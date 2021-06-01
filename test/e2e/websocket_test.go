@@ -122,6 +122,8 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 // (3) sends a message, and
 // (4) verifies that we receive back the same message.
 func TestWebSocket(t *testing.T) {
+	// TODO: https option with parallel leads to flakes.
+	// https://github.com/knative/serving/issues/11387
 	if !test.ServingFlags.HTTPS {
 		t.Parallel()
 	}
@@ -148,6 +150,8 @@ func TestWebSocket(t *testing.T) {
 
 // and with -1 as target burst capacity and then validates that we can still serve.
 func TestWebSocketViaActivator(t *testing.T) {
+	// TODO: https option with parallel leads to flakes.
+	// https://github.com/knative/serving/issues/11387
 	if !test.ServingFlags.HTTPS {
 		t.Parallel()
 	}
@@ -186,6 +190,8 @@ func TestWebSocketViaActivator(t *testing.T) {
 }
 
 func TestWebSocketBlueGreenRoute(t *testing.T) {
+	// TODO: https option with parallel leads to flakes.
+	// https://github.com/knative/serving/issues/11387
 	if !test.ServingFlags.HTTPS {
 		t.Parallel()
 	}

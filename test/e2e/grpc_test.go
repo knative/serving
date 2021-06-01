@@ -317,6 +317,8 @@ func streamTest(tc *TestContext, host, domain string) {
 
 func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 	t.Helper()
+	// TODO: https option with parallel leads to flakes.
+	// https://github.com/knative/serving/issues/11387
 	if !test.ServingFlags.HTTPS {
 		t.Parallel()
 	}
