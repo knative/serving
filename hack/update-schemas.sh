@@ -18,20 +18,34 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-# Create a backup for every linked CRD.
-links=$(find "$(dirname "$0")/../config/core/300-resources" -type l)
-for link in $links; do
-  cp "$link" "$link.bkp"
-done
-
-# Make sure you install the patched version of controller-gen from
-# https://github.com/markusthoemmes/controller-tools/tree/knative-specific
+# Install patched schemagen into a temporary directory.
 #
 # We need a patched version because
 # 1. There's a bug that makes our URL types unusable
 #    see https://github.com/kubernetes-sigs/controller-tools/issues/560
 # 2. We need specialized logic to filter down the surface of PodSpec we allow in Knative.
 #    The respective config for this is in `schemapatch-config.yaml`
+export GOBIN
+GOBIN=$(mktemp -d)
+export PATH="$GOBIN:$PATH"
+
+(
+  cd "$GOBIN"
+  mkdir controller-tools
+  cd controller-tools
+  git init
+  git remote add origin https://github.com/markusthoemmes/controller-tools.git
+  git fetch --depth 1 origin 505dce98ec1d85fd566d13a6b55b8c19deeb765e # Pinned for reproducible builds.
+  git reset --hard FETCH_HEAD
+  go install ./cmd/controller-gen
+)
+
+# Create a backup for every linked CRD.
+links=$(find "$(dirname "$0")/../config/core/300-resources" -type l)
+for link in $links; do
+  cp "$link" "$link.bkp"
+done
+
 SCHEMAPATCH_CONFIG_FILE="$(dirname $0)/schemapatch-config.yaml" controller-gen \
   schemapatch:manifests=config/core/300-resources,generateEmbeddedObjectMeta=true \
   output:dir=config/core/300-resources \
