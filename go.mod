@@ -33,7 +33,7 @@ require (
 	go.uber.org/atomic v1.7.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/goleak v1.1.10
-	go.uber.org/zap v1.16.0
+	go.uber.org/zap v1.17.0
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
@@ -49,9 +49,9 @@ require (
 	k8s.io/gengo v0.0.0-20201214224949-b6c5ce23f027 // indirect
 	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
-	knative.dev/caching v0.0.0-20210601151938-0556e04ffb5e
+	knative.dev/caching v0.0.0-20210602063230-bf644edb3acf
 	knative.dev/hack v0.0.0-20210601210329-de04b70e00d0
-	knative.dev/networking v0.0.0-20210601151838-6ce35e5687a3
-	knative.dev/pkg v0.0.0-20210601151938-e6552a0303ff
+	knative.dev/networking v0.0.0-20210602063131-a442bb6a4d29
+	knative.dev/pkg v0.0.0-20210602095030-0e61d6763dd6
 	sigs.k8s.io/yaml v1.2.0
 )
