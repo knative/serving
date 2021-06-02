@@ -64,14 +64,13 @@ func TestBYOCertificate(t *testing.T) {
 
 	ctx := context.Background()
 
-	// service to be mapped
 	ksvc, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
 	host := ksvc.Service.Name + ".example.org"
-	// set resolvabledomain for custom domain to false by default.
+
 	resolvableCustomDomain := false
 
 	if test.ServingFlags.CustomDomain != "" {
@@ -114,7 +113,8 @@ func TestBYOCertificate(t *testing.T) {
 				Name:       ksvc.Service.Name,
 				Namespace:  ksvc.Service.Namespace,
 				Kind:       "Service",
-			}, TLS: &v1alpha1.SecretTLS{
+			},
+			TLS: &v1alpha1.SecretTLS{
 				SecretName: secret.Name,
 			}},
 		Status: v1alpha1.DomainMappingStatus{},

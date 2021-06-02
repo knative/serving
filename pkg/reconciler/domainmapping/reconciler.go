@@ -202,13 +202,11 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]net
 	if dm.Spec.TLS != nil {
 		dm.Status.MarkCertificateNotRequired(v1alpha1.TLSCertificateProvidedExternally)
 		dm.Status.URL.Scheme = "https"
-		return []netv1alpha1.IngressTLS{
-			{
-				Hosts:           []string{dm.Name},
-				SecretName:      dm.Spec.TLS.SecretName,
-				SecretNamespace: dm.Namespace,
-			},
-		}, nil, nil
+		return []netv1alpha1.IngressTLS{{
+			Hosts:           []string{dm.Name},
+			SecretName:      dm.Spec.TLS.SecretName,
+			SecretNamespace: dm.Namespace,
+		}}, nil, nil
 	}
 
 	if !autoTLSEnabled(ctx, dm) {
