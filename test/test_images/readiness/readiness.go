@@ -33,20 +33,13 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 	if len(args) > 0 && args[0] == "probe" {
-		resp, err := http.Get(os.ExpandEnv("http://localhost:$PORT/healthz"))
-		if err != nil {
-			log.Fatal("Failed to probe ", err)
-		}
-		if resp.StatusCode > 299 {
-			os.Exit(1)
-		}
-		os.Exit(0)
+		execProbeMain()
 	}
 
-	// HTTP Probe.
+	// HTTP/TCP Probe.
 	healthy := true
 	var mu sync.Mutex
-	if env := os.Getenv("STARTUP_DELAY"); env != "" {
+	if env := os.Getenv("READY_DELAY"); env != "" {
 		delay, err := time.ParseDuration(env)
 		if err != nil {
 			log.Fatal(err)
@@ -54,7 +47,7 @@ func main() {
 
 		healthy = false
 		go func() {
-			<-time.After(delay)
+			time.Sleep(delay)
 			mu.Lock()
 			healthy = true
 			mu.Unlock()
@@ -73,5 +66,25 @@ func main() {
 		fmt.Fprint(w, test.HelloWorldText)
 	})
 
+	if env := os.Getenv("LISTEN_DELAY"); env != "" {
+		delay, err := time.ParseDuration(env)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		time.Sleep(delay)
+	}
+
 	http.ListenAndServe(":8080", nil)
+}
+
+func execProbeMain() {
+	resp, err := http.Get(os.ExpandEnv("http://localhost:$PORT/healthz"))
+	if err != nil {
+		log.Fatal("Failed to probe: ", err)
+	}
+	if resp.StatusCode > 299 {
+		os.Exit(1)
+	}
+	os.Exit(0)
 }

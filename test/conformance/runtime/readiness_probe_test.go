@@ -47,7 +47,7 @@ func TestProbeRuntime(t *testing.T) {
 	}{{
 		name: "httpGet",
 		env: []corev1.EnvVar{{
-			Name:  "STARTUP_DELAY",
+			Name:  "READY_DELAY",
 			Value: "10s",
 		}},
 		handler: corev1.Handler{
@@ -57,13 +57,17 @@ func TestProbeRuntime(t *testing.T) {
 		},
 	}, {
 		name: "tcpSocket",
+		env: []corev1.EnvVar{{
+			Name:  "LISTEN_DELAY",
+			Value: "10s",
+		}},
 		handler: corev1.Handler{
 			TCPSocket: &corev1.TCPSocketAction{},
 		},
 	}, {
 		name: "exec",
 		env: []corev1.EnvVar{{
-			Name:  "STARTUP_DELAY",
+			Name:  "READY_DELAY",
 			Value: "10s",
 		}},
 		handler: corev1.Handler{
