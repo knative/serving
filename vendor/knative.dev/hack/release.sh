@@ -17,9 +17,6 @@
 # This is a helper script for Knative release scripts.
 # See README.md for instructions on how to use it.
 
-# Print commands
-set -x
-
 source $(dirname "${BASH_SOURCE[0]}")/library.sh
 
 # Organization name in GitHub; defaults to Knative.
