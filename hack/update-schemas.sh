@@ -18,6 +18,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+# Create a backup for every linked CRD.
+links=$(find "$(dirname "$0")/../config/core/300-resources" -type l)
+for link in $links; do
+  cp "$link" "$link.bkp"
+done
+
 # Make sure you install the patched version of controller-gen from
 # https://github.com/markusthoemmes/controller-tools/tree/knative-specific
 #
@@ -30,3 +36,9 @@ SCHEMAPATCH_CONFIG_FILE="$(dirname $0)/schemapatch-config.yaml" controller-gen \
   schemapatch:manifests=config/core/300-resources,generateEmbeddedObjectMeta=true \
   output:dir=config/core/300-resources \
   paths=./pkg/apis/...
+
+# Restore linked CRDs.
+for link in $links; do
+  cat "$link.bkp" > "$link"
+  rm "$link.bkp"
+done
