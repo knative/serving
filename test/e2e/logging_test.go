@@ -50,8 +50,8 @@ func TestRequestLogs(t *testing.T) {
 	t.Parallel()
 	clients := Setup(t)
 
-	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get(context.Background(),
-		metrics.ConfigMapName(), metav1.GetOptions{})
+	cm, err := clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
+		Get(context.Background(), metrics.ConfigMapName(), metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Fail to get ConfigMap config-observability:", err)
 	}

@@ -36,7 +36,6 @@ import (
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
 
@@ -59,7 +58,7 @@ func TestTLS(t *testing.T) {
 }
 
 func TestTLSDisabledWithAnnotation(t *testing.T) {
-	clients := e2e.SetupWithNamespace(t, test.TLSNamespace)
+	clients := test.Setup(t, test.TLSNamespace)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -85,7 +84,7 @@ func TestTLSDisabledWithAnnotation(t *testing.T) {
 }
 
 func testAutoTLS(t *testing.T) {
-	clients := e2e.SetupWithNamespace(t, test.TLSNamespace)
+	clients := test.Setup(t, test.TLSNamespace)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),

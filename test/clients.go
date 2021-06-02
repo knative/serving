@@ -25,14 +25,12 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	// Allow E2E to run against a cluster using OpenID.
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	networkingv1alpha1 "knative.dev/networking/pkg/client/clientset/versioned/typed/networking/v1alpha1"
-	"knative.dev/pkg/test"
 	"knative.dev/serving/pkg/client/clientset/versioned"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
@@ -43,7 +41,7 @@ import (
 
 // Clients holds instances of interfaces for making requests to Knative Serving.
 type Clients struct {
-	KubeClient         *test.KubeClient
+	KubeClient         kubernetes.Interface
 	ServingAlphaClient *ServingAlphaClients
 	ServingClient      *ServingClients
 	NetworkingClient   *NetworkingClients
@@ -72,30 +70,21 @@ type NetworkingClients struct {
 }
 
 // NewClients instantiates and returns several clientsets required for making request to the
-// Knative Serving cluster specified by the combination of clusterName and configPath. Clients can
-// make requests within namespace.
-func NewClients(configPath, clusterName, namespace string) (*Clients, error) {
-	cfg, err := BuildClientConfig(configPath, clusterName)
-	if err != nil {
-		return nil, err
-	}
-
+// Knative Serving cluster specified by the rest Config. Clients can make requests within namespace.
+func NewClients(cfg *rest.Config, namespace string) (*Clients, error) {
 	// We poll, so set our limits high.
 	cfg.QPS = 100
 	cfg.Burst = 200
 
-	return NewClientsFromConfig(cfg, namespace)
-}
+	var (
+		clients Clients
+		err     error
+	)
 
-// NewClientsFromConfig instantiates and returns several clientsets required for making request to the
-// Knative Serving cluster specified by the rest Config. Clients can make requests within namespace.
-func NewClientsFromConfig(cfg *rest.Config, namespace string) (*Clients, error) {
-	clients := &Clients{}
-	kubeClient, err := kubernetes.NewForConfig(cfg)
+	clients.KubeClient, err = kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	clients.KubeClient = &test.KubeClient{Interface: kubeClient}
 
 	clients.ServingClient, err = newServingClients(cfg, namespace)
 	if err != nil {
@@ -117,7 +106,7 @@ func NewClientsFromConfig(cfg *rest.Config, namespace string) (*Clients, error) 
 		return nil, err
 	}
 
-	return clients, nil
+	return &clients, nil
 }
 
 // newNetworkingClients instantiates and returns the networking clientset required to make requests
@@ -202,16 +191,4 @@ func (clients *ServingClients) Delete(routes, configs, services []string) []erro
 	}
 
 	return errs
-}
-
-// BuildClientConfig builds client config for testing.
-func BuildClientConfig(kubeConfigPath, clusterName string) (*rest.Config, error) {
-	overrides := clientcmd.ConfigOverrides{}
-	// Override the cluster name if provided.
-	if clusterName != "" {
-		overrides.Context.Cluster = clusterName
-	}
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeConfigPath},
-		&overrides).ClientConfig()
 }
