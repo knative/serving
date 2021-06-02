@@ -122,7 +122,11 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 // (3) sends a message, and
 // (4) verifies that we receive back the same message.
 func TestWebSocket(t *testing.T) {
-	t.Parallel()
+	// TODO: https option with parallel leads to flakes.
+	// https://github.com/knative/serving/issues/11387
+	if !test.ServingFlags.HTTPS {
+		t.Parallel()
+	}
 
 	clients := Setup(t)
 
@@ -146,7 +150,11 @@ func TestWebSocket(t *testing.T) {
 
 // and with -1 as target burst capacity and then validates that we can still serve.
 func TestWebSocketViaActivator(t *testing.T) {
-	t.Parallel()
+	// TODO: https option with parallel leads to flakes.
+	// https://github.com/knative/serving/issues/11387
+	if !test.ServingFlags.HTTPS {
+		t.Parallel()
+	}
 
 	clients := Setup(t)
 
@@ -182,12 +190,22 @@ func TestWebSocketViaActivator(t *testing.T) {
 }
 
 func TestWebSocketBlueGreenRoute(t *testing.T) {
-	t.Parallel()
+	// TODO: https option with parallel leads to flakes.
+	// https://github.com/knative/serving/issues/11387
+	if !test.ServingFlags.HTTPS {
+		t.Parallel()
+	}
 	clients := test.Setup(t)
+
+	svcName := test.ObjectNameForTest(t)
+	// Long name hits this issue https://github.com/knative-sandbox/net-certmanager/issues/214
+	if test.ServingFlags.HTTPS {
+		svcName = test.AppendRandomString("web-socket-blue-green")
+	}
 
 	names := test.ResourceNames{
 		// Set Service and Image for names to create the initial service
-		Service: test.ObjectNameForTest(t),
+		Service: svcName,
 		Image:   wsServerTestImageName,
 	}
 
