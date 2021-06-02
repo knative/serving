@@ -1,4 +1,4 @@
-# Generated when HEAD was d3677dd85a271ae409de16c6755e3af6ecf77652
+# Generated when HEAD was 5292c5ce56e7fa7dba62f54d24ab2912842755ce
 #
 # Copyright 2019 The Knative Authors
 #
@@ -20,7 +20,7 @@ metadata:
   # These are the permissions needed by the Istio Ingress implementation.
   name: knative-serving-istio
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     serving.knative.dev/controller: "true"
     networking.knative.dev/ingress-provider: istio
 rules:
@@ -50,7 +50,7 @@ metadata:
   name: knative-ingress-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -87,7 +87,7 @@ metadata:
   name: knative-local-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -106,7 +106,7 @@ metadata:
   name: knative-local-gateway
   namespace: istio-system
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
     experimental.istio.io/disable-gateway-port-translation: "true"
 spec:
@@ -127,7 +127,7 @@ metadata:
   name: "webhook"
   namespace: "knative-serving"
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -143,7 +143,7 @@ metadata:
   name: "domainmapping-webhook"
   namespace: "knative-serving"
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -159,7 +159,7 @@ metadata:
   name: "istio-webhook"
   namespace: "knative-serving"
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -189,7 +189,7 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: webhook.istio.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
 webhooks:
   - admissionReviewVersions:
@@ -225,7 +225,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.istio.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
 webhooks:
   - admissionReviewVersions:
@@ -263,7 +263,7 @@ metadata:
   name: istio-webhook-certs
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
 
 ---
@@ -287,7 +287,7 @@ metadata:
   name: config-istio
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
 data:
   _example: |
@@ -362,7 +362,7 @@ metadata:
   name: networking-istio
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -378,14 +378,14 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: networking-istio
-        serving.knative.dev/release: "v20210601-d3677dd8"
+        serving.knative.dev/release: "v20210602-5292c5ce"
     spec:
       serviceAccountName: controller
       containers:
         - name: networking-istio
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:51b3e286ac13163589ac9d70362a1dade2a9ed7dcd4c297096c78c2d1051e13b
+          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:e01e4ef1a80d231295f2f92cd061414eaed00824381137e624f15c977d419e09
           resources:
             requests:
               cpu: 30m
@@ -442,7 +442,7 @@ metadata:
   name: istio-webhook
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -456,14 +456,14 @@ spec:
       labels:
         app: istio-webhook
         role: istio-webhook
-        serving.knative.dev/release: "v20210601-d3677dd8"
+        serving.knative.dev/release: "v20210602-5292c5ce"
     spec:
       serviceAccountName: controller
       containers:
         - name: webhook
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/webhook@sha256:ae37ddb8209b05a43f5e8242f0dfc713fc96dee9c6c11751ceafed7a0326ddb4
+          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/webhook@sha256:6eabec1cf1e6674f881b783b0953a7059d307e2eb569bacb9aec074a267f856b
           resources:
             requests:
               cpu: 20m
@@ -517,7 +517,7 @@ metadata:
   namespace: knative-serving
   labels:
     role: istio-webhook
-    serving.knative.dev/release: "v20210601-d3677dd8"
+    serving.knative.dev/release: "v20210602-5292c5ce"
     networking.knative.dev/ingress-provider: istio
 spec:
   ports:
