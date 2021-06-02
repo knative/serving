@@ -2110,6 +2110,20 @@ Service.</p>
 Knative Routes, and by Kubernetes Services.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>tls</code><br/>
+<em>
+<a href="#serving.knative.dev/v1alpha1.SecretTLS">
+SecretTLS
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TLS allows the DomainMapping to terminate TLS traffic with an existing secret.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -2200,6 +2214,20 @@ Service.</p>
 Knative Routes, and by Kubernetes Services.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>tls</code><br/>
+<em>
+<a href="#serving.knative.dev/v1alpha1.SecretTLS">
+SecretTLS
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TLS allows the DomainMapping to terminate TLS traffic with an existing secret.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="serving.knative.dev/v1alpha1.DomainMappingStatus">DomainMappingStatus
@@ -2259,6 +2287,35 @@ knative.dev/pkg/apis/duck/v1.Addressable
 <td>
 <em>(Optional)</em>
 <p>Address holds the information needed for a DomainMapping to be the target of an event.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.knative.dev/v1alpha1.SecretTLS">SecretTLS
+</h3>
+<p>
+(<em>Appears on:</em><a href="#serving.knative.dev/v1alpha1.DomainMappingSpec">DomainMappingSpec</a>)
+</p>
+<p>
+<p>SecretTLS wrapper for TLS SecretName.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>secretName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>SecretName is the name of the existing secret used to terminate TLS traffic.</p>
 </td>
 </tr>
 </tbody>

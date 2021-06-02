@@ -199,6 +199,16 @@ func certClass(ctx context.Context) string {
 }
 
 func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
+	if dm.Spec.TLS != nil {
+		dm.Status.MarkCertificateNotRequired(v1alpha1.TLSCertificateProvidedExternally)
+		dm.Status.URL.Scheme = "https"
+		return []netv1alpha1.IngressTLS{{
+			Hosts:           []string{dm.Name},
+			SecretName:      dm.Spec.TLS.SecretName,
+			SecretNamespace: dm.Namespace,
+		}}, nil, nil
+	}
+
 	if !autoTLSEnabled(ctx, dm) {
 		dm.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
 		return nil, nil, nil

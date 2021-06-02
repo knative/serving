@@ -70,6 +70,12 @@ type DomainMappingList struct {
 	Items []DomainMapping `json:"items"`
 }
 
+// SecretTLS wrapper for TLS SecretName.
+type SecretTLS struct {
+	// SecretName is the name of the existing secret used to terminate TLS traffic.
+	SecretName string `json:"secretName"`
+}
+
 // DomainMappingSpec describes the DomainMapping the user wishes to exist.
 type DomainMappingSpec struct {
 	// Ref specifies the target of the Domain Mapping.
@@ -82,6 +88,10 @@ type DomainMappingSpec struct {
 	// This contract is satisfied by Knative types such as Knative Services and
 	// Knative Routes, and by Kubernetes Services.
 	Ref duckv1.KReference `json:"ref"`
+
+	// TLS allows the DomainMapping to terminate TLS traffic with an existing secret.
+	// +optional
+	TLS *SecretTLS `json:"tls,omitempty"`
 }
 
 // DomainMappingStatus describes the current state of the DomainMapping.

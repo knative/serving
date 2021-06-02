@@ -32,7 +32,7 @@ var ServingFlags = initializeServingFlags()
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
 	ResolvableDomain    bool   // Resolve Route controller's `domainSuffix`
-	CustomDomain        string // Indicaates the `domainSuffix` for custom domain test.
+	CustomDomain        string // Indicates the `domainSuffix` for custom domain test.
 	HTTPS               bool   // Indicates where the test service will be created with https
 	Buckets             int    // The number of reconciler buckets configured.
 	Replicas            int    // The number of controlplane replicas being run.
