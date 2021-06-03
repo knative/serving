@@ -34,6 +34,7 @@ import (
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
+	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	"knative.dev/pkg/network"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator"
@@ -468,7 +469,9 @@ func TestScaler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ctx, _ := SetupFakeContext(t)
+			ctx, _, _ := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+				return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+			})
 
 			dynamicClient := fakedynamicclient.Get(ctx)
 
@@ -569,7 +572,9 @@ func TestDisableScaleToZero(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ctx, _ := SetupFakeContext(t)
+			ctx, _, _ := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+				return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+			})
 
 			dynamicClient := fakedynamicclient.Get(ctx)
 

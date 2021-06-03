@@ -33,7 +33,8 @@ import (
 	"k8s.io/client-go/rest"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
+	filteredpodinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered"
+	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/leaderelection"
@@ -80,12 +81,13 @@ func main() {
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
 	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
 	log.Printf("Registering %d informers", len(injection.Default.GetInformers()))
+	log.Printf("Registering %d filtered informers", len(injection.Default.GetFilteredInformers()))
 	log.Printf("Registering %d controllers", controllerNum)
 
 	// Adjust our client's rate limits based on the number of controller's we are running.
 	cfg.QPS = controllerNum * rest.DefaultQPS
 	cfg.Burst = controllerNum * rest.DefaultBurst
-
+	ctx = filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
 	kubeClient := kubeclient.Get(ctx)
@@ -124,7 +126,7 @@ func main() {
 		metrics.ConfigMapWatcher(ctx, component, nil /* SecretFetcher */, logger),
 		profilingHandler.UpdateFromConfigMap)
 
-	podLister := podinformer.Get(ctx).Lister()
+	podLister := filteredpodinformer.Get(ctx, serving.RevisionUID).Lister()
 	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, network.ConfigName, metav1.GetOptions{})
 	if err != nil {
 		logger.Fatalw("Failed to fetch network config", zap.Error(err))
