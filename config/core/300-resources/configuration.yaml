@@ -415,6 +415,7 @@ spec:
                                         items:
                                           description: Capability represent POSIX capabilities type
                                           type: string
+                                    x-kubernetes-preserve-unknown-fields: true
                                   readOnlyRootFilesystem:
                                     description: Whether this container has a read-only root filesystem. Default is false.
                                     type: boolean
