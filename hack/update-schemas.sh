@@ -33,11 +33,11 @@ export PATH="$GOBIN:$PATH"
   cd "$GOBIN"
   mkdir controller-tools
   cd controller-tools
-  git init
-  git remote add origin https://github.com/markusthoemmes/controller-tools.git
-  git fetch --depth 1 origin 505dce98ec1d85fd566d13a6b55b8c19deeb765e # Pinned for reproducible builds.
-  git reset --hard FETCH_HEAD
-  go install ./cmd/controller-gen
+  go mod init tools
+  # Pinned for reproducible builds.
+  go mod edit -replace=sigs.k8s.io/controller-tools@v0.5.0=github.com/markusthoemmes/controller-tools@505dce98ec1d85fd566d13a6b55b8c19deeb765e
+  go get -d sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0
+  go install sigs.k8s.io/controller-tools/cmd/controller-gen
 )
 
 # Create a backup for every linked CRD.
