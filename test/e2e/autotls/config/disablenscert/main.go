@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"log"
 
 	"github.com/kelseyhightower/envconfig"
@@ -27,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/pkg/environment"
+	pkgTest "knative.dev/pkg/test"
 	test "knative.dev/serving/test"
 )
 
@@ -42,13 +41,9 @@ func main() {
 		log.Fatal("Failed to process environment variable: ", err)
 	}
 
-	clientConf := environment.ClientConfig{}
-	clientConf.InitFlags(flag.CommandLine)
-	flag.Parse()
-
-	cfg, err := clientConf.GetRESTConfig()
+	cfg, err := pkgTest.Flags.GetRESTConfig()
 	if err != nil {
-		log.Fatalf("failed to get kubeconfig %s", err)
+		log.Fatal("Couldn't get REST config", "error", err)
 	}
 
 	clients, err := test.NewClients(cfg, test.ServingNamespace)
