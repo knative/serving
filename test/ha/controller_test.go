@@ -54,7 +54,7 @@ func TestControllerHA(t *testing.T) {
 	service1Names, resources := createPizzaPlanetService(t)
 	test.EnsureTearDown(t, clients, &service1Names)
 
-	prober := test.RunRouteProber(t.Logf, clients, resources.Service.Status.URL.URL())
+	prober := test.RunRouteProber(t.Logf, clients, resources.Service.Status.URL.URL(), test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	defer test.AssertProberDefault(t, prober)
 
 	for _, leader := range leaders.List() {
