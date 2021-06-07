@@ -69,7 +69,6 @@ rotation, feel free to send a PR to remove yourself.
 - [julz](https://github.com/julz)
 - [markusthoemmes](https://github.com/markusthoemmes)
 - [nak3](https://github.com/nak3)
-- [vagababov](https://github.com/vagababov)
 - [yanweiguo](https://github.com/yanweiguo)
 - [ZhiminXiang](https://github.com/ZhiminXiang)
 
