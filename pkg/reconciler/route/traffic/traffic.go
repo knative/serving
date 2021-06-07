@@ -436,7 +436,7 @@ func consolidateAll(targets map[string]RevisionTargets) map[string]RevisionTarge
 
 func consolidate(targets RevisionTargets) RevisionTargets {
 	byName := make(map[string]RevisionTarget)
-	names := []string{}
+	var names []string
 	for _, tt := range targets {
 		name := tt.TrafficTarget.RevisionName
 		cur, ok := byName[name]

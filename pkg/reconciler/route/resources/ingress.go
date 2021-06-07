@@ -225,7 +225,7 @@ func getChallengeHosts(challenges []netv1alpha1.HTTP01Challenge) map[string]netv
 func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, visibility netv1alpha1.IngressVisibility) ([]string, error) {
 	hostname, err := domains.HostnameFromTemplate(ctx, r.Name, targetName)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
 	meta := r.ObjectMeta.DeepCopy()
@@ -234,7 +234,7 @@ func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, vis
 
 	domain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 	domains := []string{domain}
 	if isClusterLocal {

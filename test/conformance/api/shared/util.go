@@ -155,7 +155,7 @@ func checkResponses(t testing.TB, num, min int, domain string, expectedResponses
 	// Verify that we saw each entry in "expectedResponses" at least "min" times.
 	// check(SELECT body FROM $counts WHERE total < $min)
 	totalMatches := 0
-	errMsg := []string{}
+	var errMsg []string
 	for _, er := range expectedResponses {
 		count := counts[er]
 		if count < min {
