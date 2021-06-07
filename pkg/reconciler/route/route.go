@@ -405,7 +405,7 @@ func objectRef(a accessor) tracker.Reference {
 }
 
 func getTrafficNames(targets map[string]traffic.RevisionTargets) []string {
-	names := []string{}
+	names := make([]string, 0, len(targets))
 	for name := range targets {
 		names = append(names, name)
 	}

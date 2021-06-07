@@ -114,7 +114,7 @@ func validateVolume(volume corev1.Volume) *apis.FieldError {
 
 	vs := volume.VolumeSource
 	errs = errs.Also(apis.CheckDisallowedFields(vs, *VolumeSourceMask(&vs)))
-	specified := []string{}
+	var specified []string
 	if vs.Secret != nil {
 		specified = append(specified, "secret")
 		for i, item := range vs.Secret.Items {
