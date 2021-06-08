@@ -64,8 +64,14 @@ import (
 const testIngressClass = "ingress-class-foo"
 
 var (
-	fakeCurTime        = time.Unix(1e9, 0)
-	rolloutDurationKey = struct{}{}
+	fakeCurTime = time.Unix(1e9, 0)
+)
+
+type key int
+
+const (
+	rolloutDurationKey key = iota
+	externalSchemeKey
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -1987,6 +1993,45 @@ func TestReconcile(t *testing.T) {
 			),
 		}},
 		Key: "default/tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long",
+	}, {
+		Name: "overridden schemes",
+		Ctx:  context.WithValue(context.Background(), externalSchemeKey, "https"),
+		Objects: []runtime.Object{
+			Route("default", "steady-state", WithConfigTarget("config"),
+				WithHTTPSDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				MarkTrafficAssigned, MarkIngressReady, WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteFinalizer, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "steady-state"),
+			),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			simpleIngress(
+				Route("default", "steady-state", WithConfigTarget("config"), WithURL),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+							},
+						}},
+					},
+				},
+				withReadyIngress,
+			),
+			simpleK8sService(Route("default", "steady-state", WithConfigTarget("config")),
+				WithExternalName(pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system"))),
+		},
+		Key: "default/steady-state",
 	}}
 
 	// TODO(mattmoor): Revision inactive (direct reference)
@@ -2010,6 +2055,9 @@ func TestReconcile(t *testing.T) {
 		cfg := reconcilerTestConfig(false)
 		if v := ctx.Value(rolloutDurationKey); v != nil {
 			cfg.Network.RolloutDurationSecs = v.(int)
+		}
+		if v := ctx.Value(externalSchemeKey); v != nil {
+			cfg.Network.OverrideExternalScheme = v.(string)
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),

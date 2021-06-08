@@ -137,9 +137,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
+	scheme := config.FromContext(ctx).Network.OverrideInternalScheme
+	if scheme == "" {
+		scheme = "http"
+	}
 	r.Status.Address = &duckv1.Addressable{
 		URL: &apis.URL{
-			Scheme: "http",
+			Scheme: scheme,
 			Host:   resourcenames.K8sServiceFullname(r),
 		},
 	}
@@ -259,6 +263,8 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 			r.Status.MarkCertificateNotReady(cert.Name)
 			// When httpProtocol is enabled, downgrade http scheme.
+			// Explicitly not using the override settings here as to not to muck with
+			// AutoTLS semantics.
 			if config.FromContext(ctx).Network.HTTPProtocol == network.HTTPEnabled {
 				if dnsNames.Has(host) {
 					r.Status.URL = &apis.URL{
@@ -367,8 +373,12 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1.Route, 
 		return err
 	}
 
+	scheme := config.FromContext(ctx).Network.OverrideExternalScheme
+	if scheme == "" {
+		scheme = "http"
+	}
 	route.Status.URL = &apis.URL{
-		Scheme: "http",
+		Scheme: scheme,
 		Host:   host,
 	}
 
