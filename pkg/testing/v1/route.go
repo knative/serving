@@ -122,7 +122,7 @@ func WithURL(r *v1.Route) {
 	}
 }
 
-// WithURL sets the .Status.Domain field with custom domain.
+// WithHost sets the .Status.Domain field with domain from arg.
 func WithHost(host string) RouteOption {
 	return func(r *v1.Route) {
 		r.Status.Address = &duckv1.Addressable{
