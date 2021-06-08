@@ -122,6 +122,18 @@ func WithURL(r *v1.Route) {
 	}
 }
 
+// WithHost sets the .Status.Domain field with domain from arg.
+func WithHost(host string) RouteOption {
+	return func(r *v1.Route) {
+		r.Status.Address = &duckv1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Host:   host,
+			},
+		}
+	}
+}
+
 // WithHTTPSDomain sets the .Status.URL field to a https-domain based on the name and namespace.
 func WithHTTPSDomain(r *v1.Route) {
 	r.Status.URL = &apis.URL{
@@ -185,6 +197,13 @@ func WithRouteConditionsHTTPDowngrade(rt *v1.Route) {
 // MarkTrafficAssigned calls the method of the same name on .Status
 func MarkTrafficAssigned(r *v1.Route) {
 	r.Status.MarkTrafficAssigned()
+}
+
+// MarkUnknownTrafficError calls the method of the same name on .Status
+func MarkUnknownTrafficError(msg string) RouteOption {
+	return func(r *v1.Route) {
+		r.Status.MarkUnknownTrafficError(msg)
+	}
 }
 
 // MarkCertificateNotReady calls the method of the same name on .Status

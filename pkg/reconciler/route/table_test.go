@@ -1956,6 +1956,37 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to delete Service: inducing failure for delete services"),
 		},
 		Key: "default/my-route",
+	}, {
+		Name:    "invalid URL propagates updates route status",
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("delete", "services"),
+		},
+		Objects: []runtime.Object{
+			Route("default", "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long", WithConfigTarget("config"),
+				WithAddress, WithInitRouteConditions,
+				WithRouteFinalizer,
+			),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "steady-state"),
+			),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			simpleK8sService(Route("default", "my-route", WithConfigTarget("config"))),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed Failed to update status for \"tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long\": not a DNS 1035 label: [must be no more than 63 characters]:", "metadata.name"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long",
+				WithConfigTarget("config"), WithRouteObservedGeneration,
+				WithRouteFinalizer, WithInitRouteConditions,
+				MarkUnknownTrafficError(`invalid domain name "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long.default.example.com": url: Invalid value: "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long": must be no more than 63 characters`),
+				WithHost("tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long.default.svc.cluster.local"),
+			),
+		}},
+		Key: "default/tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long",
 	}}
 
 	// TODO(mattmoor): Revision inactive (direct reference)

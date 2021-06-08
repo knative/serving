@@ -130,6 +130,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
 	if traffic == nil || err != nil {
+		if err != nil {
+			r.Status.MarkUnknownTrafficError(err.Error())
+		}
 		// Traffic targets aren't ready, no need to configure child resources.
 		return err
 	}
@@ -330,7 +333,6 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 	if trafficErr != nil && !isTargetError {
 		// An error that's not due to missing traffic target should
 		// make us fail fast.
-		r.Status.MarkUnknownTrafficError(trafficErr.Error())
 		return nil, trafficErr
 	}
 	if badTarget != nil && isTargetError {
