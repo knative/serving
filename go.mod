@@ -14,9 +14,6 @@ replace (
 )
 
 require (
-	github.com/ease-lab/XDTprototype/dqp v0.0.0-00010101000000-000000000000
-	github.com/ease-lab/XDTprototype/sqp v0.0.0-00010101000000-000000000000
-	github.com/ease-lab/XDTprototype/utils v0.0.0-00010101000000-000000000000
 	github.com/Azure/azure-sdk-for-go v50.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.17 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.10 // indirect
