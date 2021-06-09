@@ -18,9 +18,9 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.18.15
-        - v1.19.7
-        - v1.20.2
+        - v1.18.19
+        - v1.19.11
+        - v1.20.7
 
         test-suite:
         - ./test/conformance/runtime
@@ -31,20 +31,20 @@ jobs:
         include:
           # Map between K8s and KinD versions.
           # This is attempting to make it a bit clearer what's being tested.
-          # See: https://github.com/kubernetes-sigs/kind/releases/tag/v0.9.0
-        - k8s-version: v1.18.15
+          # See: https://github.com/kubernetes-sigs/kind/releases/tag/v0.10.0
+        - k8s-version: v1.18.19
           kind-version: v0.10.0
-          kind-image-sha: sha256:5c1b980c4d0e0e8e7eb9f36f7df525d079a96169c8a8f20d8bd108c0d0889cc4
+          kind-image-sha: sha256:9dc1ef37c0b78edcaa475495449671ce3e3bd1dcbe305d95e734336f1300fae4
           kingress: kourier
           cluster-suffix: c${{ github.run_id }}.local
-        - k8s-version: v1.19.7
+        - k8s-version: v1.19.11
           kind-version: v0.10.0
-          kind-image-sha: sha256:a70639454e97a4b733f9d9b67e12c01f6b0297449d5b9cbbef87473458e26dca
+          kind-image-sha: sha256:cbecc517bfad65e368cd7975d1e8a4f558d91160c051d0b1d10ff81488f5fb06
           kingress: istio
           cluster-suffix: c${{ github.run_id }}.local
-        - k8s-version: v1.20.2
+        - k8s-version: v1.20.7
           kind-version: v0.10.0
-          kind-image-sha: sha256:8f7ea6e7642c0da54f04a7ee10431549c0257315b3a634f6ef2fecaaedb19bab
+          kind-image-sha: sha256:688fba5ce6b825be62a7c7fe1415b35da2bdfbb5a69227c499ea4cc0008661ca
           kingress: contour
           cluster-suffix: c${{ github.run_id }}.local
 
