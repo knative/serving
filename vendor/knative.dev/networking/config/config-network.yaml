@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "386cf23d"
+    knative.dev/example-checksum: "8f56afee"
 data:
   _example: |
     ################################
@@ -129,3 +129,12 @@ data:
     # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
     #       for now. Use with caution.
     enable-mesh-pod-addressability: "false"
+
+    # If set, overrides the scheme used for external URLs.
+    # This can be used for making Knative report all URLs as "HTTPS" for example, if you're
+    # fronting Knative with an external loadbalancer that deals with TLS termination and
+    # Knative doesn't know about that otherwise.
+    overrideExternalScheme: ""
+
+    # If set, overrides the scheme used for internal URLs.
+    overrideInternalScheme: ""
