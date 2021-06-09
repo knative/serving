@@ -34,6 +34,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"XDTprototype/dqp"
+	"XDTprototype/sqp"
+	XDTUtils "XDTprototype/utils"
 	network "knative.dev/networking/pkg"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
@@ -110,6 +113,13 @@ func init() {
 }
 
 func main() {
+
+	// start sQP and dQP servers
+	XDTconfig := XDTUtils.LoadConfig
+
+	go sqp.StartServer(XDTconfig)
+	go dqp.StartServer(XDTconfig)
+
 	flag.Parse()
 
 	// If this is set, we run as a standalone binary to probe the queue-proxy.

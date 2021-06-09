@@ -1,0 +1,16 @@
+{
+  "ChunkSizeInBytes": 65536,
+  "DQPServerAddr": "localhost:50008",
+  "LBAddr": "localhost:50008",
+  "DstServerAddr": "localhost:50007",
+  "SQPServerAddr": "localhost:50005",
+  "NumberOfBuffers": 2,
+  "CTBufferSize": 25,
+  "StAndFwBufferSize": 1600,
+  "Routing": "Store&Forward",
+  "TracingEnabled": false,
+  "RPCTimeoutMaxBackoff": 1000,
+  "RPCTimeoutDuration": 60000,
+  "RPCRetryDelay": 1,
+  "MaxDstServerThreadsPython": 10
+}
