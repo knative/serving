@@ -38,7 +38,7 @@ spec:
 # Activator PDB. Currently we permit unavailability of 20% of tasks at the same time.
 # Given the subsetting and that the activators are partially stateful systems, we want
 # a slow rollout of the new versions and slow migration during node upgrades.
-apiVersion: policy/v1beta1
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: activator-pdb
