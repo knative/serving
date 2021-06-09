@@ -34,9 +34,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"XDTprototype/dqp"
-	"XDTprototype/sqp"
-	XDTUtils "XDTprototype/utils"
+	"github.com/ease-lab/XDTprototype/dqp"
+	"github.com/ease-lab/XDTprototype/sqp"
+	XDTUtils "github.com/ease-lab/XDTprototype/utils"
 	network "knative.dev/networking/pkg"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"

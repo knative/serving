@@ -3,20 +3,20 @@ module knative.dev/serving
 go 1.15
 
 replace (
-	XDTprototype/dqp => ./cmd/queue/prototype/dQP
-	XDTprototype/proto/crossXDT => ./cmd/queue/prototype/proto/crossXDT
-	XDTprototype/proto/downXDT => ./cmd/queue/prototype/proto/downXDT
-	XDTprototype/proto/fnInvocation => ./cmd/queue/prototype/proto/fnInvocation
-	XDTprototype/proto/upXDT => ./cmd/queue/prototype/proto/upXDT
-	XDTprototype/sqp => ./cmd/queue/prototype/sQP
-	XDTprototype/transport => ./cmd/queue/prototype/transport
-	XDTprototype/utils => ./cmd/queue/prototype/utils
+	github.com/ease-lab/XDTprototype/dqp => ./cmd/queue/prototype/dQP
+	github.com/ease-lab/XDTprototype/proto/crossXDT => ./cmd/queue/prototype/proto/crossXDT
+	github.com/ease-lab/XDTprototype/proto/downXDT => ./cmd/queue/prototype/proto/downXDT
+	github.com/ease-lab/XDTprototype/proto/fnInvocation => ./cmd/queue/prototype/proto/fnInvocation
+	github.com/ease-lab/XDTprototype/proto/upXDT => ./cmd/queue/prototype/proto/upXDT
+	github.com/ease-lab/XDTprototype/sqp => ./cmd/queue/prototype/sQP
+	github.com/ease-lab/XDTprototype/transport => ./cmd/queue/prototype/transport
+	github.com/ease-lab/XDTprototype/utils => ./cmd/queue/prototype/utils
 )
 
 require (
-	XDTprototype/dqp v0.0.0-00010101000000-000000000000
-	XDTprototype/sqp v0.0.0-00010101000000-000000000000
-	XDTprototype/utils v0.0.0-00010101000000-000000000000
+	github.com/ease-lab/XDTprototype/dqp v0.0.0-00010101000000-000000000000
+	github.com/ease-lab/XDTprototype/sqp v0.0.0-00010101000000-000000000000
+	github.com/ease-lab/XDTprototype/utils v0.0.0-00010101000000-000000000000
 	github.com/Azure/azure-sdk-for-go v50.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.17 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.10 // indirect

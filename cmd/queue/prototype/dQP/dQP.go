@@ -23,11 +23,11 @@
 package dqp
 
 import (
-	"XDTprototype/proto/crossXDT"
-	"XDTprototype/proto/downXDT"
-	"XDTprototype/proto/fnInvocation"
-	"XDTprototype/transport"
-	"XDTprototype/utils"
+	"github.com/ease-lab/XDTprototype/proto/crossXDT"
+	"github.com/ease-lab/XDTprototype/proto/downXDT"
+	"github.com/ease-lab/XDTprototype/proto/fnInvocation"
+	"github.com/ease-lab/XDTprototype/transport"
+	"github.com/ease-lab/XDTprototype/utils"
 	"context"
 	"encoding/json"
 	log "github.com/sirupsen/logrus"

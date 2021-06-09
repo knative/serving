@@ -23,7 +23,7 @@
 package transport
 
 import (
-	"XDTprototype/utils"
+	"github.com/ease-lab/XDTprototype/utils"
 	log "github.com/sirupsen/logrus"
 	"sync"
 )

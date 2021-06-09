@@ -23,7 +23,7 @@
 // Pull data from the source QP
 syntax = "proto3";
 
-option go_package = "XDTprototype/proto/crossXDT";
+option go_package = "github.com/ease-lab/XDTprototype/proto/crossXDT";
 
 package crossXDT;
 

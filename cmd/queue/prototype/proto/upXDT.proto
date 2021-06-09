@@ -23,7 +23,7 @@
 // Push data to the source QP
 syntax = "proto3";
 
-option go_package = "XDTprototype/proto/upXDT";
+option go_package = "github.com/ease-lab/XDTprototype/proto/upXDT";
 
 package upXDT;
 
