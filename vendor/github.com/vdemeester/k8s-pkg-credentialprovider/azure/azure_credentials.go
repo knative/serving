@@ -34,9 +34,9 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/spf13/pflag"
 
+	"github.com/vdemeester/k8s-pkg-credentialprovider"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-	"github.com/vdemeester/k8s-pkg-credentialprovider"
 	"k8s.io/legacy-cloud-providers/azure/auth"
 	"sigs.k8s.io/yaml"
 )

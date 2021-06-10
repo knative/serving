@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package verify provides a ReadCloser that verifies content matches the
+// expected hash values.
 package verify
 
 import (

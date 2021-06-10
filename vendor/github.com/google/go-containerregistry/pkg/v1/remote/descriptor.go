@@ -402,3 +402,23 @@ func (f *fetcher) headBlob(h v1.Hash) (*http.Response, error) {
 
 	return resp, nil
 }
+
+func (f *fetcher) blobExists(h v1.Hash) (bool, error) {
+	u := f.url("blobs", h.String())
+	req, err := http.NewRequest(http.MethodHead, u.String(), nil)
+	if err != nil {
+		return false, err
+	}
+
+	resp, err := f.Client.Do(req.WithContext(f.context))
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if err := transport.CheckError(resp, http.StatusOK, http.StatusNotFound); err != nil {
+		return false, err
+	}
+
+	return resp.StatusCode == http.StatusOK, nil
+}

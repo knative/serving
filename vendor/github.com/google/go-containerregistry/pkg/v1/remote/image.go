@@ -221,6 +221,11 @@ func (rl *remoteImageLayer) Descriptor() (*v1.Descriptor, error) {
 	return partial.BlobDescriptor(rl, rl.digest)
 }
 
+// See partial.Exists.
+func (rl *remoteImageLayer) Exists() (bool, error) {
+	return rl.ri.blobExists(rl.digest)
+}
+
 // LayerByDigest implements partial.CompressedLayer
 func (r *remoteImage) LayerByDigest(h v1.Hash) (partial.CompressedLayer, error) {
 	return &remoteImageLayer{

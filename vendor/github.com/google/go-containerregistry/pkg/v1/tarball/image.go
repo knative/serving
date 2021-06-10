@@ -117,6 +117,22 @@ type Descriptor struct {
 // Manifest represents the manifests of all images as the `manifest.json` file in a `docker save` tarball.
 type Manifest []Descriptor
 
+// LoadManifest load manifest
+func LoadManifest(opener Opener) (Manifest, error) {
+	m, err := opener()
+	if err != nil {
+		return nil, err
+	}
+	defer m.Close()
+
+	var manifest Manifest
+
+	if err := json.NewDecoder(m).Decode(&manifest); err != nil {
+		return nil, err
+	}
+	return manifest, nil
+}
+
 func (m Manifest) findDescriptor(tag *name.Tag) (*Descriptor, error) {
 	if tag == nil {
 		if len(m) != 1 {
