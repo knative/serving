@@ -94,7 +94,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	}
 
 	// Mapped URL is the metadata.name of the DomainMapping.
-	url := &apis.URL{Scheme: "http", Host: dm.Name}
+	scheme := config.FromContext(ctx).Network.OverrideExternalScheme
+	if scheme == "" {
+		scheme = "http"
+	}
+	url := &apis.URL{Scheme: scheme, Host: dm.Name}
 	dm.Status.URL = url
 	dm.Status.Address = &duckv1.Addressable{URL: url}
 
