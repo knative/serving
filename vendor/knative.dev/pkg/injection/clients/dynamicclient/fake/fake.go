@@ -18,14 +18,18 @@ package fake
 
 import (
 	"context"
+	"strings"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/fake"
+	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
+	pkgunstructured "knative.dev/pkg/unstructured"
 )
 
 func init() {
@@ -33,12 +37,46 @@ func init() {
 }
 
 func withClient(ctx context.Context, cfg *rest.Config) context.Context {
-	ctx, _ = With(ctx, runtime.NewScheme())
+	scheme := runtime.NewScheme()
+	k8sscheme.AddToScheme(scheme)
+	ctx, _ = With(ctx, scheme)
 	return ctx
 }
 
 func With(ctx context.Context, scheme *runtime.Scheme, objects ...runtime.Object) (context.Context, *fake.FakeDynamicClient) {
-	cs := fake.NewSimpleDynamicClient(scheme, objects...)
+	// We create a scheme were we define all our types and lists
+	// and have them map to unstructured types
+	//
+	// This was a K8s 1.20 breaking change
+	unstructuredScheme := runtime.NewScheme()
+	for gvk := range scheme.AllKnownTypes() {
+		if unstructuredScheme.Recognizes(gvk) {
+			continue
+		}
+		if strings.HasSuffix(gvk.Kind, "List") {
+			unstructuredScheme.AddKnownTypeWithName(gvk, &unstructured.UnstructuredList{})
+			continue
+		}
+		unstructuredScheme.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
+	}
+
+	objects, err := pkgunstructured.ConvertManyToObjects(scheme, objects)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, obj := range objects {
+		gvk := obj.GetObjectKind().GroupVersionKind()
+		if !unstructuredScheme.Recognizes(gvk) {
+			unstructuredScheme.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
+		}
+		gvk.Kind += "List"
+		if !unstructuredScheme.Recognizes(gvk) {
+			unstructuredScheme.AddKnownTypeWithName(gvk, &unstructured.UnstructuredList{})
+		}
+	}
+
+	cs := fake.NewSimpleDynamicClient(unstructuredScheme, objects...)
 	return context.WithValue(ctx, dynamicclient.Key{}, cs), cs
 }
 
