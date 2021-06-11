@@ -66,6 +66,9 @@ fi
 
 TEST_OPTIONS="${TEST_OPTIONS:-${alpha} --enable-beta --resolvabledomain=$(use_resolvable_domain) ${use_https}}"
 
+# Remove "local-gateway.mesh: mesh" to verify
+kubectl patch configmap/config-istio -n ${SYSTEM_NAMESPACE} --type='json' --patch='[{"op": "remove", "path": "/data/local-gateway.mesh"}]' 
+
 go_test_e2e -timeout=30m \
  ./test/conformance/api/... \
  ./test/conformance/runtime/... \
