@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 set -u
@@ -15,7 +15,7 @@ find . \( -name "OWNERS" \
   -o -name "BUILD.bazel" \) -exec rm -f {} +
 
 
-oldpkg="k8s.io/kubernetes/pkg/credentialprovider"
+oldpkg="github.com/vdemeester/k8s-pkg-credentialprovider"
 newpkg="github.com/vdemeester/k8s-pkg-credentialprovider"
 
 find ./ -type f ! -name "sync.sh" ! -name "README.md"  \

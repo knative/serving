@@ -11,26 +11,23 @@ require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210420163308-c1402a70e2f1
 	github.com/aws/aws-sdk-go v1.37.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
-	github.com/docker/cli v20.10.2+incompatible // indirect
-	github.com/docker/docker v20.10.2+incompatible // indirect
 	github.com/emicklei/go-restful v2.15.0+incompatible // indirect
 	github.com/go-openapi/spec v0.20.2 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.6
-	github.com/google/go-containerregistry v0.5.0
-	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210430144454-9cf3ed4ac182
+	github.com/google/go-containerregistry v0.5.2-0.20210609162550-f0ce2270b3b4
+	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210610160139-c086c7f16d4e
 	github.com/google/gofuzz v1.2.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/googleapis/gnostic v0.5.3 // indirect
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/prometheus/client_golang v1.10.0
+	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/client_model v0.2.0
-	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/tsenart/vegeta/v12 v12.8.4
 	go.opencensus.io v0.23.0
-	go.uber.org/atomic v1.7.0
+	go.uber.org/atomic v1.8.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/goleak v1.1.10
 	go.uber.org/zap v1.17.0
@@ -40,18 +37,19 @@ require (
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	gonum.org/v1/netlib v0.0.0-20190331212654-76723241ea4e // indirect
-	google.golang.org/api v0.36.0
+	google.golang.org/api v0.47.0
 	google.golang.org/grpc v1.38.0
-	k8s.io/api v0.19.7
-	k8s.io/apimachinery v0.19.7
-	k8s.io/client-go v0.19.7
-	k8s.io/code-generator v0.19.7
-	k8s.io/gengo v0.0.0-20201214224949-b6c5ce23f027 // indirect
+	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
+	k8s.io/api v0.20.7
+	k8s.io/apimachinery v0.20.7
+	k8s.io/client-go v0.20.7
+	k8s.io/code-generator v0.20.7
+	k8s.io/klog/v2 v2.5.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
-	knative.dev/caching v0.0.0-20210609070142-4db1bf0b9648
+	knative.dev/caching v0.0.0-20210610054943-d7b71418f741
 	knative.dev/hack v0.0.0-20210609124042-e35bcb8f21ec
-	knative.dev/networking v0.0.0-20210609003242-c743329dacb9
-	knative.dev/pkg v0.0.0-20210608193741-f19eef192438
+	knative.dev/networking v0.0.0-20210610142944-8c7fb22941cf
+	knative.dev/pkg v0.0.0-20210610135643-eaa823c76532
 	sigs.k8s.io/yaml v1.2.0
 )
