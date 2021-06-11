@@ -1695,9 +1695,10 @@ func testNetworkConfig() *config.Config {
 			},
 		},
 		Network: &network.Config{
-			DefaultIngressClass: "test-ingress-class",
-			DomainTemplate:      network.DefaultDomainTemplate,
-			TagTemplate:         network.DefaultTagTemplate,
+			DefaultIngressClass:   "test-ingress-class",
+			DomainTemplate:        network.DefaultDomainTemplate,
+			TagTemplate:           network.DefaultTagTemplate,
+			DefaultExternalScheme: "http",
 		},
 	}
 }

@@ -2057,7 +2057,7 @@ func TestReconcile(t *testing.T) {
 			cfg.Network.RolloutDurationSecs = v.(int)
 		}
 		if v := ctx.Value(externalSchemeKey); v != nil {
-			cfg.Network.OverrideExternalScheme = v.(string)
+			cfg.Network.DefaultExternalScheme = v.(string)
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
@@ -2784,6 +2784,7 @@ func reconcilerTestConfig(enableAutoTLS bool) *config.Config {
 			DomainTemplate:          network.DefaultDomainTemplate,
 			TagTemplate:             network.DefaultTagTemplate,
 			HTTPProtocol:            network.HTTPEnabled,
+			DefaultExternalScheme:   "http",
 		},
 		Features: &cfgmap.Features{
 			MultiContainer:        cfgmap.Disabled,

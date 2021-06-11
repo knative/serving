@@ -108,11 +108,7 @@ func (cfg *Config) computeURL(ctx context.Context, r *v1.Route, tt *RevisionTarg
 		return nil, err
 	}
 
-	scheme := config.FromContext(ctx).Network.OverrideExternalScheme
-	if scheme == "" {
-		scheme = domains.HTTPScheme
-	}
-	return domains.URL(scheme, fullDomain), nil
+	return domains.URL(config.FromContext(ctx).Network.DefaultExternalScheme, fullDomain), nil
 }
 
 func (cfg *Config) targetToStatus(ctx context.Context, r *v1.Route, tt *RevisionTarget,

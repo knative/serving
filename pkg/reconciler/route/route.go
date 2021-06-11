@@ -137,13 +137,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	scheme := config.FromContext(ctx).Network.OverrideInternalScheme
-	if scheme == "" {
-		scheme = "http"
-	}
 	r.Status.Address = &duckv1.Addressable{
 		URL: &apis.URL{
-			Scheme: scheme,
+			Scheme: "http",
 			Host:   resourcenames.K8sServiceFullname(r),
 		},
 	}
@@ -373,12 +369,8 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1.Route, 
 		return err
 	}
 
-	scheme := config.FromContext(ctx).Network.OverrideExternalScheme
-	if scheme == "" {
-		scheme = "http"
-	}
 	route.Status.URL = &apis.URL{
-		Scheme: scheme,
+		Scheme: config.FromContext(ctx).Network.DefaultExternalScheme,
 		Host:   host,
 	}
 

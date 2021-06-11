@@ -716,10 +716,11 @@ func TestReconcile(t *testing.T) {
 				DefaultIngressClass:           "the-ingress-class",
 				AutocreateClusterDomainClaims: true,
 				HTTPProtocol:                  network.HTTPEnabled,
+				DefaultExternalScheme:         "http",
 			},
 		}
 		if v := ctx.Value(externalSchemeKey); v != nil {
-			cfg.Network.OverrideExternalScheme = v.(string)
+			cfg.Network.DefaultExternalScheme = v.(string)
 		}
 
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
@@ -853,6 +854,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 						DefaultIngressClass:           "the-ingress-class",
 						AutocreateClusterDomainClaims: false,
 						HTTPProtocol:                  network.HTTPEnabled,
+						DefaultExternalScheme:         "http",
 					},
 				},
 			}},
@@ -1208,6 +1210,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 						DefaultCertificateClass: "the-cert-class",
 						AutoTLS:                 true,
 						HTTPProtocol:            network.HTTPRedirected,
+						DefaultExternalScheme:   "http",
 					},
 				},
 			}},
@@ -1274,6 +1277,7 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 						DefaultCertificateClass: "the-cert-class",
 						AutoTLS:                 true,
 						HTTPProtocol:            network.HTTPEnabled,
+						DefaultExternalScheme:   "http",
 					},
 				},
 			}},
