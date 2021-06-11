@@ -1648,8 +1648,9 @@ knative.dev/hack v0.0.0-20210610231243-3d4b264d9472/go.mod h1:PHt8x8yX5Z9pPquBEf
 knative.dev/networking v0.0.0-20210611092143-1be893df2498 h1:sKwfl3RtisxMihzxpnvIjiChH2asmTN0srADZny8pNs=
 knative.dev/networking v0.0.0-20210611092143-1be893df2498/go.mod h1:aalQ4+Zh5sGsqCy9SA5XwHzCyshcA55Q6y5WG7RDj8w=
 knative.dev/pkg v0.0.0-20210608193741-f19eef192438/go.mod h1:/hT1IXHPs8ZwQ8yTJtfaYWpLmsLhC2s6/v/ydF7PoiE=
-knative.dev/pkg v0.0.0-20210610171444-c96c7beb09df h1:4G4QzbkzEixFZBIQyNL68UG/GvpPQjjkYpkLwLV/DH4=
 knative.dev/pkg v0.0.0-20210610171444-c96c7beb09df/go.mod h1:11EuiVmPsxtg/HluqrUzhV07VNjdPb26pTL198APUUE=
+knative.dev/pkg v0.0.0-20210611082343-dd15eb09982b h1:cBZVAy5fY3Sy10xDmPEsQ+zPzxDkdNWs2yl3S/eEaoQ=
+knative.dev/pkg v0.0.0-20210611082343-dd15eb09982b/go.mod h1:h/VU5MVS8Wq4Nkp9JCMRAAUWdmiTqhzkJjyuZgzULw0=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=

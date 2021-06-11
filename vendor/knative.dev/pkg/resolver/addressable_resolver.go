@@ -158,18 +158,6 @@ func (r *URIResolver) URIFromObjectReference(ctx context.Context, ref *corev1.Ob
 		return nil, apierrs.NewNotFound(gvr.GroupResource(), ref.Name)
 	}
 
-	// K8s Services are special cased. They can be called, even though they do not satisfy the
-	// Callable interface.
-	// TODO(spencer-p,n3wscott) Verify that the service actually exists in K8s.
-	if ref.APIVersion == "v1" && ref.Kind == "Service" {
-		url := &apis.URL{
-			Scheme: "http",
-			Host:   network.GetServiceHostname(ref.Name, ref.Namespace),
-			Path:   "/",
-		}
-		return url, nil
-	}
-
 	lister, err := r.listerFactory(gvr)
 	if err != nil {
 		return nil, apierrs.NewNotFound(gvr.GroupResource(), "Lister")
@@ -178,6 +166,17 @@ func (r *URIResolver) URIFromObjectReference(ctx context.Context, ref *corev1.Ob
 	obj, err := lister.ByNamespace(ref.Namespace).Get(ref.Name)
 	if err != nil {
 		return nil, apierrs.NewNotFound(gvr.GroupResource(), ref.Name)
+	}
+
+	// K8s Services are special cased. They can be called, even though they do not satisfy the
+	// Callable interface.
+	if ref.APIVersion == "v1" && ref.Kind == "Service" {
+		url := &apis.URL{
+			Scheme: "http",
+			Host:   network.GetServiceHostname(ref.Name, ref.Namespace),
+			Path:   "/",
+		}
+		return url, nil
 	}
 
 	addressable, ok := obj.(*duckv1.AddressableType)
