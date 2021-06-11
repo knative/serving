@@ -259,6 +259,8 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 			r.Status.MarkCertificateNotReady(cert.Name)
 			// When httpProtocol is enabled, downgrade http scheme.
+			// Explicitly not using the override settings here as to not to muck with
+			// AutoTLS semantics.
 			if config.FromContext(ctx).Network.HTTPProtocol == network.HTTPEnabled {
 				if dnsNames.Has(host) {
 					r.Status.URL = &apis.URL{
@@ -368,7 +370,7 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1.Route, 
 	}
 
 	route.Status.URL = &apis.URL{
-		Scheme: "http",
+		Scheme: config.FromContext(ctx).Network.DefaultExternalScheme,
 		Host:   host,
 	}
 

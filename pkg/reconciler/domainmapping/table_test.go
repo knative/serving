@@ -55,6 +55,10 @@ import (
 	. "knative.dev/serving/pkg/testing"
 )
 
+type key int
+
+const externalSchemeKey key = iota
+
 func TestReconcile(t *testing.T) {
 	now := metav1.Now()
 
@@ -668,6 +672,33 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "cantupdate.this"),
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Ingress: inducing failure for update ingresses"),
 		},
+	}, {
+		Name: "overridden external scheme",
+		Key:  "default/ingress-ready.me",
+		Ctx:  context.WithValue(context.Background(), externalSchemeKey, "ws"),
+		Objects: []runtime.Object{
+			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			domainMapping("default", "ingress-ready.me",
+				withRef("default", "ready"),
+				withURL("ws", "ingress-ready.me"),
+				withAddress("ws", "ingress-ready.me"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withReferenceResolved,
+				withPropagatedStatus(ingress(domainMapping("default", "ingress-ready.me"), "", withIngressReady).Status),
+			),
+			ingress(domainMapping("default", "ingress-ready.me", withRef("default", "ready")), "the-ingress-class",
+				withIngressReady,
+			),
+			resources.MakeDomainClaim(domainMapping("default", "ingress-ready.me", withRef("default", "target"))),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "ingress-ready.me"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "ingress-ready.me"),
+		},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -680,16 +711,22 @@ func TestReconcile(t *testing.T) {
 			domainClaimLister: listers.GetDomainClaimLister(),
 		}
 
+		cfg := &config.Config{
+			Network: &network.Config{
+				DefaultIngressClass:           "the-ingress-class",
+				AutocreateClusterDomainClaims: true,
+				HTTPProtocol:                  network.HTTPEnabled,
+				DefaultExternalScheme:         "http",
+			},
+		}
+		if v := ctx.Value(externalSchemeKey); v != nil {
+			cfg.Network.DefaultExternalScheme = v.(string)
+		}
+
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
 			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
 			controller.Options{ConfigStore: &testConfigStore{
-				config: &config.Config{
-					Network: &network.Config{
-						DefaultIngressClass:           "the-ingress-class",
-						AutocreateClusterDomainClaims: true,
-						HTTPProtocol:                  network.HTTPEnabled,
-					},
-				},
+				config: cfg,
 			}},
 		)
 	}))
@@ -817,6 +854,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 						DefaultIngressClass:           "the-ingress-class",
 						AutocreateClusterDomainClaims: false,
 						HTTPProtocol:                  network.HTTPEnabled,
+						DefaultExternalScheme:         "http",
 					},
 				},
 			}},
@@ -1172,6 +1210,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 						DefaultCertificateClass: "the-cert-class",
 						AutoTLS:                 true,
 						HTTPProtocol:            network.HTTPRedirected,
+						DefaultExternalScheme:   "http",
 					},
 				},
 			}},
@@ -1238,6 +1277,7 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 						DefaultCertificateClass: "the-cert-class",
 						AutoTLS:                 true,
 						HTTPProtocol:            network.HTTPEnabled,
+						DefaultExternalScheme:   "http",
 					},
 				},
 			}},

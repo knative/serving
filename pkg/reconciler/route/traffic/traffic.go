@@ -30,6 +30,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
+	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 )
@@ -102,12 +103,12 @@ func (cfg *Config) computeURL(ctx context.Context, r *v1.Route, tt *RevisionTarg
 
 	labels.SetVisibility(meta, cfg.Visibility[tt.Tag] == netv1alpha1.IngressVisibilityClusterLocal)
 
-	// HTTP is currently the only supported scheme.
 	fullDomain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
 	if err != nil {
 		return nil, err
 	}
-	return domains.URL(domains.HTTPScheme, fullDomain), nil
+
+	return domains.URL(config.FromContext(ctx).Network.DefaultExternalScheme, fullDomain), nil
 }
 
 func (cfg *Config) targetToStatus(ctx context.Context, r *v1.Route, tt *RevisionTarget,

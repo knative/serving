@@ -18,6 +18,7 @@
 # See README.md for instructions on how to use it.
 
 source $(dirname "${BASH_SOURCE[0]}")/library.sh
+set -x
 
 # Organization name in GitHub; defaults to Knative.
 readonly ORG_NAME="${ORG_NAME:-knative}"
@@ -114,8 +115,11 @@ function hub_tool() {
 # Parameters: $1..$n - arguments to "git push <repo>".
 function git_push() {
   local repo_url="${REPO_UPSTREAM}"
-  [[ -n "${GITHUB_TOKEN}}" ]] && repo_url="${repo_url/:\/\//:\/\/${GITHUB_TOKEN}@}"
-  git push "${repo_url}" $@
+  local git_args=$@
+  # Subshell (parentheses) used to prevent GITHUB_TOKEN from printing in log
+  (set +x;
+   [[ -n "${GITHUB_TOKEN}}" ]] && repo_url="${repo_url/:\/\//:\/\/${GITHUB_TOKEN}@}";
+   git push "${repo_url}" ${git_args} )
 }
 
 # Return the master version of a release.
@@ -359,9 +363,14 @@ function parse_flags() {
         case ${parameter} in
           --github-token)
             [[ ! -f "$1" ]] && abort "file $1 doesn't exist"
+            local old="$(set +o)"
+            # Prevent GITHUB_TOKEN from printing in log
+            set +x
             # Remove any trailing newline/space from token
+            # ^ (That's not what echo -n does, it just doesn't *add* a newline, but I'm leaving it)
             GITHUB_TOKEN="$(echo -n $(cat "$1"))"
             [[ -n "${GITHUB_TOKEN}" ]] || abort "file $1 is empty"
+            eval "$old" # restore xtrace status
             ;;
           --release-gcr)
             KO_DOCKER_REPO=$1
