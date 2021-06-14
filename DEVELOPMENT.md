@@ -63,13 +63,9 @@ Container Registry or `docker login` if you are using Docker Hub.
 
 ### Set up your environment
 
-To start your environment you'll need to set these environment variables (we
-recommend adding them to your `.bashrc`):
+To start your environment you'll need to set the following environment
+variable (we recommend adding it to your `.bashrc`):
 
-1. `GOPATH`: If you don't have one, simply pick a directory and add
-   `export GOPATH=...`
-1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
-   work properly.
 1. `KO_DOCKER_REPO`: The docker repository to which developer images should be
    pushed (e.g. `gcr.io/[gcloud-project]`).
 
@@ -81,8 +77,6 @@ recommend adding them to your `.bashrc`):
 `.bashrc` example:
 
 ```shell
-export GOPATH="$HOME/go"
-export PATH="${PATH}:${GOPATH}/bin"
 export KO_DOCKER_REPO='gcr.io/my-gcloud-project-id'
 ```
 
