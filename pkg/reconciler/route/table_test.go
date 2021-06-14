@@ -1994,7 +1994,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "default/tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long",
 	}, {
-		Name: "overridden schemes",
+		Name: "overridden scheme",
 		Ctx:  context.WithValue(context.Background(), externalSchemeKey, "https"),
 		Objects: []runtime.Object{
 			Route("default", "steady-state", WithConfigTarget("config"),
@@ -2032,8 +2032,51 @@ func TestReconcile(t *testing.T) {
 				WithExternalName(pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system"))),
 		},
 		Key: "default/steady-state",
+	}, {
+		Name: "overridden scheme (cluster-local)",
+		Ctx:  context.WithValue(context.Background(), externalSchemeKey, "https"),
+		Objects: []runtime.Object{
+			Route("default", "steady-state", WithConfigTarget("config"),
+				WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}),
+				WithLocalDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				MarkTrafficAssigned, MarkIngressReady, WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteFinalizer, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "steady-state"),
+			),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			simpleIngress(
+				Route("default", "steady-state", WithConfigTarget("config"),
+					WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal})),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+							},
+						}},
+					},
+					Visibility: map[string]netv1alpha1.IngressVisibility{
+						traffic.DefaultTarget: netv1alpha1.IngressVisibilityClusterLocal,
+					},
+				},
+				withReadyIngress,
+			),
+			simpleK8sService(Route("default", "steady-state", WithConfigTarget("config")),
+				WithExternalName(pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system"))),
+		},
+		Key: "default/steady-state",
 	}}
-
 	// TODO(mattmoor): Revision inactive (direct reference)
 	// TODO(mattmoor): Revision inactive (indirect reference)
 	// TODO(mattmoor): Multiple inactive Revisions

@@ -369,8 +369,12 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1.Route, 
 		return err
 	}
 
+	scheme := "http"
+	if !isClusterLocal {
+		scheme = config.FromContext(ctx).Network.DefaultExternalScheme
+	}
 	route.Status.URL = &apis.URL{
-		Scheme: config.FromContext(ctx).Network.DefaultExternalScheme,
+		Scheme: scheme,
 		Host:   host,
 	}
 

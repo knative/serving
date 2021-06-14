@@ -101,14 +101,20 @@ func (cfg *Config) computeURL(ctx context.Context, r *v1.Route, tt *RevisionTarg
 		return nil, err
 	}
 
-	labels.SetVisibility(meta, cfg.Visibility[tt.Tag] == netv1alpha1.IngressVisibilityClusterLocal)
+	isClusterLocal := cfg.Visibility[tt.Tag] == netv1alpha1.IngressVisibilityClusterLocal
+	labels.SetVisibility(meta, isClusterLocal)
 
 	fullDomain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
 	if err != nil {
 		return nil, err
 	}
 
-	return domains.URL(config.FromContext(ctx).Network.DefaultExternalScheme, fullDomain), nil
+	scheme := "http"
+	if !isClusterLocal {
+		scheme = config.FromContext(ctx).Network.DefaultExternalScheme
+	}
+
+	return domains.URL(scheme, fullDomain), nil
 }
 
 func (cfg *Config) targetToStatus(ctx context.Context, r *v1.Route, tt *RevisionTarget,
