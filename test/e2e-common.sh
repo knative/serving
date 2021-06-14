@@ -288,6 +288,20 @@ function install() {
     > "${ytt_result}" \
     || fail_test "failed to create deployment configuration"
 
+  cat <<EOF >> ${ytt_result}
+---
+apiVersion: kapp.k14s.io/v1alpha1
+kind: Config
+rebaseRules:
+- path: [rules]
+  type: copy
+  sources: [existing, new]
+  resourceMatchers:
+  - notMatcher:
+      matcher:
+        emptyFieldMatcher:
+          path: [aggregationRule]
+EOF
 
   # Post install jobs configuration
   run_ytt \
