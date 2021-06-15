@@ -41,6 +41,9 @@ initialize --skip-istio-addon  --min-nodes=4 --max-nodes=4 --install-latest-rele
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=30m
 
+# Currently no option to add https.
+HTTPS=1
+
 if (( HTTPS )); then
   use_https="--https"
   toggle_feature autoTLS Enabled config-network
