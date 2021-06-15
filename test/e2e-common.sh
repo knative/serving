@@ -288,6 +288,7 @@ function install() {
     > "${ytt_result}" \
     || fail_test "failed to create deployment configuration"
 
+
   # Post install jobs configuration
   run_ytt \
     -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
