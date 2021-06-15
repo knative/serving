@@ -1,0 +1,13 @@
+# use emptyFieldMatcher to avoid aggregation rule conflict.
+# see: https://github.com/vmware-tanzu/carvel-kapp/issues/227
+apiVersion: kapp.k14s.io/v1alpha1
+kind: Config
+rebaseRules:
+- path: [rules]
+  type: copy
+  sources: [existing, new]
+  resourceMatchers:
+  - notMatcher:
+      matcher:
+        emptyFieldMatcher:
+          path: [aggregationRule]
