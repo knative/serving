@@ -41,11 +41,25 @@ initialize --skip-istio-addon  --min-nodes=4 --max-nodes=4 --install-latest-rele
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=30m
 
+if (( HTTPS )); then
+  use_https="--https"
+  toggle_feature autoTLS Enabled config-network
+  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/
+  add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+fi
+
 header "Running upgrade tests"
+
+TEST_OPTIONS="${TEST_OPTIONS:---resolvabledomain=$(use_resolvable_domain) ${use_https}}"
 
 go_test_e2e -tags=upgrade -timeout=${TIMEOUT} \
   ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
+  ${TEST_OPTIONS} || fail_test
+
+if (( HTTPS )); then
+  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
+  toggle_feature autoTLS Disabled config-network
+fi
 
 # Remove the kail log file if the test flow passes.
 # This is for preventing too many large log files to be uploaded to GCS in CI.
