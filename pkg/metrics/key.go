@@ -31,5 +31,5 @@ var (
 	ContainerTagKey      = tag.MustNewKey(metricskey.ContainerName)
 	ResponseCodeKey      = tag.MustNewKey(metricskey.LabelResponseCode)
 	ResponseCodeClassKey = tag.MustNewKey(metricskey.LabelResponseCodeClass)
-	RouteTagKey          = tag.MustNewKey("tag")
+	RouteTagKey          = tag.MustNewKey("route_tag")
 )
