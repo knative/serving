@@ -151,6 +151,11 @@ type IngressTLS struct {
 	SecretName string `json:"secretName,omitempty"`
 
 	// SecretNamespace is the namespace of the secret used to terminate SSL traffic.
+	// If not set the namespace should be assumed to be the same as the Ingress.
+	// If set the secret should have the same namespace as the Ingress otherwise
+	// the behaviour is undefined and not supported.
+	//
+	// +optional
 	SecretNamespace string `json:"secretNamespace,omitempty"`
 }
 
