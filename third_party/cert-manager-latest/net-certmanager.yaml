@@ -18,7 +18,7 @@ metadata:
   # These are the permissions needed by the `cert-manager` `Certificate` implementation.
   name: knative-serving-certmanager
   labels:
-    serving.knative.dev/release: "v20210614-d8e51dbc"
+    serving.knative.dev/release: "v20210615-2ba87002"
     serving.knative.dev/controller: "true"
     networking.knative.dev/certificate-provider: cert-manager
 rules:
@@ -49,7 +49,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.net-certmanager.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20210614-d8e51dbc"
+    serving.knative.dev/release: "v20210615-2ba87002"
 webhooks:
   - admissionReviewVersions:
       - v1beta1
@@ -86,7 +86,7 @@ metadata:
   name: net-certmanager-webhook-certs
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210614-d8e51dbc"
+    serving.knative.dev/release: "v20210615-2ba87002"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -109,7 +109,7 @@ metadata:
   name: config-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210614-d8e51dbc"
+    serving.knative.dev/release: "v20210615-2ba87002"
     networking.knative.dev/certificate-provider: cert-manager
 data:
   _example: |
@@ -156,7 +156,7 @@ metadata:
   name: networking-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210614-d8e51dbc"
+    serving.knative.dev/release: "v20210615-2ba87002"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   selector:
@@ -168,14 +168,14 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: networking-certmanager
-        serving.knative.dev/release: "v20210614-d8e51dbc"
+        serving.knative.dev/release: "v20210615-2ba87002"
     spec:
       serviceAccountName: controller
       containers:
         - name: networking-certmanager
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:ebf730c2cfc65178a9e44f9e1ed34dd05f8db692870c2e50aac0127919da0a3e
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:418c001ca6c4c1595b2370f581dca570e7c8d29c813eb2ef8311af224d87e61c
           resources:
             requests:
               cpu: 30m
@@ -213,7 +213,7 @@ kind: Service
 metadata:
   labels:
     app: networking-certmanager
-    serving.knative.dev/release: "v20210614-d8e51dbc"
+    serving.knative.dev/release: "v20210615-2ba87002"
     networking.knative.dev/certificate-provider: cert-manager
   name: networking-certmanager
   namespace: knative-serving
@@ -250,7 +250,7 @@ metadata:
   name: net-certmanager-webhook
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210614-d8e51dbc"
+    serving.knative.dev/release: "v20210615-2ba87002"
 spec:
   selector:
     matchLabels:
@@ -263,14 +263,14 @@ spec:
       labels:
         app: net-certmanager-webhook
         role: net-certmanager-webhook
-        serving.knative.dev/release: "v20210614-d8e51dbc"
+        serving.knative.dev/release: "v20210615-2ba87002"
     spec:
       serviceAccountName: controller
       containers:
         - name: webhook
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:70952103990e5e484039c69c4f552f5b896977bfa9233ae2579635a84db3e367
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:6a6a7ae7fd2e9a6ee9499c8003b48e3aa4d8f909525e67d2a83022652b1364fd
           resources:
             requests:
               cpu: 20m
@@ -329,7 +329,7 @@ metadata:
   namespace: knative-serving
   labels:
     role: net-certmanager-webhook
-    serving.knative.dev/release: "v20210614-d8e51dbc"
+    serving.knative.dev/release: "v20210615-2ba87002"
 spec:
   ports:
     # Define metrics and profiling for them to be accessible within service meshes.
