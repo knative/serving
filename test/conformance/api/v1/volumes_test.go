@@ -428,6 +428,7 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 					Path:     tokenPath,
 				},
 			}},
+			DefaultMode: ptr.Int32(0444), // Ensure everybody can read the mounted files.
 		},
 	})
 	withSubpath := func(svc *v1.Service) {
@@ -436,15 +437,7 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 		vm.SubPath = filepath.Base(saPath)
 	}
 
-	withRunAsUser := func(svc *v1.Service) {
-		svc.Spec.Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-			// The token will be mounted owned by root, so we need the container to
-			// run as root to be able to read it.
-			RunAsUser: ptr.Int64(0),
-		}
-	}
-
-	serviceOpts := []ServiceOption{withVolume, withSubpath, withRunAsUser}
+	serviceOpts := []ServiceOption{withVolume, withSubpath}
 
 	// Setup initial Service
 	if _, err := v1test.CreateServiceReady(t, clients, &names, serviceOpts...); err != nil {
