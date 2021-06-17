@@ -17,7 +17,7 @@ limitations under the License.
 // This file contains logic to encapsulate flags which are needed to specify
 // what cluster, etc. to use for e2e tests.
 
-package flags
+package environment
 
 import (
 	"flag"
