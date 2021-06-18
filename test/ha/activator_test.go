@@ -72,10 +72,6 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 		t.Fatalf("Deployment %s not scaled > 1: %s", activatorDeploymentName, err)
 	}
 
-	if err != nil {
-		t.Fatal("Failed to get activator pods:", err)
-	}
-
 	// Create first service that we will continually probe during activator restart.
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
