@@ -44,7 +44,6 @@ aliases:
   - richieescarez
   eventing-reviewers:
   - aslom
-  - nlopezgi
   - tayarani
   - tommyreddad
   eventing-triage:
@@ -53,7 +52,6 @@ aliases:
   - lberk
   - n3wscott
   - slinkydeveloper
-  - zhongduo
   eventing-wg-leads:
   - devguyio
   - lionelvillard
@@ -70,7 +68,6 @@ aliases:
   - pierDipi
   - slinkydeveloper
   - vaikas
-  - zhongduo
   knative-admin:
   - RichieEscarez
   - bsnchan
@@ -107,7 +104,6 @@ aliases:
   - n3wscott
   - nak3
   - navidshaikh
-  - nlopezgi
   - rhuss
   - shashwathi
   - slinkydeveloper
