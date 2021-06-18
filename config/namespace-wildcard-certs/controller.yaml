@@ -15,7 +15,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: networking-ns-cert
+  name: net-nscert-controller
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
@@ -23,13 +23,13 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: networking-ns-cert
+      app: net-nscert-controller
   template:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
-        app: networking-ns-cert
+        app: net-nscert-controller
         serving.knative.dev/release: devel
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
@@ -39,13 +39,13 @@ spec:
           - podAffinityTerm:
               labelSelector:
                 matchLabels:
-                  app: networking-ns-cert
+                  app: net-nscert-controller
               topologyKey: kubernetes.io/hostname
             weight: 100
 
       serviceAccountName: controller
       containers:
-      - name: networking-nscert
+      - name: controller
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: ko://knative.dev/serving/cmd/networking/nscert
@@ -91,10 +91,10 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: networking-ns-cert
+    app: net-nscert-controller
     serving.knative.dev/release: devel
     networking.knative.dev/wildcard-certificate-provider: nscert
-  name: networking-ns-cert
+  name: net-nscert-controller
   namespace: knative-serving
 spec:
   ports:
@@ -106,4 +106,4 @@ spec:
     port: 8008
     targetPort: 8008
   selector:
-    app: networking-ns-cert
+    app: net-nscert-controller
