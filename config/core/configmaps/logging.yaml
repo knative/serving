@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "d9570453"
+    knative.dev/example-checksum: "79e56eb4"
 data:
   _example: |
     ################################
@@ -73,4 +73,4 @@ data:
     loglevel.hpaautoscaler: "info"
     loglevel.certcontroller: "info"
     loglevel.istiocontroller: "info"
-    loglevel.nscontroller: "info"
+    loglevel.net-nscert-controller: "info"

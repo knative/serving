@@ -24,5 +24,5 @@ import (
 )
 
 func main() {
-	sharedmain.Main("nscontroller", nscert.NewController)
+	sharedmain.Main("net-nscert-controller", nscert.NewController)
 }
