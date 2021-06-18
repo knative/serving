@@ -35,4 +35,4 @@ data:
   loglevel.domainmapping: "debug"
   loglevel.certcontroller: "debug"
   loglevel.istiocontroller: "debug"
-  loglevel.nscontroller: "debug"
+  loglevel.net-nscert-controller: "debug"
