@@ -31,6 +31,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -100,6 +102,11 @@ func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("Error probing %s: %v", names.URL.Hostname(), err)
+	}
+
+	// Waiting until HPA status is available, as it takes some time until HPA starts collecting metrics.
+	if err := waitForHPAState(t, resources.Revision.Name, resources.Revision.Namespace, clients); err != nil {
+		t.Fatalf("Error collecting metrics by HPA: %v", err)
 	}
 
 	return &TestContext{
@@ -201,4 +208,18 @@ func waitForScaleToOne(t *testing.T, deploymentName string, clients *test.Client
 		test.ServingNamespace,
 		scaleToMinimumTimeout,
 	)
+}
+
+func waitForHPAState(t *testing.T, name, namespace string, clients *test.Clients) error {
+	return wait.PollImmediate(time.Second, 10*time.Minute, func() (bool, error) {
+		hpa, err := clients.KubeClient.AutoscalingV2beta1().HorizontalPodAutoscalers(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		if hpa.Status.CurrentMetrics == nil {
+			t.Logf("Waiting for hpa.status is available: %v", hpa.Status)
+			return false, nil
+		}
+		return true, nil
+	})
 }
