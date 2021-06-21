@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "4bd9f3fd"
+    knative.dev/example-checksum: "d38faef1"
 data:
   _example: |
     ################################
@@ -113,12 +113,15 @@ data:
     # be automatically created (and deleted) as needed when DomainMappings are
     # reconciled.
     #
-    # If this is "false", the cluster administrator is responsible for creating
-    # ClusterDomainClaims and delegating them to namespaces via their
-    # spec.Namespace field. This is useful for multitenant environments
-    # which need to control which namespace can use a particular domain name in
-    # a domain mapping.
-    autocreateClusterDomainClaims: "true"
+    # If this is "false" (the default), the cluster administrator is
+    # responsible for creating ClusterDomainClaims and delegating them to
+    # namespaces via their spec.Namespace field. This setting should be used in
+    # multitenant environments which need to control which namespace can use a
+    # particular domain name in a domain mapping.
+    #
+    # If this is "true", users are able to associate arbitrary names with their
+    # services via the DomainMapping feature.
+    autocreateClusterDomainClaims: "false"
 
     # If true, networking plugins can add additional information to deployed
     # applications to make their pods directly accessible via their IPs even if mesh is
