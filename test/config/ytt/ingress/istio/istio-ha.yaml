@@ -14,4 +14,3 @@ serving:
     - networking-istio #! Legacy name
     #@overlay/append
     - istio-webhook    #! Legacy name
-
