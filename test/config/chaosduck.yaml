@@ -80,8 +80,10 @@ spec:
         args:
         # Disable chaos on the Istio components.
         - "-disable=networking-istio"
+        - "-disable=net-istio-controller"
         # Disable chaos on Kourier components.
         - "-disable=3scale-kourier-control"
+        - "-disable=net-kourier-controller"
         # Disable chaos on webhooks until https://github.com/knative/pkg/issues/1509 is
         # sorted out.
         - "-disableRegex=.*webhook.*"

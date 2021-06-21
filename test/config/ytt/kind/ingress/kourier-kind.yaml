@@ -1,13 +1,21 @@
 #@ load("@ytt:overlay", "overlay")
 #@ load("helpers.lib.yaml", "subset")
 
+#@ def net_kourier_controller():
+#@  names=[
+#@    subset(name="net-kourier-controller"),
+#@    subset(name="3scale-kourier-gateway"),
+#@  ]
+#@  return overlay.and_op(subset(kind="Deployment"), overlay.or_op(*names))
+#@ end
+
 #@overlay/match by=subset(kind="Service"), expects="1+"
 ---
 spec:
   #@overlay/match by=lambda key,l,_: key == "type" and l == "LoadBalancer", when=1
   type: NodePort
 
-#@overlay/match by=subset(kind="Deployment", name="3scale-kourier-gateway")
+#@overlay/match by=net_kourier_controller()
 ---
 spec:
   #@overlay/match missing_ok=True
