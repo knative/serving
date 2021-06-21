@@ -67,12 +67,14 @@ function setup_auto_tls_common() {
   setup_custom_domain
 
   toggle_feature autoTLS Enabled config-network
+  toggle_feature autocreateClusterDomainClaims true config-network
 }
 
 function cleanup_auto_tls_common() {
   cleanup_custom_domain
 
   toggle_feature autoTLS Disabled config-network
+  toggle_feature autocreateClusterDomainClaims false config-network
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 }
 
