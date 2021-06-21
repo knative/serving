@@ -104,11 +104,13 @@ go_test_e2e -timeout=15m -tags=hpa ./test/e2e || failed=1
 
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
+toggle_feature autocreateClusterDomainClaims true config-network || fail_test
 go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
   ${TEST_OPTIONS} \
   -replicas="${REPLICAS:-1}" \
   -buckets="${BUCKETS:-1}" \
   -spoofinterval="10ms" || failed=1
+toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
 if (( HTTPS )); then
   kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
