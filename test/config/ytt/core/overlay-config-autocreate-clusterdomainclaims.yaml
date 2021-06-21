@@ -6,5 +6,5 @@
 ---
 #@overlay/match-child-defaults missing_ok=True
 data:
-  autocreateClusterDomainClaims: true
+  autocreateClusterDomainClaims: "true"
 
