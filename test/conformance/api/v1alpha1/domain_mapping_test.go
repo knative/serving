@@ -20,16 +20,16 @@ package v1alpha1
 
 import (
 	"context"
-	"net/url"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/reconciler"
+	pkgtest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/conformance/api/shared"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
@@ -94,20 +94,30 @@ func TestDomainMapping(t *testing.T) {
 
 	// Wait for DomainMapping to go Ready.
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		state, err := clients.ServingAlphaClient.DomainMappings.Get(context.Background(), dm.Name, metav1.GetOptions{})
+		var err error
+		dm, err = clients.ServingAlphaClient.DomainMappings.Get(context.Background(), dm.Name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
 
-		return state.IsReady(), nil
+		return dm.IsReady(), nil
 	})
 	if waitErr != nil {
 		t.Fatalf("The DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
 	}
 
-	// Should be able to access the test image text via the mapped domain.
-	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}, resolvableCustomDomain); err != nil {
-		t.Errorf("CheckDistribution=%v, expected no error", err)
+	endpoint := dm.Status.URL.URL()
+	t.Log("Probing", endpoint)
+	if _, err := pkgtest.WaitForEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		endpoint,
+		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText1))),
+		"WaitForSuccessfulResponse",
+		resolvableCustomDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
+		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}
 
 	altClients := e2e.SetupAlternativeNamespace(t)
@@ -164,8 +174,17 @@ func TestDomainMapping(t *testing.T) {
 	}
 
 	// Because the second DomainMapping collided with the first, it should not have taken effect.
-	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}, resolvableCustomDomain); err != nil {
-		t.Errorf("CheckDistribution=%v, expected no error", err)
+	t.Log("Probing", endpoint)
+	if _, err := pkgtest.WaitForEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		endpoint,
+		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText1))),
+		"WaitForSuccessfulResponse",
+		resolvableCustomDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
+		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}
 
 	// Delete the first DomainMapping.
@@ -175,19 +194,29 @@ func TestDomainMapping(t *testing.T) {
 
 	// The second DomainMapping should now be able to claim the domain.
 	waitErr = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		state, err := altClients.ServingAlphaClient.DomainMappings.Get(context.Background(), altDm.Name, metav1.GetOptions{})
+		var err error
+		altDm, err = altClients.ServingAlphaClient.DomainMappings.Get(context.Background(), altDm.Name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
 
-		return state.IsReady(), nil
+		return altDm.IsReady(), nil
 	})
 	if waitErr != nil {
 		t.Fatalf("The second DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
 	}
 
-	// The domain name should now point to the second service.
-	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText2}, resolvableCustomDomain); err != nil {
-		t.Errorf("CheckDistribution=%v, expected no error", err)
+	endpoint = altDm.Status.URL.URL()
+	t.Log("Probing", endpoint)
+	if _, err := pkgtest.WaitForEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		endpoint,
+		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText2))),
+		"WaitForSuccessfulResponse",
+		resolvableCustomDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
+		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}
 }
