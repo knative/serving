@@ -93,9 +93,6 @@ function parse_flags() {
       ;;
     --mesh)
       readonly MESH=1
-      # DO NOT SUBMIT:
-      # This line is to verify the option. Remove before merge.
-      readonly SHORT=1
       return 1
       ;;
     --no-mesh)
