@@ -32,6 +32,7 @@ export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
 
 export RUN_HTTP01_AUTO_TLS_TESTS=0
 export HTTPS=0
+export SHORT=0
 export ENABLE_HA=0
 export MESH=0
 export KIND=0
@@ -108,6 +109,10 @@ function parse_flags() {
       ;;
     --https)
       readonly HTTPS=1
+      return 1
+      ;;
+    --short)
+      readonly SHORT=1
       return 1
       ;;
     --cluster-domain)
