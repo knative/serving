@@ -65,6 +65,9 @@ if [[ -z "${INGRESS_CLASS}" \
 fi
 
 TEST_OPTIONS="${TEST_OPTIONS:-${alpha} --enable-beta --resolvabledomain=$(use_resolvable_domain) ${use_https}}"
+if (( SHORT )); then
+  TEST_OPTIONS+=" -short"
+fi
 
 toggle_feature autocreateClusterDomainClaims true config-network || fail_test
 go_test_e2e -timeout=30m \
