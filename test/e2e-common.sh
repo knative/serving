@@ -446,7 +446,6 @@ function stage_serving_head() {
   mkdir -p "${head_post_install_dir}"
 
   cp "${SERVING_CORE_YAML}" "${head_dir}"
-  cp "${SERVING_DOMAINMAPPING_YAML}" "${head_dir}"
   cp "${SERVING_HPA_YAML}" "${head_dir}"
   cp "${SERVING_POST_INSTALL_JOBS_YAML}" "${head_post_install_dir}"
 }
@@ -461,7 +460,6 @@ function stage_serving_custom() {
   mkdir -p "${head_post_install_dir}"
 
   cp "${SERVING_CORE_YAML}" "${head_dir}"
-  cp "${SERVING_DOMAINMAPPING_YAML}" "${head_dir}"
   cp "${SERVING_HPA_YAML}" "${head_dir}"
   cp "${SERVING_POST_INSTALL_JOBS_YAML}" "${head_post_install_dir}"
 }
@@ -481,9 +479,6 @@ function stage_serving_latest() {
 
   wget "${url}/serving-core.yaml" -P "${latest_dir}" \
     || fail_test "Unable to download latest knative/serving core file."
-
-  wget "${url}/serving-domainmapping.yaml" -P "${latest_dir}" \
-    || fail_test "Unable to download latest knative/serving domain mapping file."
 
   wget "${url}/serving-hpa.yaml" -P "${latest_dir}" \
     || fail_test "Unable to download latest knative/serving hpa file."
