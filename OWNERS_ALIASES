@@ -1,4 +1,5 @@
-# This file is auto-generated from peribolos
+# This file is auto-generated from peribolos.
+# Do not modify this file, instead modify peribolos/knative.yaml
 
 aliases:
   api-core-wg-leads:
