@@ -41,6 +41,7 @@ export CLUSTER_DOMAIN=cluster.local
 # List of custom YAMLs to install, if specified (space-separated).
 export INSTALL_CUSTOM_YAMLS=""
 export INSTALL_SERVING_VERSION="HEAD"
+export INSTALL_ISTIO_VERSION="HEAD"
 export YTT_FILES=()
 
 export TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)}"
@@ -79,6 +80,7 @@ function parse_flags() {
       ;;
     --install-latest-release)
       INSTALL_SERVING_VERSION="latest-release"
+      INSTALL_ISTIO_VERSION="latest-release"
       return 1
       ;;
     --cert-manager-version)
@@ -190,10 +192,6 @@ function parse_flags() {
 function knative_setup() {
   local need_latest_version=0
 
-  if [[ "$(basename "${E2E_SCRIPT}")" == "*upgrade*" ]]; then
-    need_latest_version=1
-  fi
-
   if [[ "${INSTALL_SERVING_VERSION}" == "latest-release" ]]; then
     need_latest_version=1
   fi
@@ -221,7 +219,7 @@ function knative_setup() {
 
   stage_test_resources
 
-  install "${INSTALL_SERVING_VERSION}"
+  install "${INSTALL_SERVING_VERSION}" "${INSTALL_ISTIO_VERSION}"
 }
 
 # Installs Knative Serving in the current cluster.
