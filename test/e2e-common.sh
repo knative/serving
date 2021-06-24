@@ -327,7 +327,7 @@ function install() {
 # Check if we should use --resolvabledomain.  In case the ingress only has
 # hostname, we doesn't yet have a way to support resolvable domain in tests.
 function use_resolvable_domain() {
-  # Temporarily turning off xip.io tests, as DNS errors aren't always retried.
+  # Temporarily turning off sslip.io tests, as DNS errors aren't always retried.
   echo "false"
 }
 
