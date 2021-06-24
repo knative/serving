@@ -208,7 +208,7 @@ func DefaultErrorRetryChecker(err error) (bool, error) {
 	if isTCPTimeout(err) {
 		return true, fmt.Errorf("retrying for TCP timeout: %w", err)
 	}
-	// Retrying on DNS error, since we may be using sslip.io or nip.io in tests.
+	// Retrying on DNS error, since we may be using xip.io or nip.io in tests.
 	if isDNSError(err) {
 		return true, fmt.Errorf("retrying for DNS error: %w", err)
 	}
