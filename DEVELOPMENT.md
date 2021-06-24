@@ -157,10 +157,6 @@ ko apply -Rf config/core/
 
 # Optional steps
 
-# Install DomainMapping Components. Enables the DomainMapping feature.
-# Needed to pass conformance tests if the `--enable-alpha` flag is passed.
-ko apply -Rf config/domain-mapping/
-
 # Run post-install job to set up nice XIP.IO domain name.  This only works
 # if your Kubernetes LoadBalancer has an IPv4 address.
 ko delete -f config/post-install/default-domain.yaml --ignore-not-found
