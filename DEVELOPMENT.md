@@ -157,7 +157,7 @@ ko apply -Rf config/core/
 
 # Optional steps
 
-# Run post-install job to set up nice XIP.IO domain name.  This only works
+# Run post-install job to set up a nice sslip.io domain name.  This only works
 # if your Kubernetes LoadBalancer has an IPv4 address.
 ko delete -f config/post-install/default-domain.yaml --ignore-not-found
 ko apply -f config/post-install/default-domain.yaml

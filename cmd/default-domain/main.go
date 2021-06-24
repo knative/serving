@@ -48,7 +48,7 @@ import (
 var (
 	serverURL  = flag.String("server", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	magicDNS   = flag.String("magic-dns", "", "The hostname for the magic DNS service, e.g. xip.io or nip.io")
+	magicDNS   = flag.String("magic-dns", "", "The hostname for the magic DNS service, e.g. sslip.io or nip.io")
 )
 
 const (
@@ -212,8 +212,8 @@ func main() {
 	}
 
 	// Use the IP (assumes IPv4) to set up a magic DNS name under a top-level Magic
-	// DNS service like xip.io or nip.io, where:
-	//     1.2.3.4.xip.io  ===(magically resolves to)===> 1.2.3.4
+	// DNS service like sslip.io or nip.io, where:
+	//     1.2.3.4.sslip.io  ===(magically resolves to)===> 1.2.3.4
 	// Add this magic DNS name without a label selector to the ConfigMap,
 	// and send it back to the API server.
 	domain := fmt.Sprintf("%s.%s", ip, *magicDNS)

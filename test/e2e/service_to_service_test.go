@@ -95,7 +95,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		Value: helloworldURL.Hostname(),
 	}}
 
-	// When resolvable domain is not set for external access test, use gateway for the endpoint as xip.io is flaky.
+	// When resolvable domain is not set for external access test, use gateway for the endpoint as services like sslip.io may be flaky.
 	// ref: https://github.com/knative/serving/issues/5389
 	if !test.ServingFlags.ResolvableDomain && accessibleExternal {
 		gatewayTarget, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient, pkgTest.Flags.IngressEndpoint)
