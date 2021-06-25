@@ -211,7 +211,7 @@ func TestServiceToServiceCall(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			if test.ServingFlags.EnableLogStream {
+			if !test.ServingFlags.DisableLogStream {
 				cancel := logstream.Start(t)
 				defer cancel()
 			}
@@ -267,7 +267,7 @@ func TestSvcToSvcViaActivator(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if test.ServingFlags.EnableLogStream {
+			if !test.ServingFlags.DisableLogStream {
 				cancel := logstream.Start(t)
 				defer cancel()
 			}
@@ -317,7 +317,7 @@ func TestCallToPublicService(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if test.ServingFlags.EnableLogStream {
+			if !test.ServingFlags.DisableLogStream {
 				cancel := logstream.Start(t)
 				defer cancel()
 			}

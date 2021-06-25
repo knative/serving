@@ -75,7 +75,7 @@ func Setup(t testing.TB, namespace ...string) *Clients {
 	t.Helper()
 	logging.InitializeLogger()
 
-	if ServingFlags.EnableLogStream {
+	if !ServingFlags.DisableLogStream {
 		cancel := logstream.Start(t)
 		t.Cleanup(cancel)
 	}

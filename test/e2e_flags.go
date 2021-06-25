@@ -38,7 +38,7 @@ type ServingEnvironmentFlags struct {
 	Replicas            int    // The number of controlplane replicas being run.
 	EnableAlphaFeatures bool   // Indicates whether we run tests for alpha features
 	EnableBetaFeatures  bool   // Indicates whether we run tests for beta features
-	EnableLogStream     bool   // Indicates whether log streaming is enabled
+	DisableLogStream    bool   // Indicates whether log streaming is disabled
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -65,8 +65,8 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	flag.BoolVar(&f.EnableBetaFeatures, "enable-beta", false,
 		"Set this flag to run tests against beta features")
 
-	flag.BoolVar(&f.EnableLogStream, "enable-logstream", true,
-		"Set this flag to stream logs from system components")
+	flag.BoolVar(&f.DisableLogStream, "disable-logstream", false,
+		"Set this flag to disable streaming logs from system components")
 
 	return &f
 }
