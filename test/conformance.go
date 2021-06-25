@@ -75,8 +75,10 @@ func Setup(t testing.TB, namespace ...string) *Clients {
 	t.Helper()
 	logging.InitializeLogger()
 
-	cancel := logstream.Start(t)
-	t.Cleanup(cancel)
+	if !ServingFlags.DisableLogStream {
+		cancel := logstream.Start(t)
+		t.Cleanup(cancel)
+	}
 
 	cfg, err := pkgTest.Flags.GetRESTConfig()
 	if err != nil {
