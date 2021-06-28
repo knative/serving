@@ -137,7 +137,7 @@ metadata:
   name: config-istio
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: devel
+    serving.knative.dev/release: some-release
     networking.knative.dev/ingress-provider: istio
 data:
   _example: |
