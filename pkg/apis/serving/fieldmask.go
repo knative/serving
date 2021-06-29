@@ -596,7 +596,7 @@ func SecurityContextMask(ctx context.Context, in *corev1.SecurityContext) *corev
 
 	// Allowed fields
 	out.RunAsUser = in.RunAsUser
-	if in.RunAsNonRoot != nil && *in.RunAsNonRoot == true {
+	if in.RunAsNonRoot != nil && *in.RunAsNonRoot {
 		out.RunAsNonRoot = in.RunAsNonRoot
 	}
 	out.ReadOnlyRootFilesystem = in.ReadOnlyRootFilesystem
