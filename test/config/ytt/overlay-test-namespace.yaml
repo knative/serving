@@ -1,0 +1,5 @@
+#@ load("@ytt:overlay", "overlay")
+
+#@overlay/match by=overlay.subset({"kind": "Namespace"}), expects="3+"
+---
+#@overlay/remove
