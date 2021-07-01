@@ -46,6 +46,15 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Merge upstream
+        run: |
+          git remote add upstream https://github.com/${{ github.repository }}.git
+          git fetch upstream ${{ github.base_ref }}
+          git pull --no-rebase --no-commit upstream ${{ github.base_ref }}
+        shell: bash
 
       - name: Check for .codecov.yaml
         id: codecov-enabled
