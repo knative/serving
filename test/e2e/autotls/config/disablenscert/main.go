@@ -67,7 +67,6 @@ func disableNamespaceCertWithExclusions(clients *test.Clients, keepCerts sets.St
 	for _, ns := range namespaces.Items {
 		if keepCerts.Has(ns.Name) {
 			delete(ns.Labels, networking.DisableWildcardCertLabelKey)
-			delete(ns.Labels, networking.DeprecatedDisableWildcardCertLabelKey)
 		} else {
 			if ns.Labels == nil {
 				ns.Labels = make(map[string]string, 1)
