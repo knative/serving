@@ -82,7 +82,7 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 		return fmt.Errorf("failed to list certificates: %w", err)
 	}
 
-	disabledWildcardCertValue, _ := ns.Labels[networking.DisableWildcardCertLabelKey]
+	disabledWildcardCertValue := ns.Labels[networking.DisableWildcardCertLabelKey]
 
 	if strings.EqualFold(disabledWildcardCertValue, "true") {
 		return c.deleteNamespaceCerts(ctx, ns, existingCerts)
