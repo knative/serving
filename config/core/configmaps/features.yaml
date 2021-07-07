@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "8c1f8302"
+    knative.dev/example-checksum: "9891439a"
 data:
   _example: |-
     ################################
@@ -136,4 +136,4 @@ data:
     # This isn't available in AKS (and other?) virtual nodes: https://docs.microsoft.com/en-us/answers/questions/352186/pods-stuck-in-pending-state-on-virtual-nodes.html
     # 1. Enabled: SERVING_POD_IP is injected into knative queue container.
     # 2. Disabled: queue container attempts to determine IP dynamically
-    inject-pod-ip: "disabled"
+    inject-pod-ip: "enabled"
