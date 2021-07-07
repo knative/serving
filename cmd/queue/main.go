@@ -91,8 +91,8 @@ type config struct {
 	ServingNamespace             string `split_words:"true" required:"true"`
 	ServingRevision              string `split_words:"true" required:"true"`
 	ServingConfiguration         string `split_words:"true" required:"true"`
-	ServingPodIP                 string `split_words:"true" required:"true"`
 	ServingPod                   string `split_words:"true" required:"true"`
+	ServingPodIP                 string `split_words:"true"` // optional
 	ServingService               string `split_words:"true"` // optional
 	ServingRequestMetricsBackend string `split_words:"true"` // optional
 	MetricsCollectorAddress      string `split_words:"true"` // optional
@@ -132,6 +132,15 @@ func main() {
 	if err := envconfig.Process("", &env); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+
+	//If SERVING_POD_IP isn't set, get the IP of the pod
+	if len(env.ServingPodIP) == 0 {
+		env.ServingPodIP, err = getIP()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
 
 	// Setup the logger.
@@ -461,4 +470,40 @@ func flush(logger *zap.SugaredLogger) {
 	os.Stdout.Sync()
 	os.Stderr.Sync()
 	metrics.FlushExporter()
+}
+
+func getIP() (string, error) {
+	// Loop through interfaces
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", err;
+	}
+	for _, i := range ifaces {
+		if i.Flags & net.FlagLoopback == net.FlagLoopback {
+			continue;
+		}
+
+		addrs, err := i.Addrs()
+		if err != nil {
+			return "", err;
+		}
+
+		if len(addrs) == 0 {
+			continue;
+		}
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+					ip = v.IP
+			case *net.IPAddr:
+					ip = v.IP
+			}
+
+			//return first IP from first non-loopback interface
+			return ip.String(), nil;
+		}
+	}
+	return "", nil;
 }

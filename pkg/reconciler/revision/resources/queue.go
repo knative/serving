@@ -307,13 +307,6 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 				},
 			},
 		}, {
-			Name: "SERVING_POD_IP",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "status.podIP",
-				},
-			},
-		}, {
 			Name:  "SERVING_LOGGING_CONFIG",
 			Value: cfg.Logging.LoggingConfig,
 		}, {
@@ -365,6 +358,19 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "METRICS_COLLECTOR_ADDRESS",
 			Value: cfg.Observability.MetricsCollectorAddress,
 		}},
+	}
+
+	//status.podIP isn't available for downward api from AKS (and other?) virtual nodes:
+	// https://docs.microsoft.com/en-us/answers/questions/352186/pods-stuck-in-pending-state-on-virtual-nodes.html
+	if(cfg.Features.InjectPodIP == apicfg.Enabled) {
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name: "SERVING_POD_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		})
 	}
 
 	// Only add this if it's really enabled to avoid upgrade churn due to changing the deployment.
