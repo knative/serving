@@ -331,6 +331,16 @@ func withHTTPReadinessProbe(port int) *corev1.Probe {
 		}}
 }
 
+func withHTTPLivenessProbe(port int) *corev1.Probe {
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port: intstr.FromInt(port),
+				Path: "/",
+			},
+		}}
+}
+
 func withExecReadinessProbe(command []string) *corev1.Probe {
 	return &corev1.Probe{
 		Handler: corev1.Handler{
@@ -343,6 +353,12 @@ func withExecReadinessProbe(command []string) *corev1.Probe {
 func withLivenessProbe(handler corev1.Handler) containerOption {
 	return func(container *corev1.Container) {
 		container.LivenessProbe = &corev1.Probe{Handler: handler}
+	}
+}
+
+func withReadinessProbe(handler corev1.Handler) containerOption {
+	return func(container *corev1.Container) {
+		container.ReadinessProbe = &corev1.Probe{Handler: handler}
 	}
 }
 
@@ -812,6 +828,73 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(),
 			}),
 	}, {
+		name: "with HTTP liveness probe and sidecar2 with probe",
+		rev: revision("bar", "foo",
+
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: v1.DefaultUserPort,
+				}},
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+			}, {
+				Name: sidecarContainerName2,
+				Image: "busybox",
+				ReadinessProbe: withHTTPReadinessProbe(8081),
+				LivenessProbe: withHTTPLivenessProbe(8081),
+			},
+			}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}, {
+				ImageDigest: "busybox@sha256:cafebabe",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					func(container *corev1.Container) {
+						container.Image = "busybox@sha256:deadbeef"
+					},
+					withLivenessProbe(corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt(networking.BackendHTTPPort),
+							HTTPHeaders: []corev1.HTTPHeader{{
+								Name:  network.KubeletProbeHeaderName,
+								Value: queue.Name,
+							}},
+						},
+					}),
+				),
+				sidecarContainer(sidecarContainerName2,
+					func(container *corev1.Container) {
+						container.Image = "busybox@sha256:cafebabe"
+					},
+					withReadinessProbe(corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt(8081),
+						},
+					}),
+					withLivenessProbe(corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt(8081),
+						},
+					}),
+				),
+				queueContainer(),
+			}),
+	},  {
 		name: "with tcp liveness probe",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{

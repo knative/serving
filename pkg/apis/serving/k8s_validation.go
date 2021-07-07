@@ -360,14 +360,7 @@ func validateContainersPorts(containers []corev1.Container) *apis.FieldError {
 
 // validateSidecarContainer validate fields for non serving containers
 func validateSidecarContainer(ctx context.Context, container corev1.Container, volumes sets.String) (errs *apis.FieldError) {
-	if container.LivenessProbe != nil {
-		errs = errs.Also(apis.CheckDisallowedFields(*container.LivenessProbe,
-			*ProbeMask(&corev1.Probe{})).ViaField("livenessProbe"))
-	}
-	if container.ReadinessProbe != nil {
-		errs = errs.Also(apis.CheckDisallowedFields(*container.ReadinessProbe,
-			*ProbeMask(&corev1.Probe{})).ViaField("readinessProbe"))
-	}
+	// you can add here validations for sidecar container fields
 	return errs.Also(validate(ctx, container, volumes))
 }
 

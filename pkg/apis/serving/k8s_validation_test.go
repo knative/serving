@@ -302,7 +302,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "flag enabled: probes are not allowed for non serving containers",
+		name: "flag enabled: probes are allowed for non serving containers",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Image: "busybox",
@@ -319,10 +319,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				},
 			}},
 		},
-		want: &apis.FieldError{
-			Message: "must not set the field(s)",
-			Paths:   []string{"containers[1].livenessProbe.timeoutSeconds", "containers[1].readinessProbe.timeoutSeconds"},
-		},
+		want: nil,
 	}, {
 		name: "flag enabled: multiple containers with no port",
 		ps: corev1.PodSpec{
