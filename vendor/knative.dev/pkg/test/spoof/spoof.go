@@ -223,6 +223,11 @@ func DefaultErrorRetryChecker(err error) (bool, error) {
 	if errors.Is(err, io.EOF) {
 		return true, fmt.Errorf("retrying for: %w", err)
 	}
+	// No route to host errors are in the same category as connection refused errors and
+	// are usually transient.
+	if isNoRouteToHostError(err) {
+		return true, fmt.Errorf("retrying for 'no route to host' error: %w", err)
+	}
 	return false, err
 }
 
