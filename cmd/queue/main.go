@@ -136,11 +136,12 @@ func main() {
 
 	//If SERVING_POD_IP isn't set, get the IP of the pod
 	if len(env.ServingPodIP) == 0 {
-		env.ServingPodIP, err = getIP()
+		ip, err := getIP()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		env.ServingPodIP = ip
 	}
 
 	// Setup the logger.
