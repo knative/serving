@@ -832,8 +832,8 @@ func TestMakePodSpec(t *testing.T) {
 		rev: revision("bar", "foo",
 
 			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "busybox",
+				Name:  servingContainerName,
+				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: v1.DefaultUserPort,
 				}},
@@ -846,10 +846,10 @@ func TestMakePodSpec(t *testing.T) {
 					},
 				},
 			}, {
-				Name: sidecarContainerName2,
-				Image: "busybox",
+				Name:           sidecarContainerName2,
+				Image:          "busybox",
 				ReadinessProbe: withHTTPReadinessProbe(8081),
-				LivenessProbe: withHTTPLivenessProbe(8081),
+				LivenessProbe:  withHTTPLivenessProbe(8081),
 			},
 			}),
 			WithContainerStatuses([]v1.ContainerStatus{{
@@ -894,7 +894,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(),
 			}),
-	},  {
+	}, {
 		name: "with tcp liveness probe",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
