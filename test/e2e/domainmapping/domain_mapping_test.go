@@ -79,7 +79,7 @@ func TestBYOCertificate(t *testing.T) {
 	}
 
 	cert, key := makeCertificateForDomain(t, host)
-	secret, err := clients.KubeClient.CoreV1().Secrets(test.ServingNamespace).Create(ctx, &corev1.Secret{
+	secret, err := clients.KubeClient.CoreV1().Secrets(test.ServingFlags.TestNamespace).Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: test.AppendRandomString("byocert-secret"),
 		},

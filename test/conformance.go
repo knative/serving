@@ -85,7 +85,7 @@ func Setup(t testing.TB, namespace ...string) *Clients {
 		t.Fatal("Couldn't get REST config", "error", err)
 	}
 
-	ns := ServingNamespace
+	ns := ServingFlags.TestNamespace
 	if len(namespace) > 0 {
 		ns = namespace[0]
 	}

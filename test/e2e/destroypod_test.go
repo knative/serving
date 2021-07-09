@@ -187,7 +187,7 @@ func TestDestroyPodTimely(t *testing.T) {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
 
-	pods, err := clients.KubeClient.CoreV1().Pods(test.ServingNamespace).List(context.Background(), metav1.ListOptions{
+	pods, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
 	})
 	if err != nil || len(pods.Items) == 0 {
@@ -198,11 +198,11 @@ func TestDestroyPodTimely(t *testing.T) {
 	podToDelete := pods.Items[0].Name
 	t.Logf("Deleting pod %q", podToDelete)
 	start := time.Now()
-	clients.KubeClient.CoreV1().Pods(test.ServingNamespace).Delete(context.Background(), podToDelete, metav1.DeleteOptions{})
+	clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Delete(context.Background(), podToDelete, metav1.DeleteOptions{})
 
 	var latestPodState *corev1.Pod
 	if err := wait.PollImmediate(1*time.Second, revisionTimeout, func() (bool, error) {
-		pod, err := clients.KubeClient.CoreV1().Pods(test.ServingNamespace).Get(context.Background(), podToDelete, metav1.GetOptions{})
+		pod, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Get(context.Background(), podToDelete, metav1.GetOptions{})
 		if apierrs.IsNotFound(err) {
 			// The podToDelete must be deleted.
 			return true, nil
@@ -222,7 +222,7 @@ func TestDestroyPodTimely(t *testing.T) {
 		t.Log("Latest state:", spew.Sprint(latestPodState))
 
 		// Fetch logs from the queue-proxy.
-		logs, err := clients.KubeClient.CoreV1().Pods(test.ServingNamespace).GetLogs(podToDelete, &corev1.PodLogOptions{
+		logs, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).GetLogs(podToDelete, &corev1.PodLogOptions{
 			Container: "queue-proxy",
 		}).Do(context.Background()).Raw()
 		if err != nil {
@@ -271,7 +271,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
 
-	pods, err := clients.KubeClient.CoreV1().Pods(test.ServingNamespace).List(context.Background(), metav1.ListOptions{
+	pods, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
 	})
 	if err != nil || len(pods.Items) == 0 {
@@ -319,7 +319,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	// And immediately kill the pod.
 	podToDelete := pods.Items[0].Name
 	t.Logf("Deleting pod %q", podToDelete)
-	clients.KubeClient.CoreV1().Pods(test.ServingNamespace).Delete(context.Background(), podToDelete, metav1.DeleteOptions{})
+	clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Delete(context.Background(), podToDelete, metav1.DeleteOptions{})
 
 	// Make sure all the requests succeed.
 	if err := eg.Wait(); err != nil {

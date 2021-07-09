@@ -46,7 +46,7 @@ func main() {
 		log.Fatal("Couldn't get REST config", "error", err)
 	}
 
-	clients, err := test.NewClients(cfg, test.ServingNamespace)
+	clients, err := test.NewClients(cfg, test.ServingFlags.TestNamespace)
 	if err != nil {
 		log.Fatal("Failed to create clients: ", err)
 	}

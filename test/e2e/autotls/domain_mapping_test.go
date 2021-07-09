@@ -57,7 +57,7 @@ func TestDomainMappingAutoTLS(t *testing.T) {
 
 	ctx := context.Background()
 
-	clients := test.Setup(t, test.TLSNamespace)
+	clients := test.Setup(t, test.ServingFlags.TLSTestNamespace)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),

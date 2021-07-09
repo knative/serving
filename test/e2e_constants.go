@@ -21,16 +21,6 @@ limitations under the License.
 package test
 
 const (
-	// ServingNamespace is the default namespace for serving e2e tests
-	ServingNamespace = "serving-tests"
-
-	// AlternativeServingNamespace is a different namespace to run cross-
-	// namespace tests in.
-	AlternativeServingNamespace = "serving-tests-alt"
-
-	// TLSNamespace is the namespace for serving tls tests
-	TLSNamespace = "tls"
-
 	// Environment propagation conformance test objects
 
 	// ConformanceConfigMap is the name of the configmap to propagate env variables from
