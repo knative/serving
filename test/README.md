@@ -48,15 +48,56 @@ which need [`-tags=e2e`](#running-end-to-end-tests) to be enabled._
 
 ## Running end to end tests
 
-To run [the e2e tests](./e2e) and [the conformance tests](./conformance), you
-need to have a running environment that meets
+To run [the e2e tests](./e2e), you need to have a running environment that meets
+[the e2e test environment requirements](#environment-requirements), and you need
+to specify the build tag `e2e`.
+
+```bash
+go test -v -tags=e2e -count=1 ./test/e2e
+```
+
+## Running conformance tests
+
+To run [the conformance tests](./conformance), you need to have a running environment that meets
 [the e2e test environment requirements](#environment-requirements), and you need
 to specify the build tag `e2e`.
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/conformance/...
-go test -v -tags=e2e -count=1 ./test/e2e
 ```
+
+### Running conformance as a project admin
+
+It is possible to run the conformance tests by a user with reduced privileges, e.g. project admin.
+The environment needs to meet similar requirements as in [running conformance tests](#running-conformance-tests)
+but the test resources can be limited to minimum and so the user can install them.
+Running the conformance tests then consists of these steps:
+1. The cluster admin creates three test namespaces with arbitrary names, e.g. `serving-tests`,
+`serving-tests-alt`, `tls`.
+1. The project admin installs minimum test resources:
+    ```bash
+    run_ytt \
+        -f test/config/ytt/lib \
+        -f test/config/ytt/values.yaml \
+        -f test/config/ytt/core/resources.yaml \
+        -f test/config/ytt/overlay-test-namespace \
+        --data-value data.values.serving.namespaces.test.default=serving-tests \
+        --data-value data.values.serving.namespaces.test.alternative=serving-tests-alt \
+        --data-value data.values.serving.namespaces.test.tls=tls | kubectl apply -f -
+    ```
+1. The project admin then runs the conformance test suite using the `--disable-logstream` flag:
+    ```bash
+    go test -v -tags=e2e -count=1 \
+      --disable-logstream \
+      --test-namespace=serving-tests \
+      --alt-test-namespace=serving-tests-alt \
+      --tls-test-namespace=tls \
+      ./test/conformance/... \
+    ```
+
+Note: The concrete test namespaces mentioned above are also the defaults expected by
+the test suite. If the exact names are used the commands above can be further simplified
+and the flags for passing specific namespaces can be ommitted.
 
 ## Running performance tests
 
