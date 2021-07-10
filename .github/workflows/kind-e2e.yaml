@@ -93,6 +93,10 @@ jobs:
         sudo swapoff -a
         sudo rm -f /swapfile
 
+        # Use tmpfs for etcd storage
+        sudo mkdir -p /tmp/etcd
+        sudo mount -t tmpfs tmpfs /tmp/etcd
+
         curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/${{ matrix.kind-version }}/kind-$(uname)-amd64
         chmod +x ./kind
         sudo mv kind /usr/local/bin
@@ -131,6 +135,9 @@ jobs:
         nodes:
         - role: control-plane
           image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+          extraMounts:
+          - containerPath: /var/lib/etcd
+            hostPath: /tmp/etcd
         - role: worker
           image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
         EOF
