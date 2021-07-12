@@ -59,7 +59,7 @@ func WaitForScaleToZero(t testing.TB, deploymentName string, clients *test.Clien
 			return d.Status.ReadyReplicas == 0, nil
 		},
 		"DeploymentIsScaledDown",
-		test.ServingNamespace,
+		test.ServingFlags.TestNamespace,
 		scaleToZeroGracePeriod*6,
 	)
 }

@@ -281,7 +281,7 @@ func assertScaleDown(ctx *TestContext) {
 			}
 			return true, nil
 		},
-		"WaitForAvailablePods", test.ServingNamespace); err != nil {
+		"WaitForAvailablePods", test.ServingFlags.TestNamespace); err != nil {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", deploymentName, err)
 	}
 
@@ -295,7 +295,7 @@ func assertScaleDown(ctx *TestContext) {
 
 func numberOfReadyPods(ctx *TestContext) (float64, *appsv1.Deployment, error) {
 	n := resourcenames.Deployment(ctx.resources.Revision)
-	deploy, err := ctx.clients.KubeClient.AppsV1().Deployments(test.ServingNamespace).Get(
+	deploy, err := ctx.clients.KubeClient.AppsV1().Deployments(test.ServingFlags.TestNamespace).Get(
 		context.Background(), n, metav1.GetOptions{})
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to get deployment %s: %w", n, err)

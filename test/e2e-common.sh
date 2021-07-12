@@ -37,6 +37,7 @@ export ENABLE_HA=0
 export MESH=0
 export KIND=0
 export CLUSTER_DOMAIN=cluster.local
+export REUSE_TEST_NAMESPACE=0
 
 # List of custom YAMLs to install, if specified (space-separated).
 export INSTALL_CUSTOM_YAMLS=""
@@ -161,6 +162,14 @@ function parse_flags() {
       export SYSTEM_NAMESPACE=$2
       return 2
       ;;
+    --reuse-test-namespace)
+      # Indicates whether test namespace creation should be skipped. Useful
+      # in restricted environments where the user running tests does not have
+      # sufficient permissions to create namespaces. The test namespaces
+      # are supposed to be created in advance.
+      readonly REUSE_TEST_NAMESPACE=1
+      return 1
+      ;;
   esac
   return 0
 }
@@ -270,6 +279,10 @@ function install() {
   if (( KIND )); then
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/core")
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/ingress/${ingress}-kind.yaml")
+  fi
+
+  if (( REUSE_TEST_NAMESPACE )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/overlay-test-namespace.yaml")
   fi
 
   local ytt_result=$(mktemp)
