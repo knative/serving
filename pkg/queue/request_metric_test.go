@@ -24,9 +24,9 @@ import (
 
 	"go.opencensus.io/resource"
 	network "knative.dev/networking/pkg"
-	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
+	"knative.dev/serving/pkg/metrics"
 )
 
 const targetURI = "http://example.com"
@@ -51,19 +51,19 @@ func TestRequestMetricsHandler(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 
 	wantTags := map[string]string{
-		metricskey.PodName:                "pod",
-		metricskey.ContainerName:          "queue-proxy",
-		metricskey.LabelResponseCode:      "200",
-		metricskey.LabelResponseCodeClass: "2xx",
-		"route_tag":                       disabledTagName,
+		metrics.LabelPodName:           "pod",
+		metrics.LabelContainerName:     "queue-proxy",
+		metrics.LabelResponseCode:      "200",
+		metrics.LabelResponseCodeClass: "2xx",
+		"route_tag":                    disabledTagName,
 	}
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
 		Labels: map[string]string{
-			metricskey.LabelNamespaceName:     "ns",
-			metricskey.LabelRevisionName:      "rev",
-			metricskey.LabelServiceName:       "svc",
-			metricskey.LabelConfigurationName: "cfg",
+			metrics.LabelNamespaceName:     "ns",
+			metrics.LabelRevisionName:      "rev",
+			metrics.LabelServiceName:       "svc",
+			metrics.LabelConfigurationName: "cfg",
 		},
 	}
 
@@ -92,19 +92,19 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 
 	wantTags := map[string]string{
-		metricskey.PodName:                "pod",
-		metricskey.ContainerName:          "queue-proxy",
-		metricskey.LabelResponseCode:      "200",
-		metricskey.LabelResponseCodeClass: "2xx",
-		"route_tag":                       "test-tag",
+		metrics.LabelPodName:           "pod",
+		metrics.LabelContainerName:     "queue-proxy",
+		metrics.LabelResponseCode:      "200",
+		metrics.LabelResponseCodeClass: "2xx",
+		metrics.LabelRouteTag:          "test-tag",
 	}
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
 		Labels: map[string]string{
-			metricskey.LabelNamespaceName:     "ns",
-			metricskey.LabelRevisionName:      "rev",
-			metricskey.LabelServiceName:       "svc",
-			metricskey.LabelConfigurationName: "cfg",
+			metrics.LabelNamespaceName:     "ns",
+			metrics.LabelRevisionName:      "rev",
+			metrics.LabelServiceName:       "svc",
+			metrics.LabelConfigurationName: "cfg",
 		},
 	}
 
@@ -160,19 +160,19 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			t.Error("Want ServeHTTP to panic, got nothing.")
 		}
 		wantTags := map[string]string{
-			metricskey.PodName:                "pod",
-			metricskey.ContainerName:          "queue-proxy",
-			metricskey.LabelResponseCode:      "500",
-			metricskey.LabelResponseCodeClass: "5xx",
-			"route_tag":                       disabledTagName,
+			metrics.LabelPodName:           "pod",
+			metrics.LabelContainerName:     "queue-proxy",
+			metrics.LabelResponseCode:      "500",
+			metrics.LabelResponseCodeClass: "5xx",
+			"route_tag":                    disabledTagName,
 		}
 		wantResource := &resource.Resource{
 			Type: "knative_revision",
 			Labels: map[string]string{
-				metricskey.LabelNamespaceName:     "ns",
-				metricskey.LabelRevisionName:      "rev",
-				metricskey.LabelServiceName:       "svc",
-				metricskey.LabelConfigurationName: "cfg",
+				metrics.LabelNamespaceName:     "ns",
+				metrics.LabelRevisionName:      "rev",
+				metrics.LabelServiceName:       "svc",
+				metrics.LabelConfigurationName: "cfg",
 			},
 		}
 		metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
@@ -228,18 +228,18 @@ func TestAppRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			t.Error("Want ServeHTTP to panic, got nothing.")
 		}
 		wantTags := map[string]string{
-			metricskey.PodName:                "pod",
-			metricskey.ContainerName:          "queue-proxy",
-			metricskey.LabelResponseCode:      "500",
-			metricskey.LabelResponseCodeClass: "5xx",
+			metrics.LabelPodName:           "pod",
+			metrics.LabelContainerName:     "queue-proxy",
+			metrics.LabelResponseCode:      "500",
+			metrics.LabelResponseCodeClass: "5xx",
 		}
 		wantResource := &resource.Resource{
 			Type: "knative_revision",
 			Labels: map[string]string{
-				metricskey.LabelNamespaceName:     "ns",
-				metricskey.LabelRevisionName:      "rev",
-				metricskey.LabelServiceName:       "svc",
-				metricskey.LabelConfigurationName: "cfg",
+				metrics.LabelNamespaceName:     "ns",
+				metrics.LabelRevisionName:      "rev",
+				metrics.LabelServiceName:       "svc",
+				metrics.LabelConfigurationName: "cfg",
 			},
 		}
 
@@ -264,18 +264,18 @@ func TestAppRequestMetricsHandler(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 
 	wantTags := map[string]string{
-		metricskey.PodName:                "pod",
-		metricskey.ContainerName:          "queue-proxy",
-		metricskey.LabelResponseCode:      "200",
-		metricskey.LabelResponseCodeClass: "2xx",
+		metrics.LabelPodName:           "pod",
+		metrics.LabelContainerName:     "queue-proxy",
+		metrics.LabelResponseCode:      "200",
+		metrics.LabelResponseCodeClass: "2xx",
 	}
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
 		Labels: map[string]string{
-			metricskey.LabelNamespaceName:     "ns",
-			metricskey.LabelRevisionName:      "rev",
-			metricskey.LabelServiceName:       "svc",
-			metricskey.LabelConfigurationName: "cfg",
+			metrics.LabelNamespaceName:     "ns",
+			metrics.LabelRevisionName:      "rev",
+			metrics.LabelServiceName:       "svc",
+			metrics.LabelConfigurationName: "cfg",
 		},
 	}
 

@@ -57,19 +57,19 @@ func register() {
 			Description: "Concurrent requests that are routed to Activator",
 			Measure:     requestConcurrencyM,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{metrics.PodTagKey, metrics.ContainerTagKey},
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
 		},
 		&view.View{
 			Description: "The number of requests that are routed to Activator",
 			Measure:     requestCountM,
 			Aggregation: view.Count(),
-			TagKeys:     []tag.Key{metrics.PodTagKey, metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey},
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey},
 		},
 		&view.View{
 			Description: "The response time in millisecond",
 			Measure:     responseTimeInMsecM,
 			Aggregation: defaultLatencyDistribution,
-			TagKeys:     []tag.Key{metrics.PodTagKey, metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey},
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey},
 		},
 	); err != nil {
 		panic(err)
