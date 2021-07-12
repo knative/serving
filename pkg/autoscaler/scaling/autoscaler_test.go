@@ -33,7 +33,6 @@ import (
 
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/autoscaler/metrics"
-	smetrics "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/resources"
 
 	_ "knative.dev/pkg/metrics/testing"
@@ -587,7 +586,7 @@ func newTestAutoscalerWithScalingMetric(targetValue, targetBurstCapacity float64
 	if startInPanic {
 		pc.readyCount = 2
 	}
-	ctx := smetrics.RevisionContext(testNamespace, "testSvc", "testConfig", testRevision)
+	ctx := servingmetrics.RevisionContext(testNamespace, "testSvc", "testConfig", testRevision)
 	return newAutoscaler(ctx, testNamespace, testRevision, metrics, pc, deciderSpec, nil), pc
 }
 

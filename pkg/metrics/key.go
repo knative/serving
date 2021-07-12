@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	// ResourceTypeKnativeRevision is the resource type for Knative revision
 	ResourceTypeKnativeRevision = "knative_revision"
 
 	// LabelServiceName is the label for the deployed service name
@@ -42,10 +43,10 @@ const (
 	// LabelNamespaceName is the label for immutable name of the namespace that the service is deployed
 	LabelNamespaceName = metricskey.LabelNamespaceName
 
-	// ContainerName is the container for which the metric is reported.
+	// LabelContainerName is the container for which the metric is reported.
 	LabelContainerName = metricskey.ContainerName
 
-	// PodName is the name of the pod for which the metric is reported.
+	// LabelPodName is the name of the pod for which the metric is reported.
 	LabelPodName = metricskey.PodName
 
 	// LabelResponseCode is the label for the HTTP response status code.
