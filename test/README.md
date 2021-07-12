@@ -75,8 +75,7 @@ Running the conformance tests then consists of these steps:
 1. The cluster admin creates three test namespaces names: `serving-tests`, `serving-tests-alt`, `tls`.
 1. The project admin installs minimum test resources:
     ```bash
-    run_ytt \
-        -f test/config/ytt/lib \
+    ytt -f test/config/ytt/lib \
         -f test/config/ytt/values.yaml \
         -f test/config/ytt/core/resources.yaml \
         -f test/config/ytt/overlay-test-namespace.yaml | kubectl apply -f -
