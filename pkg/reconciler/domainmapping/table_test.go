@@ -759,7 +759,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
-			Eventf(corev1.EventTypeWarning, "InternalError", `namespace "default" does not own ClusterDomainClaim for "first-reconcile.com"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `no ClusterDomainClaim found for domain "first-reconcile.com"`),
 		},
 	}, {
 		Name: "first reconcile, claim exists and is owned",

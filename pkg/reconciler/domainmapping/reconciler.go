@@ -342,7 +342,7 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.Doma
 func (r *Reconciler) createDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
 	if !config.FromContext(ctx).Network.AutocreateClusterDomainClaims {
 		dm.Status.MarkDomainClaimNotOwned()
-		return fmt.Errorf("namespace %q does not own ClusterDomainClaim for %q", dm.Namespace, dm.Name)
+		return fmt.Errorf("no ClusterDomainClaim found for domain %q", dm.Name)
 	}
 
 	_, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, resources.MakeDomainClaim(dm), metav1.CreateOptions{})
