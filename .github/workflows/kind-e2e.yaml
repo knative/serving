@@ -93,7 +93,9 @@ jobs:
         sudo swapoff -a
         sudo rm -f /swapfile
 
-        # Use tmpfs for etcd storage
+        # Use in-memory storage to avoid etcd server timeouts.
+        # https://kubernetes.slack.com/archives/CEKK1KTN2/p1615134111016300
+        # https://github.com/kubernetes-sigs/kind/issues/845
         sudo mkdir -p /tmp/etcd
         sudo mount -t tmpfs tmpfs /tmp/etcd
 
