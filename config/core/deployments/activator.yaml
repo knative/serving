@@ -19,19 +19,24 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
+    app.kubernetes.io/name: activator
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative
 spec:
   selector:
     matchLabels:
       app: activator
-      role: activator
+      app.kubernetes.io/name: activator
+      app.kubernetes.io/version: devel
   template:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
         app: activator
-        role: activator
         serving.knative.dev/release: devel
+        app.kubernetes.io/name: activator
+        app.kubernetes.io/version: devel
     spec:
       serviceAccountName: controller
       containers:
@@ -126,9 +131,13 @@ metadata:
   labels:
     app: activator
     serving.knative.dev/release: devel
+    app.kubernetes.io/name: activator
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative
 spec:
   selector:
-    app: activator
+    app.kubernetes.io/name: activator
+    app.kubernetes.io/version: devel
   ports:
   # Define metrics and profiling for them to be accessible within service meshes.
   - name: http-metrics

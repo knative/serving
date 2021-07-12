@@ -18,6 +18,9 @@ metadata:
   name: config.webhook.serving.knative.dev
   labels:
     serving.knative.dev/release: devel
+    app.kubernetes.io/name: webhook
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative
 webhooks:
 - admissionReviewVersions: ["v1", "v1beta1"]
   clientConfig:

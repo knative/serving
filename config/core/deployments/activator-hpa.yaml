@@ -19,6 +19,9 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
+    app.kubernetes.io/name: activator
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative
 spec:
   minReplicas: 1
   maxReplicas: 20
@@ -45,8 +48,12 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
+    app.kubernetes.io/name: activator
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative
 spec:
   minAvailable: 80%
   selector:
     matchLabels:
-      app: activator
+      app.kubernetes.io/name: activator
+      app.kubernetes.io/version: devel

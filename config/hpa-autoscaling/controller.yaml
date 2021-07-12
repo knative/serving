@@ -20,6 +20,9 @@ metadata:
   labels:
     serving.knative.dev/release: devel
     autoscaling.knative.dev/autoscaler-provider: hpa
+    app.kubernetes.io/name: networking-ns-cert
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative
 spec:
   selector:
     matchLabels:

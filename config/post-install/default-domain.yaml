@@ -20,6 +20,9 @@ metadata:
   labels:
     app: "default-domain"
     serving.knative.dev/release: devel
+    app.kubernetes.io/name: default-domain
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative
 spec:
   template:
     metadata:
@@ -27,6 +30,9 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: "default-domain"
+        app.kubernetes.io/name: default-domain
+        app.kubernetes.io/version: devel
+        app.kubernetes.io/part-of: knative
     spec:
       serviceAccountName: controller
       containers:
@@ -66,9 +72,13 @@ metadata:
   labels:
     app: default-domain
     serving.knative.dev/release: devel
+    app.kubernetes.io/name: default-domain
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative
 spec:
   selector:
-    app: default-domain
+    app.kubernetes.io/name: default-domain
+    app.kubernetes.io/version: devel
   ports:
   - name: http
     port: 80

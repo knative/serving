@@ -19,6 +19,8 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative
   annotations:
     knative.dev/example-checksum: "97c1d10b"
 data:
