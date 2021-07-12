@@ -72,32 +72,37 @@ It is possible to run the conformance tests by a user with reduced privileges, e
 The environment needs to meet similar requirements as in [running conformance tests](#running-conformance-tests)
 but the test resources can be limited to minimum and so the user can install them.
 Running the conformance tests then consists of these steps:
-1. The cluster admin creates three test namespaces with arbitrary names, e.g. `serving-tests`,
-`serving-tests-alt`, `tls`.
+1. The cluster admin creates three test namespaces names: `serving-tests`, `serving-tests-alt`, `tls`.
 1. The project admin installs minimum test resources:
     ```bash
     run_ytt \
         -f test/config/ytt/lib \
         -f test/config/ytt/values.yaml \
         -f test/config/ytt/core/resources.yaml \
-        -f test/config/ytt/overlay-test-namespace \
-        --data-value data.values.serving.namespaces.test.default=serving-tests \
-        --data-value data.values.serving.namespaces.test.alternative=serving-tests-alt \
-        --data-value data.values.serving.namespaces.test.tls=tls | kubectl apply -f -
+        -f test/config/ytt/overlay-test-namespace.yaml | kubectl apply -f -
     ```
 1. The project admin then runs the conformance test suite using the `--disable-logstream` flag:
     ```bash
     go test -v -tags=e2e -count=1 \
       --disable-logstream \
-      --test-namespace=serving-tests \
-      --alt-test-namespace=serving-tests-alt \
-      --tls-test-namespace=tls \
-      ./test/conformance/... \
+      --kubeconfig $PROJECT_ADMIN_KUBECONFIG \
+      ./test/conformance/...
     ```
 
-Note: The concrete test namespaces mentioned above are also the defaults expected by
-the test suite. If the exact names are used the commands above can be further simplified
-and the flags for passing specific namespaces can be ommitted.
+The tests can be run in arbitrary test namespaces. When specific namespaces are used
+their names must be passed to the ytt command via the `--data-value` flag as follows:
+```bash
+    --data-value data.values.serving.namespaces.test.default=serving-tests \
+    --data-value data.values.serving.namespaces.test.alternative=serving-tests-alt \
+    --data-value data.values.serving.namespaces.test.tls=tls
+```
+
+The specific namespaces must also be passed to the Golang test suite:
+```bash
+   --test-namespace=serving-tests \
+   --alt-test-namespace=serving-tests-alt \
+   --tls-test-namespace=tls
+```
 
 ## Running performance tests
 
