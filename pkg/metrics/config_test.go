@@ -70,7 +70,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 			EnableVarLogCollection: true,
 			LoggingURLTemplate:     "https://logging.io",
 			RequestLogTemplate:     `{"requestMethod": "{{.Request.Method}}"}`,
-			RequestMetricsBackend:  "stackdriver",
+			RequestMetricsBackend:  "opencensus",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -84,7 +84,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 				metrics.ReqLogTemplateKey:                     `{"requestMethod": "{{.Request.Method}}"}`,
 				"logging.revision-url-template":               "https://logging.io",
 				"logging.write-request-logs":                  "true",
-				"metrics.request-metrics-backend-destination": "stackdriver",
+				"metrics.request-metrics-backend-destination": "opencensus",
 			},
 		},
 	}, {
@@ -94,7 +94,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 			EnableVarLogCollection: true,
 			LoggingURLTemplate:     "https://logging.io",
 			RequestLogTemplate:     metrics.DefaultRequestLogTemplate,
-			RequestMetricsBackend:  "stackdriver",
+			RequestMetricsBackend:  "opencensus",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -107,7 +107,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 				"logging.enable-var-log-collection":           "true",
 				"logging.revision-url-template":               "https://logging.io",
 				"logging.write-request-logs":                  "true",
-				"metrics.request-metrics-backend-destination": "stackdriver",
+				"metrics.request-metrics-backend-destination": "opencensus",
 			},
 		},
 	}, {
