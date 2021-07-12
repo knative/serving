@@ -158,7 +158,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, dm *v1alpha1.DomainMappin
 		return nil
 	}
 
-	dc, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Get(ctx, dm.Name, metav1.GetOptions{})
+	dc, err := r.domainClaimLister.Get(dm.Name)
 	if err != nil {
 		if apierrs.IsNotFound(err) {
 			// Nothing to do since the domain was never claimed.
