@@ -263,7 +263,7 @@ function install() {
   fi
 
   if (( ENABLE_HA )); then
-    YTT_FILES+=("${E2E_YAML_DIR}/test/config/chaosduck.yaml")
+    YTT_FILES+=("${E2E_YAML_DIR}/test/config/chaosduck/chaosduck.yaml")
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ha")
   fi
 
