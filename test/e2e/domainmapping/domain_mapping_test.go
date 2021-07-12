@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package domainmapping
 
 import (
 	"bytes"
@@ -48,8 +48,8 @@ import (
 )
 
 func TestBYOCertificate(t *testing.T) {
-	if !test.ServingFlags.EnableAlphaFeatures {
-		t.Skip("Alpha features not enabled")
+	if !test.ServingFlags.EnableBetaFeatures {
+		t.Skip("Beta features not enabled")
 	}
 	t.Parallel()
 
@@ -79,7 +79,7 @@ func TestBYOCertificate(t *testing.T) {
 	}
 
 	cert, key := makeCertificateForDomain(t, host)
-	secret, err := clients.KubeClient.CoreV1().Secrets(test.ServingNamespace).Create(ctx, &corev1.Secret{
+	secret, err := clients.KubeClient.CoreV1().Secrets(test.ServingFlags.TestNamespace).Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: test.AppendRandomString("byocert-secret"),
 		},

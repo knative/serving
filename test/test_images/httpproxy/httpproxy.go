@@ -87,7 +87,7 @@ func main() {
 	port := getPort()
 
 	// Gateway is an optional value. It is used only when resolvable domain is not set
-	// for external access test, as xip.io is flaky.
+	// for external access test, as services like sslip.io may be flaky.
 	// ref: https://github.com/knative/serving/issues/5389
 	gateway := os.Getenv(gatewayHostEnv)
 	if gateway != "" {

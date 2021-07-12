@@ -48,14 +48,57 @@ which need [`-tags=e2e`](#running-end-to-end-tests) to be enabled._
 
 ## Running end to end tests
 
-To run [the e2e tests](./e2e) and [the conformance tests](./conformance), you
-need to have a running environment that meets
+To run [the e2e tests](./e2e), you need to have a running environment that meets
+[the e2e test environment requirements](#environment-requirements), and you need
+to specify the build tag `e2e`.
+
+```bash
+go test -v -tags=e2e -count=1 ./test/e2e
+```
+
+## Running conformance tests
+
+To run [the conformance tests](./conformance), you need to have a running environment that meets
 [the e2e test environment requirements](#environment-requirements), and you need
 to specify the build tag `e2e`.
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/conformance/...
-go test -v -tags=e2e -count=1 ./test/e2e
+```
+
+### Running conformance as a project admin
+
+It is possible to run the conformance tests by a user with reduced privileges, e.g. project admin.
+The environment needs to meet similar requirements as in [running conformance tests](#running-conformance-tests)
+but the test resources can be limited to minimum and so the user can install them.
+Running the conformance tests then consists of these steps:
+1. The cluster admin creates three test namespaces names: `serving-tests`, `serving-tests-alt`, `tls`.
+1. The project admin installs minimum test resources:
+    ```bash
+    ytt -f test/config/ytt/values.yaml \
+        -f test/config/ytt/core/conformance-resources.yaml | kubectl apply -f -
+    ```
+1. The project admin then runs the conformance test suite using the `--disable-logstream` flag:
+    ```bash
+    go test -v -tags=e2e -count=1 \
+      --disable-logstream \
+      -kubeconfig=$PROJECT_ADMIN_KUBECONFIG \
+      ./test/conformance/...
+    ```
+
+The tests can be run in arbitrary test namespaces. When specific namespaces are used
+their names must be passed to the ytt command via the `--data-value` flag as follows:
+```bash
+    --data-value serving.namespaces.test.default=serving-tests \
+    --data-value serving.namespaces.test.alternative=serving-tests-alt \
+    --data-value serving.namespaces.test.tls=tls
+```
+
+The specific namespaces must also be passed to the Golang test suite:
+```bash
+   -test-namespace=serving-tests \
+   -alt-test-namespace=serving-tests-alt \
+   -tls-test-namespace=tls
 ```
 
 ## Running performance tests

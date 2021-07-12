@@ -46,7 +46,7 @@ func main() {
 		log.Fatal("Couldn't get REST config", "error", err)
 	}
 
-	clients, err := test.NewClients(cfg, test.ServingNamespace)
+	clients, err := test.NewClients(cfg, test.ServingFlags.TestNamespace)
 	if err != nil {
 		log.Fatal("Failed to create clients: ", err)
 	}
@@ -67,7 +67,6 @@ func disableNamespaceCertWithExclusions(clients *test.Clients, keepCerts sets.St
 	for _, ns := range namespaces.Items {
 		if keepCerts.Has(ns.Name) {
 			delete(ns.Labels, networking.DisableWildcardCertLabelKey)
-			delete(ns.Labels, networking.DeprecatedDisableWildcardCertLabelKey)
 		} else {
 			if ns.Labels == nil {
 				ns.Labels = make(map[string]string, 1)

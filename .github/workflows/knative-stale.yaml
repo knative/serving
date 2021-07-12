@@ -35,7 +35,7 @@ jobs:
           inactivity. Reopen the issue with `/reopen`. Mark the issue as
           fresh by adding the comment `/remove-lifecycle stale`.
         stale-issue-label: 'lifecycle/stale'
-        exempt-issue-labels: 'lifecycle/frozen'
+        exempt-issue-labels: 'lifecycle/frozen,triage/accepted'
 
         stale-pr-message: |-
           This Pull Request is stale because it has been open for 90 days with

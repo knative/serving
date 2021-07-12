@@ -173,7 +173,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// We poll, since network programming takes times, but the timeout is set for
 	// uniformness with one above.
 	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
-		svcEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(
+		svcEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace).Get(
 			context.Background(), ctx.resources.Revision.Name, /* revision service name is equal to revision name*/
 			metav1.GetOptions{})
 		if err != nil {
@@ -238,7 +238,7 @@ func TestFastScaleToZero(t *testing.T) {
 	// of 20 runs (11s) + 4s of buffer for reliability.
 	st := time.Now()
 	if err := wait.PollImmediate(1*time.Second, cfg.ScaleToZeroGracePeriod+15*time.Second, func() (bool, error) {
-		eps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingNamespace).Get(context.Background(), epsN, metav1.GetOptions{})
+		eps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace).Get(context.Background(), epsN, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

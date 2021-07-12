@@ -57,6 +57,7 @@ var (
 	// when processing the controller's workqueue.  Controller binaries
 	// may adjust this process-wide default.  For finer control, invoke
 	// Run on the controller directly.
+	// TODO rename the const to Concurrency and deprecated this
 	DefaultThreadsPerController = 2
 )
 
@@ -203,6 +204,9 @@ type Impl struct {
 	// which are not required to complete at the highest priority.
 	workQueue *twoLaneQueue
 
+	// Concurrency - The number of workers to use when processing the controller's workqueue.
+	Concurrency int
+
 	// Sugared logger is easier to use but is not as performant as the
 	// raw logger. In performance critical paths, call logger.Desugar()
 	// and use the returned raw logger instead. In addition to the
@@ -221,6 +225,7 @@ type ControllerOptions struct { //nolint // for backcompat.
 	Logger        *zap.SugaredLogger
 	Reporter      StatsReporter
 	RateLimiter   workqueue.RateLimiter
+	Concurrency   int
 }
 
 // NewImpl instantiates an instance of our controller that will feed work to the
@@ -244,12 +249,16 @@ func NewImplFull(r Reconciler, options ControllerOptions) *Impl {
 	if options.Reporter == nil {
 		options.Reporter = MustNewStatsReporter(options.WorkQueueName, options.Logger)
 	}
+	if options.Concurrency == 0 {
+		options.Concurrency = DefaultThreadsPerController
+	}
 	return &Impl{
 		Name:          options.WorkQueueName,
 		Reconciler:    r,
 		workQueue:     newTwoLaneWorkQueue(options.WorkQueueName, options.RateLimiter),
 		logger:        options.Logger,
 		statsReporter: options.Reporter,
+		Concurrency:   options.Concurrency,
 	}
 }
 
@@ -723,9 +732,10 @@ func StartAll(ctx context.Context, controllers ...*Impl) {
 	// Start all of the controllers.
 	for _, ctrlr := range controllers {
 		wg.Add(1)
+		concurrency := ctrlr.Concurrency
 		go func(c *Impl) {
 			defer wg.Done()
-			c.RunContext(ctx, DefaultThreadsPerController)
+			c.RunContext(ctx, concurrency)
 		}(ctrlr)
 	}
 	wg.Wait()

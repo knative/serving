@@ -95,7 +95,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		Value: helloworldURL.Hostname(),
 	}}
 
-	// When resolvable domain is not set for external access test, use gateway for the endpoint as xip.io is flaky.
+	// When resolvable domain is not set for external access test, use gateway for the endpoint as services like sslip.io may be flaky.
 	// ref: https://github.com/knative/serving/issues/5389
 	if !test.ServingFlags.ResolvableDomain && accessibleExternal {
 		gatewayTarget, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient, pkgTest.Flags.IngressEndpoint)
@@ -211,8 +211,10 @@ func TestServiceToServiceCall(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			cancel := logstream.Start(t)
-			defer cancel()
+			if !test.ServingFlags.DisableLogStream {
+				cancel := logstream.Start(t)
+				defer cancel()
+			}
 			testProxyToHelloworld(t, clients, helloworldURL, true /*inject*/, false /*accessible externally*/)
 		})
 	}
@@ -265,9 +267,10 @@ func TestSvcToSvcViaActivator(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-
-			cancel := logstream.Start(t)
-			defer cancel()
+			if !test.ServingFlags.DisableLogStream {
+				cancel := logstream.Start(t)
+				defer cancel()
+			}
 			testSvcToSvcCallViaActivator(t, clients, tc.injectA, tc.injectB)
 		})
 	}
@@ -314,9 +317,10 @@ func TestCallToPublicService(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-
-			cancel := logstream.Start(t)
-			defer cancel()
+			if !test.ServingFlags.DisableLogStream {
+				cancel := logstream.Start(t)
+				defer cancel()
+			}
 			testProxyToHelloworld(t, clients, tc.url, false /*inject*/, tc.accessibleExternally)
 		})
 	}

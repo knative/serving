@@ -54,7 +54,7 @@ func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames
 func TestMultipleNamespace(t *testing.T) {
 	t.Parallel()
 
-	defaultClients := Setup(t) // This one uses the default namespace `test.ServingNamespace`
+	defaultClients := Setup(t) // This one uses the default namespace `test.ServingFlags.TestNamespace`
 	altClients := SetupAlternativeNamespace(t)
 
 	serviceName := test.ObjectNameForTest(t)
@@ -65,7 +65,7 @@ func TestMultipleNamespace(t *testing.T) {
 	}
 	test.EnsureTearDown(t, defaultClients, &defaultResources)
 	if _, err := v1test.CreateServiceReady(t, defaultClients, &defaultResources); err != nil {
-		t.Fatalf("Failed to create Service %v in namespace %v: %v", defaultResources.Service, test.ServingNamespace, err)
+		t.Fatalf("Failed to create Service %v in namespace %v: %v", defaultResources.Service, test.ServingFlags.TestNamespace, err)
 	}
 
 	altResources := test.ResourceNames{
@@ -74,7 +74,7 @@ func TestMultipleNamespace(t *testing.T) {
 	}
 	test.EnsureTearDown(t, altClients, &altResources)
 	if _, err := v1test.CreateServiceReady(t, altClients, &altResources); err != nil {
-		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, test.AlternativeServingNamespace, err)
+		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, test.ServingFlags.AltTestNamespace, err)
 	}
 
 	if err := checkResponse(t, defaultClients, defaultResources, test.PizzaPlanetText1); err != nil {
@@ -100,7 +100,7 @@ func TestConflictingRouteService(t *testing.T) {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      test.AppendRandomString("conflicting-route-service"),
-			Namespace: test.AlternativeServingNamespace,
+			Namespace: test.ServingFlags.AltTestNamespace,
 			Labels: map[string]string{
 				serving.RouteLabelKey: names.Service,
 			},
@@ -112,15 +112,15 @@ func TestConflictingRouteService(t *testing.T) {
 	}
 
 	altClients := SetupAlternativeNamespace(t)
-	altClients.KubeClient.CoreV1().Services(test.AlternativeServingNamespace).Create(context.Background(), svc, metav1.CreateOptions{})
+	altClients.KubeClient.CoreV1().Services(test.ServingFlags.AltTestNamespace).Create(context.Background(), svc, metav1.CreateOptions{})
 	test.EnsureCleanup(t, func() {
-		altClients.KubeClient.CoreV1().Services(test.AlternativeServingNamespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{})
+		altClients.KubeClient.CoreV1().Services(test.ServingFlags.AltTestNamespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{})
 	})
 
 	clients := Setup(t)
 
 	test.EnsureTearDown(t, clients, &names)
 	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
-		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingNamespace, err)
+		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingFlags.TestNamespace, err)
 	}
 }

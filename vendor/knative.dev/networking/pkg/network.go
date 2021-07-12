@@ -291,7 +291,7 @@ func defaultConfig() *Config {
 		TagTemplate:                   DefaultTagTemplate,
 		AutoTLS:                       false,
 		HTTPProtocol:                  HTTPEnabled,
-		AutocreateClusterDomainClaims: true,
+		AutocreateClusterDomainClaims: false,
 		DefaultExternalScheme:         "http",
 	}
 }

@@ -167,6 +167,10 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	logger, atomicLevel := SetupLoggerOrDie(ctx, component)
 	defer flush(logger)
 	ctx = logging.WithLogger(ctx, logger)
+
+	// Override client-go's warning handler to give us nicely printed warnings.
+	rest.SetDefaultWarningHandler(&logging.WarningHandler{Logger: logger})
+
 	profilingHandler := profiling.NewHandler(logger, false)
 	profilingServer := profiling.NewServer(profilingHandler)
 

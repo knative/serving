@@ -28,6 +28,7 @@ var (
 	allowedAnnotations = sets.NewString(
 		DisableAutoTLSAnnotationKey,
 		CertificateClassAnnotationKey,
+		HTTPOptionAnnotationKey,
 	)
 )
 

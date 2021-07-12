@@ -208,7 +208,7 @@ func DefaultErrorRetryChecker(err error) (bool, error) {
 	if isTCPTimeout(err) {
 		return true, fmt.Errorf("retrying for TCP timeout: %w", err)
 	}
-	// Retrying on DNS error, since we may be using xip.io or nip.io in tests.
+	// Retrying on DNS error, since we may be using sslip.io or nip.io in tests.
 	if isDNSError(err) {
 		return true, fmt.Errorf("retrying for DNS error: %w", err)
 	}
@@ -222,6 +222,11 @@ func DefaultErrorRetryChecker(err error) (bool, error) {
 	// Retry on connection/network errors.
 	if errors.Is(err, io.EOF) {
 		return true, fmt.Errorf("retrying for: %w", err)
+	}
+	// No route to host errors are in the same category as connection refused errors and
+	// are usually transient.
+	if isNoRouteToHostError(err) {
+		return true, fmt.Errorf("retrying for 'no route to host' error: %w", err)
 	}
 	return false, err
 }

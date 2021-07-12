@@ -75,15 +75,17 @@ func Setup(t testing.TB, namespace ...string) *Clients {
 	t.Helper()
 	logging.InitializeLogger()
 
-	cancel := logstream.Start(t)
-	t.Cleanup(cancel)
+	if !ServingFlags.DisableLogStream {
+		cancel := logstream.Start(t)
+		t.Cleanup(cancel)
+	}
 
 	cfg, err := pkgTest.Flags.GetRESTConfig()
 	if err != nil {
 		t.Fatal("Couldn't get REST config", "error", err)
 	}
 
-	ns := ServingNamespace
+	ns := ServingFlags.TestNamespace
 	if len(namespace) > 0 {
 		ns = namespace[0]
 	}

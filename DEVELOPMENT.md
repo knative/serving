@@ -157,11 +157,7 @@ ko apply -Rf config/core/
 
 # Optional steps
 
-# Install DomainMapping Components. Enables the DomainMapping feature.
-# Needed to pass conformance tests if the `--enable-alpha` flag is passed.
-ko apply -Rf config/domain-mapping/
-
-# Run post-install job to set up nice XIP.IO domain name.  This only works
+# Run post-install job to set up a nice sslip.io domain name.  This only works
 # if your Kubernetes LoadBalancer has an IPv4 address.
 ko delete -f config/post-install/default-domain.yaml --ignore-not-found
 ko apply -f config/post-install/default-domain.yaml
@@ -175,13 +171,13 @@ You can see things running with:
 
 ```console
 kubectl -n knative-serving get pods
-NAME                                  READY   STATUS    RESTARTS   AGE
-activator-7454cd659f-rrz86            1/1     Running   0          105s
-autoscaler-58cbfd4985-fl5h7           1/1     Running   0          105s
-autoscaler-hpa-77964b9b8c-9sbgq       1/1     Running   0          105s
-controller-847b7cc977-5mvvq           1/1     Running   0          105s
-networking-ns-cert-56c58544db-sgstd   1/1     Running   0          105s
-webhook-6b6c77567f-flr59              1/1     Running   0          105s
+NAME                                     READY   STATUS    RESTARTS   AGE
+activator-7454cd659f-rrz86               1/1     Running   0          105s
+autoscaler-58cbfd4985-fl5h7              1/1     Running   0          105s
+autoscaler-hpa-77964b9b8c-9sbgq          1/1     Running   0          105s
+controller-847b7cc977-5mvvq              1/1     Running   0          105s
+net-nscert-controller-56c58544db-sgstd   1/1     Running   0          105s
+webhook-6b6c77567f-flr59                 1/1     Running   0          105s
 ```
 
 You can access the Knative Serving Controller's logs with:

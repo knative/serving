@@ -72,10 +72,6 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 		t.Fatalf("Deployment %s not scaled > 1: %s", activatorDeploymentName, err)
 	}
 
-	if err != nil {
-		t.Fatal("Failed to get activator pods:", err)
-	}
-
 	// Create first service that we will continually probe during activator restart.
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
@@ -101,7 +97,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	prober.Spawn(resources.Service.Status.URL.URL())
 	defer assertSLO(t, prober, slo)
 
-	activatorPods, err := gatherBackingActivators(ctx, clients.KubeClient, test.ServingNamespace, resources.Revision.Name, resourcesScaleToZero.Revision.Name)
+	activatorPods, err := gatherBackingActivators(ctx, clients.KubeClient, test.ServingFlags.TestNamespace, resources.Revision.Name, resourcesScaleToZero.Revision.Name)
 	if err != nil {
 		t.Fatal("failed to gather backing activators:", err)
 	}
@@ -120,7 +116,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 		}
 
 		// Wait for the killed activator to disappear from the knative service's endpoints.
-		if err := waitForEndpointsState(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, readyEndpointsDoNotContain(ip)); err != nil {
+		if err := waitForEndpointsState(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingFlags.TestNamespace, readyEndpointsDoNotContain(ip)); err != nil {
 			t.Fatal("Failed to wait for the service to update its endpoints:", err)
 		}
 		if gracePeriod != nil && *gracePeriod == 0 {

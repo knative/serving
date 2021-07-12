@@ -7,4 +7,7 @@ serving:
   ha:
     components:
     #@overlay/append
+    - net-contour-controller
+    #! This was the previous controller name
+    #@overlay/append
     - contour-ingress-controller

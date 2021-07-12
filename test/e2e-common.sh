@@ -32,14 +32,17 @@ export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
 
 export RUN_HTTP01_AUTO_TLS_TESTS=0
 export HTTPS=0
+export SHORT=0
 export ENABLE_HA=0
 export MESH=0
 export KIND=0
 export CLUSTER_DOMAIN=cluster.local
+export REUSE_TEST_NAMESPACE=0
 
 # List of custom YAMLs to install, if specified (space-separated).
 export INSTALL_CUSTOM_YAMLS=""
 export INSTALL_SERVING_VERSION="HEAD"
+export INSTALL_ISTIO_VERSION="HEAD"
 export YTT_FILES=()
 
 export TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)}"
@@ -78,6 +81,7 @@ function parse_flags() {
       ;;
     --install-latest-release)
       INSTALL_SERVING_VERSION="latest-release"
+      INSTALL_ISTIO_VERSION="latest-release"
       return 1
       ;;
     --cert-manager-version)
@@ -108,6 +112,10 @@ function parse_flags() {
       ;;
     --https)
       readonly HTTPS=1
+      return 1
+      ;;
+    --short)
+      readonly SHORT=1
       return 1
       ;;
     --cluster-domain)
@@ -154,6 +162,14 @@ function parse_flags() {
       export SYSTEM_NAMESPACE=$2
       return 2
       ;;
+    --reuse-test-namespace)
+      # Indicates whether test namespace creation should be skipped. Useful
+      # in restricted environments where the user running tests does not have
+      # sufficient permissions to create namespaces. The test namespaces
+      # are supposed to be created in advance.
+      readonly REUSE_TEST_NAMESPACE=1
+      return 1
+      ;;
   esac
   return 0
 }
@@ -185,10 +201,6 @@ function parse_flags() {
 function knative_setup() {
   local need_latest_version=0
 
-  if [[ "$(basename "${E2E_SCRIPT}")" == "*upgrade*" ]]; then
-    need_latest_version=1
-  fi
-
   if [[ "${INSTALL_SERVING_VERSION}" == "latest-release" ]]; then
     need_latest_version=1
   fi
@@ -216,7 +228,7 @@ function knative_setup() {
 
   stage_test_resources
 
-  install "${INSTALL_SERVING_VERSION}"
+  install "${INSTALL_SERVING_VERSION}" "${INSTALL_ISTIO_VERSION}"
 }
 
 # Installs Knative Serving in the current cluster.
@@ -267,6 +279,10 @@ function install() {
   if (( KIND )); then
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/core")
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/ingress/${ingress}-kind.yaml")
+  fi
+
+  if (( REUSE_TEST_NAMESPACE )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/overlay-test-namespace.yaml")
   fi
 
   local ytt_result=$(mktemp)
@@ -324,7 +340,7 @@ function install() {
 # Check if we should use --resolvabledomain.  In case the ingress only has
 # hostname, we doesn't yet have a way to support resolvable domain in tests.
 function use_resolvable_domain() {
-  # Temporarily turning off xip.io tests, as DNS errors aren't always retried.
+  # Temporarily turning off sslip.io tests, as DNS errors aren't always retried.
   echo "false"
 }
 
@@ -443,7 +459,6 @@ function stage_serving_head() {
   mkdir -p "${head_post_install_dir}"
 
   cp "${SERVING_CORE_YAML}" "${head_dir}"
-  cp "${SERVING_DOMAINMAPPING_YAML}" "${head_dir}"
   cp "${SERVING_HPA_YAML}" "${head_dir}"
   cp "${SERVING_POST_INSTALL_JOBS_YAML}" "${head_post_install_dir}"
 }
@@ -458,7 +473,6 @@ function stage_serving_custom() {
   mkdir -p "${head_post_install_dir}"
 
   cp "${SERVING_CORE_YAML}" "${head_dir}"
-  cp "${SERVING_DOMAINMAPPING_YAML}" "${head_dir}"
   cp "${SERVING_HPA_YAML}" "${head_dir}"
   cp "${SERVING_POST_INSTALL_JOBS_YAML}" "${head_post_install_dir}"
 }
@@ -478,9 +492,6 @@ function stage_serving_latest() {
 
   wget "${url}/serving-core.yaml" -P "${latest_dir}" \
     || fail_test "Unable to download latest knative/serving core file."
-
-  wget "${url}/serving-domainmapping.yaml" -P "${latest_dir}" \
-    || fail_test "Unable to download latest knative/serving domain mapping file."
 
   wget "${url}/serving-hpa.yaml" -P "${latest_dir}" \
     || fail_test "Unable to download latest knative/serving hpa file."

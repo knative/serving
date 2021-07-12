@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,6 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package domainmapping is a placeholder that allows us to pull in config files
-// via go mod vendor.
-package domainmapping
+package logging
+
+import "go.uber.org/zap"
+
+// WarningHandler is a warning handler to forward client-go's warning logs into a zap logger.
+type WarningHandler struct {
+	Logger *zap.SugaredLogger
+}
+
+func (h *WarningHandler) HandleWarningHeader(code int, agent string, message string) {
+	// This condition is copied from K8s' default WarningLogger.
+	if code != 299 || len(message) == 0 {
+		return
+	}
+
+	h.Logger.Warn("API Warning: " + message)
+}

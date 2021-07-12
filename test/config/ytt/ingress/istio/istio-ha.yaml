@@ -7,6 +7,10 @@ serving:
   ha:
     components:
     #@overlay/append
-    - networking-istio
+    - net-istio-controller
     #@overlay/append
-    - istio-webhook
+    - net-istio-webhook
+    #@overlay/append
+    - networking-istio #! Legacy name
+    #@overlay/append
+    - istio-webhook    #! Legacy name

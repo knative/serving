@@ -38,6 +38,9 @@ type Options struct {
 
 	// DemoteFunc configures the demote function this reconciler uses
 	DemoteFunc func(b reconciler.Bucket)
+
+	// Concurrency - The number of workers to use when processing the controller's workqueue.
+	Concurrency int
 }
 
 // OptionsFn is a callback method signature that accepts an Impl and returns

@@ -28,9 +28,7 @@ import (
 
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
-	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/conformance/api/shared"
 	v1test "knative.dev/serving/test/v1"
 
 	. "knative.dev/serving/pkg/testing/v1"
@@ -120,24 +118,17 @@ func TestRevisionTimeout(t *testing.T) {
 
 			serviceURL := resources.Service.Status.URL.URL()
 
-			if tc.shouldScaleTo0 {
-				t.Log("Waiting to scale down to 0")
-				if err := shared.WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
-					t.Fatal("Could not scale to zero:", err)
-				}
-			} else {
-				t.Log("Probing to force at least one pod", serviceURL)
-				if _, err := pkgtest.WaitForEndpointState(
-					context.Background(),
-					clients.KubeClient,
-					t.Logf,
-					serviceURL,
-					v1test.RetryingRouteInconsistency(spoof.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout)),
-					"WaitForSuccessfulResponse",
-					test.ServingFlags.ResolvableDomain,
-					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
-					t.Fatalf("Error probing %s: %v", serviceURL, err)
-				}
+			t.Log("Probing to force at least one pod", serviceURL)
+			if _, err := pkgtest.WaitForEndpointState(
+				context.Background(),
+				clients.KubeClient,
+				t.Logf,
+				serviceURL,
+				v1test.RetryingRouteInconsistency(spoof.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout)),
+				"WaitForSuccessfulResponse",
+				test.ServingFlags.ResolvableDomain,
+				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
+				t.Fatalf("Error probing %s: %v", serviceURL, err)
 			}
 
 			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus); err != nil {

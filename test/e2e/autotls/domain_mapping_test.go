@@ -45,8 +45,8 @@ type dmConfig struct {
 }
 
 func TestDomainMappingAutoTLS(t *testing.T) {
-	if !test.ServingFlags.EnableAlphaFeatures {
-		t.Skip("Alpha features not enabled")
+	if !test.ServingFlags.EnableBetaFeatures {
+		t.Skip("Beta features not enabled")
 	}
 	t.Parallel()
 
@@ -57,7 +57,7 @@ func TestDomainMappingAutoTLS(t *testing.T) {
 
 	ctx := context.Background()
 
-	clients := test.Setup(t, test.TLSNamespace)
+	clients := test.Setup(t, test.ServingFlags.TLSTestNamespace)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
