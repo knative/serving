@@ -78,7 +78,7 @@ Running the conformance tests then consists of these steps:
    ```
 1. The project admin installs minimum test resources:
     ```bash
-    kubectl apply -f test/config/test-resources.yaml 
+    kubectl apply -f test/config/test-resources.yaml
     ```
 1. The project admin then runs the conformance test suite using the `--disable-logstream` flag:
     ```bash
