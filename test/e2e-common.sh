@@ -242,8 +242,11 @@ function install() {
     "${REPO_ROOT_DIR}/test/config/ytt/values.yaml"
 
     # see cluster_setup for how the files are staged
+    "${E2E_YAML_DIR}/test/config/cluster-resources.yaml"
+    "${E2E_YAML_DIR}/test/config/test-resources.yaml"
     "${E2E_YAML_DIR}/serving/${serving_version}/install"
-    "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml"
+
+    "${REPO_ROOT_DIR}/test/config/ytt/rename-namespaces.yaml"
     "${REPO_ROOT_DIR}/test/config/ytt/core"
   )
 
@@ -296,7 +299,7 @@ function install() {
   run_ytt \
     -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
     -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
-    -f "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml" \
+    -f "${REPO_ROOT_DIR}/test/config/ytt/rename-namespaces.yaml" \
     -f "${REPO_ROOT_DIR}/test/config/ytt/post-install" \
     -f "${E2E_YAML_DIR}/serving/${serving_version}/post-install" \
     --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}" \
@@ -531,7 +534,7 @@ function overlay_system_namespace() {
   run_ytt \
       -f "${REPO_ROOT_DIR}/test/config/ytt/lib" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/values.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/overlay-system-namespace.yaml" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/rename-namespaces.yaml" \
       -f "${1}" \
       --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}"
 }

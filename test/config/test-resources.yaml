@@ -1,20 +1,17 @@
-#@ load("@ytt:data", "data")
-
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: conformance-test-configmap
-  namespace: #@ data.values.serving.namespaces.test.default
+  namespace: serving-tests
 data:
   testKey: testValue
-
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: conformance-test-secret
-  namespace: #@ data.values.serving.namespaces.test.default
+  namespace: serving-tests
 type: Opaque
 data:
   testKey: dGVzdFZhbHVl

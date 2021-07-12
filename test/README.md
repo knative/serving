@@ -72,11 +72,13 @@ It is possible to run the conformance tests by a user with reduced privileges, e
 The environment needs to meet similar requirements as in [running conformance tests](#running-conformance-tests)
 but the test resources can be limited to minimum and so the user can install them.
 Running the conformance tests then consists of these steps:
-1. The cluster admin creates three test namespaces names: `serving-tests`, `serving-tests-alt`, `tls`.
+1. The cluster admin creates the cluster scope resources
+   ```bash
+   kubectl apply -f test/config/cluster-resources.yaml
+   ```
 1. The project admin installs minimum test resources:
     ```bash
-    ytt -f test/config/ytt/values.yaml \
-        -f test/config/ytt/core/conformance-resources.yaml | kubectl apply -f -
+    kubectl apply -f test/config/test-resources.yaml 
     ```
 1. The project admin then runs the conformance test suite using the `--disable-logstream` flag:
     ```bash
