@@ -26,7 +26,7 @@ spec:
   selector:
     matchLabels:
       app: domainmapping-webhook
-      app.kubernetes.io/name: domainmapping-wbhook
+      app.kubernetes.io/name: domainmapping-webhook
       app.kubernetes.io/version: devel
   template:
     metadata:
