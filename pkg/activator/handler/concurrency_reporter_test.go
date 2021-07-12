@@ -31,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	network "knative.dev/networking/pkg"
-	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
@@ -39,6 +38,7 @@ import (
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	"knative.dev/serving/pkg/metrics"
 )
 
 const (
@@ -562,15 +562,15 @@ func TestMetricsReported(t *testing.T) {
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
 		Labels: map[string]string{
-			metricskey.LabelRevisionName:      rev1.Name,
-			metricskey.LabelNamespaceName:     rev1.Namespace,
-			metricskey.LabelServiceName:       "service-" + rev1.Name,
-			metricskey.LabelConfigurationName: "config-" + rev1.Name,
+			metrics.LabelRevisionName:      rev1.Name,
+			metrics.LabelNamespaceName:     rev1.Namespace,
+			metrics.LabelServiceName:       "service-" + rev1.Name,
+			metrics.LabelConfigurationName: "config-" + rev1.Name,
 		},
 	}
 	wantTags := map[string]string{
-		metricskey.PodName:       "the-best-activator",
-		metricskey.ContainerName: "activator",
+		metrics.LabelPodName:       "the-best-activator",
+		metrics.LabelContainerName: "activator",
 	}
 
 	// Should report a concurrency of 3 because the first event was a scale-from-0 (gets discounted)

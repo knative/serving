@@ -39,6 +39,7 @@ import (
 	fakemetricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	"knative.dev/serving/pkg/metrics"
 
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
@@ -66,7 +67,6 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
@@ -1785,10 +1785,10 @@ func TestMetricsReporter(t *testing.T) {
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
 		Labels: map[string]string{
-			metricskey.LabelRevisionName:      testRevision,
-			metricskey.LabelNamespaceName:     testNamespace,
-			metricskey.LabelServiceName:       pa.Labels[serving.ServiceLabelKey],
-			metricskey.LabelConfigurationName: pa.Labels[serving.ConfigurationLabelKey],
+			metrics.LabelRevisionName:      testRevision,
+			metrics.LabelNamespaceName:     testNamespace,
+			metrics.LabelServiceName:       pa.Labels[serving.ServiceLabelKey],
+			metrics.LabelConfigurationName: pa.Labels[serving.ConfigurationLabelKey],
 		},
 	}
 	pc := podCounts{

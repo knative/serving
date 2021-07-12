@@ -28,8 +28,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
+	servingmetrics "knative.dev/serving/pkg/metrics"
 
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/autoscaler/metrics"
@@ -51,10 +51,10 @@ const (
 var wantResource = &resource.Resource{
 	Type: "knative_revision",
 	Labels: map[string]string{
-		metricskey.LabelConfigurationName: "testConfig",
-		metricskey.LabelNamespaceName:     testNamespace,
-		metricskey.LabelRevisionName:      testRevision,
-		metricskey.LabelServiceName:       "testSvc",
+		servingmetrics.LabelConfigurationName: "testConfig",
+		servingmetrics.LabelNamespaceName:     testNamespace,
+		servingmetrics.LabelRevisionName:      testRevision,
+		servingmetrics.LabelServiceName:       "testSvc",
 	},
 }
 

@@ -46,7 +46,7 @@ func register(t *testing.T) func() {
 			Description: "Number of pods autoscaler wants to allocate",
 			Measure:     testM,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{ResponseCodeKey, ResponseCodeClassKey, PodTagKey, ContainerTagKey},
+			TagKeys:     []tag.Key{ResponseCodeKey, ResponseCodeClassKey, PodKey, ContainerKey},
 		}); err != nil {
 		t.Fatal("Failed to register view:", err)
 	}
