@@ -88,19 +88,14 @@ Running the conformance tests then consists of these steps:
       ./test/conformance/...
     ```
 
-The tests can be run in arbitrary test namespaces. When specific namespaces are used
-their names must be passed to the ytt command via the `--data-value` flag as follows:
+The tests can be run in arbitrary test namespaces. If you modify the namespaces of the
+resources above you must pass the updated values to the Golang test suite:
 ```bash
-    --data-value serving.namespaces.test.default=serving-tests \
-    --data-value serving.namespaces.test.alternative=serving-tests-alt \
-    --data-value serving.namespaces.test.tls=tls
-```
-
-The specific namespaces must also be passed to the Golang test suite:
-```bash
-   -test-namespace=serving-tests \
-   -alt-test-namespace=serving-tests-alt \
-   -tls-test-namespace=tls
+   go test -tags=e2e -count=1 \
+     -test-namespace=serving-tests \
+     -alt-test-namespace=serving-tests-alt \
+     -tls-test-namespace=tls \
+     ./test/conformance
 ```
 
 ## Running performance tests
