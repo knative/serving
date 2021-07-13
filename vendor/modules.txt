@@ -151,7 +151,7 @@ github.com/go-openapi/jsonreference
 github.com/go-openapi/spec
 # github.com/go-openapi/swag v0.19.15
 github.com/go-openapi/swag
-# github.com/gobuffalo/flect v0.2.2
+# github.com/gobuffalo/flect v0.2.3
 github.com/gobuffalo/flect
 # github.com/gogo/protobuf v1.3.2
 ## explicit
@@ -368,7 +368,7 @@ go.uber.org/goleak
 go.uber.org/goleak/internal/stack
 # go.uber.org/multierr v1.6.0
 go.uber.org/multierr
-# go.uber.org/zap v1.17.0
+# go.uber.org/zap v1.18.1
 ## explicit
 go.uber.org/zap
 go.uber.org/zap/buffer
@@ -395,7 +395,7 @@ golang.org/x/lint/golint
 # golang.org/x/mod v0.4.2
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.0.0-20210525063256-abc453219eb5
+# golang.org/x/net v0.0.0-20210614182718-04defd469f4e
 ## explicit
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
@@ -406,7 +406,7 @@ golang.org/x/net/http2/hpack
 golang.org/x/net/idna
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace
-# golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
+# golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
 ## explicit
 golang.org/x/oauth2
 golang.org/x/oauth2/authhandler
@@ -439,7 +439,7 @@ golang.org/x/text/width
 # golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.1.2
+# golang.org/x/tools v0.1.4
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/gcexportdata
 golang.org/x/tools/go/internal/gcimporter
@@ -455,6 +455,7 @@ golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/gopathwalk
 golang.org/x/tools/internal/imports
 golang.org/x/tools/internal/packagesinternal
+golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 # golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 golang.org/x/xerrors
@@ -1016,7 +1017,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20210701025702-e6e703d9557b
+# knative.dev/caching v0.0.0-20210712134722-06b74680d0fd
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1041,7 +1042,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20210705111547-ca0a601fc900
+# knative.dev/networking v0.0.0-20210712134623-946273d749db
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1071,7 +1072,7 @@ knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serve
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20210706174620-fe90576475ca
+# knative.dev/pkg v0.0.0-20210712150822-e8973c6acbf7
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
