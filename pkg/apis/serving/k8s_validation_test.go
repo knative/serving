@@ -1520,7 +1520,7 @@ func TestVolumeValidation(t *testing.T) {
 		v: corev1.Volume{
 			Name: "foo",
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap", "projected"),
+		want: apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir"),
 	}, {
 		name: "secret volume",
 		v: corev1.Volume{
@@ -1546,17 +1546,30 @@ func TestVolumeValidation(t *testing.T) {
 		v: corev1.Volume{
 			Name: "foo",
 			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					Medium:    "Memory",
+					SizeLimit: resource.NewQuantity(400, "G"),
+				},
 			},
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap", "projected").Also(
-			apis.ErrDisallowedFields("emptyDir")),
+	}, {
+		name: "invalid emptyDir volume",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					Medium:    "Memory",
+					SizeLimit: resource.NewQuantity(-1, "G"),
+				},
+			},
+		},
+		want: apis.ErrInvalidValue(-1, "emptyDir.sizeLimit"),
 	}, {
 		name: "no volume source",
 		v: corev1.Volume{
 			Name: "foo",
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap", "projected"),
+		want: apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir"),
 	}, {
 		name: "multiple volume source",
 		v: corev1.Volume{

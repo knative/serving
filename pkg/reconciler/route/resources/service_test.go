@@ -370,14 +370,15 @@ func testConfig() *config.Config {
 			TagTemplate:         network.DefaultTagTemplate,
 		},
 		Features: &apiConfig.Features{
-			MultiContainer:        apiConfig.Disabled,
-			PodSpecAffinity:       apiConfig.Disabled,
-			PodSpecFieldRef:       apiConfig.Disabled,
-			PodSpecDryRun:         apiConfig.Enabled,
-			PodSpecHostAliases:    apiConfig.Disabled,
-			PodSpecNodeSelector:   apiConfig.Disabled,
-			PodSpecTolerations:    apiConfig.Disabled,
-			TagHeaderBasedRouting: apiConfig.Disabled,
+			MultiContainer:         apiConfig.Disabled,
+			PodSpecAffinity:        apiConfig.Disabled,
+			PodSpecFieldRef:        apiConfig.Disabled,
+			PodSpecDryRun:          apiConfig.Enabled,
+			PodSpecHostAliases:     apiConfig.Disabled,
+			PodSpecNodeSelector:    apiConfig.Disabled,
+			PodSpecTolerations:     apiConfig.Disabled,
+			PodSpecVolumesEmptyDir: apiConfig.Disabled,
+			TagHeaderBasedRouting:  apiConfig.Disabled,
 		},
 	}
 }

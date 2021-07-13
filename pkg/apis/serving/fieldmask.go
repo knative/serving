@@ -38,6 +38,7 @@ func VolumeMask(in *corev1.Volume) *corev1.Volume {
 
 	// Allowed fields
 	out.Name = in.Name
+	out.EmptyDir = in.EmptyDir
 	out.VolumeSource = in.VolumeSource
 
 	return out
@@ -57,6 +58,7 @@ func VolumeSourceMask(in *corev1.VolumeSource) *corev1.VolumeSource {
 	out.Secret = in.Secret
 	out.ConfigMap = in.ConfigMap
 	out.Projected = in.Projected
+	out.EmptyDir = in.EmptyDir
 
 	// Too many disallowed fields to list
 
