@@ -449,8 +449,8 @@ func linkForType(t *types.Type, c generatorConfig, typePkgMap map[*types.Type]*a
 
 // tryDereference returns the underlying type when t is a pointer, map, or slice.
 func tryDereference(t *types.Type) *types.Type {
-	if t.Elem != nil {
-		return t.Elem
+	for t.Elem != nil {
+		t = t.Elem
 	}
 	return t
 }
@@ -469,9 +469,11 @@ func finalUnderlyingTypeOf(t *types.Type) *types.Type {
 
 func typeDisplayName(t *types.Type, c generatorConfig, typePkgMap map[*types.Type]*apiPackage) string {
 	s := typeIdentifier(t)
+
 	if isLocalType(t, typePkgMap) {
 		s = tryDereference(t).Name.Name
 	}
+
 	if t.Kind == types.Pointer {
 		s = strings.TrimLeft(s, "*")
 	}

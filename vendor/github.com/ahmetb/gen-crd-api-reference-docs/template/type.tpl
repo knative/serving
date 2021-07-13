@@ -2,7 +2,7 @@
 
 <h3 id="{{ anchorIDForType . }}">
     {{- .Name.Name }}
-    {{ if eq .Kind "Alias" }}(<code>{{.Underlying}}</code> alias)</p>{{ end -}}
+    {{ if eq .Kind "Alias" }}(<code>{{.Underlying}}</code> alias){{ end -}}
 </h3>
 {{ with (typeReferences .) }}
     <p>
@@ -17,9 +17,9 @@
     </p>
 {{ end }}
 
-<p>
+<div>
     {{ safe (renderComments .CommentLines) }}
-</p>
+</div>
 
 {{ with (constantsOfType .) }}
 <table>

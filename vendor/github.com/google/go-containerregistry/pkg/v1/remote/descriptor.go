@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/google/go-containerregistry/internal/verify"
@@ -330,13 +329,9 @@ func (f *fetcher) headManifest(ref name.Reference, acceptable []types.MediaType)
 	}
 	mediaType := types.MediaType(mth)
 
-	lh := resp.Header.Get("Content-Length")
-	if lh == "" {
-		return nil, fmt.Errorf("HEAD %s: response did not include Content-Length header", u.String())
-	}
-	size, err := strconv.ParseInt(lh, 10, 64)
-	if err != nil {
-		return nil, err
+	size := resp.ContentLength
+	if size == -1 {
+		return nil, fmt.Errorf("GET %s: response did not include Content-Length header", u.String())
 	}
 
 	dh := resp.Header.Get("Docker-Content-Digest")
@@ -380,7 +375,13 @@ func (f *fetcher) fetchBlob(ctx context.Context, h v1.Hash) (io.ReadCloser, erro
 		return nil, err
 	}
 
-	return verify.ReadCloser(resp.Body, h)
+	// Verify up to the content-length header value.
+	size := resp.ContentLength
+	if size == -1 {
+		return nil, fmt.Errorf("GET %s: response did not include Content-Length header", u.String())
+	}
+
+	return verify.ReadCloser(resp.Body, size, h)
 }
 
 func (f *fetcher) headBlob(h v1.Hash) (*http.Response, error) {

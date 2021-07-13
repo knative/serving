@@ -177,7 +177,7 @@ func (rl *remoteImageLayer) Compressed() (io.ReadCloser, error) {
 			continue
 		}
 
-		return verify.ReadCloser(resp.Body, rl.digest)
+		return verify.ReadCloser(resp.Body, d.Size, rl.digest)
 	}
 
 	return nil, lastErr
