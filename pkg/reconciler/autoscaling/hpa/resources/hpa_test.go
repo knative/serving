@@ -30,6 +30,7 @@ import (
 
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "knative.dev/serving/pkg/testing"
@@ -58,7 +59,7 @@ func TestMakeHPA(t *testing.T) {
 		pa:   pa(WithUpperScaleBound(5)),
 		want: hpa(withMaxReplicas(5), withAnnotationValue(autoscaling.MaxScaleAnnotationKey, "5")),
 	}, {
-		name: "with an actual target",
+		name: "with an actual cpu target",
 		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(autoscaling.CPU)),
 		want: hpa(
 			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.CPU),
@@ -68,6 +69,22 @@ func TestMakeHPA(t *testing.T) {
 				Resource: &autoscalingv2beta1.ResourceMetricSource{
 					Name:                     corev1.ResourceCPU,
 					TargetAverageUtilization: ptr.Int32(50),
+				},
+			})),
+	}, {
+		name: "with an actual memory target",
+		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(autoscaling.Memory)),
+		want: hpa(
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Memory),
+			withAnnotationValue(autoscaling.TargetAnnotationKey, "50"),
+			withMetric(autoscalingv2beta1.MetricSpec{
+				Type: autoscalingv2beta1.ResourceMetricSourceType,
+				Resource: &autoscalingv2beta1.ResourceMetricSource{
+					Name: corev1.ResourceMemory,
+					TargetAverageValue: func() *resource.Quantity {
+						res := resource.MustParse("50Mi")
+						return &res
+					}(),
 				},
 			})),
 	}, {

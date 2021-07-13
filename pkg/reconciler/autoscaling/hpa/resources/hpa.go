@@ -18,12 +18,16 @@ package resources
 
 import (
 	"math"
+	"strconv"
 
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
+
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
@@ -63,6 +67,19 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autos
 				Resource: &autoscalingv2beta1.ResourceMetricSource{
 					Name:                     corev1.ResourceCPU,
 					TargetAverageUtilization: ptr.Int32(int32(math.Ceil(target))),
+				},
+			}}
+		}
+	}
+
+	if pa.Metric() == autoscaling.Memory {
+		if target, ok := pa.Target(); ok {
+			memory := resource.MustParse(strconv.Itoa(int(math.Ceil(target))) + "Mi")
+			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
+				Type: autoscalingv2beta1.ResourceMetricSourceType,
+				Resource: &autoscalingv2beta1.ResourceMetricSource{
+					Name:               corev1.ResourceMemory,
+					TargetAverageValue: &memory,
 				},
 			}}
 		}
