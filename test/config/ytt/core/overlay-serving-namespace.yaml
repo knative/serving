@@ -1,8 +1,0 @@
-#@ load("@ytt:overlay", "overlay")
-#@ load("@ytt:data", "data")
-#@ load("helpers.lib.yaml", "subset", "serving_system_namespace")
-
-#@overlay/match by=subset(kind="Namespace", name="knative-serving"), expects="1+"
----
-metadata:
-  name: #@ serving_system_namespace()
