@@ -153,9 +153,6 @@ var (
 			Name:  "TRACING_CONFIG_ZIPKIN_ENDPOINT",
 			Value: "",
 		}, {
-			Name:  "TRACING_CONFIG_STACKDRIVER_PROJECT_ID",
-			Value: "",
-		}, {
 			Name:  "TRACING_CONFIG_DEBUG",
 			Value: "false",
 		}, {

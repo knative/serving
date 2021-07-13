@@ -335,9 +335,6 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "TRACING_CONFIG_ZIPKIN_ENDPOINT",
 			Value: cfg.Tracing.ZipkinEndpoint,
 		}, {
-			Name:  "TRACING_CONFIG_STACKDRIVER_PROJECT_ID",
-			Value: cfg.Tracing.StackdriverProjectID,
-		}, {
 			Name:  "TRACING_CONFIG_DEBUG",
 			Value: strconv.FormatBool(cfg.Tracing.Debug),
 		}, {
