@@ -92,10 +92,12 @@ The tests can be run in arbitrary test namespaces. If you modify the namespaces 
 resources above you must pass the updated values to the Golang test suite:
 ```bash
    go test -tags=e2e -count=1 \
+      --disable-logstream \
+      -kubeconfig=$PROJECT_ADMIN_KUBECONFIG \
      -test-namespace=serving-tests \
      -alt-test-namespace=serving-tests-alt \
      -tls-test-namespace=tls \
-     ./test/conformance
+     ./test/conformance/...
 ```
 
 ## Running performance tests
