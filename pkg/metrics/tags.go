@@ -18,11 +18,12 @@ package metrics
 
 import (
 	"context"
-	"strconv"
-
 	lru "github.com/hashicorp/golang-lru"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/metrics/metricskey"
+	"strconv"
+	"strings"
+	"unicode"
 
 	"go.opencensus.io/resource"
 	"go.opencensus.io/tag"
@@ -56,11 +57,12 @@ func valueOrUnknown(v string) string {
 
 // RevisionContext generates a new base metric reporting context containing
 // the respective revision specific tags.
-func RevisionContext(ns, svc, cfg, rev string) context.Context {
+func RevisionContext(ns, svc, cfg, rev string,
+	annotations map[string]string, labels map[string]string) context.Context {
 	key := types.NamespacedName{Namespace: ns, Name: rev}
 	ctx, ok := contextCache.Get(key)
 	if !ok {
-		rctx := AugmentWithRevision(context.Background(), ns, svc, cfg, rev)
+		rctx := AugmentWithRevision(context.Background(), ns, svc, cfg, rev, annotations, labels)
 		contextCache.Add(key, rctx)
 		ctx = rctx
 	}
@@ -97,7 +99,8 @@ type podRevisionCtx struct {
 
 // PodRevisionContext generates a new base metric reporting context containing
 // the respective pod and revision specific tags.
-func PodRevisionContext(pod, container, ns, svc, cfg, rev string) (context.Context, error) {
+func PodRevisionContext(pod, container, ns, svc, cfg, rev string,
+	annotations map[string]string, labels map[string]string) (context.Context, error) {
 	key := podRevisionCtx{
 		pod:      podCtx{pod: pod, container: container},
 		revision: types.NamespacedName{Namespace: ns, Name: rev},
@@ -108,15 +111,25 @@ func PodRevisionContext(pod, container, ns, svc, cfg, rev string) (context.Conte
 		if err != nil {
 			return rctx, err
 		}
-		rctx = AugmentWithRevision(rctx, ns, svc, cfg, rev)
+		rctx = AugmentWithRevision(rctx, ns, svc, cfg, rev, annotations, labels)
 		contextCache.Add(key, rctx)
 		ctx = rctx
 	}
 	return ctx.(context.Context), nil
 }
 
+// sanitizeRune converts anything that is not a letter or digit to an underscore
+// Taken from https://github.com/census-instrumentation/opencensus-go/blob/v0.23.0/internal/sanitize.go
+func sanitizeRune(r rune) rune {
+	if unicode.IsLetter(r) || unicode.IsDigit(r) {
+		return r
+	}
+	return '_'
+}
+
 // AugmentWithRevision augments the given context with a knative_revision resource.
-func AugmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string) context.Context {
+func AugmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string,
+	ann map[string]string, lab map[string]string) context.Context {
 	r := resource.Resource{
 		Type: ResourceTypeKnativeRevision,
 		Labels: map[string]string{
@@ -125,6 +138,12 @@ func AugmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string) cont
 			LabelConfigurationName: cfg,
 			LabelRevisionName:      rev,
 		},
+	}
+	for k, v := range ann {
+		r.Labels["annotation_" + strings.Map(sanitizeRune, k)] = v
+	}
+	for k, v := range lab {
+		r.Labels["label_" + strings.Map(sanitizeRune, k)] = v
 	}
 	return metricskey.WithResource(baseCtx, r)
 }

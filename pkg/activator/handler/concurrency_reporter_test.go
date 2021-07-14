@@ -575,7 +575,7 @@ func TestMetricsReported(t *testing.T) {
 
 	// Should report a concurrency of 3 because the first event was a scale-from-0 (gets discounted)
 	wantMetric := metricstest.FloatMetric("request_concurrency", 3, wantTags).WithResource(wantResource)
-	metricstest.AssertMetric(t, wantMetric)
+	metricstest.AssertMetricRequiredOnly(t, wantMetric)
 
 	// Report again
 	reportCh <- now.Add(2)
@@ -583,7 +583,7 @@ func TestMetricsReported(t *testing.T) {
 
 	// The next time round we should report the "real" concurrency
 	wantMetric = metricstest.FloatMetric("request_concurrency", 4, wantTags).WithResource(wantResource)
-	metricstest.AssertMetric(t, wantMetric)
+	metricstest.AssertMetricRequiredOnly(t, wantMetric)
 }
 
 func newTestReporter(t *testing.T) (*ConcurrencyReporter, context.Context, context.CancelFunc) {

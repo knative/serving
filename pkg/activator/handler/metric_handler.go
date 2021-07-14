@@ -44,7 +44,7 @@ type MetricHandler struct {
 func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rev := RevisionFrom(r.Context())
 	reporterCtx, _ := metrics.PodRevisionContext(h.podName, activator.Name,
-		rev.Namespace, rev.Labels[serving.ServiceLabelKey], rev.Labels[serving.ConfigurationLabelKey], rev.Name)
+		rev.Namespace, rev.Labels[serving.ServiceLabelKey], rev.Labels[serving.ConfigurationLabelKey], rev.Name, rev.GetAnnotations(), rev.GetLabels())
 
 	start := time.Now()
 

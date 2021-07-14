@@ -230,9 +230,11 @@ func uniScalerFactoryFunc(podLister corev1listers.PodLister,
 			return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.RevisionLabelKey, decider.Name)
 		}
 		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
+		annotations := decider.Annotations
+		labels := decider.Labels
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		ctx := smetrics.RevisionContext(decider.Namespace, serviceName, configName, revisionName)
+		ctx := smetrics.RevisionContext(decider.Namespace, serviceName, configName, revisionName, annotations, labels)
 
 		podAccessor := resources.NewPodAccessor(podLister, decider.Namespace, revisionName)
 		return scaling.New(ctx, decider.Namespace, decider.Name, metricClient,

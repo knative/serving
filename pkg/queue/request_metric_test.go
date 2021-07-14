@@ -33,7 +33,8 @@ const targetURI = "http://example.com"
 
 func TestNewRequestMetricsHandlerFailure(t *testing.T) {
 	t.Cleanup(reset)
-	if _, err := NewRequestMetricsHandler(nil /*next*/, "a", "b", "c", "d", "shøüld fail"); err == nil {
+	if _, err := NewRequestMetricsHandler(nil /*next*/, "a", "b", "c", "d", "shøüld fail",
+		map[string]string{"testann": "testval"}, map[string]string{"testlab": "testval"}); err == nil {
 		t.Error("Should get error when tag value is not ascii")
 	}
 }
@@ -41,7 +42,8 @@ func TestNewRequestMetricsHandlerFailure(t *testing.T) {
 func TestRequestMetricsHandler(t *testing.T) {
 	defer reset()
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod",
+		map[string]string{"testann": "testval"}, map[string]string{"testlab": "testval"})
 	if err != nil {
 		t.Fatal("Failed to create handler:", err)
 	}
@@ -67,20 +69,21 @@ func TestRequestMetricsHandler(t *testing.T) {
 		},
 	}
 
-	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
-	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetricRequiredOnly(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetricRequiredOnly(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
 
 	// A probe request should not be recorded.
 	req.Header.Set(network.ProbeHeaderName, "activator")
 	handler.ServeHTTP(resp, req)
-	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
-	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetricRequiredOnly(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetricRequiredOnly(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
 }
 
 func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	defer reset()
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod",
+		map[string]string{"testann": "testval"}, map[string]string{"testlab": "testval"})
 	if err != nil {
 		t.Fatal("Failed to create handler:", err)
 	}
@@ -108,32 +111,35 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 		},
 	}
 
-	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetricRequiredOnly(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 
 	// Testing for default route
 	reset()
-	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod",
+		map[string]string{"testann": "testval"}, map[string]string{"testlab": "testval"})
 	req.Header.Del(network.TagHeaderName)
 	req.Header.Set(network.DefaultRouteHeaderName, "true")
 	handler.ServeHTTP(resp, req)
 	wantTags["route_tag"] = defaultTagName
-	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetricRequiredOnly(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 
 	reset()
-	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod",
+		map[string]string{"testann": "testval"}, map[string]string{"testlab": "testval"})
 	req.Header.Set(network.TagHeaderName, "test-tag")
 	req.Header.Set(network.DefaultRouteHeaderName, "true")
 	handler.ServeHTTP(resp, req)
 	wantTags["route_tag"] = undefinedTagName
-	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetricRequiredOnly(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 
 	reset()
-	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod",
+		map[string]string{"testann": "testval"}, map[string]string{"testlab": "testval"})
 	req.Header.Set(network.TagHeaderName, "test-tag")
 	req.Header.Set(network.DefaultRouteHeaderName, "false")
 	handler.ServeHTTP(resp, req)
 	wantTags["route_tag"] = "test-tag"
-	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetricRequiredOnly(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 }
 
 func reset() {
@@ -148,7 +154,8 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("no!")
 	})
-	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod",
+		map[string]string{"testann": "testval"}, map[string]string{"testlab": "testval"})
 	if err != nil {
 		t.Fatal("Failed to create handler:", err)
 	}
@@ -175,8 +182,8 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 				metrics.LabelConfigurationName: "cfg",
 			},
 		}
-		metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
-		metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
+		metricstest.AssertMetricRequiredOnly(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
+		metricstest.AssertMetricRequiredOnly(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
 	}()
 	handler.ServeHTTP(resp, req)
 }
@@ -187,7 +194,8 @@ func BenchmarkNewRequestMetricsHandler(b *testing.B) {
 	})
 	breaker := NewBreaker(BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10})
 	handler, err := NewAppRequestMetricsHandler(baseHandler, breaker, "test-ns",
-		"test-svc", "test-cfg", "test-rev", "test-pod")
+		"test-svc", "test-cfg", "test-rev", "test-pod",
+		map[string]string{"testann": "testval"}, map[string]string{"testlab": "testval"})
 	if err != nil {
 		b.Fatal("failed to create request metric handler:", err)
 	}
@@ -216,7 +224,8 @@ func TestAppRequestMetricsHandlerPanickingHandler(t *testing.T) {
 	})
 	breaker := NewBreaker(BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10})
 	handler, err := NewAppRequestMetricsHandler(baseHandler, breaker,
-		"ns", "svc", "cfg", "rev", "pod")
+		"ns", "svc", "cfg", "rev", "pod",
+		map[string]string{"testann": "testval"}, map[string]string{"testlab": "testval"})
 	if err != nil {
 		t.Fatal("Failed to create handler:", err)
 	}
@@ -243,8 +252,8 @@ func TestAppRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			},
 		}
 
-		metricstest.AssertMetric(t, metricstest.IntMetric("app_request_count", 1, wantTags).WithResource(wantResource))
-		metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("app_request_latencies", 1, wantTags).WithResource(wantResource))
+		metricstest.AssertMetricRequiredOnly(t, metricstest.IntMetric("app_request_count", 1, wantTags).WithResource(wantResource))
+		metricstest.AssertMetricRequiredOnly(t, metricstest.DistributionCountOnlyMetric("app_request_latencies", 1, wantTags).WithResource(wantResource))
 	}()
 	handler.ServeHTTP(resp, req)
 }
@@ -254,7 +263,8 @@ func TestAppRequestMetricsHandler(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	breaker := NewBreaker(BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10})
 	handler, err := NewAppRequestMetricsHandler(baseHandler, breaker,
-		"ns", "svc", "cfg", "rev", "pod")
+		"ns", "svc", "cfg", "rev", "pod",
+		map[string]string{"testann": "testval"}, map[string]string{"testlab": "testval"})
 	if err != nil {
 		t.Fatal("Failed to create handler:", err)
 	}
@@ -279,19 +289,20 @@ func TestAppRequestMetricsHandler(t *testing.T) {
 		},
 	}
 
-	metricstest.AssertMetric(t, metricstest.IntMetric("app_request_count", 1, wantTags).WithResource(wantResource))
-	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("app_request_latencies", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetricRequiredOnly(t, metricstest.IntMetric("app_request_count", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetricRequiredOnly(t, metricstest.DistributionCountOnlyMetric("app_request_latencies", 1, wantTags).WithResource(wantResource))
 
 	// A probe request should not be recorded.
 	req.Header.Set(network.ProbeHeaderName, "activator")
 	handler.ServeHTTP(resp, req)
-	metricstest.AssertMetric(t, metricstest.IntMetric("app_request_count", 1, wantTags).WithResource(wantResource))
-	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("app_request_latencies", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetricRequiredOnly(t, metricstest.IntMetric("app_request_count", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetricRequiredOnly(t, metricstest.DistributionCountOnlyMetric("app_request_latencies", 1, wantTags).WithResource(wantResource))
 }
 
 func BenchmarkRequestMetricsHandler(b *testing.B) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	handler, _ := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, _ := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod",
+		map[string]string{"testann": "testval"}, map[string]string{"testlab": "testval"})
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 
 	b.Run("sequential", func(b *testing.B) {
@@ -315,7 +326,8 @@ func BenchmarkAppRequestMetricsHandler(b *testing.B) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	breaker := NewBreaker(BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10})
 	handler, err := NewAppRequestMetricsHandler(baseHandler, breaker,
-		"ns", "svc", "cfg", "rev", "pod")
+		"ns", "svc", "cfg", "rev", "pod",
+		map[string]string{"testann": "testval"}, map[string]string{"testlab": "testval"})
 	if err != nil {
 		b.Fatal("Failed to create handler:", err)
 	}

@@ -173,8 +173,10 @@ func newServiceScraperWithClient(
 	logger *zap.SugaredLogger) *serviceScraper {
 	svcName := metric.Labels[serving.ServiceLabelKey]
 	cfgName := metric.Labels[serving.ConfigurationLabelKey]
+	labels := metric.GetLabels()
+	annotations := metric.GetAnnotations()
 
-	ctx := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revisionName)
+	ctx := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revisionName, annotations, labels)
 
 	return &serviceScraper{
 		directClient:     directClient,

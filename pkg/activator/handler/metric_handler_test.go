@@ -110,8 +110,8 @@ func TestRequestMetricHandler(t *testing.T) {
 					metrics.LabelResponseCodeClass: strconv.Itoa(labelCode/100) + "xx",
 				}
 
-				metricstest.AssertMetric(t, metricstest.IntMetric(requestCountM.Name(), 1, wantTags).WithResource(wantResource))
-				metricstest.AssertMetricExists(t, responseTimeInMsecM.Name())
+				metricstest.AssertMetricRequiredOnly(t, metricstest.IntMetric(requestCountM.Name(), 1, wantTags).WithResource(wantResource))
+				metricstest.AssertMetricExistsRequiredOnly(t, responseTimeInMsecM.Name())
 			}()
 
 			reqCtx := WithRevisionAndID(context.Background(), rev, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
