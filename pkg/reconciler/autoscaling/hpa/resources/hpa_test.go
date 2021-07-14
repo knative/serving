@@ -80,11 +80,8 @@ func TestMakeHPA(t *testing.T) {
 			withMetric(autoscalingv2beta1.MetricSpec{
 				Type: autoscalingv2beta1.ResourceMetricSourceType,
 				Resource: &autoscalingv2beta1.ResourceMetricSource{
-					Name: corev1.ResourceMemory,
-					TargetAverageValue: func() *resource.Quantity {
-						res := resource.MustParse("50Mi")
-						return &res
-					}(),
+					Name:               corev1.ResourceMemory,
+					TargetAverageValue: resource.NewQuantity(50*1024*1024, resource.BinarySI),
 				},
 			})),
 	}, {
