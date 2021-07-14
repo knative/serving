@@ -82,22 +82,20 @@ Running the conformance tests then consists of these steps:
     ```
 1. The project admin then runs the conformance test suite using the `--disable-logstream` flag:
     ```bash
-    go test -v -tags=e2e -count=1 \
-      --disable-logstream \
-      -kubeconfig=$PROJECT_ADMIN_KUBECONFIG \
-      ./test/conformance/...
+    go test -v -tags=e2e -count=1 ./test/conformance/... \
+      -disable-logstream \
+      -kubeconfig=$PROJECT_ADMIN_KUBECONFIG
     ```
 
 The tests can be run in arbitrary test namespaces. If you modify the namespaces of the
 resources above you must pass the updated values to the Golang test suite:
 ```bash
-   go test -tags=e2e -count=1 \
-      --disable-logstream \
-      -kubeconfig=$PROJECT_ADMIN_KUBECONFIG \
-     -test-namespace=serving-tests \
-     -alt-test-namespace=serving-tests-alt \
-     -tls-test-namespace=tls \
-     ./test/conformance/...
+go test -tags=e2e -count=1 ./test/conformance/... \
+  -disable-logstream \
+  -kubeconfig=$PROJECT_ADMIN_KUBECONFIG \
+  -test-namespace=serving-tests \
+  -alt-test-namespace=serving-tests-alt \
+  -tls-test-namespace=tls
 ```
 
 ## Running performance tests
