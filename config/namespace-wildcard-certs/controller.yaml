@@ -27,9 +27,9 @@ spec:
   selector:
     matchLabels:
       app: net-nscert-controller
-      app.kubernetes.io/name: net-nscert-controller
-      app.kubernetes.io/version: devel
-      app.kubernetes.io/part-of: knative
+      # app.kubernetes.io/name: net-nscert-controller
+      # app.kubernetes.io/version: devel
+      # app.kubernets.io/part-of: knative
   template:
     metadata:
       annotations:

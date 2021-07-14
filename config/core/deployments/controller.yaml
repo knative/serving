@@ -118,5 +118,6 @@ spec:
     port: 8008
     targetPort: 8008
   selector:
+    app: activator
     app.kubernetes.io/name: controller
     app.kubernetes.io/version: devel

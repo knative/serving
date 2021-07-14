@@ -26,8 +26,8 @@ spec:
   selector:
     matchLabels:
       app: domain-mapping
-      app.kubernetes.io/name: domain-mapping
-      app.kubernetes.io/version: devel
+      # app.kubernetes.io/name: domain-mapping
+      # app.kubernetes.io/version: devel
   template:
     metadata:
       annotations:

@@ -55,5 +55,6 @@ spec:
   minAvailable: 80%
   selector:
     matchLabels:
-      app.kubernetes.io/name: activator
-      app.kubernetes.io/version: devel
+      app: activator
+      # app.kubernetes.io/name: activator
+      # app.kubernetes.io/version: devel

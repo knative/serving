@@ -26,8 +26,8 @@ spec:
   selector:
     matchLabels:
       app: webhook
-      app.kubernetes.io/name: webhook
-      app.kubernetes.io/version: devel
+      # app.kubernetes.io/name: webhook
+      # app.kubernetes.io/version: devel
   template:
     metadata:
       annotations:
@@ -46,6 +46,8 @@ spec:
               labelSelector:
                 matchLabels:
                   app: webhook
+                  # app.kubernetes.io/name: webhook
+                  # app.kubernetes.io/version: devel
               topologyKey: kubernetes.io/hostname
             weight: 100
 
@@ -149,5 +151,6 @@ spec:
     port: 443
     targetPort: 8443
   selector:
-    app.kubernetes.io/name: webhook
-    app.kubernetes.io/version: devel
+    role: webhook
+    # app.kubernetes.io/name: webhook
+    # app.kubernetes.io/version: devel

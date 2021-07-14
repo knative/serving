@@ -26,7 +26,8 @@ spec:
   selector:
     matchLabels:
       app: autoscaler
-      app.kubernetes.io/name: autoscaler
+      # app.kubernetes.io/name: autoscaler
+      # app.kubernetes.io/version: devel
   template:
     metadata:
       annotations:
@@ -137,3 +138,5 @@ spec:
     targetPort: 8080
   selector:
     app: autoscaler
+    # app.kubernetes.io/name: autoscaler
+    # app.kubernetes.io/version: devel
