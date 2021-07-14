@@ -44,7 +44,6 @@ import (
 
 const (
 	cpuTarget             = 75
-	memoryTarget          = 20
 	targetPods            = 5
 	concurrency           = 10
 	scaleUpTimeout        = 3 * time.Minute
@@ -54,16 +53,8 @@ const (
 	primeNum              = 1000000
 )
 
-func TestHPAAutoscaleUpDownUpWithCPUTarget(t *testing.T) {
+func TestHPAAutoscaleUpDownUp(t *testing.T) {
 	ctx := setupHPASvc(t, autoscaling.CPU, cpuTarget)
-	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
-	assertHPAAutoscaleUpToNumPods(ctx, targetPods, time.After(scaleUpTimeout), true /* quick */)
-	assertScaleDownToOne(ctx)
-	assertHPAAutoscaleUpToNumPods(ctx, targetPods, time.After(scaleUpTimeout), true /* quick */)
-}
-
-func TestHPAAutoscaleUpDownUpWithMemoryTarget(t *testing.T) {
-	ctx := setupHPASvc(t, autoscaling.Memory, memoryTarget)
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 	assertHPAAutoscaleUpToNumPods(ctx, targetPods, time.After(scaleUpTimeout), true /* quick */)
 	assertScaleDownToOne(ctx)
