@@ -31,11 +31,13 @@ import (
 	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 )
 
 var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 	servingv1alpha1.SchemeGroupVersion.WithKind("DomainMapping"): &servingv1alpha1.DomainMapping{},
+	servingv1beta1.SchemeGroupVersion.WithKind("DomainMapping"):  &servingv1beta1.DomainMapping{},
 }
 
 func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
