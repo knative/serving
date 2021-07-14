@@ -26,6 +26,7 @@ spec:
   selector:
     matchLabels:
       app: webhook
+      role: webhook
       # app.kubernetes.io/name: webhook
       # app.kubernetes.io/version: devel
   template:
@@ -34,6 +35,7 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
         app: webhook
+        role: webhook
         serving.knative.dev/release: devel
         app.kubernetes.io/name: webhook
         app.kubernetes.io/version: devel
