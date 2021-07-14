@@ -60,7 +60,8 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autos
 		hpa.Spec.MinReplicas = &min
 	}
 
-	if pa.Metric() == autoscaling.CPU {
+	switch pa.Metric() {
+	case autoscaling.CPU:
 		if target, ok := pa.Target(); ok {
 			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
 				Type: autoscalingv2beta1.ResourceMetricSourceType,
@@ -70,9 +71,8 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autos
 				},
 			}}
 		}
-	}
 
-	if pa.Metric() == autoscaling.Memory {
+	case autoscaling.Memory:
 		if target, ok := pa.Target(); ok {
 			memory := resource.MustParse(strconv.Itoa(int(math.Ceil(target))) + "Mi")
 			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
@@ -84,5 +84,6 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autos
 			}}
 		}
 	}
+
 	return hpa
 }
