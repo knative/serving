@@ -94,13 +94,13 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1.Route) erro
 	}
 
 	t.Logf("Route %s can serve the expected data at %s", route.Name, url)
-	_, err = pkgtest.WaitForEndpointState(
+	_, err = pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText))),
-		"WaitForEndpointToServeText",
+		"CheckEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {

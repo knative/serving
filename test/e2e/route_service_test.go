@@ -60,7 +60,7 @@ func TestRoutesNotReady(t *testing.T) {
 	}
 
 	t.Logf("Waiting for Service %q ObservedGeneration to match Generation, and status transition to Ready == False.", names.Service)
-	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceFailed, "ServiceIsNotReady"); err != nil {
+	if err := v1test.CheckServiceState(clients.ServingClient, names.Service, v1test.IsServiceFailed /* , "ServiceIsNotReady" */); err != nil {
 		t.Fatalf("Failed waiting for Service %q to transition to Ready == False: %#v", names.Service, err)
 	}
 

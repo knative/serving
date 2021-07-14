@@ -90,7 +90,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		t.Fatal("Error obtaining Revision's name", err)
 	}
 
-	if _, err = pkgTest.WaitForEndpointState(
+	if _, err = pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
@@ -174,7 +174,7 @@ func TestDestroyPodTimely(t *testing.T) {
 	}
 	routeURL := objects.Route.Status.URL.URL()
 
-	if _, err = pkgTest.WaitForEndpointState(
+	if _, err = pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,

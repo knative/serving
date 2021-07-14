@@ -69,7 +69,7 @@ func TestActivatorOverload(t *testing.T) {
 		t.Fatal("Unable to create resources:", err)
 	}
 
-	if _, err := pkgTest.WaitForEndpointState(
+	if _, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,

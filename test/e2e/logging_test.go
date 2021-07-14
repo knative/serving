@@ -85,7 +85,7 @@ func TestRequestLogs(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %q: %v", names.Service, err)
 	}
 
-	_, err = pkgtest.WaitForEndpointState(
+	_, err = pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
