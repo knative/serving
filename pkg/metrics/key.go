@@ -60,6 +60,10 @@ const (
 
 	// LabelResponseTimeout is the label timeout.
 	LabelResponseTimeout = metricskey.LabelResponseTimeout
+
+	// ValueUnknown is the default value if the field is unknown, e.g. project will be unknown if Knative
+	// is not running on GKE.
+	ValueUnknown = metricskey.ValueUnknown
 )
 
 // Create the tag keys that will be used to add tags to our measurements.
