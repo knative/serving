@@ -33,7 +33,7 @@ import (
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
-	"knative.dev/serving/pkg/activator"
+	activatormetrics "knative.dev/serving/pkg/activator/metrics"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -179,7 +179,7 @@ func main() {
 	logger.Info("Connecting to Autoscaler at ", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	defer statSink.Shutdown()
-	go activator.ReportStats(logger, statSink, statCh)
+	go activatormetrics.ReportStats(logger, statSink, statCh)
 
 	// Create and run our concurrency reporter
 	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh)
