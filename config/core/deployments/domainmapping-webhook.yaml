@@ -27,18 +27,17 @@ spec:
     matchLabels:
       app: domainmapping-webhook
       role: domainmapping-webhook
-      # app.kubernetes.io/name: domainmapping-webhook
-      # app.kubernetes.io/version: devel
   template:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
         app: domainmapping-webhook
+        app.kubernetes.io/name: domainmapping-webhook
+        app.kubernetes.io/part-of: knative-serving
+        app.kubernetes.io/version: devel
         role: domainmapping-webhook
         serving.knative.dev/release: devel
-        # app.kubernetes.io/name: domainmapping-webhook
-        # app.kubernetes.io/version: devel
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
       affinity:
@@ -48,8 +47,6 @@ spec:
               labelSelector:
                 matchLabels:
                   app: domainmapping-webhook
-                  app.kubernetes.io/name: domain-mapping
-                  app.kubernetes.io/version: devel
               topologyKey: kubernetes.io/hostname
             weight: 100
 
@@ -135,7 +132,7 @@ metadata:
     serving.knative.dev/release: devel
     app.kubernetes.io/name: domainmapping-webhook
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
   name: domainmapping-webhook
   namespace: knative-serving
 spec:
@@ -152,5 +149,3 @@ spec:
     targetPort: 8443
   selector:
     role: domainmapping-webhook
-    # app.kubernetes.io/name: domainmapping-webhook
-    # app.kubernetes.io/version: devel

@@ -21,14 +21,12 @@ metadata:
     serving.knative.dev/release: devel
     app.kubernetes.io/name: webhook
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
 spec:
   selector:
     matchLabels:
       app: webhook
       role: webhook
-      # app.kubernetes.io/name: webhook
-      # app.kubernetes.io/version: devel
   template:
     metadata:
       annotations:
@@ -39,6 +37,7 @@ spec:
         serving.knative.dev/release: devel
         app.kubernetes.io/name: webhook
         app.kubernetes.io/version: devel
+        app.kubernetes.io/part-of: knative-serving
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
       affinity:
@@ -48,8 +47,6 @@ spec:
               labelSelector:
                 matchLabels:
                   app: webhook
-                  # app.kubernetes.io/name: webhook
-                  # app.kubernetes.io/version: devel
               topologyKey: kubernetes.io/hostname
             weight: 100
 

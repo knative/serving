@@ -18,7 +18,7 @@ metadata:
   name: webhook.serving.knative.dev
   labels:
     serving.knative.dev/release: devel
-    app.kubernetes.io/name: webhook
+    app.kubernetes.io/name: defaulting-webhook
     app.kubernetes.io/version: devel
     app.kubernetes.io/part-of: knative
 webhooks:

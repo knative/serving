@@ -18,27 +18,25 @@ metadata:
   name: net-nscert-controller
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: devel
-    networking.knative.dev/wildcard-certificate-provider: nscert
     app.kubernetes.io/name: net-nscert-controller
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
+    networking.knative.dev/wildcard-certificate-provider: nscert
+    serving.knative.dev/release: devel
 spec:
   selector:
     matchLabels:
       app: net-nscert-controller
-      # app.kubernetes.io/name: net-nscert-controller
-      # app.kubernetes.io/version: devel
-      # app.kubernets.io/part-of: knative
   template:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: net-nscert-controller
-        serving.knative.dev/release: devel
         app.kubernetes.io/name: net-nscert-controller
         app.kubernetes.io/version: devel
+        app.kubernetes.io/part-of: knative-serving
+        serving.knative.dev/release: devel
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
       affinity:
@@ -103,7 +101,7 @@ metadata:
     networking.knative.dev/wildcard-certificate-provider: nscert
     app.kubernetes.io/name: net-nscert-controller
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
   name: net-nscert-controller
   namespace: knative-serving
 spec:
@@ -116,5 +114,4 @@ spec:
     port: 8008
     targetPort: 8008
   selector:
-    app.kubernetes.io/name: net-nscert-controller
-    app.kubernetes.io/version: devel
+    app: net-nscert-controller

@@ -21,7 +21,7 @@ metadata:
     serving.knative.dev/release: devel
     app.kubernetes.io/name: webhook
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
 spec:
   minReplicas: 1
   maxReplicas: 5
@@ -48,11 +48,9 @@ metadata:
     serving.knative.dev/release: devel
     app.kubernetes.io/name: webhook
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
 spec:
   minAvailable: 80%
   selector:
     matchLabels:
-      app.kubernetes.io/name: webhook
-      # app.kubernetes.io/version: devel
-      # app.kubernetes.io/part-of: knative
+      app: webhook

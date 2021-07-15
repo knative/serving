@@ -21,7 +21,7 @@ metadata:
     serving.knative.dev/release: devel
     app.kubernetes.io/name: queue-proxy
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
 spec:
   # This is the Go import path for the binary that is containerized
   # and substituted here.

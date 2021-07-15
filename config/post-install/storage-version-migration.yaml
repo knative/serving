@@ -32,7 +32,7 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: storage-version-migration-serving
-        app.kubernetes.io/name: networking-ns-cert
+        app.kubernetes.io/name: storage-version-migration-serving
         app.kubernetes.io/version: devel
     spec:
       serviceAccountName: controller

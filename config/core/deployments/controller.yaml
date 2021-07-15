@@ -21,13 +21,11 @@ metadata:
     serving.knative.dev/release: devel
     app.kubernetes.io/name: controller
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
 spec:
   selector:
     matchLabels:
       app: controller
-      app.kubernetes.io/name: activator
-      app.kubernetes.io/version: devel
   template:
     metadata:
       annotations:
@@ -35,8 +33,9 @@ spec:
       labels:
         app: controller
         serving.knative.dev/release: devel
-        app.kubernetes.io/name: activator
+        app.kubernetes.io/name: controller
         app.kubernetes.io/version: devel
+        app.kubernetes.io/part-of: knative-serving
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
       affinity:
@@ -118,6 +117,4 @@ spec:
     port: 8008
     targetPort: 8008
   selector:
-    app: activator
-    app.kubernetes.io/name: controller
-    app.kubernetes.io/version: devel
+    app: controller

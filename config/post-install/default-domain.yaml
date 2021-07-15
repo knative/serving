@@ -77,8 +77,7 @@ metadata:
     app.kubernetes.io/part-of: knative
 spec:
   selector:
-    app.kubernetes.io/name: default-domain
-    app.kubernetes.io/version: devel
+    app: default-domain
   ports:
   - name: http
     port: 80

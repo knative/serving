@@ -21,13 +21,11 @@ metadata:
     serving.knative.dev/release: devel
     app.kubernetes.io/name: domain-mapping
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
 spec:
   selector:
     matchLabels:
       app: domain-mapping
-      # app.kubernetes.io/name: domain-mapping
-      # app.kubernetes.io/version: devel
   template:
     metadata:
       annotations:
@@ -36,6 +34,7 @@ spec:
         app: domain-mapping
         serving.knative.dev/release: devel
         app.kubernetes.io/name: domain-mapping
+        app.kubernetes.io/part-of: knative-serving
         app.kubernetes.io/version: devel
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
