@@ -80,14 +80,13 @@ func validateName(generateName, name string) error {
 func canServeRequests(t *testing.T, clients *test.Clients, route *v1.Route) error {
 	t.Logf("Route %s has a domain set in its status", route.Name)
 	var url *url.URL
-	err := v1test.WaitForRouteState(
+	err := v1test.CheckRouteState(
 		clients.ServingClient,
 		route.Name,
 		func(r *v1.Route) (bool, error) {
 			url = r.Status.URL.URL()
 			return url.String() != "", nil
 		},
-		"RouteDomain",
 	)
 	if err != nil {
 		return fmt.Errorf("route did not get assigned an URL: %w", err)
@@ -195,7 +194,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 	names.Route = route.Name
 
 	t.Log("When the route is created, it will become ready")
-	if err := v1test.WaitForRouteState(clients.ServingClient, names.Route, v1test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := v1test.CheckRouteState(clients.ServingClient, names.Route, v1test.IsRouteReady); err != nil {
 		t.Fatalf("Error waiting for the route %s to become ready: %v", names.Route, err)
 	}
 

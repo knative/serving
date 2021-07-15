@@ -258,7 +258,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	}
 	routeURL := objects.Route.Status.URL.URL()
 
-	if _, err = pkgTest.WaitForEndpointState(
+	if _, err = pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,

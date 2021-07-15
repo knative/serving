@@ -60,7 +60,7 @@ func TestRoutesNotReady(t *testing.T) {
 	}
 
 	t.Logf("Waiting for Service %q ObservedGeneration to match Generation, and status transition to Ready == False.", names.Service)
-	if err := v1test.CheckServiceState(clients.ServingClient, names.Service, v1test.IsServiceFailed /* , "ServiceIsNotReady" */); err != nil {
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceFailed, "ServiceIsNotReady"); err != nil {
 		t.Fatalf("Failed waiting for Service %q to transition to Ready == False: %#v", names.Service, err)
 	}
 
@@ -158,7 +158,7 @@ func TestRouteVisibilityChanges(t *testing.T) {
 			st.Logf("Validating Route %q has cluster-local address", serviceresourcenames.Route(svc))
 			// Check Route is not ready
 
-			if err = v1test.WaitForRouteState(clients.ServingClient, serviceresourcenames.Route(svc), hasPrivateRoute, "RouteIsClusterLocal"); err != nil {
+			if err = v1test.CheckRouteState(clients.ServingClient, serviceresourcenames.Route(svc), hasPrivateRoute); err != nil {
 				st.Fatalf("The Route %q should be privately visible but it was not: %#v", serviceresourcenames.Route(svc), err)
 			}
 		})
