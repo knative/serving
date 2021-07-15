@@ -143,14 +143,8 @@ func WithExporterFull(name, host string, logger *zap.SugaredLogger) ConfigOption
 		var (
 			exporter trace.Exporter
 			closer   io.Closer
-			err      error
 		)
 		switch cfg.Backend {
-		case config.Stackdriver:
-			exporter, err = newStackdriver(cfg)
-			if err != nil {
-				return err
-			}
 		case config.Zipkin:
 			// If host isn't specified, then zipkin.NewEndpoint will return an error saying that it
 			// can't find the host named ''. So, if not specified, default it to this machine's
