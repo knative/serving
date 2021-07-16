@@ -33,7 +33,7 @@ import (
 
 func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedGeneration, expectedText string) {
 	t.Log("When the Route reports as Ready, everything should be ready.")
-	if err := v1test.CheckRouteState(clients.ServingClient, names.Route, v1test.IsRouteReady); err != nil {
+	if err := v1test.WaitForRouteState(clients.ServingClient, names.Route, v1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
 	}
 

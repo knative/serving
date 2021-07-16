@@ -158,7 +158,7 @@ func TestRouteVisibilityChanges(t *testing.T) {
 			st.Logf("Validating Route %q has cluster-local address", serviceresourcenames.Route(svc))
 			// Check Route is not ready
 
-			if err = v1test.CheckRouteState(clients.ServingClient, serviceresourcenames.Route(svc), hasPrivateRoute); err != nil {
+			if err = v1test.WaitForRouteState(clients.ServingClient, serviceresourcenames.Route(svc), hasPrivateRoute, "RouteIsClusterLocal"); err != nil {
 				st.Fatalf("The Route %q should be privately visible but it was not: %#v", serviceresourcenames.Route(svc), err)
 			}
 		})

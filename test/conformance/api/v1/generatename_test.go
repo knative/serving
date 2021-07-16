@@ -194,7 +194,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 	names.Route = route.Name
 
 	t.Log("When the route is created, it will become ready")
-	if err := v1test.CheckRouteState(clients.ServingClient, names.Route, v1test.IsRouteReady); err != nil {
+	if err := v1test.WaitForRouteState(clients.ServingClient, names.Route, v1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("Error waiting for the route %s to become ready: %v", names.Route, err)
 	}
 
