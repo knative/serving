@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
 )
 
 var (
@@ -113,7 +113,7 @@ func TestRequestLogHandler(t *testing.T) {
 				resp := httptest.NewRecorder()
 				req := httptest.NewRequest(http.MethodPost, test.url, bytes.NewBufferString(test.body))
 				if test.isProbe {
-					req.Header.Set(network.ProbeHeaderName, "activator")
+					req.Header.Set(header.ProbeKey, "activator")
 				}
 				handler.ServeHTTP(resp, req)
 

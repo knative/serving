@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/serving/pkg/autoscaler/metrics/protocol"
 )
 
 func TestReportStats(t *testing.T) {
@@ -72,13 +73,13 @@ func TestReportStats(t *testing.T) {
 	case <-received:
 		var statNames []string
 		for _, b := range output {
-			var wsms metrics.WireStatMessages
+			var wsms protocol.WireStatMessages
 			if err := wsms.Unmarshal(b); err != nil {
 				t.Errorf("Unmarshal stats = %v, expected no error", err)
 			}
 
 			for _, m := range wsms.Messages {
-				statNames = append(statNames, m.ToStatMessage().Key.Name)
+				statNames = append(statNames, metrics.ToStatMessage(*m).Key.Name)
 			}
 		}
 		want := sets.NewString("first-a", "first-b", "second-a", "second-b")

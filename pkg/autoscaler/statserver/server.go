@@ -27,9 +27,10 @@ import (
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
 	"knative.dev/serving/pkg/autoscaler/bucket"
 	"knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/serving/pkg/autoscaler/metrics/protocol"
 )
 
 const closeCodeServiceRestart = 1012 // See https://www.iana.org/assignments/websocket/websocket.xhtml
@@ -106,7 +107,7 @@ func (s *Server) serve(l net.Listener) error {
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) bool {
-	if network.IsKubeletProbe(r) {
+	if header.IsKubeletProbe(r) {
 		// As an initial approach, once stats server is up -- return true.
 		w.WriteHeader(http.StatusOK)
 		return true
@@ -175,7 +176,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 
 		switch messageType {
 		case websocket.BinaryMessage:
-			var wsms metrics.WireStatMessages
+			var wsms protocol.WireStatMessages
 			if err := wsms.Unmarshal(msg); err != nil {
 				s.logger.Errorw("Failed to unmarshal the object", zap.Error(err))
 				continue
@@ -187,7 +188,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
-				sm := wsm.ToStatMessage()
+				sm := metrics.ToStatMessage(*wsm)
 				s.logger.Debugf("Received stat message: %+v", sm)
 				s.statsCh <- sm
 			}

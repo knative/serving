@@ -243,6 +243,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	userProbe := container.ReadinessProbe.DeepCopy()
 	applyReadinessProbeDefaultsForExec(userProbe, userPort)
 	execProbe := makeStartupExecProbe(userProbe, cfg.Deployment.ProgressDeadline)
+	if userProbe == nil {
+		return nil, fmt.Errorf("failed nil readiness probe")
+	}
 	userProbeJSON, err := readiness.EncodeProbe(userProbe)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize readiness probe: %w", err)

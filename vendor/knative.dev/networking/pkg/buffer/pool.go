@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pkg
+package buffer
 
 import (
 	"net/http/httputil"
@@ -35,7 +35,7 @@ type bufferPool struct {
 // NewBufferPool creates a new BufferPool. This is only safe to use in the context
 // of a httputil.ReverseProxy, as the buffers returned via Put are not cleaned
 // explicitly.
-func NewBufferPool() httputil.BufferPool {
+func NewPool() httputil.BufferPool {
 	return &bufferPool{
 		// We don't use the New function of sync.Pool here to avoid an unnecessary
 		// allocation when creating the slices. They are implicitly created in the

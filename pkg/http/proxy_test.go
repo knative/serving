@@ -25,8 +25,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	networking "knative.dev/networking/pkg"
-	"knative.dev/pkg/network"
+	"knative.dev/networking/pkg/header"
 )
 
 func TestNewHeaderPruningProxy(t *testing.T) {
@@ -64,23 +63,23 @@ func TestNewHeaderPruningProxy(t *testing.T) {
 		name: "explicit user agent header not removed",
 		url:  "http://example.com/",
 		header: http.Header{
-			network.UserAgentKey: []string{"gold"},
+			header.UserAgentKey: []string{"gold"},
 		},
 		expectHeaders: http.Header{
-			"Host":               []string{"example.com"},
-			network.UserAgentKey: []string{"gold"},
+			"Host":              []string{"example.com"},
+			header.UserAgentKey: []string{"gold"},
 		},
 	}, {
 		name: "overrides host header",
 		url:  "http://example.com/",
 		host: "foo.bar",
 		header: http.Header{
-			network.UserAgentKey: []string{"gold"},
+			header.UserAgentKey: []string{"gold"},
 		},
 		expectHeaders: http.Header{
-			"Host": []string{"foo.bar"},
-			networking.PassthroughLoadbalancingHeaderName: []string{"true"},
-			network.UserAgentKey:                          []string{"gold"},
+			"Host":                             []string{"foo.bar"},
+			header.PassthroughLoadbalancingKey: []string{"true"},
+			header.UserAgentKey:                []string{"gold"},
 		},
 	}}
 

@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"knative.dev/serving/pkg/autoscaler/metrics/protocol"
 
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -39,17 +40,17 @@ func TestStatMessageConversion(t *testing.T) {
 		},
 	}
 
-	wsm := &WireStatMessage{
+	wsm := protocol.WireStatMessage{
 		Namespace: sm.Key.Namespace,
 		Name:      sm.Key.Name,
 		Stat:      &sm.Stat,
 	}
 
-	if got, want := sm.ToWireStatMessage(), wsm; !cmp.Equal(got, want) {
+	if got, want := ToWireStatMessage(sm), &wsm; !cmp.Equal(got, want) {
 		t.Fatal("WireStatMessage mismatch: diff (-got, +want)", cmp.Diff(got, want))
 	}
 
-	if got, want := wsm.ToStatMessage(), sm; !cmp.Equal(got, want) {
+	if got, want := ToStatMessage(wsm), sm; !cmp.Equal(got, want) {
 		t.Fatal("StatMessage mismatch: diff (-got, +want)", cmp.Diff(got, want))
 	}
 }
@@ -84,9 +85,9 @@ func TestStatMessageSliceConversion(t *testing.T) {
 
 	sms := []StatMessage{sm1, sm2}
 
-	wsm1 := sm1.ToWireStatMessage()
-	wsm2 := sm2.ToWireStatMessage()
-	wsms := WireStatMessages{Messages: []*WireStatMessage{wsm1, wsm2}}
+	wsm1 := ToWireStatMessage(sm1)
+	wsm2 := ToWireStatMessage(sm2)
+	wsms := protocol.WireStatMessages{Messages: []*protocol.WireStatMessage{wsm1, wsm2}}
 
 	if got, want := ToWireStatMessages(sms), wsms; !cmp.Equal(got, want) {
 		t.Fatal("WireStatMessages mismatch: diff (-got, +want)", cmp.Diff(got, want))

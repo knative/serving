@@ -28,7 +28,8 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
+	network "knative.dev/networking/pkg/stats"
 	"knative.dev/serving/pkg/activator"
 )
 
@@ -140,8 +141,8 @@ func TestHandlerReqEvent(t *testing.T) {
 				if got, want := r.Host, wantHost; got != want {
 					t.Errorf("Host header = %q, want: %q", got, want)
 				}
-				if got, want := r.Header.Get(network.OriginalHostHeader), ""; got != want {
-					t.Errorf("%s header was preserved", network.OriginalHostHeader)
+				if got, want := r.Header.Get(header.OriginalHostKey), ""; got != want {
+					t.Errorf("%s header was preserved", header.OriginalHostKey)
 				}
 
 				w.WriteHeader(http.StatusOK)
@@ -161,9 +162,9 @@ func TestHandlerReqEvent(t *testing.T) {
 
 			// Verify the Original host header processing.
 			req.Host = "nimporte.pas"
-			req.Header.Set(network.OriginalHostHeader, wantHost)
+			req.Header.Set(header.OriginalHostKey, wantHost)
 
-			req.Header.Set(network.ProxyHeaderName, activator.Name)
+			req.Header.Set(header.ProxyKey, activator.Name)
 			h(writer, req)
 
 			if got := stats.Report(time.Now()).ProxiedRequestCount; got != 1 {
@@ -200,7 +201,7 @@ func TestIgnoreProbe(t *testing.T) {
 	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		c.Inc()
 		<-resp
-		if !network.IsKubeletProbe(r) {
+		if !header.IsKubeletProbe(r) {
 			t.Error("Request was not a probe")
 			w.WriteHeader(http.StatusBadRequest)
 		}
@@ -218,7 +219,7 @@ func TestIgnoreProbe(t *testing.T) {
 	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, proxy)
 
 	req := httptest.NewRequest(http.MethodPost, "http://prob.in", nil)
-	req.Header.Set(network.KubeletProbeHeaderName, "1") // Mark it a probe.
+	req.Header.Set(header.KubeletProbeKey, "1") // Mark it a probe.
 	go h(httptest.NewRecorder(), req)
 	go h(httptest.NewRecorder(), req)
 
@@ -243,7 +244,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-	req.Header.Set(network.OriginalHostHeader, wantHost)
+	req.Header.Set(header.OriginalHostKey, wantHost)
 
 	tests := []struct {
 		label        string

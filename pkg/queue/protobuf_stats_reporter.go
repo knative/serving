@@ -24,8 +24,9 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	network "knative.dev/networking/pkg"
-	"knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/networking/pkg/header"
+	network "knative.dev/networking/pkg/stats"
+	"knative.dev/serving/pkg/autoscaler/metrics/protocol"
 )
 
 const (
@@ -55,14 +56,14 @@ func NewProtobufStatsReporter(pod string, reportingPeriod time.Duration) *Protob
 	// Start with an empty value in case we're scraped before Report has been called.
 	// This matches the prometheus reporter where the gauges would just be empty
 	// in this case.
-	r.stat.Store(metrics.Stat{PodName: pod})
+	r.stat.Store(protocol.Stat{PodName: pod})
 
 	return r
 }
 
 // Report captures request metrics.
 func (r *ProtobufStatsReporter) Report(stats network.RequestStatsReport) {
-	r.stat.Store(metrics.Stat{
+	r.stat.Store(protocol.Stat{
 		PodName:       r.podName,
 		ProcessUptime: time.Since(r.startTime).Seconds(),
 
@@ -76,13 +77,13 @@ func (r *ProtobufStatsReporter) Report(stats network.RequestStatsReport) {
 
 // ServeHTTP serves the stats in protobuf format over HTTP.
 func (r *ProtobufStatsReporter) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
-	data := r.stat.Load().(metrics.Stat)
+	data := r.stat.Load().(protocol.Stat)
 	buffer, err := proto.Marshal(&data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set(contentTypeHeader, network.ProtoAcceptContent)
+	w.Header().Set(contentTypeHeader, header.ProtoAcceptContent)
 	w.Write(buffer)
 }

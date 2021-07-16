@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
 )
 
 // RequestLogHandler implements an http.Handler that writes request logs
@@ -137,7 +137,7 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		// Filter probe requests for request logs if disabled.
-		if !h.enableProbeRequestLog && network.IsProbe(r) {
+		if !h.enableProbeRequestLog && header.IsProbe(r) {
 			return
 		}
 

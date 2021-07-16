@@ -24,7 +24,8 @@ import (
 	"net/http"
 	"sync"
 
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
+	"knative.dev/networking/pkg/mesh"
 )
 
 var errUnsupportedMetricType = errors.New("unsupported metric type")
@@ -51,7 +52,7 @@ func newHTTPScrapeClient(httpClient *http.Client) *httpScrapeClient {
 }
 
 func (c *httpScrapeClient) Do(req *http.Request) (Stat, error) {
-	req.Header.Add("Accept", network.ProtoAcceptContent)
+	req.Header.Add("Accept", header.ProtoAcceptContent)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return emptyStat, err
@@ -60,10 +61,10 @@ func (c *httpScrapeClient) Do(req *http.Request) (Stat, error) {
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return emptyStat, scrapeError{
 			error:       fmt.Errorf("GET request for URL %q returned HTTP status %v", req.URL.String(), resp.StatusCode),
-			mightBeMesh: network.IsPotentialMeshErrorResponse(resp),
+			mightBeMesh: mesh.IsPotentialMeshErrorResponse(resp),
 		}
 	}
-	if resp.Header.Get("Content-Type") != network.ProtoAcceptContent {
+	if resp.Header.Get("Content-Type") != header.ProtoAcceptContent {
 		return emptyStat, errUnsupportedMetricType
 	}
 	return statFromProto(resp.Body)

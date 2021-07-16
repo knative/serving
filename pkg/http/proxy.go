@@ -20,8 +20,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	networking "knative.dev/networking/pkg"
-	"knative.dev/pkg/network"
+	"knative.dev/networking/pkg/header"
 )
 
 // NoHostOverride signifies that no host overriding should be done and that the host
@@ -41,13 +40,13 @@ func NewHeaderPruningReverseProxy(target, hostOverride string, headersToRemove [
 
 			if hostOverride != NoHostOverride {
 				req.Host = hostOverride
-				req.Header.Add(networking.PassthroughLoadbalancingHeaderName, "true")
+				req.Header.Add(header.PassthroughLoadbalancingKey, "true")
 			}
 
 			// Copied from httputil.NewSingleHostReverseProxy.
-			if _, ok := req.Header[network.UserAgentKey]; !ok {
+			if _, ok := req.Header[header.UserAgentKey]; !ok {
 				// explicitly disable User-Agent so it's not set to default value
-				req.Header.Set(network.UserAgentKey, "")
+				req.Header.Set(header.UserAgentKey, "")
 			}
 
 			for _, h := range headersToRemove {

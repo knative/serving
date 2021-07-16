@@ -16,11 +16,14 @@ limitations under the License.
 
 package metrics
 
-import "k8s.io/apimachinery/pkg/types"
+import (
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/serving/pkg/autoscaler/metrics/protocol"
+)
 
 // ToWireStatMessage converts the StatMessage to a WireStatMessage.
-func (sm StatMessage) ToWireStatMessage() *WireStatMessage {
-	return &WireStatMessage{
+func ToWireStatMessage(sm StatMessage) *protocol.WireStatMessage {
+	return &protocol.WireStatMessage{
 		Namespace: sm.Key.Namespace,
 		Name:      sm.Key.Name,
 		Stat:      &sm.Stat,
@@ -29,7 +32,7 @@ func (sm StatMessage) ToWireStatMessage() *WireStatMessage {
 
 // ToStatMessage converts the WireStatMessage to a StatMessage.
 // Nil-checks must have been done before calling this.
-func (wsm WireStatMessage) ToStatMessage() StatMessage {
+func ToStatMessage(wsm protocol.WireStatMessage) StatMessage {
 	return StatMessage{
 		Key: types.NamespacedName{
 			Namespace: wsm.Namespace,
@@ -41,12 +44,12 @@ func (wsm WireStatMessage) ToStatMessage() StatMessage {
 
 // ToWireStatMessages converts the given slice of StatMessages to a WireStatMessages
 // struct, ready to be sent off.
-func ToWireStatMessages(sms []StatMessage) WireStatMessages {
-	wsms := WireStatMessages{
-		Messages: make([]*WireStatMessage, len(sms)),
+func ToWireStatMessages(sms []StatMessage) protocol.WireStatMessages {
+	wsms := protocol.WireStatMessages{
+		Messages: make([]*protocol.WireStatMessage, len(sms)),
 	}
 	for i, sm := range sms {
-		wsms.Messages[i] = sm.ToWireStatMessage()
+		wsms.Messages[i] = ToWireStatMessage(sm)
 	}
 	return wsms
 }

@@ -23,15 +23,16 @@ import (
 	"time"
 
 	"go.opencensus.io/trace"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
+	networkstats "knative.dev/networking/pkg/stats"
 	"knative.dev/serving/pkg/activator"
 )
 
 // ProxyHandler sends requests to the `next` handler at a rate controlled by
 // the passed `breaker`, while recording stats to `stats`.
-func ProxyHandler(breaker *Breaker, stats *network.RequestStats, tracingEnabled bool, next http.Handler) http.HandlerFunc {
+func ProxyHandler(breaker *Breaker, stats *networkstats.RequestStats, tracingEnabled bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if network.IsKubeletProbe(r) {
+		if header.IsKubeletProbe(r) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -43,15 +44,15 @@ func ProxyHandler(breaker *Breaker, stats *network.RequestStats, tracingEnabled 
 		}
 
 		// Metrics for autoscaling.
-		in, out := network.ReqIn, network.ReqOut
-		if activator.Name == network.KnativeProxyHeader(r) {
-			in, out = network.ProxiedIn, network.ProxiedOut
+		in, out := networkstats.ReqIn, networkstats.ReqOut
+		if activator.Name == header.GetKnativeProxyValue(r) {
+			in, out = networkstats.ProxiedIn, networkstats.ProxiedOut
 		}
-		stats.HandleEvent(network.ReqEvent{Time: time.Now(), Type: in})
+		stats.HandleEvent(networkstats.ReqEvent{Time: time.Now(), Type: in})
 		defer func() {
-			stats.HandleEvent(network.ReqEvent{Time: time.Now(), Type: out})
+			stats.HandleEvent(networkstats.ReqEvent{Time: time.Now(), Type: out})
 		}()
-		network.RewriteHostOut(r)
+		header.RewriteHostOut(r)
 
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
