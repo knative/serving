@@ -345,10 +345,10 @@ func computeAverages(results <-chan Stat, sample, total float64) Stat {
 
 	// Sum the stats from individual pods.
 	for stat := range results {
-		ret.add(stat)
+		ret.Add(stat)
 	}
 
-	ret.average(sample, total)
+	ret.Average(sample, total)
 	return ret
 }
 
@@ -427,14 +427,14 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 	// Sum the stats from individual pods.
 	oldCnt := len(oldStatCh)
 	for stat := range oldStatCh {
-		ret.add(stat)
+		ret.Add(stat)
 	}
 	for i := oldCnt; i < sampleSize; i++ {
 		// This will always succeed, see reasoning above.
-		ret.add(<-youngStatCh)
+		ret.Add(<-youngStatCh)
 	}
 
-	ret.average(sampleSizeF, frpc)
+	ret.Average(sampleSizeF, frpc)
 	return ret, nil
 }
 
