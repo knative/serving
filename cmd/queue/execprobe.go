@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 )
@@ -80,8 +80,8 @@ func probeQueueHealthPath(timeout time.Duration, queueServingPort string, transp
 	}
 
 	// Add the header to indicate this is a probe request.
-	req.Header.Add(network.ProbeHeaderName, queue.Name)
-	req.Header.Add(network.UserAgentKey, network.QueueProxyUserAgent)
+	req.Header.Add(header.ProbeKey, queue.Name)
+	req.Header.Add(header.UserAgentKey, header.QueueProxyUserAgent)
 
 	httpClient := &http.Client{
 		Timeout:   timeout,

@@ -24,7 +24,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
+	network "knative.dev/networking/pkg/stats"
 	"knative.dev/serving/pkg/autoscaler/metrics/protocol"
 )
 
@@ -83,6 +84,6 @@ func (r *ProtobufStatsReporter) ServeHTTP(w http.ResponseWriter, _ *http.Request
 		return
 	}
 
-	w.Header().Set(contentTypeHeader, network.ProtoAcceptContent)
+	w.Header().Set(contentTypeHeader, header.ProtoAcceptContent)
 	w.Write(buffer)
 }

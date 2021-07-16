@@ -30,7 +30,7 @@ import (
 	"go.uber.org/goleak"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -77,11 +77,11 @@ func TestProbe(t *testing.T) {
 
 	defer server.Shutdown(0)
 	go server.listenAndServe()
-	req, err := http.NewRequest(http.MethodGet, server.listenAddr()+network.ProbePath, nil)
+	req, err := http.NewRequest(http.MethodGet, server.listenAddr()+header.ProbePath, nil)
 	if err != nil {
 		t.Fatal("Error creating request:", err)
 	}
-	req.Header.Set(network.UserAgentKey, network.KubeProbeUAPrefix+"1.15.i.wish")
+	req.Header.Set(header.UserAgentKey, header.KubeProbeUAPrefix+"1.15.i.wish")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

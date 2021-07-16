@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,19 +13,17 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
-package main_test
+package networking
 
 import (
 	"testing"
 
-	"knative.dev/pkg/depcheck"
+	"knative.dev/networking/pkg/apis/networking"
 )
 
-func TestNoDeps(t *testing.T) {
-	depcheck.AssertNoDependency(t, map[string][]string{
-		"knative.dev/serving/cmd/queue": append(depcheck.KnownHeavyDependencies,
-			"k8s.io/api/core/v1",
-			"k8s.io/api/apps/v1"),
-	})
+func TestNetworkingGroupName(t *testing.T) {
+	if NetworkingGroupName != networking.GroupName {
+		t.Errorf("%s != %s", NetworkingGroupName, networking.GroupName)
+
+	}
 }

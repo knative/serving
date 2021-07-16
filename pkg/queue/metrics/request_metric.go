@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package queue
+package metrics
 
 import (
 	"context"
@@ -25,10 +25,11 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
 	pkgmetrics "knative.dev/pkg/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/queue"
 )
 
 var (
@@ -69,7 +70,7 @@ type requestMetricsHandler struct {
 type appRequestMetricsHandler struct {
 	next     http.Handler
 	statsCtx context.Context
-	breaker  *Breaker
+	breaker  *queue.Breaker
 }
 
 // NewRequestMetricsHandler creates an http.Handler that emits request metrics.
@@ -110,7 +111,7 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	defer func() {
 		// Filter probe requests for revision metrics.
-		if network.IsProbe(r) {
+		if header.IsProbe(r) {
 			return
 		}
 
@@ -135,7 +136,7 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 }
 
 // NewAppRequestMetricsHandler creates an http.Handler that emits request metrics.
-func NewAppRequestMetricsHandler(next http.Handler, b *Breaker,
+func NewAppRequestMetricsHandler(next http.Handler, b *queue.Breaker,
 	ns, service, config, rev, pod string) (http.Handler, error) {
 	keys := []tag.Key{metrics.PodKey, metrics.ContainerKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey}
 	if err := pkgmetrics.RegisterResourceView(&view.View{
@@ -178,7 +179,7 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	}
 	defer func() {
 		// Filter probe requests for revision metrics.
-		if network.IsProbe(r) {
+		if header.IsProbe(r) {
 			return
 		}
 
@@ -207,8 +208,8 @@ const (
 
 // GetRouteTagNameFromRequest extracts the value of the tag header from http.Request
 func GetRouteTagNameFromRequest(r *http.Request) string {
-	name := r.Header.Get(network.TagHeaderName)
-	isDefaultRoute := r.Header.Get(network.DefaultRouteHeaderName)
+	name := r.Header.Get(header.TagKey)
+	isDefaultRoute := r.Header.Get(header.DefaultRouteKey)
 
 	if name == "" {
 		if isDefaultRoute == "" {

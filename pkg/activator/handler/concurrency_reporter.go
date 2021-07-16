@@ -26,7 +26,7 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	network "knative.dev/networking/pkg"
+	network "knative.dev/networking/pkg/stats"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	pkgmetrics "knative.dev/pkg/metrics"

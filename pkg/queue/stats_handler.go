@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"strings"
 
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
 )
 
 type statsHandler struct {
@@ -39,7 +39,7 @@ func NewStatsHandler(prom, proto http.Handler) http.Handler {
 // ServeHTTP serves the stats over HTTP. Either protobuf or prometheus stats
 // are served, depending on the Accept header.
 func (reporter *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if strings.Contains(r.Header.Get("Accept"), network.ProtoAcceptContent) {
+	if strings.Contains(r.Header.Get("Accept"), header.ProtoAcceptContent) {
 		reporter.proto.ServeHTTP(w, r)
 	} else {
 		reporter.prom.ServeHTTP(w, r)

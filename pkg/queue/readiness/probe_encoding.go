@@ -20,12 +20,12 @@ import (
 	"encoding/json"
 	"errors"
 
-	corev1 "k8s.io/api/core/v1"
+	"knative.dev/serving/pkg/queue/health"
 )
 
 // DecodeProbe takes a json serialised *corev1.Probe and returns a Probe or an error.
-func DecodeProbe(jsonProbe string) (*corev1.Probe, error) {
-	p := &corev1.Probe{}
+func DecodeProbe(jsonProbe string) (*health.Probe, error) {
+	p := &health.Probe{}
 	if err := json.Unmarshal([]byte(jsonProbe), p); err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func DecodeProbe(jsonProbe string) (*corev1.Probe, error) {
 }
 
 // EncodeProbe takes *corev1.Probe object and returns marshalled Probe JSON string and an error.
-func EncodeProbe(rp *corev1.Probe) (string, error) {
+func EncodeProbe(rp *health.Probe) (string, error) {
 	if rp == nil {
 		return "", errors.New("cannot encode nil probe")
 	}

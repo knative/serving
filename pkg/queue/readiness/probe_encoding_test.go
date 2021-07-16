@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	corev1 "knative.dev/serving/pkg/queue/health"
 )
 
 func TestParseProbeSuccess(t *testing.T) {

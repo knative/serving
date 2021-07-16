@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/serving/pkg/queue/health"
 )
@@ -38,7 +37,7 @@ const (
 
 // Probe wraps a corev1.Probe along with a count of consecutive, successful probes
 type Probe struct {
-	*corev1.Probe
+	*health.Probe
 	count           int32
 	pollTimeout     time.Duration // To make tests not run for 10 seconds.
 	out             io.Writer     // To make tests not log errors in good cases.
@@ -78,7 +77,7 @@ func (gv *gateValue) read() bool {
 }
 
 // NewProbe returns a pointer to a new Probe.
-func NewProbe(v1p *corev1.Probe) *Probe {
+func NewProbe(v1p *health.Probe) *Probe {
 	return &Probe{
 		Probe:       v1p,
 		pollTimeout: PollTimeout,
@@ -88,7 +87,7 @@ func NewProbe(v1p *corev1.Probe) *Probe {
 
 // NewProbeWithHTTP2AutoDetection returns a pointer to a new Probe that has HTTP2
 // auto-detection enabled.
-func NewProbeWithHTTP2AutoDetection(v1p *corev1.Probe) *Probe {
+func NewProbeWithHTTP2AutoDetection(v1p *health.Probe) *Probe {
 	return &Probe{
 		Probe:           v1p,
 		pollTimeout:     PollTimeout,

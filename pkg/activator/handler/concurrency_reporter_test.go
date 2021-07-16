@@ -30,7 +30,7 @@ import (
 	"go.opencensus.io/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	network "knative.dev/networking/pkg"
+	network "knative.dev/networking/pkg/stats"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"

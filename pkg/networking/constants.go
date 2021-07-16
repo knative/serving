@@ -16,10 +16,10 @@ limitations under the License.
 
 package networking
 
-import "knative.dev/networking/pkg/apis/networking"
-
 // The ports we setup on our services.
 const (
+	NetworkingGroupName = "networking.internal.knative.dev"
+
 	// BackendHTTPPort is the backend, i.e. `targetPort` that we setup for HTTP/1 services.
 	BackendHTTPPort = 8012
 
@@ -43,11 +43,11 @@ const (
 
 	// SKSLabelKey is the label key that SKS Controller attaches to the
 	// underlying resources it controls.
-	SKSLabelKey = networking.GroupName + "/serverlessservice"
+	SKSLabelKey = NetworkingGroupName + "/serverlessservice"
 
 	// ServiceTypeKey is the label key attached to a service specifying the type of service.
 	// e.g. Public, Private.
-	ServiceTypeKey = networking.GroupName + "/serviceType"
+	ServiceTypeKey = NetworkingGroupName + "/serviceType"
 )
 
 // ServiceType is the enumeration type for the Kubernetes services

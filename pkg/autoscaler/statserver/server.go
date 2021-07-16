@@ -27,7 +27,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
 	"knative.dev/serving/pkg/autoscaler/bucket"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/autoscaler/metrics/protocol"
@@ -107,7 +107,7 @@ func (s *Server) serve(l net.Listener) error {
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) bool {
-	if network.IsKubeletProbe(r) {
+	if header.IsKubeletProbe(r) {
 		// As an initial approach, once stats server is up -- return true.
 		w.WriteHeader(http.StatusOK)
 		return true

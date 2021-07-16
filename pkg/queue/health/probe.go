@@ -25,15 +25,15 @@ import (
 	"net/url"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/header"
+	"knative.dev/pkg/network"
 	pkgnet "knative.dev/pkg/network"
 )
 
 // HTTPProbeConfigOptions holds the HTTP probe config options
 type HTTPProbeConfigOptions struct {
 	Timeout time.Duration
-	*corev1.HTTPGetAction
+	*HTTPGetAction
 	KubeMajor     string
 	KubeMinor     string
 	MaxProtoMajor int
@@ -120,7 +120,7 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 	req.Header.Add("Upgrade", "h2c")
 	req.Header.Add("HTTP2-Settings", "")
 
-	req.Header.Add(network.UserAgentKey, network.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
+	req.Header.Add(header.UserAgentKey, header.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
 
 	res, err := httpClient.Do(req)
 	if err != nil {

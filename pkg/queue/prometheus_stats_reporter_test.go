@@ -25,7 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/prometheus/client_golang/prometheus"
 
-	network "knative.dev/networking/pkg"
+	network "knative.dev/networking/pkg/stats"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	dto "github.com/prometheus/client_model/go"
