@@ -33,7 +33,7 @@ func DecodeProbe(jsonProbe string) (*health.Probe, error) {
 }
 
 // EncodeProbe takes *corev1.Probe object and returns marshalled Probe JSON string and an error.
-func EncodeProbe(rp *health.Probe) (string, error) {
+func EncodeProbe(rp interface{}) (string, error) {
 	if rp == nil {
 		return "", errors.New("cannot encode nil probe")
 	}
