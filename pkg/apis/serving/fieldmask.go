@@ -29,17 +29,21 @@ import (
 // VolumeMask performs a _shallow_ copy of the Kubernetes Volume object to a new
 // Kubernetes Volume object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
-func VolumeMask(in *corev1.Volume) *corev1.Volume {
+func VolumeMask(ctx context.Context, in *corev1.Volume) *corev1.Volume {
 	if in == nil {
 		return nil
 	}
+	cfg := config.FromContextOrDefaults(ctx)
 
 	out := new(corev1.Volume)
 
 	// Allowed fields
 	out.Name = in.Name
-	out.EmptyDir = in.EmptyDir
 	out.VolumeSource = in.VolumeSource
+
+	if cfg.Features.PodSpecVolumesEmptyDir != config.Disabled {
+		out.EmptyDir = in.EmptyDir
+	}
 
 	return out
 }
@@ -47,18 +51,21 @@ func VolumeMask(in *corev1.Volume) *corev1.Volume {
 // VolumeSourceMask performs a _shallow_ copy of the Kubernetes VolumeSource object to a new
 // Kubernetes VolumeSource object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
-func VolumeSourceMask(in *corev1.VolumeSource) *corev1.VolumeSource {
+func VolumeSourceMask(ctx context.Context, in *corev1.VolumeSource) *corev1.VolumeSource {
 	if in == nil {
 		return nil
 	}
-
+	cfg := config.FromContextOrDefaults(ctx)
 	out := new(corev1.VolumeSource)
 
 	// Allowed fields
 	out.Secret = in.Secret
 	out.ConfigMap = in.ConfigMap
 	out.Projected = in.Projected
-	out.EmptyDir = in.EmptyDir
+
+	if cfg.Features.PodSpecVolumesEmptyDir != config.Disabled {
+		out.EmptyDir = in.EmptyDir
+	}
 
 	// Too many disallowed fields to list
 

@@ -87,12 +87,9 @@ func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes set
 	var errs *apis.FieldError
 	features := config.FromContextOrDefaults(ctx).Features
 	for i, volume := range vs {
-		// skip validating empty dir volumes if the feature is not enabled
-		if volume.EmptyDir != nil {
-			if features.PodSpecVolumesEmptyDir != config.Enabled {
-				errs = errs.Also((&apis.FieldError{Message: fmt.Sprintf("EmptyDir volume support is off, "+
-					"but found EmptyDir volume %s", volume.Name)}).ViaIndex(i))
-			}
+		if volume.EmptyDir != nil && features.PodSpecVolumesEmptyDir != config.Enabled {
+			errs = errs.Also((&apis.FieldError{Message: fmt.Sprintf("EmptyDir volume support is off, "+
+				"but found EmptyDir volume %s", volume.Name)}).ViaIndex(i))
 		}
 		if volumes.Has(volume.Name) {
 			errs = errs.Also((&apis.FieldError{
@@ -106,14 +103,14 @@ func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes set
 				Paths:   []string{"name"},
 			}).ViaIndex(i))
 		}
-		errs = errs.Also(validateVolume(volume).ViaIndex(i))
+		errs = errs.Also(validateVolume(ctx, volume).ViaIndex(i))
 		volumes.Insert(volume.Name)
 	}
 	return volumes, errs
 }
 
-func validateVolume(volume corev1.Volume) *apis.FieldError {
-	errs := apis.CheckDisallowedFields(volume, *VolumeMask(&volume))
+func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(volume, *VolumeMask(ctx, &volume))
 	if volume.Name == "" {
 		errs = apis.ErrMissingField("name")
 	} else if len(validation.IsDNS1123Label(volume.Name)) != 0 {
@@ -121,7 +118,7 @@ func validateVolume(volume corev1.Volume) *apis.FieldError {
 	}
 
 	vs := volume.VolumeSource
-	errs = errs.Also(apis.CheckDisallowedFields(vs, *VolumeSourceMask(&vs)))
+	errs = errs.Also(apis.CheckDisallowedFields(vs, *VolumeSourceMask(ctx, &vs)))
 	var specified []string
 	if vs.Secret != nil {
 		specified = append(specified, "secret")
@@ -146,7 +143,12 @@ func validateVolume(volume corev1.Volume) *apis.FieldError {
 		errs = errs.Also(validateEmptyDirFields(vs.EmptyDir).ViaField("emptyDir"))
 	}
 	if len(specified) == 0 {
-		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir"))
+		fieldPaths := []string{"secret", "configMap", "projected"}
+		cfg := config.FromContextOrDefaults(ctx)
+		if cfg.Features.PodSpecVolumesEmptyDir == config.Enabled {
+			fieldPaths = append(fieldPaths, "emptyDir")
+		}
+		errs = errs.Also(apis.ErrMissingOneOf(fieldPaths...))
 	} else if len(specified) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(specified...))
 	}

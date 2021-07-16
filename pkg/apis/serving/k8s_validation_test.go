@@ -97,6 +97,13 @@ func withContainerSpecAddCapabilitiesEnabled() configOption {
 	}
 }
 
+func withPodSpecVolumesEmptyDirEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecVolumesEmptyDir = config.Enabled
+		return cfg
+	}
+}
+
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1512,15 +1519,16 @@ func TestContainerValidation(t *testing.T) {
 
 func TestVolumeValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		v    corev1.Volume
-		want *apis.FieldError
+		name    string
+		v       corev1.Volume
+		want    *apis.FieldError
+		cfgOpts []configOption
 	}{{
 		name: "just name",
 		v: corev1.Volume{
 			Name: "foo",
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir"),
+		want: apis.ErrMissingOneOf("secret", "configMap", "projected"),
 	}, {
 		name: "secret volume",
 		v: corev1.Volume{
@@ -1552,6 +1560,7 @@ func TestVolumeValidation(t *testing.T) {
 				},
 			},
 		},
+		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled()},
 	}, {
 		name: "invalid emptyDir volume",
 		v: corev1.Volume{
@@ -1563,13 +1572,14 @@ func TestVolumeValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue(-1, "emptyDir.sizeLimit"),
+		want:    apis.ErrInvalidValue(-1, "emptyDir.sizeLimit"),
+		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled()},
 	}, {
 		name: "no volume source",
 		v: corev1.Volume{
 			Name: "foo",
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir"),
+		want: apis.ErrMissingOneOf("secret", "configMap", "projected"),
 	}, {
 		name: "multiple volume source",
 		v: corev1.Volume{
@@ -1780,7 +1790,15 @@ func TestVolumeValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := validateVolume(test.v)
+			ctx := context.Background()
+			if test.cfgOpts != nil {
+				cfg := config.FromContextOrDefaults(ctx)
+				for _, opt := range test.cfgOpts {
+					cfg = opt(cfg)
+				}
+				ctx = config.ToContext(ctx, cfg)
+			}
+			got := validateVolume(ctx, test.v)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("validateVolume (-want, +got): \n%s", diff)
 			}

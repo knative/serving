@@ -72,9 +72,9 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-securitycontext", &nc.PodSpecSecurityContext),
 		asFlag("kubernetes.containerspec-addcapabilities", &nc.ContainerSpecAddCapabilities),
 		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
+		asFlag("kubernetes.podspec-volumes-emptydir", &nc.PodSpecVolumesEmptyDir),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
-		asFlag("autodetect-http2", &nc.AutoDetectHTTP2),
-		asFlag("kubernetes.podspec-volumes-emptydir", &nc.PodSpecVolumesEmptyDir)); err != nil {
+		asFlag("autodetect-http2", &nc.AutoDetectHTTP2)); err != nil {
 		return nil, err
 	}
 	return nc, nil
@@ -97,9 +97,9 @@ type Features struct {
 	PodSpecSecurityContext       Flag
 	ContainerSpecAddCapabilities Flag
 	PodSpecTolerations           Flag
+	PodSpecVolumesEmptyDir       Flag
 	TagHeaderBasedRouting        Flag
 	AutoDetectHTTP2              Flag
-	PodSpecVolumesEmptyDir       Flag
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.
