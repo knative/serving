@@ -51,9 +51,9 @@ func defaultFeaturesConfig() *Features {
 		PodSpecSecurityContext:       Disabled,
 		ContainerSpecAddCapabilities: Disabled,
 		PodSpecTolerations:           Disabled,
+		PodSpecVolumesEmptyDir:       Disabled,
 		TagHeaderBasedRouting:        Disabled,
 		AutoDetectHTTP2:              Disabled,
-		PodSpecVolumesEmptyDir:       Disabled,
 	}
 }
 
