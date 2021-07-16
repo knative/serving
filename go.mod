@@ -31,7 +31,7 @@ require (
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/goleak v1.1.10
 	go.uber.org/zap v1.18.1
-	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
+	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf // indirect
@@ -53,3 +53,7 @@ require (
 	knative.dev/pkg v0.0.0-20210715175632-d9b7180af6f2
 	sigs.k8s.io/yaml v1.2.0
 )
+
+replace knative.dev/networking => ../networking
+
+replace knative.dev/pkg => ../pkg

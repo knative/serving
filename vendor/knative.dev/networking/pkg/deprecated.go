@@ -17,6 +17,7 @@ limitations under the License.
 package pkg
 
 import (
+	"knative.dev/networking/pkg/buffer"
 	"knative.dev/networking/pkg/config"
 	"knative.dev/networking/pkg/header"
 	"knative.dev/networking/pkg/k8s"
@@ -251,3 +252,5 @@ var IsPotentialMeshErrorResponse = mesh.IsPotentialMeshErrorResponse
 var ProbeHeaderValue = header.ProbeValue
 
 var NewProbeHandler = handler.New
+
+var NewBufferPool = buffer.NewPool
