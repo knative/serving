@@ -136,3 +136,8 @@ data:
     # 1. Enabled: enabling EmptyDir volume support
     # 2. Disabled: disabling EmptyDir volume support
     kubernetes.podspec-volumes-emptydir: "disabled"
+
+    # Controls whether support for Pod Freezer is enabled or not.
+    # 1. Enabled: enabling Pod Freezer support
+    # 2. Disabled: disabling Pod Freezer support
+    pod-freezer: "disabled"
