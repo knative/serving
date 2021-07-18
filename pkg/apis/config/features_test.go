@@ -305,6 +305,24 @@ func TestFeaturesConfiguration(t *testing.T) {
 		data: map[string]string{
 			"tag-header-based-routing": "Enabled",
 		},
+	}, {
+		name:    "kubernetes.podspec-volumes-emptyDir Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecVolumesEmptyDir: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-volumes-emptydir": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-volumes-emptyDir Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecVolumesEmptyDir: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-volumes-emptydir": "Enabled",
+		},
 	}}
 
 	for _, tt := range configTests {

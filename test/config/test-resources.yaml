@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: conformance-test-configmap
+  namespace: serving-tests
+data:
+  testKey: testValue
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: conformance-test-secret
+  namespace: serving-tests
+type: Opaque
+data:
+  testKey: dGVzdFZhbHVl

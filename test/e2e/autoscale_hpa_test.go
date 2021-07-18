@@ -171,7 +171,7 @@ func assertScaleDownToOne(ctx *TestContext) {
 			}
 			return true, nil
 		},
-		"WaitForAvailablePods", test.ServingNamespace); err != nil {
+		"WaitForAvailablePods", test.ServingFlags.TestNamespace); err != nil {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", deploymentName, err)
 	}
 
@@ -205,7 +205,7 @@ func waitForScaleToOne(t *testing.T, deploymentName string, clients *test.Client
 			return d.Status.ReadyReplicas == 1, nil
 		},
 		"DeploymentIsScaledDown",
-		test.ServingNamespace,
+		test.ServingFlags.TestNamespace,
 		scaleToMinimumTimeout,
 	)
 }

@@ -48,7 +48,7 @@ func TestInitScalePositive(t *testing.T) {
 
 	t.Logf("Waiting for Configuration %q to scale back below initialScale", names.Config)
 	if err := v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(s *v1.Configuration) (b bool, e error) {
-		pods := clients.KubeClient.CoreV1().Pods(test.ServingNamespace)
+		pods := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace)
 		podList, err := pods.List(context.Background(), metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Config),
 			FieldSelector: "status.phase!=Terminating",

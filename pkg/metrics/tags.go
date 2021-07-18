@@ -79,8 +79,8 @@ func PodContext(pod, container string) (context.Context, error) {
 	if !ok {
 		rctx, err := tag.New(
 			context.Background(),
-			tag.Upsert(PodTagKey, pod),
-			tag.Upsert(ContainerTagKey, container))
+			tag.Upsert(PodKey, pod),
+			tag.Upsert(ContainerKey, container))
 		if err != nil {
 			return rctx, err
 		}
@@ -118,12 +118,12 @@ func PodRevisionContext(pod, container, ns, svc, cfg, rev string) (context.Conte
 // AugmentWithRevision augments the given context with a knative_revision resource.
 func AugmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string) context.Context {
 	r := resource.Resource{
-		Type: metricskey.ResourceTypeKnativeRevision,
+		Type: ResourceTypeKnativeRevision,
 		Labels: map[string]string{
-			metricskey.LabelNamespaceName:     ns,
-			metricskey.LabelServiceName:       valueOrUnknown(svc),
-			metricskey.LabelConfigurationName: cfg,
-			metricskey.LabelRevisionName:      rev,
+			LabelNamespaceName:     ns,
+			LabelServiceName:       valueOrUnknown(svc),
+			LabelConfigurationName: cfg,
+			LabelRevisionName:      rev,
 		},
 	}
 	return metricskey.WithResource(baseCtx, r)

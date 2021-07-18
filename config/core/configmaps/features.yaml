@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "9891439a"
+    knative.dev/example-checksum: "7be4b7a8"
 data:
   _example: |-
     ################################
@@ -137,3 +137,8 @@ data:
     # 1. Enabled: SERVING_POD_IP is injected into knative queue container.
     # 2. Disabled: queue container attempts to determine IP dynamically
     inject-pod-ip: "enabled"
+
+    # Controls whether volume support for EmptyDir is enabled or not.
+    # 1. Enabled: enabling EmptyDir volume support
+    # 2. Disabled: disabling EmptyDir volume support
+    kubernetes.podspec-volumes-emptydir: "disabled"

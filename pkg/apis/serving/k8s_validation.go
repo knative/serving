@@ -82,10 +82,15 @@ var (
 )
 
 // ValidateVolumes validates the Volumes of a PodSpec.
-func ValidateVolumes(vs []corev1.Volume, mountedVolumes sets.String) (sets.String, *apis.FieldError) {
+func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes sets.String) (sets.String, *apis.FieldError) {
 	volumes := make(sets.String, len(vs))
 	var errs *apis.FieldError
+	features := config.FromContextOrDefaults(ctx).Features
 	for i, volume := range vs {
+		if volume.EmptyDir != nil && features.PodSpecVolumesEmptyDir != config.Enabled {
+			errs = errs.Also((&apis.FieldError{Message: fmt.Sprintf("EmptyDir volume support is off, "+
+				"but found EmptyDir volume %s", volume.Name)}).ViaIndex(i))
+		}
 		if volumes.Has(volume.Name) {
 			errs = errs.Also((&apis.FieldError{
 				Message: fmt.Sprintf("duplicate volume name %q", volume.Name),
@@ -98,14 +103,14 @@ func ValidateVolumes(vs []corev1.Volume, mountedVolumes sets.String) (sets.Strin
 				Paths:   []string{"name"},
 			}).ViaIndex(i))
 		}
-		errs = errs.Also(validateVolume(volume).ViaIndex(i))
+		errs = errs.Also(validateVolume(ctx, volume).ViaIndex(i))
 		volumes.Insert(volume.Name)
 	}
 	return volumes, errs
 }
 
-func validateVolume(volume corev1.Volume) *apis.FieldError {
-	errs := apis.CheckDisallowedFields(volume, *VolumeMask(&volume))
+func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(volume, *VolumeMask(ctx, &volume))
 	if volume.Name == "" {
 		errs = apis.ErrMissingField("name")
 	} else if len(validation.IsDNS1123Label(volume.Name)) != 0 {
@@ -113,7 +118,7 @@ func validateVolume(volume corev1.Volume) *apis.FieldError {
 	}
 
 	vs := volume.VolumeSource
-	errs = errs.Also(apis.CheckDisallowedFields(vs, *VolumeSourceMask(&vs)))
+	errs = errs.Also(apis.CheckDisallowedFields(vs, *VolumeSourceMask(ctx, &vs)))
 	var specified []string
 	if vs.Secret != nil {
 		specified = append(specified, "secret")
@@ -133,8 +138,17 @@ func validateVolume(volume corev1.Volume) *apis.FieldError {
 			errs = errs.Also(validateProjectedVolumeSource(proj).ViaFieldIndex("projected", i))
 		}
 	}
+	if vs.EmptyDir != nil {
+		specified = append(specified, "emptyDir")
+		errs = errs.Also(validateEmptyDirFields(vs.EmptyDir).ViaField("emptyDir"))
+	}
 	if len(specified) == 0 {
-		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap", "projected"))
+		fieldPaths := []string{"secret", "configMap", "projected"}
+		cfg := config.FromContextOrDefaults(ctx)
+		if cfg.Features.PodSpecVolumesEmptyDir == config.Enabled {
+			fieldPaths = append(fieldPaths, "emptyDir")
+		}
+		errs = errs.Also(apis.ErrMissingOneOf(fieldPaths...))
 	} else if len(specified) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(specified...))
 	}
@@ -207,6 +221,19 @@ func validateKeyToPath(k2p corev1.KeyToPath) *apis.FieldError {
 	}
 	if k2p.Path == "" {
 		errs = errs.Also(apis.ErrMissingField("path"))
+	}
+	return errs
+}
+
+func validateEmptyDirFields(dir *corev1.EmptyDirVolumeSource) *apis.FieldError {
+	var errs *apis.FieldError
+	if dir.Medium != "" && dir.Medium != "Memory" {
+		errs = errs.Also(apis.ErrInvalidValue(dir.Medium, "medium"))
+	}
+	if dir.SizeLimit != nil {
+		if dir.SizeLimit.Value() < 0 {
+			errs = errs.Also(apis.ErrInvalidValue(dir.SizeLimit, "sizeLimit"))
+		}
 	}
 	return errs
 }
@@ -289,7 +316,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 
 	errs = errs.Also(ValidatePodSecurityContext(ctx, ps.SecurityContext).ViaField("securityContext"))
 
-	volumes, err := ValidateVolumes(ps.Volumes, AllMountedVolumes(ps.Containers))
+	volumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(ps.Containers))
 	if err != nil {
 		errs = errs.Also(err.ViaField("volumes"))
 	}

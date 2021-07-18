@@ -50,6 +50,7 @@ jobs:
           fetch-depth: 0
 
       - name: Merge upstream
+        if: github.event_name == 'pull_request'
         run: |
           git remote add upstream https://github.com/${{ github.repository }}.git
           git fetch upstream ${{ github.base_ref }}

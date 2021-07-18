@@ -28,12 +28,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
+	servingmetrics "knative.dev/serving/pkg/metrics"
 
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/autoscaler/metrics"
-	smetrics "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/resources"
 
 	_ "knative.dev/pkg/metrics/testing"
@@ -51,10 +50,10 @@ const (
 var wantResource = &resource.Resource{
 	Type: "knative_revision",
 	Labels: map[string]string{
-		metricskey.LabelConfigurationName: "testConfig",
-		metricskey.LabelNamespaceName:     testNamespace,
-		metricskey.LabelRevisionName:      testRevision,
-		metricskey.LabelServiceName:       "testSvc",
+		servingmetrics.LabelConfigurationName: "testConfig",
+		servingmetrics.LabelNamespaceName:     testNamespace,
+		servingmetrics.LabelRevisionName:      testRevision,
+		servingmetrics.LabelServiceName:       "testSvc",
 	},
 }
 
@@ -587,7 +586,7 @@ func newTestAutoscalerWithScalingMetric(targetValue, targetBurstCapacity float64
 	if startInPanic {
 		pc.readyCount = 2
 	}
-	ctx := smetrics.RevisionContext(testNamespace, "testSvc", "testConfig", testRevision)
+	ctx := servingmetrics.RevisionContext(testNamespace, "testSvc", "testConfig", testRevision)
 	return newAutoscaler(ctx, testNamespace, testRevision, metrics, pc, deciderSpec, nil), pc
 }
 

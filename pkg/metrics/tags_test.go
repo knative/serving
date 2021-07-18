@@ -25,7 +25,6 @@ import (
 	"testing"
 
 	pkgmetrics "knative.dev/pkg/metrics"
-	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
 
@@ -46,7 +45,7 @@ func register(t *testing.T) func() {
 			Description: "Number of pods autoscaler wants to allocate",
 			Measure:     testM,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{ResponseCodeKey, ResponseCodeClassKey, PodTagKey, ContainerTagKey},
+			TagKeys:     []tag.Key{ResponseCodeKey, ResponseCodeClassKey, PodKey, ContainerKey},
 		}); err != nil {
 		t.Fatal("Failed to register view:", err)
 	}
@@ -84,8 +83,8 @@ func TestContexts(t *testing.T) {
 			return PodContext("testpod", "testcontainer")
 		}),
 		wantTags: map[string]string{
-			metricskey.PodName:       "testpod",
-			metricskey.ContainerName: "testcontainer",
+			LabelPodName:       "testpod",
+			LabelContainerName: "testcontainer",
 		},
 	}, {
 		name: "revision context",
@@ -96,10 +95,10 @@ func TestContexts(t *testing.T) {
 		wantResource: &resource.Resource{
 			Type: "knative_revision",
 			Labels: map[string]string{
-				metricskey.LabelNamespaceName:     "testns",
-				metricskey.LabelServiceName:       "testsvc",
-				metricskey.LabelConfigurationName: "testcfg",
-				metricskey.LabelRevisionName:      "testrev",
+				LabelNamespaceName:     "testns",
+				LabelServiceName:       "testsvc",
+				LabelConfigurationName: "testcfg",
+				LabelRevisionName:      "testrev",
 			},
 		},
 	}, {
@@ -111,10 +110,10 @@ func TestContexts(t *testing.T) {
 		wantResource: &resource.Resource{
 			Type: "knative_revision",
 			Labels: map[string]string{
-				metricskey.LabelNamespaceName:     "testns",
-				metricskey.LabelServiceName:       metricskey.ValueUnknown,
-				metricskey.LabelConfigurationName: "testcfg",
-				metricskey.LabelRevisionName:      "testrev",
+				LabelNamespaceName:     "testns",
+				LabelServiceName:       ValueUnknown,
+				LabelConfigurationName: "testcfg",
+				LabelRevisionName:      "testrev",
 			},
 		},
 	}, {
@@ -123,16 +122,16 @@ func TestContexts(t *testing.T) {
 			return PodRevisionContext("testpod", "testcontainer", "testns", "testsvc", "testcfg", "testrev")
 		}),
 		wantTags: map[string]string{
-			metricskey.PodName:       "testpod",
-			metricskey.ContainerName: "testcontainer",
+			LabelPodName:       "testpod",
+			LabelContainerName: "testcontainer",
 		},
 		wantResource: &resource.Resource{
 			Type: "knative_revision",
 			Labels: map[string]string{
-				metricskey.LabelNamespaceName:     "testns",
-				metricskey.LabelServiceName:       "testsvc",
-				metricskey.LabelConfigurationName: "testcfg",
-				metricskey.LabelRevisionName:      "testrev",
+				LabelNamespaceName:     "testns",
+				LabelServiceName:       "testsvc",
+				LabelConfigurationName: "testcfg",
+				LabelRevisionName:      "testrev",
 			},
 		},
 	}, {
@@ -141,16 +140,16 @@ func TestContexts(t *testing.T) {
 			return PodRevisionContext("testpod", "testcontainer", "testns", "", "testcfg", "testrev")
 		}),
 		wantTags: map[string]string{
-			metricskey.PodName:       "testpod",
-			metricskey.ContainerName: "testcontainer",
+			LabelPodName:       "testpod",
+			LabelContainerName: "testcontainer",
 		},
 		wantResource: &resource.Resource{
 			Type: "knative_revision",
 			Labels: map[string]string{
-				metricskey.LabelNamespaceName:     "testns",
-				metricskey.LabelServiceName:       metricskey.ValueUnknown,
-				metricskey.LabelConfigurationName: "testcfg",
-				metricskey.LabelRevisionName:      "testrev",
+				LabelNamespaceName:     "testns",
+				LabelServiceName:       ValueUnknown,
+				LabelConfigurationName: "testcfg",
+				LabelRevisionName:      "testrev",
 			},
 		},
 	}, {
@@ -159,16 +158,16 @@ func TestContexts(t *testing.T) {
 			return PodRevisionContext("testpod", "testcontainer", "testns", "", "testcfg", "testrev")
 		}),
 		wantTags: map[string]string{
-			metricskey.PodName:       "testpod",
-			metricskey.ContainerName: "testcontainer",
+			LabelPodName:       "testpod",
+			LabelContainerName: "testcontainer",
 		},
 		wantResource: &resource.Resource{
 			Type: "knative_revision",
 			Labels: map[string]string{
-				metricskey.LabelNamespaceName:     "testns",
-				metricskey.LabelServiceName:       metricskey.ValueUnknown,
-				metricskey.LabelConfigurationName: "testcfg",
-				metricskey.LabelRevisionName:      "testrev",
+				LabelNamespaceName:     "testns",
+				LabelServiceName:       ValueUnknown,
+				LabelConfigurationName: "testcfg",
+				LabelRevisionName:      "testrev",
 			},
 		},
 	}, {
@@ -181,16 +180,16 @@ func TestContexts(t *testing.T) {
 			return AugmentWithRevision(ctx, "testns", "testsvc", "testcfg", "testrev"), nil
 		}),
 		wantTags: map[string]string{
-			metricskey.PodName:       "testpod",
-			metricskey.ContainerName: "testcontainer",
+			LabelPodName:       "testpod",
+			LabelContainerName: "testcontainer",
 		},
 		wantResource: &resource.Resource{
 			Type: "knative_revision",
 			Labels: map[string]string{
-				metricskey.LabelNamespaceName:     "testns",
-				metricskey.LabelServiceName:       "testsvc",
-				metricskey.LabelConfigurationName: "testcfg",
-				metricskey.LabelRevisionName:      "testrev",
+				LabelNamespaceName:     "testns",
+				LabelServiceName:       "testsvc",
+				LabelConfigurationName: "testcfg",
+				LabelRevisionName:      "testrev",
 			},
 		},
 	}, {
@@ -200,18 +199,18 @@ func TestContexts(t *testing.T) {
 			return AugmentWithResponse(ctx, 200), err
 		}),
 		wantTags: map[string]string{
-			metricskey.PodName:                "testpod",
-			metricskey.ContainerName:          "testcontainer",
-			metricskey.LabelResponseCode:      "200",
-			metricskey.LabelResponseCodeClass: "2xx",
+			LabelPodName:           "testpod",
+			LabelContainerName:     "testcontainer",
+			LabelResponseCode:      "200",
+			LabelResponseCodeClass: "2xx",
 		},
 		wantResource: &resource.Resource{
 			Type: "knative_revision",
 			Labels: map[string]string{
-				metricskey.LabelNamespaceName:     "testns",
-				metricskey.LabelServiceName:       "testsvc",
-				metricskey.LabelConfigurationName: "testcfg",
-				metricskey.LabelRevisionName:      "testrev",
+				LabelNamespaceName:     "testns",
+				LabelServiceName:       "testsvc",
+				LabelConfigurationName: "testcfg",
+				LabelRevisionName:      "testrev",
 			},
 		},
 	}}

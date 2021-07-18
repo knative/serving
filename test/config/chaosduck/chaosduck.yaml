@@ -1,0 +1,100 @@
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chaosduck
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: chaosduck
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "delete"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list"]
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: chaosduck
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: chaosduck
+subjects:
+- kind: ServiceAccount
+  name: chaosduck
+  namespace: knative-serving
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chaosduck
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+spec:
+  selector:
+    matchLabels:
+      app: chaosduck
+  template:
+    metadata:
+      labels:
+        app: chaosduck
+    spec:
+      serviceAccountName: chaosduck
+      containers:
+      - name: chaosduck
+        # This is the Go import path for the binary that is containerized
+        # and substituted here.
+        image: ko://knative.dev/pkg/leaderelection/chaosduck
+
+        args:
+        # Disable chaos on the Istio components.
+        - "-disable=networking-istio"
+        - "-disable=net-istio-controller"
+        # Disable chaos on Kourier components.
+        - "-disable=net-kourier-controller"
+        # Disable chaos on webhooks until https://github.com/knative/pkg/issues/1509 is
+        # sorted out.
+        - "-disableRegex=.*webhook.*"
+        # Currently the new owner of Autoscaler needs time to build the
+        # metrics status so some e2e tests are expected to fail if the
+        # owner pod crashes.
+        - "-disable=autoscaler"
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+
+        securityContext:
+          allowPrivilegeEscalation: false

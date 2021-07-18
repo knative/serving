@@ -13,21 +13,6 @@ subjects:
     name: contour
     namespace: contour-external
 ---
-# This file is generated from the individual YAML files by generate-deployment.sh. Do not
-# edit this file directly but instead edit the source files and re-render.
-#
-# Generated from:
-#       examples/contour/00-common.yaml
-#       examples/contour/01-contour-config.yaml
-#       examples/contour/01-crds.yaml
-#       examples/contour/02-job-certgen.yaml
-#       examples/contour/02-rbac.yaml
-#       examples/contour/02-role-contour.yaml
-#       examples/contour/02-service-contour.yaml
-#       examples/contour/02-service-envoy.yaml
-#       examples/contour/03-contour.yaml
-#       examples/contour/03-envoy.yaml
-#
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -1807,11 +1792,11 @@ spec:
   template:
     metadata:
       labels:
-        app: "contour-certgen"
+        app: contour-certgen
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:caa351a9a4e7c142fc77b8ba6da579e97178d3a3710d06abb99b158b0e434ff4
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cca3f4bc623202d4cf1fc0a0ddb1f999d7cfc1eae4943125be1edca48c7ff7e
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -1982,12 +1967,6 @@ metadata:
   name: envoy
   namespace: contour-external
   annotations:
-    # This annotation puts the AWS ELB into "TCP" mode so that it does not
-    # do HTTP negotiation for HTTPS connections at the ELB edge.
-    # The downside of this is the remote IP address of all connections will
-    # appear to be the internal address of the ELB. See docs/proxy-proto.md
-    # for information about enabling the PROXY protocol on the ELB to recover
-    # the original remote IP address.
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -2019,8 +1998,6 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      # This value of maxSurge means that during a rolling update
-      # the new ReplicaSet will be created first.
       maxSurge: 50%
   selector:
     matchLabels:
@@ -2053,8 +2030,9 @@ spec:
             - --contour-cert-file=/certs/tls.crt
             - --contour-key-file=/certs/tls.key
             - --config-path=/config/contour.yaml
-          command: ["contour"]
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:caa351a9a4e7c142fc77b8ba6da579e97178d3a3710d06abb99b158b0e434ff4
+          command:
+            - contour
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cca3f4bc623202d4cf1fc0a0ddb1f999d7cfc1eae4943125be1edca48c7ff7e
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2107,7 +2085,7 @@ spec:
         - name: contour-config
           configMap:
             name: contour
-            defaultMode: 0644
+            defaultMode: 420
             items:
               - key: contour.yaml
                 path: contour.yaml
@@ -2133,7 +2111,7 @@ spec:
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8002"
-        prometheus.io/path: "/stats/prometheus"
+        prometheus.io/path: /stats/prometheus
       labels:
         app: envoy
     spec:
@@ -2143,7 +2121,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:caa351a9a4e7c142fc77b8ba6da579e97178d3a3710d06abb99b158b0e434ff4
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cca3f4bc623202d4cf1fc0a0ddb1f999d7cfc1eae4943125be1edca48c7ff7e
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2183,11 +2161,9 @@ spec:
                   fieldPath: metadata.name
           ports:
             - containerPort: 8080
-              # hostPort: 80
               name: http
               protocol: TCP
             - containerPort: 8443
-              # hostPort: 443
               name: https
               protocol: TCP
           readinessProbe:
@@ -2222,7 +2198,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:caa351a9a4e7c142fc77b8ba6da579e97178d3a3710d06abb99b158b0e434ff4
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cca3f4bc623202d4cf1fc0a0ddb1f999d7cfc1eae4943125be1edca48c7ff7e
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -2262,21 +2238,6 @@ subjects:
     name: contour
     namespace: contour-internal
 ---
-# This file is generated from the individual YAML files by generate-deployment.sh. Do not
-# edit this file directly but instead edit the source files and re-render.
-#
-# Generated from:
-#       examples/contour/00-common.yaml
-#       examples/contour/01-contour-config.yaml
-#       examples/contour/01-crds.yaml
-#       examples/contour/02-job-certgen.yaml
-#       examples/contour/02-rbac.yaml
-#       examples/contour/02-role-contour.yaml
-#       examples/contour/02-service-contour.yaml
-#       examples/contour/02-service-envoy.yaml
-#       examples/contour/03-contour.yaml
-#       examples/contour/03-envoy.yaml
-#
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -2498,11 +2459,11 @@ spec:
   template:
     metadata:
       labels:
-        app: "contour-certgen"
+        app: contour-certgen
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:caa351a9a4e7c142fc77b8ba6da579e97178d3a3710d06abb99b158b0e434ff4
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cca3f4bc623202d4cf1fc0a0ddb1f999d7cfc1eae4943125be1edca48c7ff7e
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -2550,17 +2511,10 @@ metadata:
   name: envoy
   namespace: contour-internal
   annotations:
-    # This annotation puts the AWS ELB into "TCP" mode so that it does not
-    # do HTTP negotiation for HTTPS connections at the ELB edge.
-    # The downside of this is the remote IP address of all connections will
-    # appear to be the internal address of the ELB. See docs/proxy-proto.md
-    # for information about enabling the PROXY protocol on the ELB to recover
-    # the original remote IP address.
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
   labels:
     networking.knative.dev/ingress-provider: contour
 spec:
-  # externalTrafficPolicy: Local
   ports:
     - port: 80
       name: http
@@ -2587,8 +2541,6 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      # This value of maxSurge means that during a rolling update
-      # the new ReplicaSet will be created first.
       maxSurge: 50%
   selector:
     matchLabels:
@@ -2621,8 +2573,9 @@ spec:
             - --contour-cert-file=/certs/tls.crt
             - --contour-key-file=/certs/tls.key
             - --config-path=/config/contour.yaml
-          command: ["contour"]
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:caa351a9a4e7c142fc77b8ba6da579e97178d3a3710d06abb99b158b0e434ff4
+          command:
+            - contour
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cca3f4bc623202d4cf1fc0a0ddb1f999d7cfc1eae4943125be1edca48c7ff7e
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2675,7 +2628,7 @@ spec:
         - name: contour-config
           configMap:
             name: contour
-            defaultMode: 0644
+            defaultMode: 420
             items:
               - key: contour.yaml
                 path: contour.yaml
@@ -2701,7 +2654,7 @@ spec:
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8002"
-        prometheus.io/path: "/stats/prometheus"
+        prometheus.io/path: /stats/prometheus
       labels:
         app: envoy
     spec:
@@ -2711,7 +2664,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:caa351a9a4e7c142fc77b8ba6da579e97178d3a3710d06abb99b158b0e434ff4
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cca3f4bc623202d4cf1fc0a0ddb1f999d7cfc1eae4943125be1edca48c7ff7e
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2751,11 +2704,9 @@ spec:
                   fieldPath: metadata.name
           ports:
             - containerPort: 8080
-              # hostPort: 80
               name: http
               protocol: TCP
             - containerPort: 8443
-              # hostPort: 443
               name: https
               protocol: TCP
           readinessProbe:
@@ -2790,7 +2741,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:caa351a9a4e7c142fc77b8ba6da579e97178d3a3710d06abb99b158b0e434ff4
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cca3f4bc623202d4cf1fc0a0ddb1f999d7cfc1eae4943125be1edca48c7ff7e
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:

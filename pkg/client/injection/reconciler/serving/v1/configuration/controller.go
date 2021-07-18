@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -63,6 +63,8 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 
 	lister := configurationInformer.Lister()
 
+	var promoteFilterFunc func(obj interface{}) bool
+
 	rec := &reconcilerImpl{
 		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
 			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
@@ -71,7 +73,11 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 					return err
 				}
 				for _, elt := range all {
-					// TODO: Consider letting users specify a filter in options.
+					if promoteFilterFunc != nil {
+						if ok := promoteFilterFunc(elt); !ok {
+							continue
+						}
+					}
 					enq(bkt, types.NamespacedName{
 						Namespace: elt.GetNamespace(),
 						Name:      elt.GetName(),
@@ -115,6 +121,9 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 		}
 		if opts.DemoteFunc != nil {
 			rec.DemoteFunc = opts.DemoteFunc
+		}
+		if opts.PromoteFilterFunc != nil {
+			promoteFilterFunc = opts.PromoteFilterFunc
 		}
 	}
 
