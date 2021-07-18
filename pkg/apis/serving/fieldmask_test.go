@@ -34,7 +34,7 @@ func TestVolumeMask(t *testing.T) {
 	}
 	in := want
 
-	got := VolumeMask(in)
+	got := VolumeMask(context.Background(), in)
 
 	if &want == &got {
 		t.Error("Input and output share addresses. Want different addresses")
@@ -46,7 +46,7 @@ func TestVolumeMask(t *testing.T) {
 		t.Error("VolumeMask (-want, +got):", diff)
 	}
 
-	if got = VolumeMask(nil); got != nil {
+	if got = VolumeMask(context.Background(), nil); got != nil {
 		t.Errorf("VolumeMask(nil) = %v, want: nil", got)
 	}
 }
@@ -62,7 +62,7 @@ func TestVolumeSourceMask(t *testing.T) {
 		NFS:       &corev1.NFSVolumeSource{},
 	}
 
-	got := VolumeSourceMask(in)
+	got := VolumeSourceMask(context.Background(), in)
 
 	if &want == &got {
 		t.Error("Input and output share addresses. Want different addresses")
@@ -74,7 +74,7 @@ func TestVolumeSourceMask(t *testing.T) {
 		t.Error("VolumeSourceMask (-want, +got):", diff)
 	}
 
-	if got = VolumeSourceMask(nil); got != nil {
+	if got = VolumeSourceMask(context.Background(), nil); got != nil {
 		t.Errorf("VolumeSourceMask(nil) = %v, want: nil", got)
 	}
 }

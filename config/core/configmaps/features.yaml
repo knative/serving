@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "8c1f8302"
+    knative.dev/example-checksum: "3bac317a"
 data:
   _example: |-
     ################################
@@ -131,3 +131,8 @@ data:
     # 1. Enabled: http2 connection will be attempted via upgrade.
     # 2. Disabled: http2 connection will only be attempted when port name is set to "h2c".
     autodetect-http2: "disabled"
+
+    # Controls whether volume support for EmptyDir is enabled or not.
+    # 1. Enabled: enabling EmptyDir volume support
+    # 2. Disabled: disabling EmptyDir volume support
+    kubernetes.podspec-volumes-emptydir: "disabled"
