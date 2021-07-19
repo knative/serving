@@ -21,7 +21,7 @@ metadata:
     serving.knative.dev/release: devel
     app.kubernetes.io/name: autoscaler
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
   annotations:
     knative.dev/example-checksum: "604cb513"
 data:

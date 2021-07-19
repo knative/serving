@@ -151,5 +151,3 @@ spec:
     targetPort: 8443
   selector:
     role: webhook
-    # app.kubernetes.io/name: webhook
-    # app.kubernetes.io/version: devel

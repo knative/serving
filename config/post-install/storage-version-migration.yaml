@@ -22,7 +22,7 @@ metadata:
     serving.knative.dev/release: devel
     app.kubernetes.io/name: storage-version-migration-serving
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
 spec:
   ttlSecondsAfterFinished: 600
   backoffLimit: 10
@@ -47,4 +47,3 @@ spec:
           - "configurations.serving.knative.dev"
           - "revisions.serving.knative.dev"
           - "routes.serving.knative.dev"
-

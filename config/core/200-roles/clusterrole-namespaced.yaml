@@ -20,7 +20,7 @@ metadata:
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
     serving.knative.dev/release: devel
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
 rules:
   - apiGroups: ["serving.knative.dev"]
     resources: ["*"]
