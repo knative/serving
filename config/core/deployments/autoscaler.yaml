@@ -33,6 +33,7 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
         app: autoscaler
+        serving.knative.dev/release: devel
         app.kubernetes.io/name: autoscaler
         app.kubernetes.io/part-of: knative-serving
         app.kubernetes.io/version: devel
