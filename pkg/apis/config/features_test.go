@@ -323,6 +323,33 @@ func TestFeaturesConfiguration(t *testing.T) {
 		data: map[string]string{
 			"kubernetes.podspec-volumes-emptydir": "Enabled",
 		},
+	}, {
+		name:    "pod-freezer Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodFreezer: Disabled,
+		}),
+		data: map[string]string{
+			"pod-freezer": "Disabled",
+		},
+	}, {
+		name:    "pod-freezer Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodFreezer: Enabled,
+		}),
+		data: map[string]string{
+			"pod-freezer": "Enabled",
+		},
+	}, {
+		name:    "pod-freezer Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodFreezer: Allowed,
+		}),
+		data: map[string]string{
+			"pod-freezer": "Allowed",
+		},
 	}}
 
 	for _, tt := range configTests {
