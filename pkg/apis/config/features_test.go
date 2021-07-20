@@ -288,6 +288,33 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-securitycontext": "Disabled",
 		},
 	}, {
+		name:    "kubernetes.containerspec-addcapabilities Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			ContainerSpecAddCapabilities: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.containerspec-addcapabilities": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.containerspec-addcapabilities Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			ContainerSpecAddCapabilities: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.containerspec-addcapabilities": "Enabled",
+		},
+	}, {
+		name:    "kubernetes.containerspec-addcapabilities Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			ContainerSpecAddCapabilities: Allowed,
+		}),
+		data: map[string]string{
+			"kubernetes.containerspec-addcapabilities": "Allowed",
+		},
+	}, {
 		name:    "tag-header-based-routing Allowed",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
