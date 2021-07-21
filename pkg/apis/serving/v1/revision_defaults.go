@@ -135,9 +135,17 @@ func (rs *RevisionSpec) applyDefault(ctx context.Context, container *corev1.Cont
 		rs.PodSpec.EnableServiceLinks = cfg.Defaults.EnableServiceLinks
 	}
 
+	vNames := make(sets.String)
+	for _, v := range rs.PodSpec.Volumes {
+		if v.EmptyDir != nil {
+			vNames.Insert(v.Name)
+		}
+	}
 	vms := container.VolumeMounts
 	for i := range vms {
-		vms[i].ReadOnly = true
+		if !vNames.Has(vms[i].Name) {
+			vms[i].ReadOnly = true
+		}
 	}
 }
 
