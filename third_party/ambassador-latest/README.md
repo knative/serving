@@ -33,5 +33,28 @@ subjects:
     namespace: ambassador
 ```
 
+- Ambassador has a backoff when it receives too many Envoy configuration changes
+  at the same time and it's using a lot of its available memory. Update the
+  resource requests and limits for the deployment to something larger for our
+  end-to-end tests:
+
+```yaml
+# ...
+resources:
+  limits:
+    cpu: 2
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+```
+
+- (Temporarily) set the environment variable `AMBASSADOR_FAST_RECONFIGURE` to
+  `true` in the deployment.
+- Set the environment variable `AMBASSADOR_DRAIN_TIME` to a smaller value, like
+  15. See
+  [the Ambassador documentation](https://www.getambassador.io/docs/edge-stack/latest/topics/running/scaling/)
+  for performance recommendations.
+
 Make sure the modifications are done as per the
 [installation documentation](https://knative.dev/docs/install/).
