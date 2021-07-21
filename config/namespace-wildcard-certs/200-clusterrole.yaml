@@ -20,6 +20,9 @@ metadata:
     serving.knative.dev/release: devel
     serving.knative.dev/controller: "true"
     networking.knative.dev/wildcard-certificate-provider: nscert
+    app.kubernetes.io/name: networking-ns-cert
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative-serving
 rules:
   - apiGroups: [""]
     resources: ["namespaces/finalizers"]
