@@ -453,7 +453,7 @@ golang.org/x/xerrors
 golang.org/x/xerrors/internal
 # gomodules.xyz/jsonpatch/v2 v2.2.0
 gomodules.xyz/jsonpatch/v2
-# gonum.org/v1/netlib v0.0.0-20190331212654-76723241ea4e
+# gonum.org/v1/gonum v0.0.0-20190331200053-3d26580ed485
 ## explicit
 # google.golang.org/api v0.50.0
 ## explicit

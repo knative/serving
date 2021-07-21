@@ -1,6 +1,6 @@
 module knative.dev/serving
 
-go 1.15
+go 1.16
 
 require (
 	github.com/Azure/azure-sdk-for-go v50.2.0+incompatible // indirect
@@ -36,7 +36,7 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf // indirect
 	golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6
-	gonum.org/v1/netlib v0.0.0-20190331212654-76723241ea4e // indirect
+	gonum.org/v1/gonum v0.0.0-20190331200053-3d26580ed485 // indirect
 	google.golang.org/api v0.50.0
 	google.golang.org/grpc v1.39.0
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
