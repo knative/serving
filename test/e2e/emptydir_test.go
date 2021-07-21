@@ -47,7 +47,7 @@ func TestEmptyDirVolume(t *testing.T) {
 
 	t.Log("Creating a new Service")
 
-	quantity := resource.MustParse("100Mb")
+	quantity := resource.MustParse("100M")
 	withVolume1 := WithVolume("data", "/data", corev1.VolumeSource{
 		EmptyDir: &corev1.EmptyDirVolumeSource{
 			Medium:    "Memory",
