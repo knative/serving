@@ -130,13 +130,13 @@ func TestBlueGreenRoute(t *testing.T) {
 	// Since we are updating the service the teal domain probe will succeed before our changes
 	// take effect so we probe the green domain.
 	t.Log("Probing", greenURL)
-	if _, err := pkgtest.WaitForEndpointState(
+	if _, err := pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		greenURL,
 		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
-		"WaitForSuccessfulResponse",
+		"CheckSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Fatalf("Error probing %s: %v", greenURL, err)

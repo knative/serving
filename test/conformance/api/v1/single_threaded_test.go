@@ -62,13 +62,13 @@ func TestSingleConcurrency(t *testing.T) {
 	// Ready does not actually mean Ready for a Route just yet.
 	// See https://github.com/knative/serving/issues/1582
 	t.Log("Probing", url)
-	if _, err := pkgtest.WaitForEndpointState(
+	if _, err := pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
-		"WaitForSuccessfulResponse",
+		"CheckSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Fatalf("Error probing %s: %v", url, err)

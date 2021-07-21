@@ -63,7 +63,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 	endpoint := objects.Route.Status.URL.URL()
 
-	_, err = pkgtest.WaitForEndpointState(
+	_, err = pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,

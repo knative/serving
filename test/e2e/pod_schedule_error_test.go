@@ -92,7 +92,7 @@ func TestPodScheduleError(t *testing.T) {
 	}
 
 	t.Log("When the containers are not scheduled, the revision should have error status.")
-	err = v1test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
+	err = v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
 		if cond != nil {
 			if cond.Reason == revisionReason && strings.Contains(cond.Message, errorMsg) {
@@ -102,7 +102,7 @@ func TestPodScheduleError(t *testing.T) {
 				revisionName, revisionReason, errorMsg, cond.Reason, cond.Message)
 		}
 		return false, nil
-	}, errorReason)
+	})
 
 	if err != nil {
 		t.Fatal("Failed to validate revision state:", err)

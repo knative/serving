@@ -416,6 +416,7 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   "hellovolume",
 	}
+	test.EnsureTearDown(t, clients, &names)
 
 	const tokenPath = "token"
 	saPath := filepath.Join(filepath.Dir(test.HelloVolumePath), tokenPath)
@@ -450,13 +451,13 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 	}
 	names.URL.Path = path.Join(names.URL.Path, tokenPath)
 
-	if _, err := pkgTest.WaitForEndpointState(
+	if _, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
 		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, isJWT)),
-		"WaitForEndpointToServeTheToken",
+		"CheckEndpointToServeTheToken",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Error(err)

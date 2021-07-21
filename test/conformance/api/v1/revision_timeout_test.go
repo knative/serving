@@ -119,13 +119,13 @@ func TestRevisionTimeout(t *testing.T) {
 			serviceURL := resources.Service.Status.URL.URL()
 
 			t.Log("Probing to force at least one pod", serviceURL)
-			if _, err := pkgtest.WaitForEndpointState(
+			if _, err := pkgtest.CheckEndpointState(
 				context.Background(),
 				clients.KubeClient,
 				t.Logf,
 				serviceURL,
 				v1test.RetryingRouteInconsistency(spoof.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout)),
-				"WaitForSuccessfulResponse",
+				"CheckSuccessfulResponse",
 				test.ServingFlags.ResolvableDomain,
 				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 				t.Fatalf("Error probing %s: %v", serviceURL, err)

@@ -120,9 +120,9 @@ func TestRollbackBYOName(t *testing.T) {
 
 	// Verify that the latest ready revision and latest created revision are both byoNameNew,
 	// which means no new revision is created in the rollback
-	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
+	err = v1test.CheckServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
 		return (s.Status.LatestReadyRevisionName == byoNameOld && s.Status.LatestCreatedRevisionName == byoNameOld), nil
-	}, "ServiceNoNewRevisionCreated")
+	})
 	if err != nil {
 		t.Fatalf("Service %s was not rolled back with byo name %s: %v", names.Service, byoNameOld, err)
 	}

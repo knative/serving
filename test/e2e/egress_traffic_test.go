@@ -60,7 +60,7 @@ func TestEgressTraffic(t *testing.T) {
 	t.Log("Service URL: " + service.Route.Status.URL.String())
 
 	url := service.Route.Status.URL.URL()
-	if _, err = pkgTest.WaitForEndpointState(
+	if _, err = pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,

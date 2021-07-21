@@ -34,7 +34,7 @@ import (
 )
 
 func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedText string) error {
-	_, err := pkgTest.WaitForEndpointState(
+	_, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,

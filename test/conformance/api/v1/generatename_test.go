@@ -80,27 +80,26 @@ func validateName(generateName, name string) error {
 func canServeRequests(t *testing.T, clients *test.Clients, route *v1.Route) error {
 	t.Logf("Route %s has a domain set in its status", route.Name)
 	var url *url.URL
-	err := v1test.WaitForRouteState(
+	err := v1test.CheckRouteState(
 		clients.ServingClient,
 		route.Name,
 		func(r *v1.Route) (bool, error) {
 			url = r.Status.URL.URL()
 			return url.String() != "", nil
 		},
-		"RouteDomain",
 	)
 	if err != nil {
 		return fmt.Errorf("route did not get assigned an URL: %w", err)
 	}
 
 	t.Logf("Route %s can serve the expected data at %s", route.Name, url)
-	_, err = pkgtest.WaitForEndpointState(
+	_, err = pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText))),
-		"WaitForEndpointToServeText",
+		"CheckEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
