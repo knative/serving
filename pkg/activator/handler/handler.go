@@ -122,7 +122,6 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	if tracingEnabled {
 		proxy.Transport = a.tracingTransport
 	}
-	proxy.FlushInterval = network.FlushInterval
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
 		pkgnet.ErrorHandler(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)
 	}

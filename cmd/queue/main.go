@@ -284,7 +284,6 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	httpProxy.Transport = buildTransport(env, logger, maxIdleConns)
 	httpProxy.ErrorHandler = pkgnet.ErrorHandler(logger)
 	httpProxy.BufferPool = network.NewBufferPool()
-	httpProxy.FlushInterval = network.FlushInterval
 
 	breaker := buildBreaker(logger, env)
 	metricsSupported := supportsMetrics(ctx, logger, env)
