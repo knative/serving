@@ -90,10 +90,8 @@ func (h *State) drainFinished() {
 }
 
 // HandleHealthProbe handles the probe according to the current state of the
-// health server. If isAggressive is false and prober has succeeded previously,
-// the function returns success without probing user-container again (until
-// shutdown).
-func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.ResponseWriter) {
+// health server.
+func (h *State) HandleHealthProbe(prober func() bool, w http.ResponseWriter) {
 	sendAlive := func() {
 		io.WriteString(w, queue.Name)
 	}
@@ -107,8 +105,6 @@ func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.
 	}
 
 	switch {
-	case !isAggressive && h.isAlive():
-		sendAlive()
 	case h.isShuttingDown():
 		sendShuttingDown()
 	case prober != nil && !prober():
