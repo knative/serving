@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "3bac317a"
+    knative.dev/example-checksum: "7be4b7a8"
 data:
   _example: |-
     ################################
@@ -131,6 +131,12 @@ data:
     # 1. Enabled: http2 connection will be attempted via upgrade.
     # 2. Disabled: http2 connection will only be attempted when port name is set to "h2c".
     autodetect-http2: "disabled"
+
+    # Controls whether pod ip is injected using kubernetes downward API of statusp.podIP.
+    # This isn't available in AKS (and other?) virtual nodes: https://docs.microsoft.com/en-us/answers/questions/352186/pods-stuck-in-pending-state-on-virtual-nodes.html
+    # 1. Enabled: SERVING_POD_IP is injected into knative queue container.
+    # 2. Disabled: queue container attempts to determine IP dynamically
+    inject-pod-ip: "enabled"
 
     # Controls whether volume support for EmptyDir is enabled or not.
     # 1. Enabled: enabling EmptyDir volume support

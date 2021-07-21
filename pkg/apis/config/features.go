@@ -54,6 +54,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecVolumesEmptyDir:       Disabled,
 		TagHeaderBasedRouting:        Disabled,
 		AutoDetectHTTP2:              Disabled,
+		InjectPodIP:				  Enabled,
 	}
 }
 
@@ -74,7 +75,8 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
 		asFlag("kubernetes.podspec-volumes-emptydir", &nc.PodSpecVolumesEmptyDir),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
-		asFlag("autodetect-http2", &nc.AutoDetectHTTP2)); err != nil {
+		asFlag("autodetect-http2", &nc.AutoDetectHTTP2),
+		asFlag("inject-pod-ip", &nc.InjectPodIP)); err != nil {
 		return nil, err
 	}
 	return nc, nil
@@ -94,12 +96,13 @@ type Features struct {
 	PodSpecHostAliases           Flag
 	PodSpecNodeSelector          Flag
 	PodSpecRuntimeClassName      Flag
-	PodSpecSecurityContext       Flag
+	PodSpecSecurityContext       Flag	
 	ContainerSpecAddCapabilities Flag
 	PodSpecTolerations           Flag
 	PodSpecVolumesEmptyDir       Flag
 	TagHeaderBasedRouting        Flag
 	AutoDetectHTTP2              Flag
+	InjectPodIP					 Flag
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.
