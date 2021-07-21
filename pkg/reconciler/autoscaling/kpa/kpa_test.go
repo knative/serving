@@ -1806,7 +1806,7 @@ func TestMetricsReporter(t *testing.T) {
 		metricstest.IntMetric("pending_pods", 1996, nil).WithResource(wantResource),
 		metricstest.IntMetric("terminating_pods", 1983, nil).WithResource(wantResource),
 	}
-	metricstest.AssertMetric(t, wantMetrics...)
+	metricstest.AssertMetricRequiredOnly(t, wantMetrics...)
 
 	// Verify `want` is ignored, when it is equal to -1.
 	pc.want = -1
@@ -1821,7 +1821,7 @@ func TestMetricsReporter(t *testing.T) {
 		metricstest.IntMetric("pending_pods", 1996, nil).WithResource(wantResource),
 		metricstest.IntMetric("terminating_pods", 1955, nil).WithResource(wantResource),
 	}
-	metricstest.AssertMetric(t, wantMetrics...)
+	metricstest.AssertMetricRequiredOnly(t, wantMetrics...)
 }
 
 func TestResolveScrapeTarget(t *testing.T) {

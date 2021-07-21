@@ -221,7 +221,7 @@ func reportMetrics(pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
 	serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
 	configLabel := pa.Labels[serving.ConfigurationLabelKey]
 
-	ctx := metrics.RevisionContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
+	ctx := metrics.RevisionContext(pa.Namespace, serviceLabel, configLabel, pa.Name, pa.GetAnnotations(), pa.GetLabels())
 
 	stats := []stats.Measurement{
 		actualPodCountM.M(int64(pc.ready)), notReadyPodCountM.M(int64(pc.notReady)),

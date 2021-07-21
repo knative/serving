@@ -417,7 +417,7 @@ func pushRequestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handle
 
 func requestMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env config) http.Handler {
 	h, err := queue.NewRequestMetricsHandler(currentHandler, env.ServingNamespace,
-		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
+		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod, map[string]string{}, map[string]string{})
 	if err != nil {
 		logger.Errorw("Error setting up request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
@@ -427,7 +427,7 @@ func requestMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handle
 
 func requestAppMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, breaker *queue.Breaker, env config) http.Handler {
 	h, err := queue.NewAppRequestMetricsHandler(currentHandler, breaker, env.ServingNamespace,
-		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
+		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod, map[string]string{}, map[string]string{})
 	if err != nil {
 		logger.Errorw("Error setting up app request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler

@@ -65,7 +65,7 @@ func TestContextsErrors(t *testing.T) {
 		if _, err := PodContext(v, v); err == nil {
 			t.Errorf("PodContext(%q) = nil, wanted an error", v)
 		}
-		if _, err := PodRevisionContext(v, v, v, v, v, v); err == nil {
+		if _, err := PodRevisionContext(v, v, v, v, v, v, map[string]string{v:v}, map[string]string{v:v}); err == nil {
 			t.Errorf("PodRevisionContext(%q) = nil, wanted an error", v)
 		}
 	}
@@ -89,7 +89,8 @@ func TestContexts(t *testing.T) {
 	}, {
 		name: "revision context",
 		ctx: purge(t, func() context.Context {
-			return RevisionContext("testns", "testsvc", "testcfg", "testrev")
+			return RevisionContext("testns", "testsvc", "testcfg", "testrev",
+				map[string]string{"testannkey":"testannval"}, map[string]string{"testlabkey":"testlabval"})
 		}),
 		wantTags: map[string]string{},
 		wantResource: &resource.Resource{
@@ -104,7 +105,8 @@ func TestContexts(t *testing.T) {
 	}, {
 		name: "revision context (empty svc)",
 		ctx: purge(t, func() context.Context {
-			return RevisionContext("testns", "", "testcfg", "testrev")
+			return RevisionContext("testns", "", "testcfg", "testrev",
+				map[string]string{"testannkey":"testannval"}, map[string]string{"testlabkey":"testlabval"})
 		}),
 		wantTags: map[string]string{},
 		wantResource: &resource.Resource{
@@ -119,7 +121,8 @@ func TestContexts(t *testing.T) {
 	}, {
 		name: "pod revision context",
 		ctx: mustCtx(t, func() (context.Context, error) {
-			return PodRevisionContext("testpod", "testcontainer", "testns", "testsvc", "testcfg", "testrev")
+			return PodRevisionContext("testpod", "testcontainer", "testns", "testsvc", "testcfg",
+				"testrev", map[string]string{"testannkey":"testannval"}, map[string]string{"testlabkey":"testlabval"})
 		}),
 		wantTags: map[string]string{
 			LabelPodName:       "testpod",
@@ -137,7 +140,8 @@ func TestContexts(t *testing.T) {
 	}, {
 		name: "pod revision context (empty svc)",
 		ctx: mustCtx(t, func() (context.Context, error) {
-			return PodRevisionContext("testpod", "testcontainer", "testns", "", "testcfg", "testrev")
+			return PodRevisionContext("testpod", "testcontainer", "testns", "", "testcfg",
+				"testrev", map[string]string{"testannkey":"testannval"}, map[string]string{"testlabkey":"testlabval"})
 		}),
 		wantTags: map[string]string{
 			LabelPodName:       "testpod",
@@ -155,7 +159,8 @@ func TestContexts(t *testing.T) {
 	}, {
 		name: "pod revision context (empty svc)",
 		ctx: mustCtx(t, func() (context.Context, error) {
-			return PodRevisionContext("testpod", "testcontainer", "testns", "", "testcfg", "testrev")
+			return PodRevisionContext("testpod", "testcontainer", "testns", "", "testcfg",
+				"testrev", map[string]string{"testannkey":"testannval"}, map[string]string{"testlabkey":"testlabval"})
 		}),
 		wantTags: map[string]string{
 			LabelPodName:       "testpod",
@@ -177,7 +182,8 @@ func TestContexts(t *testing.T) {
 			if err != nil {
 				return ctx, err
 			}
-			return AugmentWithRevision(ctx, "testns", "testsvc", "testcfg", "testrev"), nil
+			return AugmentWithRevision(ctx, "testns", "testsvc", "testcfg", "testrev",
+				map[string]string{"testannkey":"testannval"}, map[string]string{"testlabkey":"testlabval"}), nil
 		}),
 		wantTags: map[string]string{
 			LabelPodName:       "testpod",
@@ -195,7 +201,8 @@ func TestContexts(t *testing.T) {
 	}, {
 		name: "pod revision context augmented with response",
 		ctx: mustCtx(t, func() (context.Context, error) {
-			ctx, err := PodRevisionContext("testpod", "testcontainer", "testns", "testsvc", "testcfg", "testrev")
+			ctx, err := PodRevisionContext("testpod", "testcontainer", "testns", "testsvc", "testcfg",
+				"testrev", map[string]string{"testannkey":"testannval"}, map[string]string{"testlabkey":"testlabval"})
 			return AugmentWithResponse(ctx, 200), err
 		}),
 		wantTags: map[string]string{
@@ -221,7 +228,7 @@ func TestContexts(t *testing.T) {
 			defer cancel()
 
 			pkgmetrics.Record(test.ctx, testM.M(42))
-			metricstest.AssertMetric(t, metricstest.IntMetric("test_metric", 42, test.wantTags).WithResource(test.wantResource))
+			metricstest.AssertMetricRequiredOnly(t, metricstest.IntMetric("test_metric", 42, test.wantTags).WithResource(test.wantResource))
 		})
 	}
 }
@@ -234,7 +241,8 @@ func BenchmarkPodRevisionContext(b *testing.B) {
 			contextCache.Purge()
 			for i := 0; i < b.N; i++ {
 				rev := "name" + strconv.Itoa(rand.Intn(revisions))
-				PodRevisionContext("pod", "container", "ns", "svc", "cfg", rev)
+				PodRevisionContext("pod", "container", "ns", "svc", "cfg", rev,
+					map[string]string{"ann":"ann"}, map[string]string{"lab":"lab"})
 			}
 		})
 
@@ -244,7 +252,8 @@ func BenchmarkPodRevisionContext(b *testing.B) {
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
 					rev := "name" + strconv.Itoa(rand.Intn(revisions))
-					PodRevisionContext("pod", "container", "ns", "svc", "cfg", rev)
+					PodRevisionContext("pod", "container", "ns", "svc", "cfg", rev,
+						map[string]string{"ann":"ann"}, map[string]string{"lab":"lab"})
 				}
 			})
 		})

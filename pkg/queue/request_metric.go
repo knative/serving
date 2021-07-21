@@ -74,7 +74,7 @@ type appRequestMetricsHandler struct {
 
 // NewRequestMetricsHandler creates an http.Handler that emits request metrics.
 func NewRequestMetricsHandler(next http.Handler,
-	ns, service, config, rev, pod string) (http.Handler, error) {
+	ns, service, config, rev, pod string, annotations map[string]string, labels map[string]string) (http.Handler, error) {
 	keys := []tag.Key{metrics.PodKey, metrics.ContainerKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey, metrics.RouteTagKey}
 	if err := pkgmetrics.RegisterResourceView(
 		&view.View{
@@ -93,7 +93,7 @@ func NewRequestMetricsHandler(next http.Handler,
 		return nil, err
 	}
 
-	ctx, err := metrics.PodRevisionContext(pod, "queue-proxy", ns, service, config, rev)
+	ctx, err := metrics.PodRevisionContext(pod, "queue-proxy", ns, service, config, rev, annotations, labels)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 // NewAppRequestMetricsHandler creates an http.Handler that emits request metrics.
 func NewAppRequestMetricsHandler(next http.Handler, b *Breaker,
-	ns, service, config, rev, pod string) (http.Handler, error) {
+	ns, service, config, rev, pod string, annotations map[string]string, labels map[string]string) (http.Handler, error) {
 	keys := []tag.Key{metrics.PodKey, metrics.ContainerKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey}
 	if err := pkgmetrics.RegisterResourceView(&view.View{
 		Description: "The number of requests that are routed to user-container",
@@ -157,7 +157,7 @@ func NewAppRequestMetricsHandler(next http.Handler, b *Breaker,
 		return nil, err
 	}
 
-	ctx, err := metrics.PodRevisionContext(pod, "queue-proxy", ns, service, config, rev)
+	ctx, err := metrics.PodRevisionContext(pod, "queue-proxy", ns, service, config, rev, annotations, labels)
 	if err != nil {
 		return nil, err
 	}
