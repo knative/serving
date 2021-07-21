@@ -372,6 +372,14 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		})
 	}
 
+	// Only add if Pod Freezer is enabled
+	if cfg.Features.PodFreezer == apicfg.Enabled {
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  "ENABLE_POD_FREEZER",
+			Value: "true",
+		})
+	}
+
 	return c, nil
 }
 

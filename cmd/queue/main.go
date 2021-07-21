@@ -79,6 +79,7 @@ type config struct {
 	ServingReadinessProbe    string `split_words:"true" required:"true"`
 	EnableProfiling          bool   `split_words:"true"` // optional
 	EnableHTTP2AutoDetection bool   `split_words:"true"` // optional
+	EnablePodFreezer         bool   `split_words:"true"` // optional
 
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
@@ -294,6 +295,9 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
+	if env.EnablePodFreezer {
+		logger.Info("Pod Freezer enabled")
+	}
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
 	}
