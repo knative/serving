@@ -34,6 +34,7 @@ import (
 	"knative.dev/serving/pkg/client/clientset/versioned"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
 
 	// Every E2E test requires this, so add it here.
 	_ "knative.dev/pkg/metrics/testing"
@@ -43,6 +44,7 @@ import (
 type Clients struct {
 	KubeClient         kubernetes.Interface
 	ServingAlphaClient *ServingAlphaClients
+	ServingBetaClient  *ServingBetaClients
 	ServingClient      *ServingClients
 	NetworkingClient   *NetworkingClients
 	Dynamic            dynamic.Interface
@@ -51,6 +53,11 @@ type Clients struct {
 // ServingAlphaClients holds instances of interfaces for making requests to knative serving clients.
 type ServingAlphaClients struct {
 	DomainMappings servingv1alpha1.DomainMappingInterface
+}
+
+// ServingBetaClients holds instances of interfaces for making requests to knative serving clients.
+type ServingBetaClients struct {
+	DomainMappings servingv1beta1.DomainMappingInterface
 }
 
 // ServingClients holds instances of interfaces for making requests to knative serving clients.
@@ -96,6 +103,11 @@ func NewClients(cfg *rest.Config, namespace string) (*Clients, error) {
 		return nil, err
 	}
 
+	clients.ServingBetaClient, err = newServingBetaClients(cfg, namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	clients.Dynamic, err = dynamic.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -133,6 +145,19 @@ func newServingAlphaClients(cfg *rest.Config, namespace string) (*ServingAlphaCl
 
 	return &ServingAlphaClients{
 		DomainMappings: cs.ServingV1alpha1().DomainMappings(namespace),
+	}, nil
+}
+
+// newServingBetaClients instantiates and returns the serving clientset required to make requests to the
+// knative serving cluster.
+func newServingBetaClients(cfg *rest.Config, namespace string) (*ServingBetaClients, error) {
+	cs, err := versioned.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ServingBetaClients{
+		DomainMappings: cs.ServingV1beta1().DomainMappings(namespace),
 	}, nil
 }
 

@@ -31,6 +31,8 @@ import (
 	fakeservingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1/fake"
 	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	fakeservingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1/fake"
+	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
+	fakeservingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -88,6 +90,11 @@ func (c *Clientset) AutoscalingV1alpha1() autoscalingv1alpha1.AutoscalingV1alpha
 // ServingV1 retrieves the ServingV1Client
 func (c *Clientset) ServingV1() servingv1.ServingV1Interface {
 	return &fakeservingv1.FakeServingV1{Fake: &c.Fake}
+}
+
+// ServingV1beta1 retrieves the ServingV1beta1Client
+func (c *Clientset) ServingV1beta1() servingv1beta1.ServingV1beta1Interface {
+	return &fakeservingv1beta1.FakeServingV1beta1{Fake: &c.Fake}
 }
 
 // ServingV1alpha1 retrieves the ServingV1alpha1Client
