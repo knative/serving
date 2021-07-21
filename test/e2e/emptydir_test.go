@@ -1,4 +1,4 @@
-// +build e2e
+// +build emptydir
 
 /*
 Copyright 2021 The Knative Authors
@@ -34,6 +34,9 @@ import (
 
 // TestEmptyDirVolume tests empty dir volume support.
 func TestEmptyDirVolume(t *testing.T) {
+	if !test.ServingFlags.EnableAlphaFeatures {
+		t.Skip()
+	}
 
 	t.Parallel()
 	clients := test.Setup(t)
