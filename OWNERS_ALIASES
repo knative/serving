@@ -54,7 +54,6 @@ aliases:
   eventing-wg-leads:
   - devguyio
   - lionelvillard
-  - vaikas
   eventing-writers:
   - akashrv
   - aliok
@@ -65,7 +64,6 @@ aliases:
   - matzew
   - n3wscott
   - pierDipi
-  - vaikas
   knative-admin:
   - RichieEscarez
   - bsnchan
