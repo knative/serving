@@ -68,9 +68,9 @@ func TransformDeploymentStatus(ds *appsv1.DeploymentStatus) *duckv1.Status {
 			case corev1.ConditionUnknown:
 				depCondSet.Manage(s).MarkUnknown(DeploymentConditionReplicaSetReady, cond.Reason, cond.Message)
 			case corev1.ConditionTrue:
-				depCondSet.Manage(s).MarkFalse(DeploymentConditionReplicaSetReady, cond.Reason, cond.Message)
-			case corev1.ConditionFalse:
 				depCondSet.Manage(s).MarkTrue(DeploymentConditionReplicaSetReady)
+			case corev1.ConditionFalse:
+				depCondSet.Manage(s).MarkFalse(DeploymentConditionReplicaSetReady, cond.Reason, cond.Message)
 			}
 		}
 	}
