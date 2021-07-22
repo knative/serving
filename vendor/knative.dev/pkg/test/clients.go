@@ -41,13 +41,18 @@ func NewSpoofingClient(ctx context.Context, client kubernetes.Interface, logf lo
 
 // BuildClientConfig builds the client config specified by the config path and the cluster name
 func BuildClientConfig(kubeConfigPath string, clusterName string) (*rest.Config, error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	overrides := clientcmd.ConfigOverrides{}
+
+	if kubeConfigPath != "" {
+		loadingRules.ExplicitPath = kubeConfigPath
+	}
 	// Override the cluster name if provided.
 	if clusterName != "" {
 		overrides.Context.Cluster = clusterName
 	}
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeConfigPath},
+		loadingRules,
 		&overrides).ClientConfig()
 }
 
