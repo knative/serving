@@ -18,7 +18,7 @@ metadata:
   # These are the permissions needed by the `cert-manager` `Certificate` implementation.
   name: knative-serving-certmanager
   labels:
-    serving.knative.dev/release: "v20210719-24df55d7"
+    serving.knative.dev/release: "v20210722-ef4a670e"
     serving.knative.dev/controller: "true"
     networking.knative.dev/certificate-provider: cert-manager
 rules:
@@ -49,7 +49,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.net-certmanager.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20210719-24df55d7"
+    serving.knative.dev/release: "v20210722-ef4a670e"
     networking.knative.dev/certificate-provider: cert-manager
 webhooks:
   - admissionReviewVersions:
@@ -88,7 +88,7 @@ metadata:
   name: net-certmanager-webhook-certs
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210719-24df55d7"
+    serving.knative.dev/release: "v20210722-ef4a670e"
     networking.knative.dev/certificate-provider: cert-manager
 
 ---
@@ -112,7 +112,7 @@ metadata:
   name: config-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210719-24df55d7"
+    serving.knative.dev/release: "v20210722-ef4a670e"
     networking.knative.dev/certificate-provider: cert-manager
 data:
   _example: |
@@ -159,7 +159,7 @@ metadata:
   name: net-certmanager-controller
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210719-24df55d7"
+    serving.knative.dev/release: "v20210722-ef4a670e"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   selector:
@@ -171,14 +171,14 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: net-certmanager-controller
-        serving.knative.dev/release: "v20210719-24df55d7"
+        serving.knative.dev/release: "v20210722-ef4a670e"
     spec:
       serviceAccountName: controller
       containers:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:5878279bf6019494097a5586f81e5935ab67ebef9e02d76f3017648a4ea9d11b
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:66694fc788c2e91b721342b30a768e3d0a37a36912a26a69686c3168e0b2f2c1
           resources:
             requests:
               cpu: 30m
@@ -216,7 +216,7 @@ kind: Service
 metadata:
   labels:
     app: net-certmanager-controller
-    serving.knative.dev/release: "v20210719-24df55d7"
+    serving.knative.dev/release: "v20210722-ef4a670e"
     networking.knative.dev/certificate-provider: cert-manager
   name: net-certmanager-controller
   namespace: knative-serving
@@ -253,7 +253,7 @@ metadata:
   name: net-certmanager-webhook
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20210719-24df55d7"
+    serving.knative.dev/release: "v20210722-ef4a670e"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   selector:
@@ -267,14 +267,14 @@ spec:
       labels:
         app: net-certmanager-webhook
         role: net-certmanager-webhook
-        serving.knative.dev/release: "v20210719-24df55d7"
+        serving.knative.dev/release: "v20210722-ef4a670e"
     spec:
       serviceAccountName: controller
       containers:
         - name: webhook
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:13e77b6a231fb6a3286cc116b05558d93fe1dfe34a524f0970b8025c9e7058f9
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:fa8b0e55602819519c1a3d64a20e96375f0d33f0bf2b1702c34060bcfcf5be4a
           resources:
             requests:
               cpu: 20m
@@ -333,7 +333,7 @@ metadata:
   namespace: knative-serving
   labels:
     role: net-certmanager-webhook
-    serving.knative.dev/release: "v20210719-24df55d7"
+    serving.knative.dev/release: "v20210722-ef4a670e"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   ports:
