@@ -38,7 +38,7 @@ metadata:
     # Labeled to facilitate aggregated cluster roles that act on Addressables.
     duck.knative.dev/addressable: "true"
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
 
 # Do not use this role directly. These rules will be added to the "addressable-resolver" role.
 rules:

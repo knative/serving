@@ -37,7 +37,7 @@ metadata:
     rbac.authorization.k8s.io/aggregate-to-edit: "true"
     serving.knative.dev/release: devel
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
 rules:
   - apiGroups: ["serving.knative.dev"]
     resources: ["*"]
@@ -54,7 +54,7 @@ metadata:
     rbac.authorization.k8s.io/aggregate-to-view: "true"
     serving.knative.dev/release: devel
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative
+    app.kubernetes.io/part-of: knative-serving
 rules:
   - apiGroups: ["serving.knative.dev", "networking.internal.knative.dev", "autoscaling.internal.knative.dev", "caching.internal.knative.dev"]
     resources: ["*"]
