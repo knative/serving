@@ -19,6 +19,9 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
+    app.kubernetes.io/name: domainmapping-webhook
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative-serving
 spec:
   selector:
     matchLabels:
@@ -30,6 +33,9 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
         app: domainmapping-webhook
+        app.kubernetes.io/name: domainmapping-webhook
+        app.kubernetes.io/part-of: knative-serving
+        app.kubernetes.io/version: devel
         role: domainmapping-webhook
         serving.knative.dev/release: devel
     spec:
@@ -125,6 +131,9 @@ metadata:
   labels:
     role: domainmapping-webhook
     serving.knative.dev/release: devel
+    app.kubernetes.io/name: domainmapping-webhook
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative-serving
   name: domainmapping-webhook
   namespace: knative-serving
 spec:

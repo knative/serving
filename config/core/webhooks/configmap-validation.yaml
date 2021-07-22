@@ -18,6 +18,9 @@ metadata:
   name: config.webhook.serving.knative.dev
   labels:
     serving.knative.dev/release: devel
+    app.kubernetes.io/name: configmap-validation-webhook
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative-serving
 webhooks:
 - admissionReviewVersions: ["v1", "v1beta1"]
   clientConfig:

@@ -20,6 +20,9 @@ metadata:
   labels:
     serving.knative.dev/release: devel
     autoscaling.knative.dev/autoscaler-provider: hpa
+    app.kubernetes.io/name: autoscaler-hpa
+    app.kubernetes.io/part-of: knative-serving
+    app.kubernetes.io/version: devel
 spec:
   selector:
     matchLabels:
@@ -92,8 +95,11 @@ kind: Service
 metadata:
   labels:
     app: autoscaler-hpa
-    serving.knative.dev/release: devel
+    app.kubernetes.io/name: autoscaler-hpa
+    app.kubernetes.io/part-of: knative-serving
+    app.kubernetes.io/version: devel
     autoscaling.knative.dev/autoscaler-provider: hpa
+    serving.knative.dev/release: devel
   name: autoscaler-hpa
   namespace: knative-serving
 spec:

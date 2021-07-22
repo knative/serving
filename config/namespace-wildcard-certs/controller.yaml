@@ -18,8 +18,11 @@ metadata:
   name: net-nscert-controller
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: devel
+    app.kubernetes.io/name: net-nscert-controller
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative-serving
     networking.knative.dev/wildcard-certificate-provider: nscert
+    serving.knative.dev/release: devel
 spec:
   selector:
     matchLabels:
@@ -30,6 +33,9 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: net-nscert-controller
+        app.kubernetes.io/name: net-nscert-controller
+        app.kubernetes.io/version: devel
+        app.kubernetes.io/part-of: knative-serving
         serving.knative.dev/release: devel
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
@@ -94,6 +100,9 @@ metadata:
     app: net-nscert-controller
     serving.knative.dev/release: devel
     networking.knative.dev/wildcard-certificate-provider: nscert
+    app.kubernetes.io/name: net-nscert-controller
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative-serving
   name: net-nscert-controller
   namespace: knative-serving
 spec:

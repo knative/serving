@@ -18,3 +18,5 @@ metadata:
   name: knative-serving
   labels:
     serving.knative.dev/release: devel
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative-serving
