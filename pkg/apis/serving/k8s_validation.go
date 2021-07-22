@@ -82,8 +82,9 @@ var (
 )
 
 // ValidateVolumes validates the Volumes of a PodSpec.
-func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes sets.String) (sets.String, *apis.FieldError) {
+func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes sets.String) (sets.String, sets.String, *apis.FieldError) {
 	volumes := make(sets.String, len(vs))
+	nonReadOnlyVolumes := make(sets.String)
 	var errs *apis.FieldError
 	features := config.FromContextOrDefaults(ctx).Features
 	for i, volume := range vs {
@@ -105,8 +106,11 @@ func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes set
 		}
 		errs = errs.Also(validateVolume(ctx, volume).ViaIndex(i))
 		volumes.Insert(volume.Name)
+		if volume.EmptyDir != nil {
+			nonReadOnlyVolumes.Insert(volume.Name)
+		}
 	}
-	return volumes, errs
+	return volumes, nonReadOnlyVolumes, errs
 }
 
 func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError {
@@ -316,7 +320,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 
 	errs = errs.Also(ValidatePodSecurityContext(ctx, ps.SecurityContext).ViaField("securityContext"))
 
-	volumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(ps.Containers))
+	volumes, nonReadOnlyVolumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(ps.Containers))
 	if err != nil {
 		errs = errs.Also(err.ViaField("volumes"))
 	}
@@ -325,10 +329,10 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	case 0:
 		errs = errs.Also(apis.ErrMissingField("containers"))
 	case 1:
-		errs = errs.Also(ValidateContainer(ctx, ps.Containers[0], volumes).
+		errs = errs.Also(ValidateContainer(ctx, ps.Containers[0], volumes, nonReadOnlyVolumes).
 			ViaFieldIndex("containers", 0))
 	default:
-		errs = errs.Also(validateContainers(ctx, ps.Containers, volumes))
+		errs = errs.Also(validateContainers(ctx, ps.Containers, volumes, nonReadOnlyVolumes))
 	}
 	if ps.ServiceAccountName != "" {
 		for range validation.IsDNS1123Subdomain(ps.ServiceAccountName) {
@@ -338,7 +342,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	return errs
 }
 
-func validateContainers(ctx context.Context, containers []corev1.Container, volumes sets.String) (errs *apis.FieldError) {
+func validateContainers(ctx context.Context, containers []corev1.Container, volumes sets.String, nonReadOnlyVolumes sets.String) (errs *apis.FieldError) {
 	features := config.FromContextOrDefaults(ctx).Features
 	if features.MultiContainer != config.Enabled {
 		return errs.Also(&apis.FieldError{Message: fmt.Sprintf("multi-container is off, "+
@@ -349,9 +353,9 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 		// Probes are not allowed on other than serving container,
 		// ref: http://bit.ly/probes-condition
 		if len(containers[i].Ports) == 0 {
-			errs = errs.Also(validateSidecarContainer(WithinSidecarContainer(ctx), containers[i], volumes).ViaFieldIndex("containers", i))
+			errs = errs.Also(validateSidecarContainer(WithinSidecarContainer(ctx), containers[i], volumes, nonReadOnlyVolumes).ViaFieldIndex("containers", i))
 		} else {
-			errs = errs.Also(ValidateContainer(WithinUserContainer(ctx), containers[i], volumes).ViaFieldIndex("containers", i))
+			errs = errs.Also(ValidateContainer(WithinUserContainer(ctx), containers[i], volumes, nonReadOnlyVolumes).ViaFieldIndex("containers", i))
 		}
 	}
 	return errs
@@ -386,7 +390,7 @@ func validateContainersPorts(containers []corev1.Container) *apis.FieldError {
 }
 
 // validateSidecarContainer validate fields for non serving containers
-func validateSidecarContainer(ctx context.Context, container corev1.Container, volumes sets.String) (errs *apis.FieldError) {
+func validateSidecarContainer(ctx context.Context, container corev1.Container, volumes sets.String, nonReadOnlyVolumes sets.String) (errs *apis.FieldError) {
 	if container.LivenessProbe != nil {
 		errs = errs.Also(apis.CheckDisallowedFields(*container.LivenessProbe,
 			*ProbeMask(&corev1.Probe{})).ViaField("livenessProbe"))
@@ -395,18 +399,18 @@ func validateSidecarContainer(ctx context.Context, container corev1.Container, v
 		errs = errs.Also(apis.CheckDisallowedFields(*container.ReadinessProbe,
 			*ProbeMask(&corev1.Probe{})).ViaField("readinessProbe"))
 	}
-	return errs.Also(validate(ctx, container, volumes))
+	return errs.Also(validate(ctx, container, volumes, nonReadOnlyVolumes))
 }
 
 // ValidateContainer validate fields for serving containers
-func ValidateContainer(ctx context.Context, container corev1.Container, volumes sets.String) (errs *apis.FieldError) {
+func ValidateContainer(ctx context.Context, container corev1.Container, volumes sets.String, nonReadOnlyVolumes sets.String) (errs *apis.FieldError) {
 	// Single container cannot have multiple ports
 	errs = errs.Also(portValidation(container.Ports).ViaField("ports"))
 	// Liveness Probes
 	errs = errs.Also(validateProbe(container.LivenessProbe).ViaField("livenessProbe"))
 	// Readiness Probes
 	errs = errs.Also(validateReadinessProbe(container.ReadinessProbe).ViaField("readinessProbe"))
-	return errs.Also(validate(ctx, container, volumes))
+	return errs.Also(validate(ctx, container, volumes, nonReadOnlyVolumes))
 }
 
 func portValidation(containerPorts []corev1.ContainerPort) *apis.FieldError {
@@ -420,7 +424,7 @@ func portValidation(containerPorts []corev1.ContainerPort) *apis.FieldError {
 	return nil
 }
 
-func validate(ctx context.Context, container corev1.Container, volumes sets.String) *apis.FieldError {
+func validate(ctx context.Context, container corev1.Container, volumes sets.String, nonReadOnlyVolumes sets.String) *apis.FieldError {
 	if equality.Semantic.DeepEqual(container, corev1.Container{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
@@ -462,7 +466,7 @@ func validate(ctx context.Context, container corev1.Container, volumes sets.Stri
 		errs = errs.Also(apis.ErrInvalidValue(container.TerminationMessagePolicy, "terminationMessagePolicy"))
 	}
 	// VolumeMounts
-	errs = errs.Also(validateVolumeMounts(container.VolumeMounts, volumes).ViaField("volumeMounts"))
+	errs = errs.Also(validateVolumeMounts(container.VolumeMounts, volumes, nonReadOnlyVolumes).ViaField("volumeMounts"))
 
 	return errs
 }
@@ -505,7 +509,7 @@ func validateSecurityContext(ctx context.Context, sc *corev1.SecurityContext) *a
 	return errs
 }
 
-func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *apis.FieldError {
+func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String, nonReadOnlyVolumes sets.String) *apis.FieldError {
 	var errs *apis.FieldError
 	// Check that volume mounts match names in "volumes", that "volumes" has 100%
 	// coverage, and the field restrictions.
@@ -538,10 +542,9 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 		}
 		seenMountPath.Insert(filepath.Clean(vm.MountPath))
 
-		if !vm.ReadOnly {
+		if !nonReadOnlyVolumes.Has(vm.Name) && !vm.ReadOnly {
 			errs = errs.Also(apis.ErrMissingField("readOnly").ViaIndex(i))
 		}
-
 	}
 	return errs
 }

@@ -1509,7 +1509,7 @@ func TestContainerValidation(t *testing.T) {
 				ctx = config.ToContext(ctx, cfg)
 			}
 
-			got := ValidateContainer(ctx, test.c, test.volumes)
+			got := ValidateContainer(ctx, test.c, test.volumes, make(sets.String))
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
 			}
