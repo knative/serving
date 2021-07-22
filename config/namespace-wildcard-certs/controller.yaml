@@ -97,6 +97,7 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
+    app: net-nscert-controller
     serving.knative.dev/release: devel
     networking.knative.dev/wildcard-certificate-provider: nscert
     app.kubernetes.io/name: net-nscert-controller
