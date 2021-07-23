@@ -26,6 +26,7 @@ import (
 	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other
@@ -73,6 +74,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=serving.knative.dev, Version=v1alpha1
 	case servingv1alpha1.SchemeGroupVersion.WithResource("domainmappings"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().DomainMappings().Informer()}, nil
+
+		// Group=serving.knative.dev, Version=v1beta1
+	case v1beta1.SchemeGroupVersion.WithResource("domainmappings"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1beta1().DomainMappings().Informer()}, nil
 
 	}
 
