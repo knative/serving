@@ -1080,7 +1080,7 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		volumes: map[string]corev1.Volume{
-			"the-name": corev1.Volume{
+			"the-name": {
 				Name: "the-name",
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -1100,7 +1100,7 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		volumes: map[string]corev1.Volume{
-			"the-name": corev1.Volume{
+			"the-name": {
 				Name: "the-name",
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -1124,7 +1124,7 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		volumes: map[string]corev1.Volume{
-			"the-name": corev1.Volume{
+			"the-name": {
 				Name: "the-name",
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -1144,7 +1144,7 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		volumes: map[string]corev1.Volume{
-			"the-name": corev1.Volume{
+			"the-name": {
 				Name: "the-name",
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{
@@ -1174,7 +1174,7 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		volumes: map[string]corev1.Volume{
-			"the-name": corev1.Volume{
+			"the-name": {
 				Name: "the-name",
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
