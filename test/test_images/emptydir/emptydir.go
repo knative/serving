@@ -35,7 +35,10 @@ func init() {
 	if path == "" {
 		path = "/data"
 	}
-	f, _ := os.OpenFile(path+"/testfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile(path+"/testfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Print("Failed to open file", err)
+	}
 	_, _ = f.WriteString("From file in empty dir!")
 	defer f.Close()
 }

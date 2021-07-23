@@ -1086,9 +1086,11 @@ func TestContainerValidation(t *testing.T) {
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "test-cm",
-						}},
+						},
+					},
 				},
-			}},
+			},
+		},
 	}, {
 		name: "has known volumeMounts, but at reserved path",
 		c: corev1.Container{
@@ -1106,9 +1108,11 @@ func TestContainerValidation(t *testing.T) {
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "test-cm",
-						}},
+						},
+					},
 				},
-			}},
+			},
+		},
 		want: (&apis.FieldError{
 			Message: `mountPath "/var/log" is a reserved path`,
 			Paths:   []string{"mountPath"},
@@ -1130,9 +1134,11 @@ func TestContainerValidation(t *testing.T) {
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "test-cm",
-						}},
+						},
+					},
 				},
-			}},
+			},
+		},
 		want: apis.ErrInvalidValue("not/absolute", "volumeMounts[0].mountPath"),
 	}, {
 		name: "Empty dir has rw access",
@@ -1151,7 +1157,8 @@ func TestContainerValidation(t *testing.T) {
 						Medium: "Memory",
 					},
 				},
-			}},
+			},
+		},
 	}, {
 		name: "has lifecycle",
 		c: corev1.Container{
@@ -1180,9 +1187,11 @@ func TestContainerValidation(t *testing.T) {
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "test-cm",
-						}},
+						},
+					},
 				},
-			}},
+			},
+		},
 	}, {
 		name: "valid with probes (no port)",
 		c: corev1.Container{
