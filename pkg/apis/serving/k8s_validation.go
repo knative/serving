@@ -82,8 +82,8 @@ var (
 )
 
 // ValidateVolumes validates the Volumes of a PodSpec.
-func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes sets.String) (sets.String, *apis.FieldError) {
-	volumes := make(sets.String, len(vs))
+func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes sets.String) (map[string]corev1.Volume, *apis.FieldError) {
+	volumes := make(map[string]corev1.Volume, len(vs))
 	var errs *apis.FieldError
 	features := config.FromContextOrDefaults(ctx).Features
 	for i, volume := range vs {
@@ -91,7 +91,7 @@ func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes set
 			errs = errs.Also((&apis.FieldError{Message: fmt.Sprintf("EmptyDir volume support is off, "+
 				"but found EmptyDir volume %s", volume.Name)}).ViaIndex(i))
 		}
-		if volumes.Has(volume.Name) {
+		if _, ok := volumes[volume.Name]; ok {
 			errs = errs.Also((&apis.FieldError{
 				Message: fmt.Sprintf("duplicate volume name %q", volume.Name),
 				Paths:   []string{"name"},
@@ -104,7 +104,7 @@ func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes set
 			}).ViaIndex(i))
 		}
 		errs = errs.Also(validateVolume(ctx, volume).ViaIndex(i))
-		volumes.Insert(volume.Name)
+		volumes[volume.Name] = volume
 	}
 	return volumes, errs
 }
@@ -338,7 +338,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	return errs
 }
 
-func validateContainers(ctx context.Context, containers []corev1.Container, volumes sets.String) (errs *apis.FieldError) {
+func validateContainers(ctx context.Context, containers []corev1.Container, volumes map[string]corev1.Volume) (errs *apis.FieldError) {
 	features := config.FromContextOrDefaults(ctx).Features
 	if features.MultiContainer != config.Enabled {
 		return errs.Also(&apis.FieldError{Message: fmt.Sprintf("multi-container is off, "+
@@ -386,7 +386,7 @@ func validateContainersPorts(containers []corev1.Container) *apis.FieldError {
 }
 
 // validateSidecarContainer validate fields for non serving containers
-func validateSidecarContainer(ctx context.Context, container corev1.Container, volumes sets.String) (errs *apis.FieldError) {
+func validateSidecarContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume) (errs *apis.FieldError) {
 	if container.LivenessProbe != nil {
 		errs = errs.Also(apis.CheckDisallowedFields(*container.LivenessProbe,
 			*ProbeMask(&corev1.Probe{})).ViaField("livenessProbe"))
@@ -399,7 +399,7 @@ func validateSidecarContainer(ctx context.Context, container corev1.Container, v
 }
 
 // ValidateContainer validate fields for serving containers
-func ValidateContainer(ctx context.Context, container corev1.Container, volumes sets.String) (errs *apis.FieldError) {
+func ValidateContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume) (errs *apis.FieldError) {
 	// Single container cannot have multiple ports
 	errs = errs.Also(portValidation(container.Ports).ViaField("ports"))
 	// Liveness Probes
@@ -420,7 +420,7 @@ func portValidation(containerPorts []corev1.ContainerPort) *apis.FieldError {
 	return nil
 }
 
-func validate(ctx context.Context, container corev1.Container, volumes sets.String) *apis.FieldError {
+func validate(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume) *apis.FieldError {
 	if equality.Semantic.DeepEqual(container, corev1.Container{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
@@ -505,7 +505,7 @@ func validateSecurityContext(ctx context.Context, sc *corev1.SecurityContext) *a
 	return errs
 }
 
-func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *apis.FieldError {
+func validateVolumeMounts(mounts []corev1.VolumeMount, volumes map[string]corev1.Volume) *apis.FieldError {
 	var errs *apis.FieldError
 	// Check that volume mounts match names in "volumes", that "volumes" has 100%
 	// coverage, and the field restrictions.
@@ -515,7 +515,7 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 		vm := mounts[i]
 		errs = errs.Also(apis.CheckDisallowedFields(vm, *VolumeMountMask(&vm)).ViaIndex(i))
 		// This effectively checks that Name is non-empty because Volume name must be non-empty.
-		if !volumes.Has(vm.Name) {
+		if _, ok := volumes[vm.Name]; !ok {
 			errs = errs.Also((&apis.FieldError{
 				Message: "volumeMount has no matching volume",
 				Paths:   []string{"name"},
@@ -538,10 +538,9 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 		}
 		seenMountPath.Insert(filepath.Clean(vm.MountPath))
 
-		if !vm.ReadOnly {
+		if volumes[vm.Name].EmptyDir == nil && !vm.ReadOnly {
 			errs = errs.Also(apis.ErrMissingField("readOnly").ViaIndex(i))
 		}
-
 	}
 	return errs
 }
