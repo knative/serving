@@ -17,7 +17,6 @@ limitations under the License.
 package environment
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"math"
@@ -59,27 +58,12 @@ func (c *ClientConfig) GetRESTConfig() (*rest.Config, error) {
 		return nil, fmt.Errorf("provided QPS value %f must be >0 and <3.4+e38", c.QPS)
 	}
 
-	// If we have an explicit indication of where the kubernetes config lives, read that.
-	if c.Kubeconfig != "" {
-		return c.configFromPath(c.Kubeconfig)
-	}
-
-	// If not, try the in-cluster config.
-	if rc, err := rest.InClusterConfig(); err == nil {
-		return c.applyOverrides(rc), nil
-	}
-
-	// If no in-cluster config, try the default location in the user's home directory.
-	if c, err := c.configFromPath(clientcmd.RecommendedHomeFile); err == nil {
-		return c, nil
-	}
-
-	return nil, errors.New("could not create a valid kubeconfig")
-}
-
-func (c *ClientConfig) configFromPath(path string) (*rest.Config, error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	overrides := &clientcmd.ConfigOverrides{}
 
+	if c.Kubeconfig != "" {
+		loadingRules.ExplicitPath = c.Kubeconfig
+	}
 	if c.Cluster != "" {
 		overrides.Context = clientcmdapi.Context{Cluster: c.Cluster}
 	} else if c.ServerURL != "" {
@@ -87,19 +71,16 @@ func (c *ClientConfig) configFromPath(path string) (*rest.Config, error) {
 	}
 
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: path},
+		loadingRules,
 		overrides,
 	).ClientConfig()
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create client config: %w", err)
 	}
 
-	return c.applyOverrides(config), nil
-}
+	config.QPS = float32(c.QPS)
+	config.Burst = c.Burst
 
-func (c *ClientConfig) applyOverrides(restCfg *rest.Config) *rest.Config {
-	restCfg.QPS = float32(c.QPS)
-	restCfg.Burst = c.Burst
-	return restCfg
+	return config, nil
 }
