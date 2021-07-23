@@ -26,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
@@ -844,7 +843,7 @@ func TestContainerValidation(t *testing.T) {
 		name    string
 		c       corev1.Container
 		want    *apis.FieldError
-		volumes sets.String
+		volumes map[string]corev1.Volume
 		cfgOpts []configOption
 	}{{
 		name: "empty container",
@@ -1080,7 +1079,16 @@ func TestContainerValidation(t *testing.T) {
 				ReadOnly:  true,
 			}},
 		},
-		volumes: sets.NewString("the-name"),
+		volumes: map[string]corev1.Volume{
+			"the-name": corev1.Volume{
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "test-cm",
+						}},
+				},
+			}},
 	}, {
 		name: "has known volumeMounts, but at reserved path",
 		c: corev1.Container{
@@ -1091,7 +1099,16 @@ func TestContainerValidation(t *testing.T) {
 				ReadOnly:  true,
 			}},
 		},
-		volumes: sets.NewString("the-name"),
+		volumes: map[string]corev1.Volume{
+			"the-name": corev1.Volume{
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "test-cm",
+						}},
+				},
+			}},
 		want: (&apis.FieldError{
 			Message: `mountPath "/var/log" is a reserved path`,
 			Paths:   []string{"mountPath"},
@@ -1106,8 +1123,35 @@ func TestContainerValidation(t *testing.T) {
 				ReadOnly:  true,
 			}},
 		},
-		volumes: sets.NewString("the-name"),
-		want:    apis.ErrInvalidValue("not/absolute", "volumeMounts[0].mountPath"),
+		volumes: map[string]corev1.Volume{
+			"the-name": corev1.Volume{
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "test-cm",
+						}},
+				},
+			}},
+		want: apis.ErrInvalidValue("not/absolute", "volumeMounts[0].mountPath"),
+	}, {
+		name: "Empty dir has rw access",
+		c: corev1.Container{
+			Image: "foo",
+			VolumeMounts: []corev1.VolumeMount{{
+				MountPath: "/mount/path",
+				Name:      "the-name",
+			}},
+		},
+		volumes: map[string]corev1.Volume{
+			"the-name": corev1.Volume{
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{
+						Medium: "Memory",
+					},
+				},
+			}},
 	}, {
 		name: "has lifecycle",
 		c: corev1.Container{
@@ -1129,7 +1173,16 @@ func TestContainerValidation(t *testing.T) {
 				ReadOnly:  true,
 			}},
 		},
-		volumes: sets.NewString("the-name"),
+		volumes: map[string]corev1.Volume{
+			"the-name": corev1.Volume{
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "test-cm",
+						}},
+				},
+			}},
 	}, {
 		name: "valid with probes (no port)",
 		c: corev1.Container{
@@ -1509,7 +1562,7 @@ func TestContainerValidation(t *testing.T) {
 				ctx = config.ToContext(ctx, cfg)
 			}
 
-			got := ValidateContainer(ctx, test.c, test.volumes, make(sets.String))
+			got := ValidateContainer(ctx, test.c, test.volumes)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
 			}
