@@ -39,9 +39,11 @@ aliases:
   - snneji
   docs-wg-leads: []
   docs-writers:
+  - RichardJJG
   - abrennan89
   - carieshmarie
   - richieescarez
+  - snneji
   eventing-reviewers:
   - aslom
   - tayarani
@@ -202,6 +204,7 @@ aliases:
   - yanweiguo
   serving-reviewers:
   - julz
+  - psschwei
   - whaught
   serving-writers:
   - dprotaso
