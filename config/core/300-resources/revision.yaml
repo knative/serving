@@ -81,6 +81,9 @@ spec:
               required:
                 - containers
               properties:
+                automountServiceAccountToken:
+                  description: AutomountServiceAccountToken indicates whether a service account token should be automatically mounted.
+                  type: boolean
                 containerConcurrency:
                   description: ContainerConcurrency specifies the maximum allowed in-flight (concurrent) requests per container of the Revision.  Defaults to `0` which means concurrency to the application is not limited, and the system decides the target concurrency for the autoscaler.
                   type: integer

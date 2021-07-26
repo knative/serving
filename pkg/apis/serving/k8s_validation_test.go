@@ -104,6 +104,7 @@ func withPodSpecVolumesEmptyDirEnabled() configOption {
 }
 
 func TestPodSpecValidation(t *testing.T) {
+	falseValue := false
 	tests := []struct {
 		name    string
 		ps      corev1.PodSpec
@@ -135,6 +136,15 @@ func TestPodSpecValidation(t *testing.T) {
 						SecretName: "foo",
 					},
 				},
+			}},
+		},
+		want: nil,
+	}, {
+		name: "with automountServiceAccountToken (ok)",
+		ps: corev1.PodSpec{
+			AutomountServiceAccountToken: &falseValue,
+			Containers: []corev1.Container{{
+				Image: "helloworld",
 			}},
 		},
 		want: nil,
