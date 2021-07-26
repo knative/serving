@@ -77,3 +77,8 @@ data:
     # for the queue proxy sidecar container.
     # If omitted, no value is specified and the system default is used.
     queueSidecarEphemeralStorageLimit: "1024Mi"
+
+    # queueOnNoMoreTrafficEndpoint is the service endpoint that queue-proxy calls when its traffic
+    # drops to zero or scales up from zero.
+    # If omitted, queue proxy takes no action (this is the default behavior).
+    queueOnNoMoreTrafficEndpoint: ""

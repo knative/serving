@@ -61,6 +61,12 @@ const (
 	queueSidecarCPULimitKey              = "queueSidecarCPULimit"
 	queueSidecarMemoryLimitKey           = "queueSidecarMemoryLimit"
 	queueSidecarEphemeralStorageLimitKey = "queueSidecarEphemeralStorageLimit"
+
+	// queueOnNoMoreTrafficEndpointKey is the key to configure the endpoint for acting when traffic drops to / increases from zero.
+	queueOnNoMoreTrafficEndpointKey = "queueOnNoMoreTrafficEndpoint"
+
+	// queueOnNoMoreTrafficEndpointDefault is the default endpoint for acting when traffic drops to / increases from zero.
+	queueOnNoMoreTrafficEndpointDefault = ""
 )
 
 var (
@@ -95,6 +101,8 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsQuantity(queueSidecarCPULimitKey, &nc.QueueSidecarCPULimit),
 		cm.AsQuantity(queueSidecarMemoryLimitKey, &nc.QueueSidecarMemoryLimit),
 		cm.AsQuantity(queueSidecarEphemeralStorageLimitKey, &nc.QueueSidecarEphemeralStorageLimit),
+
+		cm.AsString(queueOnNoMoreTrafficEndpointKey, &nc.QueueNoMoreTrafficEndpoint),
 	); err != nil {
 		return nil, err
 	}
@@ -158,4 +166,7 @@ type Config struct {
 	// QueueSidecarEphemeralStorageLimit is the Ephemeral Storage Limit to set
 	// for the queue proxy sidecar container.
 	QueueSidecarEphemeralStorageLimit *resource.Quantity
+
+	// QueueNoMoreTrafficEndpoint is the endpoint for acting when traffic drops to / increases from zero.
+	QueueNoMoreTrafficEndpoint string
 }
