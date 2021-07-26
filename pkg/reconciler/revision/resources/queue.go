@@ -361,6 +361,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "METRICS_COLLECTOR_ADDRESS",
 			Value: cfg.Observability.MetricsCollectorAddress,
+		}, {
+			Name:  "QUEUE_ON_NO_MORE_TRAFFIC_ENDPOINT",
+			Value: cfg.Deployment.QueueOnNoMoreTrafficEndpoint,
 		}},
 	}
 

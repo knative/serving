@@ -102,6 +102,9 @@ type config struct {
 	TracingConfigBackend        tracingconfig.BackendType `split_words:"true"` // optional
 	TracingConfigSampleRate     float64                   `split_words:"true"` // optional
 	TracingConfigZipkinEndpoint string                    `split_words:"true"` // optional
+
+	// OnNoTraffic configuration
+	QueueOnNoMoreTrafficEndpoint string `split_words:"true"` // optional
 }
 
 func init() {

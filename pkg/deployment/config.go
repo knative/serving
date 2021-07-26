@@ -82,6 +82,7 @@ func defaultConfig() *Config {
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+		QueueOnNoMoreTrafficEndpoint:   queueOnNoMoreTrafficEndpointDefault,
 	}
 }
 
@@ -102,7 +103,7 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsQuantity(queueSidecarMemoryLimitKey, &nc.QueueSidecarMemoryLimit),
 		cm.AsQuantity(queueSidecarEphemeralStorageLimitKey, &nc.QueueSidecarEphemeralStorageLimit),
 
-		cm.AsString(queueOnNoMoreTrafficEndpointKey, &nc.QueueNoMoreTrafficEndpoint),
+		cm.AsString(queueOnNoMoreTrafficEndpointKey, &nc.QueueOnNoMoreTrafficEndpoint),
 	); err != nil {
 		return nil, err
 	}
@@ -168,5 +169,5 @@ type Config struct {
 	QueueSidecarEphemeralStorageLimit *resource.Quantity
 
 	// QueueNoMoreTrafficEndpoint is the endpoint for acting when traffic drops to / increases from zero.
-	QueueNoMoreTrafficEndpoint string
+	QueueOnNoMoreTrafficEndpoint string
 }
