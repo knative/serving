@@ -51,6 +51,17 @@ spec:
           httpGet:
             port: 8080
           failureThreshold: 6
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 1000m
+            memory: 1000Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
         env:
         - name: POD_NAME
           valueFrom:

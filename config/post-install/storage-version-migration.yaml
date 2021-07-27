@@ -47,3 +47,14 @@ spec:
           - "configurations.serving.knative.dev"
           - "revisions.serving.knative.dev"
           - "routes.serving.knative.dev"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 1000m
+            memory: 1000Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
