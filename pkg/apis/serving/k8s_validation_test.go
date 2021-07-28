@@ -139,6 +139,15 @@ func TestPodSpecValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "with automountServiceAccountToken (ok)",
+		ps: corev1.PodSpec{
+			AutomountServiceAccountToken: ptr.Bool(false),
+			Containers: []corev1.Container{{
+				Image: "helloworld",
+			}},
+		},
+		want: nil,
+	}, {
 		name: "with volume name collision",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{

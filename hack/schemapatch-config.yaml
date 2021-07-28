@@ -43,6 +43,7 @@ k8s.io/api/core/v1.PodSpec:
     - Volumes
     - ImagePullSecrets
     - EnableServiceLinks
+    - AutomountServiceAccountToken
 k8s.io/api/core/v1.Container:
   preserveUnknownFields: true # for backwards compat field defaulting
   allowedFields:
