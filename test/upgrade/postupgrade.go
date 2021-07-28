@@ -108,7 +108,7 @@ func bYORevisionPostUpgrade(t *testing.T) {
 		Service: byoServiceName,
 	}
 
-	if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{
+	if _, err := v1test.PatchServiceRouteSpec(t, clients, names, v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{{
 			Tag:          "example-tag",
 			RevisionName: byoRevName,

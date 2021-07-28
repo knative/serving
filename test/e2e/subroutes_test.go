@@ -153,7 +153,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 			LatestRevision: ptr.Bool(true),
 		})
 
-	if _, err = v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{Traffic: ksvcCopyRouteTraffic}); err != nil {
+	if _, err = v1test.PatchServiceRouteSpec(t, clients, names, v1.RouteSpec{Traffic: ksvcCopyRouteTraffic}); err != nil {
 		t.Fatal("Failed to patch service:", err)
 	}
 

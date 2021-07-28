@@ -120,7 +120,7 @@ func testAutoTLS(t *testing.T) {
 			return transport
 		}
 
-		if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, servingv1.RouteSpec{
+		if _, err := v1test.PatchServiceRouteSpec(t, clients, names, servingv1.RouteSpec{
 			Traffic: []servingv1.TrafficTarget{{
 				Tag:            "r",
 				Percent:        ptr.Int64(50),
