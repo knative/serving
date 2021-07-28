@@ -65,7 +65,7 @@ func PodIP() (string, error) {
 	return selfIP, nil
 }
 
-// Identity returns a identify for this Autoscaler pod used as the Lease holder
+// Identity returns an identity for this Autoscaler pod used as the Lease holder
 // identity. It's in the format of <POD-NAME>_<POD-IP> whose information is ready from
 // environment variables.
 func Identity() (string, error) {
