@@ -281,7 +281,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 
 	// 1. One Revision Specified, current == latest.
 	t.Log("1. Updating Service to ReleaseType using lastCreatedRevision")
-	objects.Service, err = v1test.UpdateService(t, clients, names, rtesting.WithTraffic(
+	objects.Service, err = v1test.UpdateService(t, clients, names, rtesting.WithTrafficTarget(
 		[]v1.TrafficTarget{{
 			Tag:          "current",
 			RevisionName: firstRevision,
@@ -368,7 +368,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 
 	// 3. Two Revisions Specified, 50% rollout, candidate == latest.
 	t.Log("3. Updating Service to split traffic between two revisions using Release mode")
-	objects.Service, err = v1test.UpdateService(t, clients, names, rtesting.WithTraffic(
+	objects.Service, err = v1test.UpdateService(t, clients, names, rtesting.WithTrafficTarget(
 		[]v1.TrafficTarget{{
 			Tag:          "current",
 			RevisionName: firstRevision,
@@ -469,7 +469,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	// Now update the service to use `@latest` as candidate.
 	t.Log("5. Updating Service to split traffic between two `current` and `@latest`")
 
-	objects.Service, err = v1test.UpdateService(t, clients, names, rtesting.WithTraffic(
+	objects.Service, err = v1test.UpdateService(t, clients, names, rtesting.WithTrafficTarget(
 		[]v1.TrafficTarget{{
 			Tag:          "current",
 			RevisionName: firstRevision,

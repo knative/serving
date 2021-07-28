@@ -88,7 +88,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 
 	t.Log("Updating RouteSpec")
-	if _, err := v1test.UpdateService(t, clients, names, rtesting.WithTraffic(
+	if _, err := v1test.UpdateService(t, clients, names, rtesting.WithTrafficTarget(
 		[]v1.TrafficTarget{{
 			Tag:          blue.TrafficTarget,
 			RevisionName: blue.Revision,

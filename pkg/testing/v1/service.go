@@ -161,8 +161,8 @@ func WithServiceImage(img string) ServiceOption {
 	}
 }
 
-// WithTraffic sets the traffic to be the provided traffic target.
-func WithTraffic(tt []v1.TrafficTarget) ServiceOption {
+// WithTrafficTarget sets the traffic to be the provided traffic target.
+func WithTrafficTarget(tt []v1.TrafficTarget) ServiceOption {
 	return func(svc *v1.Service) {
 		svc.Spec.Traffic = tt
 	}
