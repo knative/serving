@@ -229,10 +229,10 @@ of:
 
 - **If you change a package's deps** (including adding an external dependency),
   then you must run [`./hack/update-deps.sh`](./hack/update-deps.sh).
-  
-- **If you change the schema for a custom resource** (for example, adding fields), then you must update 
+ 
+- **If you change the schema for a custom resource** (for example, adding fields), then you must update
   the relevant section of [`./hack/schemapatch-config.yaml`](./hack/schemapatch-config.yaml)
-  and run [`./hack/update-schemas.sh`](./hack/update-schemas.sh). 
+  and run [`./hack/update-schemas.sh`](./hack/update-schemas.sh).
 
 These are all idempotent, and we expect that running these at `HEAD` to have no
 diffs. Code generation and dependencies are automatically checked to produce no
