@@ -155,7 +155,7 @@ func UpdateService(t testing.TB, clients *test.Clients, names test.ResourceNames
 		if err != nil {
 			return err
 		}
-		// newSvc.ObjectMeta.ResourceVersion = ""
+
 		for _, opt := range fopt {
 			opt(newSvc)
 		}
