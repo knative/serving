@@ -183,7 +183,10 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.Volumes = in.Volumes
 	out.ImagePullSecrets = in.ImagePullSecrets
 	out.EnableServiceLinks = in.EnableServiceLinks
-	out.AutomountServiceAccountToken = in.AutomountServiceAccountToken
+	// Only allow setting AutomountServiceAccountToken to false
+	if !*in.AutomountServiceAccountToken {
+		out.AutomountServiceAccountToken = in.AutomountServiceAccountToken
+	}
 
 	// Feature fields
 	if cfg.Features.PodSpecAffinity != config.Disabled {
@@ -212,6 +215,10 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.TerminationGracePeriodSeconds = nil
 	out.ActiveDeadlineSeconds = nil
 	out.DNSPolicy = ""
+	// Only allow setting AutomountServiceAccountToken to false
+	if *in.AutomountServiceAccountToken {
+		out.AutomountServiceAccountToken = nil
+	}
 	out.NodeName = ""
 	out.HostNetwork = false
 	out.HostPID = false
