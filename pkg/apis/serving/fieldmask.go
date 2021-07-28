@@ -217,11 +217,11 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.DNSPolicy = ""
 	// Only allow setting AutomountServiceAccountToken to false
 	if in.AutomountServiceAccountToken != nil {
-	    if *in.AutomountServiceAccountToken {
+		if *in.AutomountServiceAccountToken {
 			out.AutomountServiceAccountToken = nil
 		}
 	}
-out.NodeName = ""
+	out.NodeName = ""
 	out.HostNetwork = false
 	out.HostPID = false
 	out.HostIPC = false
