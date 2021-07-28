@@ -184,7 +184,7 @@ func PatchService(t testing.TB, clients *test.Clients, service *v1.Service, fopt
 	})
 }
 
-// PatchServiceRouteSpec updates a service to use the route name in names.
+// PatchServiceRouteSpec patches a service to use the route name in names.
 func PatchServiceRouteSpec(t testing.TB, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (svc *v1.Service, err error) {
 	patch := []map[string]interface{}{{
 		"op":    "replace",
