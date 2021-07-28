@@ -88,7 +88,7 @@ func TestServiceCreateAndUpdate(t *testing.T) {
 	names.Image = test.PizzaPlanet2
 	image2 := pkgtest.ImagePath(names.Image)
 	if objects.Service, err = v1test.UpdateService(t, clients, names, rtesting.WithServiceImage(image2)); err != nil {
-		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
+		t.Fatalf("Update for Service %s with new image %s failed: %v", names.Service, image2, err)
 	}
 
 	t.Log("Service should reflect new revision created and ready in status.")
@@ -331,7 +331,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	// 2. One Revision Specified, current != latest.
 	t.Log("2. Updating the Service Spec with a new image")
 	if objects.Service, err = v1test.UpdateService(t, clients, names, rtesting.WithServiceImage(releaseImagePath2)); err != nil {
-		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath2, err)
+		t.Fatalf("Update for Service %s with new image %s failed: %v", names.Service, releaseImagePath2, err)
 	}
 
 	t.Log("Since the Service was updated a new Revision will be created")
@@ -430,7 +430,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	// 4. Two Revisions Specified, 50% rollout, candidate != latest.
 	t.Log("4. Updating the Service Spec with a new image")
 	if objects.Service, err = v1test.UpdateService(t, clients, names, rtesting.WithServiceImage(releaseImagePath3)); err != nil {
-		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, releaseImagePath3, err)
+		t.Fatalf("Update for Service %s with new image %s failed: %v", names.Service, releaseImagePath3, err)
 	}
 	t.Log("Since the Service was updated a new Revision will be created")
 	if names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names); err != nil {
@@ -558,7 +558,7 @@ func TestAnnotationPropagation(t *testing.T) {
 	t.Log("Updating the Service to use a different image.")
 	image2 := pkgtest.ImagePath(test.PizzaPlanet2)
 	if objects.Service, err = v1test.UpdateService(t, clients, names, rtesting.WithServiceImage(image2)); err != nil {
-		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
+		t.Fatalf("Update for Service %s with new image %s failed: %v", names.Service, image2, err)
 	}
 
 	t.Log("Service should reflect new revision created and ready in status.")
@@ -591,7 +591,7 @@ func TestAnnotationPropagation(t *testing.T) {
 	t.Log("Updating the Service to use a different image.")
 	image3 := pkgtest.ImagePath(test.HelloWorld)
 	if objects.Service, err = v1test.UpdateService(t, clients, names, rtesting.WithServiceImage(image3)); err != nil {
-		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image3, err)
+		t.Fatalf("Update for Service %s with new image %s failed: %v", names.Service, image3, err)
 	}
 
 	t.Log("Service should reflect new revision created and ready in status.")
