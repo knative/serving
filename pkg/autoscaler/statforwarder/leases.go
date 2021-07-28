@@ -97,16 +97,18 @@ type leaseTracker struct {
 	fwd *Forwarder
 }
 
-func (f *leaseTracker) extractIP(holder string) (string, error) {
-	if ip, ok := f.id2ip[holder]; ok {
-		return ip, nil
+func (f *leaseTracker) extractIP(holder string) error {
+	if _, ok := f.id2ip[holder]; ok {
+		return nil
 	}
 
 	_, ip, err := bucket.ExtractPodNameAndIP(holder)
-	if err == nil {
-		f.id2ip[holder] = ip
+	if err != nil {
+		return err
 	}
-	return ip, err
+
+	f.id2ip[holder] = ip
+	return nil
 }
 
 func (f *leaseTracker) filterFunc(namespace string) func(interface{}) bool {
@@ -129,9 +131,8 @@ func (f *leaseTracker) filterFunc(namespace string) func(interface{}) bool {
 
 		// The holder identity is in format of <POD-NAME>_<POD-IP>.
 		holder := *l.Spec.HolderIdentity
-		_, err := f.extractIP(holder)
-		if err != nil {
-			f.logger.Warn("Found invalid Lease holder identify ", holder)
+		if err := f.extractIP(holder); err != nil {
+			f.logger.Warnf("Found invalid Lease holder identity %q: %v", holder, err)
 			return false
 		}
 		if p := f.fwd.getProcessor(l.Name); p != nil && p.is(holder) {

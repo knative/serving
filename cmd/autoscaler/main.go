@@ -264,7 +264,7 @@ func flush(logger *zap.SugaredLogger) {
 func componentConfigAndIP(ctx context.Context) leaderelection.ComponentConfig {
 	id, err := bucket.Identity()
 	if err != nil {
-		logging.FromContext(ctx).Fatalw("Failed to generate Lease holder identify", zap.Error(err))
+		logging.FromContext(ctx).Fatalw("Failed to generate Lease holder identity", zap.Error(err))
 	}
 
 	// Set up leader election config
