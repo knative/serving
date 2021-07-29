@@ -63,10 +63,10 @@ const (
 	queueSidecarEphemeralStorageLimitKey = "queueSidecarEphemeralStorageLimit"
 
 	// concurrencyStateEndpointKey is the key to configure the endpoint for acting when traffic drops to / increases from zero.
-	concurrencyStateEndpointKey = "queueOnNoMoreTrafficEndpoint"
+	concurrencyStateEndpointKey = "concurrencyStateEndpoint"
 
-	// concurrencyStateEndpointDefault is the default endpoint for acting when traffic drops to / increases from zero.
-	concurrencyStateEndpointDefault = ""
+	// ConcurrencyStateEndpointDefault is the default endpoint for acting when traffic drops to / increases from zero.
+	ConcurrencyStateEndpointDefault = ""
 )
 
 var (
@@ -82,7 +82,7 @@ func defaultConfig() *Config {
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-		ConcurrencyStateEndpoint:       concurrencyStateEndpointDefault,
+		ConcurrencyStateEndpoint:       ConcurrencyStateEndpointDefault,
 	}
 }
 

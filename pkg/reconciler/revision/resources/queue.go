@@ -361,9 +361,6 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "METRICS_COLLECTOR_ADDRESS",
 			Value: cfg.Observability.MetricsCollectorAddress,
-		}, {
-			Name:  "CONCURRENCY_STATE_ENDPOINT",
-			Value: cfg.Deployment.ConcurrencyStateEndpoint,
 		}},
 	}
 
@@ -372,6 +369,14 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		c.Env = append(c.Env, corev1.EnvVar{
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: "true",
+		})
+	}
+
+	// Only add this if the value is actually set
+	if cfg.Deployment.ConcurrencyStateEndpoint != deployment.ConcurrencyStateEndpointDefault {
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  "CONCURRENCY_STATE_ENDPOINT",
+			Value: cfg.Deployment.ConcurrencyStateEndpoint,
 		})
 	}
 
