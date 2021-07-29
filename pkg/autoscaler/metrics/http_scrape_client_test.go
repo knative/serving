@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -123,7 +123,7 @@ func makeProtoResponse(statusCode int, stat Stat, contentType string) *http.Resp
 	buffer, _ := stat.Marshal()
 	res := &http.Response{
 		StatusCode: statusCode,
-		Body:       ioutil.NopCloser(bytes.NewBuffer(buffer)),
+		Body:       io.NopCloser(bytes.NewBuffer(buffer)),
 	}
 	res.Header = http.Header{}
 	res.Header.Set("Content-Type", contentType)

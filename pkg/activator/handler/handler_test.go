@@ -21,7 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -140,7 +140,7 @@ func TestActivationHandler(t *testing.T) {
 				t.Fatalf("Unexpected response status. Want %d, got %d", test.wantCode, resp.Code)
 			}
 
-			gotBody, err := ioutil.ReadAll(resp.Body)
+			gotBody, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Fatal("Error reading body:", err)
 			}
@@ -340,7 +340,7 @@ func BenchmarkHandler(b *testing.B) {
 
 		rt := pkgnet.RoundTripperFunc(func(*http.Request) (*http.Response, error) {
 			return &http.Response{
-				Body:       ioutil.NopCloser(bytes.NewReader(body)),
+				Body:       io.NopCloser(bytes.NewReader(body)),
 				StatusCode: http.StatusOK,
 			}, nil
 		})

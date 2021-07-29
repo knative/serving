@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"flag"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -56,7 +55,7 @@ var (
 
 func readTemplate() (*v1.Service, error) {
 	path := filepath.Join(os.Getenv("KO_DATA_PATH"), *template+"-template.yaml")
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

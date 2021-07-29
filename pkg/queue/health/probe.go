@@ -19,7 +19,6 @@ package health
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -182,7 +181,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	defer func() {
 		// Ensure body is both read _and_ closed so it can be reused for keep-alive.
 		// No point handling errors, connection just won't be reused.
-		io.Copy(ioutil.Discard, res.Body)
+		io.Copy(io.Discard, res.Body)
 		res.Body.Close()
 	}()
 

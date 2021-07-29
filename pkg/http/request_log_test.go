@@ -18,7 +18,7 @@ package http
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -234,7 +234,7 @@ func TestSetTemplate(t *testing.T) {
 }
 
 func BenchmarkRequestLogHandlerNoTemplate(b *testing.B) {
-	handler, err := NewRequestLogHandler(baseHandler, ioutil.Discard, "", defaultInputGetter, false)
+	handler, err := NewRequestLogHandler(baseHandler, io.Discard, "", defaultInputGetter, false)
 	if err != nil {
 		b.Fatal("Failed to create handler:", err)
 	}
@@ -259,7 +259,7 @@ func BenchmarkRequestLogHandlerNoTemplate(b *testing.B) {
 func BenchmarkRequestLogHandlerDefaultTemplate(b *testing.B) {
 	// Taken from config-observability.yaml
 	tpl := `{"httpRequest": {"requestMethod": "{{.Request.Method}}", "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}", "status": {{.Response.Code}}, "responseSize": "{{.Response.Size}}", "userAgent": "{{js .Request.UserAgent}}", "remoteIp": "{{js .Request.RemoteAddr}}", "serverIp": "{{.Revision.PodIP}}", "referer": "{{js .Request.Referer}}", "latency": "{{.Response.Latency}}s", "protocol": "{{.Request.Proto}}"}, "traceId": "{{index .Request.Header "X-B3-Traceid"}}"}`
-	handler, err := NewRequestLogHandler(baseHandler, ioutil.Discard, tpl, defaultInputGetter, false)
+	handler, err := NewRequestLogHandler(baseHandler, io.Discard, tpl, defaultInputGetter, false)
 	if err != nil {
 		b.Fatal("Failed to create handler:", err)
 	}

@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
@@ -107,7 +106,7 @@ func probeQueueHealthPath(timeout time.Duration, queueServingPort string, transp
 		defer func() {
 			// Ensure body is read and closed to ensure connection can be re-used via keep-alive.
 			// No point handling errors here, connection just won't be reused.
-			io.Copy(ioutil.Discard, res.Body)
+			io.Copy(io.Discard, res.Body)
 			res.Body.Close()
 		}()
 

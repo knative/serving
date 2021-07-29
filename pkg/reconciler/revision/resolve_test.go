@@ -24,7 +24,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -548,7 +547,7 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 func writeCertFile(dir, path string, contents []byte) (string, error) {
 	fp := filepath.Join(dir, path)
 	if contents != nil {
-		if err := ioutil.WriteFile(fp, contents, os.ModePerm); err != nil {
+		if err := os.WriteFile(fp, contents, os.ModePerm); err != nil {
 			return "", err
 		}
 	}

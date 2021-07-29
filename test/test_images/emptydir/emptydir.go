@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -44,7 +43,7 @@ func init() {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	content, err := ioutil.ReadFile(path + "/testfile")
+	content, err := os.ReadFile(path + "/testfile")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

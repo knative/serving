@@ -19,9 +19,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -38,7 +38,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "there is no escape", http.StatusBadRequest)
 		return
 	}
-	content, err := ioutil.ReadFile(p)
+	content, err := os.ReadFile(p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
