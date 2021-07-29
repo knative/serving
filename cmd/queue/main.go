@@ -104,7 +104,7 @@ type config struct {
 	TracingConfigZipkinEndpoint string                    `split_words:"true"` // optional
 
 	// OnNoTraffic configuration
-	QueueOnNoMoreTrafficEndpoint string `split_words:"true"` // optional
+	ConcurrencyStateEndpoint string `split_words:"true"` // optional
 }
 
 func init() {

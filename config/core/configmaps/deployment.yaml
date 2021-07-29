@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "2b1881b6"
+    knative.dev/example-checksum: "3395209c"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -78,7 +78,8 @@ data:
     # If omitted, no value is specified and the system default is used.
     queueSidecarEphemeralStorageLimit: "1024Mi"
 
-    # queueOnNoMoreTrafficEndpoint is the service endpoint that queue-proxy calls when its traffic
+    # concurrencyStateEndpoint is the service endpoint that queue-proxy calls when its traffic
     # drops to zero or scales up from zero.
     # If omitted, queue proxy takes no action (this is the default behavior).
-    queueOnNoMoreTrafficEndpoint: ""
+    # NOTE THAT THIS IS AN EXPERIMENTAL / ALPHA FEATURE
+    concurrencyStateEndpoint: ""
