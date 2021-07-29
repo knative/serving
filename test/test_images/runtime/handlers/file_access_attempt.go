@@ -17,7 +17,6 @@ limitations under the License.
 package handlers
 
 import (
-	"io/ioutil"
 	"os"
 
 	"knative.dev/serving/test/types"
@@ -66,7 +65,7 @@ func checkReadable(path string) error {
 	}
 
 	if file.IsDir() {
-		_, err := ioutil.ReadDir(path)
+		_, err := os.ReadDir(path)
 		return err
 	}
 
@@ -91,7 +90,7 @@ func checkWritable(path string) error {
 	}
 
 	if file.IsDir() {
-		writeFile, err := ioutil.TempFile(path, "random")
+		writeFile, err := os.CreateTemp(path, "random")
 		if writeFile != nil {
 			os.Remove(writeFile.Name())
 		}

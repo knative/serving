@@ -17,7 +17,7 @@ limitations under the License.
 package queue
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -70,7 +70,7 @@ func scrapeProtobufStat(t *testing.T, r *ProtobufStatsReporter) metrics.Stat {
 		t.Fatalf("Expected ServeHTTP status %d but was %d", http.StatusOK, result.StatusCode)
 	}
 
-	b, err := ioutil.ReadAll(result.Body)
+	b, err := io.ReadAll(result.Body)
 	if err != nil {
 		t.Fatal("Expected Read to succeed, got", err)
 	}

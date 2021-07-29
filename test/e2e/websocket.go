@@ -18,7 +18,7 @@ package e2e
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -84,7 +84,7 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 			return false, nil
 		}
 
-		body, readErr := ioutil.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
 			t.Logf("Connection failed: %v. Failed to read HTTP response: %v", err, readErr)
 			return false, nil

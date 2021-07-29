@@ -18,7 +18,7 @@ package handler
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -63,7 +63,7 @@ func BenchmarkHandlerChain(b *testing.B) {
 	body := []byte(randomString(1024))
 	rt := pkgnet.RoundTripperFunc(func(*http.Request) (*http.Response, error) {
 		return &http.Response{
-			Body:       ioutil.NopCloser(bytes.NewReader(body)),
+			Body:       io.NopCloser(bytes.NewReader(body)),
 			StatusCode: http.StatusOK,
 		}, nil
 	})
@@ -72,7 +72,7 @@ func BenchmarkHandlerChain(b *testing.B) {
 	ah := New(ctx, fakeThrottler{}, rt, false, logger)
 	ah = concurrencyReporter.Handler(ah)
 	ah = NewTracingHandler(ah)
-	ah, _ = pkghttp.NewRequestLogHandler(ah, ioutil.Discard, "", nil, false)
+	ah, _ = pkghttp.NewRequestLogHandler(ah, io.Discard, "", nil, false)
 	ah = NewMetricHandler(activatorPodName, ah)
 	ah = NewContextHandler(ctx, ah, configStore)
 	ah = &ProbeHandler{NextHandler: ah}

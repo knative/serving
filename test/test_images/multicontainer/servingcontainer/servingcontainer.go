@@ -19,7 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
@@ -32,7 +32,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	resp, err := ioutil.ReadAll(res.Body)
+	resp, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Fatal(err)
 	}

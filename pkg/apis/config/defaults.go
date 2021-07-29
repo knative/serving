@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
 	"strings"
 	"text/template"
@@ -144,7 +144,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		return nil, err
 	}
 	// Check that the template properly applies to ObjectMeta.
-	if err := tmpl.Execute(ioutil.Discard, metav1.ObjectMeta{}); err != nil {
+	if err := tmpl.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
 		return nil, fmt.Errorf("error executing template: %w", err)
 	}
 	templateCache.Add(nc.UserContainerNameTemplate, tmpl)

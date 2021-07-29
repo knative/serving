@@ -18,7 +18,7 @@ package config
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"golang.org/x/oauth2/google"
@@ -87,7 +87,7 @@ func ChangeDNSRecord(change *dns.Change, svc *dns.Service, dnsProject, dnsZone s
 // GetCloudDNSSvc returns the Cloud DNS Service stub.
 // reference: https://github.com/jetstack/cert-manager/blob/master/pkg/issuer/acme/dns/clouddns/clouddns.go
 func GetCloudDNSSvc(svcAccountKeyFile string) (*dns.Service, error) {
-	data, err := ioutil.ReadFile(svcAccountKeyFile)
+	data, err := os.ReadFile(svcAccountKeyFile)
 	if err != nil {
 		return nil, err
 	}
