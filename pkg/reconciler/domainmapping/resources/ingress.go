@@ -35,7 +35,7 @@ import (
 // backend is always in the same namespace also (as this is required by
 // KIngress).  The created ingress will contain a RewriteHost rule to cause the
 // given hostName to be used as the host.
-func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName, ingressClass string, httpOption netv1alpha1.HTTPOption, tls []netv1alpha1.IngressTLS, acmeChallenges ...netv1alpha1.HTTP01Challenge) *netv1alpha1.Ingress {
+func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, backendServiceNamespace, hostName, ingressClass string, httpOption netv1alpha1.HTTPOption, tls []netv1alpha1.IngressTLS, acmeChallenges ...netv1alpha1.HTTP01Challenge) *netv1alpha1.Ingress {
 	return &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(dm.GetName(), ""),
@@ -68,7 +68,7 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName
 									network.OriginalHostHeader: dm.Name,
 								},
 								IngressBackend: netv1alpha1.IngressBackend{
-									ServiceNamespace: dm.Namespace,
+									ServiceNamespace: backendServiceNamespace,
 									ServiceName:      backendServiceName,
 									ServicePort:      intstr.FromInt(80),
 								},

@@ -74,6 +74,7 @@ func TestReconcile(t *testing.T) {
 		Name: "first reconcile",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
+			service("default", "the-target-svc"),
 			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 		},
@@ -92,7 +93,7 @@ func TestReconcile(t *testing.T) {
 		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
 		WantCreates: []runtime.Object{
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
-			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
+			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "default", "the-target-svc.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "first-reconcile.com"),
@@ -192,7 +193,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target", withAPIVersionKind("v1", "Service")))),
 			resources.MakeIngress(
 				domainMapping("default", "first-reconcile.com", withRef("default", "target", withAPIVersionKind("v1", "Service"))),
-				"target", "target.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
+				"target", "default", "target.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "first-reconcile.com"),
@@ -228,7 +229,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
-			Eventf(corev1.EventTypeWarning, "InternalError", `resolving reference: services.serving.knative.dev "target" not found`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `services.serving.knative.dev "target" not found`),
 		},
 	}, {
 		Name: "first reconcile, ref has a path",
@@ -276,7 +277,7 @@ func TestReconcile(t *testing.T) {
 				withInitDomainMappingConditions,
 				withTLSNotEnabled,
 				withDomainClaimed,
-				withReferenceNotResolved(`resolved URI "http://notasvc.cluster.local" must be of the form {name}.{namespace}.svc.cluster.local`),
+				withReferenceNotResolved(`resolved hostname "notasvc.cluster.local" does not match a service`),
 			),
 		}},
 		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
@@ -288,7 +289,73 @@ func TestReconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
-			Eventf(corev1.EventTypeWarning, "InternalError", `resolved URI "http://notasvc.cluster.local" must be of the form {name}.{namespace}.svc.cluster.local`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `resolved hostname "notasvc.cluster.local" does not match a service`),
+		},
+	}, {
+		Name: "first reconcile, is a shortname",
+		Key:  "default/shortname.com",
+		Objects: []runtime.Object{
+			service("default", "host"),
+			ksvc("default", "target", "host", ""),
+			domainMapping("default", "shortname.com", withRef("default", "target")),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "shortname.com",
+				withRef("default", "target"),
+				withURL("http", "shortname.com"),
+				withAddress("http", "shortname.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withIngressNotConfigured,
+				withReferenceResolved,
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "shortname.com", withRef("default", "target"))),
+			resources.MakeIngress(domainMapping("default", "shortname.com", withRef("default", "target")), "host", "default", "host", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "shortname.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "shortname.com"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "shortname.com"),
+		},
+	}, {
+		Name: "first reconcile, externalname chain",
+		Key:  "default/chainz.com",
+		Objects: []runtime.Object{
+			service("other", "final"),
+			externalName("other", "target", "final.other.svc.cluster.local"),
+			externalName("default", "cname", "target.other.svc"),
+			ksvc("default", "target", "cname.default.svc", ""),
+			domainMapping("default", "chainz.com", withRef("default", "target")),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "chainz.com",
+				withRef("default", "target"),
+				withURL("http", "chainz.com"),
+				withAddress("http", "chainz.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withIngressNotConfigured,
+				withReferenceResolved,
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "chainz.com", withRef("default", "target"))),
+			resources.MakeIngress(domainMapping("default", "chainz.com", withRef("default", "target")), "final", "other", "cname.default.svc", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "chainz.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "chainz.com"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "chainz.com"),
 		},
 	}, {
 		Name: "first reconcile, resolved URL in wrong namespace",
@@ -321,9 +388,42 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError", `resolved URI "http://name.anothernamespace.svc.cluster.local" must be in same namespace as DomainMapping`),
 		},
 	}, {
+		Name: "first reconcile, cname loop",
+		Key:  "default/looper.com",
+		Objects: []runtime.Object{
+			externalName("default", "a", "b.default.svc"),
+			externalName("default", "b", "a"),
+			ksvc("default", "target", "b.default.svc.cluster.local", ""),
+			domainMapping("default", "looper.com", withRef("default", "target")),
+		},
+		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "looper.com",
+				withRef("default", "target"),
+				withURL("http", "looper.com"),
+				withAddress("http", "looper.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withReferenceNotResolved(`ExternalName loop, unable to resolve "http://b.default.svc.cluster.local"`),
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "looper.com", withRef("default", "target"))),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "looper.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "looper.com"),
+			Eventf(corev1.EventTypeWarning, "InternalError", `ExternalName loop, unable to resolve "http://b.default.svc.cluster.local"`),
+		},
+	}, {
 		Name: "first reconcile, pre-owned domain claim",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
+			service("default", "the-target-svc"),
 			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
@@ -341,7 +441,7 @@ func TestReconcile(t *testing.T) {
 			),
 		}},
 		WantCreates: []runtime.Object{
-			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
+			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "default", "the-target-svc.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "first-reconcile.com"),
@@ -414,6 +514,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile with ingressClass annotation",
 		Key:  "default/ingressclass.first-reconcile.com",
 		Objects: []runtime.Object{
+			service("default", "the-target-svc"),
 			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
 			domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"),
 				withAnnotations(map[string]string{
@@ -440,7 +541,7 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			resources.MakeDomainClaim(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"))),
 			resources.MakeIngress(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target")),
-				"the-target-svc", "the-target-svc.default.svc.cluster.local", "overridden-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
+				"the-target-svc", "default", "the-target-svc.default.svc.cluster.local", "overridden-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "ingressclass.first-reconcile.com"),
@@ -453,9 +554,10 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile changed ref",
 		Key:  "default/ingress-exists.org",
 		Objects: []runtime.Object{
+			service("default", "changed"),
 			ksvc("default", "changed", "changed.default.svc.cluster.local", ""),
 			domainMapping("default", "ingress-exists.org", withRef("default", "changed")),
-			resources.MakeIngress(domainMapping("default", "ingress-exists.org", withRef("default", "changed")), "previous", "previous.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
+			resources.MakeIngress(domainMapping("default", "ingress-exists.org", withRef("default", "changed")), "previous", "default", "previous.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 			resources.MakeDomainClaim(domainMapping("default", "ingress-exists.org", withRef("default", "changed"))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -483,6 +585,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile failed ingress",
 		Key:  "default/ingress-failed.me",
 		Objects: []runtime.Object{
+			service("default", "failed"),
 			ksvc("default", "failed", "failed.default.svc.cluster.local", ""),
 			domainMapping("default", "ingress-failed.me",
 				withRef("default", "failed"),
@@ -516,6 +619,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile unknown ingress",
 		Key:  "default/ingress-unknown.me",
 		Objects: []runtime.Object{
+			service("default", "unknown"),
 			ksvc("default", "unknown", "unknown.default.svc.cluster.local", ""),
 			domainMapping("default", "ingress-unknown.me", withRef("default", "unknown"),
 				withRef("default", "unknown"),
@@ -549,6 +653,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile ready ingress",
 		Key:  "default/ingress-ready.me",
 		Objects: []runtime.Object{
+			service("default", "ready"),
 			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "ingress-ready.me",
 				withRef("default", "ready"),
@@ -585,6 +690,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "ingresses"),
 		},
 		Objects: []runtime.Object{
+			service("default", "cantcreate"),
 			ksvc("default", "cantcreate", "cantcreate.default.svc.cluster.local", ""),
 			domainMapping("default", "cantcreate.this",
 				withRef("default", "cantcreate"),
@@ -632,6 +738,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "ingresses"),
 		},
 		Objects: []runtime.Object{
+			service("default", "cantupdate"),
 			ksvc("default", "cantupdate", "cantupdate.default.svc.cluster.local", ""),
 			domainMapping("default", "cantupdate.this",
 				withRef("default", "cantupdate"),
@@ -677,6 +784,7 @@ func TestReconcile(t *testing.T) {
 		Key:  "default/ingress-ready.me",
 		Ctx:  context.WithValue(context.Background(), externalSchemeKey, "ws"),
 		Objects: []runtime.Object{
+			service("default", "ready"),
 			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "ingress-ready.me",
 				withRef("default", "ready"),
@@ -709,6 +817,7 @@ func TestReconcile(t *testing.T) {
 			netclient:         networkingclient.Get(ctx),
 			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
 			domainClaimLister: listers.GetDomainClaimLister(),
+			serviceLister:     listers.GetK8sServiceLister(),
 		}
 
 		cfg := &config.Config{
@@ -765,6 +874,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 		Name: "first reconcile, claim exists and is owned",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
+			service("default", "the-target-svc"),
 			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
@@ -783,7 +893,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 		}},
 		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
 		WantCreates: []runtime.Object{
-			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
+			resources.MakeIngress(domainMapping("default", "first-reconcile.com", withRef("default", "target")), "the-target-svc", "default", "the-target-svc.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "first-reconcile.com"),
@@ -844,6 +954,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 			netclient:         networkingclient.Get(ctx),
 			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
 			domainClaimLister: listers.GetDomainClaimLister(),
+			serviceLister:     listers.GetK8sServiceLister(),
 		}
 
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
@@ -867,6 +978,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		Name: "first reconcile",
 		Key:  "default/first.reconcile.io",
 		Objects: []runtime.Object{
+			service("default", "ready"),
 			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "first.reconcile.io",
 				withRef("default", "ready"),
@@ -907,6 +1019,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		Name: "becomes ready",
 		Key:  "default/becomes.ready.run",
 		Objects: []runtime.Object{
+			service("default", "ready"),
 			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "becomes.ready.run",
 				withRef("default", "ready"),
@@ -970,6 +1083,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		WantErr: true,
 		Key:     "default/cert.not.owned.ru",
 		Objects: []runtime.Object{
+			service("default", "ready"),
 			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "cert.not.owned.ru",
 				withRef("default", "ready"),
@@ -1019,6 +1133,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 			), "the-cert-class"),
 		},
 		Objects: []runtime.Object{
+			service("default", "ready"),
 			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "cert.creation.failed.ly",
 				withRef("default", "ready"),
@@ -1049,6 +1164,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		Name: "with challenges",
 		Key:  "default/challenged.com",
 		Objects: []runtime.Object{
+			service("default", "ready"),
 			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "challenged.com",
 				withRef("default", "ready"),
@@ -1150,6 +1266,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		Name: "TLS secret provided",
 		Key:  "default/certificateless.com",
 		Objects: []runtime.Object{
+			service("default", "ready"),
 			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "certificateless.com",
 				withTLSSecret("tls-secret"),
@@ -1199,6 +1316,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 			domainClaimLister: listers.GetDomainClaimLister(),
 			netclient:         networkingclient.Get(ctx),
 			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
+			serviceLister:     listers.GetK8sServiceLister(),
 		}
 
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
@@ -1223,6 +1341,7 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 		Name: "ingress ready, cert not ready, downgraded to HTTP",
 		Key:  "default/http.downgraded.com",
 		Objects: []runtime.Object{
+			service("default", "ready"),
 			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "http.downgraded.com",
 				withRef("default", "ready"),
@@ -1264,6 +1383,7 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 			certificateLister: listers.GetCertificateLister(),
 			domainClaimLister: listers.GetDomainClaimLister(),
 			ingressLister:     listers.GetIngressLister(),
+			serviceLister:     listers.GetK8sServiceLister(),
 			netclient:         networkingclient.Get(ctx),
 			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
 		}
@@ -1442,7 +1562,7 @@ func ingress(dm *v1alpha1.DomainMapping, ingressClass string, opt ...IngressOpti
 }
 
 func ingressWithChallenges(dm *v1alpha1.DomainMapping, ingressClass string, challenges []netv1alpha1.HTTP01Challenge, opt ...IngressOption) *netv1alpha1.Ingress {
-	ing := resources.MakeIngress(dm, dm.Spec.Ref.Name, dm.Spec.Ref.Name+"."+dm.Spec.Ref.Namespace+".svc.cluster.local", ingressClass, netv1alpha1.HTTPOptionEnabled, nil /* tls */, challenges...)
+	ing := resources.MakeIngress(dm, dm.Spec.Ref.Name, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name+"."+dm.Spec.Ref.Namespace+".svc.cluster.local", ingressClass, netv1alpha1.HTTPOptionEnabled, nil /* tls */, challenges...)
 	for _, o := range opt {
 		o(ing)
 	}
@@ -1505,6 +1625,13 @@ func service(ns, name string) *corev1.Service {
 			Namespace: ns,
 		},
 	}
+}
+
+func externalName(ns, name, externalName string) *corev1.Service {
+	svc := service(ns, name)
+	svc.Spec.Type = corev1.ServiceTypeExternalName
+	svc.Spec.ExternalName = externalName
+	return svc
 }
 
 func withIngressNotReady(ing *netv1alpha1.Ingress) {

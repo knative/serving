@@ -232,7 +232,7 @@ func TestMakeIngress(t *testing.T) {
 			})
 			tc.want.OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(&tc.dm)}
 			got := *MakeIngress(&tc.dm,
-				"the-target-svc", "the-rewrite-host", "the-ingress-class",
+				"the-target-svc", "the-namespace", "the-rewrite-host", "the-ingress-class",
 				netv1alpha1.HTTPOptionEnabled,
 				tc.tls, tc.acmeChallenges...)
 			if diff := cmp.Diff(tc.want, got); diff != "" {

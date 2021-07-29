@@ -31,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	coreclientv1 "k8s.io/client-go/listers/core/v1"
 
 	networkingpkg "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
@@ -57,6 +59,7 @@ type Reconciler struct {
 	certificateLister networkinglisters.CertificateLister
 	ingressLister     networkinglisters.IngressLister
 	domainClaimLister networkinglisters.ClusterDomainClaimLister
+	serviceLister     coreclientv1.ServiceLister
 	netclient         netclientset.Interface
 	resolver          *resolver.URIResolver
 }
@@ -116,10 +119,12 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	}
 
 	// Resolve the spec.Ref to a URI following the Addressable contract.
-	targetHost, targetBackendSvc, err := r.resolveRef(ctx, dm)
+	targetHost, targetBackendSvc, targetNs, err := r.resolveRef(ctx, dm)
 	if err != nil {
+		dm.Status.MarkReferenceNotResolved(err.Error())
 		return err
 	}
+	dm.Status.MarkReferenceResolved()
 
 	// Set HTTPOption via config-network.
 	var httpOption netv1alpha1.HTTPOption
@@ -134,8 +139,8 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	}
 
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
-	logger.Debugf("Mapping %s to ref %s/%s (host: %q, svc: %q)", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name, targetHost, targetBackendSvc)
-	desired := resources.MakeIngress(dm, targetBackendSvc, targetHost, ingressClass, httpOption, tls, acmeChallenges...)
+	logger.Debugf("Mapping %s to ref %s/%s (host: %q, svc: %q, ns: %q)", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name, targetHost, targetBackendSvc, targetNs)
+	desired := resources.MakeIngress(dm, targetBackendSvc, targetNs, targetHost, ingressClass, httpOption, tls, acmeChallenges...)
 	ingress, err := r.reconcileIngress(ctx, dm, desired)
 	if err != nil {
 		return err
@@ -283,43 +288,86 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMa
 	return ingress, err
 }
 
-func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping) (host, backendSvc string, err error) {
+func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping) (host, backendSvc, backendNs string, err error) {
 	resolved, err := r.resolver.URIFromKReference(ctx, &dm.Spec.Ref, dm)
 	if err != nil {
-		dm.Status.MarkReferenceNotResolved(err.Error())
-		return "", "", fmt.Errorf("resolving reference: %w", err)
+		return
 	}
 
 	// Since we do not support path-based routing in domain mappings, we cannot
 	// support target references that contain a path.
 	if strings.TrimSuffix(resolved.Path, "/") != "" {
-		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q contains a path", resolved))
-		return "", "", fmt.Errorf("resolved URI %q contains a path", resolved)
+		err = fmt.Errorf("resolved URI %q contains a path", resolved)
+		return
 	}
 
-	// The resolved hostname must be of the form {name}.{namespace}.svc.{suffix},
-	// which is the standard DNS address given by kubernetes to services. We will
-	// use `name` from this resolved hostname to determine the backend service
-	// name for the KIngress.
-	// TODO(julz) in the future we may support addressables that are not created
-	// from Services, in which case we would need to dynamically create the
-	// an ExternalName Service for the KIngress to use.
-	requiredSuffix := ".svc." + network.GetClusterDomainName()
-	parts := strings.Split(strings.TrimSuffix(resolved.Host, requiredSuffix), ".")
-	if !strings.HasSuffix(resolved.Host, requiredSuffix) || len(parts) != 2 {
-		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q must be of the form {name}.{namespace}%s", resolved, requiredSuffix))
-		return "", "", fmt.Errorf("resolved URI %q must be of the form {name}.{namespace}%s", resolved, requiredSuffix)
+	hostParts := strings.SplitN(resolved.Host, ":", 1)
+	host = hostParts[0]
+	// TODO(evankanderson): handle ports
+	svcRef, err := hostToService(host, dm.Namespace)
+	if err != nil {
+		return
+	}
+	// Ensure the initial name is within our namespace:
+	if svcRef.Namespace != dm.Namespace {
+		err = fmt.Errorf("resolved URI %q must be in same namespace as DomainMapping", resolved)
+		return
 	}
 
-	// If the namespace part of the target isn't the same as the DomainMapping
-	// we'd need to create a cross-namespace KIngress, which isn't supported.
-	if parts[1] != dm.Namespace {
-		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q must be in same namespace as DomainMapping", resolved))
-		return "", "", fmt.Errorf("resolved URI %q must be in same namespace as DomainMapping", resolved)
+	svc, err := r.serviceLister.Services(svcRef.Namespace).Get(svcRef.Name)
+	if err != nil {
+		return
+	}
+
+	// Recursively resolve the hostname as a Kubernetes Service until we find a
+	// non-ExternalName service. This avoids CVE-2021-32783 style attacks where
+	// an ExternalName service points to "localhost" or some other interesting
+	// off-cluster address.
+	visitedNames := sets.NewString(host)
+	for svc.Spec.Type == corev1.ServiceTypeExternalName {
+		if visitedNames.Has(svc.Spec.ExternalName) {
+			err = fmt.Errorf("ExternalName loop, unable to resolve %q", resolved)
+			return
+		}
+		visitedNames.Insert(svc.Spec.ExternalName)
+		svcRef, err = hostToService(svc.Spec.ExternalName, svc.Namespace)
+		if err != nil {
+			return
+		}
+		svc, err = r.serviceLister.Services(svcRef.Namespace).Get(svcRef.Name)
+		if err != nil {
+			return
+		}
 	}
 
 	dm.Status.MarkReferenceResolved()
-	return resolved.Host, parts[0], nil
+	backendSvc = svc.Name
+	backendNs = svc.Namespace
+	return
+}
+
+func hostToService(hostname string, ns string) (ref corev1.ObjectReference, err error) {
+	ref.APIVersion = "v1"
+	ref.Kind = "Service"
+	shortname := hostname
+	for _, s := range []string{".svc." + network.GetClusterDomainName(), ".svc"} {
+		if strings.HasSuffix(hostname, s) {
+			shortname = strings.TrimSuffix(hostname, s)
+			break
+		}
+	}
+	names := strings.Split(shortname, ".")
+	switch {
+	case len(names) == 1:
+		ref.Name = names[0]
+		ref.Namespace = ns
+	case len(names) == 2:
+		ref.Name = names[0]
+		ref.Namespace = names[1]
+	case len(names) > 1:
+		err = fmt.Errorf("resolved hostname %q does not match a service", hostname)
+	}
+	return
 }
 
 func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
