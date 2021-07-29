@@ -207,6 +207,9 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	if cfg.Features.PodSpecSecurityContext != config.Disabled {
 		out.SecurityContext = in.SecurityContext
 	}
+	if cfg.Features.PodSpecPriorityClassName != config.Disabled {
+		out.PriorityClassName = in.PriorityClassName
+	}
 
 	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
@@ -223,7 +226,6 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.Hostname = ""
 	out.Subdomain = ""
 	out.SchedulerName = ""
-	out.PriorityClassName = ""
 	out.Priority = nil
 	out.DNSConfig = nil
 	out.ReadinessGates = nil
