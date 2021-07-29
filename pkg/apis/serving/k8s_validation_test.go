@@ -148,7 +148,7 @@ func TestPodSpecValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "with automountServiceAccountToken = true ",
+		name: "with automountServiceAccountToken = true",
 		ps: corev1.PodSpec{
 			AutomountServiceAccountToken: ptr.Bool(true),
 			Containers: []corev1.Container{{
