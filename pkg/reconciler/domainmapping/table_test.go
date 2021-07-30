@@ -232,6 +232,35 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError", `services.serving.knative.dev "target" not found`),
 		},
 	}, {
+		Name: "first reconcile, service ref does not exist",
+		Key:  "default/first-reconcile.com",
+		Objects: []runtime.Object{
+			domainMapping("default", "first-reconcile.com", withRef("default", "target", withAPIVersionKind("v1", "Service"))),
+		},
+		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "first-reconcile.com",
+				withRef("default", "target", withAPIVersionKind("v1", "Service")),
+				withURL("http", "first-reconcile.com"),
+				withAddress("http", "first-reconcile.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withReferenceNotResolved(`services "target" not found`),
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "first-reconcile.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
+			Eventf(corev1.EventTypeWarning, "InternalError", `services "target" not found`),
+		},
+	}, {
 		Name: "first reconcile, ref has a path",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
@@ -386,6 +415,66 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
 			Eventf(corev1.EventTypeWarning, "InternalError", `resolved URI "http://name.anothernamespace.svc.cluster.local" must be in same namespace as DomainMapping`),
+		},
+	}, {
+		Name: "first reconcile, external name off cluster",
+		Key:  "default/google.com",
+		Objects: []runtime.Object{
+			externalName("default", "target", "www.google.com"),
+			domainMapping("default", "google.com", withRef("default", "target", withAPIVersionKind("v1", "Service"))),
+		},
+		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "google.com",
+				withRef("default", "target", withAPIVersionKind("v1", "Service")),
+				withURL("http", "google.com"),
+				withAddress("http", "google.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withReferenceNotResolved(`resolved hostname "www.google.com" does not match a service`),
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "google.com", withRef("default", "target"))),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "google.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "google.com"),
+			Eventf(corev1.EventTypeWarning, "InternalError", `resolved hostname "www.google.com" does not match a service`),
+		},
+	}, {
+		Name: "first reconcile, external name does not exist",
+		Key:  "default/where-the-sidewalk-ends.com",
+		Objects: []runtime.Object{
+			externalName("default", "target", "the-world-is.flat"),
+			domainMapping("default", "where-the-sidewalk-ends.com", withRef("default", "target", withAPIVersionKind("v1", "Service"))),
+		},
+		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "where-the-sidewalk-ends.com",
+				withRef("default", "target", withAPIVersionKind("v1", "Service")),
+				withURL("http", "where-the-sidewalk-ends.com"),
+				withAddress("http", "where-the-sidewalk-ends.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withReferenceNotResolved(`service "the-world-is" not found`),
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "where-the-sidewalk-ends.com", withRef("default", "target"))),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "where-the-sidewalk-ends.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "where-the-sidewalk-ends.com"),
+			Eventf(corev1.EventTypeWarning, "InternalError", `service "the-world-is" not found`),
 		},
 	}, {
 		Name: "first reconcile, cname loop",
