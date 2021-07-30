@@ -114,8 +114,8 @@ func TestServiceCreateAndUpdate(t *testing.T) {
 	t.Logf("Updating labels of the RevisionTemplateSpec for service %s.", names.Service)
 	metadata := metav1.ObjectMeta{
 		Labels: map[string]string{
-			"labelX": "abc",
-			"labelY": "def",
+			"label-x": "abc",
+			"label-y": "def",
 		},
 	}
 	if objects.Service, err = v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceTemplateMeta(metadata)); err != nil {
@@ -131,8 +131,8 @@ func TestServiceCreateAndUpdate(t *testing.T) {
 	t.Log("Updating annotations of RevisionTemplateSpec for service", names.Service)
 	metadata = metav1.ObjectMeta{
 		Annotations: map[string]string{
-			"annotationA": "123",
-			"annotationB": "456",
+			"annotation-a": "123",
+			"annotation-b": "456",
 		},
 	}
 	if objects.Service, err = v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceTemplateMeta(metadata)); err != nil {
