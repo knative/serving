@@ -213,7 +213,7 @@ to pick up an alternative Ingress solution and install it.
 
 ## Iterating
 
-As you make changes to the code-base, there are two special cases to be aware
+As you make changes to the code-base, there are several special cases to be aware
 of:
 
 - **If you change an input to generated code**, then you must run
@@ -230,14 +230,22 @@ of:
 - **If you change a package's deps** (including adding an external dependency),
   then you must run [`./hack/update-deps.sh`](./hack/update-deps.sh).
 
-These are both idempotent, and we expect that running these at `HEAD` to have no
+- **If you change surface area of `PodSpec` that we allow in our resources** then you must update
+  the relevant section of [`./hack/schemapatch-config.yaml`](./hack/schemapatch-config.yaml)
+  and run [`./hack/update-schemas.sh`](./hack/update-schemas.sh) Additionally:
+  - If the new field is added _without feature-gating_, then it must be added to the
+    `allowedFields` list.
+  - If the new field is added _behind a feature flag_, then set `preserveUnknownFields:
+    true # for feature flagged fields` on its parent type. Do **not** add it to `allowedFields`.
+
+These are all idempotent, and we expect that running these at `HEAD` to have no
 diffs. Code generation and dependencies are automatically checked to produce no
 diffs for each pull request.
 
-update-deps.sh runs go get/mod command. In some cases, if newer dependencies are
+[`update-deps.sh`](./hack/update-deps.sh) runs go get/mod command. In some cases, if newer dependencies are
 required, you need to run "go get" manually.
 
-Once the codegen and dependency information is correct, redeploying the
+Once the codegen, dependency, and schema information is correct, redeploying the
 controller is simply:
 
 ```shell
