@@ -39,7 +39,7 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, backendS
 	return &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(dm.GetName(), ""),
-			Namespace: dm.Namespace,
+			Namespace: backendServiceNamespace,
 			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
 			}, dm.GetAnnotations()), func(key string) bool {
