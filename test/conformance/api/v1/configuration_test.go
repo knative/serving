@@ -56,8 +56,8 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 
 	t.Log("Updating labels of Configuration", names.Config)
 	newLabels := map[string]string{
-		"labelX": "abc",
-		"labelY": "def",
+		"label-x": "abc",
+		"label-y": "def",
 	}
 	// Copy over new labels.
 	cfg.Labels = kmeta.UnionMaps(cfg.Labels, newLabels)
@@ -89,8 +89,8 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 
 	t.Log("Updating annotations of Configuration", names.Config)
 	newAnnotations := map[string]string{
-		"annotationA": "123",
-		"annotationB": "456",
+		"annotation-a": "123",
+		"annotation-b": "456",
 	}
 	cfg.Annotations = kmeta.UnionMaps(cfg.Annotations, newAnnotations)
 	cfg, err = clients.ServingClient.Configs.Update(context.Background(), cfg, metav1.UpdateOptions{})
