@@ -2830,14 +2830,15 @@ func reconcilerTestConfig(enableAutoTLS bool) *config.Config {
 			DefaultExternalScheme:   "http",
 		},
 		Features: &cfgmap.Features{
-			MultiContainer:        cfgmap.Disabled,
-			PodSpecAffinity:       cfgmap.Disabled,
-			PodSpecFieldRef:       cfgmap.Disabled,
-			PodSpecDryRun:         cfgmap.Enabled,
-			PodSpecHostAliases:    cfgmap.Disabled,
-			PodSpecNodeSelector:   cfgmap.Disabled,
-			PodSpecTolerations:    cfgmap.Disabled,
-			TagHeaderBasedRouting: cfgmap.Disabled,
+			MultiContainer:           cfgmap.Disabled,
+			PodSpecAffinity:          cfgmap.Disabled,
+			PodSpecFieldRef:          cfgmap.Disabled,
+			PodSpecDryRun:            cfgmap.Enabled,
+			PodSpecHostAliases:       cfgmap.Disabled,
+			PodSpecNodeSelector:      cfgmap.Disabled,
+			PodSpecTolerations:       cfgmap.Disabled,
+			PodSpecPriorityClassName: cfgmap.Disabled,
+			TagHeaderBasedRouting:    cfgmap.Disabled,
 		},
 	}
 }

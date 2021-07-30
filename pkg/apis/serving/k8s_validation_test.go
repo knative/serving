@@ -103,6 +103,13 @@ func withPodSpecVolumesEmptyDirEnabled() configOption {
 	}
 }
 
+func withPodSpecPriorityClassNameEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecPriorityClassName = config.Enabled
+		return cfg
+	}
+}
+
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -677,6 +684,16 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 			Paths:   []string{"securityContext"},
 		},
 		cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
+	}, {
+		name: "PriorityClassName",
+		featureSpec: corev1.PodSpec{
+			PriorityClassName: "foo",
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"priorityClassName"},
+		},
+		cfgOpts: []configOption{withPodSpecPriorityClassNameEnabled()},
 	}}
 
 	featureTests := []struct {

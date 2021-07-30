@@ -59,26 +59,28 @@ func TestFeaturesConfiguration(t *testing.T) {
 		name:    "features Enabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
-			MultiContainer:          Enabled,
-			PodSpecAffinity:         Enabled,
-			PodSpecDryRun:           Enabled,
-			PodSpecHostAliases:      Enabled,
-			PodSpecNodeSelector:     Enabled,
-			PodSpecRuntimeClassName: Enabled,
-			PodSpecSecurityContext:  Enabled,
-			PodSpecTolerations:      Enabled,
-			TagHeaderBasedRouting:   Enabled,
+			MultiContainer:           Enabled,
+			PodSpecAffinity:          Enabled,
+			PodSpecDryRun:            Enabled,
+			PodSpecHostAliases:       Enabled,
+			PodSpecNodeSelector:      Enabled,
+			PodSpecRuntimeClassName:  Enabled,
+			PodSpecSecurityContext:   Enabled,
+			PodSpecTolerations:       Enabled,
+			PodSpecPriorityClassName: Enabled,
+			TagHeaderBasedRouting:    Enabled,
 		}),
 		data: map[string]string{
-			"multi-container":                     "Enabled",
-			"kubernetes.podspec-affinity":         "Enabled",
-			"kubernetes.podspec-dryrun":           "Enabled",
-			"kubernetes.podspec-hostaliases":      "Enabled",
-			"kubernetes.podspec-nodeselector":     "Enabled",
-			"kubernetes.podspec-runtimeclassname": "Enabled",
-			"kubernetes.podspec-securitycontext":  "Enabled",
-			"kubernetes.podspec-tolerations":      "Enabled",
-			"tag-header-based-routing":            "Enabled",
+			"multi-container":                      "Enabled",
+			"kubernetes.podspec-affinity":          "Enabled",
+			"kubernetes.podspec-dryrun":            "Enabled",
+			"kubernetes.podspec-hostaliases":       "Enabled",
+			"kubernetes.podspec-nodeselector":      "Enabled",
+			"kubernetes.podspec-runtimeclassname":  "Enabled",
+			"kubernetes.podspec-securitycontext":   "Enabled",
+			"kubernetes.podspec-tolerations":       "Enabled",
+			"kubernetes.podspec-priorityclassname": "Enabled",
+			"tag-header-based-routing":             "Enabled",
 		},
 	}, {
 		name:    "multi-container Allowed",
@@ -349,6 +351,33 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"kubernetes.podspec-volumes-emptydir": "Enabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-priorityclassname Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecPriorityClassName: Allowed,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-priorityclassname": "Allowed",
+		},
+	}, {
+		name:    "kubernetes.podspec-priorityclassname Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecPriorityClassName: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-priorityclassname": "Enabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-priorityclassname Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecPriorityClassName: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-priorityclassname": "Disabled",
 		},
 	}}
 

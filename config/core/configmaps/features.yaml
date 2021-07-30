@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/version: devel
     app.kubernetes.io/part-of: knative-serving
   annotations:
-    knative.dev/example-checksum: "3bac317a"
+    knative.dev/example-checksum: "211d4000"
 data:
   _example: |-
     ################################
@@ -106,6 +106,12 @@ data:
     # WARNING: Cannot safely be disabled once enabled.
     # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-security-context
     kubernetes.podspec-securitycontext: "disabled"
+
+    # Indicates whether Kubernetes PriorityClassName support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-priority-class-name
+    kubernetes.podspec-priorityclassname: "disabled"
 
     # This feature flag allows end-users to add a subset of capabilities on the Pod's SecurityContext.
     #
