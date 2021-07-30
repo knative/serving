@@ -66,7 +66,7 @@ const (
 	concurrencyStateEndpointKey = "concurrencyStateEndpoint"
 
 	// ConcurrencyStateEndpointDefault is the default endpoint for acting when traffic drops to / increases from zero.
-	ConcurrencyStateEndpointDefault = ""
+	concurrencyStateEndpointDefault = ""
 )
 
 var (
@@ -82,7 +82,7 @@ func defaultConfig() *Config {
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-		ConcurrencyStateEndpoint:       ConcurrencyStateEndpointDefault,
+		ConcurrencyStateEndpoint:       concurrencyStateEndpointDefault,
 	}
 }
 

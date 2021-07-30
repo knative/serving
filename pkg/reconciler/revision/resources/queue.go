@@ -373,7 +373,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	}
 
 	// Only add this if the value is actually set
-	if cfg.Deployment.ConcurrencyStateEndpoint != deployment.ConcurrencyStateEndpointDefault {
+	if cfg.Deployment.ConcurrencyStateEndpoint != "" {
 		c.Env = append(c.Env, corev1.EnvVar{
 			Name:  "CONCURRENCY_STATE_ENDPOINT",
 			Value: cfg.Deployment.ConcurrencyStateEndpoint,
