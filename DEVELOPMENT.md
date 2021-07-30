@@ -230,9 +230,14 @@ of:
 - **If you change a package's deps** (including adding an external dependency),
   then you must run [`./hack/update-deps.sh`](./hack/update-deps.sh).
 
-- **If you change the schema for a custom resource** (for example, adding fields), then you must update
-  the relevant section of [`./hack/schemapatch-config.yaml`](./hack/schemapatch-config.yaml)
-  and run [`./hack/update-schemas.sh`](./hack/update-schemas.sh).
+- **If you change the `PodSpec` for a custom resource** then you must update
+  the relevant section of [`./hack/schemapatch-config.yaml`](./hack/schemapatch-config.yaml) 
+  and run [`./hack/update-schemas.sh`](./hack/update-schemas.sh) Additionally:
+  - If the new field is added _without feature-gating_, then it must be added to the 
+    `allowedFields` list.
+  - If the new field is added _behind a feature flag_, then do **not** add it to `allowedFields`. 
+    Instead, make sure to set `preserveUnknownFields: true # for feature flagged fields` on
+    its parent type.
 
 These are all idempotent, and we expect that running these at `HEAD` to have no
 diffs. Code generation and dependencies are automatically checked to produce no
