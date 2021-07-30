@@ -243,7 +243,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	}
 
 	t.Log("Updating RouteSpec")
-	if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{
+	if _, err := v1test.PatchServiceRouteSpec(t, clients, names, v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{{
 			Tag:          blue.TrafficTarget,
 			RevisionName: blue.Revision,

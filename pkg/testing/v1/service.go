@@ -161,6 +161,13 @@ func WithServiceImage(img string) ServiceOption {
 	}
 }
 
+// WithTrafficTarget sets the traffic to be the provided traffic target.
+func WithTrafficTarget(tt []v1.TrafficTarget) ServiceOption {
+	return func(svc *v1.Service) {
+		svc.Spec.Traffic = tt
+	}
+}
+
 // WithServiceTemplateMeta sets the container image to be the provided string.
 func WithServiceTemplateMeta(m metav1.ObjectMeta) ServiceOption {
 	return func(svc *v1.Service) {

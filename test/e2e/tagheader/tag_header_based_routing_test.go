@@ -76,7 +76,7 @@ func TestTagHeaderBasedRouting(t *testing.T) {
 		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, test.PizzaPlanet2, err)
 	}
 
-	if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{
+	if _, err := v1test.PatchServiceRouteSpec(t, clients, names, v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{{
 			Tag:          "rev1",
 			RevisionName: revision1,

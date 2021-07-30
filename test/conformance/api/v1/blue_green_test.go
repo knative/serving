@@ -64,7 +64,7 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	// Setup Initial Service
 	t.Log("Creating a new Service in runLatest")
-	objects, err := v1test.CreateServiceReady(t, clients, &names)
+	_, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -76,11 +76,10 @@ func TestBlueGreenRoute(t *testing.T) {
 	green.TrafficTarget = "green"
 
 	t.Log("Updating the Service to use a different image")
-	service, err := v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(greenImagePath))
+	_, err = v1test.UpdateService(t, clients, names, rtesting.WithServiceImage(greenImagePath))
 	if err != nil {
-		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, greenImagePath, err)
+		t.Fatalf("Update for Service %s with new image %s failed: %v", names.Service, greenImagePath, err)
 	}
-	objects.Service = service
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
 	green.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
@@ -89,8 +88,8 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 
 	t.Log("Updating RouteSpec")
-	if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{
-		Traffic: []v1.TrafficTarget{{
+	if _, err := v1test.UpdateService(t, clients, names, rtesting.WithTrafficTarget(
+		[]v1.TrafficTarget{{
 			Tag:          blue.TrafficTarget,
 			RevisionName: blue.Revision,
 			Percent:      ptr.Int64(50),
@@ -99,7 +98,7 @@ func TestBlueGreenRoute(t *testing.T) {
 			RevisionName: green.Revision,
 			Percent:      ptr.Int64(50),
 		}},
-	}); err != nil {
+	)); err != nil {
 		t.Fatal("Failed to update Service:", err)
 	}
 
@@ -108,7 +107,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	service, err = clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
+	service, err := clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}

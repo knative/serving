@@ -147,6 +147,25 @@ func createService(t testing.TB, clients *test.Clients, service *v1.Service) (sv
 	})
 }
 
+// UpdateService updates the existing service with name in names with the applied mutations.
+// Returns the latest service object
+func UpdateService(t testing.TB, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (svc *v1.Service, err error) {
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		newSvc, err := clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		for _, opt := range fopt {
+			opt(newSvc)
+		}
+
+		LogResourceObject(t, ResourceObjects{Service: newSvc})
+		svc, err = clients.ServingClient.Services.Update(context.Background(), newSvc, metav1.UpdateOptions{})
+		return err
+	})
+}
+
 // PatchService patches the existing service passed in with the applied mutations.
 // Returns the latest service object
 func PatchService(t testing.TB, clients *test.Clients, service *v1.Service, fopt ...rtesting.ServiceOption) (svc *v1.Service, err error) {
@@ -165,8 +184,8 @@ func PatchService(t testing.TB, clients *test.Clients, service *v1.Service, fopt
 	})
 }
 
-// UpdateServiceRouteSpec updates a service to use the route name in names.
-func UpdateServiceRouteSpec(t testing.TB, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (svc *v1.Service, err error) {
+// PatchServiceRouteSpec patches a service to use the route name in names.
+func PatchServiceRouteSpec(t testing.TB, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (svc *v1.Service, err error) {
 	patch := []map[string]interface{}{{
 		"op":    "replace",
 		"path":  "/spec/traffic",
