@@ -323,6 +323,21 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
 				"CONCURRENCY_STATE_ENDPOINT": "freeze-proxy",
+		}),
+	}, {
+		name: "HTTP2 autodetection disabled",
+		rev: revision("bar", "foo",
+			withContainers(containers)),
+		fc: apicfg.Features{
+			AutoDetectHTTP2: apicfg.Disabled,
+		},
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"ENABLE_HTTP2_AUTO_DETECTION": "false",
+>>>>>>> 3bbf5fef9 (add test for when disabled)
 			})
 		}),
 	}, {
