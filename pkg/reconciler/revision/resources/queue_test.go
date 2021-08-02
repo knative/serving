@@ -874,6 +874,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 var defaultEnv = map[string]string{
 	"CONCURRENCY_STATE_ENDPOINT":       "",
 	"CONTAINER_CONCURRENCY":            "0",
+	"ENABLE_HTTP2_AUTO_DETECTION":      "false",
 	"ENABLE_PROFILING":                 "false",
 	"METRICS_DOMAIN":                   metrics.Domain(),
 	"METRICS_COLLECTOR_ADDRESS":        "",

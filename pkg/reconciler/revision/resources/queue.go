@@ -364,15 +364,10 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "CONCURRENCY_STATE_ENDPOINT",
 			Value: cfg.Deployment.ConcurrencyStateEndpoint,
-		}},
-	}
-
-	// Only add this if it's really enabled to avoid upgrade churn due to changing the deployment.
-	if cfg.Features.AutoDetectHTTP2 == apicfg.Enabled {
-		c.Env = append(c.Env, corev1.EnvVar{
+		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
-			Value: "true",
-		})
+			Value: strconv.FormatBool(autoDetectHttp2Status(cfg)),
+		}},
 	}
 
 	return c, nil
@@ -409,5 +404,13 @@ func applyReadinessProbeDefaultsForExec(p *corev1.Probe, port int32) {
 
 	if p.PeriodSeconds > 0 && p.TimeoutSeconds < 1 {
 		p.TimeoutSeconds = 1
+	}
+}
+
+func autoDetectHttp2Status(cfg *config.Config) bool {
+	if cfg.Features.AutoDetectHTTP2 == apicfg.Enabled {
+		return true
+	} else {
+		return false
 	}
 }
