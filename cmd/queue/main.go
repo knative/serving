@@ -103,7 +103,7 @@ type config struct {
 	TracingConfigSampleRate     float64                   `split_words:"true"` // optional
 	TracingConfigZipkinEndpoint string                    `split_words:"true"` // optional
 
-	// OnNoTraffic configuration
+	// Concurrency State Endpoint configuration
 	ConcurrencyStateEndpoint string `split_words:"true"` // optional
 }
 

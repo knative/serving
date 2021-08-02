@@ -62,11 +62,8 @@ const (
 	queueSidecarMemoryLimitKey           = "queueSidecarMemoryLimit"
 	queueSidecarEphemeralStorageLimitKey = "queueSidecarEphemeralStorageLimit"
 
-	// concurrencyStateEndpointKey is the key to configure the endpoint for acting when traffic drops to / increases from zero.
+	// concurrencyStateEndpointKey is the key to configure the endpoint Queue Proxy will call when traffic drops to / increases from zero.
 	concurrencyStateEndpointKey = "concurrencyStateEndpoint"
-
-	// ConcurrencyStateEndpointDefault is the default endpoint for acting when traffic drops to / increases from zero.
-	concurrencyStateEndpointDefault = ""
 )
 
 var (
@@ -82,7 +79,7 @@ func defaultConfig() *Config {
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-		ConcurrencyStateEndpoint:       concurrencyStateEndpointDefault,
+		ConcurrencyStateEndpoint:       "",
 	}
 }
 
