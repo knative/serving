@@ -174,7 +174,7 @@ func (r *URIResolver) URIFromObjectReference(ctx context.Context, ref *corev1.Ob
 		url := &apis.URL{
 			Scheme: "http",
 			Host:   network.GetServiceHostname(ref.Name, ref.Namespace),
-			Path:   "/",
+			Path:   "",
 		}
 		return url, nil
 	}

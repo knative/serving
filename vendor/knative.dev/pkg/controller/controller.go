@@ -555,6 +555,12 @@ func (c *Impl) handleErr(err error, key types.NamespacedName, startTime time.Tim
 		c.workQueue.Forget(key)
 		return
 	}
+	if ok, delay := IsRequeueKey(err); ok {
+		c.workQueue.AddAfter(key, delay)
+		c.logger.Debugf("Requeuing key %s (by request) after %v (depth: %d)", safeKey(key), delay, c.workQueue.Len())
+		return
+	}
+
 	c.logger.Errorw("Reconcile error", zap.Duration("duration", time.Since(startTime)), zap.Error(err))
 
 	// Re-queue the key if it's a transient error.
@@ -664,6 +670,49 @@ func (err permanentError) Error() string {
 // wrapped inside permanentError.
 func (err permanentError) Unwrap() error {
 	return err.e
+}
+
+// NewRequeueImmediately returns a new instance of requeueKeyError.
+// Users can return this type of error to immediately requeue a key.
+func NewRequeueImmediately() error {
+	return requeueKeyError{}
+}
+
+// NewRequeueAfter returns a new instance of requeueKeyError.
+// Users can return this type of error to requeue a key after a delay.
+func NewRequeueAfter(dur time.Duration) error {
+	return requeueKeyError{duration: dur}
+}
+
+// requeueKeyError is an error that indicates the reconciler wants to reprocess
+// the key after a particular duration (possibly zero).
+// We should re-queue keys with the desired duration when this is returned by Reconcile.
+type requeueKeyError struct {
+	duration time.Duration
+}
+
+var _ error = requeueKeyError{}
+
+// Error implements the Error() interface of error.
+func (err requeueKeyError) Error() string {
+	return fmt.Sprintf("requeue after: %s", err.duration)
+}
+
+// IsRequeueKey returns true if the given error is a requeueKeyError.
+func IsRequeueKey(err error) (bool, time.Duration) {
+	rqe := requeueKeyError{}
+	if errors.As(err, &rqe) {
+		return true, rqe.duration
+	}
+	return false, 0
+}
+
+// Is implements the Is() interface of error. It returns whether the target
+// error can be treated as equivalent to a requeueKeyError.
+func (requeueKeyError) Is(target error) bool {
+	//nolint: errorlint // This check is actually fine.
+	_, ok := target.(requeueKeyError)
+	return ok
 }
 
 // Informer is the group of methods that a type must implement to be passed to
