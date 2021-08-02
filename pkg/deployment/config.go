@@ -165,6 +165,6 @@ type Config struct {
 	// for the queue proxy sidecar container.
 	QueueSidecarEphemeralStorageLimit *resource.Quantity
 
-	// ConcurrencyStateEndpoint is the endpoint for acting when traffic drops to / increases from zero.
+	// ConcurrencyStateEndpoint is the endpoint Queue Proxy will call when traffic drops to / increases from zero.
 	ConcurrencyStateEndpoint string
 }
