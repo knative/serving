@@ -187,7 +187,7 @@ func TestProbeRuntimeAfterStartup(t *testing.T) {
 	}
 
 	url.Path = "/start-failing"
-	startFailing, err := http.NewRequest("POST", url.String(), nil)
+	startFailing, err := http.NewRequest(http.MethodPost, url.String(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +200,7 @@ func TestProbeRuntimeAfterStartup(t *testing.T) {
 	// there will be no ready pods, and therefore the request will time
 	// out. (see https://github.com/knative/serving/issues/10765).
 	if err := wait.PollImmediate(1*time.Second, readinessPropagationTime, func() (bool, error) {
-		startFailing, err := http.NewRequest("GET", url.String(), nil)
+		startFailing, err := http.NewRequest(http.MethodGet, url.String(), nil)
 		if err != nil {
 			return false, err
 		}
@@ -235,9 +235,5 @@ func TestProbeRuntimeAfterStartup(t *testing.T) {
 
 func isTimeout(err error) bool {
 	var ne net.Error
-	if errors.As(err, &ne) {
-		return ne.Timeout()
-	}
-
-	return false
+	return errors.As(err, &ne) && ne.Timeout()
 }
