@@ -66,6 +66,18 @@ func main() {
 		fmt.Fprint(w, test.HelloWorldText)
 	})
 
+	http.HandleFunc("/start-failing", func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		healthy = false
+		fmt.Fprint(w, "will now fail readiness")
+	})
+
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, test.HelloWorldText)
+	})
+
 	if env := os.Getenv("LISTEN_DELAY"); env != "" {
 		delay, err := time.ParseDuration(env)
 		if err != nil {
