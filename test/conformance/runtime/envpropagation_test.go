@@ -52,12 +52,10 @@ func TestSecretsViaEnv(t *testing.T) {
 		}
 	})
 
-	if test.ServingFlags.OnlyRequiredAPI {
-		// Container.envFrom is not required by Knative Serving API Specification.
-		return
-	}
-
 	t.Run("envFrom", func(t *testing.T) {
+		if test.ServingFlags.OnlyRequiredAPI {
+			t.Skip("Container.envFrom is not required by Knative Serving API Specification")
+		}
 		t.Parallel()
 
 		err := fetchEnvironmentAndVerify(t, clients, WithEnvFrom(corev1.EnvFromSource{
@@ -97,12 +95,10 @@ func TestConfigsViaEnv(t *testing.T) {
 		}
 	})
 
-	if test.ServingFlags.OnlyRequiredAPI {
-		// Container.envFrom is not required by Knative Serving API Specification.
-		return
-	}
-
 	t.Run("envFrom", func(t *testing.T) {
+		if test.ServingFlags.OnlyRequiredAPI {
+			t.Skip("Container.envFrom is not required by Knative Serving API Specification")
+		}
 		t.Parallel()
 
 		err := fetchEnvironmentAndVerify(t, clients, WithEnvFrom(corev1.EnvFromSource{
