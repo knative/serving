@@ -194,6 +194,20 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarImageKey: defaultSidecarImage,
 			ProgressDeadlineKey:  "1982ms",
 		},
+	}, {
+		name: "controller configuration with concurrency state endpoint",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			ProgressDeadline:               ProgressDeadlineDefault,
+			ConcurrencyStateEndpoint:       "freeze-proxy",
+		},
+		data: map[string]string{
+			QueueSidecarImageKey:        defaultSidecarImage,
+			concurrencyStateEndpointKey: "freeze-proxy",
+		},
 	}}
 
 	for _, tt := range configTests {
