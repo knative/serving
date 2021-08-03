@@ -31,6 +31,10 @@ import (
 )
 
 func TestUpdateConfigurationMetadata(t *testing.T) {
+	if test.ServingFlags.OnlyRequiredAPI {
+		t.Skip("Configuration create/patch/replace APIs are not required by Knative Serving API Specification")
+	}
+
 	t.Parallel()
 	clients := test.Setup(t)
 

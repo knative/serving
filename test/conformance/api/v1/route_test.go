@@ -97,6 +97,10 @@ func getRouteURL(clients *test.Clients, names test.ResourceNames) (*url.URL, err
 }
 
 func TestRouteCreation(t *testing.T) {
+	if test.ServingFlags.OnlyRequiredAPI {
+		t.Skip("Route create/patch/replace APIs are not required by Knative Serving API Specification")
+	}
+
 	t.Parallel()
 	clients := test.Setup(t)
 
