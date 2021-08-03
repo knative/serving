@@ -34,11 +34,10 @@ import (
 )
 
 func TestProbeRuntime(t *testing.T) {
+	t.Parallel()
 	if test.ServingFlags.OnlyRequiredAPI {
 		t.Skip("Container.readinessProbe is not required by Knative Serving API Specification")
 	}
-
-	t.Parallel()
 	clients := test.Setup(t)
 
 	var testCases = []struct {
