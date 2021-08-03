@@ -354,6 +354,19 @@ func TestMakeQueueContainer(t *testing.T) {
 				"ENABLE_HTTP2_AUTO_DETECTION": "true",
 			})
 		}),
+	}, {
+		name: "set concurrency state endpoint",
+		rev: revision("bar", "foo",
+			withContainers(containers)),
+		dc: deployment.Config{
+			ProgressDeadline:         5678 * time.Second,
+			ConcurrencyStateEndpoint: "freeze-proxy",
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"CONCURRENCY_STATE_ENDPOINT": "freeze-proxy",
+			})
+		}),
 	}}
 
 	for _, test := range tests {
@@ -879,6 +892,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 }
 
 var defaultEnv = map[string]string{
+	"CONCURRENCY_STATE_ENDPOINT":       "",
 	"CONTAINER_CONCURRENCY":            "0",
 	"ENABLE_PROFILING":                 "false",
 	"METRICS_DOMAIN":                   metrics.Domain(),

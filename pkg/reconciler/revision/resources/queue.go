@@ -361,6 +361,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "METRICS_COLLECTOR_ADDRESS",
 			Value: cfg.Observability.MetricsCollectorAddress,
+		}, {
+			Name:  "CONCURRENCY_STATE_ENDPOINT",
+			Value: cfg.Deployment.ConcurrencyStateEndpoint,
 		}},
 	}
 

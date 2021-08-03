@@ -179,6 +179,9 @@ var (
 		}, {
 			Name:  "METRICS_COLLECTOR_ADDRESS",
 			Value: "",
+		}, {
+			Name:  "CONCURRENCY_STATE_ENDPOINT",
+			Value: "",
 		}},
 	}
 

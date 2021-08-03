@@ -61,6 +61,9 @@ const (
 	queueSidecarCPULimitKey              = "queueSidecarCPULimit"
 	queueSidecarMemoryLimitKey           = "queueSidecarMemoryLimit"
 	queueSidecarEphemeralStorageLimitKey = "queueSidecarEphemeralStorageLimit"
+
+	// concurrencyStateEndpointKey is the key to configure the endpoint Queue Proxy will call when traffic drops to / increases from zero.
+	concurrencyStateEndpointKey = "concurrencyStateEndpoint"
 )
 
 var (
@@ -76,6 +79,7 @@ func defaultConfig() *Config {
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+		ConcurrencyStateEndpoint:       "",
 	}
 }
 
@@ -95,6 +99,8 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsQuantity(queueSidecarCPULimitKey, &nc.QueueSidecarCPULimit),
 		cm.AsQuantity(queueSidecarMemoryLimitKey, &nc.QueueSidecarMemoryLimit),
 		cm.AsQuantity(queueSidecarEphemeralStorageLimitKey, &nc.QueueSidecarEphemeralStorageLimit),
+
+		cm.AsString(concurrencyStateEndpointKey, &nc.ConcurrencyStateEndpoint),
 	); err != nil {
 		return nil, err
 	}
@@ -158,4 +164,7 @@ type Config struct {
 	// QueueSidecarEphemeralStorageLimit is the Ephemeral Storage Limit to set
 	// for the queue proxy sidecar container.
 	QueueSidecarEphemeralStorageLimit *resource.Quantity
+
+	// ConcurrencyStateEndpoint is the endpoint Queue Proxy will call when traffic drops to / increases from zero.
+	ConcurrencyStateEndpoint string
 }
