@@ -175,3 +175,31 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkTimeToFirstByteTimeoutHandler(b *testing.B) {
+	writes := [][]byte{[]byte("this"), []byte("is"), []byte("a"), []byte("test")}
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		for _, write := range writes {
+			w.Write(write)
+		}
+	})
+	handler := NewTimeToFirstByteTimeoutHandler(baseHandler, "test", 10*time.Minute)
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+
+	b.Run("sequential", func(b *testing.B) {
+		resp := httptest.NewRecorder()
+		for j := 0; j < b.N; j++ {
+			handler.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run("parallel", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			resp := httptest.NewRecorder()
+			for pb.Next() {
+				handler.ServeHTTP(resp, req)
+			}
+		})
+	})
+}
