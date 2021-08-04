@@ -333,7 +333,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			AutoDetectHTTP2: apicfg.Disabled,
 		},
 		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
+			ProgressDeadline: 0 * time.Second,
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
