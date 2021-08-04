@@ -75,12 +75,10 @@ func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
 	}()
 
-	var timeoutExpired bool
 	timeout := getTimer(h.timeout)
+	var timeoutExpired bool
 	defer func() {
-		if !timeoutExpired {
-			returnTimer(timeout, timeoutExpired)
-		}
+		returnTimer(timeout, timeoutExpired)
 	}()
 	for {
 		select {
@@ -91,10 +89,6 @@ func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http
 			return
 		case <-timeout.C:
 			timeoutExpired = true
-			// Return the timer early as it's practically useless from here on. This
-			// prevents very long requests (longer than the timeout) from hogging the
-			// timers unnecessarily.
-			returnTimer(timeout, timeoutExpired)
 			if tw.timeoutAndWriteError(h.body) {
 				return
 			}
