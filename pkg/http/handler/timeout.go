@@ -75,8 +75,13 @@ func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
 	}()
 
-	timeout := time.NewTimer(h.timeout)
-	defer timeout.Stop()
+	var timeoutExpired bool
+	timeout := getTimer(h.timeout)
+	defer func() {
+		if !timeoutExpired {
+			returnTimer(timeout, timeoutExpired)
+		}
+	}()
 	for {
 		select {
 		case p, ok := <-done:
@@ -85,6 +90,11 @@ func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http
 			}
 			return
 		case <-timeout.C:
+			timeoutExpired = true
+			// Return the timer early as it's practically useless from here on. This
+			// prevents very long requests (longer than the timeout) from hogging the
+			// timers unnecessarily.
+			returnTimer(timeout, timeoutExpired)
 			if tw.timeoutAndWriteError(h.body) {
 				return
 			}
@@ -172,4 +182,24 @@ func (tw *timeoutWriter) timeoutAndWriteError(msg string) bool {
 	}
 
 	return false
+}
+
+var timerPool sync.Pool
+
+func getTimer(timeout time.Duration) *time.Timer {
+	if v := timerPool.Get(); v != nil {
+		t := v.(*time.Timer)
+		t.Reset(timeout)
+		return t
+	}
+	return time.NewTimer(timeout)
+}
+
+func returnTimer(t *time.Timer, alreadyDrained bool) {
+	if !t.Stop() && !alreadyDrained {
+		// Drain t.C if we've raced expiration of the timer and haven't handled
+		// the signal above yet.
+		<-t.C
+	}
+	timerPool.Put(t)
 }
