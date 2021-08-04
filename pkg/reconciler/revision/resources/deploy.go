@@ -57,7 +57,7 @@ var (
 				Sources: []corev1.VolumeProjection{{
 					ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
 						ExpirationSeconds: ptr.Int64(600),
-						Path:              "state-token",
+						Path:              queue.ConcurrencyStateTokenName,
 						Audience:          "concurrency-state-hook"},
 				}},
 			},

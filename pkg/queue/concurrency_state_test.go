@@ -18,12 +18,15 @@ package queue
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
+	"go.uber.org/zap"
 	pkglogging "knative.dev/pkg/logging"
 	ltesting "knative.dev/pkg/logging/testing"
 
@@ -36,7 +39,9 @@ func TestConcurrencyStateHandler(t *testing.T) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
+	tokenFile := createTempTokenFile(logger)
+	defer os.Remove(tokenFile.Name())
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func(*Token) error { paused.Inc(); return nil }, func(*Token) error { resumed.Inc(); return nil }, tokenFile.Name())
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
 	if got, want := paused.Load(), int64(1); got != want {
@@ -69,7 +74,9 @@ func TestConcurrencyStateHandlerParallelSubsumed(t *testing.T) {
 		}
 	}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
+	tokenFile := createTempTokenFile(logger)
+	defer os.Remove(tokenFile.Name())
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func(*Token) error { paused.Inc(); return nil }, func(*Token) error { resumed.Inc(); return nil }, tokenFile.Name())
 
 	go func() {
 		defer func() { req1 <- struct{}{} }()
@@ -109,7 +116,9 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 		}
 	}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
+	tokenFile := createTempTokenFile(logger)
+	defer os.Remove(tokenFile.Name())
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func(*Token) error { paused.Inc(); return nil }, func(*Token) error { resumed.Inc(); return nil }, tokenFile.Name())
 
 	go func() {
 		defer func() { req1 <- struct{}{} }()
@@ -140,20 +149,20 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 	}
 }
 
-func TestConcurrencyStateRequestHeader(t *testing.T) {
+func TestConcurrencyStatePauseHeader(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for k, v := range r.Header {
 			if k == "Token" {
-				// TODO update when using token (https://github.com/knative/serving/issues/11904)
-				if v[0] != "nil" {
-					t.Errorf("incorrect token header, expected 'nil', got %s", v)
+				if v[0] != "0123456789" {
+					t.Errorf("incorrect token header, expected '0123456789', got %s", v)
 				}
 			}
 		}
 	}))
+	tempToken := createTempToken()
 	pause := Pause(ts.URL)
-	if err := pause(); err != nil {
-		t.Errorf("header check returned an error: %s", err)
+	if err := pause(tempToken); err != nil {
+		t.Errorf("pause header check returned an error: %s", err)
 	}
 }
 
@@ -171,8 +180,39 @@ func TestConcurrencyStatePauseRequest(t *testing.T) {
 	}))
 
 	pause := Pause(ts.URL)
-	if err := pause(); err != nil {
+	tempToken := createTempToken()
+	if err := pause(tempToken); err != nil {
 		t.Errorf("request test returned an error: %s", err)
+	}
+}
+
+func TestConcurrencyStatePauseResponse(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer ts.Close()
+
+	pause := Pause(ts.URL)
+	tempToken := createTempToken()
+	if err := pause(tempToken); err == nil {
+		t.Errorf("pausefunction did not return an error")
+	}
+}
+
+func TestConcurrencyStateResumeHeader(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for k, v := range r.Header {
+			if k == "Token" {
+				if v[0] != "0123456789" {
+					t.Errorf("incorrect token header, expected '0123456789', got %s", v)
+				}
+			}
+		}
+	}))
+	tempToken := createTempToken()
+	resume := Resume(ts.URL)
+	if err := resume(tempToken); err != nil {
+		t.Errorf("resume header check returned an error: %s", err)
 	}
 }
 
@@ -190,20 +230,22 @@ func TestConcurrencyStateResumeRequest(t *testing.T) {
 	}))
 
 	resume := Resume(ts.URL)
-	if err := resume(); err != nil {
+	tempToken := createTempToken()
+	if err := resume(tempToken); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
 }
 
-func TestConcurrencyStateRequestResponse(t *testing.T) {
+func TestConcurrencyStateResumeResponse(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer ts.Close()
 
-	pause := Pause(ts.URL)
-	if err := pause(); err == nil {
-		t.Errorf("failed function did not return an error")
+	resume := Resume(ts.URL)
+	tempToken := createTempToken()
+	if err := resume(tempToken); err == nil {
+		t.Errorf("resume function did not return an error")
 	}
 }
 
@@ -221,6 +263,9 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
+
+	tokenFile := createTempTokenFile(logger)
+	defer os.Remove(tokenFile.Name())
 
 	tests := []struct {
 		label        string
@@ -252,14 +297,14 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 				promStatReporter.Report(stats.Report(now))
 			}
 		}()
-		pause := func() error {
+		pause := func(*Token) error {
 			return nil
 		}
-		resume := func() error {
+		resume := func(*Token) error {
 			return nil
 		}
 
-		h := ConcurrencyStateHandler(logger, ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler), pause, resume)
+		h := ConcurrencyStateHandler(logger, ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler), pause, resume, tokenFile.Name())
 		b.Run("sequential-"+tc.label, func(b *testing.B) {
 			resp := httptest.NewRecorder()
 			for j := 0; j < b.N; j++ {
@@ -277,4 +322,28 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 
 		reportTicker.Stop()
 	}
+}
+
+// createTempTokenFile creates a temporary file with the text "0123456789" for simulating a serviceAccountToken
+// Note that it does NOT delete the temp file, this must be called separately, for example:
+//
+// tempFile := createTempTokenFile(logger)
+// defer os.Remove(tempFile.Name())
+func createTempTokenFile(logger *zap.SugaredLogger) *os.File {
+	tokenFile, err := ioutil.TempFile("", "secret")
+	if err != nil {
+		logger.Fatal(err)
+	}
+	if _, err := tokenFile.Write([]byte("0123456789")); err != nil {
+		logger.Fatal(err)
+	}
+	if err := tokenFile.Close(); err != nil {
+		logger.Fatal(err)
+	}
+	return tokenFile
+}
+
+func createTempToken() *Token {
+	token := Token{token: "0123456789"}
+	return &token
 }
