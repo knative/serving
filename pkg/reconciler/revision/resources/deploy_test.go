@@ -181,6 +181,9 @@ var (
 		}, {
 			Name:  "CONCURRENCY_STATE_ENDPOINT",
 			Value: "",
+		}, {
+			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
+			Value: "false",
 		}},
 	}
 

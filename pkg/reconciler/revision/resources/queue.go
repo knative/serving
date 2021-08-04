@@ -364,15 +364,10 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "CONCURRENCY_STATE_ENDPOINT",
 			Value: cfg.Deployment.ConcurrencyStateEndpoint,
-		}},
-	}
-
-	// Only add this if it's really enabled to avoid upgrade churn due to changing the deployment.
-	if cfg.Features.AutoDetectHTTP2 == apicfg.Enabled {
-		c.Env = append(c.Env, corev1.EnvVar{
+		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
-			Value: "true",
-		})
+			Value: strconv.FormatBool(cfg.Features.AutoDetectHTTP2 == apicfg.Enabled),
+		}},
 	}
 
 	return c, nil
