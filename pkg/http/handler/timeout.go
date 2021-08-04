@@ -76,8 +76,8 @@ func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http
 	}()
 
 	timeout := getTimer(h.timeout)
-	var timeoutExpired bool
-	defer func() { putTimer(timeout, timeoutExpired) }()
+	var timeoutDrained bool
+	defer func() { putTimer(timeout, timeoutDrained) }()
 	for {
 		select {
 		case p, ok := <-done:
@@ -86,7 +86,7 @@ func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http
 			}
 			return
 		case <-timeout.C:
-			timeoutExpired = true
+			timeoutDrained = true
 			if tw.timeoutAndWriteError(h.body) {
 				return
 			}
@@ -189,8 +189,9 @@ func getTimer(timeout time.Duration) *time.Timer {
 
 func putTimer(t *time.Timer, alreadyDrained bool) {
 	if !t.Stop() && !alreadyDrained {
-		// Drain t.C if we've raced expiration of the timer and haven't handled
-		// the signal above yet.
+		// Stop told us that we didn't *actually* stop the timer, so it expired. We've
+		// also not drained the channel yet, so the expiration raced the inner handler
+		// finishing, so we know we *have* to drain here.
 		<-t.C
 	}
 	timerPool.Put(t)
