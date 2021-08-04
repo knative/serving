@@ -72,13 +72,11 @@ var (
 		InitialScale:          1,
 		AllowZeroInitialScale: false,
 	}
-	deploymentConfig = deployment.Config{
-		ProgressDeadline: 5678 * time.Second,
-	}
-	logConfig   logging.Config
-	obsConfig   metrics.ObservabilityConfig
-	traceConfig tracingconfig.Config
-	defaults, _ = apicfg.NewDefaultsConfigFromMap(nil)
+	deploymentConfig deployment.Config
+	logConfig        logging.Config
+	obsConfig        metrics.ObservabilityConfig
+	traceConfig      tracingconfig.Config
+	defaults, _      = apicfg.NewDefaultsConfigFromMap(nil)
 )
 
 const testProbeJSONTemplate = `{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`
@@ -95,9 +93,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		want corev1.Container
 	}{{
 		name: "autoscaler single",
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		rev: revision("bar", "foo",
 			withContainers(containers),
 			withContainerConcurrency(1)),
@@ -118,7 +113,6 @@ func TestMakeQueueContainer(t *testing.T) {
 				}},
 			}})),
 		dc: deployment.Config{
-			ProgressDeadline:  5678 * time.Second,
 			QueueSidecarImage: "alpine",
 		},
 		want: queueContainer(func(c *corev1.Container) {
@@ -132,9 +126,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		}),
 	}, {
 		name: "service name in labels",
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		rev: revision("bar", "foo",
 			withContainers(containers),
 			func(revision *v1.Revision) {
@@ -149,9 +140,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		}),
 	}, {
 		name: "config owner as env var, zero concurrency",
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		rev: revision("blah", "baz",
 			withContainers(containers),
 			withContainerConcurrency(0),
@@ -174,9 +162,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		}),
 	}, {
 		name: "logging configuration as env var",
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		rev: revision("this", "log",
 			withContainers(containers)),
 		lc: logging.Config{
@@ -195,9 +180,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		}),
 	}, {
 		name: "container concurrency 10",
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		rev: revision("bar", "foo",
 			withContainers(containers),
 			withContainerConcurrency(10)),
@@ -210,9 +192,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		name: "request log configuration as env var",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		oc: metrics.ObservabilityConfig{
 			RequestLogTemplate:    "test template",
 			EnableProbeRequestLog: true,
@@ -227,9 +206,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		name: "disabled request log configuration as env var",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		oc: metrics.ObservabilityConfig{
 			RequestLogTemplate:    "test template",
 			EnableProbeRequestLog: false,
@@ -246,9 +222,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		name: "request metrics backend as env var",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		oc: metrics.ObservabilityConfig{
 			RequestMetricsBackend: "prometheus",
 		},
@@ -261,9 +234,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		name: "enable profiling",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		oc: metrics.ObservabilityConfig{EnableProfiling: true},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
@@ -273,9 +243,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		}),
 	}, {
 		name: "custom TimeoutSeconds",
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		rev: revision("bar", "foo",
 			withContainers(containers),
 			func(revision *v1.Revision) {
@@ -292,7 +259,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		rev: revision("bar", "foo",
 			withContainers(containers)),
 		dc: deployment.Config{
-			ProgressDeadline:       5678 * time.Second,
 			QueueSidecarCPURequest: &deployment.QueueSidecarCPURequestDefault,
 		},
 		want: queueContainer(func(c *corev1.Container) {
@@ -310,7 +276,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			QueueSidecarCPURequest:              resourcePtr(resource.MustParse("123m")),
 			QueueSidecarEphemeralStorageRequest: resourcePtr(resource.MustParse("456M")),
 			QueueSidecarMemoryLimit:             resourcePtr(resource.MustParse("789m")),
-			ProgressDeadline:                    5678 * time.Second,
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
@@ -330,9 +295,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			RequestMetricsBackend:   "opencensus",
 			MetricsCollectorAddress: "otel:55678",
 		},
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
 				"SERVING_REQUEST_METRICS_BACKEND": "opencensus",
@@ -346,9 +308,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		fc: apicfg.Features{
 			AutoDetectHTTP2: apicfg.Enabled,
 		},
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
 				"ENABLE_HTTP2_AUTO_DETECTION": "true",
@@ -359,13 +318,35 @@ func TestMakeQueueContainer(t *testing.T) {
 		rev: revision("bar", "foo",
 			withContainers(containers)),
 		dc: deployment.Config{
-			ProgressDeadline:         5678 * time.Second,
 			ConcurrencyStateEndpoint: "freeze-proxy",
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
 				"CONCURRENCY_STATE_ENDPOINT": "freeze-proxy",
 			})
+		}),
+	}, {
+		name: "set startup probe timeouts based on ProgressDeadline",
+		rev: revision("bar", "foo",
+			withContainers(containers)),
+		dc: deployment.Config{
+			ProgressDeadline: 1984 * time.Second,
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{})
+			c.StartupProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"/ko-app/queue", "-probe-timeout", "33m4s"},
+					},
+				},
+				// The startup probe timeout seconds is set to the progress deadline to
+				// match the timeout on initial deployment.
+				TimeoutSeconds:   1984,
+				PeriodSeconds:    1,
+				SuccessThreshold: 1,
+				FailureThreshold: 1,
+			}
 		}),
 	}}
 
@@ -414,9 +395,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		dc   deployment.Config
 	}{{
 		name: "resources percentage in annotations",
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		rev: revision("bar", "foo",
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
@@ -442,9 +420,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		}),
 	}, {
 		name: "resources percentage in annotations smaller than min allowed",
-		dc: deployment.Config{
-			ProgressDeadline: 5678 * time.Second,
-		},
 		rev: revision("bar", "foo",
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
@@ -487,7 +462,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				}}
 			}),
 		dc: deployment.Config{
-			ProgressDeadline:       5678 * time.Second,
 			QueueSidecarCPURequest: resourcePtr(resource.MustParse("25m")),
 		},
 		want: queueContainer(func(c *corev1.Container) {
@@ -514,7 +488,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				}}
 			}),
 		dc: deployment.Config{
-			ProgressDeadline:       5678 * time.Second,
 			QueueSidecarCPURequest: resourcePtr(resource.MustParse("25m")),
 		},
 		want: queueContainer(func(c *corev1.Container) {
@@ -700,6 +673,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		rev       v1.RevisionSpec
 		want      corev1.Container
 		wantProbe *corev1.Probe
+		dc        deployment.Config
 	}{{
 		name: "knative tcp probe",
 		wantProbe: &corev1.Probe{
@@ -729,6 +703,9 @@ func TestTCPProbeGeneration(t *testing.T) {
 					},
 				}},
 			},
+		},
+		dc: deployment.Config{
+			ProgressDeadline: 5678 * time.Second,
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.StartupProbe = &corev1.Probe{
@@ -878,7 +855,10 @@ func TestTCPProbeGeneration(t *testing.T) {
 				Value: string(wantProbeJSON),
 			})
 
-			got, err := makeQueueContainer(testRev, revConfig())
+			config := revConfig()
+			config.Deployment = &test.dc
+
+			got, err := makeQueueContainer(testRev, config)
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error")
 			}
