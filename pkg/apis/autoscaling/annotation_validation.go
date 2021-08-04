@@ -158,8 +158,9 @@ func validateLastPodRetention(annotations map[string]string) *apis.FieldError {
 
 func validateWindow(annotations map[string]string) *apis.FieldError {
 	if w, ok := annotations[WindowAnnotationKey]; ok {
-		if annotations[ClassAnnotationKey] == HPA && annotations[MetricAnnotationKey] == CPU {
-			return apis.ErrInvalidKeyName(WindowAnnotationKey, apis.CurrentField, fmt.Sprintf("%s for %s %s", HPA, MetricAnnotationKey, CPU))
+		if annotations[ClassAnnotationKey] == HPA && (annotations[MetricAnnotationKey] == CPU || annotations[MetricAnnotationKey] == Memory) {
+			return apis.ErrInvalidKeyName(WindowAnnotationKey, apis.CurrentField, fmt.Sprintf("%s for %s %s", HPA,
+				MetricAnnotationKey, annotations[MetricAnnotationKey]))
 		}
 		switch d, err := time.ParseDuration(w); {
 		case err != nil:
@@ -225,7 +226,7 @@ func validateMetric(annotations map[string]string) *apis.FieldError {
 			}
 		case HPA:
 			switch metric {
-			case CPU:
+			case CPU, Memory:
 				return nil
 			}
 		default:
