@@ -73,7 +73,7 @@ const (
 	//   autoscaling.knative.dev/target: "75"   # target 75% cpu utilization
 	// Or
 	//   autoscaling.knative.dev/metric: memory
-	//   autoscaling.knative.dev/target: "100"   # target 100MiB utilization
+	//   autoscaling.knative.dev/target: "100"   # target 100MiB memory usage
 	TargetAnnotationKey = GroupName + "/target"
 	// TargetMin is the minimum allowable target.
 	// This can be less than 1 due to the fact that with small container
