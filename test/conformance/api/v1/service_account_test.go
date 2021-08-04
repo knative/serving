@@ -34,7 +34,7 @@ const (
 )
 
 func TestServiceAccountValidation(t *testing.T) {
-	if test.ServingFlags.OnlyRequiredAPI {
+	if test.ServingFlags.DisableOptionalAPI {
 		t.Skip("Service.spec.serviceAccountName is not required by Knative Serving API Specification")
 	}
 

@@ -31,7 +31,7 @@ import (
 )
 
 func TestUpdateConfigurationMetadata(t *testing.T) {
-	if test.ServingFlags.OnlyRequiredAPI {
+	if test.ServingFlags.DisableOptionalAPI {
 		t.Skip("Configuration create/patch/replace APIs are not required by Knative Serving API Specification")
 	}
 

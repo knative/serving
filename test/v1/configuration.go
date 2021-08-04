@@ -119,7 +119,7 @@ func ConfigurationSpec(imagePath string) *v1.ConfigurationSpec {
 		},
 	}
 
-	if !test.ServingFlags.OnlyRequiredAPI {
+	if !test.ServingFlags.DisableOptionalAPI {
 		// Container.imagePullPolicy is not required by Knative
 		// Serving API Specification.
 		//

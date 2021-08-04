@@ -53,7 +53,7 @@ func TestSecretsViaEnv(t *testing.T) {
 	})
 
 	t.Run("envFrom", func(t *testing.T) {
-		if test.ServingFlags.OnlyRequiredAPI {
+		if test.ServingFlags.DisableOptionalAPI {
 			t.Skip("Container.envFrom is not required by Knative Serving API Specification")
 		}
 		t.Parallel()
@@ -96,7 +96,7 @@ func TestConfigsViaEnv(t *testing.T) {
 	})
 
 	t.Run("envFrom", func(t *testing.T) {
-		if test.ServingFlags.OnlyRequiredAPI {
+		if test.ServingFlags.DisableOptionalAPI {
 			t.Skip("Container.envFrom is not required by Knative Serving API Specification")
 		}
 		t.Parallel()
