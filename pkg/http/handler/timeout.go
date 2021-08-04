@@ -77,9 +77,7 @@ func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http
 
 	timeout := getTimer(h.timeout)
 	var timeoutExpired bool
-	defer func() {
-		returnTimer(timeout, timeoutExpired)
-	}()
+	defer func() { putTimer(timeout, timeoutExpired) }()
 	for {
 		select {
 		case p, ok := <-done:
@@ -189,7 +187,7 @@ func getTimer(timeout time.Duration) *time.Timer {
 	return time.NewTimer(timeout)
 }
 
-func returnTimer(t *time.Timer, alreadyDrained bool) {
+func putTimer(t *time.Timer, alreadyDrained bool) {
 	if !t.Stop() && !alreadyDrained {
 		// Drain t.C if we've raced expiration of the timer and haven't handled
 		// the signal above yet.
