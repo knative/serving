@@ -174,8 +174,27 @@ func TestProbeRuntimeAfterStartup(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	t.Log("POST to /start-failing")
+	// This WaitForEndpointState is mostly here to account for non-conformant
+	// network implementations which may not actually be "ready" immediately
+	// after reporting Ready (e.g. if they use dns).
+	// Ref: https://github.com/knative/serving/issues/11404
+	t.Log("Wait for initial readiness")
 	url := resources.Route.Status.URL.URL()
+	url.Path = "/healthz"
+	if _, err = pkgtest.WaitForEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		url,
+		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText))),
+		"readinessIsReady",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+	); err != nil {
+		t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
+	}
+
+	t.Log("POST to /start-failing")
 	client, err := pkgtest.NewSpoofingClient(context.Background(),
 		clients.KubeClient,
 		t.Logf,
