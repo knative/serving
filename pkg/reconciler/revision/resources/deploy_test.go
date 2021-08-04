@@ -80,13 +80,12 @@ var (
 		StartupProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-timeout", "1h34m38s"},
+					Command: []string{"/ko-app/queue", "-probe-timeout", "0s"},
 				},
 			},
 			PeriodSeconds:    1,
 			FailureThreshold: 1,
 			SuccessThreshold: 1,
-			TimeoutSeconds:   5678,
 		},
 		ReadinessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
