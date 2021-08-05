@@ -46,19 +46,30 @@ const (
 	cpuTarget             = 75
 	targetPods            = 5
 	concurrency           = 10
-	scaleUpTimeout        = 3 * time.Minute
-	scaleToMinimumTimeout = 10 * time.Minute // 5 minutes is the default window for hpa to calculate if should scale down
+	scaleUpTimeout        = 5 * time.Minute
+	scaleToMinimumTimeout = 15 * time.Minute // 5 minutes is the default window for hpa to calculate if should scale down
 	minPods               = 1.0
 	maxPods               = 10.0
 	primeNum              = 1000000
+	memoryTarget          = 200 // 200Mib
+	memoryTargetPods      = 8
+	bloatNum              = 200 // 200Mb
 )
 
 func TestHPAAutoscaleUpDownUp(t *testing.T) {
 	ctx := setupHPASvc(t, autoscaling.CPU, cpuTarget)
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
-	assertHPAAutoscaleUpToNumPods(ctx, targetPods, time.After(scaleUpTimeout), true /* quick */)
+	assertCPUHPAAutoscaleUpToNumPods(ctx, targetPods, time.After(scaleUpTimeout), true /* quick */)
 	assertScaleDownToOne(ctx)
-	assertHPAAutoscaleUpToNumPods(ctx, targetPods, time.After(scaleUpTimeout), true /* quick */)
+	assertCPUHPAAutoscaleUpToNumPods(ctx, targetPods, time.After(scaleUpTimeout), true /* quick */)
+}
+
+func TestHPAAutoscaleUpDownUpWithMemoryTarget(t *testing.T) {
+	ctx := setupHPASvc(t, autoscaling.Memory, memoryTarget)
+	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
+	assertMemoryHPAAutoscaleUpToNumPods(ctx, memoryTargetPods, time.After(scaleUpTimeout), true /* quick */)
+	assertScaleDownToOne(ctx)
+	assertMemoryHPAAutoscaleUpToNumPods(ctx, memoryTargetPods, time.After(scaleUpTimeout), true /* quick */)
 }
 
 func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
@@ -120,13 +131,32 @@ func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
 	}
 }
 
-func assertHPAAutoscaleUpToNumPods(ctx *TestContext, targetPods float64, done <-chan time.Time, quick bool) {
+func assertCPUHPAAutoscaleUpToNumPods(ctx *TestContext, targetPods float64, done <-chan time.Time, quick bool) {
 	ctx.t.Helper()
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
 	grp.Go(func() error {
 		return generateTrafficAtFixedConcurrencyWithCPULoad(ctx, concurrency, stopChan)
+	})
+
+	grp.Go(func() error {
+		defer close(stopChan)
+		return checkPodScale(ctx, targetPods, minPods, maxPods, done, quick)
+	})
+
+	if err := grp.Wait(); err != nil {
+		ctx.t.Fatal(err)
+	}
+}
+
+func assertMemoryHPAAutoscaleUpToNumPods(ctx *TestContext, targetPods float64, done <-chan time.Time, quick bool) {
+	ctx.t.Helper()
+
+	stopChan := make(chan struct{})
+	var grp errgroup.Group
+	grp.Go(func() error {
+		return generateTrafficAtFixedConcurrencyWithMemoryLoad(ctx, concurrency, stopChan)
 	})
 
 	grp.Go(func() error {
@@ -147,6 +177,22 @@ func generateTrafficAtFixedConcurrencyWithCPULoad(ctx *TestContext, concurrency 
 		vegeta.MaxWorkers(uint64(concurrency)))
 	target, err := getVegetaTarget(
 		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, "prime", primeNum)
+	if err != nil {
+		return fmt.Errorf("error creating vegeta target: %w", err)
+	}
+
+	ctx.logf("Maintaining %d concurrent requests.", concurrency)
+	return generateTraffic(ctx, attacker, pacer, stopChan, target)
+}
+
+func generateTrafficAtFixedConcurrencyWithMemoryLoad(ctx *TestContext, concurrency int, stopChan chan struct{}) error {
+	pacer := vegeta.ConstantPacer{} // Sends requests as quickly as possible, capped by MaxWorkers below.
+	attacker := vegeta.NewAttacker(
+		vegeta.Timeout(0), // No timeout is enforced at all.
+		vegeta.Workers(uint64(concurrency)),
+		vegeta.MaxWorkers(uint64(concurrency)))
+	target, err := getVegetaTarget(
+		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, "bloat", bloatNum)
 	if err != nil {
 		return fmt.Errorf("error creating vegeta target: %w", err)
 	}
