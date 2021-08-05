@@ -72,13 +72,11 @@ func TestContainerErrorMsg(t *testing.T) {
 		cond := r.Status.GetCondition(v1.ConfigurationConditionReady)
 		t.Logf("Config %s Ready status = %v", names.Config, cond)
 		if cond != nil {
-			if cond != nil {
-				if cond.Reason != "" && cond.Message != "" {
-					return true, nil
-				}
-				return true, fmt.Errorf("The Configuration %s has empty reason or message: (Reason=%q, Message=%q)",
-					names.Config, cond.Reason, cond.Message)
+			if cond.Reason != "" && cond.Message != "" {
+				return true, nil
 			}
+			return true, fmt.Errorf("The Configuration %s has empty reason or message: (Reason=%q, Message=%q)",
+				names.Config, cond.Reason, cond.Message)
 		}
 		return false, nil
 	})
