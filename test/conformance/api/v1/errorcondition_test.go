@@ -32,10 +32,6 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-const (
-	containerMissing = "ContainerMissing"
-)
-
 // TestContainerErrorMsg is to validate the error condition defined at
 // https://github.com/knative/docs/blob/main/docs/serving/spec/knative-api-specification-1.0.md#error-signalling
 // for the container image missing scenario.
