@@ -473,7 +473,7 @@ func enableConcurrencyState(ctx context.Context, logger *zap.SugaredLogger, env 
 		return false
 	}
 	// TODO(psschwei): validate concurrencyStateEndpoint
-	logger.Infof("concurrency state endpoint set, tracking request counts")
+	logger.Info("concurrency state endpoint set, tracking request counts")
 	return true
 
 }
