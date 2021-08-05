@@ -69,6 +69,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	names.Route = serviceresourcenames.Route(svc)
 
 	manifestUnknown := fmt.Sprint(http.StatusNotFound)
+	manifestUnauthorized := fmt.Sprint(http.StatusUnauthorized)
 
 	// Wait for ServiceState becomes NotReady. It also waits for the creation of Configuration.
 	t.Log("When the imagepath is invalid, the Configuration should have error status.")
@@ -80,12 +81,14 @@ func TestContainerErrorMsg(t *testing.T) {
 	err = v1test.CheckConfigurationState(clients.ServingClient, names.Config, func(r *v1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
-			if strings.Contains(cond.Message, manifestUnknown) && cond.IsFalse() {
+			// Registries like docker hub don't distinguish "the image doesn't exist" from "unauthorized to access the image",
+			// therefore we need to check against unauthorized error code as well
+			if (strings.Contains(cond.Message, manifestUnknown) || strings.Contains(cond.Message, manifestUnauthorized)) && cond.IsFalse() {
 				return true, nil
 			}
 			t.Logf("Reason: %s; Message: %s; Status %s", cond.Reason, cond.Message, cond.Status)
-			return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=%q, Message=%q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
-				names.Config, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
+			return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=%q, Message=%q or %q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
+				names.Config, containerMissing, manifestUnknown, manifestUnauthorized, "False", cond.Reason, cond.Message, cond.Status)
 		}
 		t.Logf("Config %s Ready status = %v", names.Config, cond)
 		return false, nil
@@ -104,11 +107,13 @@ func TestContainerErrorMsg(t *testing.T) {
 	if err = v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
 		if cond != nil {
-			if cond.Reason == containerMissing && strings.Contains(cond.Message, manifestUnknown) {
+			// Registries like docker hub don't distinguish "the image doesn't exist" from "unauthorized to access the image",
+			// therefore we need to check against unauthorized error code as well
+			if cond.Reason == containerMissing && (strings.Contains(cond.Message, manifestUnknown) || strings.Contains(cond.Message, manifestUnauthorized)) {
 				return true, nil
 			}
-			return true, fmt.Errorf("The revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
-				revisionName, containerMissing, manifestUnknown, cond.Reason, cond.Message)
+			return true, fmt.Errorf("The revision %s was not marked with expected error condition (Reason=%q, Message=%q or %q), but with (Reason=%q, Message=%q)",
+				revisionName, containerMissing, manifestUnknown, manifestUnauthorized, cond.Reason, cond.Message)
 		}
 		t.Logf("Revision %s Ready state = %#v", revisionName, cond)
 		return false, nil
