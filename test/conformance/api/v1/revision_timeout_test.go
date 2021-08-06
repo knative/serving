@@ -81,17 +81,17 @@ func TestRevisionTimeout(t *testing.T) {
 		sleep          time.Duration
 		expectedStatus int
 	}{{
-		name:           "when pods already exist, and it does not exceed timeout seconds",
+		name:           "does not exceed timeout seconds",
 		timeoutSeconds: 10,
 		initialSleep:   2 * time.Second,
 		expectedStatus: http.StatusOK,
 	}, {
-		name:           "when pods already exist, and it does exceed timeout seconds",
+		name:           "exceeds timeout seconds",
 		timeoutSeconds: 10,
 		initialSleep:   12 * time.Second,
 		expectedStatus: http.StatusGatewayTimeout,
 	}, {
-		name:           "when pods already exist, and it writes first byte before timeout",
+		name:           "writes first byte before timeout",
 		timeoutSeconds: 10,
 		expectedStatus: http.StatusOK,
 		sleep:          15 * time.Second,
