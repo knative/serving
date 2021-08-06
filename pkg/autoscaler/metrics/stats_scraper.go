@@ -77,7 +77,7 @@ var (
 )
 
 func init() {
-	if err := view.Register(
+	if err := pkgmetrics.RegisterResourceView(
 		&view.View{
 			Description: "The time to scrape metrics in milliseconds",
 			Measure:     scrapeTimeM,
