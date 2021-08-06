@@ -99,6 +99,7 @@ func TestConcurrencyStateHandler(t *testing.T) {
 			var wg sync.WaitGroup
 			wg.Add(len(tt.events))
 			for delay, length := range tt.events {
+				length := length
 				time.AfterFunc(delay, func() {
 					w := httptest.NewRecorder()
 					r := httptest.NewRequest("GET", "http://target", nil)
@@ -109,6 +110,10 @@ func TestConcurrencyStateHandler(t *testing.T) {
 			}
 
 			wg.Wait()
+			// Allow last update to finish (otherwise values are off, though this doesn't show
+			// as a race condition when running `go test -race `
+			// TODO Less hacky fix for this
+			time.Sleep(100 * time.Microsecond)
 
 			if got, want := paused.Load(), tt.pauses; got != want {
 				t.Errorf("expected to be paused %d times, but was paused %d times", want, got)
