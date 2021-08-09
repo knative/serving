@@ -292,7 +292,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	breaker := buildBreaker(logger, env)
 	metricsSupported := supportsMetrics(ctx, logger, env)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
-	concurrencyStateEnabled := enableConcurrencyState(ctx, logger, env)
+	concurrencyStateEnabled := enableConcurrencyState(logger, env)
 	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
 
 	// Create queue handler chain.
@@ -468,7 +468,7 @@ func flush(logger *zap.SugaredLogger) {
 	metrics.FlushExporter()
 }
 
-func enableConcurrencyState(ctx context.Context, logger *zap.SugaredLogger, env config) bool {
+func enableConcurrencyState(logger *zap.SugaredLogger, env config) bool {
 	if env.ConcurrencyStateEndpoint == "" {
 		return false
 	}
