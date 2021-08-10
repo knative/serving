@@ -292,13 +292,14 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	breaker := buildBreaker(logger, env)
 	metricsSupported := supportsMetrics(ctx, logger, env)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
-	concurrencyStateEnabled := enableConcurrencyState(logger, env)
+	concurrencyStateEnabled := env.ConcurrencyStateEndpoint != ""
 	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
 
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
 	if concurrencyStateEnabled {
+		logger.Info("Concurrency state endpoint set, tracking request counts")
 		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, nil, nil)
 	}
 	if metricsSupported {
@@ -466,14 +467,4 @@ func flush(logger *zap.SugaredLogger) {
 	os.Stdout.Sync()
 	os.Stderr.Sync()
 	metrics.FlushExporter()
-}
-
-func enableConcurrencyState(logger *zap.SugaredLogger, env config) bool {
-	if env.ConcurrencyStateEndpoint == "" {
-		return false
-	}
-	// TODO(psschwei): validate concurrencyStateEndpoint
-	logger.Info("concurrency state endpoint set, tracking request counts")
-	return true
-
 }

@@ -22,10 +22,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// ConcurrencyStateHandler does stuff //TODO what stuff?
-// For testing purposes, it allows passing custom pause and/or resume functions to the handler.
-// In all other cases, both the pause and resume options should be nil so as to use the default
-// functions, provided below
+// ConcurrencyStateHandler tracks the in flight requests for the pod. When the requests
+// drop to zero, it runs the `pause` function, and when requests scale up from zero, it
+// runs the `resume` function. If either of `pause` or `resume` are not passed, it runs
+// the respective local function(s). The local functions are the expected behavior; the
+// function parameters are enabled primarily for testing purposes.
 func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func()) http.HandlerFunc {
 	logger.Info("Concurrency state tracking enabled")
 
@@ -49,7 +50,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	go func() {
 		inFlight := 0
 
-		// this loop is entirely synchronous, so there's no cleverness needed in
+		// This loop is entirely synchronous, so there's no cleverness needed in
 		// ensuring open and close dont run at the same time etc. Only the
 		// delegated ServeHTTP is done in a goroutine.
 		for {
@@ -70,7 +71,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 
 				go func(r req) {
 					h.ServeHTTP(r.w, r.r)
-					close(r.done) // return from ServeHTTP.
+					close(r.done) // Return from ServeHTTP
 					doneCh <- struct{}{}
 				}(r)
 			}
@@ -80,7 +81,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	return func(w http.ResponseWriter, r *http.Request) {
 		done := make(chan struct{})
 		reqCh <- req{w, r, done}
-		// block till we're processed
+		// Block till we've processed the request
 		<-done
 	}
 }
