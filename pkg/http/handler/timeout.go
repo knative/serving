@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"context"
 	"io"
-	"math"
 	"net"
 	"net/http"
 	"sync"
@@ -53,9 +52,6 @@ type timeoutHandler struct {
 //
 // The implementation is largely inspired by http.TimeoutHandler.
 func NewTimeoutHandler(h http.Handler, msg string, firstByteTimeout time.Duration, idleTimeout time.Duration) http.Handler {
-	if idleTimeout < 0 {
-		idleTimeout = math.MaxInt64 * time.Nanosecond
-	}
 	return &timeoutHandler{
 		handler:          h,
 		body:             msg,
@@ -85,13 +81,18 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	firstByteTimeout := getTimer(h.firstByteTimeout)
 	var firstByteTimeoutDrained bool
 
-	idleTimeout := getTimer(h.idleTimeout)
-	var idleTimeoutDrained bool
+	var idleTimeout *optionalTimer
+	if h.idleTimeout < 0 {
+		idleTimeout = newOptionalTimer(nil)
+	} else {
+		idleTimeout = newOptionalTimer(getTimer(h.idleTimeout))
+	}
 
 	defer func() {
 		putTimer(firstByteTimeout, firstByteTimeoutDrained)
-		putTimer(idleTimeout, idleTimeoutDrained)
+		putOptionalTimer(idleTimeout)
 	}()
+
 	for {
 		select {
 		case p, ok := <-done:
@@ -104,15 +105,61 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if tw.tryFirstByteTimeoutAndWriteError(h.body) {
 				return
 			}
-		case <-idleTimeout.C:
-			timedOut, timeToNextTimeout := tw.tryIdleTimeoutAndWriteError(h.idleTimeout, h.body)
+		case <-idleTimeout.C():
+			timedOut, timeToNextTimeout := tw.tryIdleTimeoutAndWriteError(time.Now(), h.idleTimeout, h.body)
 			if timedOut {
-				idleTimeoutDrained = true
+				idleTimeout.SetDrained(true)
 				return
 			}
 			idleTimeout.Reset(timeToNextTimeout)
 		}
 	}
+}
+
+// optionalTimer provides a wrapper for time.Timer. When given a not-nil Timer pointer, it
+// passes operations to the Timer. When given a nil Timer pointer, it fakes the behavior of
+// a timer with a no-op channel and no-op operations
+type optionalTimer struct {
+	timer    *time.Timer
+	drained  bool
+	disabled bool
+}
+
+func newOptionalTimer(timer *time.Timer) *optionalTimer {
+	return &optionalTimer{
+		disabled: timer == nil,
+		drained:  timer == nil,
+		timer:    timer,
+	}
+}
+
+func (ot *optionalTimer) C() <-chan time.Time {
+	if ot.disabled {
+		return make(<-chan time.Time)
+	}
+	return ot.timer.C
+}
+
+func (ot *optionalTimer) Timer() (exists bool, timer *time.Timer) {
+	if ot.disabled {
+		return false, nil
+	}
+	return true, ot.timer
+}
+
+func (ot *optionalTimer) Reset(d time.Duration) bool {
+	if ot.disabled {
+		return false
+	}
+	return ot.timer.Reset(d)
+}
+
+func (ot *optionalTimer) Drained() bool {
+	return ot.drained
+}
+
+func (ot *optionalTimer) SetDrained(drained bool) {
+	ot.drained = drained
 }
 
 // timeoutWriter is a wrapper around an http.ResponseWriter. It guards
@@ -200,12 +247,12 @@ func (tw *timeoutWriter) tryFirstByteTimeoutAndWriteError(msg string) bool {
 //
 // If this writes an error, all subsequent calls to Write will
 // result in http.ErrHandlerTimeout.
-func (tw *timeoutWriter) tryIdleTimeoutAndWriteError(idleTimeout time.Duration, msg string) (timedOut bool, timeToNextTimeout time.Duration) {
+func (tw *timeoutWriter) tryIdleTimeoutAndWriteError(curTime time.Time, idleTimeout time.Duration, msg string) (timedOut bool, timeToNextTimeout time.Duration) {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 
-	timeSinceLastWrite := time.Since(tw.lastWriteTime)
-	if timeSinceLastWrite > idleTimeout {
+	timeSinceLastWrite := curTime.Sub(tw.lastWriteTime)
+	if timeSinceLastWrite >= idleTimeout {
 		tw.timeoutAndWriteError(msg)
 		return true, 0
 	}
@@ -239,4 +286,10 @@ func putTimer(t *time.Timer, alreadyDrained bool) {
 		<-t.C
 	}
 	timerPool.Put(t)
+}
+
+func putOptionalTimer(t *optionalTimer) {
+	if exists, timer := t.Timer(); exists {
+		putTimer(timer, t.Drained())
+	}
 }
