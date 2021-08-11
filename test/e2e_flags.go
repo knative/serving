@@ -31,17 +31,18 @@ var ServingFlags = initializeServingFlags()
 
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
-	ResolvableDomain    bool   // Resolve Route controller's `domainSuffix`
-	CustomDomain        string // Indicates the `domainSuffix` for custom domain test.
-	HTTPS               bool   // Indicates where the test service will be created with https
-	Buckets             int    // The number of reconciler buckets configured.
-	Replicas            int    // The number of controlplane replicas being run.
-	EnableAlphaFeatures bool   // Indicates whether we run tests for alpha features
-	EnableBetaFeatures  bool   // Indicates whether we run tests for beta features
-	DisableLogStream    bool   // Indicates whether log streaming is disabled
-	TestNamespace       string // Default namespace for Serving E2E/Conformance tests
-	AltTestNamespace    string // Alternative namespace for running cross-namespace tests in
-	TLSTestNamespace    string // Namespace for Serving TLS tests
+	AlwaysCreateRevisionOnUpdate bool   // Indicates whether a revision will always be created on Service update
+	ResolvableDomain             bool   // Resolve Route controller's `domainSuffix`
+	CustomDomain                 string // Indicates the `domainSuffix` for custom domain test.
+	HTTPS                        bool   // Indicates where the test service will be created with https
+	Buckets                      int    // The number of reconciler buckets configured.
+	Replicas                     int    // The number of controlplane replicas being run.
+	EnableAlphaFeatures          bool   // Indicates whether we run tests for alpha features
+	EnableBetaFeatures           bool   // Indicates whether we run tests for beta features
+	DisableLogStream             bool   // Indicates whether log streaming is disabled
+	TestNamespace                string // Default namespace for Serving E2E/Conformance tests
+	AltTestNamespace             string // Alternative namespace for running cross-namespace tests in
+	TLSTestNamespace             string // Namespace for Serving TLS tests
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -52,6 +53,9 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.StringVar(&f.CustomDomain, "customdomain", "",
 		"Set this flag to the custom domain suffix for domainmapping test.")
+
+	flag.BoolVar(&f.AlwaysCreateRevisionOnUpdate, "alwaysCreateRevisionOnUpdate", false,
+		"Set this flag to true if your implementaion always creates a new Revision when update a Service no matter what the change is.")
 
 	flag.BoolVar(&f.HTTPS, "https", false,
 		"Set this flag to true to run all tests with https.")

@@ -169,7 +169,7 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1.T
 			// Match the traffic shape.
 			got := map[string]v1.TrafficTarget{}
 			for _, tt := range s.Status.Traffic {
-				got[tt.Tag] = tt
+				got[tt.Tag] = setTrafficTargetDefaults(tt)
 			}
 			ignoreURLs := cmpopts.IgnoreFields(v1.TrafficTarget{}, "URL")
 			if !cmp.Equal(got, want, ignoreURLs) {
@@ -180,6 +180,17 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1.T
 			return true, nil
 		}, "Verify Service Traffic Shape",
 	)
+}
+
+func setTrafficTargetDefaults(tt v1.TrafficTarget) v1.TrafficTarget {
+	if tt.LatestRevision == nil {
+		tt.LatestRevision = ptr.Bool(false)
+	}
+	if tt.Percent == nil {
+		tt.Percent = ptr.Int64(0)
+	}
+
+	return tt
 }
 
 func TestServiceBYOName(t *testing.T) {
@@ -296,10 +307,11 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		t.Fatal("Failed to update Service:", err)
 	}
 
-	t.Log("A new Revision could be created even though the traffic target is the only change")
-	names.Revision = "" // Clean up Revision to fetch the latest created one.
-	if names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names); err != nil {
-		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
+	if test.ServingFlags.AlwaysCreateRevisionOnUpdate {
+		t.Log("A new Revision will be created even though the traffic target is the only change")
+		if names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names); err != nil {
+			t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
+		}
 	}
 
 	desiredTrafficShape := map[string]v1.TrafficTarget{
@@ -311,7 +323,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		},
 		"latest": {
 			Tag:            "latest",
-			RevisionName:   names.Revision, // This could be the same to firstVersion or a different one
+			RevisionName:   names.Revision,
 			LatestRevision: ptr.Bool(true),
 			Percent:        ptr.Int64(0),
 		},
