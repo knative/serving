@@ -287,24 +287,31 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 			RevisionName: firstRevision,
 			Percent:      ptr.Int64(100),
 		}, {
-			Tag:     "latest",
-			Percent: nil,
+			Tag:            "latest",
+			LatestRevision: ptr.Bool(true),
+			Percent:        nil,
 		}},
 	))
 	if err != nil {
 		t.Fatal("Failed to update Service:", err)
 	}
 
+	t.Log("A new Revision could be created even though the traffic target is the only change")
+	names.Revision = "" // Clean up Revision to fetch the latest created one.
+	if names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names); err != nil {
+		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
+	}
+
 	desiredTrafficShape := map[string]v1.TrafficTarget{
 		"current": {
 			Tag:            "current",
-			RevisionName:   objects.Config.Status.LatestReadyRevisionName,
+			RevisionName:   firstRevision,
 			Percent:        ptr.Int64(100),
 			LatestRevision: ptr.Bool(false),
 		},
 		"latest": {
 			Tag:            "latest",
-			RevisionName:   objects.Config.Status.LatestReadyRevisionName,
+			RevisionName:   names.Revision, // This could be the same to firstVersion or a different one
 			LatestRevision: ptr.Bool(true),
 			Percent:        ptr.Int64(0),
 		},
@@ -378,7 +385,8 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 			RevisionName: secondRevision,
 			Percent:      ptr.Int64(50),
 		}, {
-			Tag: "latest",
+			Tag:            "latest",
+			LatestRevision: ptr.Bool(true),
 		}},
 	))
 	if err != nil {
@@ -478,8 +486,9 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 			Tag:     "candidate",
 			Percent: ptr.Int64(50),
 		}, {
-			Tag:     "latest",
-			Percent: nil,
+			Tag:            "latest",
+			LatestRevision: ptr.Bool(true),
+			Percent:        nil,
 		}},
 	))
 	if err != nil {
