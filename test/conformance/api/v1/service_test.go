@@ -323,7 +323,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		},
 		"latest": {
 			Tag:            "latest",
-			RevisionName:   names.Revision,
+			RevisionName:   names.Revision, // This equals to firstRevison if no new revision was created on service update with target traffic.
 			LatestRevision: ptr.Bool(true),
 			Percent:        ptr.Int64(0),
 		},
