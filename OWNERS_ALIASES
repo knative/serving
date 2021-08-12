@@ -19,6 +19,7 @@ aliases:
   client-reviewers:
   - itsmurugappan
   client-wg-leads:
+  - dsimansk
   - navidshaikh
   - rhuss
   client-writers:
@@ -66,6 +67,7 @@ aliases:
   - matzew
   - n3wscott
   - pierDipi
+  - vaikas
   knative-admin:
   - RichieEscarez
   - bsnchan
@@ -77,14 +79,15 @@ aliases:
   - knative-prow-robot
   - knative-prow-updater-robot
   - knative-test-reporter-robot
+  - lionelvillard
   - markusthoemmes
-  - matzew
   - mbehrendt
   - pmorie
   - rhuss
   - spencerdillard
   - thisisnotapril
   - vaikas
+  - yanweiguo
   knative-milestone-maintainers:
   - ImJasonH
   - ZhiminXiang
@@ -111,8 +114,8 @@ aliases:
   - vaikas
   knative-release-leads:
   - RichieEscarez
-  - dprotaso
-  - matzew
+  - lionelvillard
+  - yanweiguo
   knative-robots:
   - knative-prow-releaser-robot
   - knative-prow-robot
