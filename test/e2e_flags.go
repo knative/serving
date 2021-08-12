@@ -55,7 +55,7 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 		"Set this flag to the custom domain suffix for domainmapping test.")
 
 	flag.BoolVar(&f.AlwaysCreateRevisionOnUpdate, "always-create-revision-on-update", false,
-		"Set this flag to true if your implementaion always creates a new Revision when update a Service no matter what the change is.")
+		"Set this flag to true if your implementation always creates a new Revision when update a Service no matter what the change is.")
 
 	flag.BoolVar(&f.HTTPS, "https", false,
 		"Set this flag to true to run all tests with https.")
