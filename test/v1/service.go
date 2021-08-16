@@ -201,16 +201,36 @@ func PatchServiceRouteSpec(t testing.TB, clients *test.Clients, names test.Resou
 	})
 }
 
-// WaitForServiceLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
-// Once an update is detected in the LatestCreatedRevisionName, the function waits for the created revision to be set in LatestReadyRevisionName
+// WaitForServiceLatestRevisionWithoutLabelCheck takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
+// Once an update is detected in the LatestCreatedRevisionName, the function waits for the created revision to
+//   1. be set in LatestReadyRevisionName
 // before returning the name of the revision.
+func WaitForServiceLatestRevisionWithoutLabelCheck(clients *test.Clients, names test.ResourceNames) (string, error) {
+	return waitForServiceLatestRevision(clients, names, false)
+}
+
+// WaitForServiceLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
+// Once an update is detected in the LatestCreatedRevisionName, the function waits for the created revision to
+//   1. become routing active
+//   2. be set in LatestReadyRevisionName
+// before returning the name of the revision.
+// NOTE: Do NOT use this for conformance tests.
 func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
+	return waitForServiceLatestRevision(clients, names, true)
+}
+
+func waitForServiceLatestRevision(clients *test.Clients, names test.ResourceNames, checkLabel bool) (string, error) {
 	var revisionName string
 	if err := WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
 		if s.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = s.Status.LatestCreatedRevisionName
+
+			if !checkLabel {
+				return true, nil
+			}
+
 			// Without this it might happen that the latest created revision is later overridden by a newer one
-			// and the following check for LatestReadyRevisionName would fail.
+			// and the following check for LatestReadyRevisionName would fail. This might happen in upgrade tests.
 			return CheckRevisionState(clients.ServingClient, revisionName, IsRevisionRoutingActive) == nil, nil
 		}
 		return false, nil
