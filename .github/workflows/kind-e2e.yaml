@@ -47,6 +47,11 @@ jobs:
           kind-image-sha: sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6
           kingress: kourier
           cluster-suffix: c${{ github.run_id }}.local
+        - k8s-version: v1.22.0
+          kind-version: v0.11.1
+          kind-image-sha: sha256:b8bda84bb3a190e6e028b1760d277454a72267a5454b57db34437c34a588d047
+          kingress: kourier
+          cluster-suffix: c${{ github.run_id }}.local
 
           # The tests in api/v1alpha1 require the --enable-alpha flag to be set,
           # and alpha components to be deployed.
