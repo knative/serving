@@ -246,7 +246,7 @@ func (ac *reconciler) mutate(ctx context.Context, req *admissionv1.AdmissionRequ
 			newDecoder.DisallowUnknownFields()
 		}
 		if err := newDecoder.Decode(&newObj); err != nil {
-			return nil, fmt.Errorf("cannot decode incoming new object: %w", err)
+			return nil, fmt.Errorf("cannot decode incoming new object: %w\noriginal:\n%#v", err, string(newBytes))
 		}
 	}
 	if len(oldBytes) != 0 {
