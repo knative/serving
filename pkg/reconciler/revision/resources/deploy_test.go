@@ -475,11 +475,12 @@ func updateContainer() containerOption {
 
 func TestMakePodSpec(t *testing.T) {
 	tests := []struct {
-		name string
-		rev  *v1.Revision
-		oc   metrics.ObservabilityConfig
-		dc   *apicfg.Defaults
-		want *corev1.PodSpec
+		name     string
+		rev      *v1.Revision
+		oc       metrics.ObservabilityConfig
+		defaults *apicfg.Defaults
+		dc       deployment.Config
+		want     *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
 		rev: revision("bar", "foo",
@@ -583,7 +584,7 @@ func TestMakePodSpec(t *testing.T) {
 			}, func(p *corev1.PodSpec) {
 				p.EnableServiceLinks = ptr.Bool(true)
 			}),
-		dc: func() *apicfg.Defaults {
+		defaults: func() *apicfg.Defaults {
 			d, _ := apicfg.NewDefaultsConfigFromMap(map[string]string{
 				"enable-service-links": "true",
 			})
@@ -610,7 +611,7 @@ func TestMakePodSpec(t *testing.T) {
 			}, func(p *corev1.PodSpec) {
 				p.EnableServiceLinks = nil
 			}),
-		dc: func() *apicfg.Defaults {
+		defaults: func() *apicfg.Defaults {
 			d, _ := apicfg.NewDefaultsConfigFromMap(map[string]string{
 				"enable-service-links": "default",
 			})
@@ -1108,14 +1109,55 @@ func TestMakePodSpec(t *testing.T) {
 						container.ReadinessProbe = nil
 					}),
 			}),
+	}, {
+		name: "concurrency state projected volume",
+		dc: deployment.Config{
+			ConcurrencyStateEndpoint: "freeze-proxy",
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+			}, {
+				Name:  sidecarContainerName,
+				Image: "ubuntu",
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}, {
+				ImageDigest: "ubuntu@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
+					c.Image = "ubuntu@sha256:deadbeef"
+				}),
+				queueContainer(func(container *corev1.Container) {
+					container.VolumeMounts = []corev1.VolumeMount{{
+						Name:      varTokenVolume.Name,
+						MountPath: "/var/run/secrets/tokens",
+					}}
+				},
+					withEnvVar("CONCURRENCY_STATE_ENDPOINT", `freeze-proxy`),
+				),
+			},
+			withAppendedVolumes(varTokenVolume),
+		),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := revConfig()
 			cfg.Observability = &test.oc
-			if test.dc != nil {
-				cfg.Defaults = test.dc
+			cfg.Deployment = &test.dc
+			if test.defaults != nil {
+				cfg.Defaults = test.defaults
 			}
 			got, err := makePodSpec(test.rev, cfg)
 			if err != nil {
