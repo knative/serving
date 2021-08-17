@@ -123,15 +123,6 @@ func IsRevisionCondition(t apis.ConditionType) bool {
 type RevisionStatus struct {
 	duckv1.Status `json:",inline"`
 
-	// ServiceName holds the name of a core Kubernetes Service resource that
-	// load balances over the pods backing this Revision.
-	// Deprecated: revision service name is effectively equal to the revision name,
-	// as per #10540.
-	// 0.23 — stop populating
-	// 0.25 — remove.
-	// +optional
-	ServiceName string `json:"serviceName,omitempty"`
-
 	// LogURL specifies the generated logging url for this particular revision
 	// based on the revision url template specified in the controller's config.
 	// +optional
