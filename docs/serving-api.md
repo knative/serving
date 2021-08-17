@@ -1417,23 +1417,6 @@ knative.dev/pkg/apis/duck/v1.Status
 </tr>
 <tr>
 <td>
-<code>serviceName</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ServiceName holds the name of a core Kubernetes Service resource that
-load balances over the pods backing this Revision.
-Deprecated: revision service name is effectively equal to the revision name,
-as per #10540.
-0.23 — stop populating
-0.25 — remove.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>logUrl</code><br/>
 <em>
 string

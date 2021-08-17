@@ -698,6 +698,3 @@ spec:
                   description: ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.
                   type: integer
                   format: int64
-                serviceName:
-                  description: 'ServiceName holds the name of a core Kubernetes Service resource that load balances over the pods backing this Revision. Deprecated: revision service name is effectively equal to the revision name, as per #10540. 0.23 — stop populating 0.25 — remove.'
-                  type: string
