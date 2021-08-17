@@ -39,6 +39,7 @@ type ServingEnvironmentFlags struct {
 	EnableAlphaFeatures bool   // Indicates whether we run tests for alpha features
 	EnableBetaFeatures  bool   // Indicates whether we run tests for beta features
 	DisableLogStream    bool   // Indicates whether log streaming is disabled
+	DisableOptionalAPI  bool   // Indicates whether to skip conformance tests against optional API
 	TestNamespace       string // Default namespace for Serving E2E/Conformance tests
 	AltTestNamespace    string // Alternative namespace for running cross-namespace tests in
 	TLSTestNamespace    string // Namespace for Serving TLS tests
@@ -70,6 +71,9 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.BoolVar(&f.DisableLogStream, "disable-logstream", false,
 		"Set this flag to disable streaming logs from system components")
+
+	flag.BoolVar(&f.DisableOptionalAPI, "disable-optional-api", false,
+		"Set this flag to skip conformance tests against optional API.")
 
 	flag.StringVar(&f.TestNamespace, "test-namespace", "serving-tests",
 		"Set this flag to change the default namespace for running tests.")

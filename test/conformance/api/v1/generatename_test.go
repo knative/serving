@@ -114,6 +114,9 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1.Route) erro
 // the system using metadata.generateName. It ensures that knative Services created this way can become ready
 // and serve requests.
 func TestServiceGenerateName(t *testing.T) {
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Metadata.generateName is not required by Knative Serving API Specification")
+	}
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -150,6 +153,9 @@ func TestServiceGenerateName(t *testing.T) {
 // 1. Become ready
 // 2. Can serve requests.
 func TestRouteAndConfigGenerateName(t *testing.T) {
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Metadata.generateName is not required by Knative Serving API Specification")
+	}
 	t.Parallel()
 	clients := test.Setup(t)
 
