@@ -21,3 +21,6 @@ set -o pipefail
 source $(dirname "$0")/../vendor/knative.dev/hack/library.sh
 
 go_update_deps "$@"
+
+# Add the subresource field to older K8s libs so that we continue to work on K8s 1.22.
+git apply "$(dirname "$0")/patches/100-subresource.patch"
