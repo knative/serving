@@ -624,6 +624,9 @@ func TestAnnotationPropagation(t *testing.T) {
 // TestServiceCreateWithMultipleContainers tests both Creation paths for a service.
 // The test performs a series of Validate steps to ensure that the service transitions as expected during each step.
 func TestServiceCreateWithMultipleContainers(t *testing.T) {
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Multiple containers support is not required by Knative Serving API Specification")
+	}
 	if !test.ServingFlags.EnableBetaFeatures {
 		t.Skip()
 	}

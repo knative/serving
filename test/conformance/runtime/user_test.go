@@ -35,6 +35,10 @@ const (
 // TestMustRunAsUser verifies that a supplied runAsUser through securityContext takes
 // effect as declared by "MUST" in the runtime-contract.
 func TestMustRunAsUser(t *testing.T) {
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Container.securityContext is not required by Knative Serving API Specification")
+	}
+
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -73,6 +77,10 @@ func TestMustRunAsUser(t *testing.T) {
 // in the Dockerfile is respected when executed in Knative as declared by "SHOULD"
 // in the runtime-contract.
 func TestShouldRunAsUserContainerDefault(t *testing.T) {
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Container.securityContext is not required by Knative Serving API Specification")
+	}
+
 	t.Parallel()
 	clients := test.Setup(t)
 	_, ri, err := fetchRuntimeInfo(t, clients)
