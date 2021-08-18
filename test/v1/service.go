@@ -201,11 +201,11 @@ func PatchServiceRouteSpec(t testing.TB, clients *test.Clients, names test.Resou
 	})
 }
 
-// WaitForServiceLatestRevisionWithoutLabelCheck takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
+// WaitForServiceLatestRevisionForConformanceTest takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
 // Once an update is detected in the LatestCreatedRevisionName, the function waits for the created revision to
 //   1. be set in LatestReadyRevisionName
 // before returning the name of the revision.
-func WaitForServiceLatestRevisionWithoutLabelCheck(clients *test.Clients, names test.ResourceNames) (string, error) {
+func WaitForServiceLatestRevisionForConformanceTest(clients *test.Clients, names test.ResourceNames) (string, error) {
 	return waitForServiceLatestRevision(clients, names, false)
 }
 
@@ -231,6 +231,8 @@ func waitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 
 			// Without this it might happen that the latest created revision is later overridden by a newer one
 			// and the following check for LatestReadyRevisionName would fail. This might happen in upgrade tests.
+			// If we can ensure that the input revision is the current `LatestCreatedRevisionName` and
+			// there is only one new revision being created, it will be sufficient without this check.
 			return CheckRevisionState(clients.ServingClient, revisionName, IsRevisionRoutingActive) == nil, nil
 		}
 		return false, nil

@@ -82,7 +82,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
-	green.Revision, err = v1test.WaitForServiceLatestRevisionWithoutLabelCheck(clients, names)
+	green.Revision, err = v1test.WaitForServiceLatestRevisionForConformanceTest(clients, names)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, greenImagePath, err)
 	}
