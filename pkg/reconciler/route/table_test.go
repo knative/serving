@@ -2719,10 +2719,11 @@ func simpleK8sService(r *v1.Route, so ...K8sServiceOption) *corev1.Service {
 
 	// omit the error here, as we are sure the loadbalancer info is provided.
 	// return the service instance only, so that the result can be used in TableRow.
-	svc, _ := resources.MakeK8sService(ctx, r, "", /*targetName*/
+	pair, _ := resources.MakeK8sService(ctx, r, "", /*targetName*/
 		simpleIngress(r, &traffic.Config{}, withReadyIngress),
-		false, "" /*clusterIP*/)
+		false /* is private */)
 
+	svc := pair.Service
 	for _, opt := range so {
 		opt(svc)
 	}
