@@ -484,7 +484,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 		t.Fatal("Failed to start watcher:", err)
 	}
 
-	grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
+	grp.Go(func() error { return ctrl.RunContext(ctx, 1) })
 
 	revClient.Create(ctx, rev, metav1.CreateOptions{})
 	revL := fakerevisioninformer.Get(ctx).Lister()
@@ -571,7 +571,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 		t.Fatal("Failed to start watcher:", err)
 	}
 
-	grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
+	grp.Go(func() error { return ctrl.RunContext(ctx, 1) })
 
 	revClient.Create(ctx, rev, metav1.CreateOptions{})
 	revL := fakerevisioninformer.Get(ctx).Lister()
@@ -649,7 +649,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		t.Fatal("Failed to start configuration manager:", err)
 	}
 
-	grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
+	grp.Go(func() error { return ctrl.RunContext(ctx, 1) })
 
 	revClient.Create(ctx, rev, metav1.CreateOptions{})
 	revL := fakerevisioninformer.Get(ctx).Lister().Revisions(rev.Namespace)
@@ -694,7 +694,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	}()
 
 	eg.Go(func() error {
-		return ctrl.Run(1, ctx.Done())
+		return ctrl.RunContext(ctx, 1)
 	})
 
 	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{}); err != nil {

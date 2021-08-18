@@ -1489,7 +1489,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 				t.Fatal("failed to start configuration manager:", err)
 			}
 
-			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
+			grp.Go(func() error { return ctrl.RunContext(ctx, 1) })
 
 			// Create a route.
 			route := Route(testNamespace, "test-route",

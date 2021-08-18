@@ -91,7 +91,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	}()
 
 	grp.Go(func() error {
-		return ctrl.Run(1, ctx.Done())
+		return ctrl.RunContext(ctx, 1)
 	})
 
 	networking := fakenetworkingclient.Get(ctx).NetworkingV1alpha1()
