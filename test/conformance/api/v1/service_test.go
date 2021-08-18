@@ -92,7 +92,7 @@ func TestServiceCreateAndUpdate(t *testing.T) {
 	}
 
 	t.Log("Service should reflect new revision created and ready in status.")
-	names.Revision, err = v1test.WaitForServiceLatestRevisionWithoutLabelCheck(clients, names)
+	names.Revision, err = v1test.WaitForServiceLatestRevisionForConformanceTest(clients, names)
 	if err != nil {
 		t.Fatal("New image not reflected in Service:", err)
 	}
@@ -123,7 +123,7 @@ func TestServiceCreateAndUpdate(t *testing.T) {
 	}
 
 	t.Log("Waiting for the new revision to appear as LatestRevision.")
-	if names.Revision, err = v1test.WaitForServiceLatestRevisionWithoutLabelCheck(clients, names); err != nil {
+	if names.Revision, err = v1test.WaitForServiceLatestRevisionForConformanceTest(clients, names); err != nil {
 		t.Fatalf("The Service %s was not updated with new revision %s after updating labels in its RevisionTemplateSpec: %v", names.Service, names.Revision, err)
 	}
 
@@ -140,7 +140,7 @@ func TestServiceCreateAndUpdate(t *testing.T) {
 	}
 
 	t.Log("Waiting for the new revision to appear as LatestRevision.")
-	names.Revision, err = v1test.WaitForServiceLatestRevisionWithoutLabelCheck(clients, names)
+	names.Revision, err = v1test.WaitForServiceLatestRevisionForConformanceTest(clients, names)
 	if err != nil {
 		t.Fatal("The new revision has not become ready in Service:", err)
 	}
@@ -335,7 +335,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	}
 
 	t.Log("Since the Service was updated a new Revision will be created")
-	if names.Revision, err = v1test.WaitForServiceLatestRevisionWithoutLabelCheck(clients, names); err != nil {
+	if names.Revision, err = v1test.WaitForServiceLatestRevisionForConformanceTest(clients, names); err != nil {
 		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
 	}
 	secondRevision := names.Revision
@@ -433,7 +433,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		t.Fatalf("Update for Service %s with new image %s failed: %v", names.Service, releaseImagePath3, err)
 	}
 	t.Log("Since the Service was updated a new Revision will be created")
-	if names.Revision, err = v1test.WaitForServiceLatestRevisionWithoutLabelCheck(clients, names); err != nil {
+	if names.Revision, err = v1test.WaitForServiceLatestRevisionForConformanceTest(clients, names); err != nil {
 		t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
 	}
 	thirdRevision := names.Revision
@@ -562,7 +562,7 @@ func TestAnnotationPropagation(t *testing.T) {
 	}
 
 	t.Log("Service should reflect new revision created and ready in status.")
-	names.Revision, err = v1test.WaitForServiceLatestRevisionWithoutLabelCheck(clients, names)
+	names.Revision, err = v1test.WaitForServiceLatestRevisionForConformanceTest(clients, names)
 	if err != nil {
 		t.Fatal("New image not reflected in Service:", err)
 	}
@@ -595,7 +595,7 @@ func TestAnnotationPropagation(t *testing.T) {
 	}
 
 	t.Log("Service should reflect new revision created and ready in status.")
-	names.Revision, err = v1test.WaitForServiceLatestRevisionWithoutLabelCheck(clients, names)
+	names.Revision, err = v1test.WaitForServiceLatestRevisionForConformanceTest(clients, names)
 	if err != nil {
 		t.Fatal("New image not reflected in Service:", err)
 	}
