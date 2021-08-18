@@ -307,13 +307,6 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		t.Fatal("Failed to update Service:", err)
 	}
 
-	if test.ServingFlags.AlwaysCreateRevisionOnUpdate {
-		t.Log("A new Revision will be created even though the traffic target is the only change")
-		if names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names); err != nil {
-			t.Fatalf("The Service %s was not updated with new revision %s: %v", names.Service, names.Revision, err)
-		}
-	}
-
 	desiredTrafficShape := map[string]v1.TrafficTarget{
 		"current": {
 			Tag:            "current",
@@ -645,6 +638,9 @@ func TestAnnotationPropagation(t *testing.T) {
 // TestServiceCreateWithMultipleContainers tests both Creation paths for a service.
 // The test performs a series of Validate steps to ensure that the service transitions as expected during each step.
 func TestServiceCreateWithMultipleContainers(t *testing.T) {
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Multiple containers support is not required by Knative Serving API Specification")
+	}
 	if !test.ServingFlags.EnableBetaFeatures {
 		t.Skip()
 	}

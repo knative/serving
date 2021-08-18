@@ -40,6 +40,10 @@ import (
 
 // TestConfigMapVolume tests that we echo back the appropriate text from the ConfigMap volume.
 func TestConfigMapVolume(t *testing.T) {
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Service.spec.volumes is not required by Knative Serving API Specification")
+	}
+
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -107,6 +111,10 @@ func TestConfigMapVolume(t *testing.T) {
 
 // TestProjectedConfigMapVolume tests that we echo back the appropriate text from the ConfigMap volume.
 func TestProjectedConfigMapVolume(t *testing.T) {
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Service.spec.volumes is not required by Knative Serving API Specification")
+	}
+
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -177,6 +185,9 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 // TestSecretVolume tests that we echo back the appropriate text from the Secret volume.
 func TestSecretVolume(t *testing.T) {
 	t.Parallel()
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Service.spec.volumes is not required by Knative Serving API Specification")
+	}
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
@@ -240,6 +251,9 @@ func TestSecretVolume(t *testing.T) {
 // TestProjectedSecretVolume tests that we echo back the appropriate text from the Secret volume.
 func TestProjectedSecretVolume(t *testing.T) {
 	t.Parallel()
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Service.spec.volumes is not required by Knative Serving API Specification")
+	}
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
@@ -307,6 +321,9 @@ func TestProjectedSecretVolume(t *testing.T) {
 // TestProjectedComplex tests that we echo back the appropriate text from the complex Projected volume.
 func TestProjectedComplex(t *testing.T) {
 	t.Parallel()
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Service.spec.volumes is not required by Knative Serving API Specification")
+	}
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
@@ -410,6 +427,9 @@ func TestProjectedComplex(t *testing.T) {
 // TestProjectedServiceAccountToken tests that a valid JWT service account token can be mounted.
 func TestProjectedServiceAccountToken(t *testing.T) {
 	t.Parallel()
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Service.spec.volumes is not required by Knative Serving API Specification")
+	}
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{

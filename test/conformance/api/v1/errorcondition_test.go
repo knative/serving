@@ -21,23 +21,15 @@ package v1
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ptest "knative.dev/pkg/test"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
-
-	rtesting "knative.dev/serving/pkg/testing/v1"
-)
-
-const (
-	containerMissing = "ContainerMissing"
 )
 
 // TestContainerErrorMsg is to validate the error condition defined at
@@ -68,29 +60,24 @@ func TestContainerErrorMsg(t *testing.T) {
 	names.Config = serviceresourcenames.Configuration(svc)
 	names.Route = serviceresourcenames.Route(svc)
 
-	manifestUnknown := fmt.Sprint(http.StatusNotFound)
-	manifestUnauthorized := fmt.Sprint(http.StatusUnauthorized)
-
 	// Wait for ServiceState becomes NotReady. It also waits for the creation of Configuration.
-	t.Log("When the imagepath is invalid, the Configuration should have error status.")
+	t.Log("When the imagepath is invalid, the Service should have error status.")
 	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceAndChildrenFailed, "ServiceIsFailed"); err != nil {
 		t.Fatalf("The Service %s was unexpected state: %v", names.Service, err)
 	}
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
+	t.Log("When the imagepath is invalid, the Configuration should have error status.")
 	err = v1test.CheckConfigurationState(clients.ServingClient, names.Config, func(r *v1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1.ConfigurationConditionReady)
-		if cond != nil && !cond.IsUnknown() {
-			// Registries like docker hub don't distinguish "the image doesn't exist" from "unauthorized to access the image",
-			// therefore we need to check against unauthorized error code as well
-			if (strings.Contains(cond.Message, manifestUnknown) || strings.Contains(cond.Message, manifestUnauthorized)) && cond.IsFalse() {
+		t.Logf("Config %s Ready status = %v", names.Config, cond)
+		if cond != nil {
+			if cond.Reason != "" && cond.Message != "" {
 				return true, nil
 			}
-			t.Logf("Reason: %s; Message: %s; Status %s", cond.Reason, cond.Message, cond.Status)
-			return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=%q, Message=%q or %q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
-				names.Config, containerMissing, manifestUnknown, manifestUnauthorized, "False", cond.Reason, cond.Message, cond.Status)
+			return true, fmt.Errorf("The Configuration %s has empty reason or message: (Reason=%q, Message=%q)",
+				names.Config, cond.Reason, cond.Message)
 		}
-		t.Logf("Config %s Ready status = %v", names.Config, cond)
 		return false, nil
 	})
 
@@ -103,19 +90,17 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
 	}
 
-	t.Log("When the imagepath is invalid, the revision should have error status.")
+	t.Log("When the imagepath is invalid, the Revision should have error status.")
 	if err = v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
+		t.Logf("Revision %s Ready state = %#v", revisionName, cond)
 		if cond != nil {
-			// Registries like docker hub don't distinguish "the image doesn't exist" from "unauthorized to access the image",
-			// therefore we need to check against unauthorized error code as well
-			if cond.Reason == containerMissing && (strings.Contains(cond.Message, manifestUnknown) || strings.Contains(cond.Message, manifestUnauthorized)) {
+			if cond.Reason != "" && cond.Message != "" {
 				return true, nil
 			}
-			return true, fmt.Errorf("The revision %s was not marked with expected error condition (Reason=%q, Message=%q or %q), but with (Reason=%q, Message=%q)",
-				revisionName, containerMissing, manifestUnknown, manifestUnauthorized, cond.Reason, cond.Message)
+			return true, fmt.Errorf("The Revision %s has empty reason or message: (Reason=%q, Message=%q)",
+				revisionName, cond.Reason, cond.Message)
 		}
-		t.Logf("Revision %s Ready state = %#v", revisionName, cond)
 		return false, nil
 	}); err != nil {
 		t.Fatal("Failed to validate revision state:", err)
@@ -133,80 +118,62 @@ func TestContainerErrorMsg(t *testing.T) {
 // for the container crashing scenario.
 func TestContainerExitingMsg(t *testing.T) {
 	t.Parallel()
-	const (
-		// The given image will always exit with an exit code of 5
-		exitCodeReason = "ExitCode5"
-		// ... and will print "Crashed..." before it exits
-		errorLog = "Crashed..."
-	)
 
-	tests := []struct {
-		Name           string
-		ReadinessProbe *corev1.Probe
-	}{{
-		Name: "http",
-		ReadinessProbe: &corev1.Probe{
-			Handler: corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{},
-			},
-		},
-	}, {
-		Name: "tcp",
-		ReadinessProbe: &corev1.Probe{
-			Handler: corev1.Handler{
-				TCPSocket: &corev1.TCPSocketAction{},
-			},
-		},
-	}}
+	clients := test.Setup(t)
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.Name, func(t *testing.T) {
-			t.Parallel()
-			clients := test.Setup(t)
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.Failing,
+	}
 
-			names := test.ResourceNames{
-				Config: test.ObjectNameForTest(t),
-				Image:  test.Failing,
+	test.EnsureTearDown(t, clients, &names)
+
+	t.Log("Creating a new Service", names.Config)
+	svc, err := v1test.CreateService(t, clients, names)
+	if err != nil {
+		t.Fatalf("Failed to create Service %s: %v", names.Service, err)
+	}
+
+	// Wait for ServiceState becomes NotReady. It also waits for the creation of Configuration.
+	t.Log("When the containers keep crashing, the Service should have error status.")
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceAndChildrenFailed, "ServiceIsFailed"); err != nil {
+		t.Fatalf("The Service %s was unexpected state: %v", names.Service, err)
+	}
+
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	t.Log("When the containers keep crashing, the Configuration should have error status.")
+	if err := v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1.Configuration) (bool, error) {
+		names.Revision = r.Status.LatestCreatedRevisionName
+		cond := r.Status.GetCondition(v1.ConfigurationConditionReady)
+		t.Logf("Configuration %s Ready = %#v", names.Config, cond)
+		if cond != nil {
+			if cond.Reason != "" && cond.Message != "" {
+				return true, nil
 			}
+			return true, fmt.Errorf("The Configuration %s has empty reason or message: (Reason=%q, Message=%q)",
+				names.Config, cond.Reason, cond.Message)
+		}
+		return false, nil
+	}, "ConfigContainersCrashing"); err != nil {
+		t.Fatal("Failed to validate configuration state:", err)
+	}
 
-			test.EnsureTearDown(t, clients, &names)
-
-			t.Log("Creating a new Configuration", names.Config)
-
-			if _, err := v1test.CreateConfiguration(t, clients, names, rtesting.WithConfigReadinessProbe(tt.ReadinessProbe)); err != nil {
-				t.Fatalf("Failed to create configuration %s: %v", names.Config, err)
+	t.Log("When the containers keep crashing, the Revision should have error status.")
+	err = v1test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1.Revision) (bool, error) {
+		cond := r.Status.GetCondition(v1.RevisionConditionReady)
+		t.Logf("Revsion %s Ready status = %v", names.Revision, cond)
+		if cond != nil {
+			if cond.Reason != "" && cond.Message != "" {
+				return true, nil
 			}
-
-			t.Log("When the containers keep crashing, the Configuration should have error status.")
-			if err := v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1.Configuration) (bool, error) {
-				names.Revision = r.Status.LatestCreatedRevisionName
-				cond := r.Status.GetCondition(v1.ConfigurationConditionReady)
-				if cond != nil && !cond.IsUnknown() {
-					return true, nil
-				}
-				t.Logf("Configuration %s Ready = %#v", names.Config, cond)
-				return false, nil
-			}, "ConfigContainersCrashing"); err != nil {
-				t.Fatal("Failed to validate configuration state:", err)
-			}
-
-			t.Log("When the containers keep crashing, the revision should have error status.")
-			err := v1test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1.Revision) (bool, error) {
-				// We may not be the only condition surfacing this failure status, so instead of requiring the Ready
-				// condition to pick our message to bubble up, just check that one of the failing sub conditions has
-				for _, cond := range r.Status.Conditions {
-					if cond.Reason == exitCodeReason && strings.Contains(cond.Message, errorLog) {
-						return true, nil
-					}
-				}
-				return true, fmt.Errorf("the revision %s was not marked with expected error condition (Reason=%s, Message=%q), but with %#v",
-					names.Revision, exitCodeReason, errorLog, r.Status.Conditions)
-			})
-			if err != nil {
-				t.Fatal("Failed to validate revision state:", err)
-			}
-		})
+			return true, fmt.Errorf("The revision %s has empty reason or message: (Reason=%q, Message=%q)",
+				names.Revision, cond.Reason, cond.Message)
+		}
+		return false, nil
+	})
+	if err != nil {
+		t.Fatal("Failed to validate revision state:", err)
 	}
 }
 

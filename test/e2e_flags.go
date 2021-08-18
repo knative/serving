@@ -31,18 +31,18 @@ var ServingFlags = initializeServingFlags()
 
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
-	AlwaysCreateRevisionOnUpdate bool   // Indicates whether a revision will always be created on Service update
-	ResolvableDomain             bool   // Resolve Route controller's `domainSuffix`
-	CustomDomain                 string // Indicates the `domainSuffix` for custom domain test.
-	HTTPS                        bool   // Indicates where the test service will be created with https
-	Buckets                      int    // The number of reconciler buckets configured.
-	Replicas                     int    // The number of controlplane replicas being run.
-	EnableAlphaFeatures          bool   // Indicates whether we run tests for alpha features
-	EnableBetaFeatures           bool   // Indicates whether we run tests for beta features
-	DisableLogStream             bool   // Indicates whether log streaming is disabled
-	TestNamespace                string // Default namespace for Serving E2E/Conformance tests
-	AltTestNamespace             string // Alternative namespace for running cross-namespace tests in
-	TLSTestNamespace             string // Namespace for Serving TLS tests
+	ResolvableDomain    bool   // Resolve Route controller's `domainSuffix`
+	CustomDomain        string // Indicates the `domainSuffix` for custom domain test.
+	HTTPS               bool   // Indicates where the test service will be created with https
+	Buckets             int    // The number of reconciler buckets configured.
+	Replicas            int    // The number of controlplane replicas being run.
+	EnableAlphaFeatures bool   // Indicates whether we run tests for alpha features
+	EnableBetaFeatures  bool   // Indicates whether we run tests for beta features
+	DisableLogStream    bool   // Indicates whether log streaming is disabled
+	DisableOptionalAPI  bool   // Indicates whether to skip conformance tests against optional API
+	TestNamespace       string // Default namespace for Serving E2E/Conformance tests
+	AltTestNamespace    string // Alternative namespace for running cross-namespace tests in
+	TLSTestNamespace    string // Namespace for Serving TLS tests
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -53,9 +53,6 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.StringVar(&f.CustomDomain, "customdomain", "",
 		"Set this flag to the custom domain suffix for domainmapping test.")
-
-	flag.BoolVar(&f.AlwaysCreateRevisionOnUpdate, "always-create-revision-on-update", false,
-		"Set this flag to true if your implementation always creates a new Revision when update a Service no matter what the change is.")
 
 	flag.BoolVar(&f.HTTPS, "https", false,
 		"Set this flag to true to run all tests with https.")
@@ -74,6 +71,9 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.BoolVar(&f.DisableLogStream, "disable-logstream", false,
 		"Set this flag to disable streaming logs from system components")
+
+	flag.BoolVar(&f.DisableOptionalAPI, "disable-optional-api", false,
+		"Set this flag to skip conformance tests against optional API.")
 
 	flag.StringVar(&f.TestNamespace, "test-namespace", "serving-tests",
 		"Set this flag to change the default namespace for running tests.")
