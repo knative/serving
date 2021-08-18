@@ -310,13 +310,13 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	desiredTrafficShape := map[string]v1.TrafficTarget{
 		"current": {
 			Tag:            "current",
-			RevisionName:   firstRevision,
+			RevisionName:   objects.Config.Status.LatestReadyRevisionName,
 			Percent:        ptr.Int64(100),
 			LatestRevision: ptr.Bool(false),
 		},
 		"latest": {
 			Tag:            "latest",
-			RevisionName:   names.Revision, // This equals to firstRevison if no new revision was created on service update with target traffic.
+			RevisionName:   objects.Config.Status.LatestReadyRevisionName,
 			LatestRevision: ptr.Bool(true),
 			Percent:        ptr.Int64(0),
 		},
