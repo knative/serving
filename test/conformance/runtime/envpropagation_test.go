@@ -34,6 +34,9 @@ func TestSecretsViaEnv(t *testing.T) {
 	clients := test.Setup(t)
 
 	t.Run("env", func(t *testing.T) {
+		if test.ServingFlags.DisableOptionalAPI {
+			t.Skip("Container.env.valueFrom is not required by Knative Serving API Specification")
+		}
 		t.Parallel()
 
 		err := fetchEnvironmentAndVerify(t, clients, WithEnv(corev1.EnvVar{
@@ -77,6 +80,9 @@ func TestConfigsViaEnv(t *testing.T) {
 	clients := test.Setup(t)
 
 	t.Run("env", func(t *testing.T) {
+		if test.ServingFlags.DisableOptionalAPI {
+			t.Skip("Container.env.valueFrom is not required by Knative Serving API Specification")
+		}
 		t.Parallel()
 
 		err := fetchEnvironmentAndVerify(t, clients, WithEnv(corev1.EnvVar{
