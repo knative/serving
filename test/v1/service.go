@@ -201,12 +201,12 @@ func PatchServiceRouteSpec(t testing.TB, clients *test.Clients, names test.Resou
 	})
 }
 
-// WaitForServiceSingleLatestRevisionReady takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
+// WaitForServiceSingleLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
 // Once an update is detected in the LatestCreatedRevisionName, the function waits for the created revision to
 //   1. be set in LatestReadyRevisionName
 // before returning the name of the revision.
 // The caller must ensure that there is only one new revision being created.
-func WaitForServiceSingleLatestRevisionReady(clients *test.Clients, names test.ResourceNames) (string, error) {
+func WaitForServiceSingleLatestRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
 	return waitForServiceLatestRevision(clients, names, false)
 }
 
