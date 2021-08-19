@@ -70,25 +70,25 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		wantStatus   int
 		wantBody     string
 	}{{
-		name:       "alive: true, K-Probe",
+		name:       "alive: true",
 		alive:      true,
 		wantStatus: http.StatusOK,
 		wantBody:   queue.Name,
 	}, {
-		name:       "alive: false, prober: true, K-Probe",
+		name:       "alive: false, prober: true",
 		prober:     func() bool { return true },
 		wantStatus: http.StatusOK,
 		wantBody:   queue.Name,
 	}, {
-		name:       "alive: false, prober: false, K-Probe",
+		name:       "alive: false, prober: false",
 		prober:     func() bool { return false },
 		wantStatus: http.StatusServiceUnavailable,
 	}, {
-		name:       "alive: false, no prober, K-Probe",
+		name:       "alive: false, no prober",
 		wantStatus: http.StatusOK,
 		wantBody:   queue.Name,
 	}, {
-		name:         "shuttingDown: true, K-Probe",
+		name:         "shuttingDown: true",
 		shuttingDown: true,
 		wantStatus:   http.StatusGone,
 	}, {
