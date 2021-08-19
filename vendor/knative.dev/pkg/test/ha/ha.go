@@ -99,7 +99,8 @@ func WaitForNewLeaders(ctx context.Context, t *testing.T, client kubernetes.Inte
 }
 
 // WaitForNewLeader waits until the holder of the given lease is different from the previousLeader.
-// DEPRECATED: Use WaitForNewLeaders.
+//
+// Deprecated: Use WaitForNewLeaders.
 func WaitForNewLeader(ctx context.Context, client kubernetes.Interface, lease, namespace, previousLeader string) (string, error) {
 	span := logging.GetEmitableSpan(ctx, "WaitForNewLeader/"+lease)
 	defer span.End()

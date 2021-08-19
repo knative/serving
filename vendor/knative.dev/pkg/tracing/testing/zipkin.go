@@ -38,6 +38,7 @@ func FakeZipkinExporter() (*recorder.ReporterRecorder, tracing.ConfigOption) {
 	// Create tracer with reporter recorder
 	reporter := recorder.NewReporter()
 	endpoint, _ := openzipkin.NewEndpoint("test", "localhost:1234")
+	//nolint:staticcheck // This is the new endpoint we're asking clients to use.
 	exp := tracing.WithZipkinExporter(func(cfg *config.Config) (zipkinreporter.Reporter, error) {
 		return reporter, nil
 	}, endpoint)

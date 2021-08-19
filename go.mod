@@ -47,9 +47,9 @@ require (
 	k8s.io/klog/v2 v2.5.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
-	knative.dev/caching v0.0.0-20210803185815-4e553d2275a0
-	knative.dev/hack v0.0.0-20210622141627-e28525d8d260
-	knative.dev/networking v0.0.0-20210803181815-acdfd41c575c
-	knative.dev/pkg v0.0.0-20210803160015-21eb4c167cc5
+	knative.dev/caching v0.0.0-20210812143335-09262d85c8b6
+	knative.dev/hack v0.0.0-20210806075220-815cd312d65c
+	knative.dev/networking v0.0.0-20210817163017-90ed29aa1bd7
+	knative.dev/pkg v0.0.0-20210818135208-7b5ecbc0e477
 	sigs.k8s.io/yaml v1.2.0
 )
