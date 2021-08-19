@@ -20,25 +20,44 @@ package client
 
 import (
 	context "context"
+	json "encoding/json"
+	errors "errors"
+	fmt "fmt"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	types "k8s.io/apimachinery/pkg/types"
+	watch "k8s.io/apimachinery/pkg/watch"
+	discovery "k8s.io/client-go/discovery"
+	dynamic "k8s.io/client-go/dynamic"
 	rest "k8s.io/client-go/rest"
+	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	versioned "knative.dev/networking/pkg/client/clientset/versioned"
+	typednetworkingv1alpha1 "knative.dev/networking/pkg/client/clientset/versioned/typed/networking/v1alpha1"
 	injection "knative.dev/pkg/injection"
+	dynamicclient "knative.dev/pkg/injection/clients/dynamicclient"
 	logging "knative.dev/pkg/logging"
 )
 
 func init() {
-	injection.Default.RegisterClient(withClient)
+	injection.Default.RegisterClient(withClientFromConfig)
 	injection.Default.RegisterClientFetcher(func(ctx context.Context) interface{} {
 		return Get(ctx)
 	})
+	injection.Dynamic.RegisterDynamicClient(withClientFromDynamic)
 }
 
 // Key is used as the key for associating information with a context.Context.
 type Key struct{}
 
-func withClient(ctx context.Context, cfg *rest.Config) context.Context {
+func withClientFromConfig(ctx context.Context, cfg *rest.Config) context.Context {
 	return context.WithValue(ctx, Key{}, versioned.NewForConfigOrDie(cfg))
+}
+
+func withClientFromDynamic(ctx context.Context) context.Context {
+	return context.WithValue(ctx, Key{}, &wrapClient{dyn: dynamicclient.Get(ctx)})
 }
 
 // Get extracts the versioned.Interface client from the context.
@@ -54,4 +73,814 @@ func Get(ctx context.Context) versioned.Interface {
 		}
 	}
 	return untyped.(versioned.Interface)
+}
+
+type wrapClient struct {
+	dyn dynamic.Interface
+}
+
+var _ versioned.Interface = (*wrapClient)(nil)
+
+func (w *wrapClient) Discovery() discovery.DiscoveryInterface {
+	panic("Discovery called on dynamic client!")
+}
+
+func convert(from interface{}, to runtime.Object) error {
+	bs, err := json.Marshal(from)
+	if err != nil {
+		return fmt.Errorf("Marshal() = %w", err)
+	}
+	if err := json.Unmarshal(bs, to); err != nil {
+		return fmt.Errorf("Unmarshal() = %w", err)
+	}
+	return nil
+}
+
+// NetworkingV1alpha1 retrieves the NetworkingV1alpha1Client
+func (w *wrapClient) NetworkingV1alpha1() typednetworkingv1alpha1.NetworkingV1alpha1Interface {
+	return &wrapNetworkingV1alpha1{
+		dyn: w.dyn,
+	}
+}
+
+type wrapNetworkingV1alpha1 struct {
+	dyn dynamic.Interface
+}
+
+func (w *wrapNetworkingV1alpha1) RESTClient() rest.Interface {
+	panic("RESTClient called on dynamic client!")
+}
+
+func (w *wrapNetworkingV1alpha1) Certificates(namespace string) typednetworkingv1alpha1.CertificateInterface {
+	return &wrapNetworkingV1alpha1CertificateImpl{
+		dyn: w.dyn.Resource(schema.GroupVersionResource{
+			Group:    "networking.internal.knative.dev",
+			Version:  "v1alpha1",
+			Resource: "certificates",
+		}),
+
+		namespace: namespace,
+	}
+}
+
+type wrapNetworkingV1alpha1CertificateImpl struct {
+	dyn dynamic.NamespaceableResourceInterface
+
+	namespace string
+}
+
+var _ typednetworkingv1alpha1.CertificateInterface = (*wrapNetworkingV1alpha1CertificateImpl)(nil)
+
+func (w *wrapNetworkingV1alpha1CertificateImpl) Create(ctx context.Context, in *v1alpha1.Certificate, opts v1.CreateOptions) (*v1alpha1.Certificate, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Certificate",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Namespace(w.namespace).Create(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Certificate{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1CertificateImpl) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+	return w.dyn.Namespace(w.namespace).Delete(ctx, name, opts)
+}
+
+func (w *wrapNetworkingV1alpha1CertificateImpl) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	return w.dyn.Namespace(w.namespace).DeleteCollection(ctx, opts, listOpts)
+}
+
+func (w *wrapNetworkingV1alpha1CertificateImpl) Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Certificate, error) {
+	uo, err := w.dyn.Namespace(w.namespace).Get(ctx, name, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Certificate{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1CertificateImpl) List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.CertificateList, error) {
+	uo, err := w.dyn.Namespace(w.namespace).List(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.CertificateList{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1CertificateImpl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Certificate, err error) {
+	uo, err := w.dyn.Namespace(w.namespace).Patch(ctx, name, pt, data, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Certificate{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1CertificateImpl) Update(ctx context.Context, in *v1alpha1.Certificate, opts v1.UpdateOptions) (*v1alpha1.Certificate, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Certificate",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Namespace(w.namespace).Update(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Certificate{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1CertificateImpl) UpdateStatus(ctx context.Context, in *v1alpha1.Certificate, opts v1.UpdateOptions) (*v1alpha1.Certificate, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Certificate",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Namespace(w.namespace).UpdateStatus(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Certificate{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1CertificateImpl) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+	return nil, errors.New("NYI: Watch")
+}
+
+func (w *wrapNetworkingV1alpha1) ClusterDomainClaims() typednetworkingv1alpha1.ClusterDomainClaimInterface {
+	return &wrapNetworkingV1alpha1ClusterDomainClaimImpl{
+		dyn: w.dyn.Resource(schema.GroupVersionResource{
+			Group:    "networking.internal.knative.dev",
+			Version:  "v1alpha1",
+			Resource: "clusterdomainclaims",
+		}),
+	}
+}
+
+type wrapNetworkingV1alpha1ClusterDomainClaimImpl struct {
+	dyn dynamic.NamespaceableResourceInterface
+}
+
+var _ typednetworkingv1alpha1.ClusterDomainClaimInterface = (*wrapNetworkingV1alpha1ClusterDomainClaimImpl)(nil)
+
+func (w *wrapNetworkingV1alpha1ClusterDomainClaimImpl) Create(ctx context.Context, in *v1alpha1.ClusterDomainClaim, opts v1.CreateOptions) (*v1alpha1.ClusterDomainClaim, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "ClusterDomainClaim",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Create(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.ClusterDomainClaim{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ClusterDomainClaimImpl) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+	return w.dyn.Delete(ctx, name, opts)
+}
+
+func (w *wrapNetworkingV1alpha1ClusterDomainClaimImpl) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	return w.dyn.DeleteCollection(ctx, opts, listOpts)
+}
+
+func (w *wrapNetworkingV1alpha1ClusterDomainClaimImpl) Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ClusterDomainClaim, error) {
+	uo, err := w.dyn.Get(ctx, name, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.ClusterDomainClaim{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ClusterDomainClaimImpl) List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ClusterDomainClaimList, error) {
+	uo, err := w.dyn.List(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.ClusterDomainClaimList{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ClusterDomainClaimImpl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterDomainClaim, err error) {
+	uo, err := w.dyn.Patch(ctx, name, pt, data, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.ClusterDomainClaim{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ClusterDomainClaimImpl) Update(ctx context.Context, in *v1alpha1.ClusterDomainClaim, opts v1.UpdateOptions) (*v1alpha1.ClusterDomainClaim, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "ClusterDomainClaim",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Update(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.ClusterDomainClaim{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ClusterDomainClaimImpl) UpdateStatus(ctx context.Context, in *v1alpha1.ClusterDomainClaim, opts v1.UpdateOptions) (*v1alpha1.ClusterDomainClaim, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "ClusterDomainClaim",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.UpdateStatus(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.ClusterDomainClaim{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ClusterDomainClaimImpl) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+	return nil, errors.New("NYI: Watch")
+}
+
+func (w *wrapNetworkingV1alpha1) Domains() typednetworkingv1alpha1.DomainInterface {
+	return &wrapNetworkingV1alpha1DomainImpl{
+		dyn: w.dyn.Resource(schema.GroupVersionResource{
+			Group:    "networking.internal.knative.dev",
+			Version:  "v1alpha1",
+			Resource: "domains",
+		}),
+	}
+}
+
+type wrapNetworkingV1alpha1DomainImpl struct {
+	dyn dynamic.NamespaceableResourceInterface
+}
+
+var _ typednetworkingv1alpha1.DomainInterface = (*wrapNetworkingV1alpha1DomainImpl)(nil)
+
+func (w *wrapNetworkingV1alpha1DomainImpl) Create(ctx context.Context, in *v1alpha1.Domain, opts v1.CreateOptions) (*v1alpha1.Domain, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Domain",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Create(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Domain{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1DomainImpl) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+	return w.dyn.Delete(ctx, name, opts)
+}
+
+func (w *wrapNetworkingV1alpha1DomainImpl) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	return w.dyn.DeleteCollection(ctx, opts, listOpts)
+}
+
+func (w *wrapNetworkingV1alpha1DomainImpl) Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Domain, error) {
+	uo, err := w.dyn.Get(ctx, name, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Domain{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1DomainImpl) List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.DomainList, error) {
+	uo, err := w.dyn.List(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.DomainList{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1DomainImpl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Domain, err error) {
+	uo, err := w.dyn.Patch(ctx, name, pt, data, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Domain{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1DomainImpl) Update(ctx context.Context, in *v1alpha1.Domain, opts v1.UpdateOptions) (*v1alpha1.Domain, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Domain",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Update(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Domain{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1DomainImpl) UpdateStatus(ctx context.Context, in *v1alpha1.Domain, opts v1.UpdateOptions) (*v1alpha1.Domain, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Domain",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.UpdateStatus(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Domain{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1DomainImpl) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+	return nil, errors.New("NYI: Watch")
+}
+
+func (w *wrapNetworkingV1alpha1) Ingresses(namespace string) typednetworkingv1alpha1.IngressInterface {
+	return &wrapNetworkingV1alpha1IngressImpl{
+		dyn: w.dyn.Resource(schema.GroupVersionResource{
+			Group:    "networking.internal.knative.dev",
+			Version:  "v1alpha1",
+			Resource: "ingresses",
+		}),
+
+		namespace: namespace,
+	}
+}
+
+type wrapNetworkingV1alpha1IngressImpl struct {
+	dyn dynamic.NamespaceableResourceInterface
+
+	namespace string
+}
+
+var _ typednetworkingv1alpha1.IngressInterface = (*wrapNetworkingV1alpha1IngressImpl)(nil)
+
+func (w *wrapNetworkingV1alpha1IngressImpl) Create(ctx context.Context, in *v1alpha1.Ingress, opts v1.CreateOptions) (*v1alpha1.Ingress, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Ingress",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Namespace(w.namespace).Create(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Ingress{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1IngressImpl) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+	return w.dyn.Namespace(w.namespace).Delete(ctx, name, opts)
+}
+
+func (w *wrapNetworkingV1alpha1IngressImpl) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	return w.dyn.Namespace(w.namespace).DeleteCollection(ctx, opts, listOpts)
+}
+
+func (w *wrapNetworkingV1alpha1IngressImpl) Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Ingress, error) {
+	uo, err := w.dyn.Namespace(w.namespace).Get(ctx, name, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Ingress{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1IngressImpl) List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IngressList, error) {
+	uo, err := w.dyn.Namespace(w.namespace).List(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.IngressList{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1IngressImpl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Ingress, err error) {
+	uo, err := w.dyn.Namespace(w.namespace).Patch(ctx, name, pt, data, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Ingress{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1IngressImpl) Update(ctx context.Context, in *v1alpha1.Ingress, opts v1.UpdateOptions) (*v1alpha1.Ingress, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Ingress",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Namespace(w.namespace).Update(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Ingress{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1IngressImpl) UpdateStatus(ctx context.Context, in *v1alpha1.Ingress, opts v1.UpdateOptions) (*v1alpha1.Ingress, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Ingress",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Namespace(w.namespace).UpdateStatus(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Ingress{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1IngressImpl) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+	return nil, errors.New("NYI: Watch")
+}
+
+func (w *wrapNetworkingV1alpha1) Realms() typednetworkingv1alpha1.RealmInterface {
+	return &wrapNetworkingV1alpha1RealmImpl{
+		dyn: w.dyn.Resource(schema.GroupVersionResource{
+			Group:    "networking.internal.knative.dev",
+			Version:  "v1alpha1",
+			Resource: "realms",
+		}),
+	}
+}
+
+type wrapNetworkingV1alpha1RealmImpl struct {
+	dyn dynamic.NamespaceableResourceInterface
+}
+
+var _ typednetworkingv1alpha1.RealmInterface = (*wrapNetworkingV1alpha1RealmImpl)(nil)
+
+func (w *wrapNetworkingV1alpha1RealmImpl) Create(ctx context.Context, in *v1alpha1.Realm, opts v1.CreateOptions) (*v1alpha1.Realm, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Realm",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Create(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Realm{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1RealmImpl) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+	return w.dyn.Delete(ctx, name, opts)
+}
+
+func (w *wrapNetworkingV1alpha1RealmImpl) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	return w.dyn.DeleteCollection(ctx, opts, listOpts)
+}
+
+func (w *wrapNetworkingV1alpha1RealmImpl) Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Realm, error) {
+	uo, err := w.dyn.Get(ctx, name, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Realm{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1RealmImpl) List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.RealmList, error) {
+	uo, err := w.dyn.List(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.RealmList{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1RealmImpl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Realm, err error) {
+	uo, err := w.dyn.Patch(ctx, name, pt, data, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Realm{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1RealmImpl) Update(ctx context.Context, in *v1alpha1.Realm, opts v1.UpdateOptions) (*v1alpha1.Realm, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Realm",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Update(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Realm{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1RealmImpl) UpdateStatus(ctx context.Context, in *v1alpha1.Realm, opts v1.UpdateOptions) (*v1alpha1.Realm, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "Realm",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.UpdateStatus(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.Realm{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1RealmImpl) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+	return nil, errors.New("NYI: Watch")
+}
+
+func (w *wrapNetworkingV1alpha1) ServerlessServices(namespace string) typednetworkingv1alpha1.ServerlessServiceInterface {
+	return &wrapNetworkingV1alpha1ServerlessServiceImpl{
+		dyn: w.dyn.Resource(schema.GroupVersionResource{
+			Group:    "networking.internal.knative.dev",
+			Version:  "v1alpha1",
+			Resource: "serverlessservices",
+		}),
+
+		namespace: namespace,
+	}
+}
+
+type wrapNetworkingV1alpha1ServerlessServiceImpl struct {
+	dyn dynamic.NamespaceableResourceInterface
+
+	namespace string
+}
+
+var _ typednetworkingv1alpha1.ServerlessServiceInterface = (*wrapNetworkingV1alpha1ServerlessServiceImpl)(nil)
+
+func (w *wrapNetworkingV1alpha1ServerlessServiceImpl) Create(ctx context.Context, in *v1alpha1.ServerlessService, opts v1.CreateOptions) (*v1alpha1.ServerlessService, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "ServerlessService",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Namespace(w.namespace).Create(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.ServerlessService{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ServerlessServiceImpl) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+	return w.dyn.Namespace(w.namespace).Delete(ctx, name, opts)
+}
+
+func (w *wrapNetworkingV1alpha1ServerlessServiceImpl) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	return w.dyn.Namespace(w.namespace).DeleteCollection(ctx, opts, listOpts)
+}
+
+func (w *wrapNetworkingV1alpha1ServerlessServiceImpl) Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ServerlessService, error) {
+	uo, err := w.dyn.Namespace(w.namespace).Get(ctx, name, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.ServerlessService{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ServerlessServiceImpl) List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ServerlessServiceList, error) {
+	uo, err := w.dyn.Namespace(w.namespace).List(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.ServerlessServiceList{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ServerlessServiceImpl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ServerlessService, err error) {
+	uo, err := w.dyn.Namespace(w.namespace).Patch(ctx, name, pt, data, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.ServerlessService{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ServerlessServiceImpl) Update(ctx context.Context, in *v1alpha1.ServerlessService, opts v1.UpdateOptions) (*v1alpha1.ServerlessService, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "ServerlessService",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Namespace(w.namespace).Update(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.ServerlessService{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ServerlessServiceImpl) UpdateStatus(ctx context.Context, in *v1alpha1.ServerlessService, opts v1.UpdateOptions) (*v1alpha1.ServerlessService, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.internal.knative.dev",
+		Version: "v1alpha1",
+		Kind:    "ServerlessService",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Namespace(w.namespace).UpdateStatus(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha1.ServerlessService{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ServerlessServiceImpl) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+	return nil, errors.New("NYI: Watch")
 }

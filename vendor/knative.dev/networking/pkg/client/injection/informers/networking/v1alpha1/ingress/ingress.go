@@ -21,8 +21,15 @@ package ingress
 import (
 	context "context"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	cache "k8s.io/client-go/tools/cache"
+	apisnetworkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	versioned "knative.dev/networking/pkg/client/clientset/versioned"
 	v1alpha1 "knative.dev/networking/pkg/client/informers/externalversions/networking/v1alpha1"
+	client "knative.dev/networking/pkg/client/injection/client"
 	factory "knative.dev/networking/pkg/client/injection/informers/factory"
+	networkingv1alpha1 "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
@@ -30,6 +37,7 @@ import (
 
 func init() {
 	injection.Default.RegisterInformer(withInformer)
+	injection.Dynamic.RegisterDynamicInformer(withDynamicInformer)
 }
 
 // Key is used for associating the Informer inside the context.Context.
@@ -41,6 +49,11 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	return context.WithValue(ctx, Key{}, inf), inf.Informer()
 }
 
+func withDynamicInformer(ctx context.Context) context.Context {
+	inf := &wrapper{client: client.Get(ctx)}
+	return context.WithValue(ctx, Key{}, inf)
+}
+
 // Get extracts the typed informer from the context.
 func Get(ctx context.Context) v1alpha1.IngressInformer {
 	untyped := ctx.Value(Key{})
@@ -49,4 +62,45 @@ func Get(ctx context.Context) v1alpha1.IngressInformer {
 			"Unable to fetch knative.dev/networking/pkg/client/informers/externalversions/networking/v1alpha1.IngressInformer from context.")
 	}
 	return untyped.(v1alpha1.IngressInformer)
+}
+
+type wrapper struct {
+	client versioned.Interface
+
+	namespace string
+}
+
+var _ v1alpha1.IngressInformer = (*wrapper)(nil)
+var _ networkingv1alpha1.IngressLister = (*wrapper)(nil)
+
+func (w *wrapper) Informer() cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(nil, &apisnetworkingv1alpha1.Ingress{}, 0, nil)
+}
+
+func (w *wrapper) Lister() networkingv1alpha1.IngressLister {
+	return w
+}
+
+func (w *wrapper) Ingresses(namespace string) networkingv1alpha1.IngressNamespaceLister {
+	return &wrapper{client: w.client, namespace: namespace}
+}
+
+func (w *wrapper) List(selector labels.Selector) (ret []*apisnetworkingv1alpha1.Ingress, err error) {
+	lo, err := w.client.NetworkingV1alpha1().Ingresses(w.namespace).List(context.TODO(), v1.ListOptions{
+		LabelSelector: selector.String(),
+		// TODO(mattmoor): Incorporate resourceVersion bounds based on staleness criteria.
+	})
+	if err != nil {
+		return nil, err
+	}
+	for idx := range lo.Items {
+		ret = append(ret, &lo.Items[idx])
+	}
+	return ret, nil
+}
+
+func (w *wrapper) Get(name string) (*apisnetworkingv1alpha1.Ingress, error) {
+	return w.client.NetworkingV1alpha1().Ingresses(w.namespace).Get(context.TODO(), name, v1.GetOptions{
+		// TODO(mattmoor): Incorporate resourceVersion bounds based on staleness criteria.
+	})
 }
