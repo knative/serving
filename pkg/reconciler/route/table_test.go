@@ -1333,6 +1333,64 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "default/cluster-ip",
 	}, {
+		// We want to preserve the cluster IP when in steady state - this happens in mesh mode
+		Name: "preserve the cluster ip of the service on steady state",
+		Objects: []runtime.Object{
+			Route("default", "preserve-cluster-ip", WithConfigTarget("config"), WithRouteFinalizer,
+				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "cluster-ip"),
+			),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			simpleIngress(
+				Route("default", "preserve-cluster-ip", WithConfigTarget("config"), WithURL),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+							},
+						}},
+					},
+				},
+				withReadyIngress,
+				withLoadBalancer(netv1alpha1.LoadBalancerIngressStatus{MeshOnly: true}),
+			),
+			simpleK8sServiceWithIngress(
+				Route("default", "preserve-cluster-ip", WithConfigTarget("config")),
+				simpleIngress(
+					Route("default", "preserve-cluster-ip", WithConfigTarget("config"), WithURL),
+					&traffic.Config{
+						Targets: map[string]traffic.RevisionTargets{
+							traffic.DefaultTarget: {{
+								TrafficTarget: v1.TrafficTarget{
+									ConfigurationName: "config",
+									LatestRevision:    ptr.Bool(true),
+									RevisionName:      "config-00001",
+									Percent:           ptr.Int64(100),
+								},
+							}},
+						},
+					},
+					withReadyIngress,
+					withLoadBalancer(netv1alpha1.LoadBalancerIngressStatus{MeshOnly: true}),
+				),
+				WithClusterIP("127.0.0.1"),
+			),
+		},
+		Key: "default/preserve-cluster-ip",
+	}, {
 		// Make sure we fix the external name if something messes with it.
 		Name: "fix external name",
 		Objects: []runtime.Object{
@@ -2076,6 +2134,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/steady-state",
 	}}
+
 	// TODO(mattmoor): Revision inactive (direct reference)
 	// TODO(mattmoor): Revision inactive (indirect reference)
 	// TODO(mattmoor): Multiple inactive Revisions
@@ -2712,6 +2771,10 @@ func simplePlaceholderK8sService(ctx context.Context, r *v1.Route, targetName st
 }
 
 func simpleK8sService(r *v1.Route, so ...K8sServiceOption) *corev1.Service {
+	return simpleK8sServiceWithIngress(r, simpleIngress(r, &traffic.Config{}, withReadyIngress), so...)
+}
+
+func simpleK8sServiceWithIngress(r *v1.Route, ing *netv1alpha1.Ingress, so ...K8sServiceOption) *corev1.Service {
 	cs := &testConfigStore{
 		config: reconcilerTestConfig(false),
 	}
@@ -2719,9 +2782,7 @@ func simpleK8sService(r *v1.Route, so ...K8sServiceOption) *corev1.Service {
 
 	// omit the error here, as we are sure the loadbalancer info is provided.
 	// return the service instance only, so that the result can be used in TableRow.
-	pair, _ := resources.MakeK8sService(ctx, r, "", /*targetName*/
-		simpleIngress(r, &traffic.Config{}, withReadyIngress),
-		false /* is private */)
+	pair, _ := resources.MakeK8sService(ctx, r, "" /*targetName*/, ing, false /* is private */)
 
 	svc := pair.Service
 	for _, opt := range so {
@@ -2773,6 +2834,12 @@ func withReadyIngress(i *netv1alpha1.Ingress) {
 	)
 
 	i.Status = status
+}
+
+func withLoadBalancer(lb netv1alpha1.LoadBalancerIngressStatus) IngressOption {
+	return func(i *netv1alpha1.Ingress) {
+		i.Status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{lb}, nil)
+	}
 }
 
 func mutateIngress(ci *netv1alpha1.Ingress) *netv1alpha1.Ingress {

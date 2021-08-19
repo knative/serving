@@ -71,19 +71,19 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, tagName str
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in Ingress status. It's owned by the provided v1.Route.
 func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingress *netv1alpha1.Ingress, isPrivate bool) (*ServicePair, error) {
-	ingressStatus := ingress.Status
+	privateLB := ingress.Status.PrivateLoadBalancer
+	lbStatus := ingress.Status.PublicLoadBalancer
 
-	lbStatus := ingressStatus.PublicLoadBalancer
-	if isPrivate || ingressStatus.PrivateLoadBalancer != nil {
+	if isPrivate || privateLB != nil && len(privateLB.Ingress) != 0 {
 		// Always use private load balancer if it exists,
 		// because k8s service is only useful for inter-cluster communication.
 		// External communication will be handle via ingress gateway, which won't be affected by what is configured here.
-		lbStatus = ingressStatus.PrivateLoadBalancer
+		lbStatus = privateLB
 	}
-
 	if lbStatus == nil || len(lbStatus.Ingress) == 0 {
 		return nil, errLoadBalancerNotFound
 	}
+
 	if len(lbStatus.Ingress) > 1 {
 		// Return error as we only support one LoadBalancer currently.
 		return nil, errors.New(
