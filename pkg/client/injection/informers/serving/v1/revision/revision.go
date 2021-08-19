@@ -21,15 +21,23 @@ package revision
 import (
 	context "context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	cache "k8s.io/client-go/tools/cache"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
+	apisservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	versioned "knative.dev/serving/pkg/client/clientset/versioned"
 	v1 "knative.dev/serving/pkg/client/informers/externalversions/serving/v1"
+	client "knative.dev/serving/pkg/client/injection/client"
 	factory "knative.dev/serving/pkg/client/injection/informers/factory"
+	servingv1 "knative.dev/serving/pkg/client/listers/serving/v1"
 )
 
 func init() {
 	injection.Default.RegisterInformer(withInformer)
+	injection.Dynamic.RegisterDynamicInformer(withDynamicInformer)
 }
 
 // Key is used for associating the Informer inside the context.Context.
@@ -41,6 +49,11 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	return context.WithValue(ctx, Key{}, inf), inf.Informer()
 }
 
+func withDynamicInformer(ctx context.Context) context.Context {
+	inf := &wrapper{client: client.Get(ctx)}
+	return context.WithValue(ctx, Key{}, inf)
+}
+
 // Get extracts the typed informer from the context.
 func Get(ctx context.Context) v1.RevisionInformer {
 	untyped := ctx.Value(Key{})
@@ -49,4 +62,45 @@ func Get(ctx context.Context) v1.RevisionInformer {
 			"Unable to fetch knative.dev/serving/pkg/client/informers/externalversions/serving/v1.RevisionInformer from context.")
 	}
 	return untyped.(v1.RevisionInformer)
+}
+
+type wrapper struct {
+	client versioned.Interface
+
+	namespace string
+}
+
+var _ v1.RevisionInformer = (*wrapper)(nil)
+var _ servingv1.RevisionLister = (*wrapper)(nil)
+
+func (w *wrapper) Informer() cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(nil, &apisservingv1.Revision{}, 0, nil)
+}
+
+func (w *wrapper) Lister() servingv1.RevisionLister {
+	return w
+}
+
+func (w *wrapper) Revisions(namespace string) servingv1.RevisionNamespaceLister {
+	return &wrapper{client: w.client, namespace: namespace}
+}
+
+func (w *wrapper) List(selector labels.Selector) (ret []*apisservingv1.Revision, err error) {
+	lo, err := w.client.ServingV1().Revisions(w.namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: selector.String(),
+		// TODO(mattmoor): Incorporate resourceVersion bounds based on staleness criteria.
+	})
+	if err != nil {
+		return nil, err
+	}
+	for idx := range lo.Items {
+		ret = append(ret, &lo.Items[idx])
+	}
+	return ret, nil
+}
+
+func (w *wrapper) Get(name string) (*apisservingv1.Revision, error) {
+	return w.client.ServingV1().Revisions(w.namespace).Get(context.TODO(), name, metav1.GetOptions{
+		// TODO(mattmoor): Incorporate resourceVersion bounds based on staleness criteria.
+	})
 }
