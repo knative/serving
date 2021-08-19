@@ -74,35 +74,6 @@ func TestTimeoutWriterErrorsWriteAfterTimeout(t *testing.T) {
 	}
 }
 
-func TestDisabledOptionalTimerHasNoTimerAllocated(t *testing.T) {
-	optTimer := newOptionalTimer(nil)
-	wantExists := false
-	var wantTimer *time.Timer
-
-	if gotExists, gotTimer := optTimer.Timer(); gotExists != wantExists || gotTimer != wantTimer {
-		t.Errorf("For disabled optionalTimer, got timer exists: %t, want timer exists: %t, got timer: %v, want: %v", gotExists, wantExists, gotTimer, wantTimer)
-	}
-}
-
-func TestEnabledOptionalTimerHasTimerAllocated(t *testing.T) {
-	optTimer := newOptionalTimer(time.NewTimer(1))
-	gotExists, _ := optTimer.Timer()
-
-	wantExists := true
-	if gotExists != wantExists {
-		t.Errorf("For enabled optionalTimer, got timer exists: %t, want timer exists: %t", gotExists, wantExists)
-	}
-}
-
-func TestEnabledOptionalTimerReturnsChannelOfInnerTimer(t *testing.T) {
-	optTimer := newOptionalTimer(time.NewTimer(1))
-	_, innerTimer := optTimer.Timer()
-
-	if innerTimer.C != optTimer.C() {
-		t.Errorf("Enabled optionalTimer.C() should return the channel of its inner timer")
-	}
-}
-
 type timeoutHandlerTestScenario struct {
 	name             string
 	firstByteTimeout time.Duration
