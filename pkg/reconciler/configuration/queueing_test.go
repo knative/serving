@@ -127,7 +127,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	})
 
 	eg.Go(func() error {
-		return ctrl.Run(2, ctx.Done())
+		return ctrl.RunContext(ctx, 2)
 	})
 
 	config := getTestConfiguration()

@@ -1319,7 +1319,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	// Start controller after creating initial resources so it observes a steady state.
-	eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
+	eg.Go(func() error { return ctl.RunContext(ctx, 1) })
 
 	select {
 	case <-time.After(5 * time.Second):

@@ -78,12 +78,6 @@ func Packages(context *generator.Context, arguments *args.GeneratorArgs) generat
 			groupGoNames[groupPackageName] = namer.IC(override[0])
 		}
 
-		// Generate the client and fake.
-		packageList = append(packageList, versionClientsPackages(versionPackagePath, boilerplate, customArgs)...)
-
-		// Generate the informer factory and fake.
-		packageList = append(packageList, versionFactoryPackages(versionPackagePath, boilerplate, customArgs)...)
-
 		var typesWithInformers []*types.Type
 		var duckTypes []*types.Type
 		var reconcilerTypes []*types.Type
@@ -134,6 +128,12 @@ func Packages(context *generator.Context, arguments *args.GeneratorArgs) generat
 			packageList = append(packageList, reconcilerPackages(versionPackagePath, groupPackageName, gv, groupGoNames[groupPackageName], boilerplate, reconcilerTypes, customArgs)...)
 		}
 	}
+
+	// Generate the client and fake.
+	packageList = append(packageList, versionClientsPackages(versionPackagePath, boilerplate, customArgs)...)
+
+	// Generate the informer factory and fake.
+	packageList = append(packageList, versionFactoryPackages(versionPackagePath, boilerplate, customArgs)...)
 
 	return packageList
 }

@@ -29,7 +29,7 @@ import (
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/logging/logkey"
-	pkgnet "knative.dev/pkg/network"
+	pkghandler "knative.dev/pkg/network/handlers"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	"knative.dev/serving/pkg/activator"
@@ -124,7 +124,7 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	}
 	proxy.FlushInterval = network.FlushInterval
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
-		pkgnet.ErrorHandler(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)
+		pkghandler.Error(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)
 	}
 
 	proxy.ServeHTTP(w, r)
