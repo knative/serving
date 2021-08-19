@@ -55,7 +55,7 @@ func fetchRuntimeInfo(
 		return nil, nil, err
 	}
 
-	resp, err := pkgTest.WaitForEndpointState(
+	resp, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,

@@ -40,13 +40,13 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	t.Log("Serves the expected data at the endpoint")
 
-	_, err := pkgtest.WaitForEndpointState(
+	_, err := pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, pkgtest.EventuallyMatchesBody(expectedText))),
-		"WaitForEndpointToServeText",
+		"CheckEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {

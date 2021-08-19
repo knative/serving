@@ -125,7 +125,7 @@ func TestProbeRuntime(t *testing.T) {
 				// Once the service reports ready we should immediately be able to curl it.
 				url := resources.Route.Status.URL.URL()
 				url.Path = "/healthz"
-				if _, err = pkgtest.WaitForEndpointState(
+				if _, err = pkgtest.CheckEndpointState(
 					context.Background(),
 					clients.KubeClient,
 					t.Logf,

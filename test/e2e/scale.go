@@ -183,7 +183,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				// Record the time it took to become ready.
 				latencies.Add("time-to-ready", start)
 
-				_, err = pkgTest.WaitForEndpointState(
+				_, err = pkgTest.CheckEndpointState(
 					context.Background(),
 					clients.KubeClient,
 					t.Logf,

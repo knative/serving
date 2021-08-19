@@ -91,7 +91,7 @@ func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	if _, err := pkgTest.WaitForEndpointState(
+	if _, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,

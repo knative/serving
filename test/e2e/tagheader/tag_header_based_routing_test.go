@@ -115,7 +115,7 @@ func TestTagHeaderBasedRouting(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if _, err := pkgTest.WaitForEndpointState(
+			if _, err := pkgTest.CheckEndpointState(
 				context.Background(),
 				clients.KubeClient,
 				t.Logf,
