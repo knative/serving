@@ -1525,7 +1525,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 func TestRouteDomain(t *testing.T) {
 	route := Route("default", "myapp", WithRouteLabel(map[string]string{"route": "myapp"}), WithRouteAnnotation(map[string]string{"sub": "mysub"}))
 	ctx := context.Background()
-	cfg := reconcilerTestConfig(false)
+	cfg := reconcilerTestConfig()
 	ctx = config.ToContext(ctx, cfg)
 
 	tests := []struct {

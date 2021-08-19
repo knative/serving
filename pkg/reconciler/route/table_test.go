@@ -72,6 +72,7 @@ type key int
 const (
 	rolloutDurationKey key = iota
 	externalSchemeKey
+	enableAutoTLSKey
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -2139,34 +2140,7 @@ func TestReconcile(t *testing.T) {
 	// TODO(mattmoor): Revision inactive (indirect reference)
 	// TODO(mattmoor): Multiple inactive Revisions
 
-	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		r := &Reconciler{
-			kubeclient:          kubeclient.Get(ctx),
-			client:              servingclient.Get(ctx),
-			netclient:           networkingclient.Get(ctx),
-			configurationLister: listers.GetConfigurationLister(),
-			revisionLister:      listers.GetRevisionLister(),
-			serviceLister:       listers.GetK8sServiceLister(),
-			ingressLister:       listers.GetIngressLister(),
-			tracker:             ctx.Value(TrackerKey).(tracker.Interface),
-			clock:               clock.NewFakePassiveClock(fakeCurTime),
-			enqueueAfter:        func(interface{}, time.Duration) {},
-		}
-
-		cfg := reconcilerTestConfig(false)
-		if v := ctx.Value(rolloutDurationKey); v != nil {
-			cfg.Network.RolloutDurationSecs = v.(int)
-		}
-		if v := ctx.Value(externalSchemeKey); v != nil {
-			cfg.Network.DefaultExternalScheme = v.(string)
-		}
-
-		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
-			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{
-				ConfigStore: &testConfigStore{config: cfg},
-			})
-	}))
+	table.Test(t, MakeFactory(NewTestReconciler))
 }
 
 func TestReconcileEnableAutoTLS(t *testing.T) {
@@ -2694,24 +2668,50 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		}},
 		Key: "default/becomes-local",
 	}}
-	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		r := &Reconciler{
-			kubeclient:          kubeclient.Get(ctx),
-			client:              servingclient.Get(ctx),
-			netclient:           networkingclient.Get(ctx),
-			configurationLister: listers.GetConfigurationLister(),
-			revisionLister:      listers.GetRevisionLister(),
-			serviceLister:       listers.GetK8sServiceLister(),
-			ingressLister:       listers.GetIngressLister(),
-			certificateLister:   listers.GetCertificateLister(),
-			tracker:             &NullTracker{},
-			clock:               clock.NewFakePassiveClock(fakeCurTime),
-		}
 
-		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
-			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{ConfigStore: &testConfigStore{config: reconcilerTestConfig(true)}})
-	}))
+	for i, row := range table {
+		if row.Ctx == nil {
+			row.Ctx = context.Background()
+		}
+		table[i].Ctx = context.WithValue(row.Ctx, enableAutoTLSKey, true)
+	}
+	table.Test(t, MakeFactory(NewTestReconciler))
+}
+
+func NewTestReconciler(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+	r := &Reconciler{
+		kubeclient:          kubeclient.Get(ctx),
+		client:              servingclient.Get(ctx),
+		netclient:           networkingclient.Get(ctx),
+		configurationLister: listers.GetConfigurationLister(),
+		revisionLister:      listers.GetRevisionLister(),
+		serviceLister:       listers.GetK8sServiceLister(),
+		ingressLister:       listers.GetIngressLister(),
+		certificateLister:   listers.GetCertificateLister(),
+		tracker:             ctx.Value(TrackerKey).(tracker.Interface),
+		clock:               clock.NewFakePassiveClock(fakeCurTime),
+		enqueueAfter:        func(interface{}, time.Duration) {},
+	}
+
+	cfg := reconcilerTestConfig()
+	if v := ctx.Value(enableAutoTLSKey); v != nil {
+		cfg.Network.AutoTLS = v.(bool)
+	}
+	if v := ctx.Value(rolloutDurationKey); v != nil {
+		cfg.Network.RolloutDurationSecs = v.(int)
+	}
+	if v := ctx.Value(externalSchemeKey); v != nil {
+		cfg.Network.DefaultExternalScheme = v.(string)
+	}
+
+	return routereconciler.NewReconciler(ctx,
+		logging.FromContext(ctx),
+		servingclient.Get(ctx),
+		listers.GetRouteLister(),
+		controller.GetEventRecorder(ctx),
+		r,
+		controller.Options{ConfigStore: &testConfigStore{config: cfg}},
+	)
 }
 
 func wildcardCert(namespace string, domain string) *netv1alpha1.Certificate {
@@ -2776,7 +2776,7 @@ func simpleK8sService(r *v1.Route, so ...K8sServiceOption) *corev1.Service {
 
 func simpleK8sServiceWithIngress(r *v1.Route, ing *netv1alpha1.Ingress, so ...K8sServiceOption) *corev1.Service {
 	cs := &testConfigStore{
-		config: reconcilerTestConfig(false),
+		config: reconcilerTestConfig(),
 	}
 	ctx := cs.ToContext(context.Background())
 
@@ -2877,7 +2877,7 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 
 var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
-func reconcilerTestConfig(enableAutoTLS bool) *config.Config {
+func reconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Domain: &config.Domain{
 			Domains: map[string]*config.LabelSelector{
@@ -2890,7 +2890,6 @@ func reconcilerTestConfig(enableAutoTLS bool) *config.Config {
 		Network: &network.Config{
 			DefaultIngressClass:     testIngressClass,
 			DefaultCertificateClass: network.CertManagerCertificateClassName,
-			AutoTLS:                 enableAutoTLS,
 			DomainTemplate:          network.DefaultDomainTemplate,
 			TagTemplate:             network.DefaultTagTemplate,
 			HTTPProtocol:            network.HTTPEnabled,
