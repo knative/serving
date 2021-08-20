@@ -36,6 +36,7 @@ import (
 type ServicePair struct {
 	*corev1.Service
 	*corev1.Endpoints
+	Tag string
 }
 
 var errLoadBalancerNotFound = errors.New("failed to fetch loadbalancer domain/IP from ingress status")

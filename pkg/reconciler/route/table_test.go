@@ -1236,7 +1236,7 @@ func TestReconcile(t *testing.T) {
 				withReadyIngress,
 			),
 			simpleK8sService(Route("default", "svc-mutation",
-				WithConfigTarget("config")), MutateK8sService),
+				WithConfigTarget("config")), func(s *corev1.Service) { s.Spec.ExternalName = "mutated" }),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleK8sService(Route("default", "svc-mutation", WithConfigTarget("config"))),
@@ -1281,7 +1281,7 @@ func TestReconcile(t *testing.T) {
 				withReadyIngress,
 			),
 			simpleK8sService(Route("default", "svc-mutation",
-				WithConfigTarget("config")), MutateK8sService),
+				WithConfigTarget("config")), func(s *corev1.Service) { s.Spec.ExternalName = "mutated" }),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleK8sService(Route("default", "svc-mutation", WithConfigTarget("config"))),
@@ -1366,9 +1366,9 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				withReadyIngress,
-				withLoadBalancer(netv1alpha1.LoadBalancerIngressStatus{MeshOnly: true}),
+				withLoadBalancerMesh,
 			),
-			simpleK8sServiceWithIngress(
+			k8sServiceWithIngress(
 				Route("default", "preserve-cluster-ip", WithConfigTarget("config")),
 				simpleIngress(
 					Route("default", "preserve-cluster-ip", WithConfigTarget("config"), WithURL),
@@ -1385,7 +1385,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					withReadyIngress,
-					withLoadBalancer(netv1alpha1.LoadBalancerIngressStatus{MeshOnly: true}),
+					withLoadBalancerMesh,
 				),
 				WithClusterIP("127.0.0.1"),
 			),
@@ -2143,6 +2143,204 @@ func TestReconcile(t *testing.T) {
 	table.Test(t, MakeFactory(NewTestReconciler))
 }
 
+func TestReconcile_ServiceLifecycle(t *testing.T) {
+	route := Route("default", "route",
+		WithConfigTarget("config"),
+		WithRouteUID("12-34"),
+		WithAddress,
+		WithURL,
+		WithRouteConditionsAutoTLSDisabled,
+		MarkTrafficAssigned,
+		MarkIngressReady,
+		WithRouteObservedGeneration,
+		WithRouteFinalizer,
+		WithStatusTraffic(v1.TrafficTarget{
+			RevisionName:   "config-00001",
+			Percent:        ptr.Int64(100),
+			LatestRevision: ptr.Bool(true),
+		}))
+
+	config := cfg("default", "config",
+		WithLatestCreated("config-00001"),
+		WithLatestReady("config-00001"))
+
+	revision := rev("default", "config", 0,
+		MarkRevisionReady,
+		WithRevName("config-00001"))
+
+	placeholderService := simplePlaceholderK8sService(getContext(), route, "" /*target name*/)
+
+	readyIngress := func(opts ...IngressOption) *netv1alpha1.Ingress {
+		traffic := &traffic.Config{
+			Targets: map[string]traffic.RevisionTargets{
+				traffic.DefaultTarget: {{
+					TrafficTarget: v1.TrafficTarget{
+						ConfigurationName: "config",
+						RevisionName:      "config-00001",
+						Percent:           ptr.Int64(100),
+						LatestRevision:    ptr.Bool(true),
+					},
+				}},
+			},
+		}
+		opts = append([]IngressOption{withReadyIngress}, opts...)
+		return simpleIngress(route, traffic, opts...)
+	}
+
+	ingressWithIP := readyIngress(withLoadBalancerIP("1.2.3.4"))
+	ingressWithDifferentIP := readyIngress(withLoadBalancerIP("5.6.7.8"))
+	ingressWithDomain := readyIngress(withLoadBalancerDomain("some.domain"))
+	ingressWithMesh := readyIngress(withLoadBalancerMesh)
+
+	deleteService := clientgotesting.NewDeleteAction(
+		corev1.SchemeGroupVersion.WithResource("services"),
+		"default",
+		"route",
+	)
+
+	deleteEndpoints := clientgotesting.NewDeleteAction(
+		corev1.SchemeGroupVersion.WithResource("endpoints"),
+		"default",
+		"route",
+	)
+
+	// Note: we don't have external to X tests because the placeholder
+	// service is an external name type
+	table := TableTest{{
+		// This occurs when the ingress status returns an IP
+		Name: "placeholder to headless",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithIP,
+			placeholderService,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: k8sServiceWithIngress(route, ingressWithIP, WithClusterIP(corev1.ClusterIPNone)),
+		}},
+		WantCreates: []runtime.Object{
+			k8sEndpointsWithIngress(route, ingressWithIP),
+		},
+	}, {
+		// This occurs when the ingress status returns a domain
+		Name: "placeholder to external name",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithDomain,
+			placeholderService,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: k8sServiceWithIngress(route, ingressWithDomain),
+		}},
+	}, {
+		// This occurs when the ingress status indicates it's in mesh mode
+		Name: "placeholder to cluster ip",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithMesh,
+			placeholderService,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// Empty clusterIP means it will be assigned by the API Server
+			Object: k8sServiceWithIngress(route, ingressWithMesh),
+		}},
+	}, {
+		// Transition from LB with IP to LB with mesh
+		Name: "headless service to cluster ip",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithMesh,
+			k8sServiceWithIngress(route, ingressWithIP, WithClusterIP(corev1.ClusterIPNone)),
+			k8sEndpointsWithIngress(route, ingressWithIP),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{
+			deleteService,
+			deleteEndpoints,
+		},
+		WantCreates: []runtime.Object{
+			k8sServiceWithIngress(route, ingressWithMesh),
+		},
+	}, {
+		Name: "headless service to external name",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithDomain,
+			k8sServiceWithIngress(route, ingressWithIP, WithClusterIP(corev1.ClusterIPNone)),
+			k8sEndpointsWithIngress(route, ingressWithIP),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{
+			deleteService,
+			deleteEndpoints,
+		},
+		WantCreates: []runtime.Object{
+			k8sServiceWithIngress(route, ingressWithDomain),
+		},
+	}, {
+		Name: "headless ip changes",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithDifferentIP,
+			k8sServiceWithIngress(route, ingressWithIP, WithClusterIP(corev1.ClusterIPNone)),
+			k8sEndpointsWithIngress(route, ingressWithIP),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: k8sEndpointsWithIngress(route, ingressWithDifferentIP),
+		}},
+	}, {
+		Name: "cluster ip to headless",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithIP,
+			k8sServiceWithIngress(route, ingressWithMesh, WithClusterIP("1.2.3.4")),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{
+			deleteService,
+		},
+		WantCreates: []runtime.Object{
+			k8sServiceWithIngress(route, ingressWithIP, WithClusterIP(corev1.ClusterIPNone)),
+			k8sEndpointsWithIngress(route, ingressWithIP),
+		},
+	}, {
+		Name: "cluster ip to external name",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithDomain,
+			k8sServiceWithIngress(route, ingressWithMesh, WithClusterIP("1.2.3.4")),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{
+			deleteService,
+		},
+		WantCreates: []runtime.Object{
+			k8sServiceWithIngress(route, ingressWithDomain),
+		},
+	}}
+
+	table.Test(t, MakeFactory(NewTestReconciler))
+}
+
 func TestReconcileEnableAutoTLS(t *testing.T) {
 	table := TableTest{{
 		Name: "check that existing wildcard cert is used when creating a Route",
@@ -2686,6 +2884,7 @@ func NewTestReconciler(ctx context.Context, listers *Listers, cmw configmap.Watc
 		configurationLister: listers.GetConfigurationLister(),
 		revisionLister:      listers.GetRevisionLister(),
 		serviceLister:       listers.GetK8sServiceLister(),
+		endpointsLister:     listers.GetEndpointsLister(),
 		ingressLister:       listers.GetIngressLister(),
 		certificateLister:   listers.GetCertificateLister(),
 		tracker:             ctx.Value(TrackerKey).(tracker.Interface),
@@ -2771,10 +2970,10 @@ func simplePlaceholderK8sService(ctx context.Context, r *v1.Route, targetName st
 }
 
 func simpleK8sService(r *v1.Route, so ...K8sServiceOption) *corev1.Service {
-	return simpleK8sServiceWithIngress(r, simpleIngress(r, &traffic.Config{}, withReadyIngress), so...)
+	return k8sServiceWithIngress(r, simpleIngress(r, &traffic.Config{}, withReadyIngress), so...)
 }
 
-func simpleK8sServiceWithIngress(r *v1.Route, ing *netv1alpha1.Ingress, so ...K8sServiceOption) *corev1.Service {
+func k8sServiceWithIngress(r *v1.Route, ing *netv1alpha1.Ingress, so ...K8sServiceOption) *corev1.Service {
 	cs := &testConfigStore{
 		config: reconcilerTestConfig(),
 	}
@@ -2790,6 +2989,20 @@ func simpleK8sServiceWithIngress(r *v1.Route, ing *netv1alpha1.Ingress, so ...K8
 	}
 
 	return svc
+}
+
+func k8sEndpointsWithIngress(r *v1.Route, ing *netv1alpha1.Ingress) *corev1.Endpoints {
+	cs := &testConfigStore{
+		config: reconcilerTestConfig(),
+	}
+	ctx := cs.ToContext(context.Background())
+
+	// omit the error here, as we are sure the loadbalancer info is provided.
+	// return the service instance only, so that the result can be used in TableRow.
+	pair, _ := resources.MakeK8sService(ctx, r, "" /*targetName*/, ing, false /* is private */)
+
+	return pair.Endpoints
+
 }
 
 func simpleIngress(r *v1.Route, tc *traffic.Config, io ...IngressOption) *netv1alpha1.Ingress {
@@ -2836,10 +3049,34 @@ func withReadyIngress(i *netv1alpha1.Ingress) {
 	i.Status = status
 }
 
-func withLoadBalancer(lb netv1alpha1.LoadBalancerIngressStatus) IngressOption {
+func withLoadBalancerIP(ip string) IngressOption {
 	return func(i *netv1alpha1.Ingress) {
-		i.Status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{lb}, nil)
+		i.Status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{{
+			IP: ip,
+		}}, nil)
 	}
+}
+
+func withLoadBalancerDomain(domain string) IngressOption {
+	return func(i *netv1alpha1.Ingress) {
+		i.Status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{{
+			Domain: domain,
+		}}, nil)
+	}
+}
+
+func withLoadBalancerDomainInternal(domain string) IngressOption {
+	return func(i *netv1alpha1.Ingress) {
+		i.Status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{{
+			DomainInternal: domain,
+		}}, nil)
+	}
+}
+
+func withLoadBalancerMesh(i *netv1alpha1.Ingress) {
+	i.Status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{{
+		MeshOnly: true,
+	}}, nil)
 }
 
 func mutateIngress(ci *netv1alpha1.Ingress) *netv1alpha1.Ingress {
