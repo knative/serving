@@ -265,14 +265,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		t.Error("Unexpected rule spec diff (-want +got):", diff)
 	}
 
-	// Update ingress loadbalancer to trigger placeholder service creation.
-	ci.Status = v1alpha1.IngressStatus{
-		DeprecatedLoadBalancer: &v1alpha1.LoadBalancerStatus{
-			Ingress: []v1alpha1.LoadBalancerIngressStatus{{
-				DomainInternal: "test-domain",
-			}},
-		},
-	}
 	fakeingressinformer.Get(ctx).Informer().GetIndexer().Update(ci)
 	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
