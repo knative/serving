@@ -234,7 +234,7 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 
 			if from.Spec.Type != to.Spec.Type {
 				switch from.Spec.Type {
-				// Transitions from ExternalName
+				// Transitions from ExternalName to any type should work
 				case corev1.ServiceTypeExternalName:
 					canUpdate = true
 				default:

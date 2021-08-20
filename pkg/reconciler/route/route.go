@@ -92,23 +92,6 @@ func certClass(ctx context.Context, r *v1.Route) string {
 	return config.FromContext(ctx).Network.DefaultCertificateClass
 }
 
-// // getPlaceholderServiceNames returns the placeholder services names, or an error.
-// func (c *Reconciler) getPlaceholderServiceNames(route *v1.Route) (sets.String, error) {
-// 	currentServices, err := c.serviceLister.Services(route.Namespace).List(
-// 		kubelabels.SelectorFromSet(kubelabels.Set{serving.RouteLabelKey: route.Name}),
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	names := make(sets.String, len(currentServices))
-// 	for _, svc := range currentServices {
-// 		names.Insert(svc.Name)
-// 	}
-
-// 	return names, nil
-// }
-
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
