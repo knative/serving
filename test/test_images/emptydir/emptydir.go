@@ -18,37 +18,36 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"path"
 
 	"knative.dev/serving/test"
 )
 
-var path string
+func testfilePath() string {
+	base := os.Getenv("DATA_PATH")
+	if base == "" {
+		base = "/data"
+	}
+	return path.Join(base, "testfile")
+}
 
 // Add content to a file in the emptyDir volume
 func init() {
-	path = os.Getenv("DATA_PATH")
-	if path == "" {
-		path = "/data"
+	if err := os.WriteFile(testfilePath(), []byte(test.EmptyDirText), 0644); err != nil {
+		panic(err)
 	}
-	f, err := os.OpenFile(path+"/testfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		log.Print("Failed to open file", err)
-	}
-	_, _ = f.WriteString("From file in empty dir!")
-	defer f.Close()
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	content, err := os.ReadFile(path + "/testfile")
+	content, err := os.ReadFile(testfilePath())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, _ = fmt.Fprintln(w, string(content))
+	w.Write(content)
 }
 
 func main() {
