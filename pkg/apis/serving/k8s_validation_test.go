@@ -278,7 +278,7 @@ func TestPodSpecValidation(t *testing.T) {
 			}},
 			ServiceAccountName: "foo@bar.baz",
 		},
-		want: apis.ErrInvalidValue("serviceAccountName", "foo@bar.baz"),
+		want: apis.ErrInvalidValue("foo@bar.baz", "serviceAccountName"),
 	}}
 
 	for _, test := range tests {
