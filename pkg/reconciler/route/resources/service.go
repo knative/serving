@@ -41,7 +41,7 @@ type ServicePair struct {
 
 var errLoadBalancerNotFound = errors.New("failed to fetch loadbalancer domain/IP from ingress status")
 
-// MakePlaceholderService creates a headless Service whos endpoints will redirect
+// MakeK8sPlaceholderService creates a headless Service whos endpoints will redirect
 // to the loadbalancer specified in Ingress status. It's owned by the provided v1.Route.
 func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, tagName string) (*corev1.Service, error) {
 	hostname, err := domains.HostnameFromTemplate(ctx, route.Name, tagName)
