@@ -3065,14 +3065,6 @@ func withLoadBalancerDomain(domain string) IngressOption {
 	}
 }
 
-func withLoadBalancerDomainInternal(domain string) IngressOption {
-	return func(i *netv1alpha1.Ingress) {
-		i.Status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{{
-			DomainInternal: domain,
-		}}, nil)
-	}
-}
-
 func withLoadBalancerMesh(i *netv1alpha1.Ingress) {
 	i.Status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{{
 		MeshOnly: true,
