@@ -44,12 +44,17 @@ type URIResolver struct {
 	listerFactory func(schema.GroupVersionResource) (cache.GenericLister, error)
 }
 
-// NewURIResolver constructs a new URIResolver with context and a callback
-// for a given listableType (Listable) passed to the URIResolver's tracker.
+// NewURIResolver constructs a new URIResolver with context and a tracker.
+// Deprecated: use NewURIResolverFromTracker instead.
 func NewURIResolver(ctx context.Context, callback func(types.NamespacedName)) *URIResolver {
-	ret := &URIResolver{}
+	return NewURIResolverFromTracker(ctx, tracker.New(callback, controller.GetTrackerLease(ctx)))
+}
 
-	ret.tracker = tracker.New(callback, controller.GetTrackerLease(ctx))
+// NewURIResolverFromTracker constructs a new URIResolver with context and a tracker.
+func NewURIResolverFromTracker(ctx context.Context, t tracker.Interface) *URIResolver {
+	ret := &URIResolver{
+		tracker: t,
+	}
 
 	informerFactory := &pkgapisduck.CachedInformerFactory{
 		Delegate: &pkgapisduck.EnqueueInformerFactory{
