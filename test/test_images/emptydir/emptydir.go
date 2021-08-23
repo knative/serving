@@ -21,7 +21,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 
 	"knative.dev/serving/test"
 )
@@ -31,14 +31,7 @@ func testfilePath() string {
 	if base == "" {
 		base = "/data"
 	}
-	return path.Join(base, "testfile")
-}
-
-// Add content to a file in the emptyDir volume
-func init() {
-	if err := os.WriteFile(testfilePath(), []byte(test.EmptyDirText), 0644); err != nil {
-		panic(err)
-	}
+	return filepath.Join(base, "testfile")
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -52,6 +45,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
+
+	log.Print("Writing test content.")
+	if err := os.WriteFile(testfilePath(), []byte(test.EmptyDirText), 0644); err != nil {
+		panic(err)
+	}
+
 	log.Print("Empty dir volume app started.")
 	test.ListenAndServeGracefully(":8080", handler)
 }
