@@ -148,96 +148,58 @@ func TestProbeRuntime(t *testing.T) {
 }
 
 // This test validates the behaviour of readiness probes *after* initial
-// startup. Note: the current behaviour is not ideal: when periodSeconds > 0 we
-// ignore readiness probes after startup. Also, when a pod goes unready after
-// startup and there are no other pods in the revision we hang, potentially
-// forever, which may not be what a user wants. The goal of this test is
-// largely to describe the current behaviour, so that we can confidently change it.
-// See:
-//  - https://github.com/knative/serving/issues/10764
-//  - https://github.com/knative/serving/issues/10765
+// startup. When a pod goes unready after startup and there are no other pods
+// in the revision we hang, potentially forever, which may or may not be what a
+// user wants.
+// The goal of this test is largely to describe the current behaviour, so that
+// we can confidently change it.
+// See https://github.com/knative/serving/issues/10765.
 func TestProbeRuntimeAfterStartup(t *testing.T) {
 	t.Parallel()
 
-	t.Run("with periodSeconds = 0 (QP optimisation enabled)", func(t *testing.T) {
-		t.Parallel()
-		clients := test.Setup(t)
-		names := test.ResourceNames{Service: test.ObjectNameForTest(t), Image: test.Readiness}
-		test.EnsureTearDown(t, clients, &names)
+	for _, period := range []int32{0, 1} {
+		period := period
+		t.Run(fmt.Sprintf("periodSeconds=%d", period), func(t *testing.T) {
+			t.Parallel()
+			clients := test.Setup(t)
+			names := test.ResourceNames{Service: test.ObjectNameForTest(t), Image: test.Readiness}
+			test.EnsureTearDown(t, clients, &names)
 
-		// When periodSeconds = 0 we expect that once readiness propagates
-		// there will be no ready pods, and therefore the request will time
-		// out.
-		// (see https://github.com/knative/serving/issues/10765).
-		url, client := waitReadyThenStartFailing(t, clients, names, 0)
-		if err := wait.PollImmediate(1*time.Second, readinessPropagationTime, func() (bool, error) {
-			startFailing, err := http.NewRequest(http.MethodGet, url.String(), nil)
-			if err != nil {
-				return false, err
-			}
+			url, client := waitReadyThenStartFailing(t, clients, names, period)
+			if err := wait.PollImmediate(1*time.Second, readinessPropagationTime, func() (bool, error) {
+				startFailing, err := http.NewRequest(http.MethodGet, url.String(), nil)
+				if err != nil {
+					return false, err
+				}
 
-			// 5 Seconds is enough to be confident the request is timing out.
-			client.Client.Timeout = 5 * time.Second
+				// 5 Seconds is enough to be confident the request is timing out.
+				client.Client.Timeout = 5 * time.Second
 
-			resp, err := client.Do(startFailing, func(err error) (bool, error) {
+				resp, err := client.Do(startFailing, func(err error) (bool, error) {
+					if isTimeout(err) {
+						// We're actually expecting a timeout here, so don't retry on timeouts.
+						return false, nil
+					}
+
+					return spoof.DefaultErrorRetryChecker(err)
+				})
 				if isTimeout(err) {
-					// We're actually expecting a timeout here, so don't retry on timeouts.
+					// We expect to eventually time out, so this is the success case.
+					return true, nil
+				} else if err != nil {
+					// Other errors are not expected.
+					return false, err
+				} else if resp.StatusCode == http.StatusOK {
+					// We'll continue to get 200s for a while until readiness propagates.
 					return false, nil
 				}
 
-				return spoof.DefaultErrorRetryChecker(err)
-			})
-			if isTimeout(err) {
-				// We expect to eventually time out, so this is the success case.
-				return true, nil
-			} else if err != nil {
-				// Other errors are not expected.
-				return false, err
-			} else if resp.StatusCode == http.StatusOK {
-				// We'll continue to get 200s for a while until readiness propagates.
-				return false, nil
+				return false, errors.New("Received non-200 status code (expected to eventually time out)")
+			}); err != nil {
+				t.Fatal("Expected to eventually see request timeout due to all pods becoming unready, but got:", err)
 			}
-
-			return false, errors.New("Received non-200 status code (expected to eventually time out)")
-		}); err != nil {
-			t.Fatal("Expected to eventually see request timeout due to all pods becoming unready, but got:", err)
-		}
-	})
-
-	t.Run("with periodSeconds > 0 (no QP optimisation)", func(t *testing.T) {
-		t.Parallel()
-		clients := test.Setup(t)
-		names := test.ResourceNames{Service: test.ObjectNameForTest(t), Image: test.Readiness}
-		test.EnsureTearDown(t, clients, &names)
-
-		// When periodSeconds > 0 we ignore readinessProbes after startup, so
-		// this request will continue to work, even though all pods are failing
-		// readiness.
-		// (see https://github.com/knative/serving/issues/10764).
-		url, _ := waitReadyThenStartFailing(t, clients, names, 1)
-		if err := wait.PollImmediate(1*time.Second, readinessPropagationTime, func() (bool, error) {
-			if _, err := pkgtest.CheckEndpointState(
-				context.Background(),
-				clients.KubeClient,
-				t.Logf,
-				url,
-				v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText))),
-				"readinessIsReady",
-				test.ServingFlags.ResolvableDomain,
-				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
-			); err != nil {
-				return false, err
-			}
-
-			// Keep retrying for readinessPropagationTime to allow
-			// readiness to propagate, otherwise we could get a false
-			// positive since ingresses and activator may not have noticed
-			// the readiness change yet.
-			return false, nil
-		}); !errors.Is(err, wait.ErrWaitTimeout) {
-			t.Fatalf("Expected endpoint for Route %s at %s to consistently return success (even though readinessProbe is failing), but got: %v", names.Route, url, err)
-		}
-	})
+		})
+	}
 }
 
 // waitReadyThenStartFailing creates a service, waits for it to pass readiness,
