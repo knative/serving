@@ -35,9 +35,6 @@ func (is *IngressSpec) SetDefaults(ctx context.Context) {
 	for i := range is.Rules {
 		is.Rules[i].SetDefaults(ctx)
 	}
-
-	// Deprecated, do not use.
-	is.DeprecatedVisibility = ""
 }
 
 // SetDefaults populates default values in IngressTLS
@@ -64,6 +61,4 @@ func (h *HTTPIngressPath) SetDefaults(ctx context.Context) {
 	if len(h.Splits) == 1 && h.Splits[0].Percent == 0 {
 		h.Splits[0].Percent = 100
 	}
-	// Deprecated, do not use.
-	h.DeprecatedRetries = nil
 }

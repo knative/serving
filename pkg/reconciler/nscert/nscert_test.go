@@ -126,7 +126,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	})
 
 	var eg errgroup.Group
-	eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
+	eg.Go(func() error { return ctl.RunContext(ctx, 1) })
 	return ctx, func() {
 		cancel()
 		eg.Wait()

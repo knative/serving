@@ -41,6 +41,7 @@ import (
 	pkgnetwork "knative.dev/pkg/network"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
+	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -707,7 +708,7 @@ func TestReconcile(t *testing.T) {
 			certificateLister: listers.GetCertificateLister(),
 			ingressLister:     listers.GetIngressLister(),
 			netclient:         networkingclient.Get(ctx),
-			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
+			resolver:          resolver.NewURIResolverFromTracker(ctx, tracker.New(func(types.NamespacedName) {}, 0)),
 			domainClaimLister: listers.GetDomainClaimLister(),
 		}
 
@@ -842,7 +843,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 			certificateLister: listers.GetCertificateLister(),
 			ingressLister:     listers.GetIngressLister(),
 			netclient:         networkingclient.Get(ctx),
-			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
+			resolver:          resolver.NewURIResolverFromTracker(ctx, tracker.New(func(types.NamespacedName) {}, 0)),
 			domainClaimLister: listers.GetDomainClaimLister(),
 		}
 
@@ -1198,7 +1199,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 			ingressLister:     listers.GetIngressLister(),
 			domainClaimLister: listers.GetDomainClaimLister(),
 			netclient:         networkingclient.Get(ctx),
-			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
+			resolver:          resolver.NewURIResolverFromTracker(ctx, tracker.New(func(types.NamespacedName) {}, 0)),
 		}
 
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
@@ -1265,7 +1266,7 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 			domainClaimLister: listers.GetDomainClaimLister(),
 			ingressLister:     listers.GetIngressLister(),
 			netclient:         networkingclient.Get(ctx),
-			resolver:          resolver.NewURIResolver(ctx, func(types.NamespacedName) {}),
+			resolver:          resolver.NewURIResolverFromTracker(ctx, tracker.New(func(types.NamespacedName) {}, 0)),
 		}
 
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),

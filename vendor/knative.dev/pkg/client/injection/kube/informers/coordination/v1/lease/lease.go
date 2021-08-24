@@ -21,7 +21,14 @@ package lease
 import (
 	context "context"
 
+	apicoordinationv1 "k8s.io/api/coordination/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
 	v1 "k8s.io/client-go/informers/coordination/v1"
+	kubernetes "k8s.io/client-go/kubernetes"
+	coordinationv1 "k8s.io/client-go/listers/coordination/v1"
+	cache "k8s.io/client-go/tools/cache"
+	client "knative.dev/pkg/client/injection/kube/client"
 	factory "knative.dev/pkg/client/injection/kube/informers/factory"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
@@ -30,6 +37,7 @@ import (
 
 func init() {
 	injection.Default.RegisterInformer(withInformer)
+	injection.Dynamic.RegisterDynamicInformer(withDynamicInformer)
 }
 
 // Key is used for associating the Informer inside the context.Context.
@@ -41,6 +49,11 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	return context.WithValue(ctx, Key{}, inf), inf.Informer()
 }
 
+func withDynamicInformer(ctx context.Context) context.Context {
+	inf := &wrapper{client: client.Get(ctx)}
+	return context.WithValue(ctx, Key{}, inf)
+}
+
 // Get extracts the typed informer from the context.
 func Get(ctx context.Context) v1.LeaseInformer {
 	untyped := ctx.Value(Key{})
@@ -49,4 +62,45 @@ func Get(ctx context.Context) v1.LeaseInformer {
 			"Unable to fetch k8s.io/client-go/informers/coordination/v1.LeaseInformer from context.")
 	}
 	return untyped.(v1.LeaseInformer)
+}
+
+type wrapper struct {
+	client kubernetes.Interface
+
+	namespace string
+}
+
+var _ v1.LeaseInformer = (*wrapper)(nil)
+var _ coordinationv1.LeaseLister = (*wrapper)(nil)
+
+func (w *wrapper) Informer() cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(nil, &apicoordinationv1.Lease{}, 0, nil)
+}
+
+func (w *wrapper) Lister() coordinationv1.LeaseLister {
+	return w
+}
+
+func (w *wrapper) Leases(namespace string) coordinationv1.LeaseNamespaceLister {
+	return &wrapper{client: w.client, namespace: namespace}
+}
+
+func (w *wrapper) List(selector labels.Selector) (ret []*apicoordinationv1.Lease, err error) {
+	lo, err := w.client.CoordinationV1().Leases(w.namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: selector.String(),
+		// TODO(mattmoor): Incorporate resourceVersion bounds based on staleness criteria.
+	})
+	if err != nil {
+		return nil, err
+	}
+	for idx := range lo.Items {
+		ret = append(ret, &lo.Items[idx])
+	}
+	return ret, nil
+}
+
+func (w *wrapper) Get(name string) (*apicoordinationv1.Lease, error) {
+	return w.client.CoordinationV1().Leases(w.namespace).Get(context.TODO(), name, metav1.GetOptions{
+		// TODO(mattmoor): Incorporate resourceVersion bounds based on staleness criteria.
+	})
 }

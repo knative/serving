@@ -65,6 +65,6 @@ func ProbeHandler(healthState *State, prober func() bool, isAggressive bool, tra
 				return false
 			}
 			return true
-		}, isAggressive, w)
+		}, w)
 	}
 }

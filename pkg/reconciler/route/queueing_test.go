@@ -106,7 +106,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	eg := errgroup.Group{}
 	eg.Go(func() error {
 		ctrl := NewController(ctx, configMapWatcher)
-		return ctrl.Run(2, ctx.Done())
+		return ctrl.RunContext(ctx, 2)
 	})
 
 	defer func() {
