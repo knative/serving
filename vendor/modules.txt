@@ -2,7 +2,7 @@
 cloud.google.com/go/compute/metadata
 # contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d
 contrib.go.opencensus.io/exporter/ocagent
-# contrib.go.opencensus.io/exporter/prometheus v0.3.0
+# contrib.go.opencensus.io/exporter/prometheus v0.3.1-0.20210621165811-f3a7283b3002
 contrib.go.opencensus.io/exporter/prometheus
 # contrib.go.opencensus.io/exporter/zipkin v0.1.2
 contrib.go.opencensus.io/exporter/zipkin
@@ -39,11 +39,6 @@ github.com/PuerkitoBio/urlesc
 ## explicit
 github.com/ahmetb/gen-crd-api-reference-docs
 github.com/ahmetb/gen-crd-api-reference-docs/template
-# github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
-github.com/alecthomas/template
-github.com/alecthomas/template/parse
-# github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d
-github.com/alecthomas/units
 # github.com/aws/aws-sdk-go v1.37.1
 ## explicit
 github.com/aws/aws-sdk-go/aws
@@ -132,6 +127,11 @@ github.com/evanphx/json-patch
 github.com/evanphx/json-patch/v5
 # github.com/form3tech-oss/jwt-go v3.2.2+incompatible
 github.com/form3tech-oss/jwt-go
+# github.com/go-kit/log v0.1.0
+github.com/go-kit/log
+github.com/go-kit/log/level
+# github.com/go-logfmt/logfmt v0.5.0
+github.com/go-logfmt/logfmt
 # github.com/go-logr/logr v0.4.0
 github.com/go-logr/logr
 # github.com/go-openapi/jsonpointer v0.19.5
@@ -151,7 +151,7 @@ github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 github.com/golang/glog
-# github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
+# github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.5.2
 github.com/golang/protobuf/descriptor
@@ -290,16 +290,15 @@ github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.2.0
 ## explicit
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.26.0
+# github.com/prometheus/common v0.30.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
-github.com/prometheus/common/log
 github.com/prometheus/common/model
 # github.com/prometheus/procfs v0.6.0
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/prometheus/statsd_exporter v0.20.0
+# github.com/prometheus/statsd_exporter v0.21.0
 github.com/prometheus/statsd_exporter/pkg/mapper
 github.com/prometheus/statsd_exporter/pkg/mapper/fsm
 # github.com/russross/blackfriday/v2 v2.1.0
@@ -416,8 +415,6 @@ golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-golang.org/x/sys/windows/registry
-golang.org/x/sys/windows/svc/eventlog
 # golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
 ## explicit
 golang.org/x/term
@@ -567,8 +564,6 @@ google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/fieldmaskpb
 google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/wrapperspb
-# gopkg.in/alecthomas/kingpin.v2 v2.2.6
-gopkg.in/alecthomas/kingpin.v2
 # gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b
 ## explicit
 # gopkg.in/inf.v0 v0.9.1
@@ -980,7 +975,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20210820021705-72a775e52e43
+# knative.dev/caching v0.0.0-20210823062535-0af7ed4d9303
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1005,7 +1000,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20210820164705-3e603fb4df8a
+# knative.dev/networking v0.0.0-20210823062535-cfb7e2379d08
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1035,7 +1030,7 @@ knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serve
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20210822203034-3bed4dcf179c
+# knative.dev/pkg v0.0.0-20210823133635-12d915ede293
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
