@@ -3,12 +3,9 @@ run:
 
   build-tags:
     - e2e
-    - performance
-    - probe
-    - preupgrade
-    - postupgrade
-    - postdowngrade
-    - istio
+    - emptydir
+    - hpa
+    - upgrade
 
   skip-dirs:
     - pkg/client
