@@ -90,7 +90,6 @@ func newController(
 	})
 	c.enqueueAfter = impl.EnqueueAfter
 
-	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	handleControllerOf := cache.FilteringResourceEventHandler{

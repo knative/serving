@@ -46,7 +46,6 @@ func NewController(
 	configInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
-	logger.Info("Setting up ConfigMap receivers")
 	configStore := config.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
 
@@ -59,7 +58,6 @@ func NewController(
 		}
 	})
 
-	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	// Make sure trackers are deleted once the observers are removed.

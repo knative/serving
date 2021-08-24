@@ -128,7 +128,6 @@ func newControllerWithOptions(
 	c.resolver = resolver
 
 	// Set up an event handler for when the resource types of interest change
-	logger.Info("Setting up event handlers")
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	handleMatchingControllers := cache.FilteringResourceEventHandler{
