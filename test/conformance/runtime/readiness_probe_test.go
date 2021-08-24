@@ -153,7 +153,7 @@ func TestProbeRuntime(t *testing.T) {
 // See https://github.com/knative/serving/issues/10765.
 func TestProbeRuntimeAfterStartup(t *testing.T) {
 	if test.ServingFlags.DisableOptionalAPI {
-		t.Skip("Container.readinessProbe is not required by Knative Serving API Specification")
+		t.Skip("Container.readinessProbe behaviour after startup is not defined by Knative Serving API Specification")
 	}
 	t.Parallel()
 	clients := test.Setup(t)
