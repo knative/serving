@@ -85,6 +85,8 @@ func (rs *RouteStatus) MarkServiceNotOwned(name string) {
 		fmt.Sprintf("There is an existing placeholder Service %q that we do not own.", name))
 }
 
+// MarkEndpointNotOwned changes the IngressReady status to be false with the reason being that
+// there is a pre-existing placeholder endpoint with the name we wanted to use.
 func (rs *RouteStatus) MarkEndpointNotOwned(name string) {
 	routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, "NotOwned",
 		fmt.Sprintf("There is an existing placeholder Endpoint %q that we do not own.", name))

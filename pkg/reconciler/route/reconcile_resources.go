@@ -142,7 +142,7 @@ func (c *Reconciler) deleteOrphanedServices(ctx context.Context, r *v1.Route, ac
 		}
 
 		if err := c.kubeclient.CoreV1().Endpoints(ns).Delete(ctx, service.Name, metav1.DeleteOptions{}); err != nil {
-			return fmt.Errorf("failed to delete Service: %w", err)
+			return fmt.Errorf("failed to delete Endpoints: %w", err)
 		}
 	}
 
@@ -153,10 +153,11 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 	ns := route.Namespace
-
 	services := make([]resources.ServicePair, 0, len(targets))
-
 	names := make(sets.String, len(targets))
+
+	// Note: this is done in order for the tests to be
+	// deterministic since they assert creations in order
 	for name := range targets {
 		names.Insert(name)
 	}
@@ -220,8 +221,8 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 	ns := route.Namespace
 
 	eg, egCtx := errgroup.WithContext(ctx)
-	for _, pair := range pairs {
-		from := pair
+	for _, from := range pairs {
+		from := from
 		eg.Go(func() error {
 			to, err := resources.MakeK8sService(egCtx, route, from.Tag, ingress, resources.IsClusterLocalService(from.Service))
 			if err != nil {
@@ -242,15 +243,17 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 					// See: https://github.com/kubernetes/kubernetes/issues/104329
 				}
 			} else if from.Spec.Type == corev1.ServiceTypeClusterIP {
-				if from.Spec.ClusterIP != to.Spec.ClusterIP {
-					if from.Spec.ClusterIP != corev1.ClusterIPNone && to.Spec.ClusterIP == "" {
-						// Copy over the cluster IP
-						to.Spec.ClusterIP = from.Spec.ClusterIP
-						canUpdate = true
-					}
-				} else {
+				if from.Spec.ClusterIP == to.Spec.ClusterIP {
+					canUpdate = true
+				} else if from.Spec.ClusterIP != corev1.ClusterIPNone && to.Spec.ClusterIP == "" {
+					// Copy over the cluster IP
+					to.Spec.ClusterIP = from.Spec.ClusterIP
 					canUpdate = true
 				}
+				// else:
+				//   clusterIPs are immutable thus any transition requires a recreate
+				//   ie. "None" <=> "" (blank - request an IP)
+
 			} else /* types are the same and not clusterIP */ {
 				canUpdate = true
 			}

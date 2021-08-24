@@ -111,9 +111,13 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
 		Endpoints: nil,
 	}
 
-	// Here we decide LoadBalancer information in the order of
-	// DomainInternal > Domain > LoadBalancedIP to prioritize cluster-local,
-	// and domain (since it would change less than IP).
+	// We want to avoid ExternalName K8s Services for the reasons outlined
+	// here: https://github.com/knative/serving/issues/11821
+	//
+	// Thus we prioritize IP > DomainInternal > Domain
+	//
+	// Once we can switch to EndpointSlices (1.22) we can hopefully deprioritize
+	// IP to where it was before
 	switch {
 	case balancer.IP != "":
 		pair.Service.Spec.ClusterIP = corev1.ClusterIPNone
