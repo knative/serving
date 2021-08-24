@@ -36,7 +36,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/tracker"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 )
@@ -102,7 +101,7 @@ func newController(
 	certificateInformer.Informer().AddEventHandler(handleControllerOf)
 	ingressInformer.Informer().AddEventHandler(handleControllerOf)
 
-	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
+	c.tracker = impl.Tracker
 
 	// Make sure trackers are deleted once the observers are removed.
 	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

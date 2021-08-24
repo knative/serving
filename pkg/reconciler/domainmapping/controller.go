@@ -72,7 +72,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	certificateInformer.Informer().AddEventHandler(handleControllerOf)
 	ingressInformer.Informer().AddEventHandler(handleControllerOf)
 
-	r.resolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
+	r.resolver = resolver.NewURIResolverFromTracker(ctx, impl.Tracker)
 
 	return impl
 }
