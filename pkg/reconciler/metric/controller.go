@@ -25,7 +25,6 @@ import (
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 )
 
 // NewController initializes the controller and is called by the generated code.
@@ -35,15 +34,12 @@ func NewController(
 	cmw configmap.Watcher,
 	collector metrics.Collector,
 ) *controller.Impl {
-	logger := logging.FromContext(ctx)
 	metricInformer := metricinformer.Get(ctx)
 
 	c := &reconciler{
 		collector: collector,
 	}
 	impl := metricreconciler.NewImpl(ctx, c)
-
-	logger.Info("Setting up event handlers")
 
 	// Watch all the Metric objects.
 	metricInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

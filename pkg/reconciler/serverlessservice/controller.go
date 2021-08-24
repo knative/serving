@@ -66,8 +66,6 @@ func NewController(
 	}
 	impl := sksreconciler.NewImpl(ctx, c)
 
-	logger.Info("Setting up event handlers")
-
 	// Watch all the SKS objects.
 	sksInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 

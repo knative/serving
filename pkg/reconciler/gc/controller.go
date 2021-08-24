@@ -48,8 +48,6 @@ func NewController(
 		revisionLister: revisionInformer.Lister(),
 	}
 	return configreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
-		logger.Info("Setting up event handlers")
-
 		// Since the gc controller came from the configuration controller, having event handlers
 		// on both configuration and revision matches the existing behaviors of the configuration
 		// controller. This is to minimize risk heading into v1.
@@ -61,7 +59,6 @@ func NewController(
 			Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 		})
 
-		logger.Info("Setting up ConfigMap receivers with resync func")
 		configsToResync := []interface{}{
 			&gcconfig.Config{},
 		}
@@ -70,7 +67,6 @@ func NewController(
 			impl.GlobalResync(revisionInformer.Informer())
 		})
 
-		logger.Info("Setting up ConfigMap receivers")
 		configStore := configns.NewStore(logging.WithLogger(ctx, logger.Named("config-store")), resync)
 		configStore.WatchConfigs(cmw)
 

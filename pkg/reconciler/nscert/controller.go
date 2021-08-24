@@ -47,15 +47,13 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	}
 
 	impl := namespacereconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
-		logger.Info("Setting up event handlers")
 		nsInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 		knCertificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-			FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind("Namespace")),
+			FilterFunc: controller.FilterControllerGK(corev1.SchemeGroupVersion.WithKind("Namespace").GroupKind()),
 			Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 		})
 
-		logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
 			&network.Config{},
 			&routecfg.Domain{},

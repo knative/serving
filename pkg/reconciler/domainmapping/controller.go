@@ -62,7 +62,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		return controller.Options{ConfigStore: configStore}
 	})
 
-	logger.Info("Setting up event handlers")
 	domainmappingInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	handleControllerOf := cache.FilteringResourceEventHandler{

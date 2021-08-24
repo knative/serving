@@ -41,7 +41,6 @@ func NewController(
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
-	logger.Info("Setting up ConfigMap receivers")
 	configStore := config.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
 
@@ -54,7 +53,6 @@ func NewController(
 		return controller.Options{ConfigStore: configStore}
 	})
 
-	logger.Info("Setting up event handlers")
 	configurationInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	revisionInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
