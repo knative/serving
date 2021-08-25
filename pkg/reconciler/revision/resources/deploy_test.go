@@ -1087,6 +1087,27 @@ func TestMakePodSpec(t *testing.T) {
 			},
 			withAppendedVolumes(varLogVolume),
 		),
+	}, {
+		name: "with no readiness probe",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Image: "busybox",
+				Name:  servingContainerName,
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.StartupProbe = nil
+					container.ReadinessProbe = nil
+				}),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", ""),
+					func(container *corev1.Container) {
+						container.StartupProbe = nil
+						container.ReadinessProbe = nil
+					}),
+			}),
 	}}
 
 	for _, test := range tests {
@@ -1110,12 +1131,6 @@ func TestMakePodSpec(t *testing.T) {
 var quantityComparer = cmp.Comparer(func(x, y resource.Quantity) bool {
 	return x.Cmp(y) == 0
 })
-
-func TestMissingProbeError(t *testing.T) {
-	if _, err := MakeDeployment(revision("bar", "foo"), revConfig()); err == nil {
-		t.Error("expected error from MakeDeployment")
-	}
-}
 
 func TestMakeDeployment(t *testing.T) {
 	tests := []struct {
