@@ -190,7 +190,8 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					url,
 					v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText), abortOnTimeout(ctx))),
 					"WaitForEndpointToServeText",
-					test.ServingFlags.ResolvableDomain)
+					test.ServingFlags.ResolvableDomain,
+					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 				if err != nil {
 					t.Error("WaitForEndpointState(expected text) =", err)
 					return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
