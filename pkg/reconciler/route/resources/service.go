@@ -33,88 +33,58 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/domains"
 )
 
+type ServicePair struct {
+	*corev1.Service
+	*corev1.Endpoints
+	Tag string
+}
+
 var errLoadBalancerNotFound = errors.New("failed to fetch loadbalancer domain/IP from ingress status")
 
-// MakeK8sPlaceholderService creates a placeholder Service to prevent naming collisions. It's owned by the
-// provided v1.Route.
-func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, targetName string) (*corev1.Service, error) {
-	hostname, err := domains.HostnameFromTemplate(ctx, route.Name, targetName)
-	if err != nil {
-		return nil, err
-	}
-	fullName, err := domains.DomainNameFromTemplate(ctx, route.ObjectMeta, hostname)
+// MakeK8sPlaceholderService creates a placeholder Service to prevent naming collisions.
+// It's owned by the provided v1.Route.
+func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, tagName string) (*corev1.Service, error) {
+	hostname, err := domains.HostnameFromTemplate(ctx, route.Name, tagName)
 	if err != nil {
 		return nil, err
 	}
 
-	return makeK8sService(ctx, route, &corev1.ServiceSpec{
-		Type:            corev1.ServiceTypeExternalName,
-		ExternalName:    fullName,
-		SessionAffinity: corev1.ServiceAffinityNone,
-		Ports: []corev1.ServicePort{{
-			Name:       networking.ServicePortNameH2C,
-			Port:       int32(80),
-			TargetPort: intstr.FromInt(80),
-		}},
-	}, targetName)
+	domainName, err := domains.DomainNameFromTemplate(ctx, route.ObjectMeta, hostname)
+	if err != nil {
+		return nil, err
+	}
+
+	return &corev1.Service{
+		ObjectMeta: makeServiceObjectMeta(hostname, route),
+		Spec: corev1.ServiceSpec{
+			Type:            corev1.ServiceTypeExternalName,
+			ExternalName:    domainName,
+			SessionAffinity: corev1.ServiceAffinityNone,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
+		},
+	}, nil
 }
 
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in Ingress status. It's owned by the provided v1.Route.
-func MakeK8sService(ctx context.Context, route *v1.Route,
-	targetName string, ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP string) (*corev1.Service, error) {
-	svcSpec, err := makeServiceSpec(ingress, isPrivate, clusterIP)
-	if err != nil {
-		return nil, err
-	}
+func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingress *netv1alpha1.Ingress, isPrivate bool) (*ServicePair, error) {
+	privateLB := ingress.Status.PrivateLoadBalancer
+	lbStatus := ingress.Status.PublicLoadBalancer
 
-	return makeK8sService(ctx, route, svcSpec, targetName)
-}
-
-func makeK8sService(ctx context.Context, route *v1.Route,
-	spec *corev1.ServiceSpec, targetName string) (*corev1.Service, error) {
-	hostname, err := domains.HostnameFromTemplate(ctx, route.Name, targetName)
-	if err != nil {
-		return nil, err
-	}
-
-	svcLabels := map[string]string{
-		serving.RouteLabelKey: route.Name,
-	}
-
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      hostname,
-			Namespace: route.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				// This service is owned by the Route.
-				*kmeta.NewControllerRef(route),
-			},
-			Labels: kmeta.UnionMaps(kmeta.FilterMap(route.GetLabels(), func(key string) bool {
-				// Do not propagate the visibility label from Route as users may want to set the label
-				// in the specific k8s svc for subroute. see https://github.com/knative/serving/pull/4560.
-				return key == network.VisibilityLabelKey
-			}), svcLabels),
-			Annotations: route.GetAnnotations(),
-		},
-		Spec: *spec,
-	}, nil
-}
-
-func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP string) (*corev1.ServiceSpec, error) {
-	ingressStatus := ingress.Status
-
-	lbStatus := ingressStatus.PublicLoadBalancer
-	if isPrivate || ingressStatus.PrivateLoadBalancer != nil {
+	if isPrivate || privateLB != nil && len(privateLB.Ingress) != 0 {
 		// Always use private load balancer if it exists,
 		// because k8s service is only useful for inter-cluster communication.
 		// External communication will be handle via ingress gateway, which won't be affected by what is configured here.
-		lbStatus = ingressStatus.PrivateLoadBalancer
+		lbStatus = privateLB
 	}
-
 	if lbStatus == nil || len(lbStatus.Ingress) == 0 {
 		return nil, errLoadBalancerNotFound
 	}
+
 	if len(lbStatus.Ingress) > 1 {
 		// Return error as we only support one LoadBalancer currently.
 		return nil, errors.New(
@@ -122,48 +92,89 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP str
 	}
 	balancer := lbStatus.Ingress[0]
 
-	// Here we decide LoadBalancer information in the order of
-	// DomainInternal > Domain > LoadBalancedIP to prioritize cluster-local,
-	// and domain (since it would change less than IP).
+	hostname, err := domains.HostnameFromTemplate(ctx, route.Name, tagName)
+	if err != nil {
+		return nil, err
+	}
+
+	pair := &ServicePair{
+		Service: &corev1.Service{
+			ObjectMeta: makeServiceObjectMeta(hostname, route),
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{{
+					Name:       networking.ServicePortNameH2C,
+					Port:       int32(80),
+					TargetPort: intstr.FromInt(80),
+				}},
+			},
+		},
+		Endpoints: nil,
+	}
+
+	// We want to avoid ExternalName K8s Services for the reasons outlined
+	// here: https://github.com/knative/serving/issues/11821
+	//
+	// Thus we prioritize IP > DomainInternal > Domain
+	//
+	// Once we can switch to EndpointSlices (1.22) we can hopefully deprioritize
+	// IP to where it was before
 	switch {
+	case balancer.IP != "":
+		pair.Service.Spec.ClusterIP = corev1.ClusterIPNone
+		pair.Service.Spec.Type = corev1.ServiceTypeClusterIP
+		pair.Endpoints = &corev1.Endpoints{
+			ObjectMeta: pair.Service.ObjectMeta,
+			Subsets: []corev1.EndpointSubset{{
+				Addresses: []corev1.EndpointAddress{{
+					IP: balancer.IP,
+				}},
+				Ports: []corev1.EndpointPort{{
+					Name: networking.ServicePortNameH2C,
+					Port: int32(80),
+				}},
+			}},
+		}
 	case balancer.DomainInternal != "":
-		return &corev1.ServiceSpec{
-			Type:            corev1.ServiceTypeExternalName,
-			ExternalName:    balancer.DomainInternal,
-			SessionAffinity: corev1.ServiceAffinityNone,
-			Ports: []corev1.ServicePort{{
-				Name:       networking.ServicePortNameH2C,
-				Port:       int32(80),
-				TargetPort: intstr.FromInt(80),
-			}},
-		}, nil
+		pair.Service.Spec.Type = corev1.ServiceTypeExternalName
+		pair.Service.Spec.ExternalName = balancer.DomainInternal
+		pair.Service.Spec.SessionAffinity = corev1.ServiceAffinityNone
 	case balancer.Domain != "":
-		return &corev1.ServiceSpec{
-			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: balancer.Domain,
-			Ports: []corev1.ServicePort{{
-				Name:       networking.ServicePortNameH2C,
-				Port:       int32(80),
-				TargetPort: intstr.FromInt(80),
-			}},
-		}, nil
+		pair.Service.Spec.Type = corev1.ServiceTypeExternalName
+		pair.Service.Spec.ExternalName = balancer.Domain
 	case balancer.MeshOnly:
 		// The Ingress is loadbalanced through a Service mesh.
 		// We won't have a specific LB endpoint to route traffic to,
 		// but we still need to create a ClusterIP service to make
 		// sure the domain name is available for access within the
 		// mesh.
-		return &corev1.ServiceSpec{
-			Type:      corev1.ServiceTypeClusterIP,
-			ClusterIP: clusterIP,
-			Ports: []corev1.ServicePort{{
-				Name: networking.ServicePortNameHTTP1,
-				Port: networking.ServiceHTTPPort,
-			}},
-		}, nil
-	case balancer.IP != "":
-		// TODO(lichuqiang): deal with LoadBalancer IP.
-		// We'll also need ports info to make it take effect.
+		pair.Service.Spec.Type = corev1.ServiceTypeClusterIP
+		pair.Service.Spec.Ports = []corev1.ServicePort{{
+			Name: networking.ServicePortNameHTTP1,
+			Port: networking.ServiceHTTPPort,
+		}}
+	default:
+		return nil, errLoadBalancerNotFound
 	}
-	return nil, errLoadBalancerNotFound
+	return pair, nil
+}
+
+func makeServiceObjectMeta(hostname string, route *v1.Route) metav1.ObjectMeta {
+	svcLabels := map[string]string{
+		serving.RouteLabelKey: route.Name,
+	}
+
+	return metav1.ObjectMeta{
+		Name:      hostname,
+		Namespace: route.Namespace,
+		OwnerReferences: []metav1.OwnerReference{
+			// This service is owned by the Route.
+			*kmeta.NewControllerRef(route),
+		},
+		Labels: kmeta.UnionMaps(kmeta.FilterMap(route.GetLabels(), func(key string) bool {
+			// Do not propagate the visibility label from Route as users may want to set the label
+			// in the specific k8s svc for subroute. see https://github.com/knative/serving/pull/4560.
+			return key == network.VisibilityLabelKey
+		}), svcLabels),
+		Annotations: route.GetAnnotations(),
+	}
 }

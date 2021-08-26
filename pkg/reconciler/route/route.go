@@ -41,7 +41,6 @@ import (
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
-	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
@@ -67,6 +66,7 @@ type Reconciler struct {
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
 	serviceLister       corev1listers.ServiceLister
+	endpointsLister     corev1listers.EndpointsLister
 	ingressLister       networkinglisters.IngressLister
 	certificateLister   networkinglisters.CertificateLister
 	tracker             tracker.Interface
@@ -90,23 +90,6 @@ func certClass(ctx context.Context, r *v1.Route) string {
 		return class
 	}
 	return config.FromContext(ctx).Network.DefaultCertificateClass
-}
-
-// getPlaceholderServiceNames returns the placeholder services names, or an error.
-func (c *Reconciler) getPlaceholderServiceNames(route *v1.Route) (sets.String, error) {
-	currentServices, err := c.serviceLister.Services(route.Namespace).List(
-		kubelabels.SelectorFromSet(kubelabels.Set{serving.RouteLabelKey: route.Name}),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	names := make(sets.String, len(currentServices))
-	for _, svc := range currentServices {
-		names.Insert(svc.Name)
-	}
-
-	return names, nil
 }
 
 // ReconcileKind implements Interface.ReconcileKind.

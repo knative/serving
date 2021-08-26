@@ -31,12 +31,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
@@ -106,34 +108,60 @@ func (c *Reconciler) reconcileIngress(
 	return ingress, effectiveRO, err
 }
 
-func (c *Reconciler) deleteServices(ctx context.Context, namespace string, serviceNames sets.String) error {
-	for _, serviceName := range serviceNames.List() {
-		if err := c.kubeclient.CoreV1().Services(namespace).Delete(ctx, serviceName, metav1.DeleteOptions{}); err != nil {
+func (c *Reconciler) deleteOrphanedServices(ctx context.Context, r *v1.Route, activeServices []resources.ServicePair) error {
+	ns := r.Namespace
+
+	active := make(sets.String, len(activeServices))
+
+	for _, service := range activeServices {
+		active.Insert(service.Service.Name)
+	}
+
+	routeLabelSelector := labels.SelectorFromSet(labels.Set{serving.RouteLabelKey: r.Name})
+	allServices, err := c.serviceLister.Services(ns).List(routeLabelSelector)
+
+	if err != nil {
+		return fmt.Errorf("failed to fetch existing services: %w", err)
+	}
+
+	for _, service := range allServices {
+		if active.Has(service.Name) {
+			continue
+		}
+
+		if err := c.kubeclient.CoreV1().Services(ns).Delete(ctx, service.Name, metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("failed to delete Service: %w", err)
+		}
+
+		// Delete the endpoint if it exists
+		_, err := c.endpointsLister.Endpoints(ns).Get(service.Name)
+		if apierrs.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return fmt.Errorf("failed to list endpoint: %w", err)
+		}
+
+		if err := c.kubeclient.CoreV1().Endpoints(ns).Delete(ctx, service.Name, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("failed to delete Endpoints: %w", err)
 		}
 	}
 
 	return nil
 }
 
-func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1.Route, targets map[string]traffic.RevisionTargets) ([]*corev1.Service, error) {
+func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1.Route, targets map[string]traffic.RevisionTargets) ([]resources.ServicePair, error) {
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
-
-	existingServiceNames, err := c.getPlaceholderServiceNames(route)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch existing services: %w", err)
-	}
-
 	ns := route.Namespace
+	services := make([]resources.ServicePair, 0, len(targets))
 	names := make(sets.String, len(targets))
+
+	// Note: this is done in order for the tests to be
+	// deterministic since they assert creations in order
 	for name := range targets {
 		names.Insert(name)
 	}
 
-	services := make([]*corev1.Service, 0, names.Len())
-	createdServiceNames := make(sets.String, names.Len())
-	// NB: we don't need to sort here, but it makes table tests work...
 	for _, name := range names.List() {
 		desiredService, err := resources.MakeK8sPlaceholderService(ctx, route, name)
 		if err != nil {
@@ -159,12 +187,27 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 			return nil, fmt.Errorf("route: %q does not own Service: %q", route.Name, desiredService.Name)
 		}
 
-		services = append(services, service)
-		createdServiceNames.Insert(desiredService.Name)
+		// Check if we have endpoints for this service
+		endpoints, err := c.endpointsLister.Endpoints(ns).Get(desiredService.Name)
+		if apierrs.IsNotFound(err) {
+			// noop
+		} else if err != nil {
+			return nil, err
+		} else if !metav1.IsControlledBy(endpoints, route) {
+			// Surface an error in the route's status, and return an error.
+			route.Status.MarkEndpointNotOwned(desiredService.Name)
+			return nil, fmt.Errorf("route: %q does not own Endpoints: %q", route.Name, desiredService.Name)
+		}
+
+		services = append(services, resources.ServicePair{
+			Service:   service,
+			Endpoints: endpoints,
+			Tag:       name,
+		})
 	}
 
 	// Delete any current services that was no longer desired.
-	if err := c.deleteServices(ctx, ns, existingServiceNames.Difference(createdServiceNames)); err != nil {
+	if err := c.deleteOrphanedServices(ctx, route, services); err != nil {
 		return nil, err
 	}
 
@@ -173,30 +216,88 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	return services, nil
 }
 
-func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Route, services []*corev1.Service, ingress *netv1alpha1.Ingress) error {
+func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Route, pairs []resources.ServicePair, ingress *netv1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 
 	eg, egCtx := errgroup.WithContext(ctx)
-	for _, service := range services {
-		service := service
+	for _, from := range pairs {
+		from := from
 		eg.Go(func() error {
-			desiredService, err := resources.MakeK8sService(egCtx, route, service.Name, ingress, resources.IsClusterLocalService(service), service.Spec.ClusterIP)
+			to, err := resources.MakeK8sService(egCtx, route, from.Tag, ingress, resources.IsClusterLocalService(from.Service))
 			if err != nil {
 				// Loadbalancer not ready, no need to update.
 				logger.Warnw("Failed to update k8s service", zap.Error(err))
 				return nil
 			}
 
-			// Make sure that the service has the proper specification.
-			if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {
-				// Don't modify the informers copy.
-				existing := service.DeepCopy()
-				existing.Spec = desiredService.Spec
-				if _, err := c.kubeclient.CoreV1().Services(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+			canUpdate := false
+
+			if from.Spec.Type != to.Spec.Type {
+				switch from.Spec.Type {
+				// Transitions from ExternalName to any type should work
+				case corev1.ServiceTypeExternalName:
+					canUpdate = true
+				default:
+					// Transitions from ClusterIP to ExternalName Fail
+					// See: https://github.com/kubernetes/kubernetes/issues/104329
+				}
+			} else if from.Spec.Type == corev1.ServiceTypeClusterIP {
+				if from.Spec.ClusterIP == to.Spec.ClusterIP {
+					canUpdate = true
+				} else if from.Spec.ClusterIP != corev1.ClusterIPNone && to.Spec.ClusterIP == "" {
+					// Copy over the cluster IP
+					to.Spec.ClusterIP = from.Spec.ClusterIP
+					canUpdate = true
+				}
+				// else:
+				//   clusterIPs are immutable thus any transition requires a recreate
+				//   ie. "None" <=> "" (blank - request an IP)
+
+			} else /* types are the same and not clusterIP */ {
+				canUpdate = true
+			}
+
+			if canUpdate {
+				// Make sure that the service has the proper specification.
+				if !equality.Semantic.DeepEqual(from.Service.Spec, to.Service.Spec) {
+					// Don't modify the informers copy.
+					existing := from.Service.DeepCopy()
+					existing.Spec = to.Service.Spec
+					if _, err := c.kubeclient.CoreV1().Services(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+						return err
+					}
+				}
+			} else {
+				if err := c.kubeclient.CoreV1().Services(ns).Delete(ctx, from.Service.Name, metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+				if _, err := c.kubeclient.CoreV1().Services(ns).Create(ctx, to.Service, metav1.CreateOptions{}); err != nil {
 					return err
 				}
 			}
+
+			if from.Endpoints != nil && to.Endpoints != nil {
+				if !equality.Semantic.DeepEqual(from.Endpoints.Subsets, to.Endpoints.Subsets) {
+					// Don't modify the informers copy.
+					existing := from.Endpoints.DeepCopy()
+					existing.Subsets = to.Endpoints.Subsets
+					if _, err := c.kubeclient.CoreV1().Endpoints(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+						return err
+					}
+				}
+			} else if from.Endpoints == nil && to.Endpoints == nil {
+				// noop
+			} else if from.Endpoints == nil {
+				if _, err := c.kubeclient.CoreV1().Endpoints(ns).Create(ctx, to.Endpoints, metav1.CreateOptions{}); err != nil {
+					return err
+				}
+			} else if to.Endpoints == nil {
+				if err := c.kubeclient.CoreV1().Endpoints(ns).Delete(ctx, from.Endpoints.Name, metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+			}
+
 			return nil
 		})
 	}

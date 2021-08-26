@@ -25,13 +25,15 @@ import (
 
 	// Inject the informers this controller depends on.
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
-	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakecfginformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
+
+	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
@@ -1525,7 +1527,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 func TestRouteDomain(t *testing.T) {
 	route := Route("default", "myapp", WithRouteLabel(map[string]string{"route": "myapp"}), WithRouteAnnotation(map[string]string{"sub": "mysub"}))
 	ctx := context.Background()
-	cfg := reconcilerTestConfig(false)
+	cfg := reconcilerTestConfig()
 	ctx = config.ToContext(ctx, cfg)
 
 	tests := []struct {
