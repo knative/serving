@@ -2585,6 +2585,15 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			// This certificate's DNS name is not the host name needed by the input Route.
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "default",
+				Verb:      "delete",
+				Resource:  netv1alpha1.SchemeGroupVersion.WithResource("certificates"),
+			},
+			Name: "route-12-34",
+		}},
 		Key: "default/becomes-ready",
 	}, {
 		Name: "verify ingress rules created for http01 challenges",
@@ -2798,6 +2807,15 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			// This certificate's DNS name is not the host name needed by the input Route.
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "default",
+				Verb:      "delete",
+				Resource:  netv1alpha1.SchemeGroupVersion.WithResource("certificates"),
+			},
+			Name: "route-12-34",
+		}},
 		Key: "default/becomes-ready",
 	}, {
 		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with autoTLS for cluster-local.
