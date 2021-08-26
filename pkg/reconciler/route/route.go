@@ -289,6 +289,32 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 	return tls, acmeChallenges, nil
 }
 
+// Returns a slice of certificates that used to belong route's old tags and are currently not in use.
+func (c *Reconciler) getOrphanRouteCerts(r *v1.Route, domainToTagMap map[string]string) ([]*v1alpha1.Certificate, error) {
+	var unusedCerts []*v1alpha1.Certificate
+	labelSelector := kubelabels.SelectorFromSet(kubelabels.Set{
+		serving.RouteLabelKey: r.Name,
+	})
+
+	certs, err := c.certificateLister.Certificates(r.Namespace).List(labelSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	var shouldKeepCert bool
+	for _, cert := range certs {
+		for _, dn := range cert.Spec.DNSNames {
+			_, shouldKeepCert = domainToTagMap[dn]
+		}
+
+		if !shouldKeepCert {
+			unusedCerts = append(unusedCerts, cert)
+		}
+	}
+
+	return unusedCerts, nil
+}
+
 // configureTraffic attempts to configure traffic based on the RouteSpec.  If there are missing
 // targets (e.g. Configurations without a Ready Revision, or Revision that isn't Ready or Inactive),
 // no traffic will be configured.
@@ -495,30 +521,4 @@ func wildcardCertMatches(ctx context.Context, domains []string, cert *netv1alpha
 	}
 
 	return true
-}
-
-// Returns a slice of certificates that used to belong route's old tags and are currently not in use.
-func (c *Reconciler) getOrphanRouteCerts(r *v1.Route, domainToTagMap map[string]string) ([]*v1alpha1.Certificate, error) {
-	var unusedCerts []*v1alpha1.Certificate
-	labelSelector := kubelabels.SelectorFromSet(kubelabels.Set{
-		serving.RouteLabelKey: r.Name,
-	})
-
-	certs, err := c.certificateLister.Certificates(r.Namespace).List(labelSelector)
-	if err != nil {
-		return nil, err
-	}
-
-	var shouldKeepCert bool
-	for _, cert := range certs {
-		for _, dn := range cert.Spec.DNSNames {
-			_, shouldKeepCert = domainToTagMap[dn]
-		}
-
-		if !shouldKeepCert {
-			unusedCerts = append(unusedCerts, cert)
-		}
-	}
-
-	return unusedCerts, nil
 }
