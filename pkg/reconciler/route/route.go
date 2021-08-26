@@ -34,7 +34,6 @@ import (
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
@@ -275,8 +274,8 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 }
 
 // Returns a slice of certificates that used to belong route's old tags and are currently not in use.
-func (c *Reconciler) getOrphanRouteCerts(r *v1.Route, domainToTagMap map[string]string) ([]*v1alpha1.Certificate, error) {
-	var unusedCerts []*v1alpha1.Certificate
+func (c *Reconciler) getOrphanRouteCerts(r *v1.Route, domainToTagMap map[string]string) ([]*netv1alpha1.Certificate, error) {
+	var unusedCerts []*netv1alpha1.Certificate
 	labelSelector := kubelabels.SelectorFromSet(kubelabels.Set{
 		serving.RouteLabelKey: r.Name,
 	})
