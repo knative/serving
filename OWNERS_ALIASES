@@ -5,6 +5,7 @@ aliases:
   api-core-wg-leads:
   - dprotaso
   autoscaling-reviewers:
+  - psschwei
   - taragu
   autoscaling-wg-leads:
   - markusthoemmes
@@ -53,7 +54,6 @@ aliases:
   - akashrv
   - antoineco
   - lberk
-  - n3wscott
   eventing-wg-leads:
   - devguyio
   - lionelvillard
@@ -65,7 +65,6 @@ aliases:
   - lberk
   - lionelvillard
   - matzew
-  - n3wscott
   - pierDipi
   - vaikas
   knative-admin:
@@ -144,7 +143,6 @@ aliases:
   - jcrossley3
   - markusthoemmes
   - matzew
-  - n3wscott
   - trshafer
   operations-wg-leads:
   - houshengbo
@@ -155,7 +153,6 @@ aliases:
   - jcrossley3
   - markusthoemmes
   - matzew
-  - n3wscott
   - trshafer
   pkg-configmap-reviewers:
   - dprotaso
@@ -214,7 +211,6 @@ aliases:
   - vagababov
   source-wg-leads:
   - lionelvillard
-  - n3wscott
   steering-committee:
   - bsnchan
   - mbehrendt
