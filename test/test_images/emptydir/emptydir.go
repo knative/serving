@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -26,31 +25,26 @@ import (
 	"knative.dev/serving/test"
 )
 
-func testfilePath() string {
+func main() {
 	base := os.Getenv("DATA_PATH")
 	if base == "" {
 		base = "/data"
 	}
-	return filepath.Join(base, "testfile")
-}
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	content, err := os.ReadFile(testfilePath())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Write(content)
-}
+	testfilePath := filepath.Join(base, "testfile")
+	log.Printf("Writing test content to %s.", testfilePath)
 
-func main() {
-	flag.Parse()
-
-	log.Print("Writing test content.")
-	if err := os.WriteFile(testfilePath(), []byte(test.EmptyDirText), 0644); err != nil {
+	if err := os.WriteFile(testfilePath, []byte(test.EmptyDirText), 0644); err != nil {
 		panic(err)
 	}
 
 	log.Print("Empty dir volume app started.")
-	test.ListenAndServeGracefully(":8080", handler)
+	test.ListenAndServeGracefully(":8080", func(w http.ResponseWriter, _ *http.Request) {
+		content, err := os.ReadFile(testfilePath)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(content)
+	})
 }
