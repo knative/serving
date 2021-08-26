@@ -263,10 +263,12 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 	})
 
 	orphanCerts, err := c.getOrphanRouteCerts(r, domainToTagMap)
-	if err == nil {
-		for _, cert := range orphanCerts {
-			c.GetNetworkingClient().NetworkingV1alpha1().Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{})
-		}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, cert := range orphanCerts {
+		c.GetNetworkingClient().NetworkingV1alpha1().Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{})
 	}
 
 	return tls, acmeChallenges, nil
