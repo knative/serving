@@ -19,7 +19,9 @@ package resources
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/zap"
@@ -193,16 +195,9 @@ func makeIngressSpec(
 		}
 	}
 
-	var httpOption netv1alpha1.HTTPOption
-
-	switch config.FromContext(ctx).Network.HTTPProtocol {
-	case network.HTTPEnabled:
-		httpOption = netv1alpha1.HTTPOptionEnabled
-	case network.HTTPRedirected:
-		httpOption = netv1alpha1.HTTPOptionRedirected
-	// This will be deprecated soon
-	case network.HTTPDisabled:
-		httpOption = ""
+	httpOption, err := getHTTPOption(ctx, r.Annotations)
+	if err != nil {
+		return netv1alpha1.IngressSpec{}, err
 	}
 
 	return netv1alpha1.IngressSpec{
@@ -210,6 +205,32 @@ func makeIngressSpec(
 		TLS:        tls,
 		HTTPOption: httpOption,
 	}, nil
+}
+
+func getHTTPOption(ctx context.Context, annotations map[string]string) (netv1alpha1.HTTPOption, error) {
+	if len(annotations) != 0 && annotations[networking.HTTPOptionAnnotationKey] != "" {
+		annotation := annotations[networking.HTTPOptionAnnotationKey]
+		switch strings.ToLower(annotation) {
+		case "enabled":
+			return netv1alpha1.HTTPOptionEnabled, nil
+		case "redirected":
+			return netv1alpha1.HTTPOptionRedirected, nil
+		default:
+			return "", fmt.Errorf("incorrect HTTPOption annotation:" + annotation)
+		}
+	}
+
+	switch config.FromContext(ctx).Network.HTTPProtocol {
+	case network.HTTPEnabled:
+		return netv1alpha1.HTTPOptionEnabled, nil
+	case network.HTTPRedirected:
+		return netv1alpha1.HTTPOptionRedirected, nil
+	// This will be deprecated soon
+	case network.HTTPDisabled:
+		return "", nil
+	default:
+		return "", nil
+	}
 }
 
 func getChallengeHosts(challenges []netv1alpha1.HTTP01Challenge) map[string]netv1alpha1.HTTP01Challenge {
