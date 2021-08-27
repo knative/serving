@@ -1045,6 +1045,78 @@ func TestMakeIngressWithTLS(t *testing.T) {
 	}
 }
 
+func TestMakeIngressWithHTTPOption(t *testing.T) {
+	targets := map[string]traffic.RevisionTargets{}
+	ingressClass := "foo-ingress"
+	tls := []netv1alpha1.IngressTLS{{
+		Hosts:      []string{"*.default.domain.com"},
+		SecretName: "secret",
+	}}
+	basicWantIngress := netv1alpha1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: ns,
+			Annotations: map[string]string{
+				networking.IngressClassAnnotationKey: ingressClass,
+				networking.RolloutAnnotationKey:      emptyRollout,
+			},
+			Labels: map[string]string{
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: ns,
+			},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
+		},
+	}
+	tests := []struct {
+		name                 string
+		httpOptionAnnotation string
+		wantSpec             netv1alpha1.IngressSpec
+		wantError            bool
+	}{{
+		name:                 "Route annotation HTTPOption enabled",
+		httpOptionAnnotation: "Enabled",
+		wantSpec: netv1alpha1.IngressSpec{
+			Rules: []netv1alpha1.IngressRule{},
+			TLS:   tls,
+			// The annotation will override the value in the config-network ConfigMap.
+			HTTPOption: netv1alpha1.HTTPOptionEnabled,
+		},
+	}, {
+		name: "No HTTPOption annotation",
+		wantSpec: netv1alpha1.IngressSpec{
+			Rules: []netv1alpha1.IngressRule{},
+			TLS:   tls,
+			// The value in the config-network ConfigMap will be set.
+			HTTPOption: netv1alpha1.HTTPOptionRedirected,
+		},
+	}, {
+		name:                 "Incorrect HTTPOption annotation",
+		httpOptionAnnotation: "INCORRECT",
+		wantError:            true,
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			annotations := map[string]string{
+				networking.HTTPOptionAnnotationKey: tc.httpOptionAnnotation,
+			}
+			r := Route(ns, "test-route", WithURL, WithRouteAnnotation(annotations))
+			got, err := MakeIngress(testContextWithHTTPOption(), r, &traffic.Config{Targets: targets}, tls, ingressClass)
+			if (err != nil) != tc.wantError {
+				t.Fatalf("MakeIngress() error = %v, WantErr %v", err, tc.wantError)
+			}
+			if tc.wantError {
+				return
+			}
+			want := basicWantIngress.DeepCopy()
+			want.ObjectMeta.Annotations[networking.HTTPOptionAnnotationKey] = tc.httpOptionAnnotation
+			want.Spec = tc.wantSpec
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Error("Unexpected Ingress (-want, +got):", diff)
+			}
+		})
+	}
+}
+
 func TestMakeIngressTLS(t *testing.T) {
 	cert := &netv1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1249,4 +1321,10 @@ func testContext() context.Context {
 	return config.ToContext(apicfg.ToContext(ctx, &apicfg.Config{
 		Defaults: configDefaults,
 	}), cfg)
+}
+
+func testContextWithHTTPOption() context.Context {
+	cfg := testConfig()
+	cfg.Network.HTTPProtocol = network.HTTPRedirected
+	return config.ToContext(context.Background(), cfg)
 }
