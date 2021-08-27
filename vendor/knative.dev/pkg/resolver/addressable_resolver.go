@@ -38,22 +38,28 @@ import (
 	"knative.dev/pkg/tracker"
 )
 
+// RefResolverFunc resolves ObjectReferences into a URI.
+// It returns true when it handled the reference, in which case it also returns the resolved URI or an error.
+type RefResolverFunc func(ctx context.Context, ref *corev1.ObjectReference) (bool, *apis.URL, error)
+
 // URIResolver resolves Destinations and ObjectReferences into a URI.
 type URIResolver struct {
 	tracker       tracker.Interface
 	listerFactory func(schema.GroupVersionResource) (cache.GenericLister, error)
+	resolvers     []RefResolverFunc
 }
 
-// NewURIResolver constructs a new URIResolver with context and a tracker.
+// NewURIResolver constructs a new URIResolver with context, a tracker and an optional list of custom resolvers.
 // Deprecated: use NewURIResolverFromTracker instead.
-func NewURIResolver(ctx context.Context, callback func(types.NamespacedName)) *URIResolver {
-	return NewURIResolverFromTracker(ctx, tracker.New(callback, controller.GetTrackerLease(ctx)))
+func NewURIResolver(ctx context.Context, callback func(types.NamespacedName), resolvers ...RefResolverFunc) *URIResolver {
+	return NewURIResolverFromTracker(ctx, tracker.New(callback, controller.GetTrackerLease(ctx)), resolvers...)
 }
 
-// NewURIResolverFromTracker constructs a new URIResolver with context and a tracker.
-func NewURIResolverFromTracker(ctx context.Context, t tracker.Interface) *URIResolver {
+// NewURIResolverFromTracker constructs a new URIResolver with context, a tracker and an optional list of custom resolvers.
+func NewURIResolverFromTracker(ctx context.Context, t tracker.Interface, resolvers ...RefResolverFunc) *URIResolver {
 	ret := &URIResolver{
-		tracker: t,
+		tracker:   t,
+		resolvers: resolvers,
 	}
 
 	informerFactory := &pkgapisduck.CachedInformerFactory{
@@ -151,6 +157,16 @@ func (r *URIResolver) URIFromKReference(ctx context.Context, ref *duckv1.KRefere
 func (r *URIResolver) URIFromObjectReference(ctx context.Context, ref *corev1.ObjectReference, parent interface{}) (*apis.URL, error) {
 	if ref == nil {
 		return nil, apierrs.NewBadRequest("ref is nil")
+	}
+
+	// try custom resolvers first
+	for _, resolver := range r.resolvers {
+		handled, url, err := resolver(ctx, ref)
+		if handled {
+			return url, err
+		}
+
+		// when handled is false, both url and err are ignored.
 	}
 
 	gvr, _ := meta.UnsafeGuessKindToResource(ref.GroupVersionKind())
