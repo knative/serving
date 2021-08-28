@@ -129,7 +129,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 	const (
 		immediateTimeout = 0 * time.Millisecond
 		longTimeout      = 1 * time.Minute // Super long, not supposed to hit this.
-		noIdleTimeout    = -1 * time.Millisecond
+		noIdleTimeout    = 0 * time.Millisecond
 	)
 
 	scenarios := []timeoutHandlerTestScenario{{
@@ -191,7 +191,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 
 func TestIdleTimeoutHandler(t *testing.T) {
 	const (
-		noIdleTimeout        = -1 * time.Millisecond
+		noIdleTimeout        = 0 * time.Millisecond
 		shortIdleTimeout     = 100 * time.Millisecond
 		longIdleTimeout      = 1 * time.Minute // Super long, not supposed to hit this.
 		longFirstByteTimeout = 1 * time.Minute // Super long, not supposed to hit this.
@@ -299,7 +299,9 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		wantPanic:  true,
 	},
 	}
+
 	testTimeoutScenario(t, scenarios)
+
 }
 
 func BenchmarkTimeoutHandler(b *testing.B) {
