@@ -20,12 +20,14 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
@@ -278,7 +280,7 @@ func TestPodSpecValidation(t *testing.T) {
 			}},
 			ServiceAccountName: "foo@bar.baz",
 		},
-		want: apis.ErrInvalidValue("foo@bar.baz", "serviceAccountName"),
+		want: apis.ErrInvalidValueWithDetails("foo@bar.baz", "serviceAccountName", strings.Join(validation.IsDNS1123Subdomain("foo@bar.baz"), "\n")),
 	}}
 
 	for _, test := range tests {

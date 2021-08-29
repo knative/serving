@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	. "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -56,7 +57,8 @@ func TestServiceAccountValidation(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected Service creation to fail")
 	}
-	if got, want := err.Error(), invalidServiceAccountName+": spec.template.spec.serviceAccountName"; !strings.Contains(got, want) {
+	errorDetails := strings.Join(validation.IsDNS1123Subdomain("foo@bar.baz"), "\n")
+	if got, want := err.Error(), invalidServiceAccountName+": spec.template.spec.serviceAccountName"+"\n"+errorDetails; !strings.Contains(got, want) {
 		t.Errorf("Error = %q, want to contain = %q", got, want)
 	}
 }
