@@ -1609,7 +1609,7 @@ func newTestDeciders() *testDeciders {
 		createCallCount:    atomic.NewUint32(0),
 		createCall:         make(chan struct{}, 1),
 		deleteCallCount:    atomic.NewUint32(0),
-		deleteCall:         make(chan struct{}, 1),
+		deleteCall:         make(chan struct{}, 5),
 		updateCallCount:    atomic.NewUint32(0),
 		updateCall:         make(chan struct{}, 1),
 		deleteBeforeCreate: atomic.NewBool(false),
