@@ -34,22 +34,20 @@ require (
 	golang.org/x/net v0.0.0-20210825183410-e898025ed96a
 	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gonum.org/v1/gonum v0.0.0-20190331200053-3d26580ed485 // indirect
 	google.golang.org/api v0.50.0
 	google.golang.org/grpc v1.40.0
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
-	k8s.io/api v0.20.7
-	k8s.io/apimachinery v0.20.7
-	k8s.io/client-go v0.20.7
-	k8s.io/code-generator v0.20.7
-	k8s.io/klog/v2 v2.5.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
+	k8s.io/api v0.21.4
+	k8s.io/apimachinery v0.21.4
+	k8s.io/client-go v0.21.4
+	k8s.io/code-generator v0.21.4
+	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
-	knative.dev/caching v0.0.0-20210826135032-caf7ff5f6b33
+	knative.dev/caching v0.0.0-20210827131338-f4b23a326276
 	knative.dev/hack v0.0.0-20210806075220-815cd312d65c
-	knative.dev/networking v0.0.0-20210827055337-b9f8dee17005
-	knative.dev/pkg v0.0.0-20210827112638-4472e04552d3
+	knative.dev/networking v0.0.0-20210827131537-ff7c341e0e06
+	knative.dev/pkg v0.0.0-20210827184538-2bd91f75571c
 	sigs.k8s.io/yaml v1.2.0
 )
