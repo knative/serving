@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
-set -u
+set -uv
 
 tag="${1}"
 dir=$(mktemp -d)
@@ -13,12 +13,11 @@ find . \( -name "OWNERS" \
   -o -name "OWNERS_ALIASES" \
   -o -name "BUILD" \
   -o -name "BUILD.bazel" \) -exec rm -f {} +
+rm -fR plugin
 
 
-oldpkg="github.com/vdemeester/k8s-pkg-credentialprovider"
+oldpkg="k8s.io/kubernetes/pkg/credentialprovider"
 newpkg="github.com/vdemeester/k8s-pkg-credentialprovider"
 
 find ./ -type f ! -name "sync.sh" ! -name "README.md"  \
   -exec sed -i '' "s,${oldpkg},${newpkg},g" {} \;
-
-

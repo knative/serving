@@ -16,7 +16,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.6
 	github.com/google/go-containerregistry v0.6.0
-	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210610160139-c086c7f16d4e
+	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210624211700-ce35c99b3faf
 	github.com/google/gofuzz v1.2.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/googleapis/gnostic v0.5.3 // indirect
