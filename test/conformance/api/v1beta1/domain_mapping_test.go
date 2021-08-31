@@ -108,7 +108,7 @@ func TestDomainMapping(t *testing.T) {
 
 	endpoint := dm.Status.URL.URL()
 	t.Log("Probing", endpoint)
-	if _, err := pkgtest.WaitForEndpointState(
+	if _, err := pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,

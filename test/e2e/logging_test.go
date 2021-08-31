@@ -85,13 +85,13 @@ func TestRequestLogs(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %q: %v", names.Service, err)
 	}
 
-	_, err = pkgtest.WaitForEndpointState(
+	_, err = pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		resources.Route.Status.URL.URL(),
 		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText))),
-		"WaitForEndpointToServeText",
+		"CheckEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
@@ -105,7 +105,7 @@ func TestRequestLogs(t *testing.T) {
 
 	// Only check request logs if the feature is enabled in config-observability.
 	if requestLogEnabled {
-		// A request was sent to / in WaitForEndpointState.
+		// A request was sent to / in CheckEndpointState.
 		if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
 			return log.HTTPRequest.RequestURL == "/" &&
 				log.HTTPRequest.UserAgent != network.QueueProxyUserAgent

@@ -183,18 +183,18 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				// Record the time it took to become ready.
 				latencies.Add("time-to-ready", start)
 
-				_, err = pkgTest.WaitForEndpointState(
+				_, err = pkgTest.CheckEndpointState(
 					context.Background(),
 					clients.KubeClient,
 					t.Logf,
 					url,
 					v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText), abortOnTimeout(ctx))),
-					"WaitForEndpointToServeText",
+					"CheckEndpointToServeText",
 					test.ServingFlags.ResolvableDomain,
 					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 				if err != nil {
-					t.Error("WaitForEndpointState(expected text) =", err)
-					return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
+					t.Error("CheckEndpointState(expected text) =", err)
+					return fmt.Errorf("CheckEndpointState(expected text) failed: %w", err)
 				}
 
 				// Record the time it took to get back a 200 with the expected text.

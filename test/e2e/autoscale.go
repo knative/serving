@@ -234,7 +234,7 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	if _, err := pkgTest.WaitForEndpointState(
+	if _, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,

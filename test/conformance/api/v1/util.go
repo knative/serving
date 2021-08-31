@@ -128,7 +128,7 @@ func validateDomains(t testing.TB, clients *test.Clients, serviceName string,
 // runLatest Service's lifecycle so long as the service is in a "Ready" state.
 func validateDataPlane(t testing.TB, clients *test.Clients, names test.ResourceNames, expectedText string) error {
 	t.Log("Checking that the endpoint vends the expected text:", expectedText)
-	_, err := pkgTest.WaitForEndpointState(
+	_, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
