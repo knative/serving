@@ -298,9 +298,8 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 			RevisionName: firstRevision,
 			Percent:      ptr.Int64(100),
 		}, {
-			Tag:            "latest",
-			LatestRevision: ptr.Bool(true),
-			Percent:        nil,
+			Tag:     "latest",
+			Percent: nil,
 		}},
 	))
 	if err != nil {
@@ -315,10 +314,9 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 			LatestRevision: ptr.Bool(false),
 		},
 		"latest": {
-			Tag:            "latest",
-			RevisionName:   objects.Config.Status.LatestReadyRevisionName,
-			LatestRevision: ptr.Bool(true),
-			Percent:        ptr.Int64(0),
+			Tag:          "latest",
+			RevisionName: objects.Config.Status.LatestReadyRevisionName,
+			Percent:      ptr.Int64(0),
 		},
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")
@@ -354,10 +352,9 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 
 	// Also verify traffic is in the correct shape.
 	desiredTrafficShape["latest"] = v1.TrafficTarget{
-		Tag:            "latest",
-		RevisionName:   secondRevision,
-		LatestRevision: ptr.Bool(true),
-		Percent:        ptr.Int64(0),
+		Tag:          "latest",
+		RevisionName: secondRevision,
+		Percent:      ptr.Int64(0),
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")
 	if err := waitForDesiredTrafficShape(t, names.Service, desiredTrafficShape, clients); err != nil {
@@ -390,8 +387,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 			RevisionName: secondRevision,
 			Percent:      ptr.Int64(50),
 		}, {
-			Tag:            "latest",
-			LatestRevision: ptr.Bool(true),
+			Tag: "latest",
 		}},
 	))
 	if err != nil {
@@ -491,9 +487,8 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 			Tag:     "candidate",
 			Percent: ptr.Int64(50),
 		}, {
-			Tag:            "latest",
-			LatestRevision: ptr.Bool(true),
-			Percent:        nil,
+			Tag:     "latest",
+			Percent: nil,
 		}},
 	))
 	if err != nil {
