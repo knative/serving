@@ -1,4 +1,4 @@
 # Knative Serving API spec
 
 The API Specification has been moved to the
-[Knative Docs Repository](https://github.com/knative/docs/tree/main/docs/serving/spec).
+[Knative Specs Repository](https://github.com/knative/specs/tree/main/specs/serving).
