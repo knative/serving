@@ -169,7 +169,7 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1.T
 			// Match the traffic shape.
 			got := map[string]v1.TrafficTarget{}
 			for _, tt := range s.Status.Traffic {
-				got[tt.Tag] = tt
+				got[tt.Tag] = setTrafficTargetDefaults(tt)
 			}
 			ignoreURLs := cmpopts.IgnoreFields(v1.TrafficTarget{}, "URL")
 			if !cmp.Equal(got, want, ignoreURLs) {
@@ -180,6 +180,17 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1.T
 			return true, nil
 		}, "Verify Service Traffic Shape",
 	)
+}
+
+func setTrafficTargetDefaults(tt v1.TrafficTarget) v1.TrafficTarget {
+	if tt.LatestRevision == nil {
+		tt.LatestRevision = ptr.Bool(false)
+	}
+	if tt.Percent == nil {
+		tt.Percent = ptr.Int64(0)
+	}
+
+	return tt
 }
 
 func TestServiceBYOName(t *testing.T) {
