@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/client/injection/ducks/duck/v1/addressable"
 	"knative.dev/pkg/controller"
@@ -47,12 +46,6 @@ type URIResolver struct {
 	tracker       tracker.Interface
 	listerFactory func(schema.GroupVersionResource) (cache.GenericLister, error)
 	resolvers     []RefResolverFunc
-}
-
-// NewURIResolver constructs a new URIResolver with context, a tracker and an optional list of custom resolvers.
-// Deprecated: use NewURIResolverFromTracker instead.
-func NewURIResolver(ctx context.Context, callback func(types.NamespacedName), resolvers ...RefResolverFunc) *URIResolver {
-	return NewURIResolverFromTracker(ctx, tracker.New(callback, controller.GetTrackerLease(ctx)), resolvers...)
 }
 
 // NewURIResolverFromTracker constructs a new URIResolver with context, a tracker and an optional list of custom resolvers.

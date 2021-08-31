@@ -233,19 +233,6 @@ type ControllerOptions struct { //nolint // for backcompat.
 	Concurrency   int
 }
 
-// NewImpl instantiates an instance of our controller that will feed work to the
-// provided Reconciler as it is enqueued.
-// Deprecated: use NewImplFull.
-func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Impl {
-	return NewImplFull(r, ControllerOptions{WorkQueueName: workQueueName, Logger: logger})
-}
-
-// NewImplFull accepts the full set of options available to all controllers.
-// Deprecated: use NewContext instead.
-func NewImplFull(r Reconciler, options ControllerOptions) *Impl {
-	return NewContext(context.TODO(), r, options)
-}
-
 // NewContext instantiates an instance of our controller that will feed work to the
 // provided Reconciler as it is enqueued.
 func NewContext(ctx context.Context, r Reconciler, options ControllerOptions) *Impl {
