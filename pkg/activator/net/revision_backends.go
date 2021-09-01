@@ -152,7 +152,7 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (pass bool, n
 
 	// We don't want to unnecessarily fall back to ClusterIP if we see a failure
 	// that could not have been caused by the mesh being enabled.
-	var checkMesh prober.Verifier = func(resp *http.Response, b []byte) (bool, error) {
+	var checkMesh prober.Verifier = func(resp *http.Response, _ []byte) (bool, error) {
 		notMesh = !network.IsPotentialMeshErrorResponse(resp)
 		return true, nil
 	}
@@ -163,8 +163,9 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (pass bool, n
 		prober.WithHeader(network.UserAgentKey, network.ActivatorUserAgent),
 		// Order is important since first failing verification short-circuits the rest: checkMesh must be first.
 		checkMesh,
+		prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		prober.ExpectsBody(queue.Name),
-		prober.ExpectsStatusCodes([]int{http.StatusOK})}
+	}
 
 	if rw.usePassthroughLb {
 		// Add the passthrough header + force the Host header to point to the service
