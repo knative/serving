@@ -71,9 +71,9 @@ fi
 
 toggle_feature autocreateClusterDomainClaims true config-network || fail_test
 go_test_e2e -timeout=30m \
- ./test/conformance/api/... \
- ./test/conformance/runtime/... \
- ./test/e2e \
+  ./test/conformance/api/... \
+  ./test/conformance/runtime/... \
+  ./test/e2e \
   ${parallelism} \
   ${TEST_OPTIONS} || failed=1
 toggle_feature autocreateClusterDomainClaims false config-network || fail_test
