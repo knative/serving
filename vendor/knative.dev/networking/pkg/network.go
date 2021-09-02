@@ -501,5 +501,5 @@ func PortNumberForName(sub corev1.EndpointSubset, portName string) (int32, error
 // useful to avoid falling back to ClusterIP when we see errors which are
 // unrelated to mesh being enabled.
 func IsPotentialMeshErrorResponse(resp *http.Response) bool {
-	return resp.StatusCode == http.StatusServiceUnavailable
+	return resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusBadGateway
 }
