@@ -17,116 +17,127 @@ limitations under the License.
 package queue
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
-	"sync"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
+	"k8s.io/apimachinery/pkg/util/wait"
 	pkglogging "knative.dev/pkg/logging"
+	ltesting "knative.dev/pkg/logging/testing"
 
 	network "knative.dev/networking/pkg"
 )
 
 func TestConcurrencyStateHandler(t *testing.T) {
-	tests := []struct {
-		name            string
-		pauses, resumes int64
-		events          map[time.Duration]time.Duration // start time => req length
-	}{{
-		name:    "single request",
-		pauses:  1,
-		resumes: 1,
-		events: map[time.Duration]time.Duration{
-			1 * time.Second: 2 * time.Second,
-		},
-	}, {
-		name:    "overlapping requests",
-		pauses:  1,
-		resumes: 1,
-		events: map[time.Duration]time.Duration{
-			25 * time.Millisecond: 100 * time.Millisecond,
-			75 * time.Millisecond: 200 * time.Millisecond,
-		},
-	}, {
-		name:    "subsumbed request",
-		pauses:  1,
-		resumes: 1,
-		events: map[time.Duration]time.Duration{
-			25 * time.Millisecond: 300 * time.Millisecond,
-			75 * time.Millisecond: 200 * time.Millisecond,
-		},
-	}, {
-		name:    "start stop start",
-		pauses:  2,
-		resumes: 2,
-		events: map[time.Duration]time.Duration{
-			25 * time.Millisecond:  300 * time.Millisecond,
-			75 * time.Millisecond:  200 * time.Millisecond,
-			850 * time.Millisecond: 300 * time.Millisecond,
-			900 * time.Millisecond: 400 * time.Millisecond,
-		},
-	}}
+	paused := atomic.NewInt64(0)
+	resumed := atomic.NewInt64(0)
 
-	logger, _ := pkglogging.NewLogger("", "error")
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			paused := atomic.NewInt64(0)
-			pause := func() {
-				paused.Inc()
-			}
+	handler := func(w http.ResponseWriter, r *http.Request) {}
+	logger := ltesting.TestLogger(t)
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() { paused.Inc() }, func() { resumed.Inc() })
 
-			resumed := atomic.NewInt64(0)
-			resume := func() {
-				resumed.Inc()
-			}
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
+	if got, want := pollFor(paused, 1), int64(1); got != want {
+		t.Errorf("Pause was called %d times, want %d times", got, want)
+	}
 
-			delegated := atomic.NewInt64(0)
-			delegate := func(w http.ResponseWriter, r *http.Request) {
-				wait, err := strconv.Atoi(r.Header.Get("wait"))
-				if err != nil {
-					panic(err)
-				}
+	if got, want := pollFor(resumed, 1), int64(1); got != want {
+		t.Errorf("Resume was called %d times, want %d times", got, want)
+	}
 
-				time.Sleep(time.Duration(wait))
-				delegated.Inc()
-			}
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
+	if got, want := pollFor(paused, 2), int64(2); got != want {
+		t.Errorf("Pause was called %d times, want %d times", got, want)
+	}
 
-			h := ConcurrencyStateHandler(logger, http.HandlerFunc(delegate), pause, resume)
+	if got, want := pollFor(resumed, 2), int64(2); got != want {
+		t.Errorf("Resume was called %d times, want %d times", got, want)
+	}
+}
 
-			var wg sync.WaitGroup
-			wg.Add(len(tt.events))
-			for delay, length := range tt.events {
-				length := length
-				time.AfterFunc(delay, func() {
-					w := httptest.NewRecorder()
-					r := httptest.NewRequest("GET", "http://target", nil)
-					r.Header.Set("wait", strconv.FormatInt(int64(length), 10))
-					h.ServeHTTP(w, r)
-					wg.Done()
-				})
-			}
+func TestConcurrencyStateHandlerParallelSubsumed(t *testing.T) {
+	paused := atomic.NewInt64(0)
+	resumed := atomic.NewInt64(0)
 
-			wg.Wait()
-			// Allow last update to finish (otherwise values are off, though this doesn't show
-			// as a race condition when running `go test -race `
-			// TODO Less hacky fix for this
-			time.Sleep(100 * time.Microsecond)
+	req1 := make(chan struct{})
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("req") == "1" {
+			req1 <- struct{}{} // to know it's here.
+			req1 <- struct{}{} // to make it wait.
+		}
+	}
+	logger := ltesting.TestLogger(t)
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() { paused.Inc() }, func() { resumed.Inc() })
 
-			if got, want := paused.Load(), tt.pauses; got != want {
-				t.Errorf("expected to be paused %d times, but was paused %d times", want, got)
-			}
+	go func() {
+		defer func() { req1 <- struct{}{} }()
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", fmt.Sprintf("http://target?req=%d", 1), nil))
+	}()
 
-			if got, want := delegated.Load(), int64(len(tt.events)); got != want {
-				t.Errorf("expected to be delegated %d times, but delegated %d times", want, got)
-			}
+	<-req1 // Wait for req1 to arrive.
 
-			if got, want := resumed.Load(), tt.resumes; got != want {
-				t.Errorf("expected to be resumed %d times, but was resumed %d times", want, got)
-			}
-		})
+	// Send a second request, which can pass through.
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
+
+	<-req1 // Allow req1 to pass.
+	<-req1 // Wait for req1 to finish.
+
+	if got, want := pollFor(paused, 1), int64(1); got != want {
+		t.Errorf("Pause was called %d times, want %d times", got, want)
+	}
+
+	if got, want := pollFor(resumed, 1), int64(1); got != want {
+		t.Errorf("Resume was called %d times, want %d times", got, want)
+	}
+}
+
+func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
+	paused := atomic.NewInt64(0)
+	resumed := atomic.NewInt64(0)
+
+	req1 := make(chan struct{})
+	req2 := make(chan struct{})
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("req") == "1" {
+			req1 <- struct{}{} // to know it's here.
+			req1 <- struct{}{} // to make it wait.
+		} else {
+			req2 <- struct{}{} // to know it's here.
+			req2 <- struct{}{} // to make it wait.
+		}
+	}
+	logger := ltesting.TestLogger(t)
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() { paused.Inc() }, func() { resumed.Inc() })
+
+	go func() {
+		defer func() { req1 <- struct{}{} }()
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", fmt.Sprintf("http://target?req=%d", 1), nil))
+	}()
+
+	<-req1 // Wait for req1 to arrive.
+
+	go func() {
+		defer func() { req2 <- struct{}{} }()
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", fmt.Sprintf("http://target?req=%d", 2), nil))
+	}()
+
+	<-req2 // Wait for req2 to arrive
+
+	<-req1 // Allow req1 to pass.
+	<-req1 // Wait for req1 to finish.
+
+	<-req2 // Allow req2 to pass.
+	<-req2 // Wait for req2 to finish.
+
+	if got, want := pollFor(paused, 1), int64(1); got != want {
+		t.Errorf("Pause was called %d times, want %d times", got, want)
+	}
+
+	if got, want := pollFor(resumed, 1), int64(1); got != want {
+		t.Errorf("Resume was called %d times, want %d times", got, want)
 	}
 }
 
@@ -194,4 +205,13 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 
 		reportTicker.Stop()
 	}
+}
+
+func pollFor(val *atomic.Int64, want int64) int64 {
+	var lastVal int64
+	wait.PollImmediate(1*time.Millisecond, 1*time.Second, func() (bool, error) {
+		lastVal = val.Load()
+		return lastVal == want, nil
+	})
+	return lastVal
 }
