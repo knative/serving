@@ -43,26 +43,10 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	var (
 		inFlight = atomic.NewInt64(0)
 		paused   = true
-		waiters  = make(chan struct{})
 		mux      sync.RWMutex
 	)
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		if inFlight.Inc() == 1 {
-			func() {
-				mux.Lock()
-				defer mux.Unlock()
-				// Keeping this state variable around as there is a race where we can
-				// reach the pausing code below while another request arrives here. We
-				// don't want to pause (and hence not resume) in that case.
-				if paused {
-					resume()
-					close(waiters)
-					paused = false
-				}
-			}()
-		}
-
 		defer func() {
 			if inFlight.Dec() == 0 {
 				mux.Lock()
@@ -71,24 +55,32 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 				// handler meanwhile. We don't want to do anything in that case.
 				if !paused && inFlight.Load() == 0 {
 					pause()
-					waiters = make(chan struct{})
 					paused = true
 				}
 			}
 		}()
 
+		inFlight.Inc()
+
 		mux.RLock()
-		// This happens if multiple requests race and the RLock gets obtained before the
-		// actual first request can obtain the Lock. We need to wait for the resume to be
-		// finished.
-		if paused {
-			mux.RUnlock()
-			<-waiters
-			mux.RLock()
-			// We don't have to check `paused` again, because it's guaranteed to be false
-			// now.
+		if !paused {
+			// General stable-state case.
+			defer mux.RUnlock()
+			h.ServeHTTP(w, r)
+			return
 		}
-		defer mux.RUnlock()
+		mux.RUnlock()
+		mux.Lock()
+		if !paused { // doubly-checked locking
+			// Another request raced us and resumed already.
+			defer mux.Unlock()
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		resume()
+		paused = false
+		mux.Unlock()
 
 		h.ServeHTTP(w, r)
 	}
