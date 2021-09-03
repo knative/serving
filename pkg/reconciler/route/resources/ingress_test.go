@@ -1052,43 +1052,18 @@ func TestMakeIngressWithHTTPOption(t *testing.T) {
 		Hosts:      []string{"*.default.domain.com"},
 		SecretName: "secret",
 	}}
-	basicWantIngress := netv1alpha1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: ns,
-			Annotations: map[string]string{
-				networking.IngressClassAnnotationKey: ingressClass,
-				networking.RolloutAnnotationKey:      emptyRollout,
-			},
-			Labels: map[string]string{
-				serving.RouteLabelKey:          "test-route",
-				serving.RouteNamespaceLabelKey: ns,
-			},
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
-		},
-	}
 	tests := []struct {
 		name                 string
 		httpOptionAnnotation string
-		wantSpec             netv1alpha1.IngressSpec
+		wantOption           netv1alpha1.HTTPOption
 		wantError            bool
 	}{{
 		name:                 "Route annotation HTTPOption enabled",
 		httpOptionAnnotation: "Enabled",
-		wantSpec: netv1alpha1.IngressSpec{
-			Rules: []netv1alpha1.IngressRule{},
-			TLS:   tls,
-			// The annotation will override the value in the config-network ConfigMap.
-			HTTPOption: netv1alpha1.HTTPOptionEnabled,
-		},
+		wantOption:           netv1alpha1.HTTPOptionEnabled,
 	}, {
-		name: "No HTTPOption annotation",
-		wantSpec: netv1alpha1.IngressSpec{
-			Rules: []netv1alpha1.IngressRule{},
-			TLS:   tls,
-			// The value in the config-network ConfigMap will be set.
-			HTTPOption: netv1alpha1.HTTPOptionRedirected,
-		},
+		name:       "No HTTPOption annotation",
+		wantOption: netv1alpha1.HTTPOptionRedirected,
 	}, {
 		name:                 "Incorrect HTTPOption annotation",
 		httpOptionAnnotation: "INCORRECT",
@@ -1107,10 +1082,7 @@ func TestMakeIngressWithHTTPOption(t *testing.T) {
 			if tc.wantError {
 				return
 			}
-			want := basicWantIngress.DeepCopy()
-			want.ObjectMeta.Annotations[networking.HTTPOptionAnnotationKey] = tc.httpOptionAnnotation
-			want.Spec = tc.wantSpec
-			if diff := cmp.Diff(want, got); diff != "" {
+			if diff := cmp.Diff(tc.wantOption, got.Spec.HTTPOption); diff != "" {
 				t.Error("Unexpected Ingress (-want, +got):", diff)
 			}
 		})
