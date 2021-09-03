@@ -92,6 +92,10 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			putTimer(idleTimeout, idleTimeoutDrained)
 		}()
 	}
+	var idleTimeoutCh <-chan time.Time
+	if idleTimeout != nil {
+		idleTimeoutCh = idleTimeout.C
+	}
 
 	for {
 		select {
@@ -105,7 +109,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if tw.tryFirstByteTimeoutAndWriteError(h.body) {
 				return
 			}
-		case <-timerChannel(idleTimeout):
+		case <-idleTimeoutCh:
 			timedOut, timeToNextTimeout := tw.tryIdleTimeoutAndWriteError(time.Now(), h.idleTimeout, h.body)
 			if timedOut {
 				idleTimeoutDrained = true
@@ -114,17 +118,6 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			idleTimeout.Reset(timeToNextTimeout)
 		}
 	}
-}
-
-var never = make(<-chan time.Time)
-
-// timerChannel returns the channel of the given timer or a channel that never fires
-// if the timer is nil.
-func timerChannel(timer *time.Timer) <-chan time.Time {
-	if timer != nil {
-		return timer.C
-	}
-	return never
 }
 
 // timeoutWriter is a wrapper around an http.ResponseWriter. It guards
