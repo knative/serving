@@ -43,6 +43,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	var (
 		inFlight = atomic.NewInt64(0)
 		paused   = true
+		waiters  = make(chan struct{})
 		mux      sync.RWMutex
 	)
 
@@ -56,6 +57,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 				// don't want to pause (and hence not resume) in that case.
 				if paused {
 					resume()
+					close(waiters)
 					paused = false
 				}
 			}()
@@ -69,13 +71,25 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 				// handler meanwhile. We don't want to do anything in that case.
 				if !paused && inFlight.Load() == 0 {
 					pause()
+					waiters = make(chan struct{})
 					paused = true
 				}
 			}
 		}()
 
 		mux.RLock()
+		// This happens if multiple requests race and the RLock gets obtained before the
+		// actual first request can obtain the Lock. We need to wait for the resume to be
+		// finished.
+		if paused {
+			mux.RUnlock()
+			<-waiters
+			mux.RLock()
+			// We don't have to check `paused` again, because it's guaranteed to be false
+			// now.
+		}
 		defer mux.RUnlock()
+
 		h.ServeHTTP(w, r)
 	}
 }
