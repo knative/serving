@@ -81,11 +81,7 @@ func Decode(bites []byte, target interface{}, disallowUnknownFields bool) error 
 		bytes.NewReader(metaSuffix),
 	))
 
-	if err := dec.Decode(target); err != nil {
-		return err
-	}
-
-	return nil
+	return dec.Decode(target)
 }
 
 func findMetadataOffsets(bites []byte) (start, end int64, err error) {
