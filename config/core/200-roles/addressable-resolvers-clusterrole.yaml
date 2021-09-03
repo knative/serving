@@ -27,7 +27,6 @@ aggregationRule:
   clusterRoleSelectors:
   - matchLabels:
       duck.knative.dev/addressable: "true"
-# rules: [] # Rules are automatically filled in by the controller manager.
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
