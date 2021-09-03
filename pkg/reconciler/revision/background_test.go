@@ -241,7 +241,7 @@ func TestRateLimitPerItem(t *testing.T) {
 	}()
 
 	revision := rev("rev", "img1", "img2")
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 4; i++ {
 		subject.Clear(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
 		start := time.Now()
 		resolution, err := subject.Resolve(revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
