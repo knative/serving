@@ -295,32 +295,13 @@ func (sc *SpoofingClient) endpointState(
 	return f(req, inState)
 }
 
-func (sc *SpoofingClient) Check(req *http.Request, inState ResponseChecker) (*Response, error) {
-	traceContext, span := trace.StartSpan(req.Context(), "SpoofingClient-Trace")
-	defer span.End()
-	rawResp, err := sc.Client.Do(req.WithContext(traceContext))
-	if err != nil {
-		sc.Logf("NOT Retrying %s: %v", req.URL.String(), err)
-		return nil, err
-	}
-	defer rawResp.Body.Close()
-
-	body, err := ioutil.ReadAll(rawResp.Body)
+func (sc *SpoofingClient) Check(req *http.Request, inState ResponseChecker, errorRetryCheckers ...ErrorRetryChecker) (*Response, error) {
+	resp, err := sc.Do(req, errorRetryCheckers...)
 	if err != nil {
 		return nil, err
 	}
-	rawResp.Header.Add(zipkin.ZipkinTraceIDHeader, span.SpanContext().TraceID.String())
 
-	resp := &Response{
-		Status:     rawResp.Status,
-		StatusCode: rawResp.StatusCode,
-		Header:     rawResp.Header,
-		Body:       body,
-	}
 	ok, err := inState(resp)
-
-	sc.logZipkinTrace(resp)
-
 	if err != nil {
 		return resp, fmt.Errorf("response: %s did not pass checks: %w", resp, err)
 	}
@@ -342,7 +323,7 @@ func (sc *SpoofingClient) CheckEndpointState(
 		url,
 		inState,
 		desc,
-		sc.Check,
+		func(req *http.Request, check ResponseChecker) (*Response, error) { return sc.Check(req, check) },
 		"CheckEndpointState",
 		opts...)
 }
