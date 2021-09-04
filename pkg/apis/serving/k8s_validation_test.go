@@ -280,7 +280,7 @@ func TestPodSpecValidation(t *testing.T) {
 			}},
 			ServiceAccountName: "foo@bar.baz",
 		},
-		want: apis.ErrInvalidValueWithDetails("foo@bar.baz", "serviceAccountName", strings.Join(validation.IsDNS1123Subdomain("foo@bar.baz"), "\n")),
+		want: apis.ErrInvalidValue("foo@bar.baz", "serviceAccountName", strings.Join(validation.IsDNS1123Subdomain("foo@bar.baz"), "\n")),
 	}}
 
 	for _, test := range tests {

@@ -333,16 +333,6 @@ func ErrInvalidValue(value interface{}, fieldPath string, details ...string) *Fi
 	}
 }
 
-// ErrInvalidValueWithDetails constructs a FieldError for a field that has received an
-// invalid value including Details.
-func ErrInvalidValueWithDetails(value interface{}, fieldPath string, details string) *FieldError {
-	return &FieldError{
-		Message: fmt.Sprint("invalid value: ", value),
-		Paths:   []string{fieldPath},
-		Details: details,
-	}
-}
-
 // ErrGeneric constructs a FieldError to allow for the different error strings for the
 // the different cases.
 func ErrGeneric(diagnostic string, fieldPaths ...string) *FieldError {
