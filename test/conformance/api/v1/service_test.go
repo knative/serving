@@ -63,20 +63,28 @@ func TestServiceCreateListAndDelete(t *testing.T) {
 	}
 
 	list, err := v1test.GetServices(clients)
-
+	if err != nil {
+		t.Fatal("Listing Services failed")
+	}
 	if  len(list.Items) < 1 {
 		t.Fatal("Listing should return at least one Service")
 	}
+	var serviceFound = false
 	for _, service := range list.Items {
 		t.Logf("Service Returned: %s" , service.Name)
 		if service.Name == names.Service {
-			t.Logf("Deleting Service: %s" , service.Name)
-			err = v1test.DeleteService(clients, service.Name)
-			if err != nil {
-				t.Fatal("Error deleting Service")
-			}
+			serviceFound = true
 		}
 	}
+	if !serviceFound{
+		t.Fatal("The Service that was previously created was  not found by listing all Services.")
+	}
+	t.Logf("Deleting Service: %s" , names.Service)
+	err = v1test.DeleteService(clients, names.Service)
+	if err != nil {
+		t.Fatal("Error deleting Service")
+	}
+
 }
 
 // TestServiceCreateAndUpdate tests both Creation and Update paths for a service. The test performs a series of Update/Validate steps to ensure that
