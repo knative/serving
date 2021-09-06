@@ -62,6 +62,7 @@ func GetServices(clients *test.Clients) (*v1.ServiceList, error) {
 	return clients.ServingClient.Services.List(context.Background(), metav1.ListOptions{})
 }
 
+// DeleteService deletes a service.
 func DeleteService(clients *test.Clients, serviceName string) error {
 	return clients.ServingClient.Services.Delete(context.Background(), serviceName, metav1.DeleteOptions{})
 }
