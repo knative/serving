@@ -294,7 +294,9 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	metricsSupported := supportsMetrics(ctx, logger, env)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
 	concurrencyStateEnabled := env.ConcurrencyStateEndpoint != ""
-	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
+	firstByteTimeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
+	// hardcoded to always disable idle timeout for now, will expose this later
+	var idleTimeout time.Duration
 
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
@@ -308,7 +310,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	}
 	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = handler.NewTimeToFirstByteTimeoutHandler(composedHandler, "request timeout", timeout)
+	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", firstByteTimeout, idleTimeout)
 
 	if metricsSupported {
 		composedHandler = requestMetricsHandler(logger, composedHandler, env)
