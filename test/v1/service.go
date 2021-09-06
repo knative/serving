@@ -57,7 +57,7 @@ func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNam
 	})
 }
 
-// GetServices get list of services available
+// GetServices gets a list of services.
 func GetServices(clients *test.Clients) (*v1.ServiceList, error) {
 	return clients.ServingClient.Services.List(context.Background(), metav1.ListOptions{})
 }
