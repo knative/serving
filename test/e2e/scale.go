@@ -188,7 +188,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					clients.KubeClient,
 					t.Logf,
 					url,
-					v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText), abortOnTimeout(ctx))),
+					spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText), abortOnTimeout(ctx)),
 					"CheckEndpointToServeText",
 					test.ServingFlags.ResolvableDomain,
 					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))

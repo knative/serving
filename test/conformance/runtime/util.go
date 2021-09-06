@@ -60,7 +60,7 @@ func fetchRuntimeInfo(
 		clients.KubeClient,
 		t.Logf,
 		objects.Service.Status.URL.URL(),
-		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
+		spoof.IsStatusOK,
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain,
 		append(reqOpts, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))...)

@@ -113,7 +113,7 @@ func TestDomainMapping(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		endpoint,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText1))),
+		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText1)),
 		"CheckSuccessfulResponse",
 		resolvableCustomDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
@@ -180,7 +180,7 @@ func TestDomainMapping(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		endpoint,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText1))),
+		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText1)),
 		"CheckSuccessfulResponse",
 		resolvableCustomDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
@@ -213,7 +213,7 @@ func TestDomainMapping(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		endpoint,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText2))),
+		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText2)),
 		"CheckSuccessfulResponse",
 		resolvableCustomDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
