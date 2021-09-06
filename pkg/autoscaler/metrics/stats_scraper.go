@@ -137,11 +137,26 @@ var client = &http.Client{
 	Transport: keepAliveTransport,
 }
 
+// meshMode determines whethe we should attempt to sample for stats via the K8s
+// service, or whether we should attempt to directly gather stats from pods
+// (which is more efficient, but not possible when mesh is enabled).
+type meshMode int
+
+const (
+	// meshModeEnabled causes the service scraper to always sample the k8s service for scraping.
+	meshModeEnabled meshMode = iota
+	// meshModeDisabled causes the service scraper to always use pod IPs directly for scraping.
+	meshModeDisabled
+	// meshModeAuto first attempts direct pod IP scraping, and then falls back to service scraping if needed.
+	meshModeAuto
+)
+
 // serviceScraper scrapes Revision metrics via a K8S service by sampling. Which
 // pod to be picked up to serve the request is decided by K8S. Please see
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
 type serviceScraper struct {
+	meshMode     meshMode
 	directClient scrapeClient
 	meshClient   scrapeClient
 
@@ -161,7 +176,7 @@ func NewStatsScraper(metric *autoscalingv1alpha1.Metric, revisionName string, po
 	usePassthroughLb bool, logger *zap.SugaredLogger) StatsScraper {
 	directClient := newHTTPScrapeClient(client)
 	meshClient := newHTTPScrapeClient(noKeepaliveClient)
-	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, directClient, meshClient, logger)
+	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, meshModeAuto, directClient, meshClient, logger)
 }
 
 func newServiceScraperWithClient(
@@ -169,6 +184,7 @@ func newServiceScraperWithClient(
 	revisionName string,
 	podAccessor resources.PodAccessor,
 	usePassthroughLb bool,
+	meshMode meshMode,
 	directClient, meshClient scrapeClient,
 	logger *zap.SugaredLogger) *serviceScraper {
 	svcName := metric.Labels[serving.ServiceLabelKey]
@@ -177,6 +193,7 @@ func newServiceScraperWithClient(
 	ctx := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revisionName)
 
 	return &serviceScraper{
+		meshMode:         meshMode,
 		directClient:     directClient,
 		meshClient:       meshClient,
 		host:             metric.Spec.ScrapeTarget + "." + metric.ObjectMeta.Namespace,
@@ -209,30 +226,32 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 		pkgmetrics.RecordBatch(s.statsCtx, scrapeTimeM.M(float64(scrapeTime.Milliseconds())))
 	}()
 
-	if s.podsAddressable || s.usePassthroughLb {
-		stat, err := s.scrapePods(window)
-		// Return here if some pods were scraped, but not enough or if we're using a
-		// passthrough loadbalancer and want no fallback to service-scrape logic.
-		if !errors.Is(err, errDirectScrapingNotAvailable) || s.usePassthroughLb {
-			return stat, err
+	switch s.meshMode {
+	case meshModeEnabled:
+		s.logger.Debug("Scraping via service due to meshMode setting")
+		return s.scrapeService(window)
+	case meshModeDisabled:
+		s.logger.Debug("Scraping pods directly due to meshMode setting")
+		return s.scrapePods(window)
+	default:
+		if s.podsAddressable || s.usePassthroughLb {
+			stat, err := s.scrapePods(window)
+			// Return here if some pods were scraped, but not enough or if we're using a
+			// passthrough loadbalancer and want no fallback to service-scrape logic.
+			if !errors.Is(err, errDirectScrapingNotAvailable) || s.usePassthroughLb {
+				return stat, err
+			}
+			// Else fall back to service scrape.
 		}
-		// Else fall back to service scrape.
+		stat, err = s.scrapeService(window)
+		if err == nil && s.podsAddressable {
+			s.logger.Info("Direct pod scraping off, service scraping, on")
+			// If err == nil, this means that we failed to scrape all pods, but service worked
+			// thus it is probably a mesh case.
+			s.podsAddressable = false
+		}
+		return stat, err
 	}
-	readyPodsCount, err := s.podAccessor.ReadyCount()
-	if err != nil {
-		return emptyStat, ErrFailedGetEndpoints
-	}
-	if readyPodsCount == 0 {
-		return emptyStat, nil
-	}
-	stat, err = s.scrapeService(window, readyPodsCount)
-	if err == nil && s.podsAddressable {
-		s.logger.Info("Direct pod scraping off, service scraping, on")
-		// If err == nil, this means that we failed to scrape all pods, but service worked
-		// thus it is probably a mesh case.
-		s.podsAddressable = false
-	}
-	return stat, err
 }
 
 func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
@@ -354,9 +373,16 @@ func computeAverages(results <-chan Stat, sample, total float64) Stat {
 
 // scrapeService scrapes the metrics using service endpoint
 // as its target, rather than individual pods.
-func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Stat, error) {
-	frpc := float64(readyPods)
+func (s *serviceScraper) scrapeService(window time.Duration) (Stat, error) {
+	readyPods, err := s.podAccessor.ReadyCount()
+	if err != nil {
+		return emptyStat, ErrFailedGetEndpoints
+	}
+	if readyPods == 0 {
+		return emptyStat, nil
+	}
 
+	frpc := float64(readyPods)
 	sampleSizeF := populationMeanSampleSize(frpc)
 	sampleSize := int(sampleSizeF)
 	oldStatCh := make(chan Stat, sampleSize)
