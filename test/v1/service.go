@@ -57,6 +57,19 @@ func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNam
 	})
 }
 
+// GetServices get list of services available
+func GetServices(clients *test.Clients) (*v1.ServiceList, error) {
+	list, err := clients.ServingClient.Services.List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+func DeleteService(clients *test.Clients, serviceName string) error {
+	return clients.ServingClient.Services.Delete(context.Background(), serviceName, metav1.DeleteOptions{})
+}
+
 // GetResourceObjects obtains the services resources from the k8s API server.
 func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*ResourceObjects, error) {
 	routeObject, err := clients.ServingClient.Routes.Get(context.Background(), names.Route, metav1.GetOptions{})
