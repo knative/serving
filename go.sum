@@ -1530,11 +1530,12 @@ knative.dev/caching v0.0.0-20210903022457-553240b1b365 h1:p8jEwTrExGkeEL3ytXCOKG
 knative.dev/caching v0.0.0-20210903022457-553240b1b365/go.mod h1:J2o0f0nayAT6ZaXy9yo4GyEcoPyJndMrh+4X5kQTQ5w=
 knative.dev/hack v0.0.0-20210806075220-815cd312d65c h1:nOXoDWAAItwr4o0dp3nHr6skgpVD4IvME/UX84YNl5k=
 knative.dev/hack v0.0.0-20210806075220-815cd312d65c/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
-knative.dev/networking v0.0.0-20210903055657-5f2e230c665f h1:83X6Ck5L53bXVu2MMsS4cFZInBcjoIzI0hEd6mWOIsU=
-knative.dev/networking v0.0.0-20210903055657-5f2e230c665f/go.mod h1:RU3UlJNSFKwyCWUV0tOGtlcca+WA83M3QxBl1wi/vhw=
+knative.dev/networking v0.0.0-20210903170058-7c11d237f014 h1:uZ6dLmPDjV4FmvZAtEhUAIKehFjHdfDQfeSzcov2o0c=
+knative.dev/networking v0.0.0-20210903170058-7c11d237f014/go.mod h1:DldEflDGWAychEH7SzPj1MeJRZaugxOIbdXaIYHvEz0=
 knative.dev/pkg v0.0.0-20210902202457-7a61343b36ca/go.mod h1:jMSqkNMsrzuy+XR4Yr/BMy7SDVbUOl3KKB6+5MR+ZU8=
-knative.dev/pkg v0.0.0-20210903055557-dec98b426132 h1:+iDyXF8cRdFclCu8eUTRBjxQ9ApE3KkleBScMl/3wHU=
 knative.dev/pkg v0.0.0-20210903055557-dec98b426132/go.mod h1:jMSqkNMsrzuy+XR4Yr/BMy7SDVbUOl3KKB6+5MR+ZU8=
+knative.dev/pkg v0.0.0-20210906105443-bb433c98147d h1:foZbYLUl8w0CXoxO66qsluinmUzzxUiYZHBV3Kgt3ks=
+knative.dev/pkg v0.0.0-20210906105443-bb433c98147d/go.mod h1:jMSqkNMsrzuy+XR4Yr/BMy7SDVbUOl3KKB6+5MR+ZU8=
 pgregory.net/rapid v0.3.3 h1:jCjBsY4ln4Atz78QoBWxUEvAHaFyNDQg9+WU62aCn1U=
 pgregory.net/rapid v0.3.3/go.mod h1:UYpPVyjFHzYBGHIxLFoupi8vwk6rXNzRY9OMvVxFIOU=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
