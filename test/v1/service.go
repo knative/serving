@@ -59,11 +59,7 @@ func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNam
 
 // GetServices get list of services available
 func GetServices(clients *test.Clients) (*v1.ServiceList, error) {
-	list, err := clients.ServingClient.Services.List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return list, nil
+	return clients.ServingClient.Services.List(context.Background(), metav1.ListOptions{})
 }
 
 func DeleteService(clients *test.Clients, serviceName string) error {
