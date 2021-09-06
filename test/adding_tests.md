@@ -133,7 +133,7 @@ _, err := pkgTest.WaitForEndpointState(
 	clients.KubeClient,
 	logger,
 	updatedRoute.Status.URL.URL(),
-	pkgTest.EventuallyMatchesBody(expectedText),
+	spoof.IsStatusOK,
 	"SomeDescription",
 	test.ServingFlags.ResolvableDomain)
 if err != nil {

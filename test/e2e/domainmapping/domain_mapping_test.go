@@ -157,7 +157,7 @@ func TestBYOCertificate(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		&url.URL{Scheme: "HTTPS", Host: host},
-		pkgTest.EventuallyMatchesBody(test.PizzaPlanetText1),
+		spoof.MatchesBody(test.PizzaPlanetText1),
 		"DomainMappingBYOSSLCert",
 		resolvableCustomDomain,
 		trustSelfSigned,
