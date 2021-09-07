@@ -36,6 +36,54 @@ import (
 	rtesting "knative.dev/serving/pkg/testing/v1"
 )
 
+// TestServiceCreateListAndDelete tests Creation, Listing and Deletion for Service resources.
+//   This test doesn't validate the Data Plane, it is just to check the Control Plane resources and their APIs
+func TestServiceCreateListAndDelete(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.PizzaPlanet1,
+	}
+
+	// Clean up on test failure or interrupt
+	test.EnsureTearDown(t, clients, &names)
+
+	// Setup initial Service
+	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
+		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+	}
+
+	// Validate State after Creation
+	if err := validateControlPlane(t, clients, names, "1"); err != nil {
+		t.Error(err)
+	}
+
+	list, err := v1test.GetServices(clients)
+	if err != nil {
+		t.Fatal("Listing Services failed")
+	}
+	if len(list.Items) < 1 {
+		t.Fatal("Listing should return at least one Service")
+	}
+	var serviceFound = false
+	for _, service := range list.Items {
+		t.Logf("Service Returned: %s", service.Name)
+		if service.Name == names.Service {
+			serviceFound = true
+		}
+	}
+	if !serviceFound {
+		t.Fatal("The Service that was previously created was not found by listing all Services.")
+	}
+	t.Logf("Deleting Service: %s", names.Service)
+	if err := v1test.DeleteService(clients, names.Service); err != nil {
+		t.Fatal("Error deleting Service")
+	}
+
+}
+
 // TestServiceCreateAndUpdate tests both Creation and Update paths for a service. The test performs a series of Update/Validate steps to ensure that
 // the service transitions as expected during each step.
 // Currently the test performs the following updates:
