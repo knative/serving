@@ -51,13 +51,11 @@ func TestServiceCreateListAndDelete(t *testing.T) {
 	test.EnsureTearDown(t, clients, &names)
 
 	// Setup initial Service
-	_, err := v1test.CreateServiceReady(t, clients, &names)
-	if err != nil {
+	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
 	// Validate State after Creation
-
 	if err = validateControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
@@ -77,11 +75,10 @@ func TestServiceCreateListAndDelete(t *testing.T) {
 		}
 	}
 	if !serviceFound{
-		t.Fatal("The Service that was previously created was  not found by listing all Services.")
+		t.Fatal("The Service that was previously created was not found by listing all Services.")
 	}
 	t.Logf("Deleting Service: %s" , names.Service)
-	err = v1test.DeleteService(clients, names.Service)
-	if err != nil {
+	if err := v1test.DeleteService(clients, names.Service); err != nil {
 		t.Fatal("Error deleting Service")
 	}
 
