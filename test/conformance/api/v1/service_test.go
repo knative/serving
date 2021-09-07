@@ -56,7 +56,7 @@ func TestServiceCreateListAndDelete(t *testing.T) {
 	}
 
 	// Validate State after Creation
-	if err = validateControlPlane(t, clients, names, "1"); err != nil {
+	if err := validateControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
 
