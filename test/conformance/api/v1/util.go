@@ -50,7 +50,7 @@ func checkForExpectedResponses(ctx context.Context, t testing.TB, clients *test.
 	if err != nil {
 		return err
 	}
-	_, err = client.Poll(req, v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesAllBodies(expectedResponses...))))
+	_, err = client.Poll(req, spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesAllBodies(expectedResponses...)))
 	return err
 }
 
@@ -133,7 +133,7 @@ func validateDataPlane(t testing.TB, clients *test.Clients, names test.ResourceN
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(expectedText))),
+		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(expectedText)),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))

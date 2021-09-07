@@ -110,7 +110,7 @@ func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK)),
+		spoof.MatchesAllOf(spoof.IsStatusOK),
 		"CheckingEndpointAfterCreate",
 		false,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),

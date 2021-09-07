@@ -26,7 +26,6 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/test/logging"
-	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -122,14 +121,6 @@ func IsRouteReady(r *v1.Route) (bool, error) {
 // not ready.
 func IsRouteFailed(r *v1.Route) (bool, error) {
 	return r.IsFailed(), nil
-}
-
-// RetryingRouteInconsistency retries common requests seen when creating a new route
-func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
-	return func(resp *spoof.Response) (bool, error) {
-		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
-		return innerCheck(resp)
-	}
 }
 
 // AllRouteTrafficAtRevision will check the revision that route r is routing

@@ -476,7 +476,7 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, isJWT)),
+		spoof.MatchesAllOf(spoof.IsStatusOK, isJWT),
 		"CheckEndpointToServeTheToken",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
