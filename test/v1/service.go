@@ -68,8 +68,7 @@ func GetServices(clients *test.Clients) (list *v1.ServiceList, err error) {
 // DeleteService deletes a service.
 func DeleteService(clients *test.Clients, serviceName string) (err error) {
 	return reconciler.RetryTestErrors(func(int) (err error) {
-		err = clients.ServingClient.Services.Delete(context.Background(), serviceName, metav1.DeleteOptions{})
-		return err
+		return clients.ServingClient.Services.Delete(context.Background(), serviceName, metav1.DeleteOptions{})
 	})
 }
 
