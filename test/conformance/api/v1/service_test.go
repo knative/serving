@@ -64,20 +64,20 @@ func TestServiceCreateListAndDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal("Listing Services failed")
 	}
-	if  len(list.Items) < 1 {
+	if len(list.Items) < 1 {
 		t.Fatal("Listing should return at least one Service")
 	}
 	var serviceFound = false
 	for _, service := range list.Items {
-		t.Logf("Service Returned: %s" , service.Name)
+		t.Logf("Service Returned: %s", service.Name)
 		if service.Name == names.Service {
 			serviceFound = true
 		}
 	}
-	if !serviceFound{
+	if !serviceFound {
 		t.Fatal("The Service that was previously created was not found by listing all Services.")
 	}
-	t.Logf("Deleting Service: %s" , names.Service)
+	t.Logf("Deleting Service: %s", names.Service)
 	if err := v1test.DeleteService(clients, names.Service); err != nil {
 		t.Fatal("Error deleting Service")
 	}
