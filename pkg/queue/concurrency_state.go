@@ -35,8 +35,7 @@ const ConcurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
 // runs the `resume` function. If either of `pause` or `resume` are not passed, it runs
 // the respective local function(s). The local functions are the expected behavior; the
 // function parameters are enabled primarily for testing purposes.
-func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func(string) error, endpoint string) http.HandlerFunc {
-	logger.Info("Concurrency state endpoint set, tracking request counts, using endpoint: ", endpoint)
+func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func() error) http.HandlerFunc {
 
 	var (
 		inFlight = atomic.NewInt64(0)
@@ -53,7 +52,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 				// handler meanwhile. We don't want to do anything in that case.
 				if !paused && inFlight.Load() == 0 {
 					logger.Info("Requests dropped to zero")
-					if err := pause(endpoint); err != nil {
+					if err := pause(); err != nil {
 						logger.Errorf("Error handling pause request: %v", err)
 						panic(err)
 					}
@@ -82,7 +81,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 		}
 
 		logger.Info("Requests increased from zero")
-		if err := resume(endpoint); err != nil {
+		if err := resume(); err != nil {
 			logger.Errorf("Error handling resume request: %v", err)
 			panic(err)
 		}
@@ -93,52 +92,28 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	}
 }
 
-// Pause sends to an endpoint when request counts drop to zero
-func Pause(endpoint string) error {
-	action := ConcurrencyStateMessageBody{Action: "pause"}
+// ConcurrencyState Request sends to the concurrency state endpoint
+func ConcurrencyStateRequest(endpoint string, action ConcurrencyStateMessageBody) func() error {
 	bodyText, err := json.Marshal(action)
 	if err != nil {
-		return fmt.Errorf("unable to create request body: %w", err)
+		panic(err)
 	}
 	body := bytes.NewBuffer(bodyText)
-	req, err := http.NewRequest(http.MethodPost, endpoint, body)
-	if err != nil {
-		return fmt.Errorf("unable to create request: %w", err)
+	return func() error {
+		req, err := http.NewRequest(http.MethodPost, endpoint, body)
+		if err != nil {
+			return fmt.Errorf("unable to create request: %w", err)
+		}
+		req.Header.Add("Token", "nil") // TODO: use serviceaccountToken from projected volume
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("unable to post request: %w", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
+		}
+		return nil
 	}
-	req.Header.Add("Token", "nil") // TODO: use serviceaccountToken from projected volume
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("unable to post request: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
-	}
-
-	return nil
-}
-
-// Resume sends to an endpoint when request counts increase from zero
-func Resume(endpoint string) error {
-	action := ConcurrencyStateMessageBody{Action: "resume"}
-	bodyText, err := json.Marshal(action)
-	if err != nil {
-		return fmt.Errorf("unable to create request body: %w", err)
-	}
-	body := bytes.NewBuffer(bodyText)
-	req, err := http.NewRequest(http.MethodPost, endpoint, body)
-	if err != nil {
-		return fmt.Errorf("unable to create request: %w", err)
-	}
-	req.Header.Add("Token", "nil") // TODO: use serviceaccountToken from projected volume
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("unable to post request: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
-	}
-
-	return nil
 }
 
 type ConcurrencyStateMessageBody struct {

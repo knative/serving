@@ -299,7 +299,10 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
 	if concurrencyStateEnabled {
-		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, queue.Pause, queue.Resume, env.ConcurrencyStateEndpoint)
+		logger.Info("Concurrency state endpoint set, tracking request counts, using endpoint: ", env.ConcurrencyStateEndpoint)
+		pause := queue.ConcurrencyStateRequest(env.ConcurrencyStateEndpoint, queue.ConcurrencyStateMessageBody{Action: "pause"})
+		resume := queue.ConcurrencyStateRequest(env.ConcurrencyStateEndpoint, queue.ConcurrencyStateMessageBody{Action: "resume"})
+		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, pause, resume)
 	}
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
