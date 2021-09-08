@@ -271,18 +271,18 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		firstByteTimeout: longFirstByteTimeout,
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte(""))
+				w.Write([]byte("foo"))
 				time.Sleep(shortIdleTimeout * 2 / 3)
-				w.Write([]byte(""))
+				w.Write([]byte("bar"))
 				time.Sleep(shortIdleTimeout * 2 / 3)
-				w.Write([]byte(""))
+				w.Write([]byte("baz"))
 				time.Sleep(shortIdleTimeout * 2)
 				panic(http.ErrAbortHandler)
 			})
 		},
 		timeoutMessage: "request timeout",
 		wantStatus:     http.StatusOK,
-		wantBody:       "request timeout",
+		wantBody:       "foobarbazrequest timeout",
 		wantPanic:      false,
 	}, {
 		name:             "no idle timeout",
