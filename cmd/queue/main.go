@@ -319,7 +319,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	}
 
-	composedHandler = health.ProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler)
+	composedHandler = health.ProbeHandler(healthState, rp.ProbeContainer, tracingEnabled, composedHandler)
 	composedHandler = network.NewProbeHandler(composedHandler)
 	// We might want sometimes capture the probes/healthchecks in the request
 	// logs. Hence we need to have RequestLogHandler to be the first one.
