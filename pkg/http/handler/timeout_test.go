@@ -175,9 +175,10 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		name:             "timeout before panic",
 		firstByteTimeout: immediateTimeout,
 		idleTimeout:      noIdleTimeout,
-		handler: func(*sync.Mutex, chan error) http.Handler {
+		handler: func(mux *sync.Mutex, _ chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				time.Sleep(1 * time.Second)
+				mux.Lock()
+				defer mux.Unlock()
 				panic(http.ErrAbortHandler)
 			})
 		},
@@ -192,6 +193,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 func TestIdleTimeoutHandler(t *testing.T) {
 	const (
 		noIdleTimeout        = 0 * time.Millisecond
+		immediateIdleTimeout = 1 * time.Millisecond // 0 would disable the timeout
 		shortIdleTimeout     = 100 * time.Millisecond
 		longIdleTimeout      = 1 * time.Minute // Super long, not supposed to hit this.
 		longFirstByteTimeout = 1 * time.Minute // Super long, not supposed to hit this.
@@ -210,7 +212,7 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		wantBody:   "hi",
 	}, {
 		name:             "custom timeout message",
-		idleTimeout:      shortIdleTimeout,
+		idleTimeout:      immediateIdleTimeout,
 		firstByteTimeout: longFirstByteTimeout,
 		handler: func(mux *sync.Mutex, writeErrors chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -238,11 +240,12 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		wantPanic:  true,
 	}, {
 		name:             "timeout before panic",
-		idleTimeout:      shortIdleTimeout,
+		idleTimeout:      immediateIdleTimeout,
 		firstByteTimeout: longFirstByteTimeout,
-		handler: func(*sync.Mutex, chan error) http.Handler {
+		handler: func(mux *sync.Mutex, _ chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				time.Sleep(1 * time.Second)
+				mux.Lock()
+				defer mux.Unlock()
 				panic(http.ErrAbortHandler)
 			})
 		},
@@ -257,32 +260,33 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte("foo"))
-				time.Sleep(shortIdleTimeout * 2 / 3)
+				time.Sleep(shortIdleTimeout / 3)
 				w.Write([]byte("bar"))
-				time.Sleep(shortIdleTimeout * 2 / 3)
+				time.Sleep(shortIdleTimeout / 3)
+				w.Write([]byte("baz"))
+				time.Sleep(shortIdleTimeout / 3)
+				w.Write([]byte("test"))
+				time.Sleep(shortIdleTimeout / 3)
 			})
 		},
 		wantStatus: http.StatusOK,
-		wantBody:   "foobar",
+		wantBody:   "foobarbaztest",
 		wantPanic:  false,
 	}, {
-		name:             "can still timeout after a few successful writes",
+		name:             "can still timeout after a successful write",
 		idleTimeout:      shortIdleTimeout,
 		firstByteTimeout: longFirstByteTimeout,
-		handler: func(*sync.Mutex, chan error) http.Handler {
+		handler: func(mux *sync.Mutex, _ chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte("foo"))
-				time.Sleep(shortIdleTimeout * 2 / 3)
-				w.Write([]byte("bar"))
-				time.Sleep(shortIdleTimeout * 2 / 3)
-				w.Write([]byte("baz"))
-				time.Sleep(shortIdleTimeout * 2)
+				mux.Lock()
+				defer mux.Unlock()
 				panic(http.ErrAbortHandler)
 			})
 		},
 		timeoutMessage: "request timeout",
 		wantStatus:     http.StatusOK,
-		wantBody:       "foobarbazrequest timeout",
+		wantBody:       "foorequest timeout",
 		wantPanic:      false,
 	}, {
 		name:             "no idle timeout",
