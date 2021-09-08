@@ -32,10 +32,13 @@ func TestRevisionGetAndList(t *testing.T) {
 
 	revision, err := v1test.GetRevision(clients, names.Revision)
 	if err != nil {
-		t.Fatal("Getting revision from Service failed")
+		t.Fatal("Getting revision failed")
 	}
 
 	revisions, err := v1test.GetRevisions(clients)
+	if err != nil {
+		t.Fatal("Getting revisions failed")
+	}
 	var revisionFound = false
 	for _, revisionItem := range revisions.Items {
 		t.Logf("Revision Returned: %s", revisionItem.Name)
