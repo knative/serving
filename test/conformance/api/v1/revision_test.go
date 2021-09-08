@@ -19,9 +19,10 @@ limitations under the License.
 package v1
 
 import (
+	"testing"
+
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
-	"testing"
 )
 
 // Test Revision Get and List operations.
