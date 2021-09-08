@@ -60,6 +60,8 @@ const (
 )
 
 func TestHPAAutoscaleUpDownUpMem(t *testing.T) {
+	t.Skip("#11944: Skipped because of excessive flakiness")
+
 	ctx := setupHPASvc(t, autoscaling.Memory, memoryTarget)
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 	assertMemoryHPAAutoscaleUpToNumPods(ctx, memoryTargetPods, time.After(scaleUpTimeout), true /* quick */)
