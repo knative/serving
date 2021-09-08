@@ -31,18 +31,19 @@ var ServingFlags = initializeServingFlags()
 
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
-	ResolvableDomain    bool   // Resolve Route controller's `domainSuffix`
-	CustomDomain        string // Indicates the `domainSuffix` for custom domain test.
-	HTTPS               bool   // Indicates where the test service will be created with https
-	Buckets             int    // The number of reconciler buckets configured.
-	Replicas            int    // The number of controlplane replicas being run.
-	EnableAlphaFeatures bool   // Indicates whether we run tests for alpha features
-	EnableBetaFeatures  bool   // Indicates whether we run tests for beta features
-	DisableLogStream    bool   // Indicates whether log streaming is disabled
-	DisableOptionalAPI  bool   // Indicates whether to skip conformance tests against optional API
-	TestNamespace       string // Default namespace for Serving E2E/Conformance tests
-	AltTestNamespace    string // Alternative namespace for running cross-namespace tests in
-	TLSTestNamespace    string // Namespace for Serving TLS tests
+	ResolvableDomain         bool   // Resolve Route controller's `domainSuffix`
+	CustomDomain             string // Indicates the `domainSuffix` for custom domain test.
+	HTTPS                    bool   // Indicates where the test service will be created with https
+	Buckets                  int    // The number of reconciler buckets configured.
+	Replicas                 int    // The number of controlplane replicas being run.
+	EnableAlphaFeatures      bool   // Indicates whether we run tests for alpha features
+	EnableBetaFeatures       bool   // Indicates whether we run tests for beta features
+	DisableLogStream         bool   // Indicates whether log streaming is disabled
+	DisableOptionalAPI       bool   // Indicates whether to skip conformance tests against optional API
+	TestNamespace            string // Default namespace for Serving E2E/Conformance tests
+	AltTestNamespace         string // Alternative namespace for running cross-namespace tests in
+	TLSTestNamespace         string // Namespace for Serving TLS tests
+	ExceedingMemoryLimitSize int    // Memory size used to trigger a non-200 response when the service is set with 300MB memory limit.
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -83,6 +84,10 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.StringVar(&f.TLSTestNamespace, "tls-test-namespace", "tls",
 		"Set this flag to change the namespace for running TLS tests.")
+
+	flag.IntVar(&f.ExceedingMemoryLimitSize, "exceeding-memory-limit-size", 500,
+		"Set this flag to the MB of memory consumed by your service in resource limit tests. "+
+			"You service is set with 300 MB memory limit and shoud return a non-200 response when consuming such amount of memory.")
 
 	return &f
 }

@@ -114,7 +114,10 @@ func TestCustomResourcesLimits(t *testing.T) {
 		t.Fatalf("Didn't get a response from bloating cow with %d MBs of Memory: %v", 200, err)
 	}
 
-	if err := pokeCowForMB(500); err == nil {
-		t.Fatalf("We shouldn't have got a response from bloating cow with %d MBs of Memory: %v", 500, err)
+	// ExceedingMemoryLimitSize defaults to 500.
+	// The serverless platform MAY automatically adjust the resource limits.
+	exceedingMemory := test.ServingFlags.ExceedingMemoryLimitSize
+	if err := pokeCowForMB(exceedingMemory); err == nil {
+		t.Fatalf("We shouldn't have got a response from bloating cow with %d MBs of Memory: %v", exceedingMemory, err)
 	}
 }
