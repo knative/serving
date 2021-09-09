@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +29,9 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
+
+var unitPattern = regexp.MustCompile(
+	"(K|M|G|T|P|E|Ki|Mi|Gi|Ti|Pi|Ei|)")
 
 func getIntGE0(m map[string]string, k string) (int32, *apis.FieldError) {
 	v, ok := m[k]
@@ -226,14 +230,25 @@ func validateMetric(annotations map[string]string) *apis.FieldError {
 			}
 		case HPA:
 			switch metric {
-			case CPU, Memory:
+			case CPU:
 				return nil
+			case Memory:
+				return validateMemorySuffix(annotations)
 			}
 		default:
 			// Leave other classes of PodAutoscaler alone.
 			return nil
 		}
 		return apis.ErrInvalidValue(metric, MetricAnnotationKey)
+	}
+	return nil
+}
+
+func validateMemorySuffix(annotations map[string]string) *apis.FieldError {
+	if memorySuffix, ok := annotations[MemorySuffixAnnotationKey]; ok {
+		if !unitPattern.MatchString(memorySuffix) {
+			return apis.ErrInvalidValue(memorySuffix, MemorySuffixAnnotationKey)
+		}
 	}
 	return nil
 }

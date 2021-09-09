@@ -67,13 +67,23 @@ const (
 	// RPS is the requests per second reaching the Pod.
 	RPS = "rps"
 
+	// MemorySuffixAnnotationKey is the annotation to specify which memory suffix
+	// the memory target use. For example,
+	//   autoscaling.knative.dev/metric: memory
+	//   autoscaling.knative.dev/target: 256
+	//   autoscaling.knative.dev/memorySuffix: Mi   # target 256 MiB memory usage
+	MemorySuffixAnnotationKey = GroupName + "/memorySuffix"
+
+	// DefaultSuffix is Mi.
+	DefaultSuffix = "Mi"
+
 	// TargetAnnotationKey is the annotation to specify what metric value the
 	// PodAutoscaler should attempt to maintain. For example,
 	//   autoscaling.knative.dev/metric: cpu
 	//   autoscaling.knative.dev/target: "75"   # target 75% cpu utilization
 	// Or
 	//   autoscaling.knative.dev/metric: memory
-	//   autoscaling.knative.dev/target: "100"   # target 100MiB memory usage
+	//   autoscaling.knative.dev/target: "100"   # target 100 MiB memory usage
 	TargetAnnotationKey = GroupName + "/target"
 	// TargetMin is the minimum allowable target.
 	// This can be less than 1 due to the fact that with small container

@@ -102,6 +102,15 @@ func (pa *PodAutoscaler) Target() (float64, bool) {
 	return pa.annotationFloat64(autoscaling.TargetAnnotationKey)
 }
 
+// MemorySuffix returns the Memory Suffix from Annotation or `Mi` if none is set.
+func (pa *PodAutoscaler) MemorySuffix() string {
+	if c, ok := pa.Annotations[autoscaling.MemorySuffixAnnotationKey]; ok {
+		return c
+	}
+	// Default to "Mi" class for backward compatibility.
+	return autoscaling.DefaultSuffix
+}
+
 // TargetUtilization returns the target utilization percentage as a fraction, if
 // the corresponding annotation is set.
 func (pa *PodAutoscaler) TargetUtilization() (float64, bool) {

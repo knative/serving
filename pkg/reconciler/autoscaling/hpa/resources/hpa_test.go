@@ -72,7 +72,7 @@ func TestMakeHPA(t *testing.T) {
 				},
 			})),
 	}, {
-		name: "with an actual memory target",
+		name: "with an actual memory target without suffix",
 		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(autoscaling.Memory)),
 		want: hpa(
 			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Memory),
@@ -85,7 +85,21 @@ func TestMakeHPA(t *testing.T) {
 				},
 			})),
 	}, {
-		name: "with an actual fractional target",
+		name: "with an actual memory target with suffix 'Mi' ",
+		pa:   pa(WithTargetAnnotation("50"), WithMemorySuffixAnnotation("Mi"), WithMetricAnnotation(autoscaling.Memory)),
+		want: hpa(
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Memory),
+			withAnnotationValue(autoscaling.TargetAnnotationKey, "50"),
+			withAnnotationValue(autoscaling.MemorySuffixAnnotationKey, "Mi"),
+			withMetric(autoscalingv2beta1.MetricSpec{
+				Type: autoscalingv2beta1.ResourceMetricSourceType,
+				Resource: &autoscalingv2beta1.ResourceMetricSource{
+					Name:               corev1.ResourceMemory,
+					TargetAverageValue: resource.NewQuantity(50*1024*1024, resource.BinarySI),
+				},
+			})),
+	}, {
+		name: "with an actual fractional target Mi",
 		pa:   pa(WithTargetAnnotation("1982.4"), WithMetricAnnotation(autoscaling.CPU)),
 		want: hpa(
 			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.CPU),

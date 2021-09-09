@@ -18,6 +18,7 @@ package resources
 
 import (
 	"math"
+	"strconv"
 
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -73,12 +74,13 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 
 	case autoscaling.Memory:
 		if target, ok := pa.Target(); ok {
-			memory := resource.NewQuantity(int64(target)*1024*1024, resource.BinarySI)
+			suffix := pa.MemorySuffix()
+			memory := resource.MustParse(strconv.Itoa(int(math.Ceil(target))) + suffix)
 			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
 				Type: autoscalingv2beta1.ResourceMetricSourceType,
 				Resource: &autoscalingv2beta1.ResourceMetricSource{
 					Name:               corev1.ResourceMemory,
-					TargetAverageValue: memory,
+					TargetAverageValue: &memory,
 				},
 			}}
 		}

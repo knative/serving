@@ -170,6 +170,13 @@ func WithTargetAnnotation(target string) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.TargetAnnotationKey, target)
 }
 
+// WithMemorySuffixAnnotation returns a PodAutoscalerOption which sets
+// the PodAutoscaler autoscaling.knative.dev/memorySuffix annotation to the
+// provided value.
+func WithMemorySuffixAnnotation(target string) PodAutoscalerOption {
+	return withAnnotationValue(autoscaling.MemorySuffixAnnotationKey, target)
+}
+
 // WithTUAnnotation returns a PodAutoscalerOption which sets
 // the PodAutoscaler autoscaling.knative.dev/targetUtilizationPercentage
 // annotation to the provided value.
