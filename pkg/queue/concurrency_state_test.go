@@ -17,7 +17,6 @@ limitations under the License.
 package queue
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -74,7 +73,7 @@ func TestConcurrencyStateHandlerParallelSubsumed(t *testing.T) {
 
 	go func() {
 		defer func() { req1 <- struct{}{} }()
-		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", fmt.Sprintf("http://target?req=%d", 1), nil))
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target?req=1", nil))
 	}()
 
 	<-req1 // Wait for req1 to arrive.
@@ -114,14 +113,14 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 
 	go func() {
 		defer func() { req1 <- struct{}{} }()
-		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", fmt.Sprintf("http://target?req=%d", 1), nil))
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target?req=1", nil))
 	}()
 
 	<-req1 // Wait for req1 to arrive.
 
 	go func() {
 		defer func() { req2 <- struct{}{} }()
-		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", fmt.Sprintf("http://target?req=%d", 2), nil))
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target?req=2", nil))
 	}()
 
 	<-req2 // Wait for req2 to arrive
