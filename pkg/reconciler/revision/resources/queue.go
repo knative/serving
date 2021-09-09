@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -172,37 +171,6 @@ func fractionFromPercentage(m map[string]string, k string) (float64, bool) {
 	return value / 100, err == nil
 }
 
-func makeStartupExecProbe(in *corev1.Probe, progressDeadline time.Duration) *corev1.Probe {
-	if in != nil && in.PeriodSeconds > 0 {
-		// If the user opted-out of the aggressive probing optimisation we don't
-		// need to run a startup probe at all.
-		return nil
-	}
-
-	out := &corev1.Probe{
-		Handler: corev1.Handler{
-			Exec: &corev1.ExecAction{
-				// The exec probe is run as a startup probe so the container will be killed
-				// and restarted if it fails. We use the ProgressDeadline as the timeout
-				// to match the time we'll wait before killing the revision if it
-				// fails to go ready on initial deployment.
-				Command: []string{"/ko-app/queue", "-probe-timeout", progressDeadline.String()},
-			},
-		},
-		// The exec probe itself retries aggressively so there's no point retrying via Kubernetes too.
-		TimeoutSeconds:   int32(progressDeadline.Seconds()),
-		FailureThreshold: 1,
-		SuccessThreshold: 1,
-		PeriodSeconds:    1,
-	}
-
-	if in != nil {
-		out.InitialDelaySeconds = in.InitialDelaySeconds
-	}
-
-	return out
-}
-
 // makeQueueContainer creates the container spec for the queue sidecar.
 func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container, error) {
 	configName := ""
@@ -245,7 +213,6 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		// variable for this probe to use.
 		userProbe := container.ReadinessProbe.DeepCopy()
 		applyReadinessProbeDefaultsForExec(userProbe, userPort)
-		execProbe = makeStartupExecProbe(userProbe, cfg.Deployment.ProgressDeadline)
 
 		var err error
 		userProbeJSON, err = readiness.EncodeProbe(userProbe)
