@@ -72,20 +72,6 @@ type ReadOnlyInterface interface {
 	ObserveKind(ctx context.Context, o *v1.Namespace) reconciler.Event
 }
 
-// ReadOnlyFinalizer defines the strongly typed interfaces to be implemented by a
-// controller finalizing v1.Namespace if they want to process tombstoned resources
-// even when they are not the leader.  Due to the nature of how finalizers are handled
-// there are no guarantees that this will be called.
-//
-// Deprecated: Use reconciler.OnDeletionInterface instead.
-type ReadOnlyFinalizer interface {
-	// ObserveFinalizeKind implements custom logic to observe the final state of v1.Namespace.
-	// This method should not write to the API.
-	//
-	// Deprecated: Use reconciler.ObserveDeletion instead.
-	ObserveFinalizeKind(ctx context.Context, o *v1.Namespace) reconciler.Event
-}
-
 type doReconcile func(ctx context.Context, o *v1.Namespace) reconciler.Event
 
 // reconcilerImpl implements controller.Reconciler for v1.Namespace resources.
@@ -255,10 +241,6 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		if resource, err = r.clearFinalizer(ctx, resource, reconcileEvent); err != nil {
 			return fmt.Errorf("failed to clear finalizers: %w", err)
 		}
-
-	case reconciler.DoObserveKind, reconciler.DoObserveFinalizeKind:
-		// Observe any changes to this resource, since we are not the leader.
-		reconcileEvent = do(ctx, resource)
 
 	}
 
