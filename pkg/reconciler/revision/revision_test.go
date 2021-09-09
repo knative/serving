@@ -25,6 +25,7 @@ import (
 	"time"
 
 	// Inject the fakes for informers this controller relies on.
+	"go.uber.org/zap"
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
 	fakeimageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
@@ -228,7 +229,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(rev *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
+func (r *nopResolver) Resolve(_ *zap.SugaredLogger, rev *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
 	return []v1.ContainerStatus{{
 		Name: rev.Spec.Containers[0].Name,
 	}}, nil
@@ -325,7 +326,7 @@ func testDefaultsCM() *corev1.ConfigMap {
 
 type notResolvedYetResolver struct{}
 
-func (r *notResolvedYetResolver) Resolve(_ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
+func (r *notResolvedYetResolver) Resolve(_ *zap.SugaredLogger, _ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
 	return nil, nil
 }
 
@@ -337,7 +338,7 @@ type errorResolver struct {
 	cleared bool
 }
 
-func (r *errorResolver) Resolve(_ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
+func (r *errorResolver) Resolve(_ *zap.SugaredLogger, _ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
 	return nil, r.err
 }
 
