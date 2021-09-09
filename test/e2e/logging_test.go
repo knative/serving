@@ -121,7 +121,7 @@ func TestRequestLogs(t *testing.T) {
 		// Health check requests are sent to / with a specific userAgent value periodically.
 		if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
 			return log.HTTPRequest.RequestURL == "/" &&
-				log.HTTPRequest.UserAgent == network.QueueProxyUserAgent
+				strings.HasPrefix(log.HTTPRequest.UserAgent, network.KubeProbeUAPrefix)
 		}); err != nil {
 			t.Fatal("Got error waiting for health check log:", err)
 		}
