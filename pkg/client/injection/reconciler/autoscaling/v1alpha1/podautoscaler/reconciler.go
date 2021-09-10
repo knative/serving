@@ -262,6 +262,10 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to clear finalizers: %w", err)
 		}
 
+	case reconciler.DoObserveKind:
+		// Observe any changes to this resource, since we are not the leader.
+		reconcileEvent = do(ctx, resource)
+
 	}
 
 	// Synchronize the status.

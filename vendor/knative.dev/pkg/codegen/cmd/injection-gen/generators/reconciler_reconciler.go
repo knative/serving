@@ -465,6 +465,10 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 			return {{.fmtErrorf|raw}}("failed to clear finalizers: %w", err)
 		}
 
+	case {{.doObserveKind|raw}}:
+		// Observe any changes to this resource, since we are not the leader.
+		reconcileEvent = do(ctx, resource)
+
 	}
 
 	{{if .hasStatus}}
