@@ -138,7 +138,6 @@ func TestRouteGetAndList(t *testing.T) {
 	if !routeFound {
 		t.Fatal("The Route that was previously created was not found by listing all Routes.")
 	}
-
 }
 
 func TestRouteCreation(t *testing.T) {

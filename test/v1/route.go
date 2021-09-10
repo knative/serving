@@ -54,7 +54,7 @@ func Route(names test.ResourceNames, fopt ...rtesting.RouteOption) *v1.Route {
 	return route
 }
 
-// GetRoute return a route by name
+// GetRoute gets a route by name
 func GetRoute(clients *test.Clients, routeName string) (route *v1.Route, err error) {
 	return route, reconciler.RetryTestErrors(func(int) (err error) {
 		route, err = clients.ServingClient.Routes.Get(context.Background(), routeName, metav1.GetOptions{})
@@ -62,7 +62,7 @@ func GetRoute(clients *test.Clients, routeName string) (route *v1.Route, err err
 	})
 }
 
-// GetRoutes return all the available routes
+// GetRoutes returns all the available routes
 func GetRoutes(clients *test.Clients) (list *v1.RouteList, err error) {
 	return list, reconciler.RetryTestErrors(func(int) (err error) {
 		list, err = clients.ServingClient.Routes.List(context.Background(), metav1.ListOptions{})
