@@ -258,41 +258,6 @@ func TestHTTPProbeResponseErrorFailure(t *testing.T) {
 	}
 }
 
-func TestIsHTTPProbeShuttingDown(t *testing.T) {
-	tests := []struct {
-		name       string
-		statusCode int
-		wantResult bool
-	}{{
-		name:       "statusCode: 410",
-		statusCode: 410,
-		wantResult: true,
-	}, {
-		name:       "statusCode: 503",
-		statusCode: 503,
-		wantResult: false,
-	}, {
-		name:       "statusCode: 200",
-		statusCode: 200,
-		wantResult: false,
-	}, {
-		name:       "statusCode: 301",
-		statusCode: 301,
-		wantResult: false,
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			response := http.Response{StatusCode: test.statusCode}
-			result := IsHTTPProbeShuttingDown(&response)
-			if result != test.wantResult {
-				t.Errorf("IsHTTPProbeShuttingDown returned unexpected result: got %v want %v",
-					result, test.wantResult)
-			}
-		})
-	}
-}
-
 func newH2cTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 	h2s := &http2.Server{}
 	t.Helper()
