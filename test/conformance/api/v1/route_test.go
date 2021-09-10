@@ -95,7 +95,7 @@ func getRouteURL(clients *test.Clients, names test.ResourceNames) (*url.URL, err
 	return url, err
 }
 
-// TestRouteGetAndList test ROUTE Get and LIST using Service as the only resource that we create, as Route CREATE is not required in the Spec
+// TestRouteGetAndList tests Route GET and LIST using Service as the only resource that we create, as Route CREATE is not required in the Spec.
 func TestRouteGetAndList(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
