@@ -125,6 +125,7 @@ func TestRevisionWatcher(t *testing.T) {
 		initialClusterIPState bool
 		noPodAddressability   bool // This keeps the test defs shorter.
 		usePassthroughLb      bool
+		meshMode              meshMode
 	}{{
 		name:  "single healthy podIP",
 		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
@@ -418,6 +419,58 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 		usePassthroughLb: true,
+	}, {
+		name:  "mesh mode enabled: pod ready but should still use cluster IP",
+		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		clusterPort: corev1.ServicePort{
+			Name: "http",
+			Port: 1235,
+		},
+		noPodAddressability: true,
+		clusterIP:           "129.0.0.1",
+		expectUpdates: []revisionDestsUpdate{
+			{ClusterIPDest: "129.0.0.1:1235", Dests: sets.NewString("128.0.0.1:1234")},
+		},
+		meshMode: meshModeEnabled,
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"128.0.0.1:1234": {{
+				// Pod is healthy, but should not be used since we're in mesh mode.
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"129.0.0.1:1234": {{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
+	}, {
+		name:  "mesh mode disabled: pod initially returns mesh-compatible error, but don't fallback",
+		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		clusterPort: corev1.ServicePort{
+			Name: "http",
+			Port: 1235,
+		},
+		noPodAddressability: false,
+		clusterIP:           "129.0.0.1",
+		expectUpdates: []revisionDestsUpdate{
+			{Dests: sets.NewString("128.0.0.1:1234")},
+		},
+		meshMode: meshModeDisabled,
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				// Cluster IP healthy, but should not be used.
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"128.0.0.1:1234": {{
+				// Mesh compatible error, but don't fall back (because mesh mode is disabled).
+				Code: meshErrorStatusCode,
+				Body: queue.Name,
+			}, {
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeRT := activatortest.FakeRoundTripper{
@@ -467,6 +520,7 @@ func TestRevisionWatcher(t *testing.T) {
 				rt,
 				informer.Lister(),
 				tc.usePassthroughLb, // usePassthroughLb
+				tc.meshMode,
 				logger)
 			rw.clusterIPHealthy = tc.initialClusterIPState
 
