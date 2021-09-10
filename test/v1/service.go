@@ -224,9 +224,7 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 	if err := WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
 		if s.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = s.Status.LatestCreatedRevisionName
-			// Without this it might happen that the latest created revision is later overridden by a newer one
-			// and the following check for LatestReadyRevisionName would fail.
-			return CheckRevisionState(clients.ServingClient, revisionName, IsRevisionRoutingActive) == nil, nil
+			return true, nil
 		}
 		return false, nil
 	}, "ServiceUpdatedWithRevision"); err != nil {
