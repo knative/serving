@@ -292,7 +292,6 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 
 // Returns a slice of certificates that used to belong route's old tags and are currently not in use.
 func (c *Reconciler) getOrphanRouteCerts(r *v1.Route, domainToTagMap map[string]string) ([]*netv1alpha1.Certificate, error) {
-	var unusedCerts []*netv1alpha1.Certificate
 	labelSelector := kubelabels.SelectorFromSet(kubelabels.Set{
 		serving.RouteLabelKey: r.Name,
 	})
@@ -302,10 +301,13 @@ func (c *Reconciler) getOrphanRouteCerts(r *v1.Route, domainToTagMap map[string]
 		return nil, err
 	}
 
-	var shouldKeepCert bool
+	var unusedCerts []*netv1alpha1.Certificate
 	for _, cert := range certs {
+		var shouldKeepCert bool
 		for _, dn := range cert.Spec.DNSNames {
-			_, shouldKeepCert = domainToTagMap[dn]
+			if _, used := domainToTagMap[dn]; used {
+				shouldKeepCert = true
+			}
 		}
 
 		if !shouldKeepCert {
