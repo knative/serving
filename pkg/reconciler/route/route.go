@@ -284,7 +284,11 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 	}
 
 	for _, cert := range orphanCerts {
-		c.GetNetworkingClient().NetworkingV1alpha1().Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{})
+		err = c.GetNetworkingClient().NetworkingV1alpha1().Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{})
+		if err != nil {
+			logger := logging.FromContext(ctx)
+			logger.Warnf("Failed to delete an orphaned certificate. Error: %v Certificate name: %s namespace: %s", err, cert.Name, cert.Namespace)
+		}
 	}
 
 	return tls, acmeChallenges, nil
