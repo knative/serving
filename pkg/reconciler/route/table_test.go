@@ -2601,7 +2601,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			&netv1alpha1.Certificate{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "route-12-34",
