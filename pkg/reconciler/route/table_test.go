@@ -2366,6 +2366,132 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		}},
 		Key: "default/becomes-ready",
 	}, {
+		Name: "check that unused certificate removal works as intended",
+		Objects: []runtime.Object{
+			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-12-34",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
+					Labels: map[string]string{
+						serving.RouteLabelKey: "becomes-ready",
+					},
+					Annotations: map[string]string{
+						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+					},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					DNSNames: []string{"abc.test.example.com", "becomes-ready.default.example.com"},
+				},
+				Status: readyCertStatus(),
+			},
+			// This certificate is not required; the route will use the certificate named "route-12-34".
+			// This certificate has a different DNSNames order to test the unused certificate deletion.
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-12-34-keep",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
+					Labels: map[string]string{
+						serving.RouteLabelKey: "becomes-ready",
+					},
+					Annotations: map[string]string{
+						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+					},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					DNSNames: []string{"becomes-ready.default.example.com", "abc.test.example.com"},
+				},
+				Status: readyCertStatus(),
+			},
+			// MakeCertificates will create a certificate with DNS name "abc.test.example.com" which is not the host name
+			// needed by the input Route.
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-12-34-unused",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
+					Labels: map[string]string{
+						serving.RouteLabelKey: "becomes-ready",
+					},
+					Annotations: map[string]string{
+						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+					},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					DNSNames: []string{"abc.test.example.com"},
+				},
+				Status: readyCertStatus(),
+			},
+		},
+		WantCreates: []runtime.Object{
+			ingressWithTLS(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
+					WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+							},
+						}},
+					},
+				},
+				[]netv1alpha1.IngressTLS{{
+					Hosts:           []string{"becomes-ready.default.example.com"},
+					SecretName:      "route-12-34",
+					SecretNamespace: "default",
+				}},
+				nil,
+			),
+			simpleK8sService(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+				WithExternalName("becomes-ready.default.example.com"),
+			),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
+				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0], readyCertStatus()),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
+				WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					}), MarkCertificateReady,
+				// The certificate is ready. So we want to have HTTPS URL.
+				WithHTTPSDomain),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			// This certificate's DNS name is not the host name needed by the input Route.
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "default",
+				Verb:      "delete",
+				Resource:  netv1alpha1.SchemeGroupVersion.WithResource("certificates"),
+			},
+			Name: "route-12-34-unused",
+		}},
+		Key: "default/becomes-ready",
+	}, {
 		Name: "verify ingress rules created for http01 challenges",
 		Objects: []runtime.Object{
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
