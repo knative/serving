@@ -615,7 +615,7 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 }
 
 func updateContext(ctx context.Context, rolloutDurationSecs int) context.Context {
-	cfg := reconcilerTestConfig(false)
+	cfg := reconcilerTestConfig()
 	cfg.Network.RolloutDurationSecs = rolloutDurationSecs
 	c := config.ToContext(ctx, cfg)
 	return c

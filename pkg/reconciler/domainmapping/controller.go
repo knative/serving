@@ -62,7 +62,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		return controller.Options{ConfigStore: configStore}
 	})
 
-	logger.Info("Setting up event handlers")
 	domainmappingInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	handleControllerOf := cache.FilteringResourceEventHandler{
@@ -72,7 +71,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	certificateInformer.Informer().AddEventHandler(handleControllerOf)
 	ingressInformer.Informer().AddEventHandler(handleControllerOf)
 
-	r.resolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
+	r.resolver = resolver.NewURIResolverFromTracker(ctx, impl.Tracker)
 
 	return impl
 }

@@ -55,12 +55,12 @@ func fetchRuntimeInfo(
 		return nil, nil, err
 	}
 
-	resp, err := pkgTest.WaitForEndpointState(
+	resp, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		objects.Service.Status.URL.URL(),
-		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
+		spoof.IsStatusOK,
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain,
 		append(reqOpts, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))...)

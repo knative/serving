@@ -63,12 +63,12 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 	endpoint := objects.Route.Status.URL.URL()
 
-	_, err = pkgtest.WaitForEndpointState(
+	_, err = pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		endpoint,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK)),
+		spoof.MatchesAllOf(spoof.IsStatusOK),
 		"ResourceTestServesText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
@@ -114,7 +114,12 @@ func TestCustomResourcesLimits(t *testing.T) {
 		t.Fatalf("Didn't get a response from bloating cow with %d MBs of Memory: %v", 200, err)
 	}
 
-	if err := pokeCowForMB(500); err == nil {
-		t.Fatalf("We shouldn't have got a response from bloating cow with %d MBs of Memory: %v", 500, err)
+	// ExceedingMemoryLimitSize defaults to 500.
+	// Allows override the memory usage to get a non-200 resposne because the serverless platform
+	// MAY automatically adjust the resource limits.
+	// See https://github.com/knative/specs/blob/main/specs/serving/runtime-contract.md#memory-and-cpu-limits
+	exceedingMemory := test.ServingFlags.ExceedingMemoryLimitSize
+	if err := pokeCowForMB(exceedingMemory); err == nil {
+		t.Fatalf("We shouldn't have got a response from bloating cow with %d MBs of Memory: %v", exceedingMemory, err)
 	}
 }

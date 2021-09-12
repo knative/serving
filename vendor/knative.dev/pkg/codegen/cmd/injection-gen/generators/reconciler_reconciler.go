@@ -206,10 +206,6 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 			Package: "knative.dev/pkg/reconciler",
 			Name:    "DoFinalizeKind",
 		}),
-		"doObserveFinalizeKind": c.Universe.Type(types.Name{
-			Package: "knative.dev/pkg/reconciler",
-			Name:    "DoObserveFinalizeKind",
-		}),
 		"controllerIsSkipKey": c.Universe.Function(types.Name{
 			Package: "knative.dev/pkg/controller",
 			Name:    "IsSkipKey",
@@ -262,16 +258,6 @@ type ReadOnlyInterface interface {
 	// ObserveKind implements logic to observe {{.type|raw}}.
 	// This method should not write to the API.
 	ObserveKind(ctx {{.contextContext|raw}}, o *{{.type|raw}}) {{.reconcilerEvent|raw}}
-}
-
-// ReadOnlyFinalizer defines the strongly typed interfaces to be implemented by a
-// controller finalizing {{.type|raw}} if they want to process tombstoned resources
-// even when they are not the leader.  Due to the nature of how finalizers are handled
-// there are no guarantees that this will be called.
-type ReadOnlyFinalizer interface {
-	// ObserveFinalizeKind implements custom logic to observe the final state of {{.type|raw}}.
-	// This method should not write to the API.
-	ObserveFinalizeKind(ctx {{.contextContext|raw}}, o *{{.type|raw}}) {{.reconcilerEvent|raw}}
 }
 
 type doReconcile func(ctx {{.contextContext|raw}}, o *{{.type|raw}}) {{.reconcilerEvent|raw}}
@@ -332,7 +318,6 @@ func NewReconciler(ctx {{.contextContext|raw}}, logger *{{.zapSugaredLogger|raw}
 	if _, ok := r.({{.reconcilerLeaderAware|raw}}); ok {
 		logger.Fatalf("%T implements the incorrect LeaderAware interface. Promote() should not take an argument as genreconciler handles the enqueuing automatically.", r)
 	}
-	// TODO: Consider validating when folks implement ReadOnlyFinalizer, but not Finalizer.
 
 	rec := &reconcilerImpl{
 		LeaderAwareFuncs: {{.reconcilerLeaderAwareFuncs|raw}}{
@@ -480,7 +465,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 			return {{.fmtErrorf|raw}}("failed to clear finalizers: %w", err)
 		}
 
-	case {{.doObserveKind|raw}}, {{.doObserveFinalizeKind|raw}}:
+	case {{.doObserveKind|raw}}:
 		// Observe any changes to this resource, since we are not the leader.
 		reconcileEvent = do(ctx, resource)
 

@@ -100,7 +100,7 @@ jobs:
 
       - name: Install Tools
         env:
-          WOKE_VERSION: v0.8.0
+          WOKE_VERSION: v0.13.0
         run: |
           TEMP_PATH="$(mktemp -d)"
           cd $TEMP_PATH
@@ -127,7 +127,7 @@ jobs:
         if: steps.golangci_configuration.outputs.files_exists == 'true'
         uses: golangci/golangci-lint-action@v2
         with:
-          version: v1.40
+          version: v1.42
 
       - name: misspell
         shell: bash

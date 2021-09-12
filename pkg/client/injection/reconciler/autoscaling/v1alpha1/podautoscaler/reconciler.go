@@ -73,16 +73,6 @@ type ReadOnlyInterface interface {
 	ObserveKind(ctx context.Context, o *v1alpha1.PodAutoscaler) reconciler.Event
 }
 
-// ReadOnlyFinalizer defines the strongly typed interfaces to be implemented by a
-// controller finalizing v1alpha1.PodAutoscaler if they want to process tombstoned resources
-// even when they are not the leader.  Due to the nature of how finalizers are handled
-// there are no guarantees that this will be called.
-type ReadOnlyFinalizer interface {
-	// ObserveFinalizeKind implements custom logic to observe the final state of v1alpha1.PodAutoscaler.
-	// This method should not write to the API.
-	ObserveFinalizeKind(ctx context.Context, o *v1alpha1.PodAutoscaler) reconciler.Event
-}
-
 type doReconcile func(ctx context.Context, o *v1alpha1.PodAutoscaler) reconciler.Event
 
 // reconcilerImpl implements controller.Reconciler for v1alpha1.PodAutoscaler resources.
@@ -135,7 +125,6 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versio
 	if _, ok := r.(reconciler.LeaderAware); ok {
 		logger.Fatalf("%T implements the incorrect LeaderAware interface. Promote() should not take an argument as genreconciler handles the enqueuing automatically.", r)
 	}
-	// TODO: Consider validating when folks implement ReadOnlyFinalizer, but not Finalizer.
 
 	rec := &reconcilerImpl{
 		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
@@ -273,7 +262,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to clear finalizers: %w", err)
 		}
 
-	case reconciler.DoObserveKind, reconciler.DoObserveFinalizeKind:
+	case reconciler.DoObserveKind:
 		// Observe any changes to this resource, since we are not the leader.
 		reconcileEvent = do(ctx, resource)
 

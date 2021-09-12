@@ -21,15 +21,23 @@ package metric
 import (
 	context "context"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	cache "k8s.io/client-go/tools/cache"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
+	apisautoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	versioned "knative.dev/serving/pkg/client/clientset/versioned"
 	v1alpha1 "knative.dev/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	client "knative.dev/serving/pkg/client/injection/client"
 	factory "knative.dev/serving/pkg/client/injection/informers/factory"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 )
 
 func init() {
 	injection.Default.RegisterInformer(withInformer)
+	injection.Dynamic.RegisterDynamicInformer(withDynamicInformer)
 }
 
 // Key is used for associating the Informer inside the context.Context.
@@ -41,6 +49,11 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	return context.WithValue(ctx, Key{}, inf), inf.Informer()
 }
 
+func withDynamicInformer(ctx context.Context) context.Context {
+	inf := &wrapper{client: client.Get(ctx)}
+	return context.WithValue(ctx, Key{}, inf)
+}
+
 // Get extracts the typed informer from the context.
 func Get(ctx context.Context) v1alpha1.MetricInformer {
 	untyped := ctx.Value(Key{})
@@ -49,4 +62,45 @@ func Get(ctx context.Context) v1alpha1.MetricInformer {
 			"Unable to fetch knative.dev/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1.MetricInformer from context.")
 	}
 	return untyped.(v1alpha1.MetricInformer)
+}
+
+type wrapper struct {
+	client versioned.Interface
+
+	namespace string
+}
+
+var _ v1alpha1.MetricInformer = (*wrapper)(nil)
+var _ autoscalingv1alpha1.MetricLister = (*wrapper)(nil)
+
+func (w *wrapper) Informer() cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(nil, &apisautoscalingv1alpha1.Metric{}, 0, nil)
+}
+
+func (w *wrapper) Lister() autoscalingv1alpha1.MetricLister {
+	return w
+}
+
+func (w *wrapper) Metrics(namespace string) autoscalingv1alpha1.MetricNamespaceLister {
+	return &wrapper{client: w.client, namespace: namespace}
+}
+
+func (w *wrapper) List(selector labels.Selector) (ret []*apisautoscalingv1alpha1.Metric, err error) {
+	lo, err := w.client.AutoscalingV1alpha1().Metrics(w.namespace).List(context.TODO(), v1.ListOptions{
+		LabelSelector: selector.String(),
+		// TODO(mattmoor): Incorporate resourceVersion bounds based on staleness criteria.
+	})
+	if err != nil {
+		return nil, err
+	}
+	for idx := range lo.Items {
+		ret = append(ret, &lo.Items[idx])
+	}
+	return ret, nil
+}
+
+func (w *wrapper) Get(name string) (*apisautoscalingv1alpha1.Metric, error) {
+	return w.client.AutoscalingV1alpha1().Metrics(w.namespace).Get(context.TODO(), name, v1.GetOptions{
+		// TODO(mattmoor): Incorporate resourceVersion bounds based on staleness criteria.
+	})
 }

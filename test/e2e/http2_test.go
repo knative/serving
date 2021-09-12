@@ -54,12 +54,12 @@ func TestHelloHTTP2WithPortNameH2C(t *testing.T) {
 	}
 
 	url := resources.Route.Status.URL.URL()
-	if _, err := pkgTest.WaitForEndpointState(
+	if _, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloHTTP2Text))),
+		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloHTTP2Text)),
 		"HelloHTTP2ServesTextOnH2C",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
@@ -94,12 +94,12 @@ func TestHelloHTTP2WithEmptyPortName(t *testing.T) {
 	}
 
 	url := resources.Route.Status.URL.URL()
-	if _, err := pkgTest.WaitForEndpointState(
+	if _, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsOneOfStatusCodes(http.StatusUpgradeRequired))),
+		spoof.MatchesAllOf(spoof.IsOneOfStatusCodes(http.StatusUpgradeRequired)),
 		"HelloHTTP2ServesTextWithEmptyPort",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),

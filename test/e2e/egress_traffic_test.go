@@ -60,12 +60,12 @@ func TestEgressTraffic(t *testing.T) {
 	t.Log("Service URL: " + service.Route.Status.URL.String())
 
 	url := service.Route.Status.URL.URL()
-	if _, err = pkgTest.WaitForEndpointState(
+	if _, err = pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
+		spoof.IsStatusOK,
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),

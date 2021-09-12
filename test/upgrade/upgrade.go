@@ -49,15 +49,15 @@ const (
 // Shamelessly cribbed from conformance/service_test.
 func assertServiceResourcesUpdated(t testing.TB, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string) {
 	t.Helper()
-	// TODO(#1178): Remove "Wait" from all checks below this point.
-	if _, err := pkgTest.WaitForEndpointState(
+	if _, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
+		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(expectedText)),
 		"WaitForEndpointToServeText",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Fatal(fmt.Sprintf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err))
 	}
 }

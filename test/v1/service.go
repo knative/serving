@@ -57,6 +57,21 @@ func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNam
 	})
 }
 
+// GetServices gets a list of services.
+func GetServices(clients *test.Clients) (list *v1.ServiceList, err error) {
+	return list, reconciler.RetryTestErrors(func(int) (err error) {
+		list, err = clients.ServingClient.Services.List(context.Background(), metav1.ListOptions{})
+		return err
+	})
+}
+
+// DeleteService deletes a service.
+func DeleteService(clients *test.Clients, serviceName string) (err error) {
+	return reconciler.RetryTestErrors(func(int) (err error) {
+		return clients.ServingClient.Services.Delete(context.Background(), serviceName, metav1.DeleteOptions{})
+	})
+}
+
 // GetResourceObjects obtains the services resources from the k8s API server.
 func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*ResourceObjects, error) {
 	routeObject, err := clients.ServingClient.Routes.Get(context.Background(), names.Route, metav1.GetOptions{})
@@ -209,9 +224,7 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 	if err := WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
 		if s.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = s.Status.LatestCreatedRevisionName
-			// Without this it might happen that the latest created revision is later overridden by a newer one
-			// and the following check for LatestReadyRevisionName would fail.
-			return CheckRevisionState(clients.ServingClient, revisionName, IsRevisionRoutingActive) == nil, nil
+			return true, nil
 		}
 		return false, nil
 	}, "ServiceUpdatedWithRevision"); err != nil {

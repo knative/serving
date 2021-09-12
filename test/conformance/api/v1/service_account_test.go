@@ -34,6 +34,10 @@ const (
 )
 
 func TestServiceAccountValidation(t *testing.T) {
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Service.spec.serviceAccountName is not required by Knative Serving API Specification")
+	}
+
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -52,7 +56,7 @@ func TestServiceAccountValidation(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected Service creation to fail")
 	}
-	if got, want := err.Error(), "serviceAccountName: spec.template.spec."+invalidServiceAccountName; !strings.Contains(got, want) {
+	if got, want := err.Error(), invalidServiceAccountName+": spec.template.spec.serviceAccountName"; !strings.Contains(got, want) {
 		t.Errorf("Error = %q, want to contain = %q", got, want)
 	}
 }

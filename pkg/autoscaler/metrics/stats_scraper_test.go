@@ -141,7 +141,7 @@ func TestPodDirectScrapeSuccess(t *testing.T) {
 	})
 
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper := serviceScraperForTest(ctx, t, client, nil /* mesh not used */, true /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, client, nil /* mesh not used */, true /*podsAddressable*/, false /*passthroughLb*/)
 
 	// No pods at all.
 	if stat, err := scraper.Scrape(defaultMetric.Spec.StableWindow); err != nil {
@@ -175,7 +175,7 @@ func TestPodDirectScrapeSomeFailButSuccess(t *testing.T) {
 	makePods(ctx, "pods-", 5, metav1.Now())
 
 	client := newTestScrapeClient(testStats, []error{nil, nil, errors.New("okay"), nil, nil})
-	scraper := serviceScraperForTest(ctx, t, client, nil /* mesh not used */, true /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, client, nil /* mesh not used */, true /*podsAddressable*/, false /*passthroughLb*/)
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatal("Unexpected error from scraper.Scrape():", err)
@@ -218,7 +218,7 @@ func TestPodDirectScrapeAllFailWithMeshError(t *testing.T) {
 	})
 	makePods(ctx, "pods-", 4, metav1.Now())
 
-	scraper := serviceScraperForTest(ctx, t, direct, mesh, true /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, direct, mesh, true /*podsAddressable*/, false /*passthroughLb*/)
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatal("Unexpected error from scraper.Scrape():", err)
@@ -232,6 +232,77 @@ func TestPodDirectScrapeAllFailWithMeshError(t *testing.T) {
 
 	if scraper.podsAddressable {
 		t.Error("PodAddressable didn't switch to false")
+	}
+}
+
+func TestPodDirectScrapeAllFailWithMeshErrorNoFallbackInDirectMode(t *testing.T) {
+	testStats := testStatsWithTime(4, youngPodCutOffDuration.Seconds() /*youngest*/)
+	meshErr := scrapeError{
+		error:       errors.New("just meshing with you"),
+		mightBeMesh: true,
+	}
+	direct := newTestScrapeClient(testStats, []error{
+		// Pods fail, and they're all potentially mesh-related errors.
+		meshErr, meshErr, meshErr, meshErr,
+	})
+	mesh := newTestScrapeClient(testStats, []error{
+		// Service succeeds.
+		nil, nil, nil, nil,
+	})
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := RunAndSyncInformers(ctx, informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("Failed to start informers:", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+	makePods(ctx, "pods-", 4, metav1.Now())
+
+	scraper := serviceScraperForTest(ctx, t, meshModeDisabled, direct, mesh, true /*podsAddressable*/, false /*passthroughLb*/)
+	if _, err := scraper.Scrape(defaultMetric.Spec.StableWindow); err == nil {
+		t.Fatal("Expected scrape to fail even though all pods return mesh-compatible errors since meshMode is disabled")
+	}
+}
+
+func TestPodAlwaysServiceScrapeInMeshMode(t *testing.T) {
+	testStats := testStatsWithTime(4, youngPodCutOffDuration.Seconds() /*youngest*/)
+	notMeshErr := scrapeError{
+		error:       errors.New("just meshing with you"),
+		mightBeMesh: false,
+	}
+	direct := newTestScrapeClient(testStats, []error{
+		// Not mesh errors, but we still expect to service scrape
+		notMeshErr, notMeshErr, notMeshErr, notMeshErr,
+	})
+	mesh := newTestScrapeClient(testStats, []error{
+		// Service succeeds.
+		nil, nil, nil, nil,
+	})
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := RunAndSyncInformers(ctx, informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("Failed to start informers:", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+	makePods(ctx, "pods-", 4, metav1.Now())
+
+	scraper := serviceScraperForTest(ctx, t, meshModeEnabled, direct, mesh, true /*podsAddressable*/, false /*passthroughLb*/)
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
+	}
+
+	// Checking one of the metrics is enough here.
+	if got.AverageConcurrentRequests != 20.0 {
+		t.Errorf("stat.AverageConcurrentRequests=%v, want %v",
+			got.AverageConcurrentRequests, 20.0)
 	}
 }
 
@@ -258,7 +329,7 @@ func TestPodDirectScrapeSomeFailWithNonMeshError(t *testing.T) {
 	makePods(ctx, "pods-", 4, metav1.Now())
 
 	client := newTestScrapeClient(testStats, []error{meshErr, nonMeshErr, meshErr, meshErr})
-	scraper := serviceScraperForTest(ctx, t, client, nil /* mesh not used */, true /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, client, nil /* mesh not used */, true /*podsAddressable*/, false /*passthroughLb*/)
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err == nil {
 		t.Fatal("Expected an error")
@@ -283,7 +354,7 @@ func TestPodDirectScrapePodsExhausted(t *testing.T) {
 	makePods(ctx, "pods-", 4, metav1.Now())
 
 	client := newTestScrapeClient(testStats, []error{nil, nil, errors.New("okay"), nil})
-	scraper := serviceScraperForTest(ctx, t, client, nil /* mesh not used */, true /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, client, nil /* mesh not used */, true /*podsAddressable*/, false /*passthroughLb*/)
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err == nil {
 		t.Fatal("Expected an error")
@@ -309,7 +380,7 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 
 	// Scrape will set a timestamp bigger than this.
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper := serviceScraperForTest(ctx, t, client, client, false /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, client, client, false /*podsAddressable*/, false /*passthroughLb*/)
 
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
@@ -344,7 +415,7 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 	})
 	makePods(ctx, "pods-", numP, metav1.Now())
 
-	scraper := serviceScraperForTest(ctx, t, direct, mesh, false /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, direct, mesh, false /*podsAddressable*/, false /*passthroughLb*/)
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatal("Unexpected error from scraper.Scrape():", err)
@@ -377,7 +448,7 @@ func TestScrapeAllPodsOldPods(t *testing.T) {
 	makePods(ctx, "pods-", numP, metav1.Now())
 	direct := newTestScrapeClient(testStats, []error{errDirectScrapingNotAvailable}) // fall back to service scrape
 	mesh := newTestScrapeClient(testStats, []error{nil})
-	scraper := serviceScraperForTest(ctx, t, direct, mesh, false /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, direct, mesh, false /*podsAddressable*/, false /*passthroughLb*/)
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatal("Unexpected error from scraper.Scrape():", err)
@@ -413,7 +484,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 	// Scrape will set a timestamp bigger than this.
 	direct := newTestScrapeClient(testStats, []error{errDirectScrapingNotAvailable}) // fall back to service scrape
 	mesh := newTestScrapeClient(testStats, []error{nil})
-	scraper := serviceScraperForTest(ctx, t, direct, mesh, false /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, direct, mesh, false /*podsAddressable*/, false /*passthroughLb*/)
 
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
@@ -443,7 +514,7 @@ func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 	makePods(ctx, "pods-", 2, metav1.Now())
 
 	client := newTestScrapeClient(testStats[2:], []error{nil})
-	scraper := serviceScraperForTest(ctx, t, client, client, false /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, client, client, false /*podsAddressable*/, false /*passthroughLb*/)
 
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err == nil {
@@ -469,7 +540,7 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	// 1 success and 10 failures so one scrape fails permanently through retries.
 	client := newTestScrapeClient(testStats, []error{nil, errTest, errTest,
 		errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest})
-	scraper := serviceScraperForTest(ctx, t, client, client, false /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, client, client, false /*podsAddressable*/, false /*passthroughLb*/)
 
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if !errors.Is(err, errTest) {
@@ -481,7 +552,7 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	t.Cleanup(cancel)
 	client := newTestScrapeClient(testStats, nil)
-	scraper := serviceScraperForTest(ctx, t, client, client, false /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, client, client, false /*podsAddressable*/, false /*passthroughLb*/)
 
 	stat, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
@@ -515,7 +586,7 @@ func TestMixedPodShuffle(t *testing.T) {
 	t.Log("WantScrapes", wantScrapes)
 
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper := serviceScraperForTest(ctx, t, client, client, true /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, client, client, true /*podsAddressable*/, false /*passthroughLb*/)
 
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
@@ -558,7 +629,7 @@ func TestOldPodShuffle(t *testing.T) {
 	t.Log("WantScrapes", wantScrapes)
 
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper := serviceScraperForTest(ctx, t, client, client, true /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, client, client, true /*podsAddressable*/, false /*passthroughLb*/)
 
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
@@ -632,7 +703,7 @@ func TestOldPodsFallback(t *testing.T) {
 		}
 		return r
 	}())
-	scraper := serviceScraperForTest(ctx, t, client, client, true /*podsAddressable*/, false /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, client, client, true /*podsAddressable*/, false /*passthroughLb*/)
 
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
@@ -672,7 +743,7 @@ func TestPodDirectPassthroughScrapeSuccess(t *testing.T) {
 	})
 
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper := serviceScraperForTest(ctx, t, client, nil /* mesh not used */, true /*podsAddressable*/, true /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, client, nil /* mesh not used */, true /*podsAddressable*/, true /*passthroughLb*/)
 
 	makePods(ctx, "pods-", 3, metav1.Now())
 	if _, err := scraper.Scrape(defaultMetric.Spec.StableWindow); err != nil {
@@ -706,7 +777,7 @@ func TestPodDirectPassthroughScrapeNoneSucceed(t *testing.T) {
 	})
 	makePods(ctx, "pods-", 4, metav1.Now())
 
-	scraper := serviceScraperForTest(ctx, t, direct, mesh, true /*podsAddressable*/, true /*passthroughLb*/)
+	scraper := serviceScraperForTest(ctx, t, meshModeAuto, direct, mesh, true /*podsAddressable*/, true /*passthroughLb*/)
 
 	// No fallback to service scraping expected.
 	if _, err = scraper.Scrape(defaultMetric.Spec.StableWindow); err == nil {
@@ -718,14 +789,14 @@ func TestPodDirectPassthroughScrapeNoneSucceed(t *testing.T) {
 	}
 }
 
-func serviceScraperForTest(ctx context.Context, t *testing.T, directClient, meshClient scrapeClient,
+func serviceScraperForTest(ctx context.Context, t *testing.T, meshMode meshMode, directClient, meshClient scrapeClient,
 	podsAddressable bool, usePassthroughLb bool) *serviceScraper {
 	metric := testMetric()
 	accessor := resources.NewPodAccessor(
 		fakepodsinformer.Get(ctx).Lister(),
 		testNamespace, testRevision)
 	logger := logtesting.TestLogger(t)
-	ss := newServiceScraperWithClient(metric, testRevision, accessor, usePassthroughLb, directClient, meshClient, logger)
+	ss := newServiceScraperWithClient(metric, testRevision, accessor, usePassthroughLb, meshMode, directClient, meshClient, logger)
 	ss.podsAddressable = podsAddressable
 	return ss
 }

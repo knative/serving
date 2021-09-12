@@ -115,12 +115,12 @@ func TestTagHeaderBasedRouting(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if _, err := pkgTest.WaitForEndpointState(
+			if _, err := pkgTest.CheckEndpointState(
 				context.Background(),
 				clients.KubeClient,
 				t.Logf,
 				objects.Service.Status.URL.URL(),
-				v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(tt.wantResponse))),
+				spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(tt.wantResponse)),
 				"WaitForSuccessfulResponse",
 				test.ServingFlags.ResolvableDomain,
 				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),

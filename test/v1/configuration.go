@@ -107,24 +107,32 @@ func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames
 // ConfigurationSpec returns the spec of a configuration to be used throughout different
 // CRD helpers.
 func ConfigurationSpec(imagePath string) *v1.ConfigurationSpec {
-	return &v1.ConfigurationSpec{
+	c := &v1.ConfigurationSpec{
 		Template: v1.RevisionTemplateSpec{
 			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: imagePath,
-						// Kubernetes default pull policy is IfNotPresent unless
-						// the :latest tag (== no tag) is used, in which case it
-						// is Always.  To support e2e testing on KinD, we want to
-						// explicitly disable image pulls when present because we
-						// side-load the test images onto all nodes and never push
-						// them to a registry.
-						ImagePullPolicy: corev1.PullIfNotPresent,
 					}},
 				},
 			},
 		},
 	}
+
+	if !test.ServingFlags.DisableOptionalAPI {
+		// Container.imagePullPolicy is not required by Knative
+		// Serving API Specification.
+		//
+		// Kubernetes default pull policy is IfNotPresent unless
+		// the :latest tag (== no tag) is used, in which case it
+		// is Always.  To support e2e testing on KinD, we want to
+		// explicitly disable image pulls when present because we
+		// side-load the test images onto all nodes and never push
+		// them to a registry.
+		c.Template.Spec.PodSpec.Containers[0].ImagePullPolicy = corev1.PullIfNotPresent
+	}
+
+	return c
 }
 
 // Configuration returns a Configuration object in namespace with the name names.Config

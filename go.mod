@@ -15,8 +15,8 @@ require (
 	github.com/go-openapi/spec v0.20.2 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.6
-	github.com/google/go-containerregistry v0.5.2-0.20210709161016-b448abac9a70
-	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210610160139-c086c7f16d4e
+	github.com/google/go-containerregistry v0.6.0
+	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210624211700-ce35c99b3faf
 	github.com/google/gofuzz v1.2.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/googleapis/gnostic v0.5.3 // indirect
@@ -30,26 +30,24 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/goleak v1.1.10
-	go.uber.org/zap v1.18.1
-	golang.org/x/net v0.0.0-20210726213435-c6fcb2dbf985
-	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
+	go.uber.org/zap v1.19.0
+	golang.org/x/net v0.0.0-20210825183410-e898025ed96a
+	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf // indirect
-	golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6
+	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gonum.org/v1/gonum v0.0.0-20190331200053-3d26580ed485 // indirect
 	google.golang.org/api v0.50.0
-	google.golang.org/grpc v1.39.0
+	google.golang.org/grpc v1.40.0
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
-	k8s.io/api v0.20.7
-	k8s.io/apimachinery v0.20.7
-	k8s.io/client-go v0.20.7
-	k8s.io/code-generator v0.20.7
-	k8s.io/klog/v2 v2.5.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
+	k8s.io/api v0.21.4
+	k8s.io/apimachinery v0.21.4
+	k8s.io/client-go v0.21.4
+	k8s.io/code-generator v0.21.4
+	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
-	knative.dev/caching v0.0.0-20210803185815-4e553d2275a0
-	knative.dev/hack v0.0.0-20210622141627-e28525d8d260
-	knative.dev/networking v0.0.0-20210803181815-acdfd41c575c
-	knative.dev/pkg v0.0.0-20210803160015-21eb4c167cc5
+	knative.dev/caching v0.0.0-20210910063632-a51cf6760e00
+	knative.dev/hack v0.0.0-20210806075220-815cd312d65c
+	knative.dev/networking v0.0.0-20210910120730-eb37d69eb87f
+	knative.dev/pkg v0.0.0-20210909165259-d4505c660535
 	sigs.k8s.io/yaml v1.2.0
 )

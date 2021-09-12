@@ -38,13 +38,18 @@ ${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
   "duck:v1alpha1,v1beta1,v1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
+# Based on: https://github.com/kubernetes/kubernetes/blob/8ddabd0da5cc54761f3216c08e99fa1a9f7ee2c5/hack/lib/init.sh#L116
+# The '-path' is a hack to workaround the lack of portable `-depth 2`.
+K8S_TYPES=$(find ./vendor/k8s.io/api -type d -path '*/*/*/*/*/*' | cut -d'/' -f 5-6 | sort | sed 's@/@:@g' |
+  grep -v "admission:" | grep -v "imagepolicy:" | grep -v "abac:" | grep -v "componentconfig:")
+
 OUTPUT_PKG="knative.dev/pkg/client/injection/kube" \
 VERSIONED_CLIENTSET_PKG="k8s.io/client-go/kubernetes" \
 EXTERNAL_INFORMER_PKG="k8s.io/client-go/informers" \
   ${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
     k8s.io/client-go \
     k8s.io/api \
-    "admissionregistration:v1beta1,v1 apps:v1 autoscaling:v1,v2beta1 batch:v1,v1beta1 core:v1 rbac:v1 coordination:v1" \
+    "${K8S_TYPES}" \
     --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
     --force-genreconciler-kinds "Namespace,Deployment,Secret"
 

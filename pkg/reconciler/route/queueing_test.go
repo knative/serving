@@ -48,7 +48,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	// A standalone revision
-	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName)
+	rev := Revision(testNamespace, "test-rev", MarkRevisionReady)
 	// A route targeting the revision
 	route := Route(testNamespace, "test-route", WithSpecTraffic(
 		v1.TrafficTarget{
@@ -106,7 +106,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	eg := errgroup.Group{}
 	eg.Go(func() error {
 		ctrl := NewController(ctx, configMapWatcher)
-		return ctrl.Run(2, ctx.Done())
+		return ctrl.RunContext(ctx, 2)
 	})
 
 	defer func() {

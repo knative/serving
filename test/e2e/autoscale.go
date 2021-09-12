@@ -234,12 +234,12 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	if _, err := pkgTest.WaitForEndpointState(
+	if _, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK)),
+		spoof.MatchesAllOf(spoof.IsStatusOK),
 		"CheckingEndpointAfterCreate",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),

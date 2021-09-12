@@ -50,8 +50,9 @@ data:
     #   determine which XDS Server implementation to utilize in Contour.
     #   xds-server-type: contour
     #
-    # Specify the gateway-api Gateway Contour should watch.
+    # Specify the Gateway API configuration.
     # gateway:
+    #   controllerName: projectcontour.io/projectcontour/contour
     #   name: contour
     #   namespace: contour-external
     #
@@ -89,9 +90,18 @@ data:
     # leaderelection:
     #   configmap-name: leader-elect
     #   configmap-namespace: contour-external
+    ####
+    # ExternalName Services are disabled by default due to CVE-2021-XXXXX
+    # You can re-enable them by setting this setting to `true`.
+    # This is not recommended without understanding the security implications.
+    # Please see the advisory at https://github.com/projectcontour/contour/security/advisories/GHSA-5ph6-qq5x-7jwc for the details.
+    enableExternalNameService: true
+    ##
     ### Logging options
     # Default setting
     accesslog-format: envoy
+    # The default access log format is defined by Envoy but it can be customized by setting following variable.
+    # accesslog-format-string: "...\n"
     # To enable JSON logging in Envoy
     # accesslog-format: json
     # The default fields that will be logged are specified below.
@@ -145,6 +155,8 @@ data:
     #   Configure the number of additional ingress proxy hops from the
     #   right side of the x-forwarded-for HTTP header to trust.
     #   num-trusted-hops: 0
+    #   Configure the port used to access the Envoy Admin interface.
+    #   admin-port: 9001
     #
     # Configure an optional global rate limit service.
     # rateLimitService:
@@ -186,7 +198,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
   name: extensionservices.projectcontour.io
   labels:
@@ -296,7 +308,7 @@ spec:
                   description: UpstreamValidation defines how to verify the backend service's certificate
                   properties:
                     caSecret:
-                      description: Name of the Kubernetes secret be used to validate the certificate presented by the backend
+                      description: Name or namespaced name of the Kubernetes secret used to validate the certificate presented by the backend
                       type: string
                     subjectName:
                       description: Key which is expected to be present in the 'subjectAltName' of the presented certificate
@@ -443,7 +455,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
   name: httpproxies.projectcontour.io
   labels:
@@ -522,6 +534,9 @@ spec:
                                 notexact:
                                   description: NoExact specifies a string that the header value must not be equal to. The condition is true if the header has any other value.
                                   type: string
+                                notpresent:
+                                  description: NotPresent specifies that condition is true when the named header is not present. Note that setting NotPresent to false does not make the condition true if the named header is present.
+                                  type: boolean
                                 present:
                                   description: Present specifies that condition is true when the named header is present, regardless of its value. Note that setting Present to false does not make the condition true if the named header is absent.
                                   type: boolean
@@ -543,6 +558,9 @@ spec:
                       - name
                     type: object
                   type: array
+                ingressClassName:
+                  description: IngressClassName optionally specifies the ingress class to use for this HTTPProxy. This replaces the deprecated `kubernetes.io/ingress.class` annotation. For backwards compatibility, when that annotation is set, it is given precedence over this field.
+                  type: string
                 routes:
                   description: Routes are the ingress routes. If TCPProxy is present, Routes is ignored.
                   items:
@@ -583,6 +601,9 @@ spec:
                                 notexact:
                                   description: NoExact specifies a string that the header value must not be equal to. The condition is true if the header has any other value.
                                   type: string
+                                notpresent:
+                                  description: NotPresent specifies that condition is true when the named header is not present. Note that setting NotPresent to false does not make the condition true if the named header is present.
+                                  type: boolean
                                 present:
                                   description: Present specifies that condition is true when the named header is present, regardless of its value. Note that setting Present to false does not make the condition true if the named header is absent.
                                   type: boolean
@@ -715,6 +736,49 @@ spec:
                                                 type: string
                                               headerName:
                                                 description: HeaderName defines the name of the header to look for on the request.
+                                                minLength: 1
+                                                type: string
+                                            type: object
+                                          requestHeaderValueMatch:
+                                            description: RequestHeaderValueMatch defines a descriptor entry that's populated if the request's headers match a set of 1+ match criteria. The descriptor key is "header_match", and the descriptor value is static.
+                                            properties:
+                                              expectMatch:
+                                                default: true
+                                                description: ExpectMatch defines whether the request must positively match the match criteria in order to generate a descriptor entry (i.e. true), or not match the match criteria in order to generate a descriptor entry (i.e. false). The default is true.
+                                                type: boolean
+                                              headers:
+                                                description: Headers is a list of 1+ match criteria to apply against the request to determine whether to populate the descriptor entry or not.
+                                                items:
+                                                  description: HeaderMatchCondition specifies how to conditionally match against HTTP headers. The Name field is required, but only one of the remaining fields should be be provided.
+                                                  properties:
+                                                    contains:
+                                                      description: Contains specifies a substring that must be present in the header value.
+                                                      type: string
+                                                    exact:
+                                                      description: Exact specifies a string that the header value must be equal to.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the name of the header to match against. Name is required. Header names are case insensitive.
+                                                      type: string
+                                                    notcontains:
+                                                      description: NotContains specifies a substring that must not be present in the header value.
+                                                      type: string
+                                                    notexact:
+                                                      description: NoExact specifies a string that the header value must not be equal to. The condition is true if the header has any other value.
+                                                      type: string
+                                                    notpresent:
+                                                      description: NotPresent specifies that condition is true when the named header is not present. Note that setting NotPresent to false does not make the condition true if the named header is present.
+                                                      type: boolean
+                                                    present:
+                                                      description: Present specifies that condition is true when the named header is present, regardless of its value. Note that setting Present to false does not make the condition true if the named header is absent.
+                                                      type: boolean
+                                                  required:
+                                                    - name
+                                                  type: object
+                                                minItems: 1
+                                                type: array
+                                              value:
+                                                description: Value defines the value of the descriptor entry.
                                                 minLength: 1
                                                 type: string
                                             type: object
@@ -948,7 +1012,7 @@ spec:
                               description: UpstreamValidation defines how to verify the backend service's certificate
                               properties:
                                 caSecret:
-                                  description: Name of the Kubernetes secret be used to validate the certificate presented by the backend
+                                  description: Name or namespaced name of the Kubernetes secret used to validate the certificate presented by the backend
                                   type: string
                                 subjectName:
                                   description: Key which is expected to be present in the 'subjectAltName' of the presented certificate
@@ -1138,7 +1202,7 @@ spec:
                             description: UpstreamValidation defines how to verify the backend service's certificate
                             properties:
                               caSecret:
-                                description: Name of the Kubernetes secret be used to validate the certificate presented by the backend
+                                description: Name or namespaced name of the Kubernetes secret used to validate the certificate presented by the backend
                                 type: string
                               subjectName:
                                 description: Key which is expected to be present in the 'subjectAltName' of the presented certificate
@@ -1162,7 +1226,7 @@ spec:
                   description: Virtualhost appears at most once. If it is present, the object is considered to be a "root" HTTPProxy.
                   properties:
                     authorization:
-                      description: This field configures an extension service to perform authorization for this virtual host. Authorization can only be configured on virtual hosts that have TLS enabled. If the TLS configuration requires client certificate /validation, the client certificate is always included in the authentication check request.
+                      description: This field configures an extension service to perform authorization for this virtual host. Authorization can only be configured on virtual hosts that have TLS enabled. If the TLS configuration requires client certificate validation, the client certificate is always included in the authentication check request.
                       properties:
                         authPolicy:
                           description: AuthPolicy sets a default authorization policy for client requests. This policy will be used unless overridden by individual routes.
@@ -1286,6 +1350,49 @@ spec:
                                               minLength: 1
                                               type: string
                                           type: object
+                                        requestHeaderValueMatch:
+                                          description: RequestHeaderValueMatch defines a descriptor entry that's populated if the request's headers match a set of 1+ match criteria. The descriptor key is "header_match", and the descriptor value is static.
+                                          properties:
+                                            expectMatch:
+                                              default: true
+                                              description: ExpectMatch defines whether the request must positively match the match criteria in order to generate a descriptor entry (i.e. true), or not match the match criteria in order to generate a descriptor entry (i.e. false). The default is true.
+                                              type: boolean
+                                            headers:
+                                              description: Headers is a list of 1+ match criteria to apply against the request to determine whether to populate the descriptor entry or not.
+                                              items:
+                                                description: HeaderMatchCondition specifies how to conditionally match against HTTP headers. The Name field is required, but only one of the remaining fields should be be provided.
+                                                properties:
+                                                  contains:
+                                                    description: Contains specifies a substring that must be present in the header value.
+                                                    type: string
+                                                  exact:
+                                                    description: Exact specifies a string that the header value must be equal to.
+                                                    type: string
+                                                  name:
+                                                    description: Name is the name of the header to match against. Name is required. Header names are case insensitive.
+                                                    type: string
+                                                  notcontains:
+                                                    description: NotContains specifies a substring that must not be present in the header value.
+                                                    type: string
+                                                  notexact:
+                                                    description: NoExact specifies a string that the header value must not be equal to. The condition is true if the header has any other value.
+                                                    type: string
+                                                  notpresent:
+                                                    description: NotPresent specifies that condition is true when the named header is not present. Note that setting NotPresent to false does not make the condition true if the named header is present.
+                                                    type: boolean
+                                                  present:
+                                                    description: Present specifies that condition is true when the named header is present, regardless of its value. Note that setting Present to false does not make the condition true if the named header is absent.
+                                                    type: boolean
+                                                required:
+                                                  - name
+                                                type: object
+                                              minItems: 1
+                                              type: array
+                                            value:
+                                              description: Value defines the value of the descriptor entry.
+                                              minLength: 1
+                                              type: string
+                                          type: object
                                       type: object
                                     minItems: 1
                                     type: array
@@ -1345,14 +1452,15 @@ spec:
                       description: If present the fields describes TLS properties of the virtual host. The SNI names that will be matched on are described in fqdn, the tls.secretName secret must contain a certificate that itself contains a name that matches the FQDN.
                       properties:
                         clientValidation:
-                          description: "ClientValidation defines how to verify the client certificate when an external client establishes a TLS connection to Envoy. \n This setting: \n 1. Enables TLS client certificate validation. 2. Requires clients to present a TLS certificate (i.e. not optional validation). 3. Specifies how the client certificate will be validated."
+                          description: "ClientValidation defines how to verify the client certificate when an external client establishes a TLS connection to Envoy. \n This setting: \n 1. Enables TLS client certificate validation. 2. Specifies how the client certificate will be validated (i.e.    validation required or skipped). \n Note: Setting client certificate validation to be skipped should be only used in conjunction with an external authorization server that performs client validation as Contour will ensure client certificates are passed along."
                           properties:
                             caSecret:
-                              description: Name of a Kubernetes secret that contains a CA certificate bundle. The client certificate must validate against the certificates in the bundle.
+                              description: Name of a Kubernetes secret that contains a CA certificate bundle. The client certificate must validate against the certificates in the bundle. If specified and SkipClientCertValidation is true, client certificates will be required on requests.
                               minLength: 1
                               type: string
-                          required:
-                            - caSecret
+                            skipClientCertValidation:
+                              description: SkipClientCertValidation disables downstream client certificate validation. Defaults to false. This field is intended to be used in conjunction with external authorization in order to enable the external authorization server to validate client certificates. When this field is set to true, client certificates are requested but not verified by Envoy. If CACertificate is specified, client certificates are required on requests, but not verified. If external authorization is in use, they are presented to the external authorization server.
+                              type: boolean
                           type: object
                         enableFallbackCertificate:
                           description: EnableFallbackCertificate defines if the vhost should allow a default certificate to be applied which handles all requests which don't match the SNI defined in this vhost.
@@ -1553,7 +1661,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
   labels:
@@ -1783,7 +1891,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1.14.0
+  name: contour-certgen-v1.18.1
   namespace: contour-external
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -1796,7 +1904,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:449142aeef93d3638904b776a8f981b943257f37207fe226da7f1b46b13cb6ab
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:cfa94afa242cde3247bc2f5be0371e3043b6c06b1419799a3685b83fa696232b
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -1903,13 +2011,28 @@ rules:
       - networking.x-k8s.io
     resources:
       - backendpolicies
+      - gatewayclasses
       - gateways
       - httproutes
+      - tcproutes
       - tlsroutes
+      - udproutes
     verbs:
       - get
       - list
       - watch
+  - apiGroups:
+      - networking.x-k8s.io
+    resources:
+      - backendpolicies/status
+      - gatewayclasses/status
+      - gateways/status
+      - httproutes/status
+      - tcproutes/status
+      - tlsroutes/status
+      - udproutes/status
+    verbs:
+      - update
   - apiGroups:
       - projectcontour.io
     resources:
@@ -2032,7 +2155,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:449142aeef93d3638904b776a8f981b943257f37207fe226da7f1b46b13cb6ab
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:cfa94afa242cde3247bc2f5be0371e3043b6c06b1419799a3685b83fa696232b
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2121,7 +2244,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:449142aeef93d3638904b776a8f981b943257f37207fe226da7f1b46b13cb6ab
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:cfa94afa242cde3247bc2f5be0371e3043b6c06b1419799a3685b83fa696232b
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2137,6 +2260,9 @@ spec:
             initialDelaySeconds: 3
             periodSeconds: 10
           name: shutdown-manager
+          volumeMounts:
+            - name: envoy-admin
+              mountPath: /admin
         - args:
             - -c
             - /config/envoy.json
@@ -2145,7 +2271,7 @@ spec:
             - --log-level info
           command:
             - envoy
-          image: docker.io/envoyproxy/envoy:v1.17.1
+          image: docker.io/envoyproxy/envoy:v1.19.1
           imagePullPolicy: IfNotPresent
           name: envoy
           env:
@@ -2179,6 +2305,8 @@ spec:
             - name: envoycert
               mountPath: /certs
               readOnly: true
+            - name: envoy-admin
+              mountPath: /admin
           lifecycle:
             preStop:
               httpGet:
@@ -2198,7 +2326,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:449142aeef93d3638904b776a8f981b943257f37207fe226da7f1b46b13cb6ab
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:cfa94afa242cde3247bc2f5be0371e3043b6c06b1419799a3685b83fa696232b
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -2216,6 +2344,8 @@ spec:
       serviceAccountName: envoy
       terminationGracePeriodSeconds: 300
       volumes:
+        - name: envoy-admin
+          emptyDir: {}
         - name: envoy-config
           emptyDir: {}
         - name: envoycert
@@ -2275,8 +2405,9 @@ data:
     #   determine which XDS Server implementation to utilize in Contour.
     #   xds-server-type: contour
     #
-    # Specify the gateway-api Gateway Contour should watch.
+    # Specify the Gateway API configuration.
     # gateway:
+    #   controllerName: projectcontour.io/projectcontour/contour
     #   name: contour
     #   namespace: contour-internal
     #
@@ -2314,9 +2445,18 @@ data:
     # leaderelection:
     #   configmap-name: leader-elect
     #   configmap-namespace: contour-internal
+    ####
+    # ExternalName Services are disabled by default due to CVE-2021-XXXXX
+    # You can re-enable them by setting this setting to `true`.
+    # This is not recommended without understanding the security implications.
+    # Please see the advisory at https://github.com/projectcontour/contour/security/advisories/GHSA-5ph6-qq5x-7jwc for the details.
+    enableExternalNameService: true
+    ##
     ### Logging options
     # Default setting
     accesslog-format: envoy
+    # The default access log format is defined by Envoy but it can be customized by setting following variable.
+    # accesslog-format-string: "...\n"
     # To enable JSON logging in Envoy
     # accesslog-format: json
     # The default fields that will be logged are specified below.
@@ -2370,6 +2510,8 @@ data:
     #   Configure the number of additional ingress proxy hops from the
     #   right side of the x-forwarded-for HTTP header to trust.
     #   num-trusted-hops: 0
+    #   Configure the port used to access the Envoy Admin interface.
+    #   admin-port: 9001
     #
     # Configure an optional global rate limit service.
     # rateLimitService:
@@ -2450,7 +2592,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1.14.0
+  name: contour-certgen-v1.18.1
   namespace: contour-internal
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -2463,7 +2605,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:449142aeef93d3638904b776a8f981b943257f37207fe226da7f1b46b13cb6ab
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:cfa94afa242cde3247bc2f5be0371e3043b6c06b1419799a3685b83fa696232b
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -2575,7 +2717,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:449142aeef93d3638904b776a8f981b943257f37207fe226da7f1b46b13cb6ab
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:cfa94afa242cde3247bc2f5be0371e3043b6c06b1419799a3685b83fa696232b
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2664,7 +2806,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:449142aeef93d3638904b776a8f981b943257f37207fe226da7f1b46b13cb6ab
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:cfa94afa242cde3247bc2f5be0371e3043b6c06b1419799a3685b83fa696232b
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2680,6 +2822,9 @@ spec:
             initialDelaySeconds: 3
             periodSeconds: 10
           name: shutdown-manager
+          volumeMounts:
+            - name: envoy-admin
+              mountPath: /admin
         - args:
             - -c
             - /config/envoy.json
@@ -2688,7 +2833,7 @@ spec:
             - --log-level info
           command:
             - envoy
-          image: docker.io/envoyproxy/envoy:v1.17.1
+          image: docker.io/envoyproxy/envoy:v1.19.1
           imagePullPolicy: IfNotPresent
           name: envoy
           env:
@@ -2722,6 +2867,8 @@ spec:
             - name: envoycert
               mountPath: /certs
               readOnly: true
+            - name: envoy-admin
+              mountPath: /admin
           lifecycle:
             preStop:
               httpGet:
@@ -2741,7 +2888,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:449142aeef93d3638904b776a8f981b943257f37207fe226da7f1b46b13cb6ab
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:cfa94afa242cde3247bc2f5be0371e3043b6c06b1419799a3685b83fa696232b
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -2759,6 +2906,8 @@ spec:
       serviceAccountName: envoy
       terminationGracePeriodSeconds: 300
       volumes:
+        - name: envoy-admin
+          emptyDir: {}
         - name: envoy-config
           emptyDir: {}
         - name: envoycert

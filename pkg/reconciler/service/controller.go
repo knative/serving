@@ -46,7 +46,6 @@ func NewController(
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
-	logger.Info("Setting up ConfigMap receivers")
 	configStore := cfgmap.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
 
@@ -61,7 +60,6 @@ func NewController(
 	}
 	impl := ksvcreconciler.NewImpl(ctx, c, opts)
 
-	logger.Info("Setting up event handlers")
 	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	handleControllerOf := cache.FilteringResourceEventHandler{

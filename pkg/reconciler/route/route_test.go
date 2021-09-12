@@ -25,13 +25,15 @@ import (
 
 	// Inject the informers this controller depends on.
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
-	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakecfginformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
+
+	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
@@ -85,7 +87,7 @@ func testConfiguration() *v1.Configuration {
 func testRevision() *v1.Revision {
 	return Revision(testNamespace, "p-deadbeef", func(r *v1.Revision) {
 		r.Spec = *(&v1.ConfigurationSpec{}).GetTemplate().Spec.DeepCopy()
-	}, MarkRevisionReady, WithK8sServiceName)
+	}, MarkRevisionReady)
 }
 
 func newTestSetup(t *testing.T, opts ...reconcilerOption) (
@@ -265,14 +267,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		t.Error("Unexpected rule spec diff (-want +got):", diff)
 	}
 
-	// Update ingress loadbalancer to trigger placeholder service creation.
-	ci.Status = v1alpha1.IngressStatus{
-		DeprecatedLoadBalancer: &v1alpha1.LoadBalancerStatus{
-			Ingress: []v1alpha1.LoadBalancerIngressStatus{{
-				DomainInternal: "test-domain",
-			}},
-		},
-	}
 	fakeingressinformer.Get(ctx).Informer().GetIndexer().Update(ci)
 	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
@@ -541,7 +535,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	defer cf()
 
 	// A standalone revision
-	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName)
+	rev := Revision(testNamespace, "test-rev", MarkRevisionReady)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
@@ -761,7 +755,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	ctx, _, ctl, _, cf := newTestSetup(t)
 	defer cf()
 	// A standalone revision
-	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName)
+	rev := Revision(testNamespace, "test-rev", MarkRevisionReady)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
@@ -971,7 +965,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 		},
 	})
 	// A standalone revision
-	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName)
+	rev := Revision(testNamespace, "test-rev", MarkRevisionReady)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
@@ -1489,7 +1483,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 				t.Fatal("failed to start configuration manager:", err)
 			}
 
-			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
+			grp.Go(func() error { return ctrl.RunContext(ctx, 1) })
 
 			// Create a route.
 			route := Route(testNamespace, "test-route",
@@ -1533,7 +1527,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 func TestRouteDomain(t *testing.T) {
 	route := Route("default", "myapp", WithRouteLabel(map[string]string{"route": "myapp"}), WithRouteAnnotation(map[string]string{"sub": "mysub"}))
 	ctx := context.Background()
-	cfg := reconcilerTestConfig(false)
+	cfg := reconcilerTestConfig()
 	ctx = config.ToContext(ctx, cfg)
 
 	tests := []struct {

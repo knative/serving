@@ -97,8 +97,8 @@ func NewProbeWithHTTP2AutoDetection(v1p *corev1.Probe) *Probe {
 	}
 }
 
-// IsAggressive indicates whether the Knative probe with aggressive retries should be used.
-func (p *Probe) IsAggressive() bool {
+// shouldProbeAggressively indicates whether the Knative probe with aggressive retries should be used.
+func (p *Probe) shouldProbeAggressively() bool {
 	return p.PeriodSeconds == 0
 }
 
@@ -155,7 +155,7 @@ func (p *Probe) probeContainerImpl() bool {
 }
 
 func (p *Probe) doProbe(probe func(time.Duration) error) error {
-	if !p.IsAggressive() {
+	if !p.shouldProbeAggressively() {
 		return probe(time.Duration(p.TimeoutSeconds) * time.Second)
 	}
 

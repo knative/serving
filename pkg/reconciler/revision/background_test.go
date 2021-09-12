@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"testing"
 	"time"
@@ -147,7 +148,8 @@ func TestResolveInBackground(t *testing.T) {
 
 			for i := 0; i < 2; i++ {
 				t.Run(fmt.Sprint("iteration", i), func(t *testing.T) {
-					statuses, err := subject.Resolve(fakeRevision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), timeout)
+					logger := logtesting.TestLogger(t)
+					statuses, err := subject.Resolve(logger, fakeRevision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), timeout)
 					if err != nil || statuses != nil {
 						// Initial result should be nil, nil since we have nothing in cache.
 						t.Errorf("Resolve() = %v, %v, wanted nil, nil", statuses, err)
@@ -162,7 +164,7 @@ func TestResolveInBackground(t *testing.T) {
 						t.Fatalf("Resolver did not report ready")
 					}
 
-					statuses, err = subject.Resolve(fakeRevision, k8schain.Options{}, nil, timeout)
+					statuses, err = subject.Resolve(logger, fakeRevision, k8schain.Options{}, nil, timeout)
 					if got, want := err, tt.wantError; !errors.Is(got, want) {
 						t.Errorf("Resolve() = _, %q, wanted %q", got, want)
 					}
@@ -201,7 +203,7 @@ func TestRateLimitGlobal(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		name := fmt.Sprint("rev", i)
-		subject.Resolve(rev(name, name+"img1", name+"img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		subject.Resolve(logger, rev(name, name+"img1", name+"img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 	}
 
 	// Rate limit base rate in this test is 1 second, so this should give time for at most 1 resolve.
@@ -223,7 +225,8 @@ func TestRateLimitPerItem(t *testing.T) {
 		return "", errors.New("failed")
 	}
 
-	queue := workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(50*time.Millisecond, 5*time.Second))
+	baseDelay := 50 * time.Millisecond
+	queue := workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(baseDelay, 5*time.Second))
 
 	enqueue := make(chan struct{})
 	subject := newBackgroundResolver(logger, resolver, queue, func(types.NamespacedName) {
@@ -238,38 +241,38 @@ func TestRateLimitPerItem(t *testing.T) {
 		<-done
 	}()
 
-	start := time.Now()
 	revision := rev("rev", "img1", "img2")
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 3; i++ {
 		subject.Clear(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
-		resolution, err := subject.Resolve(revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		start := time.Now()
+		resolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err != nil || resolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
 		}
 
 		<-enqueue
-		_, err = subject.Resolve(revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+
+		_, err = subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err == nil {
 			t.Fatalf("Expected Resolve to fail")
 		}
-	}
 
-	if took := time.Since(start); took < 600*time.Millisecond {
-		// Per-item time is 50ms, so after 5 cycles of back-off should take at least 800ms.
-		// (Otherwise will take only ~250ms)
-		t.Fatal("Expected resolves to take longer than 600ms, but took", took)
+		latency := time.Since(start)
+		expected := time.Duration(math.Pow(2, float64(i))) * baseDelay
+		if latency < expected {
+			t.Fatalf("latency = %s, want at least %s", latency, expected)
+		}
 	}
 
 	t.Run("Does not affect other revisions", func(t *testing.T) {
 		start := time.Now()
-
-		resolution, err := subject.Resolve(rev("another-revision", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		resolution, err := subject.Resolve(logger, rev("another-revision", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err != nil || resolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
 		}
 
 		<-enqueue
-		if took := time.Since(start); took > 500*time.Millisecond {
+		if took := time.Since(start); took > baseDelay*2*2 {
 			t.Fatal("Expected per-item limit not to affect other revisions, but took", took)
 		}
 	})
@@ -277,14 +280,14 @@ func TestRateLimitPerItem(t *testing.T) {
 	t.Run("Forget clears per-item rate limit", func(t *testing.T) {
 		subject.Forget(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
 
-		start = time.Now()
-		resolution, err := subject.Resolve(revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		start := time.Now()
+		resolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err != nil || resolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
 		}
 
 		<-enqueue
-		if took := time.Since(start); took > 500*time.Millisecond {
+		if took := time.Since(start); took > baseDelay*2*2 {
 			t.Fatal("Expected Forget to remove revision from rate limiter, but took", took)
 		}
 	})

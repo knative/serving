@@ -23,6 +23,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	corev1 "k8s.io/api/core/v1"
@@ -44,7 +45,7 @@ import (
 )
 
 type resolver interface {
-	Resolve(*v1.Revision, k8schain.Options, sets.String, time.Duration) ([]v1.ContainerStatus, error)
+	Resolve(*zap.SugaredLogger, *v1.Revision, k8schain.Options, sets.String, time.Duration) ([]v1.ContainerStatus, error)
 	Clear(types.NamespacedName)
 	Forget(types.NamespacedName)
 }
@@ -102,7 +103,8 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 		ImagePullSecrets:   imagePullSecrets,
 	}
 
-	statuses, err := c.resolver.Resolve(rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, cfgs.Deployment.DigestResolutionTimeout)
+	logger := logging.FromContext(ctx)
+	statuses, err := c.resolver.Resolve(logger, rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, cfgs.Deployment.DigestResolutionTimeout)
 	if err != nil {
 		// Clear the resolver so we can retry the digest resolution rather than
 		// being stuck with this error.

@@ -72,6 +72,7 @@ type key int
 const (
 	rolloutDurationKey key = iota
 	externalSchemeKey
+	enableAutoTLSKey
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -146,7 +147,7 @@ func TestReconcile(t *testing.T) {
 			cfg("default", "ing-unknown",
 				WithConfigGeneration(1), WithLatestCreated("ing-unknown-00001"),
 				WithLatestReady("ing-unknown-00001")),
-			rev("default", "ing-unknown", 1, MarkRevisionReady, WithRevName("ing-unknown-00001"), WithK8sServiceName),
+			rev("default", "ing-unknown", 1, MarkRevisionReady, WithRevName("ing-unknown-00001")),
 		},
 		WantCreates: []runtime.Object{
 			simpleIngress(
@@ -194,7 +195,7 @@ func TestReconcile(t *testing.T) {
 			Route("default", "ingress-failed", WithConfigTarget("config"), WithRouteUID("12-34"), WithRouteGeneration(1)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleIngress(
 				Route("default", "ingress-failed", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
@@ -241,7 +242,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteGeneration(1)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 		},
 		WantCreates: []runtime.Object{
 			simpleIngress(
@@ -292,7 +293,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("65-23"), WithRouteGeneration(1)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 		},
 		WantCreates: []runtime.Object{
 			simpleIngress(
@@ -499,7 +500,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteGeneration(2009), MarkInRollout),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleIngress(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -621,7 +622,7 @@ func TestReconcile(t *testing.T) {
 			Route("default", "ingress-create-failure", WithConfigTarget("config"), WithRouteFinalizer, WithRouteGeneration(1)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 		},
 		// We induce a failure creating the Ingress.
 		WantErr: true,
@@ -766,7 +767,7 @@ func TestReconcile(t *testing.T) {
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "different-domain"),
 			),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleIngress(
 				Route("default", "different-domain", WithConfigTarget("config"),
 					WithAnotherDomain),
@@ -822,7 +823,7 @@ func TestReconcile(t *testing.T) {
 				WithConfigGeneration(2), WithLatestReady("config-00001"), WithLatestCreated("config-00002"),
 				WithConfigLabel("serving.knative.dev/route", "new-latest-created"),
 			),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			// This is the name of the new revision we're referencing above.
 			rev("default", "config", 2, WithInitRevConditions, WithRevName("config-00002")),
 			simpleIngress(
@@ -861,9 +862,9 @@ func TestReconcile(t *testing.T) {
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "new-latest-ready"),
 			),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			// This is the name of the new revision we're referencing above.
-			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002"), WithK8sServiceName),
+			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002")),
 			simpleIngress(
 				Route("default", "new-latest-ready", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -950,9 +951,9 @@ func TestReconcile(t *testing.T) {
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "new-latest-ready"),
 			),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			// This is the name of the new revision we're referencing above.
-			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002"), WithK8sServiceName),
+			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002")),
 			simpleIngress(
 				Route("default", "new-latest-ready", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -1010,7 +1011,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("65-23")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleIngress(
 				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23")),
 				&traffic.Config{
@@ -1073,7 +1074,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("65-23"), WithRouteGeneration(1)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleIngress(
 				Route("default", "becomes-public", WithConfigTarget("config"), WithRouteUID("65-23"),
 					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
@@ -1147,9 +1148,9 @@ func TestReconcile(t *testing.T) {
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "update-ci-failure"),
 			),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			// This is the name of the new revision we're referencing above.
-			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002"), WithK8sServiceName),
+			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002")),
 			simpleIngress(
 				Route("default", "update-ci-failure", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -1235,7 +1236,7 @@ func TestReconcile(t *testing.T) {
 				withReadyIngress,
 			),
 			simpleK8sService(Route("default", "svc-mutation",
-				WithConfigTarget("config")), MutateK8sService),
+				WithConfigTarget("config")), func(s *corev1.Service) { s.Spec.ExternalName = "mutated" }),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleK8sService(Route("default", "svc-mutation", WithConfigTarget("config"))),
@@ -1280,7 +1281,7 @@ func TestReconcile(t *testing.T) {
 				withReadyIngress,
 			),
 			simpleK8sService(Route("default", "svc-mutation",
-				WithConfigTarget("config")), MutateK8sService),
+				WithConfigTarget("config")), func(s *corev1.Service) { s.Spec.ExternalName = "mutated" }),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleK8sService(Route("default", "svc-mutation", WithConfigTarget("config"))),
@@ -1332,6 +1333,64 @@ func TestReconcile(t *testing.T) {
 			Object: simpleK8sService(Route("default", "cluster-ip", WithConfigTarget("config"))),
 		}},
 		Key: "default/cluster-ip",
+	}, {
+		// We want to preserve the cluster IP when in steady state - this happens in mesh mode
+		Name: "preserve the cluster ip of the service on steady state",
+		Objects: []runtime.Object{
+			Route("default", "preserve-cluster-ip", WithConfigTarget("config"), WithRouteFinalizer,
+				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "cluster-ip"),
+			),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			simpleIngress(
+				Route("default", "preserve-cluster-ip", WithConfigTarget("config"), WithURL),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+							},
+						}},
+					},
+				},
+				withReadyIngress,
+				withLoadBalancerMesh,
+			),
+			k8sServiceWithIngress(
+				Route("default", "preserve-cluster-ip", WithConfigTarget("config")),
+				simpleIngress(
+					Route("default", "preserve-cluster-ip", WithConfigTarget("config"), WithURL),
+					&traffic.Config{
+						Targets: map[string]traffic.RevisionTargets{
+							traffic.DefaultTarget: {{
+								TrafficTarget: v1.TrafficTarget{
+									ConfigurationName: "config",
+									LatestRevision:    ptr.Bool(true),
+									RevisionName:      "config-00001",
+									Percent:           ptr.Int64(100),
+								},
+							}},
+						},
+					},
+					withReadyIngress,
+					withLoadBalancerMesh,
+				),
+				WithClusterIP("127.0.0.1"),
+			),
+		},
+		Key: "default/preserve-cluster-ip",
 	}, {
 		// Make sure we fix the external name if something messes with it.
 		Name: "fix external name",
@@ -1389,7 +1448,7 @@ func TestReconcile(t *testing.T) {
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "ingress-mutation"),
 			),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			mutateIngress(simpleIngress(
 				Route("default", "ingress-mutation", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -1525,8 +1584,8 @@ func TestReconcile(t *testing.T) {
 				WithConfigGeneration(1), WithLatestCreated("blue-00001"), WithLatestReady("blue-00001")),
 			cfg("default", "green",
 				WithConfigGeneration(1), WithLatestCreated("green-00001"), WithLatestReady("green-00001")),
-			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001"), WithK8sServiceName),
-			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001"), WithK8sServiceName),
+			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001")),
+			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001")),
 		},
 		WantCreates: []runtime.Object{
 			simpleIngress(
@@ -1616,8 +1675,7 @@ func TestReconcile(t *testing.T) {
 					}), WithRouteUID("1-2"), WithRouteFinalizer),
 			cfg("default", "gray",
 				WithConfigGeneration(1), WithLatestCreated("gray-00001"), WithLatestReady("gray-00001")),
-			rev("default", "gray", 1, MarkRevisionReady, WithRevName("gray-00001"),
-				WithK8sServiceName),
+			rev("default", "gray", 1, MarkRevisionReady, WithRevName("gray-00001")),
 		},
 		WantCreates: []runtime.Object{
 			simpleIngress(
@@ -1772,8 +1830,8 @@ func TestReconcile(t *testing.T) {
 			),
 			cfg("default", "green",
 				WithConfigGeneration(2020), WithLatestCreated("green-02021"), WithLatestReady("green-02020")),
-			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001"), WithK8sServiceName),
-			rev("default", "green", 2020, MarkRevisionReady, WithRevName("green-02020"), WithK8sServiceName),
+			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001")),
+			rev("default", "green", 2020, MarkRevisionReady, WithRevName("green-02020")),
 			simpleIngress(
 				Route("default", "switch-configs", WithConfigTarget("blue"), WithURL),
 				&traffic.Config{
@@ -2077,38 +2135,210 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/steady-state",
 	}}
+
 	// TODO(mattmoor): Revision inactive (direct reference)
 	// TODO(mattmoor): Revision inactive (indirect reference)
 	// TODO(mattmoor): Multiple inactive Revisions
 
-	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		r := &Reconciler{
-			kubeclient:          kubeclient.Get(ctx),
-			client:              servingclient.Get(ctx),
-			netclient:           networkingclient.Get(ctx),
-			configurationLister: listers.GetConfigurationLister(),
-			revisionLister:      listers.GetRevisionLister(),
-			serviceLister:       listers.GetK8sServiceLister(),
-			ingressLister:       listers.GetIngressLister(),
-			tracker:             ctx.Value(TrackerKey).(tracker.Interface),
-			clock:               clock.NewFakePassiveClock(fakeCurTime),
-			enqueueAfter:        func(interface{}, time.Duration) {},
-		}
+	table.Test(t, MakeFactory(NewTestReconciler))
+}
 
-		cfg := reconcilerTestConfig(false)
-		if v := ctx.Value(rolloutDurationKey); v != nil {
-			cfg.Network.RolloutDurationSecs = v.(int)
-		}
-		if v := ctx.Value(externalSchemeKey); v != nil {
-			cfg.Network.DefaultExternalScheme = v.(string)
-		}
+func TestReconcile_ServiceLifecycle(t *testing.T) {
+	route := Route("default", "route",
+		WithConfigTarget("config"),
+		WithRouteUID("12-34"),
+		WithAddress,
+		WithURL,
+		WithRouteConditionsAutoTLSDisabled,
+		MarkTrafficAssigned,
+		MarkIngressReady,
+		WithRouteObservedGeneration,
+		WithRouteFinalizer,
+		WithStatusTraffic(v1.TrafficTarget{
+			RevisionName:   "config-00001",
+			Percent:        ptr.Int64(100),
+			LatestRevision: ptr.Bool(true),
+		}))
 
-		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
-			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{
-				ConfigStore: &testConfigStore{config: cfg},
-			})
-	}))
+	config := cfg("default", "config",
+		WithLatestCreated("config-00001"),
+		WithLatestReady("config-00001"))
+
+	revision := rev("default", "config", 0,
+		MarkRevisionReady,
+		WithRevName("config-00001"))
+
+	placeholderService := simplePlaceholderK8sService(getContext(), route, "" /*target name*/)
+
+	readyIngress := func(opts ...IngressOption) *netv1alpha1.Ingress {
+		traffic := &traffic.Config{
+			Targets: map[string]traffic.RevisionTargets{
+				traffic.DefaultTarget: {{
+					TrafficTarget: v1.TrafficTarget{
+						ConfigurationName: "config",
+						RevisionName:      "config-00001",
+						Percent:           ptr.Int64(100),
+						LatestRevision:    ptr.Bool(true),
+					},
+				}},
+			},
+		}
+		opts = append([]IngressOption{withReadyIngress}, opts...)
+		return simpleIngress(route, traffic, opts...)
+	}
+
+	ingressWithIP := readyIngress(withLoadBalancerIP("1.2.3.4"))
+	ingressWithDifferentIP := readyIngress(withLoadBalancerIP("5.6.7.8"))
+	ingressWithDomain := readyIngress(withLoadBalancerDomain("some.domain"))
+	ingressWithMesh := readyIngress(withLoadBalancerMesh)
+
+	deleteService := clientgotesting.NewDeleteAction(
+		corev1.SchemeGroupVersion.WithResource("services"),
+		"default",
+		"route",
+	)
+
+	deleteEndpoints := clientgotesting.NewDeleteAction(
+		corev1.SchemeGroupVersion.WithResource("endpoints"),
+		"default",
+		"route",
+	)
+
+	// Note: we don't have external to X tests because the placeholder
+	// service is an external name type
+	table := TableTest{{
+		// This occurs when the ingress status returns an IP
+		Name: "placeholder to headless",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithIP,
+			placeholderService,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: k8sServiceWithIngress(route, ingressWithIP, WithClusterIP(corev1.ClusterIPNone)),
+		}},
+		WantCreates: []runtime.Object{
+			k8sEndpointsWithIngress(route, ingressWithIP),
+		},
+	}, {
+		// This occurs when the ingress status returns a domain
+		Name: "placeholder to external name",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithDomain,
+			placeholderService,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: k8sServiceWithIngress(route, ingressWithDomain),
+		}},
+	}, {
+		// This occurs when the ingress status indicates it's in mesh mode
+		Name: "placeholder to cluster ip",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithMesh,
+			placeholderService,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// Empty clusterIP means it will be assigned by the API Server
+			Object: k8sServiceWithIngress(route, ingressWithMesh),
+		}},
+	}, {
+		// Transition from LB with IP to LB with mesh
+		Name: "headless service to cluster ip",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithMesh,
+			k8sServiceWithIngress(route, ingressWithIP, WithClusterIP(corev1.ClusterIPNone)),
+			k8sEndpointsWithIngress(route, ingressWithIP),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{
+			deleteService,
+			deleteEndpoints,
+		},
+		WantCreates: []runtime.Object{
+			k8sServiceWithIngress(route, ingressWithMesh),
+		},
+	}, {
+		Name: "headless service to external name",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithDomain,
+			k8sServiceWithIngress(route, ingressWithIP, WithClusterIP(corev1.ClusterIPNone)),
+			k8sEndpointsWithIngress(route, ingressWithIP),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{
+			deleteService,
+			deleteEndpoints,
+		},
+		WantCreates: []runtime.Object{
+			k8sServiceWithIngress(route, ingressWithDomain),
+		},
+	}, {
+		Name: "headless ip changes",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithDifferentIP,
+			k8sServiceWithIngress(route, ingressWithIP, WithClusterIP(corev1.ClusterIPNone)),
+			k8sEndpointsWithIngress(route, ingressWithIP),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: k8sEndpointsWithIngress(route, ingressWithDifferentIP),
+		}},
+	}, {
+		Name: "cluster ip to headless",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithIP,
+			k8sServiceWithIngress(route, ingressWithMesh, WithClusterIP("1.2.3.4")),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{
+			deleteService,
+		},
+		WantCreates: []runtime.Object{
+			k8sServiceWithIngress(route, ingressWithIP, WithClusterIP(corev1.ClusterIPNone)),
+			k8sEndpointsWithIngress(route, ingressWithIP),
+		},
+	}, {
+		Name: "cluster ip to external name",
+		Key:  "default/route",
+		Objects: []runtime.Object{
+			route,
+			config,
+			revision,
+			ingressWithDomain,
+			k8sServiceWithIngress(route, ingressWithMesh, WithClusterIP("1.2.3.4")),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{
+			deleteService,
+		},
+		WantCreates: []runtime.Object{
+			k8sServiceWithIngress(route, ingressWithDomain),
+		},
+	}}
+
+	table.Test(t, MakeFactory(NewTestReconciler))
 }
 
 func TestReconcileEnableAutoTLS(t *testing.T) {
@@ -2120,7 +2350,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				WithRouteUID("12-34")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 		},
 		WantCreates: []runtime.Object{
 			ingressWithTLS(
@@ -2173,7 +2403,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 		},
 		WantCreates: []runtime.Object{
 			resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
@@ -2225,7 +2455,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
 				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0], readyCertStatus()),
 		},
@@ -2282,7 +2512,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			// MakeCertificates will create a certificate with DNS name "*.test-ns.example.com" which is not the host name
 			// needed by the input Route.
 			&netv1alpha1.Certificate{
@@ -2497,7 +2727,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			&netv1alpha1.Certificate{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "route-12-34",
@@ -2591,7 +2821,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34"), WithRouteGeneration(1)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			&netv1alpha1.Certificate{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "route-12-34",
@@ -2637,7 +2867,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34"), WithRouteGeneration(1)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			// MakeCertificates will create a certificate with DNS name "*.test-ns.example.com" which is not the host name
 			// needed by the input Route.
 			&netv1alpha1.Certificate{
@@ -2722,7 +2952,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				WithRouteUID("65-23")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
-			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithK8sServiceName),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleIngress(
 				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23")),
 				&traffic.Config{
@@ -2780,24 +3010,51 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		}},
 		Key: "default/becomes-local",
 	}}
-	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		r := &Reconciler{
-			kubeclient:          kubeclient.Get(ctx),
-			client:              servingclient.Get(ctx),
-			netclient:           networkingclient.Get(ctx),
-			configurationLister: listers.GetConfigurationLister(),
-			revisionLister:      listers.GetRevisionLister(),
-			serviceLister:       listers.GetK8sServiceLister(),
-			ingressLister:       listers.GetIngressLister(),
-			certificateLister:   listers.GetCertificateLister(),
-			tracker:             &NullTracker{},
-			clock:               clock.NewFakePassiveClock(fakeCurTime),
-		}
 
-		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
-			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{ConfigStore: &testConfigStore{config: reconcilerTestConfig(true)}})
-	}))
+	for i, row := range table {
+		if row.Ctx == nil {
+			row.Ctx = context.Background()
+		}
+		table[i].Ctx = context.WithValue(row.Ctx, enableAutoTLSKey, true)
+	}
+	table.Test(t, MakeFactory(NewTestReconciler))
+}
+
+func NewTestReconciler(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+	r := &Reconciler{
+		kubeclient:          kubeclient.Get(ctx),
+		client:              servingclient.Get(ctx),
+		netclient:           networkingclient.Get(ctx),
+		configurationLister: listers.GetConfigurationLister(),
+		revisionLister:      listers.GetRevisionLister(),
+		serviceLister:       listers.GetK8sServiceLister(),
+		endpointsLister:     listers.GetEndpointsLister(),
+		ingressLister:       listers.GetIngressLister(),
+		certificateLister:   listers.GetCertificateLister(),
+		tracker:             ctx.Value(TrackerKey).(tracker.Interface),
+		clock:               clock.NewFakePassiveClock(fakeCurTime),
+		enqueueAfter:        func(interface{}, time.Duration) {},
+	}
+
+	cfg := reconcilerTestConfig()
+	if v := ctx.Value(enableAutoTLSKey); v != nil {
+		cfg.Network.AutoTLS = v.(bool)
+	}
+	if v := ctx.Value(rolloutDurationKey); v != nil {
+		cfg.Network.RolloutDurationSecs = v.(int)
+	}
+	if v := ctx.Value(externalSchemeKey); v != nil {
+		cfg.Network.DefaultExternalScheme = v.(string)
+	}
+
+	return routereconciler.NewReconciler(ctx,
+		logging.FromContext(ctx),
+		servingclient.Get(ctx),
+		listers.GetRouteLister(),
+		controller.GetEventRecorder(ctx),
+		r,
+		controller.Options{ConfigStore: &testConfigStore{config: cfg}},
+	)
 }
 
 func wildcardCert(namespace string, domain string) *netv1alpha1.Certificate {
@@ -2857,22 +3114,39 @@ func simplePlaceholderK8sService(ctx context.Context, r *v1.Route, targetName st
 }
 
 func simpleK8sService(r *v1.Route, so ...K8sServiceOption) *corev1.Service {
+	return k8sServiceWithIngress(r, simpleIngress(r, &traffic.Config{}, withReadyIngress), so...)
+}
+
+func k8sServiceWithIngress(r *v1.Route, ing *netv1alpha1.Ingress, so ...K8sServiceOption) *corev1.Service {
 	cs := &testConfigStore{
-		config: reconcilerTestConfig(false),
+		config: reconcilerTestConfig(),
 	}
 	ctx := cs.ToContext(context.Background())
 
 	// omit the error here, as we are sure the loadbalancer info is provided.
 	// return the service instance only, so that the result can be used in TableRow.
-	svc, _ := resources.MakeK8sService(ctx, r, "", /*targetName*/
-		simpleIngress(r, &traffic.Config{}, withReadyIngress),
-		false, "" /*clusterIP*/)
+	pair, _ := resources.MakeK8sService(ctx, r, "" /*targetName*/, ing, false /* is private */)
 
+	svc := pair.Service
 	for _, opt := range so {
 		opt(svc)
 	}
 
 	return svc
+}
+
+func k8sEndpointsWithIngress(r *v1.Route, ing *netv1alpha1.Ingress) *corev1.Endpoints {
+	cs := &testConfigStore{
+		config: reconcilerTestConfig(),
+	}
+	ctx := cs.ToContext(context.Background())
+
+	// omit the error here, as we are sure the loadbalancer info is provided.
+	// return the service instance only, so that the result can be used in TableRow.
+	pair, _ := resources.MakeK8sService(ctx, r, "" /*targetName*/, ing, false /* is private */)
+
+	return pair.Endpoints
+
 }
 
 func simpleIngress(r *v1.Route, tc *traffic.Config, io ...IngressOption) *netv1alpha1.Ingress {
@@ -2919,6 +3193,28 @@ func withReadyIngress(i *netv1alpha1.Ingress) {
 	i.Status = status
 }
 
+func withLoadBalancerIP(ip string) IngressOption {
+	return func(i *netv1alpha1.Ingress) {
+		i.Status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{{
+			IP: ip,
+		}}, nil)
+	}
+}
+
+func withLoadBalancerDomain(domain string) IngressOption {
+	return func(i *netv1alpha1.Ingress) {
+		i.Status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{{
+			Domain: domain,
+		}}, nil)
+	}
+}
+
+func withLoadBalancerMesh(i *netv1alpha1.Ingress) {
+	i.Status.MarkLoadBalancerReady([]netv1alpha1.LoadBalancerIngressStatus{{
+		MeshOnly: true,
+	}}, nil)
+}
+
 func mutateIngress(ci *netv1alpha1.Ingress) *netv1alpha1.Ingress {
 	// Thor's Hammer 🔨.
 	ci.Spec = netv1alpha1.IngressSpec{}
@@ -2954,7 +3250,7 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 
 var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
-func reconcilerTestConfig(enableAutoTLS bool) *config.Config {
+func reconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Domain: &config.Domain{
 			Domains: map[string]*config.LabelSelector{
@@ -2967,7 +3263,6 @@ func reconcilerTestConfig(enableAutoTLS bool) *config.Config {
 		Network: &network.Config{
 			DefaultIngressClass:     testIngressClass,
 			DefaultCertificateClass: network.CertManagerCertificateClassName,
-			AutoTLS:                 enableAutoTLS,
 			DomainTemplate:          network.DefaultDomainTemplate,
 			TagTemplate:             network.DefaultTagTemplate,
 			HTTPProtocol:            network.HTTPEnabled,

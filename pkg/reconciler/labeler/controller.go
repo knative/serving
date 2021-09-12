@@ -33,7 +33,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/tracker"
 )
 
 // NewController wraps a new instance of the labeler that labels
@@ -47,7 +46,6 @@ func NewController(
 	configInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
-	logger.Info("Setting up ConfigMap receivers")
 	configStore := config.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
 
@@ -60,34 +58,31 @@ func NewController(
 		}
 	})
 
-	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
-
-	tracker := tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
 
 	// Make sure trackers are deleted once the observers are removed.
 	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: tracker.OnDeletedObserver,
+		DeleteFunc: impl.Tracker.OnDeletedObserver,
 	})
 
 	configInformer.Informer().AddEventHandler(controller.HandleAll(
 		controller.EnsureTypeMeta(
-			tracker.OnChanged,
+			impl.Tracker.OnChanged,
 			v1.SchemeGroupVersion.WithKind("Configuration"),
 		),
 	))
 
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(
 		controller.EnsureTypeMeta(
-			tracker.OnChanged,
+			impl.Tracker.OnChanged,
 			v1.SchemeGroupVersion.WithKind("Revision"),
 		),
 	))
 
 	client := servingclient.Get(ctx)
 	clock := &clock.RealClock{}
-	c.caccV2 = newConfigurationAccessor(client, tracker, configInformer.Lister(), configInformer.Informer().GetIndexer(), clock)
-	c.raccV2 = newRevisionAccessor(client, tracker, revisionInformer.Lister(), revisionInformer.Informer().GetIndexer(), clock)
+	c.caccV2 = newConfigurationAccessor(client, impl.Tracker, configInformer.Lister(), configInformer.Informer().GetIndexer(), clock)
+	c.raccV2 = newRevisionAccessor(client, impl.Tracker, revisionInformer.Lister(), revisionInformer.Informer().GetIndexer(), clock)
 
 	return impl
 }

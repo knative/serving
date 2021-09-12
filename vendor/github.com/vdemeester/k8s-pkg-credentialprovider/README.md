@@ -1,7 +1,7 @@
-# github.com/vdemeester/k8s-pkg-credentialprovider temporary fork
+# k8s.io/kubernetes/pkg/credentialprovider temporary fork
 
 This is a temporary fork of the package
-`github.com/vdemeester/k8s-pkg-credentialprovider` to be able to use it
+`k8s.io/kubernetes/pkg/credentialprovider` to be able to use it
 without having to depend on `k8s.io/kubernetes`, dependency that
 brings hell with it, **especially** with go modules.
 

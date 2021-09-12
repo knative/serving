@@ -39,6 +39,7 @@ import (
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
 	pkgnet "knative.dev/pkg/network"
+	pkghandler "knative.dev/pkg/network/handlers"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/tracing"
@@ -285,24 +286,31 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 
 	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders)
 	httpProxy.Transport = buildTransport(env, logger, maxIdleConns)
-	httpProxy.ErrorHandler = pkgnet.ErrorHandler(logger)
+	httpProxy.ErrorHandler = pkghandler.Error(logger)
 	httpProxy.BufferPool = network.NewBufferPool()
 	httpProxy.FlushInterval = network.FlushInterval
 
 	breaker := buildBreaker(logger, env)
 	metricsSupported := supportsMetrics(ctx, logger, env)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
-	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
+	concurrencyStateEnabled := env.ConcurrencyStateEndpoint != ""
+	firstByteTimeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
+	// hardcoded to always disable idle timeout for now, will expose this later
+	var idleTimeout time.Duration
 
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
+	if concurrencyStateEnabled {
+		logger.Info("Concurrency state endpoint set, tracking request counts")
+		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, nil, nil)
+	}
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
 	}
 	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = handler.NewTimeToFirstByteTimeoutHandler(composedHandler, "request timeout", timeout)
+	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", firstByteTimeout, idleTimeout)
 
 	if metricsSupported {
 		composedHandler = requestMetricsHandler(logger, composedHandler, env)
@@ -311,7 +319,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	}
 
-	composedHandler = health.ProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler)
+	composedHandler = health.ProbeHandler(healthState, rp.ProbeContainer, tracingEnabled, composedHandler)
 	composedHandler = network.NewProbeHandler(composedHandler)
 	// We might want sometimes capture the probes/healthchecks in the request
 	// logs. Hence we need to have RequestLogHandler to be the first one.

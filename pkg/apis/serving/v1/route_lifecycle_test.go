@@ -459,6 +459,14 @@ func TestRouteNotOwnCertificate(t *testing.T) {
 	apistest.CheckConditionFailed(r, RouteConditionCertificateProvisioned, t)
 }
 
+func TestEndpointNotOwned(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkEndpointNotOwned("endpoint")
+
+	apistest.CheckConditionFailed(r, RouteConditionIngressReady, t)
+}
+
 func TestRouteAutoTLSNotEnabled(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()

@@ -23,6 +23,7 @@ import (
 	certificateinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	ingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
@@ -36,7 +37,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/tracker"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 )
@@ -60,6 +60,7 @@ func newController(
 ) *controller.Impl {
 	logger := logging.FromContext(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
+	endpointsInformer := endpointsinformer.Get(ctx)
 	routeInformer := routeinformer.Get(ctx)
 	configInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
@@ -73,6 +74,7 @@ func newController(
 		configurationLister: configInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 		serviceLister:       serviceInformer.Lister(),
+		endpointsLister:     endpointsInformer.Lister(),
 		ingressLister:       ingressInformer.Lister(),
 		certificateLister:   certificateInformer.Lister(),
 		clock:               clock,
@@ -91,7 +93,6 @@ func newController(
 	})
 	c.enqueueAfter = impl.EnqueueAfter
 
-	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	handleControllerOf := cache.FilteringResourceEventHandler{
@@ -102,7 +103,7 @@ func newController(
 	certificateInformer.Informer().AddEventHandler(handleControllerOf)
 	ingressInformer.Informer().AddEventHandler(handleControllerOf)
 
-	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
+	c.tracker = impl.Tracker
 
 	// Make sure trackers are deleted once the observers are removed.
 	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

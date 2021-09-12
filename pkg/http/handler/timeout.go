@@ -28,14 +28,16 @@ import (
 	"knative.dev/pkg/websocket"
 )
 
-type timeToFirstByteTimeoutHandler struct {
-	handler http.Handler
-	timeout time.Duration
-	body    string
+type timeoutHandler struct {
+	handler          http.Handler
+	firstByteTimeout time.Duration
+	idleTimeout      time.Duration
+	body             string
 }
 
-// NewTimeToFirstByteTimeoutHandler returns a Handler that runs `h` with the
-// given timeout in which the first byte of the response must be written.
+// NewTimeoutHandler returns a Handler that runs `h` with the
+// given timeout in which the first byte of the response must be written,
+// and with the given idle timeout
 //
 // The new Handler calls h.ServeHTTP to handle each request, but if a
 // call runs for longer than its time limit, the handler responds with
@@ -49,15 +51,16 @@ type timeToFirstByteTimeoutHandler struct {
 // https://golang.org/pkg/net/http/#Handler.
 //
 // The implementation is largely inspired by http.TimeoutHandler.
-func NewTimeToFirstByteTimeoutHandler(h http.Handler, msg string, timeout time.Duration) http.Handler {
-	return &timeToFirstByteTimeoutHandler{
-		handler: h,
-		body:    msg,
-		timeout: timeout,
+func NewTimeoutHandler(h http.Handler, msg string, firstByteTimeout time.Duration, idleTimeout time.Duration) http.Handler {
+	return &timeoutHandler{
+		handler:          h,
+		body:             msg,
+		firstByteTimeout: firstByteTimeout,
+		idleTimeout:      idleTimeout,
 	}
 }
 
-func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
@@ -75,9 +78,25 @@ func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
 	}()
 
-	timeout := getTimer(h.timeout)
-	var timeoutDrained bool
-	defer func() { putTimer(timeout, timeoutDrained) }()
+	firstByteTimeout := getTimer(h.firstByteTimeout)
+	var firstByteTimeoutDrained bool
+	defer func() {
+		putTimer(firstByteTimeout, firstByteTimeoutDrained)
+	}()
+
+	var idleTimeout *time.Timer
+	var idleTimeoutDrained bool
+	if h.idleTimeout > 0 {
+		idleTimeout = getTimer(h.idleTimeout)
+		defer func() {
+			putTimer(idleTimeout, idleTimeoutDrained)
+		}()
+	}
+	var idleTimeoutCh <-chan time.Time
+	if idleTimeout != nil {
+		idleTimeoutCh = idleTimeout.C
+	}
+
 	for {
 		select {
 		case p, ok := <-done:
@@ -85,11 +104,18 @@ func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http
 				panic(p)
 			}
 			return
-		case <-timeout.C:
-			timeoutDrained = true
-			if tw.timeoutAndWriteError(h.body) {
+		case <-firstByteTimeout.C:
+			firstByteTimeoutDrained = true
+			if tw.tryFirstByteTimeoutAndWriteError(h.body) {
 				return
 			}
+		case <-idleTimeoutCh:
+			timedOut, timeToNextTimeout := tw.tryIdleTimeoutAndWriteError(time.Now(), h.idleTimeout, h.body)
+			if timedOut {
+				idleTimeoutDrained = true
+				return
+			}
+			idleTimeout.Reset(timeToNextTimeout)
 		}
 	}
 }
@@ -104,9 +130,9 @@ func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http
 type timeoutWriter struct {
 	w http.ResponseWriter
 
-	mu        sync.Mutex
-	timedOut  bool
-	wroteOnce bool
+	mu            sync.Mutex
+	timedOut      bool
+	lastWriteTime time.Time
 }
 
 var _ http.Flusher = (*timeoutWriter)(nil)
@@ -141,7 +167,7 @@ func (tw *timeoutWriter) Write(p []byte) (int, error) {
 		return 0, http.ErrHandlerTimeout
 	}
 
-	tw.wroteOnce = true
+	tw.lastWriteTime = time.Now()
 	return tw.w.Write(p)
 }
 
@@ -151,29 +177,52 @@ func (tw *timeoutWriter) WriteHeader(code int) {
 	if tw.timedOut {
 		return
 	}
-	tw.wroteOnce = true
+	tw.lastWriteTime = time.Now()
 	tw.w.WriteHeader(code)
 }
 
-// timeoutAndWriteError writes an error to the responsewriter if
+// tryFirstByteTimeoutAndWriteError writes an error to the responsewriter if
 // nothing has been written to the writer before. Returns whether
 // an error was written or not.
 //
 // If this writes an error, all subsequent calls to Write will
 // result in http.ErrHandlerTimeout.
-func (tw *timeoutWriter) timeoutAndWriteError(msg string) bool {
+func (tw *timeoutWriter) tryFirstByteTimeoutAndWriteError(msg string) bool {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 
-	if !tw.wroteOnce {
-		tw.w.WriteHeader(http.StatusGatewayTimeout)
-		io.WriteString(tw.w, msg)
-
-		tw.timedOut = true
+	if tw.lastWriteTime.IsZero() {
+		tw.timeoutAndWriteError(msg)
 		return true
 	}
 
 	return false
+}
+
+// tryIdleTimeoutAndWriteError writes an error to the responsewriter if
+// nothing has been written to the writer within the idleTimeout period. Returns whether
+// an error was written or not and time left to the next timeout
+//
+// If this writes an error, all subsequent calls to Write will
+// result in http.ErrHandlerTimeout.
+func (tw *timeoutWriter) tryIdleTimeoutAndWriteError(curTime time.Time, idleTimeout time.Duration, msg string) (timedOut bool, timeToNextTimeout time.Duration) {
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+
+	timeSinceLastWrite := curTime.Sub(tw.lastWriteTime)
+	if timeSinceLastWrite >= idleTimeout {
+		tw.timeoutAndWriteError(msg)
+		return true, 0
+	}
+
+	return false, idleTimeout - timeSinceLastWrite
+}
+
+func (tw *timeoutWriter) timeoutAndWriteError(msg string) {
+	tw.w.WriteHeader(http.StatusGatewayTimeout)
+	io.WriteString(tw.w, msg)
+
+	tw.timedOut = true
 }
 
 var timerPool sync.Pool

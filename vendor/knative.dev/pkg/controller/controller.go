@@ -41,6 +41,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/reconciler"
+	"knative.dev/pkg/tracker"
 )
 
 const (
@@ -216,6 +217,10 @@ type Impl struct {
 
 	// StatsReporter is used to send common controller metrics.
 	statsReporter StatsReporter
+
+	// Tracker allows reconcilers to associate a reference with particular key,
+	// such that when the reference changes the key is queued for reconciliation.
+	Tracker tracker.Interface
 }
 
 // ControllerOptions encapsulates options for creating a new controller,
@@ -228,21 +233,9 @@ type ControllerOptions struct { //nolint // for backcompat.
 	Concurrency   int
 }
 
-// NewImpl instantiates an instance of our controller that will feed work to the
+// NewContext instantiates an instance of our controller that will feed work to the
 // provided Reconciler as it is enqueued.
-// Deprecated: use NewImplFull.
-func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Impl {
-	return NewImplFull(r, ControllerOptions{WorkQueueName: workQueueName, Logger: logger})
-}
-
-// NewImplWithStats creates a controller.Impl with stats reporter.
-// Deprecated: use NewImplFull.
-func NewImplWithStats(r Reconciler, logger *zap.SugaredLogger, workQueueName string, reporter StatsReporter) *Impl {
-	return NewImplFull(r, ControllerOptions{WorkQueueName: workQueueName, Logger: logger, Reporter: reporter})
-}
-
-// NewImplFull accepts the full set of options available to all controllers.
-func NewImplFull(r Reconciler, options ControllerOptions) *Impl {
+func NewContext(ctx context.Context, r Reconciler, options ControllerOptions) *Impl {
 	if options.RateLimiter == nil {
 		options.RateLimiter = workqueue.DefaultControllerRateLimiter()
 	}
@@ -252,7 +245,7 @@ func NewImplFull(r Reconciler, options ControllerOptions) *Impl {
 	if options.Concurrency == 0 {
 		options.Concurrency = DefaultThreadsPerController
 	}
-	return &Impl{
+	i := &Impl{
 		Name:          options.WorkQueueName,
 		Reconciler:    r,
 		workQueue:     newTwoLaneWorkQueue(options.WorkQueueName, options.RateLimiter),
@@ -260,6 +253,14 @@ func NewImplFull(r Reconciler, options ControllerOptions) *Impl {
 		statsReporter: options.Reporter,
 		Concurrency:   options.Concurrency,
 	}
+
+	if t := GetTracker(ctx); t != nil {
+		i.Tracker = t
+	} else {
+		i.Tracker = tracker.New(i.EnqueueKey, GetTrackerLease(ctx))
+	}
+
+	return i
 }
 
 // WorkQueue permits direct access to the work queue.
@@ -272,7 +273,7 @@ func (c *Impl) WorkQueue() workqueue.RateLimitingInterface {
 func (c *Impl) EnqueueAfter(obj interface{}, after time.Duration) {
 	object, err := kmeta.DeletionHandlingAccessor(obj)
 	if err != nil {
-		c.logger.Errorw("Enqueue", zap.Error(err))
+		c.logger.Errorw("EnqueueAfter", zap.Error(err))
 		return
 	}
 	c.EnqueueKeyAfter(types.NamespacedName{Namespace: object.GetNamespace(), Name: object.GetName()}, after)
@@ -487,7 +488,8 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 }
 
 // Run runs the controller.
-// DEPRECATED: Use RunContext instead.
+//
+// Deprecated: Use RunContext instead.
 func (c *Impl) Run(threadiness int, stopCh <-chan struct{}) error {
 	// Create a context that is cancelled when the stopCh is called.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -538,7 +540,7 @@ func (c *Impl) processNextWorkItem() bool {
 	// Run Reconcile, passing it the namespace/name string of the
 	// resource to be synced.
 	if err = c.Reconciler.Reconcile(ctx, keyStr); err != nil {
-		c.handleErr(err, key, startTime)
+		c.handleErr(logger, err, key, startTime)
 		return true
 	}
 
@@ -550,18 +552,18 @@ func (c *Impl) processNextWorkItem() bool {
 	return true
 }
 
-func (c *Impl) handleErr(err error, key types.NamespacedName, startTime time.Time) {
+func (c *Impl) handleErr(logger *zap.SugaredLogger, err error, key types.NamespacedName, startTime time.Time) {
 	if IsSkipKey(err) {
 		c.workQueue.Forget(key)
 		return
 	}
 	if ok, delay := IsRequeueKey(err); ok {
 		c.workQueue.AddAfter(key, delay)
-		c.logger.Debugf("Requeuing key %s (by request) after %v (depth: %d)", safeKey(key), delay, c.workQueue.Len())
+		logger.Debugf("Requeuing key %s (by request) after %v (depth: %d)", safeKey(key), delay, c.workQueue.Len())
 		return
 	}
 
-	c.logger.Errorw("Reconcile error", zap.Duration("duration", time.Since(startTime)), zap.Error(err))
+	logger.Errorw("Reconcile error", zap.Duration("duration", time.Since(startTime)), zap.Error(err))
 
 	// Re-queue the key if it's a transient error.
 	// We want to check that the queue is shutting down here
@@ -569,7 +571,7 @@ func (c *Impl) handleErr(err error, key types.NamespacedName, startTime time.Tim
 	// being processed, queue.Len==0).
 	if !IsPermanentError(err) && !c.workQueue.ShuttingDown() {
 		c.workQueue.AddRateLimited(key)
-		c.logger.Debugf("Requeuing key %s due to non-permanent error (depth: %d)", safeKey(key), c.workQueue.Len())
+		logger.Debugf("Requeuing key %s due to non-permanent error (depth: %d)", safeKey(key), c.workQueue.Len())
 		return
 	}
 
@@ -813,6 +815,25 @@ func GetResyncPeriod(ctx context.Context) time.Duration {
 // GetTrackerLease fetches the tracker lease from the controller context.
 func GetTrackerLease(ctx context.Context) time.Duration {
 	return 3 * GetResyncPeriod(ctx)
+}
+
+// trackerKey is used to associate tracker.Interface with contexts.
+type trackerKey struct{}
+
+// WithTracker attaches the given tracker.Interface to the provided context
+// in the returned context.
+func WithTracker(ctx context.Context, t tracker.Interface) context.Context {
+	return context.WithValue(ctx, trackerKey{}, t)
+}
+
+// GetTracker attempts to look up the tracker.Interface on a given context.
+// It may return null if none is found.
+func GetTracker(ctx context.Context) tracker.Interface {
+	untyped := ctx.Value(trackerKey{})
+	if untyped == nil {
+		return nil
+	}
+	return untyped.(tracker.Interface)
 }
 
 // erKey is used to associate record.EventRecorders with contexts.

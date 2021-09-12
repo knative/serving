@@ -90,12 +90,12 @@ func TestDestroyPodInflight(t *testing.T) {
 		t.Fatal("Error obtaining Revision's name", err)
 	}
 
-	if _, err = pkgTest.WaitForEndpointState(
+	if _, err = pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		routeURL,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(timeoutExpectedOutput))),
+		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(timeoutExpectedOutput)),
 		"TimeoutAppServesText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
@@ -174,12 +174,12 @@ func TestDestroyPodTimely(t *testing.T) {
 	}
 	routeURL := objects.Route.Status.URL.URL()
 
-	if _, err = pkgTest.WaitForEndpointState(
+	if _, err = pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		routeURL,
-		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
+		spoof.IsStatusOK,
 		"RouteServes",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
@@ -258,12 +258,12 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	}
 	routeURL := objects.Route.Status.URL.URL()
 
-	if _, err = pkgTest.WaitForEndpointState(
+	if _, err = pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		routeURL,
-		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
+		spoof.IsStatusOK,
 		"RouteServes",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),

@@ -153,11 +153,11 @@ func TestBYOCertificate(t *testing.T) {
 		return transport
 	}
 
-	_, err = pkgTest.WaitForEndpointState(ctx,
+	_, err = pkgTest.CheckEndpointState(ctx,
 		clients.KubeClient,
 		t.Logf,
 		&url.URL{Scheme: "HTTPS", Host: host},
-		pkgTest.EventuallyMatchesBody(test.PizzaPlanetText1),
+		spoof.MatchesBody(test.PizzaPlanetText1),
 		"DomainMappingBYOSSLCert",
 		resolvableCustomDomain,
 		trustSelfSigned,

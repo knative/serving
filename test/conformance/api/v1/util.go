@@ -50,7 +50,7 @@ func checkForExpectedResponses(ctx context.Context, t testing.TB, clients *test.
 	if err != nil {
 		return err
 	}
-	_, err = client.Poll(req, v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesAllBodies(expectedResponses...))))
+	_, err = client.Poll(req, spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesAllBodies(expectedResponses...)))
 	return err
 }
 
@@ -128,12 +128,12 @@ func validateDomains(t testing.TB, clients *test.Clients, serviceName string,
 // runLatest Service's lifecycle so long as the service is in a "Ready" state.
 func validateDataPlane(t testing.TB, clients *test.Clients, names test.ResourceNames, expectedText string) error {
 	t.Log("Checking that the endpoint vends the expected text:", expectedText)
-	_, err := pkgTest.WaitForEndpointState(
+	_, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
+		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(expectedText)),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))

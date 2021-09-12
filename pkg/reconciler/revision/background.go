@@ -144,7 +144,7 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 // If this method returns `nil, nil` this implies a resolve was triggered or is
 // already in progress, so the reconciler should exit and wait for the revision
 // to be re-enqueued when the result is ready.
-func (r *backgroundResolver) Resolve(rev *v1.Revision, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) ([]v1.ContainerStatus, error) {
+func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) ([]v1.ContainerStatus, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -155,16 +155,19 @@ func (r *backgroundResolver) Resolve(rev *v1.Revision, opt k8schain.Options, reg
 
 	result, inFlight := r.results[name]
 	if !inFlight {
+		logger.Debugf("Adding Resolve request to queue (depth: %d)", r.queue.Len())
 		r.addWorkItems(rev, name, opt, registriesToSkip, timeout)
 		return nil, nil
 	}
 
 	if !result.ready() {
+		logger.Debug("Resolve request in flight, returning nil, nil")
 		return nil, nil
 	}
 
 	ret := r.results[name]
 	if ret.err != nil {
+		logger.Debugf("Resolve returned the resolved error: %v", ret.err)
 		return nil, ret.err
 	}
 
@@ -173,7 +176,8 @@ func (r *backgroundResolver) Resolve(rev *v1.Revision, opt k8schain.Options, reg
 		array[k] = v
 	}
 
-	return array, ret.err
+	logger.Debugf("Resolve returned %d resolved images for revision", len(array))
+	return array, nil
 }
 
 // addWorkItems adds a digest resolve item to the queue for each container in the revision.
@@ -209,6 +213,7 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 // completionCallback is called.
 func (r *backgroundResolver) processWorkItem(item workItem) {
 	defer r.queue.Done(item)
+	r.logger.Debugf("Processing image %q from revision %q (depth: %d)", item.image, item.revision, r.queue.Len())
 
 	// We need to acquire the result under lock since it's theoretically possible
 	// for a Clear to race with this and try to delete the result from the map.
@@ -223,7 +228,9 @@ func (r *backgroundResolver) processWorkItem(item workItem) {
 	ctx, cancel := context.WithTimeout(context.Background(), item.timeout)
 	defer cancel()
 
+	r.logger.Debugf("Resolving image %q from revision %q to digest", item.image, item.revision)
 	resolvedDigest, resolveErr := r.resolver.Resolve(ctx, item.image, result.opt, result.registriesToSkip)
+	r.logger.Debugf("Resolved image %q from revision %q to digest %q, %v", item.image, item.revision, resolvedDigest, resolveErr)
 
 	// lock after the resolve because we don't want to block parallel resolves,
 	// just storing the result.

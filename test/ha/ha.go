@@ -63,13 +63,13 @@ func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names tes
 		t.Fatal("Service not ready:", err)
 	}
 	// Wait for the Service to serve the expected text.
-	if _, err := pkgTest.WaitForEndpointState(
+	if _, err := pkgTest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
-		"WaitForEndpointToServeText",
+		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(expectedText)),
+		"CheckEndpointToServeText",
 		resolvabledomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
