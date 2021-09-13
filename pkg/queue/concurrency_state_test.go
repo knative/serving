@@ -151,7 +151,7 @@ func TestConcurrencyStateRequestHeader(t *testing.T) {
 			}
 		}
 	}))
-	pause := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessageBody{Action: "test"})
+	pause := ConcurrencyStateRequest(ts.URL, nil)
 	if err := pause(); err != nil {
 		t.Errorf("header check returned an error: %s", err)
 	}
@@ -169,7 +169,12 @@ func TestConcurrencyStateRequestRequest(t *testing.T) {
 			t.Errorf("improper message body, expected 'test' and got: %s", m.Action)
 		}
 	}))
-	pause := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessageBody{Action: "test"})
+
+	pauseMsg, err := CreateConcurrencyStateMessageBody(ConcurrencyStateMessageBody{Action: "test"})
+	if err != nil {
+		t.Errorf("unable to create message body: %s", err)
+	}
+	pause := ConcurrencyStateRequest(ts.URL, pauseMsg)
 	if err := pause(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
@@ -181,7 +186,7 @@ func TestConcurrencyStateRequestResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	pause := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessageBody{Action: "test"})
+	pause := ConcurrencyStateRequest(ts.URL, nil)
 	if err := pause(); err == nil {
 		t.Errorf("failed function did not return an error")
 	}

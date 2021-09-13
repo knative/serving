@@ -36,6 +36,7 @@ const ConcurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
 // the respective local function(s). The local functions are the expected behavior; the
 // function parameters are enabled primarily for testing purposes.
 func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func() error) http.HandlerFunc {
+	logger.Info("Concurrency state tracking enabled")
 
 	var (
 		inFlight = atomic.NewInt64(0)
@@ -53,7 +54,6 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 				if !paused && inFlight.Load() == 0 {
 					logger.Info("Requests dropped to zero")
 					if err := pause(); err != nil {
-						logger.Errorf("Error handling pause request: %v", err)
 						panic(err)
 					}
 					paused = true
@@ -85,6 +85,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 			logger.Errorf("Error handling resume request: %v", err)
 			panic(err)
 		}
+		paused = false
 		logger.Info("From-Zero request successfully processed")
 		mux.Unlock()
 
@@ -93,13 +94,9 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 }
 
 // ConcurrencyState Request sends to the concurrency state endpoint
-func ConcurrencyStateRequest(endpoint string, action ConcurrencyStateMessageBody) func() error {
-	bodyText, err := json.Marshal(action)
-	if err != nil {
-		panic(err)
-	}
-	body := bytes.NewBuffer(bodyText)
+func ConcurrencyStateRequest(endpoint string, bodyText []byte) func() error {
 	return func() error {
+		body := bytes.NewBuffer(bodyText)
 		req, err := http.NewRequest(http.MethodPost, endpoint, body)
 		if err != nil {
 			return fmt.Errorf("unable to create request: %w", err)
@@ -114,6 +111,10 @@ func ConcurrencyStateRequest(endpoint string, action ConcurrencyStateMessageBody
 		}
 		return nil
 	}
+}
+
+func CreateConcurrencyStateMessageBody(action ConcurrencyStateMessageBody) ([]byte, error) {
+	return json.Marshal(action)
 }
 
 type ConcurrencyStateMessageBody struct {
