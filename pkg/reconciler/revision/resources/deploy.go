@@ -112,7 +112,15 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
+	var extraVolumes []corev1.Volume
+	// If concurrencyStateEndpoint is enabled, add the serviceAccountToken to QP via a projected volume
+	if cfg.Deployment.ConcurrencyStateEndpoint != "" {
+		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varTokenVolumeMount)
+		extraVolumes = append(extraVolumes, varTokenVolume)
+	}
+
 	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)
+	podSpec.Volumes = append(podSpec.Volumes, extraVolumes...)
 
 	if cfg.Observability.EnableVarLogCollection {
 		podSpec.Volumes = append(podSpec.Volumes, varLogVolume)
@@ -128,18 +136,6 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 			container.Env = append(container.Env, buildVarLogSubpathEnvs()...)
 
 			podSpec.Containers[i] = container
-		}
-	}
-
-	// If concurrencyStateEndpoint is enabled, add the serviceAccountToken to QP via a projected volume
-	if cfg.Deployment.ConcurrencyStateEndpoint != "" {
-		podSpec.Volumes = append(podSpec.Volumes, varTokenVolume)
-
-		for i, container := range podSpec.Containers {
-			if container.Name == QueueContainerName {
-				container := &podSpec.Containers[i]
-				container.VolumeMounts = append(container.VolumeMounts, varTokenVolumeMount)
-			}
 		}
 	}
 
