@@ -137,7 +137,7 @@ var client = &http.Client{
 	Transport: keepAliveTransport,
 }
 
-// meshMode determines whethe we should attempt to sample for stats via the K8s
+// meshMode determines whether we should attempt to sample for stats via the K8s
 // service, or whether we should attempt to directly gather stats from pods
 // (which is more efficient, but not possible when mesh is enabled).
 type meshMode int
