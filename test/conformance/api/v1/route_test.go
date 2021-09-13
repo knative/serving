@@ -113,11 +113,6 @@ func TestRouteGetAndList(t *testing.T) {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
-	// Validate State after Creation
-	if err := validateControlPlane(t, clients, names, "1"); err != nil {
-		t.Error(err)
-	}
-
 	route, err := v1test.GetRoute(clients, names.Route)
 	if err != nil {
 		t.Fatal("Getting route failed")
