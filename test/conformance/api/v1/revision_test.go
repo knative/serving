@@ -44,11 +44,6 @@ func TestRevisionGetAndList(t *testing.T) {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
-	// Validate State after Creation
-	if err := validateControlPlane(t, clients, names, "1"); err != nil {
-		t.Error(err)
-	}
-
 	revision, err := v1test.GetRevision(clients, names.Revision)
 	if err != nil {
 		t.Fatal("Getting revision failed")
