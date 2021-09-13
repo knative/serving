@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,6 +40,7 @@ import (
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
@@ -267,11 +269,15 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 		return nil, nil, err
 	}
 
+	recorder := controller.GetEventRecorder(ctx)
 	for _, cert := range orphanCerts {
 		err = c.GetNetworkingClient().NetworkingV1alpha1().Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{})
 		if err != nil {
-			logger := logging.FromContext(ctx)
-			logger.Warnf("Failed to delete an orphaned certificate. Error: %v Certificate name: %s namespace: %s", err, cert.Name, cert.Namespace)
+			recorder.Eventf(cert, corev1.EventTypeNormal, "DeleteFailed",
+				"Failed to delete orphaned Knative Certificate %s/%s: %v", cert.Namespace, cert.Name, err)
+		} else {
+			recorder.Eventf(cert, corev1.EventTypeNormal, "Deleted",
+				"Deleted orphaned Knative Certificate %s/%s", cert.Namespace, cert.Name)
 		}
 	}
 

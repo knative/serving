@@ -2583,6 +2583,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Deleted", "Deleted orphaned Knative Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
@@ -2709,6 +2710,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Deleted", "Deleted orphaned Knative Certificate %s/%s", "default", "route-12-34-unused"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
@@ -2931,6 +2933,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Deleted", "Deleted orphaned Knative Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
