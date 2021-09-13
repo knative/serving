@@ -77,16 +77,6 @@ var (
 		Name:      QueueContainerName,
 		Resources: createQueueResources(&deploymentConfig, make(map[string]string), &corev1.Container{}),
 		Ports:     append(queueNonServingPorts, queueHTTPPort),
-		StartupProbe: &corev1.Probe{
-			Handler: corev1.Handler{
-				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-timeout", "0s"},
-				},
-			},
-			PeriodSeconds:    1,
-			FailureThreshold: 1,
-			SuccessThreshold: 1,
-		},
 		ReadinessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -1098,13 +1088,11 @@ func TestMakePodSpec(t *testing.T) {
 		want: podSpec(
 			[]corev1.Container{
 				servingContainer(func(container *corev1.Container) {
-					container.StartupProbe = nil
 					container.ReadinessProbe = nil
 				}),
 				queueContainer(
 					withEnvVar("SERVING_READINESS_PROBE", ""),
 					func(container *corev1.Container) {
-						container.StartupProbe = nil
 						container.ReadinessProbe = nil
 					}),
 			}),

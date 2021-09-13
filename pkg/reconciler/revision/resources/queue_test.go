@@ -340,29 +340,6 @@ func TestMakeQueueContainer(t *testing.T) {
 				"ENABLE_HTTP2_AUTO_DETECTION": "false",
 			})
 		}),
-	}, {
-		name: "set startup probe timeouts based on ProgressDeadline",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		dc: deployment.Config{
-			ProgressDeadline: 1984 * time.Second,
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{})
-			c.StartupProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					Exec: &corev1.ExecAction{
-						Command: []string{"/ko-app/queue", "-probe-timeout", "33m4s"},
-					},
-				},
-				// The startup probe timeout seconds is set to the progress deadline to
-				// match the timeout on initial deployment.
-				TimeoutSeconds:   1984,
-				PeriodSeconds:    1,
-				SuccessThreshold: 1,
-				FailureThreshold: 1,
-			}
-		}),
 	}}
 
 	for _, test := range tests {
@@ -578,7 +555,6 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		c.Env = env(map[string]string{
 			"SERVING_READINESS_PROBE": string(wantProbeJSON),
 		})
-		c.StartupProbe = nil // User overrode periodSeconds so no exec probe needed.
 		c.ReadinessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -655,7 +631,6 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			"USER_PORT":               strconv.Itoa(userPort),
 			"SERVING_READINESS_PROBE": string(wantProbeJSON),
 		})
-		c.StartupProbe = nil // User overrode periodSeconds so no execprobe needed.
 		c.ReadinessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -723,21 +698,6 @@ func TestTCPProbeGeneration(t *testing.T) {
 			ProgressDeadline: 5678 * time.Second,
 		},
 		want: queueContainer(func(c *corev1.Container) {
-			c.StartupProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					Exec: &corev1.ExecAction{
-						Command: []string{"/ko-app/queue", "-probe-timeout", "1h34m38s"},
-					},
-				},
-				// StartupProbe overrides the user's parameters because the
-				// actual probing happens inside the execprobe.
-				// The timeout seconds is set to the progress deadline to match the
-				// timeout on initial deployment.
-				TimeoutSeconds:   5678,
-				PeriodSeconds:    1,
-				SuccessThreshold: 1,
-				FailureThreshold: 1,
-			}
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
@@ -781,7 +741,6 @@ func TestTCPProbeGeneration(t *testing.T) {
 			TimeoutSeconds: 1,
 		},
 		want: queueContainer(func(c *corev1.Container) {
-			c.StartupProbe = nil // User overrode periodSeconds, no exec probe needed.
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
@@ -835,7 +794,6 @@ func TestTCPProbeGeneration(t *testing.T) {
 			},
 		},
 		want: queueContainer(func(c *corev1.Container) {
-			c.StartupProbe = nil // User overrode periodSeconds, no exec probe needed.
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{

@@ -129,9 +129,9 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 
 	maxProto := 0
 
-	if IsHTTPProbeUpgradingToH2C(res) {
+	if isHTTPProbeUpgradingToH2C(res) {
 		maxProto = 2
-	} else if IsHTTPProbeReady(res) {
+	} else if isHTTPProbeReady(res) {
 		maxProto = 1
 	} else {
 		return maxProto, fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
@@ -185,26 +185,20 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 		res.Body.Close()
 	}()
 
-	if !IsHTTPProbeReady(res) {
+	if !isHTTPProbeReady(res) {
 		return fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
 	}
 
 	return nil
 }
 
-// IsHTTPProbeUpgradingToH2C checks whether the server indicates it's switching to h2c protocol.
-func IsHTTPProbeUpgradingToH2C(res *http.Response) bool {
+// isHTTPProbeUpgradingToH2C checks whether the server indicates it's switching to h2c protocol.
+func isHTTPProbeUpgradingToH2C(res *http.Response) bool {
 	return res.StatusCode == http.StatusSwitchingProtocols && res.Header.Get("Upgrade") == "h2c"
 }
 
-// IsHTTPProbeReady checks whether we received a successful Response
-func IsHTTPProbeReady(res *http.Response) bool {
+// isHTTPProbeReady checks whether we received a successful Response
+func isHTTPProbeReady(res *http.Response) bool {
 	// response status code between 200-399 indicates success
 	return res.StatusCode >= 200 && res.StatusCode < 400
-}
-
-// IsHTTPProbeShuttingDown checks whether the Response indicates the prober is shutting down.
-func IsHTTPProbeShuttingDown(res *http.Response) bool {
-	// status 410 (Gone) indicates the probe returned a shutdown scenario.
-	return res.StatusCode == http.StatusGone
 }
