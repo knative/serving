@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"knative.dev/pkg/reconciler"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
@@ -96,4 +98,20 @@ func IsRevisionAtExpectedGeneration(expectedGeneration string) func(r *v1.Revisi
 		}
 		return true, fmt.Errorf("expected Revision %s to be labeled with generation %s but there was no label", r.Name, expectedGeneration)
 	}
+}
+
+// GetRevision return a revision by name
+func GetRevision(clients *test.Clients, revisionName string) (revision *v1.Revision, err error) {
+	return revision, reconciler.RetryTestErrors(func(int) (err error) {
+		revision, err = clients.ServingClient.Revisions.Get(context.Background(), revisionName, metav1.GetOptions{})
+		return err
+	})
+}
+
+// GetRevisions return all the available revisions
+func GetRevisions(clients *test.Clients) (list *v1.RevisionList, err error) {
+	return list, reconciler.RetryTestErrors(func(int) (err error) {
+		list, err = clients.ServingClient.Revisions.List(context.Background(), metav1.ListOptions{})
+		return err
+	})
 }
