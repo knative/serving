@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 )
 
+//nolint:gosec // Filepath, not hardcoded credentials
 const ConcurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
 
 // ConcurrencyStateHandler tracks the in flight requests for the pod. When the requests
