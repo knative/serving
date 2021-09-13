@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"k8s.io/apimachinery/pkg/util/wait"
 	pkglogging "knative.dev/pkg/logging"
 	ltesting "knative.dev/pkg/logging/testing"
 
@@ -39,20 +38,20 @@ func TestConcurrencyStateHandler(t *testing.T) {
 	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() { paused.Inc() }, func() { resumed.Inc() })
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
-	if got, want := pollFor(paused, 1), int64(1); got != want {
+	if got, want := paused.Load(), int64(1); got != want {
 		t.Errorf("Pause was called %d times, want %d times", got, want)
 	}
 
-	if got, want := pollFor(resumed, 1), int64(1); got != want {
+	if got, want := resumed.Load(), int64(1); got != want {
 		t.Errorf("Resume was called %d times, want %d times", got, want)
 	}
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
-	if got, want := pollFor(paused, 2), int64(2); got != want {
+	if got, want := paused.Load(), int64(2); got != want {
 		t.Errorf("Pause was called %d times, want %d times", got, want)
 	}
 
-	if got, want := pollFor(resumed, 2), int64(2); got != want {
+	if got, want := resumed.Load(), int64(2); got != want {
 		t.Errorf("Resume was called %d times, want %d times", got, want)
 	}
 }
@@ -84,11 +83,11 @@ func TestConcurrencyStateHandlerParallelSubsumed(t *testing.T) {
 	<-req1 // Allow req1 to pass.
 	<-req1 // Wait for req1 to finish.
 
-	if got, want := pollFor(paused, 1), int64(1); got != want {
+	if got, want := paused.Load(), int64(1); got != want {
 		t.Errorf("Pause was called %d times, want %d times", got, want)
 	}
 
-	if got, want := pollFor(resumed, 1), int64(1); got != want {
+	if got, want := resumed.Load(), int64(1); got != want {
 		t.Errorf("Resume was called %d times, want %d times", got, want)
 	}
 }
@@ -131,11 +130,11 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 	<-req2 // Allow req2 to pass.
 	<-req2 // Wait for req2 to finish.
 
-	if got, want := pollFor(paused, 1), int64(1); got != want {
+	if got, want := paused.Load(), int64(1); got != want {
 		t.Errorf("Pause was called %d times, want %d times", got, want)
 	}
 
-	if got, want := pollFor(resumed, 1), int64(1); got != want {
+	if got, want := resumed.Load(), int64(1); got != want {
 		t.Errorf("Resume was called %d times, want %d times", got, want)
 	}
 }
@@ -204,13 +203,4 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 
 		reportTicker.Stop()
 	}
-}
-
-func pollFor(val *atomic.Int64, want int64) int64 {
-	var lastVal int64
-	wait.PollImmediate(1*time.Millisecond, 1*time.Second, func() (bool, error) {
-		lastVal = val.Load()
-		return lastVal == want, nil
-	})
-	return lastVal
 }

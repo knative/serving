@@ -18,7 +18,9 @@ package queue
 
 import (
 	"net/http"
+	"sync"
 
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
@@ -38,50 +40,48 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 		resume = func() {}
 	}
 
-	type req struct {
-		w http.ResponseWriter
-		r *http.Request
-
-		done chan struct{}
-	}
-
-	reqCh := make(chan req)
-	doneCh := make(chan struct{})
-	go func() {
-		inFlight := 0
-
-		// This loop is entirely synchronous, so there's no cleverness needed in
-		// ensuring open and close dont run at the same time etc. Only the
-		// delegated ServeHTTP is done in a goroutine.
-		for {
-			select {
-			case <-doneCh:
-				inFlight--
-				if inFlight == 0 {
-					logger.Info("Requests dropped to zero ...")
-					pause()
-				}
-
-			case r := <-reqCh:
-				inFlight++
-				if inFlight == 1 {
-					logger.Info("Requests increased from zero ...")
-					resume()
-				}
-
-				go func(r req) {
-					h.ServeHTTP(r.w, r.r)
-					close(r.done) // Return from ServeHTTP
-					doneCh <- struct{}{}
-				}(r)
-			}
-		}
-	}()
+	var (
+		inFlight = atomic.NewInt64(0)
+		paused   = true
+		mux      sync.RWMutex
+	)
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		done := make(chan struct{})
-		reqCh <- req{w, r, done}
-		// Block till we've processed the request
-		<-done
+		defer func() {
+			if inFlight.Dec() == 0 {
+				mux.Lock()
+				defer mux.Unlock()
+				// We need to doublecheck this since another request can have reached the
+				// handler meanwhile. We don't want to do anything in that case.
+				if !paused && inFlight.Load() == 0 {
+					pause()
+					paused = true
+				}
+			}
+		}()
+
+		inFlight.Inc()
+
+		mux.RLock()
+		if !paused {
+			// General stable-state case.
+			defer mux.RUnlock()
+			h.ServeHTTP(w, r)
+			return
+		}
+		mux.RUnlock()
+		mux.Lock()
+		if !paused { // doubly-checked locking
+			// Another request raced us and resumed already.
+			defer mux.Unlock()
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		resume()
+		paused = false
+		mux.Unlock()
+
+		h.ServeHTTP(w, r)
 	}
 }
