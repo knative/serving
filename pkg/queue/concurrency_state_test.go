@@ -151,7 +151,10 @@ func TestConcurrencyStateRequestHeader(t *testing.T) {
 			}
 		}
 	}))
-	pause := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessageBody{Action: "test"})
+	pause, err := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessageBody{Action: "test"})
+	if err != nil {
+		t.Errorf("unable to create pause function: %s", err)
+	}
 	if err := pause(); err != nil {
 		t.Errorf("header check returned an error: %s", err)
 	}
@@ -170,7 +173,10 @@ func TestConcurrencyStateRequestRequest(t *testing.T) {
 		}
 	}))
 
-	pause := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessageBody{Action: "test"})
+	pause, err := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessageBody{Action: "test"})
+	if err != nil {
+		t.Errorf("unable to create pause function: %s", err)
+	}
 	if err := pause(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
@@ -182,7 +188,10 @@ func TestConcurrencyStateRequestResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	pause := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessageBody{Action: "test"})
+	pause, err := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessageBody{Action: "test"})
+	if err != nil {
+		t.Errorf("unable to create pause function: %s", err)
+	}
 	if err := pause(); err == nil {
 		t.Errorf("failed function did not return an error")
 	}

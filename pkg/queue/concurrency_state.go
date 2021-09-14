@@ -95,11 +95,10 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 }
 
 // ConcurrencyState Request sends to the concurrency state endpoint
-func ConcurrencyStateRequest(endpoint string, action ConcurrencyStateMessageBody) func() error {
-	bodyText, err := CreateConcurrencyStateMessageBody(action)
+func ConcurrencyStateRequest(endpoint string, action ConcurrencyStateMessageBody) (func() error, error) {
+	bodyText, err := json.Marshal(action)
 	if err != nil {
-		_ = fmt.Errorf("unable to create message body: %w", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("unable to create message body: %w", err)
 	}
 	return func() error {
 		body := bytes.NewBuffer(bodyText)
@@ -116,11 +115,7 @@ func ConcurrencyStateRequest(endpoint string, action ConcurrencyStateMessageBody
 			return fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
 		}
 		return nil
-	}
-}
-
-func CreateConcurrencyStateMessageBody(action ConcurrencyStateMessageBody) ([]byte, error) {
-	return json.Marshal(action)
+	}, nil
 }
 
 type ConcurrencyStateMessageBody struct {
