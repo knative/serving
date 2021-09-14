@@ -300,16 +300,8 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	var composedHandler http.Handler = httpProxy
 	if concurrencyStateEnabled {
 		logger.Info("Concurrency state endpoint set, tracking request counts, using endpoint: ", env.ConcurrencyStateEndpoint)
-		pauseMsg, err := queue.CreateConcurrencyStateMessageBody(queue.ConcurrencyStateMessageBody{Action: "pause"})
-		if err != nil {
-			logger.Errorf("unable to create concurrency state pause message body: %s", err)
-		}
-		resumeMsg, err := queue.CreateConcurrencyStateMessageBody(queue.ConcurrencyStateMessageBody{Action: "resume"})
-		if err != nil {
-			logger.Errorf("unable to create concurrency state resume message body: %s", err)
-		}
-		pause := queue.ConcurrencyStateRequest(env.ConcurrencyStateEndpoint, pauseMsg)
-		resume := queue.ConcurrencyStateRequest(env.ConcurrencyStateEndpoint, resumeMsg)
+		pause := queue.ConcurrencyStateRequest(env.ConcurrencyStateEndpoint, queue.ConcurrencyStateMessageBody{Action: "pause"})
+		resume := queue.ConcurrencyStateRequest(env.ConcurrencyStateEndpoint, queue.ConcurrencyStateMessageBody{Action: "resume"})
 		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, pause, resume)
 	}
 	if metricsSupported {

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -36,7 +37,6 @@ const ConcurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
 // the respective local function(s). The local functions are the expected behavior; the
 // function parameters are enabled primarily for testing purposes.
 func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func() error) http.HandlerFunc {
-	logger.Info("Concurrency state tracking enabled")
 
 	var (
 		inFlight = atomic.NewInt64(0)
@@ -54,10 +54,11 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 				if !paused && inFlight.Load() == 0 {
 					logger.Info("Requests dropped to zero")
 					if err := pause(); err != nil {
-						panic(err)
+						logger.Errorf("Error handling resume request: %v", err)
+						os.Exit(1)
 					}
 					paused = true
-					logger.Info("To-Zero request successfully processed")
+					logger.Debug("To-Zero request successfully processed")
 				}
 			}
 		}()
@@ -86,7 +87,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 			panic(err)
 		}
 		paused = false
-		logger.Info("From-Zero request successfully processed")
+		logger.Debug("From-Zero request successfully processed")
 		mux.Unlock()
 
 		h.ServeHTTP(w, r)
@@ -94,7 +95,12 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 }
 
 // ConcurrencyState Request sends to the concurrency state endpoint
-func ConcurrencyStateRequest(endpoint string, bodyText []byte) func() error {
+func ConcurrencyStateRequest(endpoint string, action ConcurrencyStateMessageBody) func() error {
+	bodyText, err := CreateConcurrencyStateMessageBody(action)
+	if err != nil {
+		_ = fmt.Errorf("unable to create message body: %w", err)
+		os.Exit(1)
+	}
 	return func() error {
 		body := bytes.NewBuffer(bodyText)
 		req, err := http.NewRequest(http.MethodPost, endpoint, body)
