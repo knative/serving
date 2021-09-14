@@ -191,6 +191,11 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		ts = *rev.Spec.TimeoutSeconds
 	}
 
+	idleTS := int64(0)
+	if rev.Spec.IdleTimeoutSeconds != nil {
+		idleTS = *rev.Spec.IdleTimeoutSeconds
+	}
+
 	ports := queueNonServingPorts
 	if cfg.Observability.EnableProfiling {
 		ports = append(ports, profilingPort)
@@ -272,6 +277,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: strconv.Itoa(int(ts)),
+		}, {
+			Name:  "REVISION_IDLE_TIMEOUT_SECONDS",
+			Value: strconv.Itoa(int(idleTS)),
 		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{

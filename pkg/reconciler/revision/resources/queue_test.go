@@ -255,6 +255,19 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
+		name: "custom IdleTimeoutSeconds",
+		rev: revision("bar", "foo",
+			withContainers(containers),
+			func(revision *v1.Revision) {
+				revision.Spec.IdleTimeoutSeconds = ptr.Int64(99)
+			},
+		),
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"REVISION_IDLE_TIMEOUT_SECONDS": "99",
+			})
+		}),
+	}, {
 		name: "default resource config",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
@@ -853,6 +866,7 @@ var defaultEnv = map[string]string{
 	"METRICS_COLLECTOR_ADDRESS":        "",
 	"QUEUE_SERVING_PORT":               "8012",
 	"REVISION_TIMEOUT_SECONDS":         "45",
+	"REVISION_IDLE_TIMEOUT_SECONDS":    "0",
 	"SERVING_CONFIGURATION":            "",
 	"SERVING_ENABLE_PROBE_REQUEST_LOG": "false",
 	"SERVING_ENABLE_REQUEST_LOG":       "false",
