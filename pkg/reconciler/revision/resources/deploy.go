@@ -50,6 +50,25 @@ var (
 		SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_",
 	}
 
+	varTokenVolume = corev1.Volume{
+		Name: "knative-token-volume",
+		VolumeSource: corev1.VolumeSource{
+			Projected: &corev1.ProjectedVolumeSource{
+				Sources: []corev1.VolumeProjection{{
+					ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+						ExpirationSeconds: ptr.Int64(600),
+						Path:              "state-token",
+						Audience:          "concurrency-state-hook"},
+				}},
+			},
+		},
+	}
+
+	varTokenVolumeMount = corev1.VolumeMount{
+		Name:      varTokenVolume.Name,
+		MountPath: queue.ConcurrencyStateTokenVolumeMountPath,
+	}
+
 	// This PreStop hook is actually calling an endpoint on the queue-proxy
 	// because of the way PreStop hooks are called by kubelet. We use this
 	// to block the user-container from exiting before the queue-proxy is ready
@@ -93,7 +112,15 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
+	var extraVolumes []corev1.Volume
+	// If concurrencyStateEndpoint is enabled, add the serviceAccountToken to QP via a projected volume
+	if cfg.Deployment.ConcurrencyStateEndpoint != "" {
+		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varTokenVolumeMount)
+		extraVolumes = append(extraVolumes, varTokenVolume)
+	}
+
 	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)
+	podSpec.Volumes = append(podSpec.Volumes, extraVolumes...)
 
 	if cfg.Observability.EnableVarLogCollection {
 		podSpec.Volumes = append(podSpec.Volumes, varLogVolume)
