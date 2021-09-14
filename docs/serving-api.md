@@ -1430,27 +1430,6 @@ based on the revision url template specified in the controller&rsquo;s config.</
 </tr>
 <tr>
 <td>
-<code>imageDigest</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DeprecatedImageDigest holds the resolved digest for the image specified
-within .Spec.Container.Image. The digest is resolved during the creation
-of Revision. This field holds the digest value regardless of whether
-a tag or digest was originally specified in the Container object. It
-may be empty if the image comes from a registry listed to skip resolution.
-If multiple containers specified then DeprecatedImageDigest holds the digest
-for serving container.
-DEPRECATED: Use ContainerStatuses instead.
-TODO(savitaashture) Remove deprecatedImageDigest.
-ref <a href="https://kubernetes.io/docs/reference/using-api/deprecation-policy">https://kubernetes.io/docs/reference/using-api/deprecation-policy</a> for deprecation.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>containerStatuses</code><br/>
 <em>
 <a href="#serving.knative.dev/v1.ContainerStatus">

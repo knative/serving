@@ -75,17 +75,6 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 		rev.Status.ContainerStatuses = make([]v1.ContainerStatus, 0, len(rev.Spec.Containers))
 	}
 
-	if rev.Status.DeprecatedImageDigest != "" {
-		// Default old revisions to have ContainerStatuses filled in.
-		// This path should only be taken by "old" revisions that have exactly one container.
-		if len(rev.Status.ContainerStatuses) == 0 {
-			rev.Status.ContainerStatuses = append(rev.Status.ContainerStatuses, v1.ContainerStatus{
-				Name:        rev.Spec.Containers[0].Name,
-				ImageDigest: rev.Status.DeprecatedImageDigest,
-			})
-		}
-	}
-
 	// The image digest has already been resolved.
 	if len(rev.Status.ContainerStatuses) == len(rev.Spec.Containers) {
 		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
@@ -114,14 +103,6 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 	}
 	if len(statuses) > 0 {
 		rev.Status.ContainerStatuses = statuses
-
-		// For backwards-compatibility we need to continue to set the DeprecatedImageDigest field.
-		for i := range rev.Spec.Containers {
-			if len(rev.Spec.Containers) == 1 || len(rev.Spec.Containers[i].Ports) != 0 {
-				rev.Status.DeprecatedImageDigest = statuses[i].ImageDigest
-			}
-		}
-
 		return true, nil
 	}
 
