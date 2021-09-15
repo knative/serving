@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/clock"
 	"knative.dev/pkg/websocket"
 )
 
@@ -33,6 +34,7 @@ type timeoutHandler struct {
 	firstByteTimeout time.Duration
 	idleTimeout      time.Duration
 	body             string
+	clock            clock.Clock
 }
 
 // NewTimeoutHandler returns a Handler that runs `h` with the
@@ -57,6 +59,7 @@ func NewTimeoutHandler(h http.Handler, msg string, firstByteTimeout time.Duratio
 		body:             msg,
 		firstByteTimeout: firstByteTimeout,
 		idleTimeout:      idleTimeout,
+		clock:            clock.RealClock{},
 	}
 }
 
@@ -64,10 +67,29 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
+	firstByteTimeout := getTimer(h.clock, h.firstByteTimeout)
+	var firstByteTimeoutDrained bool
+	defer func() {
+		putTimer(firstByteTimeout, firstByteTimeoutDrained)
+	}()
+
+	var idleTimeout clock.Timer
+	var idleTimeoutDrained bool
+	if h.idleTimeout > 0 {
+		idleTimeout = getTimer(h.clock, h.idleTimeout)
+		defer func() {
+			putTimer(idleTimeout, idleTimeoutDrained)
+		}()
+	}
+	var idleTimeoutCh <-chan time.Time
+	if idleTimeout != nil {
+		idleTimeoutCh = idleTimeout.C()
+	}
+
 	// done is closed when h.handler.ServeHTTP completes and contains
 	// the panic from h.handler.ServeHTTP if h.handler.ServeHTTP panics.
 	done := make(chan interface{})
-	tw := &timeoutWriter{w: w}
+	tw := &timeoutWriter{w: w, clock: h.clock}
 	go func() {
 		defer func() {
 			defer close(done)
@@ -78,25 +100,6 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
 	}()
 
-	firstByteTimeout := getTimer(h.firstByteTimeout)
-	var firstByteTimeoutDrained bool
-	defer func() {
-		putTimer(firstByteTimeout, firstByteTimeoutDrained)
-	}()
-
-	var idleTimeout *time.Timer
-	var idleTimeoutDrained bool
-	if h.idleTimeout > 0 {
-		idleTimeout = getTimer(h.idleTimeout)
-		defer func() {
-			putTimer(idleTimeout, idleTimeoutDrained)
-		}()
-	}
-	var idleTimeoutCh <-chan time.Time
-	if idleTimeout != nil {
-		idleTimeoutCh = idleTimeout.C
-	}
-
 	for {
 		select {
 		case p, ok := <-done:
@@ -104,13 +107,13 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				panic(p)
 			}
 			return
-		case <-firstByteTimeout.C:
+		case <-firstByteTimeout.C():
 			firstByteTimeoutDrained = true
 			if tw.tryFirstByteTimeoutAndWriteError(h.body) {
 				return
 			}
-		case <-idleTimeoutCh:
-			timedOut, timeToNextTimeout := tw.tryIdleTimeoutAndWriteError(time.Now(), h.idleTimeout, h.body)
+		case now := <-idleTimeoutCh:
+			timedOut, timeToNextTimeout := tw.tryIdleTimeoutAndWriteError(now, h.idleTimeout, h.body)
 			if timedOut {
 				idleTimeoutDrained = true
 				return
@@ -128,7 +131,8 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // returned. If it has already been written to, the error is ignored and
 // the response is allowed to continue.
 type timeoutWriter struct {
-	w http.ResponseWriter
+	w     http.ResponseWriter
+	clock clock.PassiveClock
 
 	mu            sync.Mutex
 	timedOut      bool
@@ -167,7 +171,7 @@ func (tw *timeoutWriter) Write(p []byte) (int, error) {
 		return 0, http.ErrHandlerTimeout
 	}
 
-	tw.lastWriteTime = time.Now()
+	tw.lastWriteTime = tw.clock.Now()
 	return tw.w.Write(p)
 }
 
@@ -177,7 +181,7 @@ func (tw *timeoutWriter) WriteHeader(code int) {
 	if tw.timedOut {
 		return
 	}
-	tw.lastWriteTime = time.Now()
+	tw.lastWriteTime = tw.clock.Now()
 	tw.w.WriteHeader(code)
 }
 
@@ -227,21 +231,21 @@ func (tw *timeoutWriter) timeoutAndWriteError(msg string) {
 
 var timerPool sync.Pool
 
-func getTimer(timeout time.Duration) *time.Timer {
+func getTimer(c clock.Clock, timeout time.Duration) clock.Timer {
 	if v := timerPool.Get(); v != nil {
-		t := v.(*time.Timer)
+		t := v.(clock.Timer)
 		t.Reset(timeout)
 		return t
 	}
-	return time.NewTimer(timeout)
+	return c.NewTimer(timeout)
 }
 
-func putTimer(t *time.Timer, alreadyDrained bool) {
+func putTimer(t clock.Timer, alreadyDrained bool) {
 	if !t.Stop() && !alreadyDrained {
 		// Stop told us that we didn't *actually* stop the timer, so it expired. We've
 		// also not drained the channel yet, so the expiration raced the inner handler
 		// finishing, so we know we *have* to drain here.
-		<-t.C
+		<-t.C()
 	}
 	timerPool.Put(t)
 }
