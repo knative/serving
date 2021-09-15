@@ -95,6 +95,46 @@ func getRouteURL(clients *test.Clients, names test.ResourceNames) (*url.URL, err
 	return url, err
 }
 
+// TestRouteGetAndList tests Route GET and LIST using Service as the only resource that we create, as Route CREATE is not required in the Spec.
+func TestRouteGetAndList(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.PizzaPlanet1,
+	}
+
+	// Clean up on test failure or interrupt
+	test.EnsureTearDown(t, clients, &names)
+
+	// Setup initial Service
+	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
+		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+	}
+
+	route, err := v1test.GetRoute(clients, names.Route)
+	if err != nil {
+		t.Fatal("Getting route failed")
+	}
+
+	routes, err := v1test.GetRoutes(clients)
+	if err != nil {
+		t.Fatal("Getting routes failed")
+	}
+	var routeFound = false
+	for _, routeItem := range routes.Items {
+		t.Logf("Route Returned: %s", routeItem.Name)
+		if routeItem.Name == route.Name {
+			routeFound = true
+		}
+	}
+
+	if !routeFound {
+		t.Fatal("The Route that was previously created was not found by listing all Routes.")
+	}
+}
+
 func TestRouteCreation(t *testing.T) {
 	if test.ServingFlags.DisableOptionalAPI {
 		t.Skip("Route create/patch/replace APIs are not required by Knative Serving API Specification")
