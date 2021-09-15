@@ -30,11 +30,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/networking/pkg/apis/networking"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
-	"knative.dev/pkg/network"
+	pkgnetwork "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	activatortest "knative.dev/serving/pkg/activator/testing"
@@ -125,7 +126,7 @@ func TestRevisionWatcher(t *testing.T) {
 		initialClusterIPState bool
 		noPodAddressability   bool // This keeps the test defs shorter.
 		usePassthroughLb      bool
-		meshMode              meshMode
+		meshMode              network.MeshCompatibilityMode
 	}{{
 		name:  "single healthy podIP",
 		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
@@ -431,7 +432,7 @@ func TestRevisionWatcher(t *testing.T) {
 		expectUpdates: []revisionDestsUpdate{
 			{ClusterIPDest: "129.0.0.1:1235", Dests: sets.NewString("128.0.0.1:1234")},
 		},
-		meshMode: meshModeEnabled,
+		meshMode: network.MeshCompatibilityModeEnabled,
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"128.0.0.1:1234": {{
 				// Pod is healthy, but should not be used since we're in mesh mode.
@@ -455,7 +456,7 @@ func TestRevisionWatcher(t *testing.T) {
 		expectUpdates: []revisionDestsUpdate{
 			{Dests: sets.NewString("128.0.0.1:1234")},
 		},
-		meshMode: meshModeDisabled,
+		meshMode: network.MeshCompatibilityModeDisabled,
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				// Cluster IP healthy, but should not be used.
@@ -477,7 +478,7 @@ func TestRevisionWatcher(t *testing.T) {
 				ExpectHost:         testRevision,
 				ProbeHostResponses: tc.probeHostResponses,
 			}
-			rt := network.RoundTripperFunc(fakeRT.RT)
+			rt := pkgnetwork.RoundTripperFunc(fakeRT.RT)
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
@@ -805,7 +806,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				ExpectHost:         testRevision,
 				ProbeHostResponses: tc.probeHostResponses,
 			}
-			rt := network.RoundTripperFunc(fakeRT.RT)
+			rt := pkgnetwork.RoundTripperFunc(fakeRT.RT)
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
@@ -945,7 +946,7 @@ func TestCheckDestsReadyToNotReady(t *testing.T) {
 		serviceLister:    si.Lister(),
 		logger:           TestLogger(t),
 		stopCh:           dCh,
-		transport:        network.RoundTripperFunc(fakeRT.RT),
+		transport:        pkgnetwork.RoundTripperFunc(fakeRT.RT),
 	}
 	// Initial state. Both are ready.
 	cur := dests{
@@ -1147,7 +1148,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 		logger:          TestLogger(t),
 		stopCh:          dCh,
 		podsAddressable: true,
-		transport:       network.RoundTripperFunc(fakeRT.RT),
+		transport:       pkgnetwork.RoundTripperFunc(fakeRT.RT),
 	}
 
 	// First not ready, second good, clusterIP: not ready.
@@ -1287,7 +1288,7 @@ func TestRevisionDeleted(t *testing.T) {
 	ri.Informer().GetIndexer().Add(rev)
 
 	fakeRT := activatortest.FakeRoundTripper{}
-	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, probeFreq)
+	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, probeFreq)
 	defer func() {
 		cancel()
 		waitInformers()
@@ -1343,7 +1344,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 			}},
 		},
 	}
-	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, probeFreq)
+	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, probeFreq)
 	defer func() {
 		cancel()
 		waitInformers()
@@ -1407,7 +1408,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 			}},
 		},
 	}
-	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, probeFreq)
+	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, probeFreq)
 	defer func() {
 		cancel()
 		waitInformers()
