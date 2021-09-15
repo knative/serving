@@ -1392,10 +1392,10 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Image: "foo",
 			SecurityContext: &corev1.SecurityContext{
-				RunAsGroup: ptr.Int64(10),
+				Privileged: ptr.Bool(true),
 			},
 		},
-		want: apis.ErrDisallowedFields("securityContext.runAsGroup"),
+		want: apis.ErrDisallowedFields("securityContext.privileged"),
 	}, {
 		name: "not allowed to add a security context capability",
 		c: corev1.Container{
