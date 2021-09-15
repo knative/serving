@@ -32,13 +32,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	network "knative.dev/networking/pkg"
 	pkgmetrics "knative.dev/pkg/metrics"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/resources"
-	network "knative.dev/networking/pkg"
 )
 
 const (
