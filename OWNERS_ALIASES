@@ -28,14 +28,17 @@ aliases:
   - maximilien
   - navidshaikh
   - rhuss
-  conformance-wg-leads:
-  - tayarani
+  conformance-task-force-leads:
+  - omerbensaadon
+  - salaboy
   conformance-writers:
-  - tayarani
+  - omerbensaadon
+  - salaboy
   docs-reviewers:
   - RichardJJG
   - jonatasbaldin
   - mpetason
+  - nainaz
   - omerbensaadon
   - pmbanugo
   - snneji
@@ -80,6 +83,7 @@ aliases:
   - knative-test-reporter-robot
   - markusthoemmes
   - mbehrendt
+  - omerbensaadon
   - pmorie
   - rhuss
   - spencerdillard
@@ -224,8 +228,8 @@ aliases:
   - markusthoemmes
   - rhuss
   trademark-committee:
-  - bsnchan
   - duglin
+  - omerbensaadon
   - spencerdillard
   ux-wg-leads:
   - csantanapr
