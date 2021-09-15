@@ -428,19 +428,20 @@ type revisionBackendsManager struct {
 	updateCh         chan revisionDestsUpdate
 	transport        http.RoundTripper
 	usePassthroughLb bool
+	meshMode         network.MeshCompatibilityMode
 	logger           *zap.SugaredLogger
 	probeFrequency   time.Duration
 }
 
 // NewRevisionBackendsManager returns a new RevisionBackendsManager with default
 // probe time out.
-func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool) *revisionBackendsManager {
-	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, usePassthroughLb, defaultProbeFrequency)
+func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool, meshMode network.MeshCompatibilityMode) *revisionBackendsManager {
+	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, usePassthroughLb, meshMode, defaultProbeFrequency)
 }
 
 // newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
 func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
-	usePassthroughLb bool, probeFreq time.Duration) *revisionBackendsManager {
+	usePassthroughLb bool, meshMode network.MeshCompatibilityMode, probeFreq time.Duration) *revisionBackendsManager {
 	rbm := &revisionBackendsManager{
 		ctx:              ctx,
 		revisionLister:   revisioninformer.Get(ctx).Lister(),
@@ -449,6 +450,7 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		updateCh:         make(chan revisionDestsUpdate),
 		transport:        tr,
 		usePassthroughLb: usePassthroughLb,
+		meshMode:         meshMode,
 		logger:           logging.FromContext(ctx),
 		probeFrequency:   probeFreq,
 	}

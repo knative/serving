@@ -36,8 +36,8 @@ import (
 
 	fakepodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 
-	logtesting "knative.dev/pkg/logging/testing"
 	network "knative.dev/networking/pkg"
+	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/resources"
 
@@ -99,7 +99,7 @@ func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
 	accessor := resources.NewPodAccessor(
 		fakepodsinformer.Get(ctx).Lister(),
 		testNamespace, testRevision)
-	sc := NewStatsScraper(metric, testRevision, accessor, false, logtesting.TestLogger(t))
+	sc := NewStatsScraper(metric, testRevision, accessor, false, network.MeshCompatibilityModeAuto, logtesting.TestLogger(t))
 	if svcS, want := sc.(*serviceScraper), urlFromTarget(testRevision+"-zhudex", testNamespace); svcS.url != want {
 		t.Errorf("scraper.url = %s, want: %s", svcS.url, want)
 	}

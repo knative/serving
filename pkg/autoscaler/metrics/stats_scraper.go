@@ -160,7 +160,7 @@ type serviceScraper struct {
 // NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
 func NewStatsScraper(metric *autoscalingv1alpha1.Metric, revisionName string, podAccessor resources.PodAccessor,
-	usePassthroughLb bool, logger *zap.SugaredLogger) StatsScraper {
+	usePassthroughLb bool, meshMode network.MeshCompatibilityMode, logger *zap.SugaredLogger) StatsScraper {
 	directClient := newHTTPScrapeClient(client)
 	meshClient := newHTTPScrapeClient(noKeepaliveClient)
 	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, network.MeshCompatibilityModeAuto, directClient, meshClient, logger)
