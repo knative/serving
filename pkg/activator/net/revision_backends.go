@@ -512,7 +512,7 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 		}
 
 		destsCh := make(chan dests)
-		rw := newRevisionWatcher(rbm.ctx, rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, network.MeshCompatibilityModeAuto, rbm.logger)
+		rw := newRevisionWatcher(rbm.ctx, rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, rbm.meshMode, rbm.logger)
 		rbm.revisionWatchers[rev] = rw
 		go rw.run(rbm.probeFrequency)
 		return rw, nil

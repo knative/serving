@@ -163,7 +163,7 @@ func NewStatsScraper(metric *autoscalingv1alpha1.Metric, revisionName string, po
 	usePassthroughLb bool, meshMode network.MeshCompatibilityMode, logger *zap.SugaredLogger) StatsScraper {
 	directClient := newHTTPScrapeClient(client)
 	meshClient := newHTTPScrapeClient(noKeepaliveClient)
-	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, network.MeshCompatibilityModeAuto, directClient, meshClient, logger)
+	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, meshMode, directClient, meshClient, logger)
 }
 
 func newServiceScraperWithClient(
