@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "d38faef1"
+    knative.dev/example-checksum: "325e5f98"
 data:
   _example: |
     ################################
@@ -132,6 +132,16 @@ data:
     # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
     #       for now. Use with caution.
     enable-mesh-pod-addressability: "false"
+
+    # mesh-compatibility-mode indicates whether consumers of network plugins
+    # should directly contact Pod IPs (most efficient), or should use the
+    # Cluster IP (less efficient, needed when mesh is enabled unless
+    # `enable-mesh-pod-addressability`, above, is set).
+    # Permitted values are:
+    #  - "auto" (default): automatically determine which mesh mode to use by trying Pod IP and falling back to Cluster IP as needed.
+    #  - "enabled": always use Cluster IP and do not attempt to use Pod IPs.
+    #  - "disabled": always use Pod IPs and do not fall back to Cluster IP on failure.
+    mesh-compatibility-mode: "auto"
 
     # Defines the scheme used for external URLs if autoTLS is not enabled.
     # This can be used for making Knative report all URLs as "HTTPS" for example, if you're

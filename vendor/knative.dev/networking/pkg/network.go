@@ -181,6 +181,9 @@ const (
 	// EnableMeshPodAddressabilityKey is the config for enabling pod addressability in mesh.
 	EnableMeshPodAddressabilityKey = "enable-mesh-pod-addressability"
 
+	// MeshCompatibilityModeKey is the config for selecting the mesh compatibility mode.
+	MeshCompatibilityModeKey = "mesh-compatibility-mode"
+
 	// DefaultExternalSchemeKey is the config for defining the scheme of external URLs.
 	DefaultExternalSchemeKey = "defaultExternalScheme"
 )
@@ -263,6 +266,12 @@ type Config struct {
 	// accordingly, i.e. to drop fallback solutions for non-pod-addressable systems.
 	EnableMeshPodAddressability bool
 
+	// MeshCompatibilityMode specifies whether consumers, such as Knative Serving, should
+	// attempt to directly contact pods via their IP (most efficient), or should
+	// use the Cluster IP (less efficient, but needed if mesh is enabled unless
+	// the EnableMeshPodAddressability option is enabled).
+	MeshCompatibilityMode MeshCompatibilityMode
+
 	// DefaultExternalScheme defines the scheme used in external URLs if AutoTLS is
 	// not enabled. Defaults to "http".
 	DefaultExternalScheme string
@@ -283,6 +292,32 @@ const (
 	HTTPRedirected HTTPProtocol = "redirected"
 )
 
+// MeshCompatibilityMode is one of enabled (always use ClusterIP), disabled
+// (always use Pod IP), or auto (try PodIP, and fall back to ClusterIP if mesh
+// is detected).
+type MeshCompatibilityMode string
+
+const (
+	// MeshCompatibilityModeEnabled instructs consumers of network plugins, such as
+	// Knative Serving, to use ClusterIP when connecting to pods. This is
+	// required when mesh is enabled (unless EnableMeshPodAddressability is set),
+	// but is less efficient.
+	MeshCompatibilityModeEnabled MeshCompatibilityMode = "enabled"
+
+	// MeshCompatibilityModeDisabled instructs consumers of network plugins, such as
+	// Knative Serving, to connect to individual Pod IPs. This is most efficient,
+	// but will only work with mesh enabled when EnableMeshPodAddressability is
+	// used.
+	MeshCompatibilityModeDisabled MeshCompatibilityMode = "disabled"
+
+	// MeshCompatibilityModeAuto instructs consumers of network plugins, such as
+	// Knative Serving, to heuristically determine whether to connect using the
+	// Cluster IP, or to ocnnect to individual Pod IPs. This is most efficient,
+	// determine whether mesh is enabled, and fall back from Direct Pod IP
+	// communication to Cluster IP as needed.
+	MeshCompatibilityModeAuto MeshCompatibilityMode = "auto"
+)
+
 func defaultConfig() *Config {
 	return &Config{
 		DefaultIngressClass:           IstioIngressClassName,
@@ -293,6 +328,7 @@ func defaultConfig() *Config {
 		HTTPProtocol:                  HTTPEnabled,
 		AutocreateClusterDomainClaims: false,
 		DefaultExternalScheme:         "http",
+		MeshCompatibilityMode:         MeshCompatibilityModeAuto,
 	}
 }
 
@@ -315,6 +351,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsBool(AutocreateClusterDomainClaimsKey, &nc.AutocreateClusterDomainClaims),
 		cm.AsBool(EnableMeshPodAddressabilityKey, &nc.EnableMeshPodAddressability),
 		cm.AsString(DefaultExternalSchemeKey, &nc.DefaultExternalScheme),
+		asMode(MeshCompatibilityModeKey, &nc.MeshCompatibilityMode),
 	); err != nil {
 		return nil, err
 	}
@@ -502,4 +539,19 @@ func PortNumberForName(sub corev1.EndpointSubset, portName string) (int32, error
 // unrelated to mesh being enabled.
 func IsPotentialMeshErrorResponse(resp *http.Response) bool {
 	return resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusBadGateway
+}
+
+// asMode parses the value at key as a MeshCompatibilityMode into the target, if it exists.
+func asMode(key string, target *MeshCompatibilityMode) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			for _, flag := range []MeshCompatibilityMode{MeshCompatibilityModeEnabled, MeshCompatibilityModeDisabled, MeshCompatibilityModeAuto} {
+				if strings.EqualFold(raw, string(flag)) {
+					*target = flag
+					return nil
+				}
+			}
+		}
+		return nil
+	}
 }
