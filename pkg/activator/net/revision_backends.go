@@ -340,7 +340,10 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		rw.logger.Debugf("Done probing, got %d healthy pods", len(hs))
 		if !noop || len(reprobe) > 0 {
 			rw.healthyPods = hs
-			rw.sendUpdate("" /*clusterIP*/, hs)
+			// Note: it's important that this copies (via hs.Union) the healthy pods
+			// set before sending the update to avoid concurrent modifications
+			// affecting the throttler, which iterates over the set.
+			rw.sendUpdate("" /*clusterIP*/, hs.Union(nil))
 			return
 		}
 		// no-op, and we have successfully probed at least one pod.
