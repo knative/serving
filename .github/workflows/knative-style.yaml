@@ -19,7 +19,7 @@ name: Code Style
 
 on:
   pull_request:
-    branches: [ 'main', 'master', 'release-*', 'mkdocs' ]
+    branches: [ 'main', 'master', 'release-*' ]
 
 jobs:
 
@@ -169,7 +169,7 @@ jobs:
           echo '::group:: Flagging trailing whitespace with reviewdog 🐶 ...'
           # Don't fail because of grep
           set +o pipefail
-          
+
           # Exclude generated and vendored files, plus some legacy
           # paths until we update all .gitattributes
           git ls-files |
