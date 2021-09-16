@@ -688,9 +688,6 @@ spec:
                   description: DesiredReplicas reflects the desired amount of pods running this revision.
                   type: integer
                   format: int32
-                imageDigest:
-                  description: 'DeprecatedImageDigest holds the resolved digest for the image specified within .Spec.Container.Image. The digest is resolved during the creation of Revision. This field holds the digest value regardless of whether a tag or digest was originally specified in the Container object. It may be empty if the image comes from a registry listed to skip resolution. If multiple containers specified then DeprecatedImageDigest holds the digest for serving container. DEPRECATED: Use ContainerStatuses instead. TODO(savitaashture) Remove deprecatedImageDigest. ref https://kubernetes.io/docs/reference/using-api/deprecation-policy for deprecation.'
-                  type: string
                 logUrl:
                   description: LogURL specifies the generated logging url for this particular revision based on the revision url template specified in the controller's config.
                   type: string
