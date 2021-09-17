@@ -203,3 +203,19 @@ func CheckConfigurationState(client *test.ServingClients, name string, inState f
 func IsConfigurationReady(c *v1.Configuration) (bool, error) {
 	return c.IsReady(), nil
 }
+
+// GetConfiguration gets a configuration by name
+func GetConfiguration(clients *test.Clients, configurationName string) (configuration *v1.Configuration, err error) {
+	return configuration, reconciler.RetryTestErrors(func(int) (err error) {
+		configuration, err = clients.ServingClient.Configs.Get(context.Background(), configurationName, metav1.GetOptions{})
+		return err
+	})
+}
+
+// GetConfigurations returns all the available configurations
+func GetConfigurations(clients *test.Clients) (list *v1.ConfigurationList, err error) {
+	return list, reconciler.RetryTestErrors(func(int) (err error) {
+		list, err = clients.ServingClient.Configs.List(context.Background(), metav1.ListOptions{})
+		return err
+	})
+}

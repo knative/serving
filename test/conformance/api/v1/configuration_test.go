@@ -30,6 +30,45 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+// TestConfigurationGetAndList tests Getting and  Listing Configurations resources.
+//   This test doesn't validate the Data Plane, it is just to check the APIs for conformance
+func TestConfigurationGetAndList(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.PizzaPlanet1,
+	}
+
+	// Clean up on test failure or interrupt
+	test.EnsureTearDown(t, clients, &names)
+
+	// Setup initial Service
+	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
+		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+	}
+
+	list, err := v1test.GetConfigurations(clients)
+	if err != nil {
+		t.Fatal("Listing Configurations failed")
+	}
+	if len(list.Items) < 1 {
+		t.Fatal("Listing should return at least one Configuration")
+	}
+	var configurationFound = false
+	for _, configuration := range list.Items {
+		t.Logf("Configuration Returned: %s", configuration.Name)
+		if configuration.Name == names.Config {
+			configurationFound = true
+		}
+	}
+	if !configurationFound {
+		t.Fatal("The Configuration that was previously created was not found by listing all Configurations.")
+	}
+
+}
+
 func TestUpdateConfigurationMetadata(t *testing.T) {
 	if test.ServingFlags.DisableOptionalAPI {
 		t.Skip("Configuration create/patch/replace APIs are not required by Knative Serving API Specification")
