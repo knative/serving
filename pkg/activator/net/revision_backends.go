@@ -89,24 +89,6 @@ const (
 	defaultProbeFrequency time.Duration = 200 * time.Millisecond
 )
 
-// meshMode determines whether we should proxy directly to pods (most efficient), go via the
-// cluster IP (needed when mesh is enabled), or attempt to automatically detect.
-type meshMode int
-
-const (
-	// meshModeAuto first attempts direct pod IP proxying, and then falls back to
-	// cluster IP if this does not work.
-	meshModeAuto meshMode = iota
-	// meshModeEnabled causes us to always use ClusterIP (which means we do not
-	// need to probe, but deactivates activator load balancing)
-	meshModeEnabled
-	// meshModeDisabled causes us to always proxy directly to pods, which will
-	// not work when mesh is enabled, but allows us to intelligently load balance
-	// to pods with capacity, and enables the activator probe optimisation to
-	// start routing to pods before readiness has propagated.
-	meshModeDisabled
-)
-
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
 // to supply revisionDestsUpdate events on updateCh
 type revisionWatcher struct {
@@ -137,13 +119,13 @@ type revisionWatcher struct {
 
 	// meshMode configures whether we always directly probe pods,
 	// always use cluster IP, or attempt to autodetect
-	meshMode meshMode
+	meshMode network.MeshCompatibilityMode
 }
 
 func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol pkgnet.ProtocolType,
 	updateCh chan<- revisionDestsUpdate, destsCh chan dests,
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
-	usePassthroughLb bool, meshMode meshMode,
+	usePassthroughLb bool, meshMode network.MeshCompatibilityMode,
 	logger *zap.SugaredLogger) *revisionWatcher {
 	ctx, cancel := context.WithCancel(ctx)
 	return &revisionWatcher{
@@ -312,7 +294,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 
 	// If we have discovered (or have been told via meshMode) that this revision
 	// cannot be probed directly do not spend time trying.
-	if rw.podsAddressable && rw.meshMode != meshModeEnabled {
+	if rw.podsAddressable && rw.meshMode != network.MeshCompatibilityModeEnabled {
 		// reprobe set contains the targets that moved from ready to non-ready set.
 		// so they have to be re-probed.
 		reprobe := curDests.becameNonReady(prevDests)
@@ -363,7 +345,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		return
 	}
 
-	if rw.meshMode == meshModeDisabled {
+	if rw.meshMode == network.MeshCompatibilityModeDisabled {
 		// If mesh is disabled we always want to use direct pod addressing, and
 		// will not fall back to clusterIP.
 		return
@@ -449,19 +431,20 @@ type revisionBackendsManager struct {
 	updateCh         chan revisionDestsUpdate
 	transport        http.RoundTripper
 	usePassthroughLb bool
+	meshMode         network.MeshCompatibilityMode
 	logger           *zap.SugaredLogger
 	probeFrequency   time.Duration
 }
 
 // NewRevisionBackendsManager returns a new RevisionBackendsManager with default
 // probe time out.
-func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool) *revisionBackendsManager {
-	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, usePassthroughLb, defaultProbeFrequency)
+func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool, meshMode network.MeshCompatibilityMode) *revisionBackendsManager {
+	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, usePassthroughLb, meshMode, defaultProbeFrequency)
 }
 
 // newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
 func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
-	usePassthroughLb bool, probeFreq time.Duration) *revisionBackendsManager {
+	usePassthroughLb bool, meshMode network.MeshCompatibilityMode, probeFreq time.Duration) *revisionBackendsManager {
 	rbm := &revisionBackendsManager{
 		ctx:              ctx,
 		revisionLister:   revisioninformer.Get(ctx).Lister(),
@@ -470,6 +453,7 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		updateCh:         make(chan revisionDestsUpdate),
 		transport:        tr,
 		usePassthroughLb: usePassthroughLb,
+		meshMode:         meshMode,
 		logger:           logging.FromContext(ctx),
 		probeFrequency:   probeFreq,
 	}
@@ -531,7 +515,7 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 		}
 
 		destsCh := make(chan dests)
-		rw := newRevisionWatcher(rbm.ctx, rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, meshModeAuto, rbm.logger)
+		rw := newRevisionWatcher(rbm.ctx, rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, rbm.meshMode, rbm.logger)
 		rbm.revisionWatchers[rev] = rw
 		go rw.run(rbm.probeFrequency)
 		return rw, nil

@@ -32,6 +32,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	network "knative.dev/networking/pkg"
 	pkgmetrics "knative.dev/pkg/metrics"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -137,26 +138,12 @@ var client = &http.Client{
 	Transport: keepAliveTransport,
 }
 
-// meshMode determines whether we should attempt to sample for stats via the K8s
-// service, or whether we should attempt to directly gather stats from pods
-// (which is more efficient, but not possible when mesh is enabled).
-type meshMode int
-
-const (
-	// meshModeEnabled causes the service scraper to always sample the k8s service for scraping.
-	meshModeEnabled meshMode = iota
-	// meshModeDisabled causes the service scraper to always use pod IPs directly for scraping.
-	meshModeDisabled
-	// meshModeAuto first attempts direct pod IP scraping, and then falls back to service scraping if needed.
-	meshModeAuto
-)
-
 // serviceScraper scrapes Revision metrics via a K8S service by sampling. Which
 // pod to be picked up to serve the request is decided by K8S. Please see
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
 type serviceScraper struct {
-	meshMode     meshMode
+	meshMode     network.MeshCompatibilityMode
 	directClient scrapeClient
 	meshClient   scrapeClient
 
@@ -173,10 +160,10 @@ type serviceScraper struct {
 // NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
 func NewStatsScraper(metric *autoscalingv1alpha1.Metric, revisionName string, podAccessor resources.PodAccessor,
-	usePassthroughLb bool, logger *zap.SugaredLogger) StatsScraper {
+	usePassthroughLb bool, meshMode network.MeshCompatibilityMode, logger *zap.SugaredLogger) StatsScraper {
 	directClient := newHTTPScrapeClient(client)
 	meshClient := newHTTPScrapeClient(noKeepaliveClient)
-	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, meshModeAuto, directClient, meshClient, logger)
+	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, meshMode, directClient, meshClient, logger)
 }
 
 func newServiceScraperWithClient(
@@ -184,7 +171,7 @@ func newServiceScraperWithClient(
 	revisionName string,
 	podAccessor resources.PodAccessor,
 	usePassthroughLb bool,
-	meshMode meshMode,
+	meshMode network.MeshCompatibilityMode,
 	directClient, meshClient scrapeClient,
 	logger *zap.SugaredLogger) *serviceScraper {
 	svcName := metric.Labels[serving.ServiceLabelKey]
@@ -227,10 +214,10 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 	}()
 
 	switch s.meshMode {
-	case meshModeEnabled:
+	case network.MeshCompatibilityModeEnabled:
 		s.logger.Debug("Scraping via service due to meshMode setting")
 		return s.scrapeService(window)
-	case meshModeDisabled:
+	case network.MeshCompatibilityModeDisabled:
 		s.logger.Debug("Scraping pods directly due to meshMode setting")
 		return s.scrapePods(window)
 	default:

@@ -137,7 +137,7 @@ func main() {
 	}
 
 	collector := asmetrics.NewMetricCollector(
-		statsScraperFactoryFunc(podLister, networkConfig.EnableMeshPodAddressability), logger)
+		statsScraperFactoryFunc(podLister, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode), logger)
 
 	// Set up scalers.
 	multiScaler := scaling.NewMultiScaler(ctx.Done(),
@@ -240,7 +240,7 @@ func uniScalerFactoryFunc(podLister corev1listers.PodLister,
 	}
 }
 
-func statsScraperFactoryFunc(podLister corev1listers.PodLister, usePassthroughLb bool) asmetrics.StatsScraperFactory {
+func statsScraperFactoryFunc(podLister corev1listers.PodLister, usePassthroughLb bool, meshMode network.MeshCompatibilityMode) asmetrics.StatsScraperFactory {
 	return func(metric *autoscalingv1alpha1.Metric, logger *zap.SugaredLogger) (asmetrics.StatsScraper, error) {
 		if metric.Spec.ScrapeTarget == "" {
 			return nil, nil
@@ -252,7 +252,7 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister, usePassthroughLb
 		}
 
 		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, revisionName)
-		return asmetrics.NewStatsScraper(metric, revisionName, podAccessor, usePassthroughLb, logger), nil
+		return asmetrics.NewStatsScraper(metric, revisionName, podAccessor, usePassthroughLb, meshMode, logger), nil
 	}
 }
 
