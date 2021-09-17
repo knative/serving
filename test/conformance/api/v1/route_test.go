@@ -37,7 +37,6 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
 	}
 
-	// TODO(#1178): Remove "Wait" from all checks below this point.
 	t.Log("Serves the expected data at the endpoint")
 
 	_, err := pkgtest.CheckEndpointState(
