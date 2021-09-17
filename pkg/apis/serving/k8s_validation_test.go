@@ -119,6 +119,13 @@ func withPodSpecSchedulerNameEnabled() configOption {
 	}
 }
 
+func withPodSpecInitContainersEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecInitContainers = config.Enabled
+		return cfg
+	}
+}
+
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -274,11 +281,9 @@ func TestPodSpecValidation(t *testing.T) {
 			Containers: []corev1.Container{{
 				Image: "busybox",
 			}},
-			InitContainers: []corev1.Container{{
-				Image: "helloworld",
-			}},
+			TerminationGracePeriodSeconds: ptr.Int64(5),
 		},
-		want: apis.ErrDisallowedFields("initContainers"),
+		want: apis.ErrDisallowedFields("terminationGracePeriodSeconds"),
 	}, {
 		name: "bad service account name",
 		ps: corev1.PodSpec{
@@ -894,27 +899,40 @@ func TestContainerValidation(t *testing.T) {
 	bidir := corev1.MountPropagationBidirectional
 
 	tests := []struct {
-		name    string
-		c       corev1.Container
-		want    *apis.FieldError
-		volumes map[string]corev1.Volume
-		cfgOpts []configOption
+		name                 string
+		c                    corev1.Container
+		want                 *apis.FieldError
+		volumes              map[string]corev1.Volume
+		cfgOpts              []configOption
+		testAsInitContainer  bool
+		skipContainerTest    bool
+		wantForInitContainer *apis.FieldError
 	}{{
-		name: "empty container",
-		c:    corev1.Container{},
-		want: apis.ErrMissingField(apis.CurrentField),
+		name:                 "empty container",
+		c:                    corev1.Container{},
+		want:                 apis.ErrMissingField(apis.CurrentField),
+		wantForInitContainer: apis.ErrMissingField(apis.CurrentField),
+		testAsInitContainer:  true,
+		cfgOpts:              []configOption{withPodSpecInitContainersEnabled()},
 	}, {
 		name: "valid container",
 		c: corev1.Container{
 			Image: "foo",
 		},
-		want: nil,
+		want:                nil,
+		testAsInitContainer: true,
 	}, {
 		name: "invalid container image",
 		c: corev1.Container{
 			Image: "foo:bar:baz",
 		},
 		want: &apis.FieldError{
+			Message: "Failed to parse image reference",
+			Paths:   []string{"image"},
+			Details: `image: "foo:bar:baz", error: could not parse reference: foo:bar:baz`,
+		},
+		testAsInitContainer: true,
+		wantForInitContainer: &apis.FieldError{
 			Message: "Failed to parse image reference",
 			Paths:   []string{"image"},
 			Details: `image: "foo:bar:baz", error: could not parse reference: foo:bar:baz`,
@@ -926,7 +944,13 @@ func TestContainerValidation(t *testing.T) {
 			Image:     "foo",
 			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: apis.ErrDisallowedFields("lifecycle"),
+		want:                apis.ErrDisallowedFields("lifecycle"),
+		cfgOpts:             []configOption{withPodSpecInitContainersEnabled()},
+		testAsInitContainer: true,
+		wantForInitContainer: apis.ErrDisallowedFields("lifecycle").Also(&apis.FieldError{
+			Message: "field not allowed in an init container",
+			Paths:   []string{"lifecycle"},
+		}),
 	}, {
 		name: "has resources",
 		c: corev1.Container{
@@ -940,14 +964,16 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
+		want:                nil,
+		testAsInitContainer: true,
 	}, {
 		name: "has no container ports set",
 		c: corev1.Container{
 			Image: "foo",
 			Ports: []corev1.ContainerPort{},
 		},
-		want: nil,
+		want:                nil,
+		testAsInitContainer: true,
 	}, {
 		name: "has valid unnamed user port",
 		c: corev1.Container{
@@ -998,7 +1024,9 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 65536,
 			}},
 		},
-		want: apis.ErrOutOfBoundsValue(65536, 0, 65535, "ports.containerPort"),
+		want:                 apis.ErrOutOfBoundsValue(65536, 0, 65535, "ports.containerPort"),
+		wantForInitContainer: apis.ErrOutOfBoundsValue(65536, 0, 65535, "ports.containerPort"),
+		testAsInitContainer:  true,
 	}, {
 		name: "has an empty port set",
 		c: corev1.Container{
@@ -1056,7 +1084,9 @@ func TestContainerValidation(t *testing.T) {
 				HostIP: "127.0.0.1",
 			}},
 		},
-		want: apis.ErrDisallowedFields("ports.hostIP"),
+		want:                 apis.ErrDisallowedFields("ports.hostIP"),
+		testAsInitContainer:  true,
+		wantForInitContainer: apis.ErrDisallowedFields("ports.hostIP"),
 	}, {
 		name: "port conflicts with queue proxy admin",
 		c: corev1.Container{
@@ -1066,6 +1096,9 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		want: apis.ErrInvalidValue("8022 is a reserved port", "ports.containerPort",
+			"8022 is a reserved port, please use a different value"),
+		testAsInitContainer: true,
+		wantForInitContainer: apis.ErrInvalidValue("8022 is a reserved port", "ports.containerPort",
 			"8022 is a reserved port, please use a different value"),
 	}, {
 		name: "port conflicts with profiling port",
@@ -1077,6 +1110,9 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidValue("8008 is a reserved port", "ports.containerPort",
 			"8008 is a reserved port, please use a different value"),
+		testAsInitContainer: true,
+		wantForInitContainer: apis.ErrInvalidValue("8008 is a reserved port", "ports.containerPort",
+			"8008 is a reserved port, please use a different value"),
 	}, {
 		name: "port conflicts with queue proxy",
 		c: corev1.Container{
@@ -1087,6 +1123,9 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidValue("8013 is a reserved port", "ports.containerPort",
 			"8013 is a reserved port, please use a different value"),
+		testAsInitContainer: true,
+		wantForInitContainer: apis.ErrInvalidValue("8013 is a reserved port", "ports.containerPort",
+			"8013 is a reserved port, please use a different value"),
 	}, {
 		name: "port conflicts with queue proxy",
 		c: corev1.Container{
@@ -1096,6 +1135,9 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		want: apis.ErrInvalidValue("8012 is a reserved port", "ports.containerPort",
+			"8012 is a reserved port, please use a different value"),
+		testAsInitContainer: true,
+		wantForInitContainer: apis.ErrInvalidValue("8012 is a reserved port", "ports.containerPort",
 			"8012 is a reserved port, please use a different value"),
 	}, {
 		name: "port conflicts with queue proxy metrics",
@@ -1116,6 +1158,9 @@ func TestContainerValidation(t *testing.T) {
 			}},
 		},
 		want: apis.ErrInvalidValue("9091 is a reserved port", "ports.containerPort",
+			"9091 is a reserved port, please use a different value"),
+		testAsInitContainer: true,
+		wantForInitContainer: apis.ErrInvalidValue("9091 is a reserved port", "ports.containerPort",
 			"9091 is a reserved port, please use a different value"),
 	}, {
 		name: "has invalid port name",
@@ -1147,6 +1192,14 @@ func TestContainerValidation(t *testing.T) {
 			apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", 0)).Also(
 			apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
 			apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
+		testAsInitContainer: true,
+		wantForInitContainer: (&apis.FieldError{
+			Message: "volumeMount has no matching volume",
+			Paths:   []string{"name"},
+		}).ViaFieldIndex("volumeMounts", 0).Also(
+			apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", 0)).Also(
+			apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
+			apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
 	}, {
 		name: "has known volumeMounts",
 		c: corev1.Container{
@@ -1169,6 +1222,7 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
+		testAsInitContainer: true,
 	}, {
 		name: "has known volumeMounts, but at reserved path",
 		c: corev1.Container{
@@ -1195,6 +1249,11 @@ func TestContainerValidation(t *testing.T) {
 			Message: `mountPath "/var/log" is a reserved path`,
 			Paths:   []string{"mountPath"},
 		}).ViaFieldIndex("volumeMounts", 0),
+		testAsInitContainer: true,
+		wantForInitContainer: (&apis.FieldError{
+			Message: `mountPath "/var/log" is a reserved path`,
+			Paths:   []string{"mountPath"},
+		}).ViaFieldIndex("volumeMounts", 0),
 	}, {
 		name: "has known volumeMounts, bad mountPath",
 		c: corev1.Container{
@@ -1217,7 +1276,9 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("not/absolute", "volumeMounts[0].mountPath"),
+		want:                 apis.ErrInvalidValue("not/absolute", "volumeMounts[0].mountPath"),
+		testAsInitContainer:  true,
+		wantForInitContainer: apis.ErrInvalidValue("not/absolute", "volumeMounts[0].mountPath"),
 	}, {
 		name: "Empty dir has rw access",
 		c: corev1.Container{
@@ -1237,6 +1298,7 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
+		testAsInitContainer: true,
 	}, {
 		name: "has lifecycle",
 		c: corev1.Container{
@@ -1244,6 +1306,11 @@ func TestContainerValidation(t *testing.T) {
 			Lifecycle: &corev1.Lifecycle{},
 		},
 		want: apis.ErrDisallowedFields("lifecycle"),
+		wantForInitContainer: apis.ErrDisallowedFields("lifecycle").Also(&apis.FieldError{
+			Message: "field not allowed in an init container",
+			Paths:   []string{"lifecycle"},
+		}),
+		testAsInitContainer: true,
 	}, {
 		name: "has known volumeMount twice",
 		c: corev1.Container{
@@ -1270,6 +1337,7 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
+		testAsInitContainer: true,
 	}, {
 		name: "valid with probes (no port)",
 		c: corev1.Container{
@@ -1334,7 +1402,8 @@ func TestContainerValidation(t *testing.T) {
 				Handler: corev1.Handler{},
 			},
 		},
-		want: apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec"),
+		want:                 apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec"),
+		wantForInitContainer: apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec"),
 	}, {
 		name: "invalid with multiple handlers",
 		c: corev1.Container{
@@ -1371,7 +1440,8 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("readinessProbe.httpGet.port"),
+		want:                 apis.ErrDisallowedFields("readinessProbe.httpGet.port"),
+		wantForInitContainer: apis.ErrDisallowedFields("readinessProbe.httpGet.port"),
 	}, {
 		name: "invalid readiness probe (has failureThreshold while using special probe)",
 		c: corev1.Container{
@@ -1438,7 +1508,9 @@ func TestContainerValidation(t *testing.T) {
 				Privileged: ptr.Bool(true),
 			},
 		},
-		want: apis.ErrDisallowedFields("securityContext.privileged"),
+		want:                 apis.ErrDisallowedFields("securityContext.privileged"),
+		wantForInitContainer: apis.ErrDisallowedFields("securityContext.privileged"),
+		testAsInitContainer:  true,
 	}, {
 		name: "not allowed to add a security context capability",
 		c: corev1.Container{
@@ -1449,7 +1521,9 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("securityContext.capabilities.add"),
+		want:                 apis.ErrDisallowedFields("securityContext.capabilities.add"),
+		wantForInitContainer: apis.ErrDisallowedFields("securityContext.capabilities.add"),
+		testAsInitContainer:  true,
 	}, {
 		name: "allowed to add a security context capability when gate is enabled",
 		c: corev1.Container{
@@ -1460,8 +1534,9 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		cfgOpts: []configOption{withContainerSpecAddCapabilitiesEnabled()},
-		want:    nil,
+		cfgOpts:             []configOption{withContainerSpecAddCapabilitiesEnabled()},
+		want:                nil,
+		testAsInitContainer: true,
 	}, {
 		name: "too large uid",
 		c: corev1.Container{
@@ -1479,7 +1554,9 @@ func TestContainerValidation(t *testing.T) {
 				RunAsUser: ptr.Int64(-10),
 			},
 		},
-		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsUser"),
+		want:                 apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsUser"),
+		wantForInitContainer: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsUser"),
+		testAsInitContainer:  true,
 	}, {
 		name:    "too large gid - feature enabled",
 		cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
@@ -1499,14 +1576,18 @@ func TestContainerValidation(t *testing.T) {
 				RunAsGroup: ptr.Int64(-10),
 			},
 		},
-		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsGroup"),
+		want:                 apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsGroup"),
+		testAsInitContainer:  true,
+		wantForInitContainer: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsGroup"),
 	}, {
 		name: "envFrom - None of",
 		c: corev1.Container{
 			Image:   "foo",
 			EnvFrom: []corev1.EnvFromSource{{}},
 		},
-		want: apis.ErrMissingOneOf("envFrom.configMapRef", "envFrom.secretRef"),
+		want:                 apis.ErrMissingOneOf("envFrom.configMapRef", "envFrom.secretRef"),
+		testAsInitContainer:  true,
+		wantForInitContainer: apis.ErrMissingOneOf("envFrom.configMapRef", "envFrom.secretRef"),
 	}, {
 		name: "envFrom - Multiple",
 		c: corev1.Container{
@@ -1524,7 +1605,9 @@ func TestContainerValidation(t *testing.T) {
 				},
 			}},
 		},
-		want: apis.ErrMultipleOneOf("envFrom.configMapRef", "envFrom.secretRef"),
+		want:                 apis.ErrMultipleOneOf("envFrom.configMapRef", "envFrom.secretRef"),
+		testAsInitContainer:  true,
+		wantForInitContainer: apis.ErrMultipleOneOf("envFrom.configMapRef", "envFrom.secretRef"),
 	}, {
 		name: "envFrom - Secret",
 		c: corev1.Container{
@@ -1550,14 +1633,17 @@ func TestContainerValidation(t *testing.T) {
 				},
 			}},
 		},
-		want: nil,
+		want:                nil,
+		testAsInitContainer: true,
 	}, {
 		name: "termination message policy",
 		c: corev1.Container{
 			Image:                    "foo",
 			TerminationMessagePolicy: corev1.TerminationMessagePolicy("Not a Policy"),
 		},
-		want: apis.ErrInvalidValue(corev1.TerminationMessagePolicy("Not a Policy"), "terminationMessagePolicy"),
+		want:                 apis.ErrInvalidValue(corev1.TerminationMessagePolicy("Not a Policy"), "terminationMessagePolicy"),
+		testAsInitContainer:  true,
+		wantForInitContainer: apis.ErrInvalidValue(corev1.TerminationMessagePolicy("Not a Policy"), "terminationMessagePolicy"),
 	}, {
 		name: "empty env var name",
 		c: corev1.Container{
@@ -1566,7 +1652,9 @@ func TestContainerValidation(t *testing.T) {
 				Value: "Foo",
 			}},
 		},
-		want: apis.ErrMissingField("env[0].name"),
+		want:                 apis.ErrMissingField("env[0].name"),
+		testAsInitContainer:  true,
+		wantForInitContainer: apis.ErrMissingField("env[0].name"),
 	}, {
 		name: "reserved env var name for serving container",
 		c: corev1.Container{
@@ -1596,7 +1684,9 @@ func TestContainerValidation(t *testing.T) {
 				},
 			}},
 		},
-		want: apis.ErrDisallowedFields("env[0].valueFrom.fieldRef"),
+		want:                 apis.ErrDisallowedFields("env[0].valueFrom.fieldRef"),
+		testAsInitContainer:  true,
+		wantForInitContainer: apis.ErrDisallowedFields("env[0].valueFrom.fieldRef"),
 	}, {
 		name: "invalid liveness tcp probe (has port)",
 		c: corev1.Container{
@@ -1609,7 +1699,11 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("livenessProbe.tcpSocket.port"),
+		want:                apis.ErrDisallowedFields("livenessProbe.tcpSocket.port"),
+		testAsInitContainer: true,
+		wantForInitContainer: &apis.FieldError{
+			Message: "field not allowed in an init container",
+			Paths:   []string{"livenessProbe"}},
 	}, {
 		name: "disallowed container fields",
 		c: corev1.Container{
@@ -1629,6 +1723,14 @@ func TestContainerValidation(t *testing.T) {
 			apis.ErrDisallowedFields("stdinOnce")).Also(
 			apis.ErrDisallowedFields("tty")).Also(
 			apis.ErrDisallowedFields("volumeDevices")),
+		testAsInitContainer: true,
+		wantForInitContainer: apis.ErrDisallowedFields("lifecycle").Also(
+			apis.ErrDisallowedFields("stdin")).Also(
+			apis.ErrDisallowedFields("stdinOnce")).Also(
+			apis.ErrDisallowedFields("tty")).Also(
+			apis.ErrDisallowedFields("volumeDevices")).Also(&apis.FieldError{
+			Message: "field not allowed in an init container",
+			Paths:   []string{"lifecycle"}}),
 	}, {
 		name: "has numerous problems",
 		c: corev1.Container{
@@ -1636,6 +1738,11 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrDisallowedFields("lifecycle").Also(
 			apis.ErrMissingField("image")),
+		wantForInitContainer: apis.ErrDisallowedFields("lifecycle").Also(
+			apis.ErrMissingField("image")).Also(
+			&apis.FieldError{Message: "field not allowed in an init container",
+				Paths: []string{"lifecycle"}}),
+		testAsInitContainer: true,
 	}}
 
 	for _, test := range tests {
@@ -1649,9 +1756,18 @@ func TestContainerValidation(t *testing.T) {
 				ctx = config.ToContext(ctx, cfg)
 			}
 
-			got := ValidateContainer(ctx, test.c, test.volumes)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
+			if !test.skipContainerTest {
+				got := ValidateContainer(ctx, test.c, test.volumes)
+				if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+					t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
+				}
+			}
+
+			if test.testAsInitContainer {
+				got := validateInitContainer(ctx, test.c, test.volumes)
+				if diff := cmp.Diff(test.wantForInitContainer.Error(), got.Error()); diff != "" {
+					t.Errorf("ValidateInitContainer (-want, +got): \n%s", diff)
+				}
 			}
 		})
 	}
