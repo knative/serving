@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/version: devel
     app.kubernetes.io/part-of: knative-serving
   annotations:
-    knative.dev/example-checksum: "e6149382"
+    knative.dev/example-checksum: "51b4d68a"
 data:
   _example: |
     ################################
@@ -48,7 +48,7 @@ data:
     # Active
     #   * Revisions which are referenced by a Route are considered active.
     #   * Individual revisions may be marked with the annotation
-    #      "knative.dev/no-gc":"true" to be permanently considered active.
+    #      "serving.knative.dev/no-gc":"true" to be permanently considered active.
     #   * Active revisions are not considered for GC.
     # Retention
     #   * Revisions are retained if they are any of the following:
