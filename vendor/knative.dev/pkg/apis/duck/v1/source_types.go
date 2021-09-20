@@ -180,6 +180,9 @@ func (s *Source) Validate(ctx context.Context) *apis.FieldError {
 }
 
 func (s *SourceSpec) Validate(ctx context.Context) *apis.FieldError {
+	if s.CloudEventOverrides == nil {
+		return nil
+	}
 	return s.CloudEventOverrides.Validate(ctx).ViaField("ceOverrides")
 }
 
