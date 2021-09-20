@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/version: devel
     app.kubernetes.io/part-of: knative-serving
   annotations:
-    knative.dev/example-checksum: "211d4000"
+    knative.dev/example-checksum: "5b8c26fe"
 data:
   _example: |-
     ################################
@@ -83,7 +83,6 @@ data:
     kubernetes.podspec-runtimeclassname: "disabled"
 
     # This feature allows end-users to set a subset of fields on the Pod's SecurityContext
-    # in addition to expanding the allowable fields within a Container's SecurityContext.
     #
     # When set to "enabled" or "allowed" it allows the following
     # PodSecurityContext properties:
@@ -92,12 +91,6 @@ data:
     # - RunAsNonRoot
     # - SupplementalGroups
     # - RunAsUser
-    #
-    # When set to "enabled" or "allowed" it allows the following
-    # Container SecurityContext properties:
-    # - RunAsNonRoot
-    # - RunAsGroup
-    # - RunAsUser (already allowed without this flag)
     #
     # This feature flag should be used with caution as the PodSecurityContext
     # properties may have a side-effect on non-user sidecar containers that come

@@ -609,17 +609,14 @@ func SecurityContextMask(ctx context.Context, in *corev1.SecurityContext) *corev
 	out := new(corev1.SecurityContext)
 
 	// Allowed fields
-	out.RunAsUser = in.RunAsUser
-	if in.RunAsNonRoot != nil && *in.RunAsNonRoot {
-		out.RunAsNonRoot = in.RunAsNonRoot
-	}
-	out.ReadOnlyRootFilesystem = in.ReadOnlyRootFilesystem
 	out.Capabilities = in.Capabilities
+	out.ReadOnlyRootFilesystem = in.ReadOnlyRootFilesystem
+	out.RunAsUser = in.RunAsUser
+	out.RunAsGroup = in.RunAsGroup
+	// RunAsNonRoot when unset behaves the same way as false
+	// We do want the ability for folks to set this value to true
+	out.RunAsNonRoot = in.RunAsNonRoot
 
-	if config.FromContextOrDefaults(ctx).Features.PodSpecSecurityContext != config.Disabled {
-		out.RunAsGroup = in.RunAsGroup
-		out.RunAsNonRoot = in.RunAsNonRoot
-	}
 	// Disallowed
 	// This list is unnecessary, but added here for clarity
 	out.Privileged = nil
