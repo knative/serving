@@ -1402,8 +1402,7 @@ func TestContainerValidation(t *testing.T) {
 				Handler: corev1.Handler{},
 			},
 		},
-		want:                 apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec"),
-		wantForInitContainer: apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec"),
+		want: apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec"),
 	}, {
 		name: "invalid with multiple handlers",
 		c: corev1.Container{
