@@ -30,7 +30,7 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-// TestConfigurationGetAndList tests Getting and  Listing Configurations resources.
+// TestConfigurationGetAndList tests Getting and Listing Configurations resources.
 //   This test doesn't validate the Data Plane, it is just to check the APIs for conformance
 func TestConfigurationGetAndList(t *testing.T) {
 	t.Parallel()
@@ -49,6 +49,8 @@ func TestConfigurationGetAndList(t *testing.T) {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
+	config := fetchConfiguration(names.Config, clients, t)
+
 	list, err := v1test.GetConfigurations(clients)
 	if err != nil {
 		t.Fatal("Listing Configurations failed")
@@ -59,7 +61,7 @@ func TestConfigurationGetAndList(t *testing.T) {
 	var configurationFound = false
 	for _, configuration := range list.Items {
 		t.Logf("Configuration Returned: %s", configuration.Name)
-		if configuration.Name == names.Config {
+		if configuration.Name == config.Name {
 			configurationFound = true
 		}
 	}
