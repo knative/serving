@@ -306,7 +306,7 @@ func numberOfReadyPods(ctx *TestContext) (float64, *appsv1.Deployment, error) {
 		// The deployment was updated and the update is being rolled out so we defensively
 		// pick the desired replicas to assert the autoscaling decisions.
 		// TODO: Drop this once we solved the underscale issue.
-		ctx.t.Logf("Deployment is being rolled, picking spec.replicas=%d", *deploy.Spec.Replicas)
+		ctx.logf("Deployment is being rolled, picking spec.replicas=%d", *deploy.Spec.Replicas)
 		return float64(*deploy.Spec.Replicas), deploy, nil
 	}
 	// Otherwise we pick the ready pods to assert maximum consistency for ramp up tests.
