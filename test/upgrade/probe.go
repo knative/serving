@@ -19,9 +19,6 @@ package upgrade
 import (
 	"context"
 	"flag"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"strings"
 
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 	"knative.dev/serving/test"
