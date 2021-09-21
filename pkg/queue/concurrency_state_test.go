@@ -157,7 +157,7 @@ func TestConcurrencyStateRequestHeader(t *testing.T) {
 	}
 }
 
-func TestConcurrencyStateRequestRequest(t *testing.T) {
+func TestConcurrencyStatePauseRequest(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		var m struct{ Action string }
@@ -172,6 +172,25 @@ func TestConcurrencyStateRequestRequest(t *testing.T) {
 
 	pause := Pause(ts.URL)
 	if err := pause(); err != nil {
+		t.Errorf("request test returned an error: %s", err)
+	}
+}
+
+func TestConcurrencyStateResumeRequest(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		var m struct{ Action string }
+		err := json.NewDecoder(r.Body).Decode(&m)
+		if err != nil {
+			t.Errorf("unable to parse message body: %s", err)
+		}
+		if m.Action != "resume" {
+			t.Errorf("improper message body, expected 'resume' and got: %s", m.Action)
+		}
+	}))
+
+	resume := Resume(ts.URL)
+	if err := resume(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
 }
