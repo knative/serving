@@ -112,7 +112,8 @@ func handleStopEvent(
 	defer close(se.Finished)
 	wc.OnStop(se)
 	if se.T.Failed() {
-		se.T.Log(bc.LogBuilder.String())
+		se.T.Log("Not logging anything")
+		//se.T.Log(bc.LogBuilder.String())
 	}
 }
 
