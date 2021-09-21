@@ -18,7 +18,6 @@ package queue
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -95,13 +94,10 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 }
 
 // ConcurrencyState Request sends a request to the concurrency state endpoint.
-func ConcurrencyStateRequest(endpoint string, action ConcurrencyStateMessage) (func() error, error) {
-	bodyText, err := json.Marshal(action)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create message body: %w", err)
-	}
+func concurrencyStateRequest(endpoint string, action string) func() error {
 	return func() error {
-		body := bytes.NewBuffer(bodyText)
+		bodyText := fmt.Sprintf(`{ "action": %q }`, action)
+		body := bytes.NewBufferString(bodyText)
 		req, err := http.NewRequest(http.MethodPost, endpoint, body)
 		if err != nil {
 			return fmt.Errorf("unable to create request: %w", err)
@@ -115,9 +111,15 @@ func ConcurrencyStateRequest(endpoint string, action ConcurrencyStateMessage) (f
 			return fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
 		}
 		return nil
-	}, nil
+	}
 }
 
-type ConcurrencyStateMessage struct {
-	Action string `json:"action"`
+// Pause sends a pause request to the concurrency state endpoint.
+func Pause(endpoint string) func() error {
+	return concurrencyStateRequest(endpoint, "pause")
+}
+
+// Resume sends a resume request to the concurrency state endpoint.
+func Resume(endpoint string) func() error {
+	return concurrencyStateRequest(endpoint, "resume")
 }

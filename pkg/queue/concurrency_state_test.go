@@ -151,10 +151,7 @@ func TestConcurrencyStateRequestHeader(t *testing.T) {
 			}
 		}
 	}))
-	pause, err := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessage{Action: "test"})
-	if err != nil {
-		t.Errorf("unable to create pause function: %s", err)
-	}
+	pause := Pause(ts.URL)
 	if err := pause(); err != nil {
 		t.Errorf("header check returned an error: %s", err)
 	}
@@ -163,20 +160,17 @@ func TestConcurrencyStateRequestHeader(t *testing.T) {
 func TestConcurrencyStateRequestRequest(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		var m ConcurrencyStateMessage
+		var m struct{ Action string }
 		err := json.NewDecoder(r.Body).Decode(&m)
 		if err != nil {
 			t.Errorf("unable to parse message body: %s", err)
 		}
-		if m.Action != "test" {
-			t.Errorf("improper message body, expected 'test' and got: %s", m.Action)
+		if m.Action != "pause" {
+			t.Errorf("improper message body, expected 'pause' and got: %s", m.Action)
 		}
 	}))
 
-	pause, err := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessage{Action: "test"})
-	if err != nil {
-		t.Errorf("unable to create pause function: %s", err)
-	}
+	pause := Pause(ts.URL)
 	if err := pause(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
@@ -188,10 +182,7 @@ func TestConcurrencyStateRequestResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	pause, err := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessage{Action: "test"})
-	if err != nil {
-		t.Errorf("unable to create pause function: %s", err)
-	}
+	pause := Pause(ts.URL)
 	if err := pause(); err == nil {
 		t.Errorf("failed function did not return an error")
 	}
