@@ -88,9 +88,9 @@ type Context struct {
 // StopEvent is sent user may use zap.SugaredLogger to log state of execution if
 // necessary.
 type BackgroundContext struct {
-	Log        *zap.SugaredLogger
-	LogBuilder strings.Builder
-	Stop       <-chan StopEvent
+	Log       *zap.SugaredLogger
+	LogBuffer strings.Builder
+	Stop      <-chan StopEvent
 }
 
 // StopEvent represents an event that is to be received by background operation

@@ -66,24 +66,25 @@ func (se *suiteExecution) startContinualTests(num int) {
 					return
 				}
 				setup := operation.Setup()
+				var logBuffer strings.Builder
+				core := zapcore.NewCore(
+					zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+					zapcore.AddSync(&logBuffer),
+					zap.DebugLevel,
+				)
+				sugar := zap.New(core).Sugar()
 				t.Run("Setup"+operation.Name(), func(t *testing.T) {
-					setup(Context{T: t, Log: l})
+					setup(Context{T: t, Log: sugar})
 				})
 				handler := operation.Handler()
 				go func() {
-					var builder strings.Builder
-					core := zapcore.NewCore(
-						zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
-						zapcore.AddSync(&builder),
-						zap.DebugLevel,
-					)
-					sugar := zap.New(core).Sugar()
-					bc := BackgroundContext{Log: sugar, LogBuilder: builder, Stop: operation.stop}
+					bc := BackgroundContext{Log: sugar, LogBuffer: logBuffer, Stop: operation.stop}
 					handler(bc)
 				}()
 
 				se.failed = se.failed || t.Failed()
 				if se.failed {
+					t.Log(logBuffer)
 					return
 				}
 			}
