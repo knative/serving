@@ -93,7 +93,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	}
 }
 
-// ConcurrencyState Request sends a request to the concurrency state endpoint.
+// concurrencyStateRequest sends a request to the concurrency state endpoint.
 func concurrencyStateRequest(endpoint string, action string) func() error {
 	return func() error {
 		bodyText := fmt.Sprintf(`{ "action": %q }`, action)
