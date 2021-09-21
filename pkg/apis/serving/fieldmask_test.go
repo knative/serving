@@ -722,7 +722,6 @@ func TestSecurityContextMask(t *testing.T) {
 	want := &corev1.SecurityContext{
 		Capabilities:           &corev1.Capabilities{},
 		RunAsUser:              ptr.Int64(1),
-		RunAsGroup:             ptr.Int64(2),
 		RunAsNonRoot:           ptr.Bool(true),
 		ReadOnlyRootFilesystem: ptr.Bool(true),
 	}
