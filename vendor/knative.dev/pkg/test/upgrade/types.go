@@ -17,6 +17,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -76,8 +77,9 @@ type BackgroundOperation interface {
 // Context is an object that is passed to every operation. It contains testing.T
 // for error reporting and zap.SugaredLogger for unbuffered logging.
 type Context struct {
-	T   *testing.T
-	Log *zap.SugaredLogger
+	T          *testing.T
+	Log        *zap.SugaredLogger
+	LogBuilder strings.Builder
 }
 
 // BackgroundContext is a upgrade test execution context that will be passed
@@ -86,8 +88,9 @@ type Context struct {
 // StopEvent is sent user may use zap.SugaredLogger to log state of execution if
 // necessary.
 type BackgroundContext struct {
-	Log  *zap.SugaredLogger
-	Stop <-chan StopEvent
+	Log        *zap.SugaredLogger
+	LogBuilder strings.Builder
+	Stop       <-chan StopEvent
 }
 
 // StopEvent represents an event that is to be received by background operation

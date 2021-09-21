@@ -17,6 +17,9 @@ limitations under the License.
 package upgrade
 
 import (
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"strings"
 	"testing"
 )
 
@@ -68,7 +71,14 @@ func (se *suiteExecution) startContinualTests(num int) {
 				})
 				handler := operation.Handler()
 				go func() {
-					bc := BackgroundContext{Log: l, Stop: operation.stop}
+					var builder strings.Builder
+					core := zapcore.NewCore(
+						zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+						zapcore.AddSync(&builder),
+						zap.DebugLevel,
+					)
+					sugar := zap.New(core).Sugar()
+					bc := BackgroundContext{Log: sugar, LogBuilder: builder, Stop: operation.stop}
 					handler(bc)
 				}()
 

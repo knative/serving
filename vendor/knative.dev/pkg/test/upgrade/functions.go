@@ -56,8 +56,9 @@ func NewBackgroundVerification(name string, setup func(c Context), verify func(c
 			Name: name,
 			OnStop: func(event StopEvent) {
 				verify(Context{
-					T:   event.T,
-					Log: bc.Log,
+					T:          event.T,
+					Log:        bc.Log,
+					LogBuilder: bc.LogBuilder,
 				})
 			},
 			OnWait:   DefaultOnWait,
@@ -110,6 +111,9 @@ func handleStopEvent(
 	bc.Log.Infof("%s have received a stop event: %s", wc.Name, se.Name())
 	defer close(se.Finished)
 	wc.OnStop(se)
+	if se.T.Failed() {
+		se.T.Log(bc.LogBuilder.String())
+	}
 }
 
 func enrichSuite(s *Suite) *enrichedSuite {
