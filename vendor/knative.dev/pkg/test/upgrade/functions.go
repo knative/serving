@@ -17,6 +17,10 @@ limitations under the License.
 package upgrade
 
 import (
+	"bytes"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -56,9 +60,9 @@ func NewBackgroundVerification(name string, setup func(c Context), verify func(c
 			Name: name,
 			OnStop: func(event StopEvent) {
 				verify(Context{
-					T:          event.T,
-					Log:        bc.Log,
-					LogBuilder: bc.LogBuffer,
+					T:         event.T,
+					Log:       bc.Log,
+					LogBuffer: bc.LogBuffer,
 				})
 			},
 			OnWait:   DefaultOnWait,
@@ -163,4 +167,18 @@ func (s *simpleBackgroundOperation) Setup() func(c Context) {
 // issues to testing.T forwarded in StepEvent.
 func (s *simpleBackgroundOperation) Handler() func(bc BackgroundContext) {
 	return s.handler
+}
+
+func newLoggerBuffer() (*zap.SugaredLogger, *ThreadSafeBuffer) {
+	buf := &ThreadSafeBuffer{
+		Buffer: bytes.Buffer{},
+		Mutex:  sync.Mutex{},
+		Syncer: zaptest.Syncer{},
+	}
+	core := zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+		zapcore.AddSync(buf),
+		zap.DebugLevel,
+	)
+	return zap.New(core).Sugar(), buf
 }

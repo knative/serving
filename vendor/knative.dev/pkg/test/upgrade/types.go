@@ -17,7 +17,9 @@ limitations under the License.
 package upgrade
 
 import (
-	"strings"
+	"bytes"
+	"go.uber.org/zap/zaptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -77,9 +79,9 @@ type BackgroundOperation interface {
 // Context is an object that is passed to every operation. It contains testing.T
 // for error reporting and zap.SugaredLogger for unbuffered logging.
 type Context struct {
-	T          *testing.T
-	Log        *zap.SugaredLogger
-	LogBuilder strings.Builder
+	T         *testing.T
+	Log       *zap.SugaredLogger
+	LogBuffer *ThreadSafeBuffer
 }
 
 // BackgroundContext is a upgrade test execution context that will be passed
@@ -89,7 +91,7 @@ type Context struct {
 // necessary.
 type BackgroundContext struct {
 	Log       *zap.SugaredLogger
-	LogBuffer strings.Builder
+	LogBuffer *ThreadSafeBuffer
 	Stop      <-chan StopEvent
 }
 
@@ -123,4 +125,29 @@ type Configuration struct {
 // SuiteExecutor is to execute upgrade test suite.
 type SuiteExecutor interface {
 	Execute(c Configuration)
+}
+
+// To avoid race condition on zaptest.Buffer, see: https://stackoverflow.com/a/36226525/844449
+type ThreadSafeBuffer struct {
+	bytes.Buffer
+	sync.Mutex
+	zaptest.Syncer
+}
+
+func (b *ThreadSafeBuffer) Read(p []byte) (n int, err error) {
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
+	return b.Buffer.Read(p)
+}
+
+func (b *ThreadSafeBuffer) Write(p []byte) (n int, err error) {
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
+	return b.Buffer.Write(p)
+}
+
+func (b *ThreadSafeBuffer) String() string {
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
+	return b.Buffer.String()
 }
