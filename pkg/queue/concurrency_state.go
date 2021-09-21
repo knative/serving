@@ -84,7 +84,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 		logger.Info("Requests increased from zero")
 		if err := resume(); err != nil {
 			logger.Errorf("Error handling resume request: %v", err)
-			panic(err)
+			os.Exit(1)
 		}
 		paused = false
 		logger.Debug("From-Zero request successfully processed")
@@ -94,8 +94,8 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	}
 }
 
-// ConcurrencyState Request sends to the concurrency state endpoint
-func ConcurrencyStateRequest(endpoint string, action ConcurrencyStateMessageBody) (func() error, error) {
+// ConcurrencyState Request sends a request to the concurrency state endpoint.
+func ConcurrencyStateRequest(endpoint string, action ConcurrencyStateMessage) (func() error, error) {
 	bodyText, err := json.Marshal(action)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create message body: %w", err)
@@ -118,6 +118,6 @@ func ConcurrencyStateRequest(endpoint string, action ConcurrencyStateMessageBody
 	}, nil
 }
 
-type ConcurrencyStateMessageBody struct {
+type ConcurrencyStateMessage struct {
 	Action string `json:"action"`
 }

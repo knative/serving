@@ -151,7 +151,7 @@ func TestConcurrencyStateRequestHeader(t *testing.T) {
 			}
 		}
 	}))
-	pause, err := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessageBody{Action: "test"})
+	pause, err := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessage{Action: "test"})
 	if err != nil {
 		t.Errorf("unable to create pause function: %s", err)
 	}
@@ -163,7 +163,7 @@ func TestConcurrencyStateRequestHeader(t *testing.T) {
 func TestConcurrencyStateRequestRequest(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		var m ConcurrencyStateMessageBody
+		var m ConcurrencyStateMessage
 		err := json.NewDecoder(r.Body).Decode(&m)
 		if err != nil {
 			t.Errorf("unable to parse message body: %s", err)
@@ -173,7 +173,7 @@ func TestConcurrencyStateRequestRequest(t *testing.T) {
 		}
 	}))
 
-	pause, err := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessageBody{Action: "test"})
+	pause, err := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessage{Action: "test"})
 	if err != nil {
 		t.Errorf("unable to create pause function: %s", err)
 	}
@@ -188,7 +188,7 @@ func TestConcurrencyStateRequestResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	pause, err := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessageBody{Action: "test"})
+	pause, err := ConcurrencyStateRequest(ts.URL, ConcurrencyStateMessage{Action: "test"})
 	if err != nil {
 		t.Errorf("unable to create pause function: %s", err)
 	}
