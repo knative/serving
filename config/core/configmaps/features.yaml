@@ -106,6 +106,12 @@ data:
     # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-priority-class-name
     kubernetes.podspec-priorityclassname: "disabled"
 
+    # Indicates whether Kubernetes SchedulerName support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-scheduler-name
+    kubernetes.podspec-schedulername: "disabled"
+
     # This feature flag allows end-users to add a subset of capabilities on the Pod's SecurityContext.
     #
     # When set to "enabled" or "allowed" it allows capabilities to be added to the container.
