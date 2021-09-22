@@ -17,7 +17,10 @@ limitations under the License.
 package queue
 
 import (
+	"bytes"
+	"fmt"
 	"net/http"
+	"os"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -32,16 +35,7 @@ const ConcurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
 // runs the `resume` function. If either of `pause` or `resume` are not passed, it runs
 // the respective local function(s). The local functions are the expected behavior; the
 // function parameters are enabled primarily for testing purposes.
-func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func()) http.HandlerFunc {
-	logger.Info("Concurrency state tracking enabled")
-
-	if pause == nil {
-		pause = func() {}
-	}
-
-	if resume == nil {
-		resume = func() {}
-	}
+func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func() error) http.HandlerFunc {
 
 	var (
 		inFlight = atomic.NewInt64(0)
@@ -57,8 +51,13 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 				// We need to doublecheck this since another request can have reached the
 				// handler meanwhile. We don't want to do anything in that case.
 				if !paused && inFlight.Load() == 0 {
-					pause()
+					logger.Info("Requests dropped to zero")
+					if err := pause(); err != nil {
+						logger.Errorf("Error handling resume request: %v", err)
+						os.Exit(1)
+					}
 					paused = true
+					logger.Debug("To-Zero request successfully processed")
 				}
 			}
 		}()
@@ -81,10 +80,46 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 			return
 		}
 
-		resume()
+		logger.Info("Requests increased from zero")
+		if err := resume(); err != nil {
+			logger.Errorf("Error handling resume request: %v", err)
+			os.Exit(1)
+		}
 		paused = false
+		logger.Debug("From-Zero request successfully processed")
 		mux.Unlock()
 
 		h.ServeHTTP(w, r)
 	}
+}
+
+// concurrencyStateRequest sends a request to the concurrency state endpoint.
+func concurrencyStateRequest(endpoint string, action string) func() error {
+	return func() error {
+		bodyText := fmt.Sprintf(`{ "action": %q }`, action)
+		body := bytes.NewBufferString(bodyText)
+		req, err := http.NewRequest(http.MethodPost, endpoint, body)
+		if err != nil {
+			return fmt.Errorf("unable to create request: %w", err)
+		}
+		req.Header.Add("Token", "nil") // TODO: use serviceaccountToken from projected volume
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("unable to post request: %w", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
+		}
+		return nil
+	}
+}
+
+// Pause sends a pause request to the concurrency state endpoint.
+func Pause(endpoint string) func() error {
+	return concurrencyStateRequest(endpoint, "pause")
+}
+
+// Resume sends a resume request to the concurrency state endpoint.
+func Resume(endpoint string) func() error {
+	return concurrencyStateRequest(endpoint, "resume")
 }
