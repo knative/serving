@@ -210,6 +210,9 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	if cfg.Features.PodSpecPriorityClassName != config.Disabled {
 		out.PriorityClassName = in.PriorityClassName
 	}
+	if cfg.Features.PodSpecSchedulerName != config.Disabled {
+		out.SchedulerName = in.SchedulerName
+	}
 
 	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
@@ -225,7 +228,6 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.ShareProcessNamespace = nil
 	out.Hostname = ""
 	out.Subdomain = ""
-	out.SchedulerName = ""
 	out.Priority = nil
 	out.DNSConfig = nil
 	out.ReadinessGates = nil

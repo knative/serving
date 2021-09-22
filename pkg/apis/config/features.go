@@ -50,6 +50,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecRuntimeClassName:      Disabled,
 		PodSpecSecurityContext:       Disabled,
 		PodSpecPriorityClassName:     Disabled,
+		PodSpecSchedulerName:         Disabled,
 		ContainerSpecAddCapabilities: Disabled,
 		PodSpecTolerations:           Disabled,
 		PodSpecVolumesEmptyDir:       Disabled,
@@ -72,6 +73,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-runtimeclassname", &nc.PodSpecRuntimeClassName),
 		asFlag("kubernetes.podspec-securitycontext", &nc.PodSpecSecurityContext),
 		asFlag("kubernetes.podspec-priorityclassname", &nc.PodSpecPriorityClassName),
+		asFlag("kubernetes.podspec-schedulername", &nc.PodSpecSchedulerName),
 		asFlag("kubernetes.containerspec-addcapabilities", &nc.ContainerSpecAddCapabilities),
 		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
 		asFlag("kubernetes.podspec-volumes-emptydir", &nc.PodSpecVolumesEmptyDir),
@@ -98,6 +100,7 @@ type Features struct {
 	PodSpecRuntimeClassName      Flag
 	PodSpecSecurityContext       Flag
 	PodSpecPriorityClassName     Flag
+	PodSpecSchedulerName         Flag
 	ContainerSpecAddCapabilities Flag
 	PodSpecTolerations           Flag
 	PodSpecVolumesEmptyDir       Flag
