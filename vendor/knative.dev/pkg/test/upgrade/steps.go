@@ -17,6 +17,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"go.uber.org/zap"
 	"testing"
 )
 
@@ -64,19 +65,18 @@ func (se *suiteExecution) startContinualTests(num int) {
 				}
 				setup := operation.Setup()
 
-				logger, buffer := NewInMemoryLoggerBuffer()
+				logger, buffer := NewInMemoryLoggerBuffer(zap.AddCaller(), zap.Development())
 				t.Run("Setup"+operation.Name(), func(t *testing.T) {
-					setup(Context{T: t, Log: logger})
+					setup(Context{T: t, Log: logger.Sugar()})
 				})
 				handler := operation.Handler()
 				go func() {
-					bc := BackgroundContext{Log: logger, LogBuffer: buffer, Stop: operation.stop}
+					bc := BackgroundContext{Log: logger.Sugar(), logBuffer: buffer, Stop: operation.stop}
 					handler(bc)
 				}()
-
+				t.Log(wrapLogs(buffer))
 				se.failed = se.failed || t.Failed()
 				if se.failed {
-					t.Log(buffer)
 					return
 				}
 			}
