@@ -566,7 +566,8 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 
 	// Don't allow userPort to conflict with knative system reserved ports
 	if reservedPorts.Has(userPort.ContainerPort) {
-		errs = errs.Also(apis.ErrInvalidValue(userPort.ContainerPort, "containerPort"))
+		errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%d is a reserved port", userPort.ContainerPort), "containerPort",
+			fmt.Sprintf("%d is a reserved port, please use a different value", userPort.ContainerPort)))
 	}
 
 	if userPort.ContainerPort < 0 || userPort.ContainerPort > 65535 {
