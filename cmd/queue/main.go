@@ -162,11 +162,13 @@ func main() {
 		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection).ProbeContainer
 	}
 
-	healthState := health.NewState()
-	mainServer := buildServer(ctx, env, healthState, probe, stats, logger)
+	drainer := &pkghandler.Drainer{
+		QuietPeriod: drainSleepDuration,
+	}
+	mainServer := buildServer(ctx, env, drainer, probe, stats, logger)
 	servers := map[string]*http.Server{
 		"main":    mainServer,
-		"admin":   buildAdminServer(logger, healthState),
+		"admin":   buildAdminServer(logger, drainer),
 		"metrics": buildMetricsServer(promStatReporter, protoStatReporter),
 	}
 	if env.EnableProfiling {
@@ -225,19 +227,11 @@ func main() {
 		os.Exit(1)
 	case <-ctx.Done():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
-		healthState.Shutdown(func() {
-			logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
-			time.Sleep(drainSleepDuration)
+		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
+		drainer.Drain()
 
-			// Calling server.Shutdown() allows pending requests to
-			// complete, while no new work is accepted.
-			logger.Info("Shutting down main server")
-			if err := mainServer.Shutdown(context.Background()); err != nil {
-				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
-			}
-			// Removing the main server from the shutdown logic as we've already shut it down.
-			delete(servers, "main")
-		})
+		// Removing the main server from the shutdown logic as we've already shut it down.
+		delete(servers, "main")
 
 		for serverName, srv := range servers {
 			logger.Info("Shutting down server: ", serverName)
@@ -260,7 +254,7 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(ctx context.Context, env config, healthState *health.State, probeContainer func() bool, stats *network.RequestStats,
+func buildServer(ctx context.Context, env config, drainer *pkghandler.Drainer, probeContainer func() bool, stats *network.RequestStats,
 	logger *zap.SugaredLogger) *http.Server {
 
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
@@ -316,7 +310,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, pro
 		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	}
 
-	composedHandler = health.ProbeHandler(healthState, probeContainer, tracingEnabled, composedHandler)
+	composedHandler = health.ProbeHandler(probeContainer, tracingEnabled, composedHandler)
 	composedHandler = network.NewProbeHandler(composedHandler)
 	// We might sometimes want to capture the probes/healthchecks in the request
 	// logs. Hence we need to have RequestLogHandler to be the first one.
@@ -324,7 +318,10 @@ func buildServer(ctx context.Context, env config, healthState *health.State, pro
 		composedHandler = requestLogHandler(logger, composedHandler, env)
 	}
 
-	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler)
+	drainer.Inner = composedHandler
+	drainer.HealthCheck = composedHandler.ServeHTTP
+
+	return pkgnet.NewServer(":"+env.QueueServingPort, drainer)
 }
 
 func buildTransport(env config, logger *zap.SugaredLogger, maxConns int) http.RoundTripper {
@@ -380,12 +377,11 @@ func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config)
 	return true
 }
 
-func buildAdminServer(logger *zap.SugaredLogger, healthState *health.State) *http.Server {
+func buildAdminServer(logger *zap.SugaredLogger, drainer *pkghandler.Drainer) *http.Server {
 	adminMux := http.NewServeMux()
-	drainHandler := healthState.DrainHandlerFunc()
 	adminMux.HandleFunc(queue.RequestQueueDrainPath, func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Attached drain handler from user-container")
-		drainHandler(w, r)
+		drainer.Drain()
 	})
 
 	return &http.Server{

@@ -105,7 +105,6 @@ func TestQueueTraceSpans(t *testing.T) {
 		enableTrace:   false,
 	}}
 
-	healthState := &health.State{}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create tracer with reporter recorder
@@ -149,7 +148,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				h := queue.ProxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
-				h := health.ProbeHandler(healthState, tc.prober, true /*tracingEnabled*/, nil)
+				h := health.ProbeHandler(tc.prober, true /*tracingEnabled*/, nil)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}
