@@ -113,10 +113,7 @@ func handleStopEvent(
 	bc.Log.Infof("%s have received a stop event: %s", wc.Name, se.Name())
 	defer close(se.Finished)
 	wc.OnStop(se)
-	// In the event of failure, write the logs into the test output.
-	if se.T.Failed() {
-		se.T.Log(bc.LogBuffer)
-	}
+	se.T.Log(bc.LogBuffer)
 }
 
 func enrichSuite(s *Suite) *enrichedSuite {
