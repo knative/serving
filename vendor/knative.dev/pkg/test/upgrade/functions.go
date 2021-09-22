@@ -195,5 +195,5 @@ func NewInMemoryLoggerBuffer(options ...zap.Option) (*zap.Logger, *threadSafeBuf
 }
 
 func wrapLogs(stringer fmt.Stringer) string {
-	return fmt.Sprintf("=== Background Log Start ===\n%s\n=== Background Log End ===", stringer)
+	return fmt.Sprintf("\n=== Background Log Start ===\n%s\n=== Background Log End ===", stringer)
 }
