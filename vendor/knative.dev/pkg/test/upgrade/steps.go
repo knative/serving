@@ -64,7 +64,7 @@ func (se *suiteExecution) startContinualTests(num int) {
 				}
 				setup := operation.Setup()
 
-				logger, buffer := newLoggerBuffer()
+				logger, buffer := NewInMemoryLoggerBuffer()
 				t.Run("Setup"+operation.Name(), func(t *testing.T) {
 					setup(Context{T: t, Log: logger})
 				})

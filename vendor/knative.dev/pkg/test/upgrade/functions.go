@@ -19,7 +19,6 @@ package upgrade
 import (
 	"bytes"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest"
 	"sync"
 	"time"
 
@@ -60,9 +59,8 @@ func NewBackgroundVerification(name string, setup func(c Context), verify func(c
 			Name: name,
 			OnStop: func(event StopEvent) {
 				verify(Context{
-					T:         event.T,
-					Log:       bc.Log,
-					LogBuffer: bc.LogBuffer,
+					T:   event.T,
+					Log: bc.Log,
 				})
 			},
 			OnWait:   DefaultOnWait,
@@ -115,8 +113,9 @@ func handleStopEvent(
 	bc.Log.Infof("%s have received a stop event: %s", wc.Name, se.Name())
 	defer close(se.Finished)
 	wc.OnStop(se)
+	// In the event of failure, write the logs into the test output.
 	if se.T.Failed() {
-		se.T.Log(bc.LogBuffer.String())
+		se.T.Log(bc.LogBuffer)
 	}
 }
 
@@ -169,16 +168,38 @@ func (s *simpleBackgroundOperation) Handler() func(bc BackgroundContext) {
 	return s.handler
 }
 
-func newLoggerBuffer() (*zap.SugaredLogger, *ThreadSafeBuffer) {
-	buf := &ThreadSafeBuffer{
+func NewThreadSafeBuffer() *ThreadSafeBuffer {
+	return &ThreadSafeBuffer{
 		Buffer: bytes.Buffer{},
 		Mutex:  sync.Mutex{},
-		Syncer: zaptest.Syncer{},
 	}
+}
+
+func (b *ThreadSafeBuffer) Read(p []byte) (n int, err error) {
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
+	return b.Buffer.Read(p)
+}
+
+func (b *ThreadSafeBuffer) Write(p []byte) (n int, err error) {
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
+	return b.Buffer.Write(p)
+}
+
+func (b *ThreadSafeBuffer) String() string {
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
+	return b.Buffer.String()
+}
+
+// NewInMemoryLoggerBuffer creates a logger that writes logs into a byte buffer.
+// This byte buffer is returned and can be used to process the logs at later stage.
+func NewInMemoryLoggerBuffer() (*zap.SugaredLogger, *ThreadSafeBuffer) {
+	buf := NewThreadSafeBuffer()
 	core := zapcore.NewCore(
 		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
 		zapcore.AddSync(buf),
-		zap.DebugLevel,
-	)
-	return zap.New(core).Sugar(), buf
+		zap.DebugLevel)
+	return zap.New(core, zap.AddCaller(), zap.Development()).Sugar(), buf
 }

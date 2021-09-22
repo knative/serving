@@ -18,7 +18,6 @@ package upgrade
 
 import (
 	"bytes"
-	"go.uber.org/zap/zaptest"
 	"sync"
 	"testing"
 	"time"
@@ -79,16 +78,16 @@ type BackgroundOperation interface {
 // Context is an object that is passed to every operation. It contains testing.T
 // for error reporting and zap.SugaredLogger for unbuffered logging.
 type Context struct {
-	T         *testing.T
-	Log       *zap.SugaredLogger
-	LogBuffer *ThreadSafeBuffer
+	T   *testing.T
+	Log *zap.SugaredLogger
 }
 
 // BackgroundContext is a upgrade test execution context that will be passed
 // down to each handler of BackgroundOperation. It contains a StopEvent channel
 // which end user should use to obtain a testing.T for error reporting. Until
 // StopEvent is sent user may use zap.SugaredLogger to log state of execution if
-// necessary.
+// necessary. The logs are stored in a ThreadSafeBuffer and flushed to the test
+// output when the test fails.
 type BackgroundContext struct {
 	Log       *zap.SugaredLogger
 	LogBuffer *ThreadSafeBuffer
@@ -127,27 +126,9 @@ type SuiteExecutor interface {
 	Execute(c Configuration)
 }
 
-// To avoid race condition on zaptest.Buffer, see: https://stackoverflow.com/a/36226525/844449
+// ThreadSafeBuffer avoids race conditions on bytes.Buffer.
+// See: https://stackoverflow.com/a/36226525/844449
 type ThreadSafeBuffer struct {
 	bytes.Buffer
 	sync.Mutex
-	zaptest.Syncer
-}
-
-func (b *ThreadSafeBuffer) Read(p []byte) (n int, err error) {
-	b.Mutex.Lock()
-	defer b.Mutex.Unlock()
-	return b.Buffer.Read(p)
-}
-
-func (b *ThreadSafeBuffer) Write(p []byte) (n int, err error) {
-	b.Mutex.Lock()
-	defer b.Mutex.Unlock()
-	return b.Buffer.Write(p)
-}
-
-func (b *ThreadSafeBuffer) String() string {
-	b.Mutex.Lock()
-	defer b.Mutex.Unlock()
-	return b.Buffer.String()
 }
