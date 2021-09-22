@@ -1048,8 +1048,8 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 8022,
 			}},
 		},
-		want: apis.ErrInvalidValue(8022, "ports.containerPort",
-			"8022 is a reserved port, please use a different value."),
+		want: apis.ErrInvalidValue("8022 is a reserved port", "ports.containerPort",
+			"8022 is a reserved port, please use a different value"),
 	}, {
 		name: "port conflicts with profiling port",
 		c: corev1.Container{
@@ -1058,8 +1058,8 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 8008,
 			}},
 		},
-		want: apis.ErrInvalidValue(8008, "ports.containerPort",
-			"8008 is a reserved port, please use a different value."),
+		want: apis.ErrInvalidValue("8008 is a reserved port", "ports.containerPort",
+			"8008 is a reserved port, please use a different value"),
 	}, {
 		name: "port conflicts with queue proxy",
 		c: corev1.Container{
@@ -1068,8 +1068,8 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 8013,
 			}},
 		},
-		want: apis.ErrInvalidValue(8013, "ports.containerPort",
-			"8013 is a reserved port, please use a different value."),
+		want: apis.ErrInvalidValue("8013 is a reserved port", "ports.containerPort",
+			"8013 is a reserved port, please use a different value"),
 	}, {
 		name: "port conflicts with queue proxy",
 		c: corev1.Container{
@@ -1078,8 +1078,8 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 8012,
 			}},
 		},
-		want: apis.ErrInvalidValue(8012, "ports.containerPort",
-			"8012 is a reserved port, please use a different value."),
+		want: apis.ErrInvalidValue("8012 is a reserved port", "ports.containerPort",
+			"8012 is a reserved port, please use a different value"),
 	}, {
 		name: "port conflicts with queue proxy metrics",
 		c: corev1.Container{
@@ -1088,8 +1088,8 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 9090,
 			}},
 		},
-		want: apis.ErrInvalidValue(9090, "ports.containerPort",
-			"9090 is a reserved port, please use a different value."),
+		want: apis.ErrInvalidValue("9090 is a reserved port", "ports.containerPort",
+			"9090 is a reserved port, please use a different value"),
 	}, {
 		name: "port conflicts with user queue proxy metrics for user",
 		c: corev1.Container{
@@ -1098,8 +1098,8 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 9091,
 			}},
 		},
-		want: apis.ErrInvalidValue(9091, "ports.containerPort",
-			"9091 is a reserved port, please use a different value."),
+		want: apis.ErrInvalidValue("9091 is a reserved port", "ports.containerPort",
+			"9091 is a reserved port, please use a different value"),
 	}, {
 		name: "has invalid port name",
 		c: corev1.Container{
