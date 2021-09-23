@@ -18,7 +18,6 @@ package queue
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -39,8 +38,8 @@ func TestConcurrencyStateHandler(t *testing.T) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {}
 	logger := ltesting.TestLogger(t)
-	tokenFile := createTempTokenFile(logger)
-	defer os.Remove(tokenFile.Name())
+	tempDir := t.TempDir()
+	tokenFile := createTempTokenFile(logger, tempDir)
 	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func(*Token) error { paused.Inc(); return nil }, func(*Token) error { resumed.Inc(); return nil }, tokenFile.Name())
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
@@ -74,8 +73,8 @@ func TestConcurrencyStateHandlerParallelSubsumed(t *testing.T) {
 		}
 	}
 	logger := ltesting.TestLogger(t)
-	tokenFile := createTempTokenFile(logger)
-	defer os.Remove(tokenFile.Name())
+	tempDir := t.TempDir()
+	tokenFile := createTempTokenFile(logger, tempDir)
 	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func(*Token) error { paused.Inc(); return nil }, func(*Token) error { resumed.Inc(); return nil }, tokenFile.Name())
 
 	go func() {
@@ -116,8 +115,8 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 		}
 	}
 	logger := ltesting.TestLogger(t)
-	tokenFile := createTempTokenFile(logger)
-	defer os.Remove(tokenFile.Name())
+	tempDir := t.TempDir()
+	tokenFile := createTempTokenFile(logger, tempDir)
 	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func(*Token) error { paused.Inc(); return nil }, func(*Token) error { resumed.Inc(); return nil }, tokenFile.Name())
 
 	go func() {
@@ -264,8 +263,8 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
 
-	tokenFile := createTempTokenFile(logger)
-	defer os.Remove(tokenFile.Name())
+	tempDir := b.TempDir()
+	tokenFile := createTempTokenFile(logger, tempDir)
 
 	tests := []struct {
 		label        string
@@ -325,12 +324,8 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 }
 
 // createTempTokenFile creates a temporary file with the text "0123456789" for simulating a serviceAccountToken
-// Note that it does NOT delete the temp file, this must be called separately, for example:
-//
-// tempFile := createTempTokenFile(logger)
-// defer os.Remove(tempFile.Name())
-func createTempTokenFile(logger *zap.SugaredLogger) *os.File {
-	tokenFile, err := ioutil.TempFile("", "secret")
+func createTempTokenFile(logger *zap.SugaredLogger, dir string) *os.File {
+	tokenFile, err := os.CreateTemp(dir, "secret")
 	if err != nil {
 		logger.Fatal(err)
 	}
