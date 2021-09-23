@@ -98,6 +98,16 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
+      - id: golangci_configuration
+        uses: andstor/file-existence-action@v1
+        with:
+          files: .golangci.yaml
+      - name: Go Lint
+        if: steps.golangci_configuration.outputs.files_exists == 'true'
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: v1.42
+
       - name: Install Tools
         env:
           WOKE_VERSION: v0.13.0
@@ -110,7 +120,7 @@ jobs:
           echo '::endgroup::'
 
           echo '::group:: Installing misspell ... https://github.com/client9/misspell'
-          go get github.com/client9/misspell/cmd/misspell
+          curl -sfL https://raw.githubusercontent.com/client9/misspell/master/install-misspell.sh | sh -s -- -b "${TEMP_PATH}" 2>&1
           echo '::endgroup::'
 
           echo '::group:: Installing woke ... https://github.com/get-woke/woke'
@@ -118,16 +128,6 @@ jobs:
           echo '::endgroup::'
 
           echo "${TEMP_PATH}" >> $GITHUB_PATH
-
-      - id: golangci_configuration
-        uses: andstor/file-existence-action@v1
-        with:
-          files: .golangci.yaml
-      - name: Go Lint
-        if: steps.golangci_configuration.outputs.files_exists == 'true'
-        uses: golangci/golangci-lint-action@v2
-        with:
-          version: v1.42
 
       - name: misspell
         shell: bash

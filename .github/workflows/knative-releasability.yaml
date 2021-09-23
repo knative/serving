@@ -36,8 +36,8 @@ jobs:
     env:
       #########################################
       #   Update this section each release.   #
-      RELEASE: 'v0.25'
-      SLACK_CHANNEL: 'release-25'
+      RELEASE: 'v0.26'
+      SLACK_CHANNEL: 'release-26'
       #########################################
 
     steps:
