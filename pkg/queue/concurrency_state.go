@@ -19,7 +19,6 @@ package queue
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"sync"
@@ -159,7 +158,7 @@ func (t *Token) Get() string {
 }
 
 func refreshToken(tokenCfg *Token, tokenMountPath string) error {
-	token, err := ioutil.ReadFile(tokenMountPath)
+	token, err := os.ReadFile(tokenMountPath)
 	if err != nil {
 		return fmt.Errorf("could not read token: %w", err)
 	}
