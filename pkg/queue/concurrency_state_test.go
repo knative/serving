@@ -18,6 +18,7 @@ package queue
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -142,6 +143,32 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 	}
 }
 
+func TestConcurrencyStateTokenRefresh(t *testing.T) {
+
+	oldTokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(oldTokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewConcurrencyEndpoint("freeze-proxy", oldTokenPath)
+	oldToken := fmt.Sprint(c.token.Load())
+	if oldToken != "0123456789" {
+		t.Errorf("token not set properly, expected '0123456789', got %s", oldToken)
+	}
+
+	newTokenPath := filepath.Join(t.TempDir(), "refreshed-secret")
+	if err := os.WriteFile(newTokenPath, []byte("abcdefghijklmnop"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c.MountPath = newTokenPath
+	c.RefreshToken()
+	newToken := fmt.Sprint(c.token.Load())
+	if newToken != "abcdefghijklmnop" {
+		t.Errorf("token did not refresh, expected 'abcdefghijklmnop', got %s", newToken)
+	}
+
+}
+
 func TestConcurrencyStatePauseHeader(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for k, v := range r.Header {
@@ -157,9 +184,9 @@ func TestConcurrencyStatePauseHeader(t *testing.T) {
 	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	c := NewConcurrencyEndpoint(ts.URL, tokenPath, "0123456789")
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
 	if err := c.Pause(); err != nil {
-		t.Errorf("resume header check returned an error: %s", err)
+		t.Errorf("pause header check returned an error: %s", err)
 	}
 }
 
@@ -180,7 +207,7 @@ func TestConcurrencyStatePauseRequest(t *testing.T) {
 	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	c := NewConcurrencyEndpoint(ts.URL, tokenPath, "0123456789")
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
 	if err := c.Pause(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
@@ -196,7 +223,7 @@ func TestConcurrencyStatePauseResponse(t *testing.T) {
 	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	c := NewConcurrencyEndpoint(ts.URL, tokenPath, "0123456789")
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
 	if err := c.Pause(); err == nil {
 		t.Errorf("pausefunction did not return an error")
 	}
@@ -217,7 +244,7 @@ func TestConcurrencyStateResumeHeader(t *testing.T) {
 	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	c := NewConcurrencyEndpoint(ts.URL, tokenPath, "0123456789")
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
 	if err := c.Resume(); err != nil {
 		t.Errorf("resume header check returned an error: %s", err)
 	}
@@ -240,7 +267,7 @@ func TestConcurrencyStateResumeRequest(t *testing.T) {
 	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	c := NewConcurrencyEndpoint(ts.URL, tokenPath, "0123456789")
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
 	if err := c.Resume(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
@@ -256,7 +283,7 @@ func TestConcurrencyStateResumeResponse(t *testing.T) {
 	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	c := NewConcurrencyEndpoint(ts.URL, tokenPath, "0123456789")
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
 	if err := c.Resume(); err == nil {
 		t.Errorf("resume function did not return an error")
 	}

@@ -124,7 +124,7 @@ func (c ConcurrencyEndpoint) Request(action string) error {
 	return nil
 }
 
-func (c ConcurrencyEndpoint) RefreshToken() error {
+func (c *ConcurrencyEndpoint) RefreshToken() error {
 	token, err := os.ReadFile(c.MountPath)
 	if err != nil {
 		return fmt.Errorf("could not read token: %w", err)
@@ -133,11 +133,11 @@ func (c ConcurrencyEndpoint) RefreshToken() error {
 	return nil
 }
 
-func NewConcurrencyEndpoint(e, m, t string) ConcurrencyEndpoint {
+func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
 	c := ConcurrencyEndpoint{
 		Endpoint:  e,
 		MountPath: m,
 	}
-	c.token.Store(t)
+	c.RefreshToken()
 	return c
 }
