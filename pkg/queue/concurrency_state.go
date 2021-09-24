@@ -112,9 +112,7 @@ func (c ConcurrencyEndpoint) Request(action string) error {
 	if err != nil {
 		return fmt.Errorf("unable to create request: %w", err)
 	}
-	c.RefreshToken()
 	token := fmt.Sprint(c.token.Load())
-	//	fmt.Println(c.token.Load())
 	req.Header.Add("Token", token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -133,4 +131,13 @@ func (c ConcurrencyEndpoint) RefreshToken() error {
 	}
 	c.token.Store(string(token))
 	return nil
+}
+
+func NewConcurrencyEndpoint(e, m, t string) ConcurrencyEndpoint {
+	c := ConcurrencyEndpoint{
+		Endpoint:  e,
+		MountPath: m,
+	}
+	c.token.Store(t)
+	return c
 }

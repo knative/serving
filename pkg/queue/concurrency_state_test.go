@@ -21,11 +21,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 	pkglogging "knative.dev/pkg/logging"
 	ltesting "knative.dev/pkg/logging/testing"
 
@@ -153,11 +153,11 @@ func TestConcurrencyStatePauseHeader(t *testing.T) {
 		}
 	}))
 
-	logger := ltesting.TestLogger(t)
-	tempDir := t.TempDir()
-	tokenFile := createTempTokenFile(logger, tempDir)
-
-	c := createConcurrencyEndpoint(ts.URL, tokenFile.Name(), "0123456789")
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath, "0123456789")
 	if err := c.Pause(); err != nil {
 		t.Errorf("resume header check returned an error: %s", err)
 	}
@@ -176,11 +176,11 @@ func TestConcurrencyStatePauseRequest(t *testing.T) {
 		}
 	}))
 
-	logger := ltesting.TestLogger(t)
-	tempDir := t.TempDir()
-	tokenFile := createTempTokenFile(logger, tempDir)
-
-	c := createConcurrencyEndpoint(ts.URL, tokenFile.Name(), "0123456789")
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath, "0123456789")
 	if err := c.Pause(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
@@ -192,11 +192,11 @@ func TestConcurrencyStatePauseResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	logger := ltesting.TestLogger(t)
-	tempDir := t.TempDir()
-	tokenFile := createTempTokenFile(logger, tempDir)
-
-	c := createConcurrencyEndpoint(ts.URL, tokenFile.Name(), "0123456789")
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath, "0123456789")
 	if err := c.Pause(); err == nil {
 		t.Errorf("pausefunction did not return an error")
 	}
@@ -213,11 +213,11 @@ func TestConcurrencyStateResumeHeader(t *testing.T) {
 		}
 	}))
 
-	logger := ltesting.TestLogger(t)
-	tempDir := t.TempDir()
-	tokenFile := createTempTokenFile(logger, tempDir)
-
-	c := createConcurrencyEndpoint(ts.URL, tokenFile.Name(), "0123456789")
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath, "0123456789")
 	if err := c.Resume(); err != nil {
 		t.Errorf("resume header check returned an error: %s", err)
 	}
@@ -236,12 +236,11 @@ func TestConcurrencyStateResumeRequest(t *testing.T) {
 		}
 	}))
 
-	logger := ltesting.TestLogger(t)
-	tempDir := t.TempDir()
-	tokenFile := createTempTokenFile(logger, tempDir)
-
-	c := createConcurrencyEndpoint(ts.URL, tokenFile.Name(), "0123456789")
-
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath, "0123456789")
 	if err := c.Resume(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
@@ -253,12 +252,11 @@ func TestConcurrencyStateResumeResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	logger := ltesting.TestLogger(t)
-	tempDir := t.TempDir()
-	tokenFile := createTempTokenFile(logger, tempDir)
-
-	c := createConcurrencyEndpoint(ts.URL, tokenFile.Name(), "0123456789")
-
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath, "0123456789")
 	if err := c.Resume(); err == nil {
 		t.Errorf("resume function did not return an error")
 	}
@@ -334,28 +332,4 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 
 		reportTicker.Stop()
 	}
-}
-
-// createTempTokenFile creates a temporary file with the text "0123456789" for simulating a serviceAccountToken
-func createTempTokenFile(logger *zap.SugaredLogger, dir string) *os.File {
-	tokenFile, err := os.CreateTemp(dir, "secret")
-	if err != nil {
-		logger.Fatal(err)
-	}
-	if _, err := tokenFile.Write([]byte("0123456789")); err != nil {
-		logger.Fatal(err)
-	}
-	if err := tokenFile.Close(); err != nil {
-		logger.Fatal(err)
-	}
-	return tokenFile
-}
-
-func createConcurrencyEndpoint(e, m, t string) ConcurrencyEndpoint {
-	c := ConcurrencyEndpoint{
-		Endpoint:  e,
-		MountPath: m,
-	}
-	c.token.Store(t)
-	return c
 }
