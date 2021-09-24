@@ -114,6 +114,7 @@ func (c ConcurrencyEndpoint) Request(action string) error {
 	}
 	c.RefreshToken()
 	token := fmt.Sprint(c.token.Load())
+	//	fmt.Println(c.token.Load())
 	req.Header.Add("Token", token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -130,6 +131,6 @@ func (c ConcurrencyEndpoint) RefreshToken() error {
 	if err != nil {
 		return fmt.Errorf("could not read token: %w", err)
 	}
-	c.token.Store(token)
+	c.token.Store(string(token))
 	return nil
 }

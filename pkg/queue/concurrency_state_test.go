@@ -38,9 +38,7 @@ func TestConcurrencyStateHandler(t *testing.T) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {}
 	logger := ltesting.TestLogger(t)
-	tempDir := t.TempDir()
-	tokenFile := createTempTokenFile(logger, tempDir)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func(*Token) error { paused.Inc(); return nil }, func(*Token) error { resumed.Inc(); return nil }, tokenFile.Name())
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
 	if got, want := paused.Load(), int64(1); got != want {
@@ -73,9 +71,7 @@ func TestConcurrencyStateHandlerParallelSubsumed(t *testing.T) {
 		}
 	}
 	logger := ltesting.TestLogger(t)
-	tempDir := t.TempDir()
-	tokenFile := createTempTokenFile(logger, tempDir)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func(*Token) error { paused.Inc(); return nil }, func(*Token) error { resumed.Inc(); return nil }, tokenFile.Name())
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
 
 	go func() {
 		defer func() { req1 <- struct{}{} }()
@@ -115,9 +111,7 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 		}
 	}
 	logger := ltesting.TestLogger(t)
-	tempDir := t.TempDir()
-	tokenFile := createTempTokenFile(logger, tempDir)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func(*Token) error { paused.Inc(); return nil }, func(*Token) error { resumed.Inc(); return nil }, tokenFile.Name())
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
 
 	go func() {
 		defer func() { req1 <- struct{}{} }()
@@ -158,10 +152,14 @@ func TestConcurrencyStatePauseHeader(t *testing.T) {
 			}
 		}
 	}))
-	tempToken := createTempToken()
-	pause := Pause(ts.URL)
-	if err := pause(tempToken); err != nil {
-		t.Errorf("pause header check returned an error: %s", err)
+
+	logger := ltesting.TestLogger(t)
+	tempDir := t.TempDir()
+	tokenFile := createTempTokenFile(logger, tempDir)
+
+	c := createConcurrencyEndpoint(ts.URL, tokenFile.Name(), "0123456789")
+	if err := c.Pause(); err != nil {
+		t.Errorf("resume header check returned an error: %s", err)
 	}
 }
 
@@ -178,9 +176,12 @@ func TestConcurrencyStatePauseRequest(t *testing.T) {
 		}
 	}))
 
-	pause := Pause(ts.URL)
-	tempToken := createTempToken()
-	if err := pause(tempToken); err != nil {
+	logger := ltesting.TestLogger(t)
+	tempDir := t.TempDir()
+	tokenFile := createTempTokenFile(logger, tempDir)
+
+	c := createConcurrencyEndpoint(ts.URL, tokenFile.Name(), "0123456789")
+	if err := c.Pause(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
 }
@@ -191,9 +192,12 @@ func TestConcurrencyStatePauseResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	pause := Pause(ts.URL)
-	tempToken := createTempToken()
-	if err := pause(tempToken); err == nil {
+	logger := ltesting.TestLogger(t)
+	tempDir := t.TempDir()
+	tokenFile := createTempTokenFile(logger, tempDir)
+
+	c := createConcurrencyEndpoint(ts.URL, tokenFile.Name(), "0123456789")
+	if err := c.Pause(); err == nil {
 		t.Errorf("pausefunction did not return an error")
 	}
 }
@@ -208,9 +212,13 @@ func TestConcurrencyStateResumeHeader(t *testing.T) {
 			}
 		}
 	}))
-	tempToken := createTempToken()
-	resume := Resume(ts.URL)
-	if err := resume(tempToken); err != nil {
+
+	logger := ltesting.TestLogger(t)
+	tempDir := t.TempDir()
+	tokenFile := createTempTokenFile(logger, tempDir)
+
+	c := createConcurrencyEndpoint(ts.URL, tokenFile.Name(), "0123456789")
+	if err := c.Resume(); err != nil {
 		t.Errorf("resume header check returned an error: %s", err)
 	}
 }
@@ -228,9 +236,13 @@ func TestConcurrencyStateResumeRequest(t *testing.T) {
 		}
 	}))
 
-	resume := Resume(ts.URL)
-	tempToken := createTempToken()
-	if err := resume(tempToken); err != nil {
+	logger := ltesting.TestLogger(t)
+	tempDir := t.TempDir()
+	tokenFile := createTempTokenFile(logger, tempDir)
+
+	c := createConcurrencyEndpoint(ts.URL, tokenFile.Name(), "0123456789")
+
+	if err := c.Resume(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
 }
@@ -241,9 +253,13 @@ func TestConcurrencyStateResumeResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	resume := Resume(ts.URL)
-	tempToken := createTempToken()
-	if err := resume(tempToken); err == nil {
+	logger := ltesting.TestLogger(t)
+	tempDir := t.TempDir()
+	tokenFile := createTempTokenFile(logger, tempDir)
+
+	c := createConcurrencyEndpoint(ts.URL, tokenFile.Name(), "0123456789")
+
+	if err := c.Resume(); err == nil {
 		t.Errorf("resume function did not return an error")
 	}
 }
@@ -262,9 +278,6 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
-
-	tempDir := b.TempDir()
-	tokenFile := createTempTokenFile(logger, tempDir)
 
 	tests := []struct {
 		label        string
@@ -296,14 +309,14 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 				promStatReporter.Report(stats.Report(now))
 			}
 		}()
-		pause := func(*Token) error {
+		pause := func() error {
 			return nil
 		}
-		resume := func(*Token) error {
+		resume := func() error {
 			return nil
 		}
 
-		h := ConcurrencyStateHandler(logger, ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler), pause, resume, tokenFile.Name())
+		h := ConcurrencyStateHandler(logger, ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler), pause, resume)
 		b.Run("sequential-"+tc.label, func(b *testing.B) {
 			resp := httptest.NewRecorder()
 			for j := 0; j < b.N; j++ {
@@ -338,7 +351,11 @@ func createTempTokenFile(logger *zap.SugaredLogger, dir string) *os.File {
 	return tokenFile
 }
 
-func createTempToken() *Token {
-	token := Token{token: "0123456789"}
-	return &token
+func createConcurrencyEndpoint(e, m, t string) ConcurrencyEndpoint {
+	c := ConcurrencyEndpoint{
+		Endpoint:  e,
+		MountPath: m,
+	}
+	c.token.Store(t)
+	return c
 }
