@@ -118,6 +118,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 
 		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
 		cm.AsInt64("max-revision-timeout-seconds", &nc.MaxRevisionTimeoutSeconds),
+		cm.AsInt64("revision-idle-timeout-seconds", &nc.RevisionIdleTimeoutSeconds),
 		cm.AsInt64("container-concurrency", &nc.ContainerConcurrency),
 		cm.AsInt64("container-concurrency-max-limit", &nc.ContainerConcurrencyMaxLimit),
 
