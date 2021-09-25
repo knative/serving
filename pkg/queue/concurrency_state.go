@@ -104,7 +104,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler,
 	}
 }
 
-// concurrencyStateRequest handles different error code
+// handleStateRequestError handles different error code
 func handleStateRequestError(errCode int8, requestHandler, deleteFunc func() (int8, error)) {
 	if errCode == responseStatusConflictError {
 		// nothing should be done, just ignore
