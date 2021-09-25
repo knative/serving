@@ -18,8 +18,11 @@ package queue
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -36,7 +39,7 @@ func TestConcurrencyStateHandler(t *testing.T) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() (int8, error) { paused.Inc(); return noError, nil }, func() (int8, error) { resumed.Inc(); return noError, nil }, nil)
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
 	if got, want := paused.Load(), int64(1); got != want {
@@ -69,7 +72,7 @@ func TestConcurrencyStateHandlerParallelSubsumed(t *testing.T) {
 		}
 	}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() (int8, error) { paused.Inc(); return noError, nil }, func() (int8, error) { resumed.Inc(); return noError, nil }, nil)
 
 	go func() {
 		defer func() { req1 <- struct{}{} }()
@@ -109,7 +112,7 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 		}
 	}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() (int8, error) { paused.Inc(); return noError, nil }, func() (int8, error) { resumed.Inc(); return noError, nil }, nil)
 
 	go func() {
 		defer func() { req1 <- struct{}{} }()
@@ -152,7 +155,7 @@ func TestConcurrencyStateRequestHeader(t *testing.T) {
 		}
 	}))
 	pause := Pause(ts.URL)
-	if err := pause(); err != nil {
+	if _, err := pause(); err != nil {
 		t.Errorf("header check returned an error: %s", err)
 	}
 }
@@ -171,7 +174,7 @@ func TestConcurrencyStatePauseRequest(t *testing.T) {
 	}))
 
 	pause := Pause(ts.URL)
-	if err := pause(); err != nil {
+	if _, err := pause(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
 }
@@ -190,20 +193,136 @@ func TestConcurrencyStateResumeRequest(t *testing.T) {
 	}))
 
 	resume := Resume(ts.URL)
-	if err := resume(); err != nil {
+	if _, err := resume(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
 }
 
-func TestConcurrencyStateRequestResponse(t *testing.T) {
+func TestConcurrencyStateRequestBadResponse(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer ts.Close()
 
 	pause := Pause(ts.URL)
-	if err := pause(); err == nil {
+	if _, err := pause(); err == nil {
 		t.Errorf("failed function did not return an error")
+	}
+}
+
+func TestConcurrencyStateRequestStatusConflictResponse(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+	}))
+	defer ts.Close()
+
+	pause := Pause(ts.URL)
+	if _, err := pause(); err == nil {
+		t.Errorf("failed function did not return an error")
+	}
+}
+
+func TestConcurrencyStateStatusConflictErrorHandler(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	pause := Pause(ts.URL)
+	relaunchUserContainer := RelaunchUserContainer(ts.URL)
+	handleStateRequestError(responseStatusConflictError, pause, relaunchUserContainer)
+}
+
+func TestConcurrencyStateInternalErrorHandler(t *testing.T) {
+	if os.Getenv("TestConcurrencyStateErrorHandler") == "1" {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer ts.Close()
+
+		pause := Pause(ts.URL)
+		relaunchUserContainer := RelaunchUserContainer(ts.URL)
+		handleStateRequestError(internalError, pause, relaunchUserContainer)
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=TestConcurrencyStateInternalErrorHandler")
+	cmd.Env = append(cmd.Env, "TestConcurrencyStateErrorHandler=1")
+	err := cmd.Run()
+	if e, ok := err.(*exec.ExitError); ok && e.Success() {
+		t.Errorf("handleStateRequestError did not return an error")
+	}
+}
+
+func TestConcurrencyStateResponseExecErrorHandler(t *testing.T) {
+	reqCnt := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if reqCnt == 2 {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		reqCnt++
+	}))
+	defer ts.Close()
+
+	pause := Pause(ts.URL)
+	relaunchUserContainer := RelaunchUserContainer(ts.URL)
+	timeNow := time.Now()
+	handleStateRequestError(responseExecError, pause, relaunchUserContainer)
+	timeAfter := time.Now()
+	if timeAfter.Sub(timeNow) < (time.Millisecond * 200 * 2) || reqCnt != 3 {
+		t.Errorf("fail to retry correct times")
+	}
+}
+
+func TestConcurrencyStateDeletePodHandler(t *testing.T) {
+	type Operation struct {
+		Action string `json:"action"`
+	}
+	reqCnt := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		data, _ := io.ReadAll(r.Body)
+		var op Operation
+		_ = json.Unmarshal(data, &op)
+		if op.Action == "delete-pod" {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			reqCnt++
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}))
+	defer ts.Close()
+
+	pause := Pause(ts.URL)
+	relaunchUserContainer := RelaunchUserContainer(ts.URL)
+	timeNow := time.Now()
+	handleStateRequestError(responseExecError, pause, relaunchUserContainer)
+	timeAfter := time.Now()
+	if timeAfter.Sub(timeNow) < time.Millisecond * FreezeMaxRetryTimes * 200 || reqCnt != 3 {
+		t.Errorf("failed to delete pod")
+	}
+}
+
+func TestConcurrencyStateDeletePodManyTimesHandler(t *testing.T) {
+	type Operation struct {
+		Action string `json:"action"`
+	}
+	reqCnt := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		data, _ := io.ReadAll(r.Body)
+		var op Operation
+		_ = json.Unmarshal(data, &op)
+		if op.Action == "delete-pod" && reqCnt == 100 {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		reqCnt++
+	}))
+	defer ts.Close()
+
+	pause := Pause(ts.URL)
+	relaunchUserContainer := RelaunchUserContainer(ts.URL)
+	handleStateRequestError(responseExecError, pause, relaunchUserContainer)
+	if reqCnt != 101 {
+		t.Errorf("failed to try to delete pod again if execution failed")
 	}
 }
 
@@ -252,14 +371,14 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 				promStatReporter.Report(stats.Report(now))
 			}
 		}()
-		pause := func() error {
-			return nil
+		pause := func() (int8, error) {
+			return noError, nil
 		}
-		resume := func() error {
-			return nil
+		resume := func() (int8, error) {
+			return noError, nil
 		}
 
-		h := ConcurrencyStateHandler(logger, ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler), pause, resume)
+		h := ConcurrencyStateHandler(logger, ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler), pause, resume, nil)
 		b.Run("sequential-"+tc.label, func(b *testing.B) {
 			resp := httptest.NewRecorder()
 			for j := 0; j < b.N; j++ {

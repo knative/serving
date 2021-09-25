@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -29,13 +30,23 @@ import (
 
 //nolint:gosec // Filepath, not hardcoded credentials
 const ConcurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
+const FreezeMaxRetryTimes = 3 // If pause/resume failed 3 times, it should kill qp and delete user-container force
+
+// error code for pause/resume operation
+const (
+	noError                        = 0 // everything works
+	internalError                  = 1 // some internal errors happen, like json decode failed, should try again
+	responseStatusConflictError    = 2 // like request pause when the container is in pause state, should forget
+	responseExecError              = 3 // the command exec failed in runtime level, should try again
+)
 
 // ConcurrencyStateHandler tracks the in flight requests for the pod. When the requests
 // drop to zero, it runs the `pause` function, and when requests scale up from zero, it
 // runs the `resume` function. If either of `pause` or `resume` are not passed, it runs
 // the respective local function(s). The local functions are the expected behavior; the
 // function parameters are enabled primarily for testing purposes.
-func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func() error) http.HandlerFunc {
+func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler,
+	pause, resume, delete func() (int8, error)) http.HandlerFunc {
 
 	var (
 		inFlight = atomic.NewInt64(0)
@@ -52,9 +63,9 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 				// handler meanwhile. We don't want to do anything in that case.
 				if !paused && inFlight.Load() == 0 {
 					logger.Info("Requests dropped to zero")
-					if err := pause(); err != nil {
+					if errCode, err := pause(); errCode != noError {
 						logger.Errorf("Error handling resume request: %v", err)
-						os.Exit(1)
+						handleStateRequestError(errCode, pause, delete)
 					}
 					paused = true
 					logger.Debug("To-Zero request successfully processed")
@@ -81,9 +92,9 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 		}
 
 		logger.Info("Requests increased from zero")
-		if err := resume(); err != nil {
+		if errCode, err := resume(); errCode != noError {
 			logger.Errorf("Error handling resume request: %v", err)
-			os.Exit(1)
+			handleStateRequestError(errCode, resume, delete)
 		}
 		paused = false
 		logger.Debug("From-Zero request successfully processed")
@@ -93,33 +104,84 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	}
 }
 
+// concurrencyStateRequest handles different error code
+func handleStateRequestError(errCode int8, requestHandler, deleteFunc func() (int8, error)) {
+	if errCode == responseStatusConflictError {
+		// nothing should be done, just ignore
+	}
+	if errCode == internalError {
+		os.Exit(1)
+	}
+	if errCode == responseExecError {
+		failedTimes := 0
+		for failedTimes < FreezeMaxRetryTimes {
+			errCode, _ := requestHandler()
+			if errCode == responseExecError {
+				failedTimes++
+				time.Sleep(time.Millisecond * 200)
+			}
+			if errCode == internalError {
+				os.Exit(1)
+			}
+			if errCode == responseStatusConflictError || errCode == noError {
+				break
+			}
+		}
+		if failedTimes >= FreezeMaxRetryTimes {
+			// Relaunch this pod, the way is: the runtime will delete all containers of this pod
+			errCode, error := deleteFunc()
+			// if the QP is deleted, this will not be executed
+			for error != nil {
+				// the error code type here could be: internalError, responseExecError(failed to exec delete command)
+				if errCode == internalError {
+					os.Exit(1)
+				} else {
+					_, error = deleteFunc()
+				}
+			}
+		}
+	}
+}
+
 // concurrencyStateRequest sends a request to the concurrency state endpoint.
-func concurrencyStateRequest(endpoint string, action string) func() error {
-	return func() error {
+func concurrencyStateRequest(endpoint string, action string) func() (int8, error) {
+	return func() (int8, error) {
 		bodyText := fmt.Sprintf(`{ "action": %q }`, action)
 		body := bytes.NewBufferString(bodyText)
 		req, err := http.NewRequest(http.MethodPost, endpoint, body)
 		if err != nil {
-			return fmt.Errorf("unable to create request: %w", err)
+			return internalError, fmt.Errorf("unable to create request: %w", err)
 		}
 		req.Header.Add("Token", "nil") // TODO: use serviceaccountToken from projected volume
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return fmt.Errorf("unable to post request: %w", err)
+			return internalError, fmt.Errorf("unable to post request: %w", err)
+		}
+		if resp.StatusCode == http.StatusConflict {
+			if action == "pause" {
+				return responseStatusConflictError, fmt.Errorf("expected container status is in running state, but actually not")
+			} else {
+				return responseStatusConflictError, fmt.Errorf("expected container status is in paused state, but actually not")
+			}
 		}
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
+			return responseExecError, fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
 		}
-		return nil
+		return noError, nil
 	}
 }
 
 // Pause sends a pause request to the concurrency state endpoint.
-func Pause(endpoint string) func() error {
+func Pause(endpoint string) func() (int8, error) {
 	return concurrencyStateRequest(endpoint, "pause")
 }
 
 // Resume sends a resume request to the concurrency state endpoint.
-func Resume(endpoint string) func() error {
+func Resume(endpoint string) func() (int8, error) {
 	return concurrencyStateRequest(endpoint, "resume")
+}
+
+// RelaunchUserContainer send a force-delete request to the concurrency state endpoint.
+func RelaunchUserContainer(endpoint string) func() (int8, error) {
+	return concurrencyStateRequest(endpoint, "delete-pod")
 }
