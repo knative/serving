@@ -181,7 +181,7 @@ func Resume(endpoint string) func() (int8, error) {
 	return concurrencyStateRequest(endpoint, "resume")
 }
 
-// RelaunchUserContainer send a force-delete request to the concurrency state endpoint.
-func RelaunchUserContainer(endpoint string) func() (int8, error) {
+// RelaunchPod send a force-delete request to the concurrency state endpoint.
+func RelaunchPod(endpoint string) func() (int8, error) {
 	return concurrencyStateRequest(endpoint, "delete-pod")
 }

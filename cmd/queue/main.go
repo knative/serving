@@ -301,7 +301,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	if concurrencyStateEnabled {
 		logger.Info("Concurrency state endpoint set, tracking request counts, using endpoint: ", env.ConcurrencyStateEndpoint)
 		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler,
-			queue.Pause(env.ConcurrencyStateEndpoint), queue.Resume(env.ConcurrencyStateEndpoint), queue.RelaunchUserContainer(env.ConcurrencyStateEndpoint))
+			queue.Pause(env.ConcurrencyStateEndpoint), queue.Resume(env.ConcurrencyStateEndpoint), queue.RelaunchPod(env.ConcurrencyStateEndpoint))
 	}
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)

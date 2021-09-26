@@ -227,7 +227,7 @@ func TestConcurrencyStateStatusConflictErrorHandler(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	pause := Pause(ts.URL)
-	relaunchUserContainer := RelaunchUserContainer(ts.URL)
+	relaunchUserContainer := RelaunchPod(ts.URL)
 	handleStateRequestError(responseStatusConflictError, pause, relaunchUserContainer)
 }
 
@@ -239,7 +239,7 @@ func TestConcurrencyStateInternalErrorHandler(t *testing.T) {
 		defer ts.Close()
 
 		pause := Pause(ts.URL)
-		relaunchUserContainer := RelaunchUserContainer(ts.URL)
+		relaunchUserContainer := RelaunchPod(ts.URL)
 		handleStateRequestError(internalError, pause, relaunchUserContainer)
 	}
 	cmd := exec.Command(os.Args[0], "-test.run=TestConcurrencyStateInternalErrorHandler")
@@ -263,7 +263,7 @@ func TestConcurrencyStateResponseExecErrorHandler(t *testing.T) {
 	defer ts.Close()
 
 	pause := Pause(ts.URL)
-	relaunchUserContainer := RelaunchUserContainer(ts.URL)
+	relaunchUserContainer := RelaunchPod(ts.URL)
 	timeNow := time.Now()
 	handleStateRequestError(responseExecError, pause, relaunchUserContainer)
 	timeAfter := time.Now()
@@ -291,7 +291,7 @@ func TestConcurrencyStateDeletePodHandler(t *testing.T) {
 	defer ts.Close()
 
 	pause := Pause(ts.URL)
-	relaunchUserContainer := RelaunchUserContainer(ts.URL)
+	relaunchUserContainer := RelaunchPod(ts.URL)
 	timeNow := time.Now()
 	handleStateRequestError(responseExecError, pause, relaunchUserContainer)
 	timeAfter := time.Now()
@@ -319,7 +319,7 @@ func TestConcurrencyStateDeletePodManyTimesHandler(t *testing.T) {
 	defer ts.Close()
 
 	pause := Pause(ts.URL)
-	relaunchUserContainer := RelaunchUserContainer(ts.URL)
+	relaunchUserContainer := RelaunchPod(ts.URL)
 	handleStateRequestError(responseExecError, pause, relaunchUserContainer)
 	if reqCnt != 101 {
 		t.Errorf("failed to try to delete pod again if execution failed")
