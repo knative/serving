@@ -26,7 +26,7 @@ Start by creating [a GitHub account](https://github.com/join), then set up
 You must install these tools:
 
 1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is
-   built-in (1.14 or later)
+   built-in (1.16 or later)
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`ko`](https://github.com/google/ko): For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
@@ -45,7 +45,7 @@ If you're working on and changing `.proto` files:
 ### Create a cluster and a repo
 
 1. [Set up a Kubernetes cluster](https://kubernetes.io/docs/setup/)
-   - Minimum supported version is 1.18.0
+   - Minimum supported version is 1.20.0
    - Follow the instructions in the Kubernetes doc.
 1. Set up a docker repository for pushing images. You can use any container
    image registry by adjusting the authentication methods and repository paths
