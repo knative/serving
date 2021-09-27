@@ -65,10 +65,13 @@ excluding productivity. If you are no longer active in Knative, or if you are
 contributing on personal capacity and do not have time to contribute in the
 rotation, feel free to send a PR to remove yourself.
 
+- [carlisia](https://github.com/carlisia)
 - [dprotaso](https://github.com/dprotaso)
 - [julz](https://github.com/julz)
 - [markusthoemmes](https://github.com/markusthoemmes)
+- [nader-ziada](https://github.com/nader-ziada)
 - [nak3](https://github.com/nak3)
+- [shinigambit](https://github.com/shinigambit)
 - [yanweiguo](https://github.com/yanweiguo)
 - [ZhiminXiang](https://github.com/ZhiminXiang)
 
