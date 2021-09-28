@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -140,20 +142,50 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 	}
 }
 
-func TestConcurrencyStateRequestHeader(t *testing.T) {
+func TestConcurrencyStateTokenRefresh(t *testing.T) {
+	var token string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for k, v := range r.Header {
-			if k == "Token" {
-				// TODO update when using token (https://github.com/knative/serving/issues/11904)
-				if v[0] != "nil" {
-					t.Errorf("incorrect token header, expected 'nil', got %s", v)
-				}
-			}
+		tk := r.Header.Get("Token")
+		if tk != token {
+			t.Errorf("incorrect token header, expected %s, got %s", token, tk)
 		}
 	}))
-	pause := Pause(ts.URL)
-	if err := pause(); err != nil {
-		t.Errorf("header check returned an error: %s", err)
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	token = "0123456789"
+	if err := os.WriteFile(tokenPath, []byte(token), 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
+	if err := c.Pause(); err != nil {
+		t.Errorf("initial token check returned an error: %s", err)
+	}
+
+	token = "abcdefghijklmnop"
+	if err := os.WriteFile(tokenPath, []byte(token), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c.RefreshToken()
+	if err := c.Pause(); err != nil {
+		t.Errorf("updated token check returned an error: %s", err)
+	}
+}
+
+func TestConcurrencyStatePauseHeader(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get("Token")
+		if token != "0123456789" {
+			t.Errorf("incorrect token header, expected '0123456789', got %s", token)
+		}
+	}))
+
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
+	if err := c.Pause(); err != nil {
+		t.Errorf("pause header check returned an error: %s", err)
 	}
 }
 
@@ -170,9 +202,47 @@ func TestConcurrencyStatePauseRequest(t *testing.T) {
 		}
 	}))
 
-	pause := Pause(ts.URL)
-	if err := pause(); err != nil {
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
+	if err := c.Pause(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
+	}
+}
+
+func TestConcurrencyStatePauseResponse(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer ts.Close()
+
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
+	if err := c.Pause(); err == nil {
+		t.Errorf("pausefunction did not return an error")
+	}
+}
+
+func TestConcurrencyStateResumeHeader(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get("Token")
+		if token != "0123456789" {
+			t.Errorf("incorrect token header, expected '0123456789', got %s", token)
+		}
+	}))
+
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
+	if err := c.Resume(); err != nil {
+		t.Errorf("resume header check returned an error: %s", err)
 	}
 }
 
@@ -189,21 +259,29 @@ func TestConcurrencyStateResumeRequest(t *testing.T) {
 		}
 	}))
 
-	resume := Resume(ts.URL)
-	if err := resume(); err != nil {
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
+	if err := c.Resume(); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
 }
 
-func TestConcurrencyStateRequestResponse(t *testing.T) {
+func TestConcurrencyStateResumeResponse(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer ts.Close()
 
-	pause := Pause(ts.URL)
-	if err := pause(); err == nil {
-		t.Errorf("failed function did not return an error")
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
+	if err := c.Resume(); err == nil {
+		t.Errorf("resume function did not return an error")
 	}
 }
 

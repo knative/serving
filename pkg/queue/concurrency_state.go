@@ -27,9 +27,6 @@ import (
 	"go.uber.org/zap"
 )
 
-//nolint:gosec // Filepath, not hardcoded credentials
-const ConcurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
-
 // ConcurrencyStateHandler tracks the in flight requests for the pod. When the requests
 // drop to zero, it runs the `pause` function, and when requests scale up from zero, it
 // runs the `resume` function. If either of `pause` or `resume` are not passed, it runs
@@ -93,33 +90,49 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	}
 }
 
-// concurrencyStateRequest sends a request to the concurrency state endpoint.
-func concurrencyStateRequest(endpoint string, action string) func() error {
-	return func() error {
-		bodyText := fmt.Sprintf(`{ "action": %q }`, action)
-		body := bytes.NewBufferString(bodyText)
-		req, err := http.NewRequest(http.MethodPost, endpoint, body)
-		if err != nil {
-			return fmt.Errorf("unable to create request: %w", err)
-		}
-		req.Header.Add("Token", "nil") // TODO: use serviceaccountToken from projected volume
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return fmt.Errorf("unable to post request: %w", err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
-		}
-		return nil
+type ConcurrencyEndpoint struct {
+	endpoint  string
+	mountPath string
+	token     atomic.Value
+}
+
+func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
+	c := ConcurrencyEndpoint{
+		endpoint:  e,
+		mountPath: m,
 	}
+	c.RefreshToken()
+	return c
 }
 
-// Pause sends a pause request to the concurrency state endpoint.
-func Pause(endpoint string) func() error {
-	return concurrencyStateRequest(endpoint, "pause")
+func (c ConcurrencyEndpoint) Pause() error { return c.Request("pause") }
+
+func (c ConcurrencyEndpoint) Resume() error { return c.Request("resume") }
+
+func (c ConcurrencyEndpoint) Request(action string) error {
+	bodyText := fmt.Sprintf(`{ "action": %q }`, action)
+	body := bytes.NewBufferString(bodyText)
+	req, err := http.NewRequest(http.MethodPost, c.endpoint, body)
+	if err != nil {
+		return fmt.Errorf("unable to create request: %w", err)
+	}
+	token := fmt.Sprint(c.token.Load())
+	req.Header.Add("Token", token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("unable to post request: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
+	}
+	return nil
 }
 
-// Resume sends a resume request to the concurrency state endpoint.
-func Resume(endpoint string) func() error {
-	return concurrencyStateRequest(endpoint, "resume")
+func (c *ConcurrencyEndpoint) RefreshToken() error {
+	token, err := os.ReadFile(c.mountPath)
+	if err != nil {
+		return fmt.Errorf("could not read token: %w", err)
+	}
+	c.token.Store(string(token))
+	return nil
 }

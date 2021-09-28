@@ -172,6 +172,9 @@ var (
 			Name:  "CONCURRENCY_STATE_ENDPOINT",
 			Value: "",
 		}, {
+			Name:  "CONCURRENCY_STATE_TOKEN_PATH",
+			Value: "/var/run/secrets/tokens/state-token",
+		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: "false",
 		}},
@@ -1133,6 +1136,7 @@ func TestMakePodSpec(t *testing.T) {
 					}}
 				},
 					withEnvVar("CONCURRENCY_STATE_ENDPOINT", `freeze-proxy`),
+					withEnvVar("CONCURRENCY_STATE_TOKEN_PATH", `/var/run/secrets/tokens/state-token`),
 				),
 			},
 			withAppendedVolumes(varTokenVolume),
