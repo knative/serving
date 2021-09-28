@@ -114,7 +114,7 @@ func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
 		names.URL,
 		spoof.MatchesAllOf(spoof.IsStatusOK),
 		"CheckingEndpointAfterCreate",
-		false,
+		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("Error probing %s: %v", names.URL.Hostname(), err)
