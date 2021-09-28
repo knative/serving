@@ -172,6 +172,9 @@ var (
 			Name:  "CONCURRENCY_STATE_ENDPOINT",
 			Value: "",
 		}, {
+			Name:  "CONCURRENCY_STATE_TOKEN",
+			Value: "/var/run/secrets/tokens/state-token",
+		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: "false",
 		}},

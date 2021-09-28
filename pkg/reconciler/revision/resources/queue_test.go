@@ -847,6 +847,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 
 var defaultEnv = map[string]string{
 	"CONCURRENCY_STATE_ENDPOINT":       "",
+	"CONCURRENCY_STATE_TOKEN":          "/var/run/secrets/tokens/state-token",
 	"CONTAINER_CONCURRENCY":            "0",
 	"ENABLE_HTTP2_AUTO_DETECTION":      "false",
 	"ENABLE_PROFILING":                 "false",
