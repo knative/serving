@@ -39,7 +39,6 @@ import (
 //nolint:gosec // Filepath, not hardcoded credentials
 const concurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
 const concurrencyStateTokenName = "state-token"
-const concurrencyStateToken = concurrencyStateTokenVolumeMountPath + "/" + concurrencyStateTokenName
 
 var (
 	varLogVolume = corev1.Volume{

@@ -339,7 +339,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Value: cfg.Deployment.ConcurrencyStateEndpoint,
 		}, {
 			Name:  "CONCURRENCY_STATE_TOKEN_PATH",
-			Value: concurrencyStateToken,
+			Value: concurrencyStateTokenVolumeMountPath + "/" + concurrencyStateTokenName,
 		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: strconv.FormatBool(cfg.Features.AutoDetectHTTP2 == apicfg.Enabled),
