@@ -1133,6 +1133,7 @@ func TestMakePodSpec(t *testing.T) {
 					}}
 				},
 					withEnvVar("CONCURRENCY_STATE_ENDPOINT", `freeze-proxy`),
+					withEnvVar("CONCURRENCY_STATE_TOKEN", `/var/run/secrets/tokens/state-token`),
 				),
 			},
 			withAppendedVolumes(varTokenVolume),

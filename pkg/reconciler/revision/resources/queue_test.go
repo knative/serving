@@ -323,6 +323,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
 				"CONCURRENCY_STATE_ENDPOINT": "freeze-proxy",
+				"CONCURRENCY_STATE_TOKEN":    "/var/run/secrets/tokens/state-token",
 			})
 		}),
 	}, {

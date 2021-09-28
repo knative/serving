@@ -106,6 +106,7 @@ type config struct {
 
 	// Concurrency State Endpoint configuration
 	ConcurrencyStateEndpoint string `split_words:"true"` // optional
+	ConcurrencyStateToken    string `split_words:"true"` // optional
 }
 
 func init() {
@@ -300,7 +301,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	var composedHandler http.Handler = httpProxy
 	if concurrencyStateEnabled {
 		logger.Info("Concurrency state endpoint set, tracking request counts, using endpoint: ", env.ConcurrencyStateEndpoint)
-		ce := queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, queue.ConcurrencyStateToken)
+		ce := queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, env.ConcurrencyStateToken)
 		go func() {
 			for range time.NewTicker(1 * time.Minute).C {
 				ce.RefreshToken()

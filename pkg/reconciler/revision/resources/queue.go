@@ -343,6 +343,13 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}},
 	}
 
+	if cfg.Deployment.ConcurrencyStateEndpoint != "" {
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  "CONCURRENCY_STATE_TOKEN",
+			Value: concurrencyStateToken,
+		})
+	}
+
 	return c, nil
 }
 

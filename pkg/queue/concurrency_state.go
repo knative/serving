@@ -27,11 +27,6 @@ import (
 	"go.uber.org/zap"
 )
 
-//nolint:gosec // Filepath, not hardcoded credentials
-const ConcurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
-const ConcurrencyStateTokenName = "state-token"
-const ConcurrencyStateToken = ConcurrencyStateTokenVolumeMountPath + "/" + ConcurrencyStateTokenName
-
 // ConcurrencyStateHandler tracks the in flight requests for the pod. When the requests
 // drop to zero, it runs the `pause` function, and when requests scale up from zero, it
 // runs the `resume` function. If either of `pause` or `resume` are not passed, it runs
