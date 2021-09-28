@@ -18,7 +18,6 @@ package queue
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -144,39 +143,39 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 }
 
 func TestConcurrencyStateTokenRefresh(t *testing.T) {
-
-	oldTokenPath := filepath.Join(t.TempDir(), "secret")
-	if err := os.WriteFile(oldTokenPath, []byte("0123456789"), 0700); err != nil {
+	var token string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tk := r.Header.Get("Token")
+		if tk != token {
+			t.Errorf("incorrect token header, expected %s, got %s", token, tk)
+		}
+	}))
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	token = "0123456789"
+	if err := os.WriteFile(tokenPath, []byte(token), 0700); err != nil {
 		t.Fatal(err)
 	}
 
-	c := NewConcurrencyEndpoint("freeze-proxy", oldTokenPath)
-	oldToken := fmt.Sprint(c.token.Load())
-	if oldToken != "0123456789" {
-		t.Errorf("token not set properly, expected '0123456789', got %s", oldToken)
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
+	if err := c.Pause(); err != nil {
+		t.Errorf("initial token check returned an error: %s", err)
 	}
 
-	newTokenPath := filepath.Join(t.TempDir(), "refreshed-secret")
-	if err := os.WriteFile(newTokenPath, []byte("abcdefghijklmnop"), 0700); err != nil {
+	token = "abcdefghijklmnop"
+	if err := os.WriteFile(tokenPath, []byte(token), 0700); err != nil {
 		t.Fatal(err)
 	}
-	c.MountPath = newTokenPath
 	c.RefreshToken()
-	newToken := fmt.Sprint(c.token.Load())
-	if newToken != "abcdefghijklmnop" {
-		t.Errorf("token did not refresh, expected 'abcdefghijklmnop', got %s", newToken)
+	if err := c.Pause(); err != nil {
+		t.Errorf("updated token check returned an error: %s", err)
 	}
-
 }
 
 func TestConcurrencyStatePauseHeader(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for k, v := range r.Header {
-			if k == "Token" {
-				if v[0] != "0123456789" {
-					t.Errorf("incorrect token header, expected '0123456789', got %s", v)
-				}
-			}
+		token := r.Header.Get("Token")
+		if token != "0123456789" {
+			t.Errorf("incorrect token header, expected '0123456789', got %s", token)
 		}
 	}))
 
@@ -231,12 +230,9 @@ func TestConcurrencyStatePauseResponse(t *testing.T) {
 
 func TestConcurrencyStateResumeHeader(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for k, v := range r.Header {
-			if k == "Token" {
-				if v[0] != "0123456789" {
-					t.Errorf("incorrect token header, expected '0123456789', got %s", v)
-				}
-			}
+		token := r.Header.Get("Token")
+		if token != "0123456789" {
+			t.Errorf("incorrect token header, expected '0123456789', got %s", token)
 		}
 	}))
 

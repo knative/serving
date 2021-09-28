@@ -96,9 +96,18 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 }
 
 type ConcurrencyEndpoint struct {
-	Endpoint  string
-	MountPath string
+	endpoint  string
+	mountPath string
 	token     atomic.Value
+}
+
+func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
+	c := ConcurrencyEndpoint{
+		endpoint:  e,
+		mountPath: m,
+	}
+	c.RefreshToken()
+	return c
 }
 
 func (c ConcurrencyEndpoint) Pause() error { return c.Request("pause") }
@@ -108,7 +117,7 @@ func (c ConcurrencyEndpoint) Resume() error { return c.Request("resume") }
 func (c ConcurrencyEndpoint) Request(action string) error {
 	bodyText := fmt.Sprintf(`{ "action": %q }`, action)
 	body := bytes.NewBufferString(bodyText)
-	req, err := http.NewRequest(http.MethodPost, c.Endpoint, body)
+	req, err := http.NewRequest(http.MethodPost, c.endpoint, body)
 	if err != nil {
 		return fmt.Errorf("unable to create request: %w", err)
 	}
@@ -125,19 +134,10 @@ func (c ConcurrencyEndpoint) Request(action string) error {
 }
 
 func (c *ConcurrencyEndpoint) RefreshToken() error {
-	token, err := os.ReadFile(c.MountPath)
+	token, err := os.ReadFile(c.mountPath)
 	if err != nil {
 		return fmt.Errorf("could not read token: %w", err)
 	}
 	c.token.Store(string(token))
 	return nil
-}
-
-func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
-	c := ConcurrencyEndpoint{
-		Endpoint:  e,
-		MountPath: m,
-	}
-	c.RefreshToken()
-	return c
 }
