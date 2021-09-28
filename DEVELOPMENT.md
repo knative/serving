@@ -142,10 +142,8 @@ Kubernetes cluster in your designated environment, if necessary.
 
 This step includes building Knative Serving, creating and pushing developer
 images, and deploying them to your Kubernetes cluster. If you're developing
-locally (for example, using
-[Docker-on-Mac](https://knative.dev/docs/install/knative-with-docker-for-mac/)),
-set `KO_DOCKER_REPO=ko.local` (or `KO_DOCKER_REPO=kind.local` respectively) to
-avoid needing to push your images to an off-machine registry.
+locally, set `KO_DOCKER_REPO=ko.local` (or `KO_DOCKER_REPO=kind.local` respectively)
+to avoid needing to push your images to an off-machine registry.
 
 Run:
 
@@ -207,8 +205,8 @@ kubectl patch configmap/config-network \
   -p '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
 ```
 
-If you want to choose another Ingress solution, you can follow step 3 in the
-[Knative installation doc](https://knative.dev/docs/install/any-kubernetes-cluster/#installing-the-serving-component)
+If you want to choose another Ingress solution, you can follow the instructions in the
+[Knative installation doc](https://knative.dev/docs/admin/install/serving/install-serving-with-yaml/#install-a-networking-layer)
 to pick up an alternative Ingress solution and install it.
 
 ## Iterating
