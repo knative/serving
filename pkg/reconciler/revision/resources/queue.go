@@ -338,7 +338,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "CONCURRENCY_STATE_ENDPOINT",
 			Value: cfg.Deployment.ConcurrencyStateEndpoint,
 		}, {
-			Name:  "CONCURRENCY_STATE_TOKEN",
+			Name:  "CONCURRENCY_STATE_TOKEN_PATH",
 			Value: concurrencyStateToken,
 		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
