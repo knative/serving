@@ -23,7 +23,7 @@ jobs:
         - v1.22.0
 
         test-suite:
-        - ./test/conformance/api/v1
+        - ./test/e2e
 
         include:
         - k8s-version: v1.22.0
