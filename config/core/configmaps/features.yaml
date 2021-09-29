@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/version: devel
     app.kubernetes.io/part-of: knative-serving
   annotations:
-    knative.dev/example-checksum: "5b8c26fe"
+    knative.dev/example-checksum: "0b69357a"
 data:
   _example: |-
     ################################
