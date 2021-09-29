@@ -1,5 +1,11 @@
-# Contributor Covenant Code of Conduct
-
+---
+title: "Contributor covenant code of conduct"
+linkTitle: "Code of conduct"
+weight: 10
+type: "docs"
+aliases:
+  - /contributing/code-of-conduct/
+---
 
 ## Our Pledge
 
@@ -74,3 +80,10 @@ version 1.4, available at
 https://www.contributor-covenant.org/version/1/4/code-of-conduct.html
 
 [homepage]: https://www.contributor-covenant.org
+
+---
+
+Except as otherwise noted, the content of this page is licensed under the
+[Creative Commons Attribution 4.0 License](https://creativecommons.org/licenses/by/4.0/),
+and code samples are licensed under the
+[Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0).
