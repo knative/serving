@@ -25,7 +25,6 @@ import (
 	"net/url"
 	"strings"
 	"text/template"
-	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
@@ -162,10 +161,11 @@ const (
 
 	// FlushInterval controls the time when we flush the connection in the
 	// reverse proxies (Activator, QP).
-	// NB: having it equal to 0 is a problem for streaming requests
-	// since the data won't be transferred in chunks less than 4kb, if the
-	// reverse proxy fails to detect streaming (gRPC, e.g.).
-	FlushInterval = 20 * time.Millisecond
+	// As of go1.16, a FlushInterval of 0 (the default) still flushes immediately
+	// when Content-Length is -1, which means the default works properly for
+	// streaming/websockets, without flushing more often than necessary for
+	// non-streaming requests.
+	FlushInterval = 0
 
 	// VisibilityLabelKey is the label to indicate visibility of Route
 	// and KServices.  It can be an annotation too but since users are
