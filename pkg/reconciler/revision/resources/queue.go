@@ -19,6 +19,7 @@ package resources
 import (
 	"fmt"
 	"math"
+	"path"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
@@ -339,7 +340,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Value: cfg.Deployment.ConcurrencyStateEndpoint,
 		}, {
 			Name:  "CONCURRENCY_STATE_TOKEN_PATH",
-			Value: concurrencyStateToken,
+			Value: path.Join(concurrencyStateTokenVolumeMountPath, concurrencyStateTokenName),
 		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: strconv.FormatBool(cfg.Features.AutoDetectHTTP2 == apicfg.Enabled),
