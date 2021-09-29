@@ -1,4 +1,3 @@
-//go:build e2e
 // +build e2e
 
 /*
@@ -25,6 +24,7 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/networking/pkg/apis/networking"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -43,7 +43,7 @@ func TestHttpRedirect(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   "runtime",
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -66,18 +66,29 @@ func TestHttpRedirect(t *testing.T) {
 
 	RuntimeRequest(ctx, t, httpClient, url.String())
 
-	t.Log("Updating the new Service with http redirect annotation")
+	t.Log("Updating the Service with http redirect annotation")
 	_, err = v1test.UpdateService(t, clients, names, rtesting.WithServiceAnnotations(map[string]string{networking.HTTPOptionAnnotationKey: "redirected"}))
 	if err != nil {
 		t.Fatalf("Failed to update Service: %v: %v", names.Service, err)
 	}
 
-	t.Log("Waiting for Service to transition to Ready.")
-	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
+	// Wait for the annotation change is reflected.
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+		resp, err := httpClient.Get(url.String())
+		if err != nil {
+			return true, err
+		}
+		if resp.StatusCode == http.StatusOK {
+			t.Logf("HTTP option is still enabled.")
+			return false, nil
+		}
+		return true, nil
+	})
+	if waitErr != nil {
+		t.Fatalf("The Service %s failed to change the HTTP option: %v", names.Service, waitErr)
 	}
 
-	RuntimeRequestWithExpectations(context.Background(), t, httpClient, url.String(),
+	RuntimeRequestWithExpectations(ctx, t, httpClient, url.String(),
 		[]ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusMovedPermanently))},
 		false)
 }
