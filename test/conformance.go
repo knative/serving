@@ -39,10 +39,10 @@ const (
 	EmptyDir            = "emptydir"
 	Failing             = "failing"
 	GRPCPing            = "grpc-ping"
-	HTTPProxy           = "httpproxy"
 	HelloHTTP2          = "hellohttp2"
 	HelloVolume         = "hellovolume"
 	HelloWorld          = "helloworld"
+	HTTPProxy           = "httpproxy"
 	InvalidHelloWorld   = "invalidhelloworld" // Not a real image
 	PizzaPlanet1        = "pizzaplanetv1"
 	PizzaPlanet2        = "pizzaplanetv2"
