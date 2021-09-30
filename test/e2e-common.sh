@@ -22,7 +22,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/e2e-networking-library.sh"
 export CERT_MANAGER_VERSION="latest"
 # Since default is istio, make default ingress as istio
 export INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
-export ISTIO_VERSION="stable"
+export ISTIO_VERSION="latest"
 export KOURIER_VERSION=""
 export AMBASSADOR_VERSION=""
 export CONTOUR_VERSION=""
