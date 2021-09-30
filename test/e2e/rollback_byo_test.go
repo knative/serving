@@ -38,7 +38,7 @@ func TestRollbackBYOName(t *testing.T) {
 	byoNameNew := serviceName + "-byo-foo-new"
 	names := test.ResourceNames{
 		Service: serviceName,
-		Image:   "helloworld",
+		Image:   test.HelloWorld,
 	}
 
 	test.EnsureTearDown(t, clients, &names)

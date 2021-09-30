@@ -120,7 +120,7 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "hellovolume",
+		Image:   test.HelloVolume,
 	}
 
 	text := test.AppendRandomString("hello-volumes-")
@@ -258,7 +258,7 @@ func TestProjectedSecretVolume(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "hellovolume",
+		Image:   test.HelloVolume,
 	}
 
 	text := test.ObjectNameForTest(t)
@@ -328,7 +328,7 @@ func TestProjectedComplex(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "hellovolume",
+		Image:   test.HelloVolume,
 	}
 
 	text1 := test.ObjectNameForTest(t)
@@ -434,7 +434,7 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "hellovolume",
+		Image:   test.HelloVolume,
 	}
 	test.EnsureTearDown(t, clients, &names)
 

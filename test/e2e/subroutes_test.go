@@ -95,7 +95,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	t.Log("Creating a Service for the helloworld test app.")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   test.HelloWorld,
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -210,7 +210,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	t.Log("Creating a Service for the helloworld test app.")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   test.HelloWorld,
 	}
 
 	test.EnsureTearDown(t, clients, &names)
