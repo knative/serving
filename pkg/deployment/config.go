@@ -35,6 +35,9 @@ const (
 	// QueueSidecarImageKey is the config map key for queue sidecar image.
 	QueueSidecarImageKey = "queue-sidecar-image"
 
+	// DeprecatedQueueSidecarImageKey is the config map key for queue sidecar image.
+	DeprecatedQueueSidecarImageKey = "queueSidecarImage"
+
 	// ProgressDeadlineDefault is the default value for the config's
 	// ProgressDeadlineSeconds. This matches the K8s default value of 600s.
 	ProgressDeadlineDefault = 600 * time.Second
@@ -89,7 +92,7 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 
 	if err := cm.Parse(configMap,
 		// Legacy keys for backwards compatibility
-		cm.AsString("queueSidecarImage", &nc.QueueSidecarImage),
+		cm.AsString(DeprecatedQueueSidecarImageKey, &nc.QueueSidecarImage),
 		cm.AsDuration("progressDeadline", &nc.ProgressDeadline),
 		cm.AsDuration("digestResolutionTimeout", &nc.DigestResolutionTimeout),
 		cm.AsStringSet("registriesSkippingTagResolving", &nc.RegistriesSkippingTagResolving),
