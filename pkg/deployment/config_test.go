@@ -139,12 +139,12 @@ func TestControllerConfiguration(t *testing.T) {
 			DigestResolutionTimeout:             digestResolutionTimeoutDefault,
 			QueueSidecarImage:                   defaultSidecarImage,
 			ProgressDeadline:                    ProgressDeadlineDefault,
-			QueueSidecarCPURequest:              resourcePtr(resource.MustParse("123m")),
-			QueueSidecarMemoryRequest:           resourcePtr(resource.MustParse("456M")),
-			QueueSidecarEphemeralStorageRequest: resourcePtr(resource.MustParse("789m")),
-			QueueSidecarCPULimit:                resourcePtr(resource.MustParse("987M")),
-			QueueSidecarMemoryLimit:             resourcePtr(resource.MustParse("654m")),
-			QueueSidecarEphemeralStorageLimit:   resourcePtr(resource.MustParse("321M")),
+			QueueSidecarCPURequest:              quantity("123m"),
+			QueueSidecarMemoryRequest:           quantity("456M"),
+			QueueSidecarEphemeralStorageRequest: quantity("789m"),
+			QueueSidecarCPULimit:                quantity("987M"),
+			QueueSidecarMemoryLimit:             quantity("654m"),
+			QueueSidecarEphemeralStorageLimit:   quantity("321M"),
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:                   defaultSidecarImage,
@@ -208,6 +208,76 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarImageKey:        defaultSidecarImage,
 			concurrencyStateEndpointKey: "freeze-proxy",
 		},
+	}, {
+		name: "legacy keys supported",
+		data: map[string]string{
+			// Legacy keys for backwards compatibility
+			"queueSidecarImage":                   "1",
+			"progressDeadline":                    "2s",
+			"digestResolutionTimeout":             "3s",
+			"registriesSkippingTagResolving":      "4",
+			"queueSidecarCPURequest":              "5m",
+			"queueSidecarCPULimit":                "6m",
+			"queueSidecarMemoryRequest":           "7M",
+			"queueSidecarMemoryLimit":             "8M",
+			"queueSidecarEphemeralStorageRequest": "9M",
+			"queueSidecarEphemeralStorageLimit":   "10M",
+			"concurrencyStateEndpoint":            "11",
+		},
+		wantConfig: &Config{
+			QueueSidecarImage:                   "1",
+			ProgressDeadline:                    2 * time.Second,
+			DigestResolutionTimeout:             3 * time.Second,
+			RegistriesSkippingTagResolving:      sets.NewString("4"),
+			QueueSidecarCPURequest:              quantity("5m"),
+			QueueSidecarCPULimit:                quantity("6m"),
+			QueueSidecarMemoryRequest:           quantity("7M"),
+			QueueSidecarMemoryLimit:             quantity("8M"),
+			QueueSidecarEphemeralStorageRequest: quantity("9M"),
+			QueueSidecarEphemeralStorageLimit:   quantity("10M"),
+			ConcurrencyStateEndpoint:            "11",
+		},
+	}, {
+		name: "newer key case takes priority",
+		data: map[string]string{
+			// Legacy keys for backwards compatibility
+			"queueSidecarImage":                   "1",
+			"progressDeadline":                    "2s",
+			"digestResolutionTimeout":             "3s",
+			"registriesSkippingTagResolving":      "4",
+			"queueSidecarCPURequest":              "5m",
+			"queueSidecarCPULimit":                "6m",
+			"queueSidecarMemoryRequest":           "7M",
+			"queueSidecarMemoryLimit":             "8M",
+			"queueSidecarEphemeralStorageRequest": "9M",
+			"queueSidecarEphemeralStorageLimit":   "10M",
+			"concurrencyStateEndpoint":            "11",
+
+			QueueSidecarImageKey:                   "12",
+			ProgressDeadlineKey:                    "13s",
+			digestResolutionTimeoutKey:             "14s",
+			registriesSkippingTagResolvingKey:      "15",
+			queueSidecarCPURequestKey:              "16m",
+			queueSidecarCPULimitKey:                "17m",
+			queueSidecarMemoryRequestKey:           "18M",
+			queueSidecarMemoryLimitKey:             "19M",
+			queueSidecarEphemeralStorageRequestKey: "20M",
+			queueSidecarEphemeralStorageLimitKey:   "21M",
+			concurrencyStateEndpointKey:            "22",
+		},
+		wantConfig: &Config{
+			QueueSidecarImage:                   "12",
+			ProgressDeadline:                    13 * time.Second,
+			DigestResolutionTimeout:             14 * time.Second,
+			RegistriesSkippingTagResolving:      sets.NewString("15"),
+			QueueSidecarCPURequest:              quantity("16m"),
+			QueueSidecarCPULimit:                quantity("17m"),
+			QueueSidecarMemoryRequest:           quantity("18M"),
+			QueueSidecarMemoryLimit:             quantity("19M"),
+			QueueSidecarEphemeralStorageRequest: quantity("20M"),
+			QueueSidecarEphemeralStorageLimit:   quantity("21M"),
+			ConcurrencyStateEndpoint:            "22",
+		},
 	}}
 
 	for _, tt := range configTests {
@@ -239,6 +309,7 @@ func TestControllerConfiguration(t *testing.T) {
 	}
 }
 
-func resourcePtr(q resource.Quantity) *resource.Quantity {
-	return &q
+func quantity(val string) *resource.Quantity {
+	r := resource.MustParse(val)
+	return &r
 }
