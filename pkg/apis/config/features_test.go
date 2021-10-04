@@ -68,6 +68,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			PodSpecSecurityContext:   Enabled,
 			PodSpecTolerations:       Enabled,
 			PodSpecPriorityClassName: Enabled,
+			PodSpecSchedulerName:     Enabled,
 			TagHeaderBasedRouting:    Enabled,
 		}),
 		data: map[string]string{
@@ -80,6 +81,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-securitycontext":   "Enabled",
 			"kubernetes.podspec-tolerations":       "Enabled",
 			"kubernetes.podspec-priorityclassname": "Enabled",
+			"kubernetes.podspec-schedulername":     "Enabled",
 			"tag-header-based-routing":             "Enabled",
 		},
 	}, {
@@ -378,6 +380,33 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"kubernetes.podspec-priorityclassname": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-schedulername Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecSchedulerName: Allowed,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-schedulername": "Allowed",
+		},
+	}, {
+		name:    "kubernetes.podspec-schedulername Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecSchedulerName: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-schedulername": "Enabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-schedulername Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecSchedulerName: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-schedulername": "Disabled",
 		},
 	}}
 
