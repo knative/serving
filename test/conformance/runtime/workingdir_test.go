@@ -38,7 +38,7 @@ func TestWorkingDirService(t *testing.T) {
 	clients := test.Setup(t)
 
 	// An existing directory inside the test image but different from
-	// the default working directory.
+	// the default working directory /home/nonroot.
 	const wd = "/tmp"
 
 	_, ri, err := fetchRuntimeInfo(t, clients, withWorkingDir(wd))
