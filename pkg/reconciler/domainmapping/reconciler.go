@@ -98,11 +98,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	dm.Status.URL = url
 	dm.Status.Address = &duckv1.Addressable{URL: url}
 
-	tls, acmeChallenges, err := r.tls(ctx, dm)
-	if err != nil {
-		return err
-	}
-
 	// IngressClass can be set via annotations or in the config map.
 	ingressClass := dm.Annotations[networking.IngressClassAnnotationKey]
 	if ingressClass == "" {
@@ -112,6 +107,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	// To prevent Ingress hostname collision, require that we can create, or
 	// already own, a cluster-wide domain claim.
 	if err := r.reconcileDomainClaim(ctx, dm); err != nil {
+		return err
+	}
+
+	tls, acmeChallenges, err := r.tls(ctx, dm)
+	if err != nil {
 		return err
 	}
 
