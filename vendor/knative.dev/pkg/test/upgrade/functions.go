@@ -27,7 +27,11 @@ import (
 
 // Execute the Suite of upgrade tests with a Configuration given.
 func (s *Suite) Execute(c Configuration) {
-	l := c.logger()
+	l, err := c.logger()
+	if err != nil {
+		l.Error("Failed to build logger")
+		return
+	}
 	se := suiteExecution{
 		suite:         enrichSuite(s),
 		configuration: c,
@@ -96,8 +100,24 @@ func WaitForStopEvent(bc BackgroundContext, w WaitForStopEventConfiguration) {
 	}
 }
 
-func (c Configuration) logger() *zap.SugaredLogger {
-	return c.Log.Sugar()
+func (c Configuration) logger() (*zap.SugaredLogger, error) {
+	var (
+		log *zap.Logger
+		err error
+	)
+	if c.LogConfig != nil {
+		if c.LogConfig.Build != nil {
+			// Build the logger using the provided config and build function.
+			log, err = c.LogConfig.Build(&c.LogConfig.Config)
+		} else {
+			log, err = c.LogConfig.Config.Build()
+		}
+		if err != nil {
+			return nil, err
+		}
+		return log.Sugar(), nil
+	}
+	return c.Log.Sugar(), nil
 }
 
 // Name returns a friendly human readable text.
@@ -165,33 +185,48 @@ func (s *simpleBackgroundOperation) Handler() func(bc BackgroundContext) {
 	return s.handler
 }
 
-func (b *threadSafeBuffer) Read(p []byte) (n int, err error) {
+func (b *ThreadSafeBuffer) Read(p []byte) (n int, err error) {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
 	return b.Buffer.Read(p)
 }
 
-func (b *threadSafeBuffer) Write(p []byte) (n int, err error) {
+func (b *ThreadSafeBuffer) Write(p []byte) (n int, err error) {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
 	return b.Buffer.Write(p)
 }
 
-func (b *threadSafeBuffer) String() string {
+func (b *ThreadSafeBuffer) String() string {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
 	return b.Buffer.String()
 }
 
-// NewInMemoryLoggerBuffer creates a logger that writes logs into a byte buffer.
+// newInMemoryLoggerBuffer creates a logger that writes logs into a byte buffer.
 // This byte buffer is returned and can be used to process the logs at later stage.
-func NewInMemoryLoggerBuffer(options ...zap.Option) (*zap.Logger, *threadSafeBuffer) {
-	buf := &threadSafeBuffer{}
+func newInMemoryLoggerBuffer(logConfig *LogConfig) (*zap.Logger, *ThreadSafeBuffer) {
+	buf := &ThreadSafeBuffer{}
 	core := zapcore.NewCore(
-		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+		zapcore.NewConsoleEncoder(logConfig.Config.EncoderConfig),
 		zapcore.AddSync(buf),
-		zap.DebugLevel)
-	return zap.New(core, options...), buf
+		logConfig.Config.Level)
+
+	opts := []zap.Option{}
+	if logConfig.Config.Development {
+		opts = append(opts, zap.Development())
+	}
+	if !logConfig.Config.DisableCaller {
+		opts = append(opts, zap.AddCaller())
+	}
+	stackLevel := zap.ErrorLevel
+	if logConfig.Config.Development {
+		stackLevel = zap.WarnLevel
+	}
+	if !logConfig.Config.DisableStacktrace {
+		opts = append(opts, zap.AddStacktrace(stackLevel))
+	}
+	return zap.New(core, opts...), buf
 }
 
 func wrapLogs(stringer fmt.Stringer) string {
