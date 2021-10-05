@@ -86,6 +86,17 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 				},
 			}}
 		}
+	default:
+		if target, ok := pa.Target(); ok {
+			targetQuantity := resource.NewQuantity(int64(target), resource.DecimalSI)
+			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
+				Type: autoscalingv2beta1.PodsMetricSourceType,
+				Pods: &autoscalingv2beta1.PodsMetricSource{
+					MetricName:         pa.Metric(),
+					TargetAverageValue: *targetQuantity,
+				},
+			}}
+		}
 	}
 
 	if window, hasWindow := pa.Window(); hasWindow {

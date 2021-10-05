@@ -221,10 +221,11 @@ func validateMetric(annotations map[string]string) *apis.FieldError {
 				return nil
 			}
 		case HPA:
-			switch metric {
-			case CPU, Memory:
-				return nil
-			}
+			return nil
+			// switch metric {
+			// case CPU, Memory:
+			// 	return nil
+			// }
 		default:
 			// Leave other classes of PodAutoscaler alone.
 			return nil
