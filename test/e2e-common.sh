@@ -545,9 +545,5 @@ function run_ytt() {
 
 
 function run_kapp() {
-  # TODO drop the sha when kapp releases a version with the
-  # following bug fix included
-  #
-  # https://github.com/vmware-tanzu/carvel-kapp/pull/213
-  run_go_tool github.com/k14s/kapp/cmd/kapp@d5b8c43b5678 kapp "$@"
+  run_go_tool github.com/k14s/kapp/cmd/kapp kapp "$@"
 }
