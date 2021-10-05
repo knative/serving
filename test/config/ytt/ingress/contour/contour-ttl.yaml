@@ -1,0 +1,12 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("helpers.lib.yaml", "subset")
+
+#@overlay/match by=subset(namespace="contour-internal", kind="Job"), expects=1
+---
+spec:
+  ttlSecondsAfterFinished: 60
+
+#@overlay/match by=subset(namespace="contour-external", kind="Job"), expects=1
+---
+spec:
+  ttlSecondsAfterFinished: 60
