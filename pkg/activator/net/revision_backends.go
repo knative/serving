@@ -224,8 +224,8 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 	}
 
 	toProbe := sets.NewString()
-	healthy := sets.NewString()
 
+	var healthy sets.String
 	if rw.meshMode != network.MeshCompatibilityModeAuto {
 		// If k8s marked the pod ready before we managed to probe it, and we're
 		// not also using the probe to sniff whether mesh is enabled, we can just
@@ -236,6 +236,8 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 		// We still want to probe non-ready pods because we can beat the kubernetes
 		// readiness propagation sometimes.
 		dests = notReady
+	} else {
+		healthy = sets.NewString()
 	}
 
 	for dest := range dests {
