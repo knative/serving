@@ -118,20 +118,22 @@ type WaitForStopEventConfiguration struct {
 // Configuration holds required and optional configuration to run upgrade tests.
 type Configuration struct {
 	T *testing.T
-	// Keep this for backwards compatibility.
 	// TODO(mgencur): Remove when dependent repositories migrate to LogConfig.
+	// Keep this for backwards compatibility.
 	Log       *zap.Logger
 	LogConfig *LogConfig
 }
 
 // LogBuildFunc can customize building zap.Logger from zap.Config.
-type LogBuildFunc func(l *zap.Config) (*zap.Logger, error)
+type LogBuildFunc func(l zap.Config) (*zap.Logger, error)
 
 // LogConfig holds the logger configuration. It allows for passing just the logger
 // configuration and also a custom function for building the resulting logger.
 type LogConfig struct {
+	// Configuration for the logger.
 	Config zap.Config
-	Build  LogBuildFunc
+	// (Optional) Custom build function that will produce the logger from the given zap config.
+	Build LogBuildFunc
 }
 
 // SuiteExecutor is to execute upgrade test suite.
@@ -145,3 +147,5 @@ type ThreadSafeBuffer struct {
 	bytes.Buffer
 	sync.Mutex
 }
+
+type DefaultOnWaitFunc func(bc BackgroundContext, self WaitForStopEventConfiguration)

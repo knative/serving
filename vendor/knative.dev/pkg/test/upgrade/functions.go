@@ -101,14 +101,14 @@ func WaitForStopEvent(bc BackgroundContext, w WaitForStopEventConfiguration) {
 }
 
 func (c Configuration) logger() (*zap.SugaredLogger, error) {
-	var (
-		log *zap.Logger
-		err error
-	)
 	if c.LogConfig != nil {
+		var (
+			log *zap.Logger
+			err error
+		)
 		if c.LogConfig.Build != nil {
 			// Build the logger using the provided config and build function.
-			log, err = c.LogConfig.Build(&c.LogConfig.Config)
+			log, err = c.LogConfig.Build(c.LogConfig.Config)
 		} else {
 			log, err = c.LogConfig.Config.Build()
 		}
