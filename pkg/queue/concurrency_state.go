@@ -37,8 +37,7 @@ const FreezeMaxRetryTimes = 3 // If pause/resume failed 3 times, it should kill 
 // runs the `resume` function. If either of `pause` or `resume` are not passed, it runs
 // the respective local function(s). The local functions are the expected behavior; the
 // function parameters are enabled primarily for testing purposes.
-func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler,
-	pause, resume, relaunch func() error) http.HandlerFunc {
+func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume, relaunch func() error) http.HandlerFunc {
 
 	var (
 		inFlight = atomic.NewInt64(0)
