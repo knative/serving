@@ -35,6 +35,14 @@ import (
 
 type configOption func(*config.Config) *config.Config
 
+type containerValidationTestCase struct {
+	name    string
+	c       corev1.Container
+	want    *apis.FieldError
+	volumes map[string]corev1.Volume
+	cfgOpts []configOption
+}
+
 func withMultiContainerDisabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.MultiContainer = config.Disabled
@@ -896,854 +904,346 @@ func TestPodSpecFieldRefValidation(t *testing.T) {
 }
 
 func TestContainerValidation(t *testing.T) {
-	bidir := corev1.MountPropagationBidirectional
-
-	tests := []struct {
-		name                 string
-		c                    corev1.Container
-		want                 *apis.FieldError
-		volumes              map[string]corev1.Volume
-		cfgOpts              []configOption
-		testAsInitContainer  bool
-		skipContainerTest    bool
-		wantForInitContainer *apis.FieldError
-	}{{
-		name:                 "empty container",
-		c:                    corev1.Container{},
-		want:                 apis.ErrMissingField(apis.CurrentField),
-		wantForInitContainer: apis.ErrMissingField(apis.CurrentField),
-		testAsInitContainer:  true,
-		cfgOpts:              []configOption{withPodSpecInitContainersEnabled()},
-	}, {
-		name: "valid container",
-		c: corev1.Container{
-			Image: "foo",
+	tests := []containerValidationTestCase{
+		{
+			name: "has a lifecycle",
+			c: corev1.Container{
+				Name:      "foo",
+				Image:     "foo",
+				Lifecycle: &corev1.Lifecycle{},
+			},
+			want:    apis.ErrDisallowedFields("lifecycle"),
+			cfgOpts: []configOption{withPodSpecInitContainersEnabled()},
+		}, {
+			name: "has lifecycle",
+			c: corev1.Container{
+				Image:     "foo",
+				Lifecycle: &corev1.Lifecycle{},
+			},
+			want: apis.ErrDisallowedFields("lifecycle"),
 		},
-		want:                nil,
-		testAsInitContainer: true,
-	}, {
-		name: "invalid container image",
-		c: corev1.Container{
-			Image: "foo:bar:baz",
-		},
-		want: &apis.FieldError{
-			Message: "Failed to parse image reference",
-			Paths:   []string{"image"},
-			Details: `image: "foo:bar:baz", error: could not parse reference: foo:bar:baz`,
-		},
-		testAsInitContainer: true,
-		wantForInitContainer: &apis.FieldError{
-			Message: "Failed to parse image reference",
-			Paths:   []string{"image"},
-			Details: `image: "foo:bar:baz", error: could not parse reference: foo:bar:baz`,
-		},
-	}, {
-		name: "has a lifecycle",
-		c: corev1.Container{
-			Name:      "foo",
-			Image:     "foo",
-			Lifecycle: &corev1.Lifecycle{},
-		},
-		want:                apis.ErrDisallowedFields("lifecycle"),
-		cfgOpts:             []configOption{withPodSpecInitContainersEnabled()},
-		testAsInitContainer: true,
-		wantForInitContainer: apis.ErrDisallowedFields("lifecycle").Also(&apis.FieldError{
-			Message: "field not allowed in an init container",
-			Paths:   []string{"lifecycle"},
-		}),
-	}, {
-		name: "has resources",
-		c: corev1.Container{
-			Image: "foo",
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("250M"),
+		{
+			name: "has valid unnamed user port",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8181,
+				}},
+			},
+			want: nil,
+		}, {
+			name: "has valid user port http1",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					Name: "http1",
+				}},
+			},
+			want: nil,
+		}, {
+			name: "has valid user port h2c",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					Name: "h2c",
+				}},
+			},
+			want: nil,
+		}, {
+			name: "has more than one ports with valid names",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					Name: "h2c",
+				}, {
+					Name: "http1",
+				}},
+			},
+			want: &apis.FieldError{
+				Message: "More than one container port is set",
+				Paths:   []string{"ports"},
+				Details: "Only a single port is allowed",
+			},
+		}, {
+			name: "has an empty port set",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{}},
+			},
+			want: nil,
+		}, {
+			name: "has more than one unnamed port",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8080,
+				}, {
+					ContainerPort: 8181,
+				}},
+			},
+			want: &apis.FieldError{
+				Message: "More than one container port is set",
+				Paths:   []string{"ports"},
+				Details: "Only a single port is allowed",
+			},
+		}, {
+			name: "has tcp protocol",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					Protocol: corev1.ProtocolTCP,
+				}},
+			},
+			want: nil,
+		}, {
+			name: "has invalid protocol",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					Protocol: "tdp",
+				}},
+			},
+			want: apis.ErrInvalidValue("tdp", "ports.protocol"),
+		}, {
+			name: "has host port",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					HostPort: 80,
+				}},
+			},
+			want: apis.ErrDisallowedFields("ports.hostPort"),
+		}, {
+			name: "has invalid port name",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					Name: "foobar",
+				}},
+			},
+			want: &apis.FieldError{
+				Message: fmt.Sprintf("Port name %v is not allowed", "foobar"),
+				Paths:   []string{"ports"},
+				Details: "Name must be empty, or one of: 'h2c', 'http1'",
+			},
+		}, {
+			name: "valid with probes (no port)",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
 				},
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU: resource.MustParse("25m"),
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{},
+					},
 				},
 			},
-		},
-		want:                nil,
-		testAsInitContainer: true,
-	}, {
-		name: "has no container ports set",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{},
-		},
-		want:                nil,
-		testAsInitContainer: true,
-	}, {
-		name: "has valid unnamed user port",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 8181,
-			}},
-		},
-		want: nil,
-	}, {
-		name: "has valid user port http1",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				Name: "http1",
-			}},
-		},
-		want: nil,
-	}, {
-		name: "has valid user port h2c",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				Name: "h2c",
-			}},
-		},
-		want: nil,
-	}, {
-		name: "has more than one ports with valid names",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				Name: "h2c",
-			}, {
-				Name: "http1",
-			}},
-		},
-		want: &apis.FieldError{
-			Message: "More than one container port is set",
-			Paths:   []string{"ports"},
-			Details: "Only a single port is allowed",
-		},
-	}, {
-		name: "has container port value too large",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 65536,
-			}},
-		},
-		want:                 apis.ErrOutOfBoundsValue(65536, 0, 65535, "ports.containerPort"),
-		wantForInitContainer: apis.ErrOutOfBoundsValue(65536, 0, 65535, "ports.containerPort"),
-		testAsInitContainer:  true,
-	}, {
-		name: "has an empty port set",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{}},
-		},
-		want: nil,
-	}, {
-		name: "has more than one unnamed port",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 8080,
-			}, {
-				ContainerPort: 8181,
-			}},
-		},
-		want: &apis.FieldError{
-			Message: "More than one container port is set",
-			Paths:   []string{"ports"},
-			Details: "Only a single port is allowed",
-		},
-	}, {
-		name: "has tcp protocol",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				Protocol: corev1.ProtocolTCP,
-			}},
-		},
-		want: nil,
-	}, {
-		name: "has invalid protocol",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				Protocol: "tdp",
-			}},
-		},
-		want: apis.ErrInvalidValue("tdp", "ports.protocol"),
-	}, {
-		name: "has host port",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				HostPort: 80,
-			}},
-		},
-		want: apis.ErrDisallowedFields("ports.hostPort"),
-	}, {
-		name: "has host ip",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				HostIP: "127.0.0.1",
-			}},
-		},
-		want:                 apis.ErrDisallowedFields("ports.hostIP"),
-		testAsInitContainer:  true,
-		wantForInitContainer: apis.ErrDisallowedFields("ports.hostIP"),
-	}, {
-		name: "port conflicts with queue proxy admin",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 8022,
-			}},
-		},
-		want: apis.ErrInvalidValue("8022 is a reserved port", "ports.containerPort",
-			"8022 is a reserved port, please use a different value"),
-		testAsInitContainer: true,
-		wantForInitContainer: apis.ErrInvalidValue("8022 is a reserved port", "ports.containerPort",
-			"8022 is a reserved port, please use a different value"),
-	}, {
-		name: "port conflicts with profiling port",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 8008,
-			}},
-		},
-		want: apis.ErrInvalidValue("8008 is a reserved port", "ports.containerPort",
-			"8008 is a reserved port, please use a different value"),
-		testAsInitContainer: true,
-		wantForInitContainer: apis.ErrInvalidValue("8008 is a reserved port", "ports.containerPort",
-			"8008 is a reserved port, please use a different value"),
-	}, {
-		name: "port conflicts with queue proxy",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 8013,
-			}},
-		},
-		want: apis.ErrInvalidValue("8013 is a reserved port", "ports.containerPort",
-			"8013 is a reserved port, please use a different value"),
-		testAsInitContainer: true,
-		wantForInitContainer: apis.ErrInvalidValue("8013 is a reserved port", "ports.containerPort",
-			"8013 is a reserved port, please use a different value"),
-	}, {
-		name: "port conflicts with queue proxy",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 8012,
-			}},
-		},
-		want: apis.ErrInvalidValue("8012 is a reserved port", "ports.containerPort",
-			"8012 is a reserved port, please use a different value"),
-		testAsInitContainer: true,
-		wantForInitContainer: apis.ErrInvalidValue("8012 is a reserved port", "ports.containerPort",
-			"8012 is a reserved port, please use a different value"),
-	}, {
-		name: "port conflicts with queue proxy metrics",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 9090,
-			}},
-		},
-		want: apis.ErrInvalidValue("9090 is a reserved port", "ports.containerPort",
-			"9090 is a reserved port, please use a different value"),
-	}, {
-		name: "port conflicts with user queue proxy metrics for user",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 9091,
-			}},
-		},
-		want: apis.ErrInvalidValue("9091 is a reserved port", "ports.containerPort",
-			"9091 is a reserved port, please use a different value"),
-		testAsInitContainer: true,
-		wantForInitContainer: apis.ErrInvalidValue("9091 is a reserved port", "ports.containerPort",
-			"9091 is a reserved port, please use a different value"),
-	}, {
-		name: "has invalid port name",
-		c: corev1.Container{
-			Image: "foo",
-			Ports: []corev1.ContainerPort{{
-				Name: "foobar",
-			}},
-		},
-		want: &apis.FieldError{
-			Message: fmt.Sprintf("Port name %v is not allowed", "foobar"),
-			Paths:   []string{"ports"},
-			Details: "Name must be empty, or one of: 'h2c', 'http1'",
-		},
-	}, {
-		name: "has unknown volumeMounts",
-		c: corev1.Container{
-			Image: "foo",
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:             "the-name",
-				SubPath:          "oops",
-				MountPropagation: &bidir,
-			}},
-		},
-		want: (&apis.FieldError{
-			Message: "volumeMount has no matching volume",
-			Paths:   []string{"name"},
-		}).ViaFieldIndex("volumeMounts", 0).Also(
-			apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", 0)).Also(
-			apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
-			apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
-		testAsInitContainer: true,
-		wantForInitContainer: (&apis.FieldError{
-			Message: "volumeMount has no matching volume",
-			Paths:   []string{"name"},
-		}).ViaFieldIndex("volumeMounts", 0).Also(
-			apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", 0)).Also(
-			apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
-			apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
-	}, {
-		name: "has known volumeMounts",
-		c: corev1.Container{
-			Image: "foo",
-			VolumeMounts: []corev1.VolumeMount{{
-				MountPath: "/mount/path",
-				Name:      "the-name",
-				ReadOnly:  true,
-			}},
-		},
-		volumes: map[string]corev1.Volume{
-			"the-name": {
-				Name: "the-name",
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "test-cm",
+			want: nil,
+		}, {
+			name: "valid with exec probes ",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					InitialDelaySeconds: 0,
+					PeriodSeconds:       1,
+					TimeoutSeconds:      1,
+					SuccessThreshold:    1,
+					FailureThreshold:    3,
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						Exec: &corev1.ExecAction{},
+					},
+				},
+			},
+			want: nil,
+		}, {
+			name: "invalid with no handler",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{},
+				},
+			},
+			want: apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec"),
+		}, {
+			name: "invalid with multiple handlers",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+						Exec:      &corev1.ExecAction{},
+						TCPSocket: &corev1.TCPSocketAction{},
+					},
+				},
+			},
+			want: apis.ErrMultipleOneOf("readinessProbe.exec", "readinessProbe.tcpSocket", "readinessProbe.httpGet"),
+		}, {
+			name: "invalid readiness http probe (has port)",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt(8080),
 						},
 					},
 				},
 			},
-		},
-		testAsInitContainer: true,
-	}, {
-		name: "has known volumeMounts, but at reserved path",
-		c: corev1.Container{
-			Image: "foo",
-			VolumeMounts: []corev1.VolumeMount{{
-				MountPath: "//var//log//",
-				Name:      "the-name",
-				ReadOnly:  true,
-			}},
-		},
-		volumes: map[string]corev1.Volume{
-			"the-name": {
-				Name: "the-name",
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "test-cm",
+			want: apis.ErrDisallowedFields("readinessProbe.httpGet.port"),
+		}, {
+			name: "invalid readiness probe (has failureThreshold while using special probe)",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    0,
+					FailureThreshold: 2,
+					SuccessThreshold: 1,
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
 						},
 					},
 				},
 			},
-		},
-		want: (&apis.FieldError{
-			Message: `mountPath "/var/log" is a reserved path`,
-			Paths:   []string{"mountPath"},
-		}).ViaFieldIndex("volumeMounts", 0),
-		testAsInitContainer: true,
-		wantForInitContainer: (&apis.FieldError{
-			Message: `mountPath "/var/log" is a reserved path`,
-			Paths:   []string{"mountPath"},
-		}).ViaFieldIndex("volumeMounts", 0),
-	}, {
-		name: "has known volumeMounts, bad mountPath",
-		c: corev1.Container{
-			Image: "foo",
-			VolumeMounts: []corev1.VolumeMount{{
-				MountPath: "not/absolute",
-				Name:      "the-name",
-				ReadOnly:  true,
-			}},
-		},
-		volumes: map[string]corev1.Volume{
-			"the-name": {
-				Name: "the-name",
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "test-cm",
+			want: &apis.FieldError{
+				Message: "failureThreshold is disallowed when periodSeconds is zero",
+				Paths:   []string{"readinessProbe.failureThreshold"},
+			},
+		}, {
+			name: "invalid readiness probe (has timeoutSeconds while using special probe)",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    0,
+					TimeoutSeconds:   2,
+					SuccessThreshold: 1,
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
 						},
 					},
 				},
 			},
-		},
-		want:                 apis.ErrInvalidValue("not/absolute", "volumeMounts[0].mountPath"),
-		testAsInitContainer:  true,
-		wantForInitContainer: apis.ErrInvalidValue("not/absolute", "volumeMounts[0].mountPath"),
-	}, {
-		name: "Empty dir has rw access",
-		c: corev1.Container{
-			Image: "foo",
-			VolumeMounts: []corev1.VolumeMount{{
-				MountPath: "/mount/path",
-				Name:      "the-name",
-			}},
-		},
-		volumes: map[string]corev1.Volume{
-			"the-name": {
-				Name: "the-name",
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{
-						Medium: "Memory",
+			want: &apis.FieldError{
+				Message: "timeoutSeconds is disallowed when periodSeconds is zero",
+				Paths:   []string{"readinessProbe.timeoutSeconds"},
+			},
+		}, {
+			name: "out of bounds probe values",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:       -1,
+					TimeoutSeconds:      0,
+					SuccessThreshold:    0,
+					FailureThreshold:    0,
+					InitialDelaySeconds: -1,
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{},
 					},
 				},
 			},
-		},
-		testAsInitContainer: true,
-	}, {
-		name: "has lifecycle",
-		c: corev1.Container{
-			Image:     "foo",
-			Lifecycle: &corev1.Lifecycle{},
-		},
-		want: apis.ErrDisallowedFields("lifecycle"),
-		wantForInitContainer: apis.ErrDisallowedFields("lifecycle").Also(&apis.FieldError{
-			Message: "field not allowed in an init container",
-			Paths:   []string{"lifecycle"},
-		}),
-		testAsInitContainer: true,
-	}, {
-		name: "has known volumeMount twice",
-		c: corev1.Container{
-			Image: "foo",
-			VolumeMounts: []corev1.VolumeMount{{
-				MountPath: "/mount/path",
-				Name:      "the-name",
-				ReadOnly:  true,
-			}, {
-				MountPath: "/another/mount/path",
-				Name:      "the-name",
-				ReadOnly:  true,
-			}},
-		},
-		volumes: map[string]corev1.Volume{
-			"the-name": {
-				Name: "the-name",
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "test-cm",
+			want: apis.ErrOutOfBoundsValue(-1, 0, math.MaxInt32, "readinessProbe.periodSeconds").Also(
+				apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.timeoutSeconds")).Also(
+				apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.successThreshold")).Also(
+				apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.failureThreshold")).Also(
+				apis.ErrOutOfBoundsValue(-1, 0, math.MaxInt32, "readinessProbe.initialDelaySeconds")),
+		}, {
+			name: "reserved env var name for serving container",
+			c: corev1.Container{
+				Image: "foo",
+				Env: []corev1.EnvVar{{
+					Name:  "PORT",
+					Value: "Foo",
+				}},
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			},
+			want: &apis.FieldError{
+				Message: `"PORT" is a reserved environment variable`,
+				Paths:   []string{"env[0].name"},
+			},
+		}, {
+			name: "invalid liveness tcp probe (has port)",
+			c: corev1.Container{
+				Image: "foo",
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromString("http"),
 						},
 					},
 				},
 			},
-		},
-		testAsInitContainer: true,
-	}, {
-		name: "valid with probes (no port)",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-					},
-				},
+			want: apis.ErrDisallowedFields("livenessProbe.tcpSocket.port"),
+		}, {
+			name: "disallowed container fields",
+			c: corev1.Container{
+				Image:     "foo",
+				Name:      "fail",
+				Stdin:     true,
+				StdinOnce: true,
+				TTY:       true,
+				Lifecycle: &corev1.Lifecycle{},
+				VolumeDevices: []corev1.VolumeDevice{{
+					Name:       "disallowed",
+					DevicePath: "/",
+				}},
 			},
-			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{},
-				},
+			want: apis.ErrDisallowedFields("lifecycle").Also(
+				apis.ErrDisallowedFields("stdin")).Also(
+				apis.ErrDisallowedFields("stdinOnce")).Also(
+				apis.ErrDisallowedFields("tty")).Also(
+				apis.ErrDisallowedFields("volumeDevices")),
+		}, {
+			name: "has numerous problems",
+			c: corev1.Container{
+				Lifecycle: &corev1.Lifecycle{},
 			},
+			want: apis.ErrDisallowedFields("lifecycle").Also(
+				apis.ErrMissingField("image")),
 		},
-		want: nil,
-	}, {
-		name: "valid with exec probes ",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				InitialDelaySeconds: 0,
-				PeriodSeconds:       1,
-				TimeoutSeconds:      1,
-				SuccessThreshold:    1,
-				FailureThreshold:    3,
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-					},
-				},
-			},
-			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					Exec: &corev1.ExecAction{},
-				},
-			},
-		},
-		want: nil,
-	}, {
-		name: "invalid with no handler",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-					},
-				},
-			},
-			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{},
-			},
-		},
-		want: apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec"),
-	}, {
-		name: "invalid with multiple handlers",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-					},
-					Exec:      &corev1.ExecAction{},
-					TCPSocket: &corev1.TCPSocketAction{},
-				},
-			},
-		},
-		want: apis.ErrMultipleOneOf("readinessProbe.exec", "readinessProbe.tcpSocket", "readinessProbe.httpGet"),
-	}, {
-		name: "invalid readiness http probe (has port)",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt(8080),
-					},
-				},
-			},
-		},
-		want:                 apis.ErrDisallowedFields("readinessProbe.httpGet.port"),
-		wantForInitContainer: apis.ErrDisallowedFields("readinessProbe.httpGet.port"),
-	}, {
-		name: "invalid readiness probe (has failureThreshold while using special probe)",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    0,
-				FailureThreshold: 2,
-				SuccessThreshold: 1,
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-					},
-				},
-			},
-		},
-		want: &apis.FieldError{
-			Message: "failureThreshold is disallowed when periodSeconds is zero",
-			Paths:   []string{"readinessProbe.failureThreshold"},
-		},
-	}, {
-		name: "invalid readiness probe (has timeoutSeconds while using special probe)",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    0,
-				TimeoutSeconds:   2,
-				SuccessThreshold: 1,
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-					},
-				},
-			},
-		},
-		want: &apis.FieldError{
-			Message: "timeoutSeconds is disallowed when periodSeconds is zero",
-			Paths:   []string{"readinessProbe.timeoutSeconds"},
-		},
-	}, {
-		name: "out of bounds probe values",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:       -1,
-				TimeoutSeconds:      0,
-				SuccessThreshold:    0,
-				FailureThreshold:    0,
-				InitialDelaySeconds: -1,
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{},
-				},
-			},
-		},
-		want: apis.ErrOutOfBoundsValue(-1, 0, math.MaxInt32, "readinessProbe.periodSeconds").Also(
-			apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.timeoutSeconds")).Also(
-			apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.successThreshold")).Also(
-			apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.failureThreshold")).Also(
-			apis.ErrOutOfBoundsValue(-1, 0, math.MaxInt32, "readinessProbe.initialDelaySeconds")),
-	}, {
-		name: "disallowed security context field",
-		c: corev1.Container{
-			Image: "foo",
-			SecurityContext: &corev1.SecurityContext{
-				Privileged: ptr.Bool(true),
-			},
-		},
-		want:                 apis.ErrDisallowedFields("securityContext.privileged"),
-		wantForInitContainer: apis.ErrDisallowedFields("securityContext.privileged"),
-		testAsInitContainer:  true,
-	}, {
-		name: "not allowed to add a security context capability",
-		c: corev1.Container{
-			Image: "foo",
-			SecurityContext: &corev1.SecurityContext{
-				Capabilities: &corev1.Capabilities{
-					Add: []corev1.Capability{"all"},
-				},
-			},
-		},
-		want:                 apis.ErrDisallowedFields("securityContext.capabilities.add"),
-		wantForInitContainer: apis.ErrDisallowedFields("securityContext.capabilities.add"),
-		testAsInitContainer:  true,
-	}, {
-		name: "allowed to add a security context capability when gate is enabled",
-		c: corev1.Container{
-			Image: "foo",
-			SecurityContext: &corev1.SecurityContext{
-				Capabilities: &corev1.Capabilities{
-					Add: []corev1.Capability{"all"},
-				},
-			},
-		},
-		cfgOpts:             []configOption{withContainerSpecAddCapabilitiesEnabled()},
-		want:                nil,
-		testAsInitContainer: true,
-	}, {
-		name: "too large uid",
-		c: corev1.Container{
-			Image: "foo",
-			SecurityContext: &corev1.SecurityContext{
-				RunAsUser: ptr.Int64(math.MaxInt32 + 1),
-			},
-		},
-		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "securityContext.runAsUser"),
-	}, {
-		name: "negative uid",
-		c: corev1.Container{
-			Image: "foo",
-			SecurityContext: &corev1.SecurityContext{
-				RunAsUser: ptr.Int64(-10),
-			},
-		},
-		want:                 apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsUser"),
-		wantForInitContainer: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsUser"),
-		testAsInitContainer:  true,
-	}, {
-		name:    "too large gid - feature enabled",
-		cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
-		c: corev1.Container{
-			Image: "foo",
-			SecurityContext: &corev1.SecurityContext{
-				RunAsGroup: ptr.Int64(math.MaxInt32 + 1),
-			},
-		},
-		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "securityContext.runAsGroup"),
-	}, {
-		name:    "negative gid - feature enabled",
-		cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
-		c: corev1.Container{
-			Image: "foo",
-			SecurityContext: &corev1.SecurityContext{
-				RunAsGroup: ptr.Int64(-10),
-			},
-		},
-		want:                 apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsGroup"),
-		testAsInitContainer:  true,
-		wantForInitContainer: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsGroup"),
-	}, {
-		name: "envFrom - None of",
-		c: corev1.Container{
-			Image:   "foo",
-			EnvFrom: []corev1.EnvFromSource{{}},
-		},
-		want:                 apis.ErrMissingOneOf("envFrom.configMapRef", "envFrom.secretRef"),
-		testAsInitContainer:  true,
-		wantForInitContainer: apis.ErrMissingOneOf("envFrom.configMapRef", "envFrom.secretRef"),
-	}, {
-		name: "envFrom - Multiple",
-		c: corev1.Container{
-			Image: "foo",
-			EnvFrom: []corev1.EnvFromSource{{
-				ConfigMapRef: &corev1.ConfigMapEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "ConfigMapName",
-					},
-				},
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "SecretName",
-					},
-				},
-			}},
-		},
-		want:                 apis.ErrMultipleOneOf("envFrom.configMapRef", "envFrom.secretRef"),
-		testAsInitContainer:  true,
-		wantForInitContainer: apis.ErrMultipleOneOf("envFrom.configMapRef", "envFrom.secretRef"),
-	}, {
-		name: "envFrom - Secret",
-		c: corev1.Container{
-			Image: "foo",
-			EnvFrom: []corev1.EnvFromSource{{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "SecretName",
-					},
-				},
-			}},
-		},
-		want: nil,
-	}, {
-		name: "envFrom - ConfigMap",
-		c: corev1.Container{
-			Image: "foo",
-			EnvFrom: []corev1.EnvFromSource{{
-				ConfigMapRef: &corev1.ConfigMapEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "ConfigMapName",
-					},
-				},
-			}},
-		},
-		want:                nil,
-		testAsInitContainer: true,
-	}, {
-		name: "termination message policy",
-		c: corev1.Container{
-			Image:                    "foo",
-			TerminationMessagePolicy: corev1.TerminationMessagePolicy("Not a Policy"),
-		},
-		want:                 apis.ErrInvalidValue(corev1.TerminationMessagePolicy("Not a Policy"), "terminationMessagePolicy"),
-		testAsInitContainer:  true,
-		wantForInitContainer: apis.ErrInvalidValue(corev1.TerminationMessagePolicy("Not a Policy"), "terminationMessagePolicy"),
-	}, {
-		name: "empty env var name",
-		c: corev1.Container{
-			Image: "foo",
-			Env: []corev1.EnvVar{{
-				Value: "Foo",
-			}},
-		},
-		want:                 apis.ErrMissingField("env[0].name"),
-		testAsInitContainer:  true,
-		wantForInitContainer: apis.ErrMissingField("env[0].name"),
-	}, {
-		name: "reserved env var name for serving container",
-		c: corev1.Container{
-			Image: "foo",
-			Env: []corev1.EnvVar{{
-				Name:  "PORT",
-				Value: "Foo",
-			}},
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 8888,
-			}},
-		},
-		want: &apis.FieldError{
-			Message: `"PORT" is a reserved environment variable`,
-			Paths:   []string{"env[0].name"},
-		},
-	}, {
-		name: "disallowed envvarsource",
-		c: corev1.Container{
-			Image: "foo",
-			Env: []corev1.EnvVar{{
-				Name: "Foo",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "/v1",
-					},
-				},
-			}},
-		},
-		want:                 apis.ErrDisallowedFields("env[0].valueFrom.fieldRef"),
-		testAsInitContainer:  true,
-		wantForInitContainer: apis.ErrDisallowedFields("env[0].valueFrom.fieldRef"),
-	}, {
-		name: "invalid liveness tcp probe (has port)",
-		c: corev1.Container{
-			Image: "foo",
-			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{
-						Port: intstr.FromString("http"),
-					},
-				},
-			},
-		},
-		want:                apis.ErrDisallowedFields("livenessProbe.tcpSocket.port"),
-		testAsInitContainer: true,
-		wantForInitContainer: &apis.FieldError{
-			Message: "field not allowed in an init container",
-			Paths:   []string{"livenessProbe"}},
-	}, {
-		name: "disallowed container fields",
-		c: corev1.Container{
-			Image:     "foo",
-			Name:      "fail",
-			Stdin:     true,
-			StdinOnce: true,
-			TTY:       true,
-			Lifecycle: &corev1.Lifecycle{},
-			VolumeDevices: []corev1.VolumeDevice{{
-				Name:       "disallowed",
-				DevicePath: "/",
-			}},
-		},
-		want: apis.ErrDisallowedFields("lifecycle").Also(
-			apis.ErrDisallowedFields("stdin")).Also(
-			apis.ErrDisallowedFields("stdinOnce")).Also(
-			apis.ErrDisallowedFields("tty")).Also(
-			apis.ErrDisallowedFields("volumeDevices")),
-		testAsInitContainer: true,
-		wantForInitContainer: apis.ErrDisallowedFields("lifecycle").Also(
-			apis.ErrDisallowedFields("stdin")).Also(
-			apis.ErrDisallowedFields("stdinOnce")).Also(
-			apis.ErrDisallowedFields("tty")).Also(
-			apis.ErrDisallowedFields("volumeDevices")).Also(&apis.FieldError{
-			Message: "field not allowed in an init container",
-			Paths:   []string{"lifecycle"}}),
-	}, {
-		name: "has numerous problems",
-		c: corev1.Container{
-			Lifecycle: &corev1.Lifecycle{},
-		},
-		want: apis.ErrDisallowedFields("lifecycle").Also(
-			apis.ErrMissingField("image")),
-		wantForInitContainer: apis.ErrDisallowedFields("lifecycle").Also(
-			apis.ErrMissingField("image")).Also(
-			&apis.FieldError{Message: "field not allowed in an init container",
-				Paths: []string{"lifecycle"}}),
-		testAsInitContainer: true,
-	}}
-
+	}
+	tests = append(tests, getCommonContainerValidationTestCases()...)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
@@ -1755,21 +1255,515 @@ func TestContainerValidation(t *testing.T) {
 				ctx = config.ToContext(ctx, cfg)
 			}
 
-			if !test.skipContainerTest {
-				got := ValidateContainer(ctx, test.c, test.volumes)
-				if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-					t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
-				}
-			}
-
-			if test.testAsInitContainer {
-				got := validateInitContainer(ctx, test.c, test.volumes)
-				if diff := cmp.Diff(test.wantForInitContainer.Error(), got.Error()); diff != "" {
-					t.Errorf("ValidateInitContainer (-want, +got): \n%s", diff)
-				}
+			got := ValidateContainer(ctx, test.c, test.volumes)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
 			}
 		})
 	}
+}
+
+func TestInitContainerValidation(t *testing.T) {
+	tests := []containerValidationTestCase{
+		{
+			name: "has a lifecycle",
+			c: corev1.Container{
+				Name:      "foo",
+				Image:     "foo",
+				Lifecycle: &corev1.Lifecycle{},
+			},
+			want: apis.ErrDisallowedFields("lifecycle").Also(&apis.FieldError{
+				Message: "field not allowed in an init container",
+				Paths:   []string{"lifecycle"},
+			}),
+			cfgOpts: []configOption{withPodSpecInitContainersEnabled()},
+		}, {
+			name: "has lifecycle",
+			c: corev1.Container{
+				Image:     "foo",
+				Lifecycle: &corev1.Lifecycle{},
+			},
+			want: apis.ErrDisallowedFields("lifecycle").Also(&apis.FieldError{
+				Message: "field not allowed in an init container",
+				Paths:   []string{"lifecycle"},
+			}),
+		}, {
+			name: "invalid liveness tcp probe (has port)",
+			c: corev1.Container{
+				Image: "foo",
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromString("http"),
+						},
+					},
+				},
+			},
+			want: &apis.FieldError{
+				Message: "field not allowed in an init container",
+				Paths:   []string{"livenessProbe"}},
+		}, {
+			name: "disallowed container fields",
+			c: corev1.Container{
+				Image:     "foo",
+				Name:      "fail",
+				Stdin:     true,
+				StdinOnce: true,
+				TTY:       true,
+				Lifecycle: &corev1.Lifecycle{},
+				VolumeDevices: []corev1.VolumeDevice{{
+					Name:       "disallowed",
+					DevicePath: "/",
+				}},
+			},
+			want: apis.ErrDisallowedFields("lifecycle").Also(
+				&apis.FieldError{
+					Message: "field not allowed in an init container",
+					Paths:   []string{"lifecycle"},
+				}).Also(
+				apis.ErrDisallowedFields("stdin")).Also(
+				apis.ErrDisallowedFields("stdinOnce")).Also(
+				apis.ErrDisallowedFields("tty")).Also(
+				apis.ErrDisallowedFields("volumeDevices")),
+		}, {
+			name: "has numerous problems",
+			c: corev1.Container{
+				Lifecycle: &corev1.Lifecycle{},
+			},
+			want: apis.ErrDisallowedFields("lifecycle").Also(
+				&apis.FieldError{
+					Message: "field not allowed in an init container",
+					Paths:   []string{"lifecycle"},
+				}).Also(apis.ErrMissingField("image")),
+		},
+	}
+	tests = append(tests, getCommonContainerValidationTestCases()...)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			if test.cfgOpts != nil {
+				cfg := config.FromContextOrDefaults(ctx)
+				for _, opt := range test.cfgOpts {
+					cfg = opt(cfg)
+				}
+				ctx = config.ToContext(ctx, cfg)
+			}
+			got := validateInitContainer(ctx, test.c, test.volumes)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("ValidateInitContainer (-want, +got): \n%s", diff)
+			}
+		})
+	}
+}
+
+func getCommonContainerValidationTestCases() []containerValidationTestCase {
+	bidir := corev1.MountPropagationBidirectional
+	return []containerValidationTestCase{
+		{
+			name:    "empty container",
+			c:       corev1.Container{},
+			want:    apis.ErrMissingField(apis.CurrentField),
+			cfgOpts: []configOption{withPodSpecInitContainersEnabled()},
+		}, {
+			name: "valid container",
+			c: corev1.Container{
+				Image: "foo",
+			},
+			want: nil,
+		}, {
+			name: "invalid container image",
+			c: corev1.Container{
+				Image: "foo:bar:baz",
+			},
+			want: &apis.FieldError{
+				Message: "Failed to parse image reference",
+				Paths:   []string{"image"},
+				Details: `image: "foo:bar:baz", error: could not parse reference: foo:bar:baz`,
+			},
+		}, {
+			name: "has resources",
+			c: corev1.Container{
+				Image: "foo",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("250M"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU: resource.MustParse("25m"),
+					},
+				},
+			},
+			want: nil,
+		}, {
+			name: "has no container ports set",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{},
+			},
+			want: nil,
+		}, {
+			name: "has container port value too large",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 65536,
+				}},
+			},
+			want: apis.ErrOutOfBoundsValue(65536, 0, 65535, "ports.containerPort"),
+		}, {
+			name: "has host ip",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					HostIP: "127.0.0.1",
+				}},
+			},
+			want: apis.ErrDisallowedFields("ports.hostIP"),
+		}, {
+			name: "port conflicts with profiling port",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8008,
+				}},
+			},
+			want: apis.ErrInvalidValue("8008 is a reserved port", "ports.containerPort",
+				"8008 is a reserved port, please use a different value"),
+		}, {
+			name: "port conflicts with queue proxy",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8013,
+				}},
+			},
+			want: apis.ErrInvalidValue("8013 is a reserved port", "ports.containerPort",
+				"8013 is a reserved port, please use a different value"),
+		}, {
+			name: "port conflicts with queue proxy",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8012,
+				}},
+			},
+			want: apis.ErrInvalidValue("8012 is a reserved port", "ports.containerPort",
+				"8012 is a reserved port, please use a different value"),
+		}, {
+			name: "port conflicts with queue proxy metrics",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 9090,
+				}},
+			},
+			want: apis.ErrInvalidValue("9090 is a reserved port", "ports.containerPort",
+				"9090 is a reserved port, please use a different value"),
+		}, {
+			name: "port conflicts with user queue proxy metrics for user",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 9091,
+				}},
+			},
+			want: apis.ErrInvalidValue("9091 is a reserved port", "ports.containerPort",
+				"9091 is a reserved port, please use a different value"),
+		}, {
+			name: "port conflicts with queue proxy admin",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8022,
+				}},
+			},
+			want: apis.ErrInvalidValue("8022 is a reserved port", "ports.containerPort",
+				"8022 is a reserved port, please use a different value"),
+		}, {
+			name: "has unknown volumeMounts",
+			c: corev1.Container{
+				Image: "foo",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:             "the-name",
+					SubPath:          "oops",
+					MountPropagation: &bidir,
+				}},
+			},
+			want: (&apis.FieldError{
+				Message: "volumeMount has no matching volume",
+				Paths:   []string{"name"},
+			}).ViaFieldIndex("volumeMounts", 0).Also(
+				apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", 0)).Also(
+				apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
+				apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
+		}, {
+			name: "has known volumeMounts",
+			c: corev1.Container{
+				Image: "foo",
+				VolumeMounts: []corev1.VolumeMount{{
+					MountPath: "/mount/path",
+					Name:      "the-name",
+					ReadOnly:  true,
+				}},
+			},
+			volumes: map[string]corev1.Volume{
+				"the-name": {
+					Name: "the-name",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "test-cm",
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "has known volumeMounts, but at reserved path",
+			c: corev1.Container{
+				Image: "foo",
+				VolumeMounts: []corev1.VolumeMount{{
+					MountPath: "//var//log//",
+					Name:      "the-name",
+					ReadOnly:  true,
+				}},
+			},
+			volumes: map[string]corev1.Volume{
+				"the-name": {
+					Name: "the-name",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "test-cm",
+							},
+						},
+					},
+				},
+			},
+			want: (&apis.FieldError{
+				Message: `mountPath "/var/log" is a reserved path`,
+				Paths:   []string{"mountPath"},
+			}).ViaFieldIndex("volumeMounts", 0),
+		}, {
+			name: "has known volumeMounts, bad mountPath",
+			c: corev1.Container{
+				Image: "foo",
+				VolumeMounts: []corev1.VolumeMount{{
+					MountPath: "not/absolute",
+					Name:      "the-name",
+					ReadOnly:  true,
+				}},
+			},
+			volumes: map[string]corev1.Volume{
+				"the-name": {
+					Name: "the-name",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "test-cm",
+							},
+						},
+					},
+				},
+			},
+			want: apis.ErrInvalidValue("not/absolute", "volumeMounts[0].mountPath"),
+		}, {
+			name: "Empty dir has rw access",
+			c: corev1.Container{
+				Image: "foo",
+				VolumeMounts: []corev1.VolumeMount{{
+					MountPath: "/mount/path",
+					Name:      "the-name",
+				}},
+			},
+			volumes: map[string]corev1.Volume{
+				"the-name": {
+					Name: "the-name",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{
+							Medium: "Memory",
+						},
+					},
+				},
+			},
+		}, {
+			name: "has known volumeMount twice",
+			c: corev1.Container{
+				Image: "foo",
+				VolumeMounts: []corev1.VolumeMount{{
+					MountPath: "/mount/path",
+					Name:      "the-name",
+					ReadOnly:  true,
+				}, {
+					MountPath: "/another/mount/path",
+					Name:      "the-name",
+					ReadOnly:  true,
+				}},
+			},
+			volumes: map[string]corev1.Volume{
+				"the-name": {
+					Name: "the-name",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "test-cm",
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "not allowed to add a security context capability",
+			c: corev1.Container{
+				Image: "foo",
+				SecurityContext: &corev1.SecurityContext{
+					Capabilities: &corev1.Capabilities{
+						Add: []corev1.Capability{"all"},
+					},
+				},
+			},
+			want: apis.ErrDisallowedFields("securityContext.capabilities.add"),
+		}, {
+			name: "allowed to add a security context capability when gate is enabled",
+			c: corev1.Container{
+				Image: "foo",
+				SecurityContext: &corev1.SecurityContext{
+					Capabilities: &corev1.Capabilities{
+						Add: []corev1.Capability{"all"},
+					},
+				},
+			},
+			cfgOpts: []configOption{withContainerSpecAddCapabilitiesEnabled()},
+			want:    nil,
+		}, {
+			name: "disallowed security context field",
+			c: corev1.Container{
+				Image: "foo",
+				SecurityContext: &corev1.SecurityContext{
+					Privileged: ptr.Bool(true),
+				},
+			},
+			want: apis.ErrDisallowedFields("securityContext.privileged"),
+		}, {
+			name: "too large uid",
+			c: corev1.Container{
+				Image: "foo",
+				SecurityContext: &corev1.SecurityContext{
+					RunAsUser: ptr.Int64(math.MaxInt32 + 1),
+				},
+			},
+			want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "securityContext.runAsUser"),
+		}, {
+			name: "negative uid",
+			c: corev1.Container{
+				Image: "foo",
+				SecurityContext: &corev1.SecurityContext{
+					RunAsUser: ptr.Int64(-10),
+				},
+			},
+			want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsUser"),
+		}, {
+			name:    "too large gid - feature enabled",
+			cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
+			c: corev1.Container{
+				Image: "foo",
+				SecurityContext: &corev1.SecurityContext{
+					RunAsGroup: ptr.Int64(math.MaxInt32 + 1),
+				},
+			},
+			want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "securityContext.runAsGroup"),
+		}, {
+			name:    "negative gid - feature enabled",
+			cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
+			c: corev1.Container{
+				Image: "foo",
+				SecurityContext: &corev1.SecurityContext{
+					RunAsGroup: ptr.Int64(-10),
+				},
+			},
+			want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsGroup"),
+		}, {
+			name: "envFrom - None of",
+			c: corev1.Container{
+				Image:   "foo",
+				EnvFrom: []corev1.EnvFromSource{{}},
+			},
+			want: apis.ErrMissingOneOf("envFrom.configMapRef", "envFrom.secretRef"),
+		}, {
+			name: "envFrom - Multiple",
+			c: corev1.Container{
+				Image: "foo",
+				EnvFrom: []corev1.EnvFromSource{{
+					ConfigMapRef: &corev1.ConfigMapEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "ConfigMapName",
+						},
+					},
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "SecretName",
+						},
+					},
+				}},
+			},
+			want: apis.ErrMultipleOneOf("envFrom.configMapRef", "envFrom.secretRef"),
+		}, {
+			name: "envFrom - Secret",
+			c: corev1.Container{
+				Image: "foo",
+				EnvFrom: []corev1.EnvFromSource{{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "SecretName",
+						},
+					},
+				}},
+			},
+			want: nil,
+		}, {
+			name: "envFrom - ConfigMap",
+			c: corev1.Container{
+				Image: "foo",
+				EnvFrom: []corev1.EnvFromSource{{
+					ConfigMapRef: &corev1.ConfigMapEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "ConfigMapName",
+						},
+					},
+				}},
+			},
+			want: nil,
+		}, {
+			name: "termination message policy",
+			c: corev1.Container{
+				Image:                    "foo",
+				TerminationMessagePolicy: "Not a Policy",
+			},
+			want: apis.ErrInvalidValue(corev1.TerminationMessagePolicy("Not a Policy"), "terminationMessagePolicy"),
+		}, {
+			name: "empty env var name",
+			c: corev1.Container{
+				Image: "foo",
+				Env: []corev1.EnvVar{{
+					Value: "Foo",
+				}},
+			},
+			want: apis.ErrMissingField("env[0].name"),
+		}, {
+			name: "disallowed envvarsource",
+			c: corev1.Container{
+				Image: "foo",
+				Env: []corev1.EnvVar{{
+					Name: "Foo",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "/v1",
+						},
+					},
+				}},
+			},
+			want: apis.ErrDisallowedFields("env[0].valueFrom.fieldRef"),
+		}}
 }
 
 func TestVolumeValidation(t *testing.T) {
