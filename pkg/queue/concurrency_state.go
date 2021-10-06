@@ -30,7 +30,6 @@ import (
 
 //nolint:gosec // Filepath, not hardcoded credentials
 const ConcurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
-const FreezeMaxRetryTimes = 3 // If pause/resume failed 3 times, it should kill qp and delete user-container force
 
 // ConcurrencyStateHandler tracks the in flight requests for the pod. When the requests
 // drop to zero, it runs the `pause` function, and when requests scale up from zero, it
@@ -97,8 +96,9 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 
 // handleStateRequestError handles retry and relaunch logic
 func handleStateRequestError(requestHandler, relaunch func() error) {
+	freezeMaxRetryTimes := 3 // If pause/resume failed 3 times, it will delete qp and user-container force
 	failedTimes := 0
-	for failedTimes < FreezeMaxRetryTimes {
+	for failedTimes < freezeMaxRetryTimes {
 		err := requestHandler()
 		if err != nil {
 			time.Sleep(time.Millisecond * 200)
@@ -107,7 +107,7 @@ func handleStateRequestError(requestHandler, relaunch func() error) {
 			break
 		}
 	}
-	if failedTimes >= FreezeMaxRetryTimes {
+	if failedTimes >= freezeMaxRetryTimes {
 		// Relaunch this pod, the way is: the runtime will delete all containers of this pod
 		err := relaunch()
 		// if the QP is deleted, this will not be executed
