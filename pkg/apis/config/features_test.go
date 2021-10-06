@@ -355,6 +355,24 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-volumes-emptydir": "Enabled",
 		},
 	}, {
+		name:    "kubernetes.podspec-init-containers Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecInitContainers: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-init-containers": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-init-container Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecInitContainers: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-init-containers": "Enabled",
+		},
+	}, {
 		name:    "kubernetes.podspec-priorityclassname Allowed",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{

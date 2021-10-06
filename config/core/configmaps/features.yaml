@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/version: devel
     app.kubernetes.io/part-of: knative-serving
   annotations:
-    knative.dev/example-checksum: "0b69357a"
+    knative.dev/example-checksum: "2897f625"
 data:
   _example: |-
     ################################
@@ -143,3 +143,8 @@ data:
     # 1. Enabled: enabling EmptyDir volume support
     # 2. Disabled: disabling EmptyDir volume support
     kubernetes.podspec-volumes-emptydir: "disabled"
+
+    # Controls whether init containers support is enabled or not.
+    # 1. Enabled: enabling init containers support
+    # 2. Disabled: disabling init containers support
+    kubernetes.podspec-init-containers: "disabled"
