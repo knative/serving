@@ -77,7 +77,7 @@ type config struct {
 	QueueServingPort         string `split_words:"true" required:"true"`
 	UserPort                 string `split_words:"true" required:"true"`
 	RevisionTimeoutSeconds   int    `split_words:"true" required:"true"`
-	ServingReadinessProbe    string `split_words:"true" required:"true"`
+	ServingReadinessProbe    string `split_words:"true"` // optional
 	EnableProfiling          bool   `split_words:"true"` // optional
 	EnableHTTP2AutoDetection bool   `split_words:"true"` // optional
 
@@ -172,9 +172,12 @@ func main() {
 	}()
 
 	// Setup probe to run for checking user-application healthiness.
-	probe := buildProbe(logger, env)
-	healthState := health.NewState()
+	probe := func() bool { return true }
+	if env.ServingReadinessProbe != "" {
+		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection).ProbeContainer
+	}
 
+	healthState := health.NewState()
 	mainServer := buildServer(ctx, env, healthState, probe, stats, logger)
 	servers := map[string]*http.Server{
 		"main":    mainServer,
@@ -261,18 +264,18 @@ func main() {
 	}
 }
 
-func buildProbe(logger *zap.SugaredLogger, env config) *readiness.Probe {
-	coreProbe, err := readiness.DecodeProbe(env.ServingReadinessProbe)
+func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 bool) *readiness.Probe {
+	coreProbe, err := readiness.DecodeProbe(encodedProbe)
 	if err != nil {
 		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
 	}
-	if env.EnableHTTP2AutoDetection {
+	if autodetectHTTP2 {
 		return readiness.NewProbeWithHTTP2AutoDetection(coreProbe)
 	}
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(ctx context.Context, env config, healthState *health.State, rp *readiness.Probe, stats *network.RequestStats,
+func buildServer(ctx context.Context, env config, healthState *health.State, probeContainer func() bool, stats *network.RequestStats,
 	logger *zap.SugaredLogger) *http.Server {
 
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
@@ -323,7 +326,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	}
 
-	composedHandler = health.ProbeHandler(healthState, rp.ProbeContainer, tracingEnabled, composedHandler)
+	composedHandler = health.ProbeHandler(healthState, probeContainer, tracingEnabled, composedHandler)
 	composedHandler = network.NewProbeHandler(composedHandler)
 	// We might want sometimes capture the probes/healthchecks in the request
 	// logs. Hence we need to have RequestLogHandler to be the first one.
