@@ -105,7 +105,8 @@ type config struct {
 	TracingConfigZipkinEndpoint string                    `split_words:"true"` // optional
 
 	// Concurrency State Endpoint configuration
-	ConcurrencyStateEndpoint string `split_words:"true"` // optional
+	ConcurrencyStateEndpoint  string `split_words:"true"` // optional
+	ConcurrencyStateTokenPath string `split_words:"true"` // optional
 }
 
 func init() {
@@ -300,8 +301,13 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 	var composedHandler http.Handler = httpProxy
 	if concurrencyStateEnabled {
 		logger.Info("Concurrency state endpoint set, tracking request counts, using endpoint: ", env.ConcurrencyStateEndpoint)
-		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler,
-			queue.Pause(env.ConcurrencyStateEndpoint), queue.Resume(env.ConcurrencyStateEndpoint), queue.RelaunchPod(env.ConcurrencyStateEndpoint))
+		ce := queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, env.ConcurrencyStateTokenPath)
+		go func() {
+			for range time.NewTicker(1 * time.Minute).C {
+				ce.RefreshToken()
+			}
+		}()
+		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, ce.Pause, ce.Resume, ce.RelaunchPod)
 	}
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)

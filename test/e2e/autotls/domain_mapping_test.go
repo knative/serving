@@ -61,7 +61,7 @@ func TestDomainMappingAutoTLS(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "runtime",
+		Image:   test.Runtime,
 	}
 
 	if len(env.TLSServiceName) != 0 {

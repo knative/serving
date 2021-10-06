@@ -430,6 +430,7 @@ func testConfig() *config.Config {
 			PodSpecTolerations:       apiConfig.Disabled,
 			PodSpecVolumesEmptyDir:   apiConfig.Disabled,
 			PodSpecPriorityClassName: apiConfig.Disabled,
+			PodSpecSchedulerName:     apiConfig.Disabled,
 			TagHeaderBasedRouting:    apiConfig.Disabled,
 		},
 	}

@@ -38,6 +38,8 @@ const (
 	Autoscale           = "autoscale"
 	EmptyDir            = "emptydir"
 	Failing             = "failing"
+	GRPCPing            = "grpc-ping"
+	HelloHTTP2          = "hellohttp2"
 	HelloVolume         = "hellovolume"
 	HelloWorld          = "helloworld"
 	HTTPProxy           = "httpproxy"
@@ -47,11 +49,11 @@ const (
 	Protocols           = "protocols"
 	Readiness           = "readiness"
 	Runtime             = "runtime"
+	ServingContainer    = "servingcontainer"
+	SidecarContainer    = "sidecarcontainer"
 	SingleThreadedImage = "singlethreaded"
 	Timeout             = "timeout"
 	WorkingDir          = "workingdir"
-	ServingContainer    = "servingcontainer"
-	SidecarContainer    = "sidecarcontainer"
 
 	// Constants for test image output.
 	PizzaPlanetText1 = "What a spaceport!"

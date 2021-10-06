@@ -36,6 +36,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+//nolint:gosec // Filepath, not hardcoded credentials
+const concurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
+const concurrencyStateTokenName = "state-token"
+
 var (
 	varLogVolume = corev1.Volume{
 		Name: "knative-var-log",
@@ -57,7 +61,7 @@ var (
 				Sources: []corev1.VolumeProjection{{
 					ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
 						ExpirationSeconds: ptr.Int64(600),
-						Path:              "state-token",
+						Path:              concurrencyStateTokenName,
 						Audience:          "concurrency-state-hook"},
 				}},
 			},
@@ -66,7 +70,7 @@ var (
 
 	varTokenVolumeMount = corev1.VolumeMount{
 		Name:      varTokenVolume.Name,
-		MountPath: queue.ConcurrencyStateTokenVolumeMountPath,
+		MountPath: concurrencyStateTokenVolumeMountPath,
 	}
 
 	// This PreStop hook is actually calling an endpoint on the queue-proxy

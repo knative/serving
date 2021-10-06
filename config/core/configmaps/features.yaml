@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/version: devel
     app.kubernetes.io/part-of: knative-serving
   annotations:
-    knative.dev/example-checksum: "5b8c26fe"
+    knative.dev/example-checksum: "0b69357a"
 data:
   _example: |-
     ################################
@@ -105,6 +105,12 @@ data:
     # WARNING: Cannot safely be disabled once enabled.
     # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-priority-class-name
     kubernetes.podspec-priorityclassname: "disabled"
+
+    # Indicates whether Kubernetes SchedulerName support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-scheduler-name
+    kubernetes.podspec-schedulername: "disabled"
 
     # This feature flag allows end-users to add a subset of capabilities on the Pod's SecurityContext.
     #

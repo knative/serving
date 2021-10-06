@@ -112,6 +112,13 @@ func withPodSpecPriorityClassNameEnabled() configOption {
 	}
 }
 
+func withPodSpecSchedulerNameEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecSchedulerName = config.Enabled
+		return cfg
+	}
+}
+
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -696,6 +703,16 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 			Paths:   []string{"priorityClassName"},
 		},
 		cfgOpts: []configOption{withPodSpecPriorityClassNameEnabled()},
+	}, {
+		name: "SchedulerName",
+		featureSpec: corev1.PodSpec{
+			SchedulerName: "foo",
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"schedulerName"},
+		},
+		cfgOpts: []configOption{withPodSpecSchedulerNameEnabled()},
 	}}
 
 	featureTests := []struct {

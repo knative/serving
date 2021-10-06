@@ -32,21 +32,13 @@ import (
 const ConcurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
 const FreezeMaxRetryTimes = 3 // If pause/resume failed 3 times, it should kill qp and delete user-container force
 
-// error code for pause/resume operation
-const (
-	noError                        = 0 // everything works
-	internalError                  = 1 // some internal errors happen, like json decode failed, should try again
-	responseStatusConflictError    = 2 // like request pause when the container is in pause state, should forget
-	responseExecError              = 3 // the command exec failed in runtime level, should try again
-)
-
 // ConcurrencyStateHandler tracks the in flight requests for the pod. When the requests
 // drop to zero, it runs the `pause` function, and when requests scale up from zero, it
 // runs the `resume` function. If either of `pause` or `resume` are not passed, it runs
 // the respective local function(s). The local functions are the expected behavior; the
 // function parameters are enabled primarily for testing purposes.
 func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler,
-	pause, resume, delete func() (int8, error)) http.HandlerFunc {
+	pause, resume, relaunch func() error) http.HandlerFunc {
 
 	var (
 		inFlight = atomic.NewInt64(0)
@@ -63,9 +55,9 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler,
 				// handler meanwhile. We don't want to do anything in that case.
 				if !paused && inFlight.Load() == 0 {
 					logger.Info("Requests dropped to zero")
-					if errCode, err := pause(); errCode != noError {
+					if err := pause(); err != nil {
 						logger.Errorf("Error handling resume request: %v", err)
-						handleStateRequestError(errCode, pause, delete)
+						handleStateRequestError(pause, relaunch)
 					}
 					paused = true
 					logger.Debug("To-Zero request successfully processed")
@@ -92,9 +84,9 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler,
 		}
 
 		logger.Info("Requests increased from zero")
-		if errCode, err := resume(); errCode != noError {
+		if err := resume(); err != nil {
 			logger.Errorf("Error handling resume request: %v", err)
-			handleStateRequestError(errCode, resume, delete)
+			handleStateRequestError(resume, relaunch)
 		}
 		paused = false
 		logger.Debug("From-Zero request successfully processed")
@@ -104,84 +96,74 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler,
 	}
 }
 
-// handleStateRequestError handles different error code
-func handleStateRequestError(errCode int8, requestHandler, deleteFunc func() (int8, error)) {
-	if errCode == responseStatusConflictError {
-		// nothing should be done, just ignore
-	}
-	if errCode == internalError {
-		os.Exit(1)
-	}
-	if errCode == responseExecError {
-		failedTimes := 0
-		for failedTimes < FreezeMaxRetryTimes {
-			errCode, _ := requestHandler()
-			if errCode == responseExecError {
-				failedTimes++
-				time.Sleep(time.Millisecond * 200)
-			}
-			if errCode == internalError {
-				os.Exit(1)
-			}
-			if errCode == responseStatusConflictError || errCode == noError {
-				break
-			}
-		}
-		if failedTimes >= FreezeMaxRetryTimes {
-			// Relaunch this pod, the way is: the runtime will delete all containers of this pod
-			errCode, error := deleteFunc()
-			// if the QP is deleted, this will not be executed
-			for error != nil {
-				// the error code type here could be: internalError, responseExecError(failed to exec delete command)
-				if errCode == internalError {
-					os.Exit(1)
-				} else {
-					_, error = deleteFunc()
-				}
-			}
-		}
-	}
-}
-
-// concurrencyStateRequest sends a request to the concurrency state endpoint.
-func concurrencyStateRequest(endpoint string, action string) func() (int8, error) {
-	return func() (int8, error) {
-		bodyText := fmt.Sprintf(`{ "action": %q }`, action)
-		body := bytes.NewBufferString(bodyText)
-		req, err := http.NewRequest(http.MethodPost, endpoint, body)
+// handleStateRequestError handles retry and relaunch logic
+func handleStateRequestError(requestHandler, relaunch func() error) {
+	failedTimes := 0
+	for failedTimes < FreezeMaxRetryTimes {
+		err := requestHandler()
 		if err != nil {
-			return internalError, fmt.Errorf("unable to create request: %w", err)
+			time.Sleep(time.Millisecond * 200)
+			failedTimes++
+		} else {
+			break
 		}
-		req.Header.Add("Token", "nil") // TODO: use serviceaccountToken from projected volume
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return internalError, fmt.Errorf("unable to post request: %w", err)
+	}
+	if failedTimes >= FreezeMaxRetryTimes {
+		// Relaunch this pod, the way is: the runtime will delete all containers of this pod
+		err := relaunch()
+		// if the QP is deleted, this will not be executed
+		for err != nil {
+			err = relaunch()
+			time.Sleep(time.Millisecond * 100)
 		}
-		if resp.StatusCode == http.StatusConflict {
-			if action == "pause" {
-				return responseStatusConflictError, fmt.Errorf("expected container status is in running state, but actually not")
-			} else {
-				return responseStatusConflictError, fmt.Errorf("expected container status is in paused state, but actually not")
-			}
-		}
-		if resp.StatusCode != http.StatusOK {
-			return responseExecError, fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
-		}
-		return noError, nil
 	}
 }
 
-// Pause sends a pause request to the concurrency state endpoint.
-func Pause(endpoint string) func() (int8, error) {
-	return concurrencyStateRequest(endpoint, "pause")
+type ConcurrencyEndpoint struct {
+	endpoint  string
+	mountPath string
+	token     atomic.Value
 }
 
-// Resume sends a resume request to the concurrency state endpoint.
-func Resume(endpoint string) func() (int8, error) {
-	return concurrencyStateRequest(endpoint, "resume")
+func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
+	c := ConcurrencyEndpoint{
+		endpoint:  e,
+		mountPath: m,
+	}
+	c.RefreshToken()
+	return c
 }
 
-// RelaunchPod send a force-delete request to the concurrency state endpoint.
-func RelaunchPod(endpoint string) func() (int8, error) {
-	return concurrencyStateRequest(endpoint, "delete-pod")
+func (c ConcurrencyEndpoint) Pause() error { return c.Request("pause") }
+
+func (c ConcurrencyEndpoint) Resume() error { return c.Request("resume") }
+
+func (c ConcurrencyEndpoint) RelaunchPod() error { return c.Request("relaunch-pod") }
+
+func (c ConcurrencyEndpoint) Request(action string) error {
+	bodyText := fmt.Sprintf(`{ "action": %q }`, action)
+	body := bytes.NewBufferString(bodyText)
+	req, err := http.NewRequest(http.MethodPost, c.endpoint, body)
+	if err != nil {
+		return fmt.Errorf("unable to create request: %w", err)
+	}
+	token := fmt.Sprint(c.token.Load())
+	req.Header.Add("Token", token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("unable to post request: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
+	}
+	return nil
+}
+
+func (c *ConcurrencyEndpoint) RefreshToken() error {
+	token, err := os.ReadFile(c.mountPath)
+	if err != nil {
+		return fmt.Errorf("could not read token: %w", err)
+	}
+	c.token.Store(string(token))
+	return nil
 }

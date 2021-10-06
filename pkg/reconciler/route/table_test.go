@@ -3280,6 +3280,7 @@ func reconcilerTestConfig() *config.Config {
 			PodSpecNodeSelector:      cfgmap.Disabled,
 			PodSpecTolerations:       cfgmap.Disabled,
 			PodSpecPriorityClassName: cfgmap.Disabled,
+			PodSpecSchedulerName:     cfgmap.Disabled,
 			TagHeaderBasedRouting:    cfgmap.Disabled,
 		},
 	}
