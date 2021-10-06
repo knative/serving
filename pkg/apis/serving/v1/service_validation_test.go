@@ -492,6 +492,7 @@ func TestImmutableServiceFields(t *testing.T) {
 									Image: "helloworld:foo",
 								}},
 							},
+							IdleTimeoutSeconds: ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 						},
 					},
 				},

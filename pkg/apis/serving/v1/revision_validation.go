@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/validation"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
@@ -73,7 +74,7 @@ func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError 
 
 // VerifyNameChange checks that if a user brought their own name previously that it
 // changes at the appropriate times.
-func (rts *RevisionTemplateSpec) VerifyNameChange(_ context.Context, og *RevisionTemplateSpec) *apis.FieldError {
+func (rts *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *RevisionTemplateSpec) *apis.FieldError {
 	if rts.Name == "" {
 		// We only check that Name changes when the RevisionTemplate changes.
 		return nil
@@ -82,7 +83,10 @@ func (rts *RevisionTemplateSpec) VerifyNameChange(_ context.Context, og *Revisio
 		// The name changed, so we're good.
 		return nil
 	}
-
+	cfg := config.FromContextOrDefaults(ctx)
+	if og.Spec.IdleTimeoutSeconds == nil || *og.Spec.IdleTimeoutSeconds == 0 {
+		og.Spec.IdleTimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionIdleTimeoutSeconds)
+	}
 	diff, err := kmp.ShortDiff(og, rts)
 	if err != nil {
 		return &apis.FieldError{
