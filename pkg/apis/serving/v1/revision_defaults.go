@@ -53,6 +53,11 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		rs.TimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionTimeoutSeconds)
 	}
 
+	// Default IdleTimeoutSeconds based on our configmap.
+	if rs.IdleTimeoutSeconds == nil || *rs.IdleTimeoutSeconds == 0 {
+		rs.IdleTimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionIdleTimeoutSeconds)
+	}
+
 	// Default ContainerConcurrency based on our configmap.
 	if rs.ContainerConcurrency == nil {
 		rs.ContainerConcurrency = ptr.Int64(cfg.Defaults.ContainerConcurrency)

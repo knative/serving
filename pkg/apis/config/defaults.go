@@ -42,6 +42,9 @@ const (
 	// DefaultRevisionTimeoutSeconds will be set if timeoutSeconds not specified.
 	DefaultRevisionTimeoutSeconds = 5 * 60
 
+	// DefaultRevisionIdleTimeoutSeconds will be set if idleTimeoutSeconds not specified.
+	DefaultRevisionIdleTimeoutSeconds = 0
+
 	// DefaultMaxRevisionTimeoutSeconds will be set if MaxRevisionTimeoutSeconds is not specified.
 	DefaultMaxRevisionTimeoutSeconds = 10 * 60
 
@@ -77,6 +80,7 @@ func init() {
 func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
 		RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
+		RevisionIdleTimeoutSeconds:    DefaultRevisionIdleTimeoutSeconds,
 		MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
 		UserContainerNameTemplate:     DefaultUserContainerName,
 		ContainerConcurrency:          DefaultContainerConcurrency,
@@ -160,6 +164,11 @@ func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error)
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
 	RevisionTimeoutSeconds int64
+
+	// RevisionIdleTimeoutSeconds is the maximum duration in seconds a request
+	// will be allowed to stay open while not receiving any bytes from the user's application.
+	RevisionIdleTimeoutSeconds int64
+
 	// This is the timeout set for ingress.
 	// RevisionTimeoutSeconds must be less than this value.
 	MaxRevisionTimeoutSeconds int64

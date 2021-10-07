@@ -73,13 +73,14 @@ var (
 )
 
 type config struct {
-	ContainerConcurrency     int    `split_words:"true" required:"true"`
-	QueueServingPort         string `split_words:"true" required:"true"`
-	UserPort                 string `split_words:"true" required:"true"`
-	RevisionTimeoutSeconds   int    `split_words:"true" required:"true"`
-	ServingReadinessProbe    string `split_words:"true"` // optional
-	EnableProfiling          bool   `split_words:"true"` // optional
-	EnableHTTP2AutoDetection bool   `split_words:"true"` // optional
+	ContainerConcurrency       int    `split_words:"true" required:"true"`
+	QueueServingPort           string `split_words:"true" required:"true"`
+	UserPort                   string `split_words:"true" required:"true"`
+	RevisionTimeoutSeconds     int    `split_words:"true" required:"true"`
+	ServingReadinessProbe      string `split_words:"true"` // optional
+	RevisionIdleTimeoutSeconds int    `split_words:"true"` // optional
+	EnableProfiling            bool   `split_words:"true"` // optional
+	EnableHTTP2AutoDetection   bool   `split_words:"true"` // optional
 
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
@@ -296,8 +297,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, pro
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
 	concurrencyStateEnabled := env.ConcurrencyStateEndpoint != ""
 	firstByteTimeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
-	// hardcoded to always disable idle timeout for now, will expose this later
-	var idleTimeout time.Duration
+	idleTimeout := time.Duration(env.RevisionIdleTimeoutSeconds) * time.Second
 
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.

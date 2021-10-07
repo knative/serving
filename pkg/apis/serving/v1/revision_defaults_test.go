@@ -61,6 +61,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 			},
 		},
@@ -86,6 +87,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
 				TimeoutSeconds:       ptr.Int64(123),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -117,6 +119,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
 				TimeoutSeconds:       ptr.Int64(123),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{
@@ -153,6 +156,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
 				TimeoutSeconds:       ptr.Int64(300),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -184,6 +188,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
 				TimeoutSeconds:       ptr.Int64(300),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -215,6 +220,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
 				TimeoutSeconds:       ptr.Int64(300),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -249,6 +255,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
 				TimeoutSeconds:       ptr.Int64(300),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -293,6 +300,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(99),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 			},
 		},
 	}, {
@@ -317,6 +325,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
 				TimeoutSeconds:       ptr.Int64(456),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -350,6 +359,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(99),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:      "foo",
@@ -386,6 +396,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -433,7 +444,8 @@ func TestRevisionDefaulting(t *testing.T) {
 						Resources: defaultResources,
 					}},
 				},
-				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				TimeoutSeconds:     ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				IdleTimeoutSeconds: ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 			},
 		},
 	}, {
@@ -446,6 +458,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -486,6 +499,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -526,6 +540,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -573,6 +588,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				IdleTimeoutSeconds:   ptr.Int64(config.DefaultRevisionIdleTimeoutSeconds),
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{

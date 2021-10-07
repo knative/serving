@@ -88,6 +88,12 @@ type RevisionSpec struct {
 	// (send network traffic). If unspecified, a system default will be provided.
 	// +optional
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
+
+	// IdleTimeoutSeconds is the maximum duration in seconds a request will be allowed
+	// to stay open while not receiving any bytes from the user's application. If
+	// unspecified, a system default will be provided.
+	// +optional
+	IdleTimeoutSeconds *int64 `json:"idleTimeoutSeconds,omitempty"`
 }
 
 const (
