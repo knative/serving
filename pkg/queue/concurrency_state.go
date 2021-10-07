@@ -52,7 +52,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 					logger.Info("Requests dropped to zero")
 					if err := pause(); err != nil {
 						logger.Errorf("Error handling resume request: %v", err)
-						handleStateRequestError(pause, relaunch)
+						handleStateRequestError(logger, pause, relaunch)
 					}
 					paused = true
 					logger.Debug("To-Zero request successfully processed")
@@ -81,7 +81,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 		logger.Info("Requests increased from zero")
 		if err := resume(); err != nil {
 			logger.Errorf("Error handling resume request: %v", err)
-			handleStateRequestError(resume, relaunch)
+			handleStateRequestError(logger, resume, relaunch)
 		}
 		paused = false
 		logger.Debug("From-Zero request successfully processed")
@@ -92,10 +92,11 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 }
 
 // handleStateRequestError handles retry and relaunch logic
-func handleStateRequestError(requestHandler, relaunch func() error) {
+func handleStateRequestError(logger *zap.SugaredLogger, requestHandler, relaunch func() error) {
 	const freezeMaxRetryTimes = 3 // If pause/resume failed 3 times, it will delete qp and user-container force
 	failedTimes := 0
 	for failedTimes < freezeMaxRetryTimes {
+		logger.Infof("Start the %v retry", failedTimes + 1)
 		err := requestHandler()
 		if err != nil {
 			time.Sleep(time.Millisecond * 200)
@@ -105,6 +106,7 @@ func handleStateRequestError(requestHandler, relaunch func() error) {
 		}
 	}
 	if failedTimes >= freezeMaxRetryTimes {
+		logger.Errorf("Retry 3 times failed, try to relaunch this pod")
 		// Relaunch this pod, the way is: the runtime will delete all containers of this pod
 		err := relaunch()
 		// if the QP is deleted, this will not be executed

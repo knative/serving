@@ -361,7 +361,8 @@ func TestConcurrencyStateRetryTwoTimesOperation(t *testing.T) {
 	}
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
 	timeNow := time.Now()
-	handleStateRequestError(c.Pause, c.RelaunchPod)
+	logger := ltesting.TestLogger(t)
+	handleStateRequestError(logger, c.Pause, c.RelaunchPod)
 	timeAfter := time.Now()
 	if timeAfter.Sub(timeNow) < (time.Millisecond * 200 * 2) || reqCnt != 3 {
 		t.Errorf("fail to retry correct times")
@@ -386,7 +387,8 @@ func TestConcurrencyStateRetryThreeTimesOperation(t *testing.T) {
 	}
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
 	timeNow := time.Now()
-	handleStateRequestError(c.Pause, c.RelaunchPod)
+	logger := ltesting.TestLogger(t)
+	handleStateRequestError(logger, c.Pause, c.RelaunchPod)
 	timeAfter := time.Now()
 	if timeAfter.Sub(timeNow) < (time.Millisecond * 200 * 3) || reqCnt != 4 {
 		t.Errorf("fail to retry correct times")
@@ -419,7 +421,8 @@ func TestConcurrencyStateRelaunchOperation(t *testing.T) {
 	}
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
 	timeNow := time.Now()
-	handleStateRequestError(c.Pause, c.RelaunchPod)
+	logger := ltesting.TestLogger(t)
+	handleStateRequestError(logger, c.Pause, c.RelaunchPod)
 	timeAfter := time.Now()
 	if timeAfter.Sub(timeNow) < (time.Millisecond * 200 * 3 + time.Millisecond * 2) || reqCnt != 6 {
 		t.Errorf("fail to retry correct times")
