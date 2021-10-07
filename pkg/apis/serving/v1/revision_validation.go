@@ -97,7 +97,7 @@ func (rts *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *Revis
 	}
 	if diff != "" {
 		return &apis.FieldError{
-			Message: "Saw the following changes without a name change (-old +new)",
+			Message: "Saw the following changes without a name change (-old +new)!",
 			Paths:   []string{"metadata.name"},
 			Details: diff,
 		}
