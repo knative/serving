@@ -328,9 +328,12 @@ func buildServer(ctx context.Context, env config, healthState *health.State, pro
 
 	composedHandler = health.ProbeHandler(healthState, probeContainer, tracingEnabled, composedHandler)
 	composedHandler = network.NewProbeHandler(composedHandler)
-	// We might want sometimes capture the probes/healthchecks in the request
+	// We might want sometimes to capture the probes/healthchecks in the request
 	// logs. Hence we need to have RequestLogHandler to be the first one.
-	composedHandler = pushRequestLogHandler(logger, composedHandler, env)
+	if env.ServingEnableRequestLog {
+		logger.Info("push request log handler enabled")
+		composedHandler = pushRequestLogHandler(logger, composedHandler, env)
+	}
 
 	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler)
 }
@@ -412,10 +415,6 @@ func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter, protobu
 }
 
 func pushRequestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env config) http.Handler {
-	if !env.ServingEnableRequestLog {
-		return currentHandler
-	}
-
 	revInfo := &pkghttp.RequestLogRevision{
 		Name:          env.ServingRevision,
 		Namespace:     env.ServingNamespace,
