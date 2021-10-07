@@ -33,37 +33,40 @@ const (
 	ConfigName = "config-deployment"
 
 	// QueueSidecarImageKey is the config map key for queue sidecar image.
-	QueueSidecarImageKey = "queueSidecarImage"
+	QueueSidecarImageKey = "queue-sidecar-image"
+
+	// DeprecatedQueueSidecarImageKey is the config map key for queue sidecar image.
+	DeprecatedQueueSidecarImageKey = "queueSidecarImage"
 
 	// ProgressDeadlineDefault is the default value for the config's
 	// ProgressDeadlineSeconds. This matches the K8s default value of 600s.
 	ProgressDeadlineDefault = 600 * time.Second
 
 	// ProgressDeadlineKey is the key to configure deployment progress deadline.
-	ProgressDeadlineKey = "progressDeadline"
+	ProgressDeadlineKey = "progress-deadline"
 
 	// digestResolutionTimeoutKey is the key to configure the digest resolution timeout.
-	digestResolutionTimeoutKey = "digestResolutionTimeout"
+	digestResolutionTimeoutKey = "digest-resolution-timeout"
 
 	// digestResolutionTimeoutDefault is the default digest resolution timeout.
 	digestResolutionTimeoutDefault = 10 * time.Second
 
 	// registriesSkippingTagResolvingKey is the config map key for the set of registries
 	// (e.g. ko.local) where tags should not be resolved to digests.
-	registriesSkippingTagResolvingKey = "registriesSkippingTagResolving"
+	registriesSkippingTagResolvingKey = "registries-skipping-tag-resolving"
 
 	// queueSidecar resource request keys.
-	queueSidecarCPURequestKey              = "queueSidecarCPURequest"
-	queueSidecarMemoryRequestKey           = "queueSidecarMemoryRequest"
-	queueSidecarEphemeralStorageRequestKey = "queueSidecarEphemeralStorageRequest"
+	queueSidecarCPURequestKey              = "queue-sidecar-cpu-request"
+	queueSidecarMemoryRequestKey           = "queue-sidecar-memory-request"
+	queueSidecarEphemeralStorageRequestKey = "queue-sidecar-ephemeral-storage-request"
 
 	// queueSidecar resource limit keys.
-	queueSidecarCPULimitKey              = "queueSidecarCPULimit"
-	queueSidecarMemoryLimitKey           = "queueSidecarMemoryLimit"
-	queueSidecarEphemeralStorageLimitKey = "queueSidecarEphemeralStorageLimit"
+	queueSidecarCPULimitKey              = "queue-sidecar-cpu-limit"
+	queueSidecarMemoryLimitKey           = "queue-sidecar-memory-limit"
+	queueSidecarEphemeralStorageLimitKey = "queue-sidecar-ephemeral-storage-limit"
 
 	// concurrencyStateEndpointKey is the key to configure the endpoint Queue Proxy will call when traffic drops to / increases from zero.
-	concurrencyStateEndpointKey = "concurrencyStateEndpoint"
+	concurrencyStateEndpointKey = "concurrency-state-endpoint"
 )
 
 var (
@@ -88,6 +91,19 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 	nc := defaultConfig()
 
 	if err := cm.Parse(configMap,
+		// Legacy keys for backwards compatibility
+		cm.AsString(DeprecatedQueueSidecarImageKey, &nc.QueueSidecarImage),
+		cm.AsDuration("progressDeadline", &nc.ProgressDeadline),
+		cm.AsDuration("digestResolutionTimeout", &nc.DigestResolutionTimeout),
+		cm.AsStringSet("registriesSkippingTagResolving", &nc.RegistriesSkippingTagResolving),
+		cm.AsQuantity("queueSidecarCPURequest", &nc.QueueSidecarCPURequest),
+		cm.AsQuantity("queueSidecarMemoryRequest", &nc.QueueSidecarMemoryRequest),
+		cm.AsQuantity("queueSidecarEphemeralStorageRequest", &nc.QueueSidecarEphemeralStorageRequest),
+		cm.AsQuantity("queueSidecarCPULimit", &nc.QueueSidecarCPULimit),
+		cm.AsQuantity("queueSidecarMemoryLimit", &nc.QueueSidecarMemoryLimit),
+		cm.AsQuantity("queueSidecarEphemeralStorageLimit", &nc.QueueSidecarEphemeralStorageLimit),
+		cm.AsString("concurrencyStateEndpoint", &nc.ConcurrencyStateEndpoint),
+
 		cm.AsString(QueueSidecarImageKey, &nc.QueueSidecarImage),
 		cm.AsDuration(ProgressDeadlineKey, &nc.ProgressDeadline),
 		cm.AsDuration(digestResolutionTimeoutKey, &nc.DigestResolutionTimeout),
@@ -106,19 +122,19 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 	}
 
 	if nc.QueueSidecarImage == "" {
-		return nil, errors.New("queueSidecarImage cannot be empty or unset")
+		return nil, errors.New("queue-sidecar-image cannot be empty or unset")
 	}
 
 	if nc.ProgressDeadline <= 0 {
-		return nil, fmt.Errorf("progressDeadline cannot be a non-positive duration, was %v", nc.ProgressDeadline)
+		return nil, fmt.Errorf("progress-deadline cannot be a non-positive duration, was %v", nc.ProgressDeadline)
 	}
 
 	if nc.ProgressDeadline.Truncate(time.Second) != nc.ProgressDeadline {
-		return nil, fmt.Errorf("ProgressDeadline must be rounded to a whole second, was: %v", nc.ProgressDeadline)
+		return nil, fmt.Errorf("progress-deadline must be rounded to a whole second, was: %v", nc.ProgressDeadline)
 	}
 
 	if nc.DigestResolutionTimeout <= 0 {
-		return nil, fmt.Errorf("digestResolutionTimeout cannot be a non-positive duration, was %v", nc.DigestResolutionTimeout)
+		return nil, fmt.Errorf("digest-resolution-timeout cannot be a non-positive duration, was %v", nc.DigestResolutionTimeout)
 	}
 
 	return nc, nil

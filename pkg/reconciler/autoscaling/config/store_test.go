@@ -33,7 +33,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
-	depConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
+	depConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.DeprecatedQueueSidecarImageKey)
 	store.OnConfigChanged(autoscalerConfig)
 	store.OnConfigChanged(depConfig)
 	config := FromContext(store.ToContext(context.Background()))
@@ -53,7 +53,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName,
-		deployment.QueueSidecarImageKey))
+		deployment.DeprecatedQueueSidecarImageKey))
 
 	config := store.Load()
 	config.Autoscaler.MaxScaleUpRate = 100.0

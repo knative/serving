@@ -40,7 +40,8 @@ import (
 func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	deploymentConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
+	// TODO: change to proper casing after 0.27 cuts
+	deploymentConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.DeprecatedQueueSidecarImageKey)
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
 	observabilityConfig, observabilityConfigExample := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
 	loggingConfig, loggingConfigExample := ConfigMapsFromTestFile(t, logging.ConfigMapName())
@@ -156,7 +157,8 @@ func TestStoreLoadWithContext(t *testing.T) {
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 	watcher := configmap.NewStaticWatcher(
-		ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey),
+		// TODO: switch to newer key casing after 0.27
+		ConfigMapFromTestFile(t, deployment.ConfigName, deployment.DeprecatedQueueSidecarImageKey),
 		ConfigMapFromTestFile(t, network.ConfigName),
 		ConfigMapFromTestFile(t, metrics.ConfigMapName()),
 		ConfigMapFromTestFile(t, logging.ConfigMapName()),
