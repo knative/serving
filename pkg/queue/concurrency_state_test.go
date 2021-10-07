@@ -38,7 +38,7 @@ func TestConcurrencyStateHandler(t *testing.T) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil }, nil)
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
 	if got, want := paused.Load(), int64(1); got != want {
@@ -71,7 +71,7 @@ func TestConcurrencyStateHandlerParallelSubsumed(t *testing.T) {
 		}
 	}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil }, nil)
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
 
 	go func() {
 		defer func() { req1 <- struct{}{} }()
@@ -111,7 +111,7 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 		}
 	}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil }, nil)
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
 
 	go func() {
 		defer func() { req1 <- struct{}{} }()
@@ -285,51 +285,15 @@ func TestConcurrencyStateResumeResponse(t *testing.T) {
 	}
 }
 
-
-func TestConcurrencyStateRelaunchHeader(t *testing.T) {
+func TestConcurrencyStateRetryTwoTimesOperation(t *testing.T) {
+	reqCnt := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := r.Header.Get("Token")
-		if token != "0123456789" {
-			t.Errorf("incorrect token header, expected '0123456789', got %s", token)
+		if reqCnt == 1 {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
 		}
-	}))
-
-	tokenPath := filepath.Join(t.TempDir(), "secret")
-	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	if err := c.RelaunchPod(); err != nil {
-		t.Errorf("relaunch header check returned an error: %s", err)
-	}
-}
-
-func TestConcurrencyStateRelaunchRequest(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		var m struct{ Action string }
-		err := json.NewDecoder(r.Body).Decode(&m)
-		if err != nil {
-			t.Errorf("unable to parse message body: %s", err)
-		}
-		if m.Action != "relaunch" {
-			t.Errorf("improper message body, expected 'relaunch' and got: %s", m.Action)
-		}
-	}))
-
-	tokenPath := filepath.Join(t.TempDir(), "secret")
-	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	if err := c.RelaunchPod(); err != nil {
-		t.Errorf("request test returned an error: %s", err)
-	}
-}
-
-func TestConcurrencyStateRelaunchResponse(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
+		reqCnt++
 	}))
 	defer ts.Close()
 
@@ -338,12 +302,16 @@ func TestConcurrencyStateRelaunchResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	if err := c.RelaunchPod(); err == nil {
-		t.Errorf("relaunch function did not return an error")
+	timeNow := time.Now()
+	logger := ltesting.TestLogger(t)
+	handleStateRequestError(logger, c.Pause)
+	timeAfter := time.Now()
+	if timeAfter.Sub(timeNow) < (time.Millisecond * 200) || reqCnt != 2 {
+		t.Errorf("fail to retry correct times")
 	}
 }
 
-func TestConcurrencyStateRetryTwoTimesOperation(t *testing.T) {
+func TestConcurrencyStateRetryThreeTimesOperation(t *testing.T) {
 	reqCnt := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if reqCnt == 2 {
@@ -362,69 +330,9 @@ func TestConcurrencyStateRetryTwoTimesOperation(t *testing.T) {
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
 	timeNow := time.Now()
 	logger := ltesting.TestLogger(t)
-	handleStateRequestError(logger, c.Pause, c.RelaunchPod)
+	handleStateRequestError(logger, c.Pause)
 	timeAfter := time.Now()
 	if timeAfter.Sub(timeNow) < (time.Millisecond * 200 * 2) || reqCnt != 3 {
-		t.Errorf("fail to retry correct times")
-	}
-}
-
-func TestConcurrencyStateRetryThreeTimesOperation(t *testing.T) {
-	reqCnt := 0
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if reqCnt == 3 {
-			w.WriteHeader(http.StatusOK)
-		} else {
-			w.WriteHeader(http.StatusBadRequest)
-		}
-		reqCnt++
-	}))
-	defer ts.Close()
-
-	tokenPath := filepath.Join(t.TempDir(), "secret")
-	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	timeNow := time.Now()
-	logger := ltesting.TestLogger(t)
-	handleStateRequestError(logger, c.Pause, c.RelaunchPod)
-	timeAfter := time.Now()
-	if timeAfter.Sub(timeNow) < (time.Millisecond * 200 * 3) || reqCnt != 4 {
-		t.Errorf("fail to retry correct times")
-	}
-}
-
-func TestConcurrencyStateRelaunchOperation(t *testing.T) {
-	reqCnt := 0
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var action struct{ Action string }
-		err := json.NewDecoder(r.Body).Decode(&action)
-		if err != nil {
-			t.Errorf("unable to parse message body: %s", err)
-		}
-		if reqCnt >= 5 {
-			w.WriteHeader(http.StatusOK)
-		} else {
-			w.WriteHeader(http.StatusBadRequest)
-		}
-		if reqCnt >= 3 && action.Action != "relaunch" {
-			t.Errorf("failed to send right relaunch command")
-		}
-		reqCnt++
-	}))
-	defer ts.Close()
-
-	tokenPath := filepath.Join(t.TempDir(), "secret")
-	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	timeNow := time.Now()
-	logger := ltesting.TestLogger(t)
-	handleStateRequestError(logger, c.Pause, c.RelaunchPod)
-	timeAfter := time.Now()
-	if timeAfter.Sub(timeNow) < (time.Millisecond * 200 * 3 + time.Millisecond * 2) || reqCnt != 6 {
 		t.Errorf("fail to retry correct times")
 	}
 }
@@ -481,7 +389,7 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 			return nil
 		}
 
-		h := ConcurrencyStateHandler(logger, ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler), pause, resume, nil)
+		h := ConcurrencyStateHandler(logger, ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler), pause, resume)
 		b.Run("sequential-"+tc.label, func(b *testing.B) {
 			resp := httptest.NewRecorder()
 			for j := 0; j < b.N; j++ {

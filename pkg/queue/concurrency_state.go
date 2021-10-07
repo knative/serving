@@ -33,7 +33,7 @@ import (
 // runs the `resume` function. If either of `pause` or `resume` are not passed, it runs
 // the respective local function(s). The local functions are the expected behavior; the
 // function parameters are enabled primarily for testing purposes.
-func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume, relaunch func() error) http.HandlerFunc {
+func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func() error) http.HandlerFunc {
 
 	var (
 		inFlight = atomic.NewInt64(0)
@@ -52,7 +52,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 					logger.Info("Requests dropped to zero")
 					if err := pause(); err != nil {
 						logger.Errorf("Error handling resume request: %v", err)
-						handleStateRequestError(logger, pause, relaunch)
+						handleStateRequestError(logger, pause)
 					}
 					paused = true
 					logger.Debug("To-Zero request successfully processed")
@@ -81,7 +81,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 		logger.Info("Requests increased from zero")
 		if err := resume(); err != nil {
 			logger.Errorf("Error handling resume request: %v", err)
-			handleStateRequestError(logger, resume, relaunch)
+			handleStateRequestError(logger, resume)
 		}
 		paused = false
 		logger.Debug("From-Zero request successfully processed")
@@ -91,8 +91,8 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	}
 }
 
-// handleStateRequestError handles retry and relaunch logic
-func handleStateRequestError(logger *zap.SugaredLogger, requestHandler, relaunch func() error) {
+// handleStateRequestError handles retry logic
+func handleStateRequestError(logger *zap.SugaredLogger, requestHandler func() error) {
 	const freezeMaxRetryTimes = 3 // If pause/resume failed 3 times, it will delete qp and user-container force
 	failedTimes := 0
 	for ; failedTimes < freezeMaxRetryTimes; failedTimes++ {
@@ -104,14 +104,8 @@ func handleStateRequestError(logger *zap.SugaredLogger, requestHandler, relaunch
 		time.Sleep(time.Millisecond * 200)
 	}
 	if failedTimes >= freezeMaxRetryTimes {
-		logger.Errorf("Retry %d times failed, try to relaunch this pod", freezeMaxRetryTimes)
-		// Relaunch this pod, the way is: the runtime will delete all containers of this pod
-		err := relaunch()
-		// if the QP is deleted, this will not be executed
-		for err != nil {
-			err = relaunch()
-			time.Sleep(time.Millisecond * 100)
-		}
+		logger.Errorf("Retry %d times failed, relaunch QP", freezeMaxRetryTimes)
+		os.Exit(1)
 	}
 }
 
@@ -133,8 +127,6 @@ func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
 func (c ConcurrencyEndpoint) Pause() error { return c.Request("pause") }
 
 func (c ConcurrencyEndpoint) Resume() error { return c.Request("resume") }
-
-func (c ConcurrencyEndpoint) RelaunchPod() error { return c.Request("relaunch") }
 
 func (c ConcurrencyEndpoint) Request(action string) error {
 	bodyText := fmt.Sprintf(`{ "action": %q }`, action)

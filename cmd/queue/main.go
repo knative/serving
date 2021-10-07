@@ -307,7 +307,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, rp 
 				ce.RefreshToken()
 			}
 		}()
-		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, ce.Pause, ce.Resume, ce.RelaunchPod)
+		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, ce.Pause, ce.Resume)
 	}
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
