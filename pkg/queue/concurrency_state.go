@@ -95,18 +95,16 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 func handleStateRequestError(logger *zap.SugaredLogger, requestHandler, relaunch func() error) {
 	const freezeMaxRetryTimes = 3 // If pause/resume failed 3 times, it will delete qp and user-container force
 	failedTimes := 0
-	for failedTimes < freezeMaxRetryTimes {
-		logger.Infof("Start the %v retry", failedTimes + 1)
+	for ; failedTimes < freezeMaxRetryTimes; failedTimes++ {
+		logger.Infof("Start the %d retry", failedTimes + 1)
 		err := requestHandler()
-		if err != nil {
-			time.Sleep(time.Millisecond * 200)
-			failedTimes++
-		} else {
+		if err == nil {
 			break
 		}
+		time.Sleep(time.Millisecond * 200)
 	}
 	if failedTimes >= freezeMaxRetryTimes {
-		logger.Errorf("Retry 3 times failed, try to relaunch this pod")
+		logger.Errorf("Retry %d times failed, try to relaunch this pod", freezeMaxRetryTimes)
 		// Relaunch this pod, the way is: the runtime will delete all containers of this pod
 		err := relaunch()
 		// if the QP is deleted, this will not be executed
