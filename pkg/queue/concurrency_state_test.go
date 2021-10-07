@@ -312,8 +312,8 @@ func TestConcurrencyStateRelaunchRequest(t *testing.T) {
 		if err != nil {
 			t.Errorf("unable to parse message body: %s", err)
 		}
-		if m.Action != "relaunch-pod" {
-			t.Errorf("improper message body, expected 'relaunch-pod' and got: %s", m.Action)
+		if m.Action != "relaunch" {
+			t.Errorf("improper message body, expected 'relaunch' and got: %s", m.Action)
 		}
 	}))
 
@@ -406,7 +406,7 @@ func TestConcurrencyStateRelaunchOperation(t *testing.T) {
 		} else {
 			w.WriteHeader(http.StatusBadRequest)
 		}
-		if reqCnt >= 3 && action.Action != "relaunch-pod" {
+		if reqCnt >= 3 && action.Action != "relaunch" {
 			t.Errorf("failed to send right relaunch command")
 		}
 		reqCnt++
