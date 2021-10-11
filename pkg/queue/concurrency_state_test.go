@@ -288,7 +288,7 @@ func TestConcurrencyStateResumeResponse(t *testing.T) {
 func TestConcurrencyStateRetryTwoTimesOperation(t *testing.T) {
 	reqCnt := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if reqCnt == 1 {
+		if reqCnt >= 10 {
 			w.WriteHeader(http.StatusOK)
 		} else {
 			w.WriteHeader(http.StatusBadRequest)
@@ -302,37 +302,14 @@ func TestConcurrencyStateRetryTwoTimesOperation(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	timeNow := time.Now()
+	handler := func(w http.ResponseWriter, r *http.Request) {}
 	logger := ltesting.TestLogger(t)
-	handleStateRequestError(logger, c.Pause)
-	timeAfter := time.Now()
-	if timeAfter.Sub(timeNow) < (time.Millisecond * 200) || reqCnt != 2 {
-		t.Errorf("fail to retry correct times")
-	}
-}
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), c.Pause,  c.Resume)
 
-func TestConcurrencyStateRetryThreeTimesOperation(t *testing.T) {
-	reqCnt := 0
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if reqCnt == 2 {
-			w.WriteHeader(http.StatusOK)
-		} else {
-			w.WriteHeader(http.StatusBadRequest)
-		}
-		reqCnt++
-	}))
-	defer ts.Close()
-
-	tokenPath := filepath.Join(t.TempDir(), "secret")
-	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
 	timeNow := time.Now()
-	logger := ltesting.TestLogger(t)
-	handleStateRequestError(logger, c.Pause)
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
 	timeAfter := time.Now()
-	if timeAfter.Sub(timeNow) < (time.Millisecond * 200 * 2) || reqCnt != 3 {
+	if timeAfter.Sub(timeNow) < (time.Millisecond * 200 * 8) || reqCnt != 12  {
 		t.Errorf("fail to retry correct times")
 	}
 }

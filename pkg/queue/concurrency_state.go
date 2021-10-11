@@ -93,20 +93,17 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 
 // handleStateRequestError handles retry logic
 func handleStateRequestError(logger *zap.SugaredLogger, requestHandler func() error) {
-	const freezeMaxRetryTimes = 3 // If pause/resume failed 3 times, it will delete qp and user-container force
-	failedTimes := 0
-	for ; failedTimes < freezeMaxRetryTimes; failedTimes++ {
+	const freezeMaxRetryTimes = 150
+	for failedTimes := 0; failedTimes < freezeMaxRetryTimes; failedTimes++ {
 		logger.Infof("Start the %d retry", failedTimes + 1)
 		err := requestHandler()
 		if err == nil {
-			break
+			return
 		}
 		time.Sleep(time.Millisecond * 200)
 	}
-	if failedTimes >= freezeMaxRetryTimes {
-		logger.Errorf("Retry %d times failed, relaunch QP", freezeMaxRetryTimes)
-		os.Exit(1)
-	}
+	logger.Errorf("Retry %d times failed, relaunch QP", freezeMaxRetryTimes)
+	os.Exit(1)
 }
 
 type ConcurrencyEndpoint struct {
