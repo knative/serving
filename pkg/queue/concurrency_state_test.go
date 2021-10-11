@@ -285,7 +285,7 @@ func TestConcurrencyStateResumeResponse(t *testing.T) {
 	}
 }
 
-func TestConcurrencyStateRetryTwoTimesOperation(t *testing.T) {
+func TestConcurrencyStateErrorRetryOperation(t *testing.T) {
 	reqCnt := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if reqCnt >= 10 {
