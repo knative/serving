@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/version: devel
     app.kubernetes.io/part-of: knative-serving
   annotations:
-    knative.dev/example-checksum: "96896b00"
+    knative.dev/example-checksum: "f7948630"
 data:
   _example: |
     ################################
@@ -40,17 +40,17 @@ data:
     # this example block and unindented to be in the data block
     # to actually change the configuration.
 
-    # leaseDuration is how long non-leaders will wait to try to acquire the
+    # lease-duration is how long non-leaders will wait to try to acquire the
     # lock; 15 seconds is the value used by core kubernetes controllers.
-    leaseDuration: "15s"
+    lease-duration: "15s"
 
-    # renewDeadline is how long a leader will try to renew the lease before
+    # renew-deadline is how long a leader will try to renew the lease before
     # giving up; 10 seconds is the value used by core kubernetes controllers.
-    renewDeadline: "10s"
+    renew-deadline: "10s"
 
-    # retryPeriod is how long the leader election client waits between tries of
+    # retry-period is how long the leader election client waits between tries of
     # actions; 2 seconds is the value used by core kubernetes controllers.
-    retryPeriod: "2s"
+    retry-period: "2s"
 
     # buckets is the number of buckets used to partition key space of each
     # Reconciler. If this number is M and the replica number of the controller
