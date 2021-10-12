@@ -316,9 +316,10 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 
 	errs = errs.Also(ValidatePodSecurityContext(ctx, ps.SecurityContext).ViaField("securityContext"))
 
-	errs = errs.Also(validateInitContainers(ctx, ps.InitContainers, ps.Volumes))
+	volumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(append(ps.InitContainers, ps.Containers...)))
 
-	volumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(ps.Containers))
+	errs = errs.Also(validateInitContainers(ctx, ps.InitContainers, volumes))
+
 	if err != nil {
 		errs = errs.Also(err.ViaField("volumes"))
 	}
@@ -340,7 +341,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	return errs
 }
 
-func validateInitContainers(ctx context.Context, containers []corev1.Container, volumes []corev1.Volume) (errs *apis.FieldError) {
+func validateInitContainers(ctx context.Context, containers []corev1.Container, volumes map[string]corev1.Volume) (errs *apis.FieldError) {
 	if len(containers) == 0 {
 		return nil
 	}
@@ -349,12 +350,8 @@ func validateInitContainers(ctx context.Context, containers []corev1.Container, 
 		return errs.Also(&apis.FieldError{Message: fmt.Sprintf("pod spec support for init-containers is off, "+
 			"but found %d init containers", len(containers))})
 	}
-	volumeMap, err := ValidateVolumes(ctx, volumes, AllMountedVolumes(containers))
-	if err != nil {
-		errs = errs.Also(err.ViaField("volumes"))
-	}
 	for i := range containers {
-		errs = errs.Also(validateInitContainer(ctx, containers[i], volumeMap).ViaFieldIndex("containers", i))
+		errs = errs.Also(validateInitContainer(ctx, containers[i], volumes).ViaFieldIndex("containers", i))
 	}
 	return errs
 }
