@@ -1,3 +1,4 @@
+//go:build e2e
 // +build e2e
 
 /*
@@ -72,23 +73,19 @@ func TestHttpRedirect(t *testing.T) {
 		t.Fatalf("Failed to update Service: %v: %v", names.Service, err)
 	}
 
-	// Wait for the annotation change is reflected.
+	// Verify the annotation change is reflected.
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		resp, err := httpClient.Get(url.String())
 		if err != nil {
 			return true, err
 		}
-		if resp.StatusCode == http.StatusOK {
-			t.Logf("HTTP option is still enabled.")
-			return false, nil
+		if resp.StatusCode == http.StatusMovedPermanently {
+			return true, nil
 		}
-		return true, nil
+		t.Logf("Redirected is not ready yet.")
+		return false, nil
 	})
 	if waitErr != nil {
 		t.Fatalf("The Service %s failed to change the HTTP option: %v", names.Service, waitErr)
 	}
-
-	RuntimeRequestWithExpectations(ctx, t, httpClient, url.String(),
-		[]ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusMovedPermanently))},
-		false)
 }
