@@ -1,3 +1,5 @@
+// +build initcontainers
+
 /*
 Copyright 2021 The Knative Authors
 
