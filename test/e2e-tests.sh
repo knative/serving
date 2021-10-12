@@ -107,11 +107,10 @@ go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} || failed=1
 go_test_e2e -timeout=30m -tags=hpa ./test/e2e ${TEST_OPTIONS} || failed=1
 
 # Run emptyDir, initContainers tests with alpha enabled avoiding any issues with the testing options guard above
-# InitContainers test uses emptyDir
+# InitContainers test uses emptyDir.
 toggle_feature kubernetes.podspec-volumes-emptydir Enabled
-go_test_e2e -tags=emptydir ./test/e2e --enable-alpha ${TEST_OPTIONS} || failed=1
 toggle_feature kubernetes.podspec-init-containers Enabled
-go_test_e2e -tags=initcontainers ./test/e2e --enable-alpha ${TEST_OPTIONS} || failed=1
+go_test_e2e -tags=emptydir,initcontainers ./test/e2e --enable-alpha ${TEST_OPTIONS} || failed=1
 toggle_feature kubernetes.podspec-init-containers Disabled
 toggle_feature kubernetes.podspec-volumes-emptydir Disabled
 

@@ -60,7 +60,7 @@ func TestInitContainers(t *testing.T) {
 		Value: "True",
 	})
 
-	withInitContainers := WithInitContainers(&corev1.Container{
+	withInitContainer := WithInitContainer(&corev1.Container{
 		Name:  "initsetup",
 		Image: pkgTest.ImagePath(test.EmptyDir),
 		VolumeMounts: []corev1.VolumeMount{{
@@ -73,7 +73,7 @@ func TestInitContainers(t *testing.T) {
 		}},
 	})
 
-	resources, err := v1test.CreateServiceReady(t, clients, &names, withVolume, withUserContainerEnvVar, withInitContainers)
+	resources, err := v1test.CreateServiceReady(t, clients, &names, withVolume, withUserContainerEnvVar, withInitContainer)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
