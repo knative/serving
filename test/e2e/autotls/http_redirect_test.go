@@ -1,4 +1,3 @@
-//go:build e2e
 // +build e2e
 
 /*
@@ -24,7 +23,6 @@ import (
 	"net/http"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/networking/pkg/apis/networking"
 	rtesting "knative.dev/serving/pkg/testing/v1"
