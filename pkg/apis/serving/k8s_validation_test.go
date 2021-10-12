@@ -721,13 +721,13 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 			Containers: []corev1.Container{{
 				Image: "busybox1",
 				Ports: []corev1.ContainerPort{{ContainerPort: 8888}},
-				VolumeMounts: []corev1.VolumeMount{corev1.VolumeMount{
+				VolumeMounts: []corev1.VolumeMount{{
 					Name:      "data",
 					MountPath: "/data",
 				}},
 			}, {
 				Image: "busybox2",
-				VolumeMounts: []corev1.VolumeMount{corev1.VolumeMount{
+				VolumeMounts: []corev1.VolumeMount{{
 					Name:      "debugging-support-files",
 					MountPath: "/dbg",
 				}},
