@@ -19,6 +19,7 @@ package queue
 import (
 	"bytes"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"net/http"
 	"os"
 	"sync"
@@ -94,16 +95,25 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 // handleStateRequestError handles retry logic
 func handleStateRequestError(logger *zap.SugaredLogger, requestHandler func() error) {
 	const freezeMaxRetryTimes = 150
-	for failedTimes := 0; failedTimes < freezeMaxRetryTimes; failedTimes++ {
+	failedTimes := 0
+	retryFunc := func() (bool, error) {
 		logger.Infof("Start the %d retry", failedTimes + 1)
 		err := requestHandler()
+		failedTimes++
 		if err == nil {
-			return
+			return true, nil
+		} else {
+			return false, nil
 		}
-		time.Sleep(time.Millisecond * 200)
 	}
-	logger.Errorf("Retry %d times failed, relaunch QP", freezeMaxRetryTimes)
-	os.Exit(1)
+	err := wait.Poll(time.Millisecond * 200, time.Millisecond * 200 * freezeMaxRetryTimes, retryFunc)
+	if err != nil {
+		logger.Errorw("Retry pause/resume error.", zap.Error(err))
+	}
+	if failedTimes >= freezeMaxRetryTimes {
+		logger.Errorf("Retry %d times failed, relaunch QP", freezeMaxRetryTimes)
+		os.Exit(1)
+	}
 }
 
 type ConcurrencyEndpoint struct {
