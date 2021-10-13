@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "325e5f98"
+    knative.dev/example-checksum: "6cf00726"
 data:
   _example: |
     ################################
@@ -38,7 +38,7 @@ data:
     # this example block and unindented to be in the data block
     # to actually change the configuration.
 
-    # ingress.class specifies the default ingress class
+    # ingress-class specifies the default ingress class
     # to use when not dictated by Route annotation.
     #
     # If not specified, will use the Istio ingress.
@@ -47,9 +47,9 @@ data:
     # will result in undefined behavior.  Therefore it is best to only
     # update this value during the setup of Knative, to avoid getting
     # undefined behavior.
-    ingress.class: "istio.ingress.networking.knative.dev"
+    ingress-class: "istio.ingress.networking.knative.dev"
 
-    # certificate.class specifies the default Certificate class
+    # certificate-class specifies the default Certificate class
     # to use when not dictated by Route annotation.
     #
     # If not specified, will use the Cert-Manager Certificate.
@@ -58,9 +58,9 @@ data:
     # will result in undefined behavior.  Therefore it is best to only
     # update this value during the setup of Knative, to avoid getting
     # undefined behavior.
-    certificate.class: "cert-manager.certificate.networking.knative.dev"
+    certificate-class: "cert-manager.certificate.networking.knative.dev"
 
-    # domainTemplate specifies the golang text template string to use
+    # domain-template specifies the golang text template string to use
     # when constructing the Knative service's DNS name. The default
     # value is "{{.Name}}.{{.Namespace}}.{{.Domain}}".
     #
@@ -83,19 +83,19 @@ data:
     # eg. '{{.Name}}-{{.Namespace}}.{{ index .Annotations "sub"}}.{{.Domain}}'
     # and you have an annotation {"sub":"foo"}, then the generated template
     # would be {Name}-{Namespace}.foo.{Domain}
-    domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}"
+    domain-template: "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 
     # tagTemplate specifies the golang text template string to use
     # when constructing the DNS name for "tags" within the traffic blocks
     # of Routes and Configuration.  This is used in conjunction with the
     # domainTemplate above to determine the full URL for the tag.
-    tagTemplate: "{{.Tag}}-{{.Name}}"
+    tag-template: "{{.Tag}}-{{.Name}}"
 
     # Controls whether TLS certificates are automatically provisioned and
     # installed in the Knative ingress to terminate external TLS connection.
     # 1. Enabled: enabling auto-TLS feature.
     # 2. Disabled: disabling auto-TLS feature.
-    autoTLS: "Disabled"
+    auto-tls: "Disabled"
 
     # Controls the behavior of the HTTP endpoint for the Knative ingress.
     # It requires autoTLS to be enabled.
@@ -103,13 +103,13 @@ data:
     # 2. Disabled: The Knative ingress will reject HTTP traffic.
     # 3. Redirected: The Knative ingress will send a 301 redirect for all
     # http connections, asking the clients to use HTTPS.
-    httpProtocol: "Enabled"
+    http-protocol: "Enabled"
 
-    # rolloutDuration contains the minimal duration in seconds over which the
+    # rollout-duration contains the minimal duration in seconds over which the
     # Configuration traffic targets are rolled out to the newest revision.
-    rolloutDuration: "0"
+    rollout-duration: "0"
 
-    # autocreateClusterDomainClaims controls whether ClusterDomainClaims should
+    # autocreate-cluster-domain-claims controls whether ClusterDomainClaims should
     # be automatically created (and deleted) as needed when DomainMappings are
     # reconciled.
     #
@@ -121,7 +121,7 @@ data:
     #
     # If this is "true", users are able to associate arbitrary names with their
     # services via the DomainMapping feature.
-    autocreateClusterDomainClaims: "false"
+    autocreate-cluster-domain-claims: "false"
 
     # If true, networking plugins can add additional information to deployed
     # applications to make their pods directly accessible via their IPs even if mesh is
@@ -147,4 +147,4 @@ data:
     # This can be used for making Knative report all URLs as "HTTPS" for example, if you're
     # fronting Knative with an external loadbalancer that deals with TLS termination and
     # Knative doesn't know about that otherwise.
-    defaultExternalScheme: "http"
+    default-external-scheme: "http"
