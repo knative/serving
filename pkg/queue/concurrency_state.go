@@ -107,10 +107,7 @@ func handleStateRequestError(logger *zap.SugaredLogger, requestHandler func() er
 		}
 	}
 	err := wait.Poll(time.Millisecond * 200, time.Millisecond * 200 * freezeMaxRetryTimes, retryFunc)
-	if err != nil {
-		logger.Errorw("Retry pause/resume error.", zap.Error(err))
-	}
-	if failedTimes >= freezeMaxRetryTimes {
+	if failedTimes >= freezeMaxRetryTimes || err != nil {
 		logger.Errorf("Retry %d times failed, relaunch QP", freezeMaxRetryTimes)
 		os.Exit(1)
 	}
