@@ -66,11 +66,11 @@ const (
 
 	// DefaultIngressClassKey is the name of the configuration entry
 	// that specifies the default Ingress.
-	DefaultIngressClassKey = "ingress.class"
+	DefaultIngressClassKey = "ingress-class"
 
 	// DefaultCertificateClassKey is the name of the configuration entry
 	// that specifies the default Certificate.
-	DefaultCertificateClassKey = "certificate.class"
+	DefaultCertificateClassKey = "certificate-class"
 
 	// IstioIngressClassName value for specifying knative's Istio
 	// Ingress reconciler.
@@ -83,16 +83,16 @@ const (
 	// DomainTemplateKey is the name of the configuration entry that
 	// specifies the golang template string to use to construct the
 	// Knative service's DNS name.
-	DomainTemplateKey = "domainTemplate"
+	DomainTemplateKey = "domain-template"
 
 	// TagTemplateKey is the name of the configuration entry that
 	// specifies the golang template string to use to construct the
 	// hostname for a Route's tag.
-	TagTemplateKey = "tagTemplate"
+	TagTemplateKey = "tag-template"
 
 	// RolloutDurationKey is the name of the configuration entry
 	// that specifies the default duration of the configuration rollout.
-	RolloutDurationKey = "rolloutDuration"
+	RolloutDurationKey = "rollout-duration"
 
 	// KubeProbeUAPrefix is the user agent prefix of the probe.
 	// Since K8s 1.8, prober requests have
@@ -114,15 +114,15 @@ const (
 
 	// AutocreateClusterDomainClaimsKey is the key for the
 	// AutocreateClusterDomainClaims property.
-	AutocreateClusterDomainClaimsKey = "autocreateClusterDomainClaims"
+	AutocreateClusterDomainClaimsKey = "autocreate-cluster-domain-claims"
 
 	// AutoTLSKey is the name of the configuration entry
 	// that specifies enabling auto-TLS or not.
-	AutoTLSKey = "autoTLS"
+	AutoTLSKey = "auto-tls"
 
 	// HTTPProtocolKey is the name of the configuration entry that
 	// specifies the HTTP endpoint behavior of Knative ingress.
-	HTTPProtocolKey = "httpProtocol"
+	HTTPProtocolKey = "http-protocol"
 
 	// UserAgentKey is the constant for header "User-Agent".
 	UserAgentKey = "User-Agent"
@@ -151,10 +151,6 @@ const (
 	// identifying whether a request is routed via the default route or not.
 	// It has one of the string value "true" or "false".
 	DefaultRouteHeaderName = "Knative-Serving-Default-Route"
-
-	// TagHeaderBasedRoutingKey is the name of the configuration entry
-	// that specifies enabling tag header based routing or not.
-	TagHeaderBasedRoutingKey = "tagHeaderBasedRouting"
 
 	// ProtoAcceptContent is the content type to be used when autoscaler scrapes metrics from the QP
 	ProtoAcceptContent = "application/protobuf"
@@ -185,7 +181,7 @@ const (
 	MeshCompatibilityModeKey = "mesh-compatibility-mode"
 
 	// DefaultExternalSchemeKey is the config for defining the scheme of external URLs.
-	DefaultExternalSchemeKey = "defaultExternalScheme"
+	DefaultExternalSchemeKey = "default-external-scheme"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -244,9 +240,6 @@ type Config struct {
 
 	// DefaultCertificateClass specifies the default Certificate class.
 	DefaultCertificateClass string
-
-	// TagHeaderBasedRouting specifies if TagHeaderBasedRouting is enabled or not.
-	TagHeaderBasedRouting bool
 
 	// RolloutDurationSecs specifies the default duration for the rollout.
 	RolloutDurationSecs int
@@ -342,6 +335,15 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	nc := defaultConfig()
 
 	if err := cm.Parse(data,
+		// Legacy keys
+		cm.AsString("ingress.class", &nc.DefaultIngressClass),
+		cm.AsString("certificate.class", &nc.DefaultCertificateClass),
+		cm.AsString("domainTemplate", &nc.DomainTemplate),
+		cm.AsString("tagTemplate", &nc.TagTemplate),
+		cm.AsInt("rolloutDuration", &nc.RolloutDurationSecs),
+		cm.AsBool("autocreateClusterDomainClaims", &nc.AutocreateClusterDomainClaims),
+		cm.AsString("defaultExternalScheme", &nc.DefaultExternalScheme),
+
 		// New key takes precedence.
 		cm.AsString(DefaultIngressClassKey, &nc.DefaultIngressClass),
 		cm.AsString(DefaultCertificateClassKey, &nc.DefaultCertificateClass),
@@ -379,10 +381,22 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	}
 	templateCache.Add(nc.TagTemplate, t)
 
-	nc.AutoTLS = strings.EqualFold(data[AutoTLSKey], "enabled")
-	nc.TagHeaderBasedRouting = strings.EqualFold(data[TagHeaderBasedRoutingKey], "enabled")
+	if val, ok := data["autoTLS"]; ok {
+		nc.AutoTLS = strings.EqualFold(val, "enabled")
+	}
+	if val, ok := data[AutoTLSKey]; ok {
+		nc.AutoTLS = strings.EqualFold(val, "enabled")
+	}
 
-	switch strings.ToLower(data[HTTPProtocolKey]) {
+	var httpProtocol string
+	if val, ok := data["httpProtocol"]; ok {
+		httpProtocol = val
+	}
+	if val, ok := data[HTTPProtocolKey]; ok {
+		httpProtocol = val
+	}
+
+	switch strings.ToLower(httpProtocol) {
 	case "", string(HTTPEnabled):
 		// If HTTPProtocol is not set in the config-network, default is already
 		// set to HTTPEnabled.
