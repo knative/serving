@@ -301,6 +301,121 @@ func TestPodSpecValidation(t *testing.T) {
 			ServiceAccountName: "foo@bar.baz",
 		},
 		want: apis.ErrInvalidValue("foo@bar.baz", "serviceAccountName", strings.Join(validation.IsDNS1123Subdomain("foo@bar.baz"), "\n")),
+	}, {
+		name: "init containers with no mounted volume",
+		ps: corev1.PodSpec{
+			InitContainers: []corev1.Container{{
+				Image: "busybox",
+				Name:  "install-nodejs-debug-support",
+			}},
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "debugging-support-files",
+					MountPath: "/dbg",
+				}},
+			}},
+			Volumes: []corev1.Volume{
+				{
+					Name: "debugging-support-files",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+		},
+		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled(), withPodSpecInitContainersEnabled()},
+		want:    nil,
+	}, {
+		name: "user container with no mounted volume and init container with mounted volume",
+		ps: corev1.PodSpec{
+			InitContainers: []corev1.Container{{
+				Image: "busybox",
+				Name:  "install-nodejs-debug-support",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "debugging-support-files",
+					MountPath: "/dbg",
+				}},
+			}},
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+			Volumes: []corev1.Volume{
+				{
+					Name: "debugging-support-files",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+		},
+		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled(), withPodSpecInitContainersEnabled()},
+		want:    nil,
+	}, {
+		name: "user and init-containers with multiple volumes",
+		ps: corev1.PodSpec{
+			InitContainers: []corev1.Container{{
+				Image: "busybox",
+				Name:  "install-nodejs-debug-support",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "debugging-support-files",
+					MountPath: "/dbg",
+				}},
+			}},
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "data",
+					MountPath: "/data",
+				}},
+			}},
+			Volumes: []corev1.Volume{
+				{
+					Name: "debugging-support-files",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				}, {
+					Name: "data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			}},
+		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled(), withPodSpecInitContainersEnabled()},
+		want:    nil,
+	}, {
+		name: "user and init-containers with multiple volumes and one not mounted",
+		ps: corev1.PodSpec{
+			InitContainers: []corev1.Container{{
+				Image: "busybox",
+				Name:  "install-nodejs-debug-support",
+			}},
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "data",
+					MountPath: "/data",
+				}},
+			}},
+			Volumes: []corev1.Volume{
+				{
+					Name: "debugging-support-files",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				}, {
+					Name: "data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			}},
+		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled(), withPodSpecInitContainersEnabled()},
+		want: &apis.FieldError{
+			Message: `volume with name "debugging-support-files" not mounted`,
+			Paths:   []string{"volumes[0].name"},
+		},
 	}}
 
 	for _, test := range tests {
@@ -595,8 +710,44 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		want: &apis.FieldError{
 			Message: `volume with name "the-name2" not mounted`,
 			Paths:   []string{"volumes[1].name"},
-		}},
-	}
+		},
+	}, {
+		name: "multiple containers and init-containers with multiple volumes",
+		ps: corev1.PodSpec{
+			InitContainers: []corev1.Container{{
+				Image: "busybox",
+				Name:  "install-nodejs-debug-support",
+			}},
+			Containers: []corev1.Container{{
+				Image: "busybox1",
+				Ports: []corev1.ContainerPort{{ContainerPort: 8888}},
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "data",
+					MountPath: "/data",
+				}},
+			}, {
+				Image: "busybox2",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "debugging-support-files",
+					MountPath: "/dbg",
+				}},
+			}},
+			Volumes: []corev1.Volume{
+				{
+					Name: "debugging-support-files",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				}, {
+					Name: "data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			}},
+		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled(), withPodSpecInitContainersEnabled()},
+		want:    nil,
+	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
