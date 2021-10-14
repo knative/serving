@@ -1,3 +1,4 @@
+//go:build e2e
 // +build e2e
 
 /*
@@ -23,7 +24,7 @@ import (
 	"net/http"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/networking/pkg/apis/networking"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -47,8 +48,8 @@ func TestHttpRedirect(t *testing.T) {
 
 	test.EnsureTearDown(t, clients, &names)
 
-	t.Log("Creating a new Service with http enabled annotation")
-	resources, err := v1test.CreateServiceReady(t, clients, &names, rtesting.WithServiceAnnotations(map[string]string{networking.HTTPOptionAnnotationKey: "enabled"}))
+	t.Log("Creating a new Service with http redirected annotation")
+	resources, err := v1test.CreateServiceReady(t, clients, &names, rtesting.WithServiceAnnotations(map[string]string{networking.HTTPOptionAnnotationKey: "redirected"}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -63,27 +64,7 @@ func TestHttpRedirect(t *testing.T) {
 	url := resources.Route.Status.URL.URL()
 	url.Scheme = "http"
 
-	RuntimeRequest(ctx, t, httpClient, url.String())
-
-	t.Log("Updating the Service with http redirect annotation")
-	_, err = v1test.UpdateService(t, clients, names, rtesting.WithServiceAnnotations(map[string]string{networking.HTTPOptionAnnotationKey: "redirected"}))
-	if err != nil {
-		t.Fatalf("Failed to update Service: %v: %v", names.Service, err)
-	}
-
-	// Verify the annotation change is reflected.
-	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		resp, err := httpClient.Get(url.String())
-		if err != nil {
-			return true, err
-		}
-		if resp.StatusCode == http.StatusMovedPermanently {
-			return true, nil
-		}
-		t.Logf("Redirected is not ready yet.")
-		return false, nil
-	})
-	if waitErr != nil {
-		t.Fatalf("The Service %s failed to change the HTTP option: %v", names.Service, waitErr)
-	}
+	RuntimeRequestWithExpectations(ctx, t, httpClient, url.String(),
+		[]ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusMovedPermanently))},
+		false)
 }
