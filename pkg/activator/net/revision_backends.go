@@ -215,14 +215,31 @@ func (rw *revisionWatcher) probeClusterIP(dest string) (bool, error) {
 // the ones that are successfully probed, whether the update was a no-op, or an error.
 // If probing fails but not all errors were compatible with being caused by
 // mesh being enabled, being enabled, notMesh will be true.
-func (rw *revisionWatcher) probePodIPs(dests sets.String) (succeeded sets.String, noop bool, notMesh bool, err error) {
-	// Short circuit case where dests == healthyPods
+func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded sets.String, noop bool, notMesh bool, err error) {
+	dests := ready.Union(notReady)
+
+	// Short circuit case where all the current pods are already known to be healthy.
 	if rw.healthyPods.Equal(dests) {
 		return rw.healthyPods, true /*no-op*/, false /* notMesh */, nil
 	}
 
 	toProbe := sets.NewString()
-	healthy := sets.NewString()
+
+	var healthy sets.String
+	if rw.meshMode != network.MeshCompatibilityModeAuto {
+		// If k8s marked the pod ready before we managed to probe it, and we're
+		// not also using the probe to sniff whether mesh is enabled, we can just
+		// trust k8s and mark it healthy without probing.
+		// TODO: replace with ready.Clone() once we have a recent-enough apimachinery (1.23+).
+		healthy = ready.Union(nil)
+
+		// We still want to probe non-ready pods because we can beat the kubernetes
+		// readiness propagation sometimes.
+		dests = notReady
+	} else {
+		healthy = sets.NewString()
+	}
+
 	for dest := range dests {
 		if rw.healthyPods.Has(dest) {
 			healthy.Insert(dest)
@@ -311,7 +328,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		// First check the pod IPs. If we can individually address
 		// the Pods we should go that route, since it permits us to do
 		// precise load balancing in the throttler.
-		hs, noop, notMesh, err := rw.probePodIPs(curDests.ready.Union(curDests.notReady))
+		hs, noop, notMesh, err := rw.probePodIPs(curDests.ready, curDests.notReady)
 		if err != nil {
 			rw.logger.Warnw("Failed probing pods", zap.Object("curDests", curDests), zap.Error(err))
 			// We dont want to return here as an error still affects health states.

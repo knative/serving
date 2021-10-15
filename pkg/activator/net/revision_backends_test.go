@@ -472,6 +472,27 @@ func TestRevisionWatcher(t *testing.T) {
 				Body: queue.Name,
 			}},
 		},
+	}, {
+		name:  "ready pod in k8s api when mesh-compat disabled",
+		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		clusterPort: corev1.ServicePort{
+			Name: "http",
+			Port: 1235,
+		},
+		noPodAddressability: false,
+		clusterIP:           "129.0.0.1",
+		expectUpdates: []revisionDestsUpdate{
+			{Dests: sets.NewString("128.0.0.1:1234")},
+		},
+		meshMode: network.MeshCompatibilityModeDisabled,
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"128.0.0.1:1234": {{
+				// Probe errors, but it shouldn't matter because we should trust
+				// k8s here and not bother probing.
+				Code: meshErrorStatusCode,
+				Body: queue.Name,
+			}},
+		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeRT := activatortest.FakeRoundTripper{
@@ -484,12 +505,17 @@ func TestRevisionWatcher(t *testing.T) {
 
 			updateCh := make(chan revisionDestsUpdate, len(tc.expectUpdates)+1)
 
-			// This gets closed up by revisionWatcher
+			// This gets closed up by revisionWatcher.
 			destsCh := make(chan dests)
 
-			// Default for protocol is HTTP1
+			// Default for protocol is HTTP1.
 			if tc.protocol == "" {
 				tc.protocol = pkgnet.ProtocolHTTP1
+			}
+
+			// Default for meshMode is auto.
+			if tc.meshMode == "" {
+				tc.meshMode = network.MeshCompatibilityModeAuto
 			}
 
 			fake := fakekubeclient.Get(ctx)
@@ -947,6 +973,7 @@ func TestCheckDestsReadyToNotReady(t *testing.T) {
 		logger:           TestLogger(t),
 		stopCh:           dCh,
 		transport:        pkgnetwork.RoundTripperFunc(fakeRT.RT),
+		meshMode:         network.MeshCompatibilityModeAuto,
 	}
 	// Initial state. Both are ready.
 	cur := dests{
@@ -1149,6 +1176,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 		stopCh:          dCh,
 		podsAddressable: true,
 		transport:       pkgnetwork.RoundTripperFunc(fakeRT.RT),
+		meshMode:        network.MeshCompatibilityModeAuto,
 	}
 
 	// First not ready, second good, clusterIP: not ready.
