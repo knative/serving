@@ -19,11 +19,12 @@ package queue
 import (
 	"bytes"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -99,7 +100,7 @@ func handleStateRequestError(logger *zap.SugaredLogger, requestHandler func() er
 		errReq = requestHandler()
 		return errReq == nil, nil
 	}
-	if err := wait.Poll(time.Millisecond * 200, 15 * time.Minute, retryFunc); err != nil {
+	if err := wait.Poll(time.Millisecond*200, 15*time.Minute, retryFunc); err != nil {
 		logger.Fatalf("Retry pause/resume request failed: %v", errReq)
 		os.Exit(1)
 	}
