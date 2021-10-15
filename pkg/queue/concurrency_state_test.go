@@ -304,7 +304,7 @@ func TestConcurrencyStateErrorRetryOperation(t *testing.T) {
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
 	handler := func(w http.ResponseWriter, r *http.Request) {}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), c.Pause,  c.Resume)
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), c.Pause, c.Resume)
 
 	timeNow := time.Now()
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
@@ -314,7 +314,7 @@ func TestConcurrencyStateErrorRetryOperation(t *testing.T) {
 	// pause,  so it's 4 times in together.
 	// why time cost can't be less than 400ms: when the first resume failed, it will retry 2 times again, so the time cost
 	// is time interval multiplied by 2.
-	if timeAfter.Sub(timeNow) < (time.Millisecond * 400) || reqCnt != 4  {
+	if timeAfter.Sub(timeNow) < (time.Millisecond*400) || reqCnt != 4 {
 		t.Errorf("fail to retry correct times")
 	}
 }

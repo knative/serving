@@ -31,7 +31,7 @@ jobs:
     name: Unit Tests
     strategy:
       matrix:
-        go-version: [1.16.x]
+        go-version: [1.17.x]
         platform: [ubuntu-latest]
 
     runs-on: ${{ matrix.platform }}
@@ -52,6 +52,12 @@ jobs:
       - name: Merge upstream
         if: github.event_name == 'pull_request'
         run: |
+          if ! git config user.name > /dev/null; then
+            git config user.name "John Doe"
+          fi
+          if ! git config user.email > /dev/null; then
+            git config user.email "johndoe@localhost"
+          fi
           git remote add upstream https://github.com/${{ github.repository }}.git
           git fetch upstream ${{ github.base_ref }}
           git pull --no-rebase --no-commit upstream ${{ github.base_ref }}
