@@ -309,7 +309,7 @@ func TestConcurrencyStateErrorRetryOperation(t *testing.T) {
 	timeNow := time.Now()
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
 	timeAfter := time.Now()
-	// why reqCnt is 12: when calling h.ServeHTTP, the server function will call resume, then call pause.
+	// why reqCnt is 4: when calling h.ServeHTTP, the server function will call resume, then call pause.
 	// it will call resume 3 times to make retry successful because of condition (reqCnt >= 2),  then call
 	// pause,  so it's 4 times in together.
 	// why time cost can't be less than 400ms: when the first resume failed, it will retry 2 times again, so the time cost
