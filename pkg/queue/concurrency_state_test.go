@@ -285,6 +285,40 @@ func TestConcurrencyStateResumeResponse(t *testing.T) {
 	}
 }
 
+func TestConcurrencyStateErrorRetryOperation(t *testing.T) {
+	reqCnt := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if reqCnt >= 2 {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		reqCnt++
+	}))
+	defer ts.Close()
+
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
+	handler := func(w http.ResponseWriter, r *http.Request) {}
+	logger := ltesting.TestLogger(t)
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), c.Pause,  c.Resume)
+
+	timeNow := time.Now()
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
+	timeAfter := time.Now()
+	// why reqCnt is 4: when calling h.ServeHTTP, the server function will call resume, then call pause.
+	// it will call resume 3 times to make retry successful because of condition (reqCnt >= 2),  then call
+	// pause,  so it's 4 times in together.
+	// why time cost can't be less than 400ms: when the first resume failed, it will retry 2 times again, so the time cost
+	// is time interval multiplied by 2.
+	if timeAfter.Sub(timeNow) < (time.Millisecond * 400) || reqCnt != 4  {
+		t.Errorf("fail to retry correct times")
+	}
+}
+
 func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 	logger, _ := pkglogging.NewLogger("", "error")
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})

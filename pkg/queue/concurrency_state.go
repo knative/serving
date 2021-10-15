@@ -19,9 +19,11 @@ package queue
 import (
 	"bytes"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -51,7 +53,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 					logger.Info("Requests dropped to zero")
 					if err := pause(); err != nil {
 						logger.Errorf("Error handling resume request: %v", err)
-						os.Exit(1)
+						handleStateRequestError(logger, pause)
 					}
 					paused = true
 					logger.Debug("To-Zero request successfully processed")
@@ -80,13 +82,26 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 		logger.Info("Requests increased from zero")
 		if err := resume(); err != nil {
 			logger.Errorf("Error handling resume request: %v", err)
-			os.Exit(1)
+			handleStateRequestError(logger, resume)
 		}
 		paused = false
 		logger.Debug("From-Zero request successfully processed")
 		mux.Unlock()
 
 		h.ServeHTTP(w, r)
+	}
+}
+
+// handleStateRequestError handles retry logic
+func handleStateRequestError(logger *zap.SugaredLogger, requestHandler func() error) {
+	var errReq error
+	retryFunc := func() (bool, error) {
+		errReq = requestHandler()
+		return errReq == nil, nil
+	}
+	if err := wait.Poll(time.Millisecond * 200, 15 * time.Minute, retryFunc); err != nil {
+		logger.Fatalf("Retry pause/resume request failed: %v", errReq)
+		os.Exit(1)
 	}
 }
 
