@@ -18,6 +18,12 @@
 # to be used in test scripts and the like. It doesn't do anything when
 # called from command line.
 
+# Exit early with a message if Bash version is below 4
+if [ "${BASH_VERSINFO:-0}" -le 4 ]; then
+ echo "library.sh script needs Bash version >=4 to run"
+ exit 1
+fi
+
 # GCP project where all tests related resources live
 readonly KNATIVE_TESTS_PROJECT=knative-tests
 

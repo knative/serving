@@ -307,7 +307,7 @@ function main() {
     fi
   fi
 
-  [[ -z $1 ]] && set -- "--all-tests"
+  [[ -z ${1:-} ]] && set -- "--all-tests"
 
   local TESTS_TO_RUN=()
 
