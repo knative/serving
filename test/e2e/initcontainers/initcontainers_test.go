@@ -1,5 +1,5 @@
-//go:build emptydir
-// +build emptydir
+//go:build e2e
+// +build e2e
 
 /*
 Copyright 2021 The Knative Authors
@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package initcontainers
 
 import (
 	"context"
@@ -33,12 +33,8 @@ import (
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
-// TestEmptyDirVolume tests empty dir volume support.
-func TestEmptyDirVolume(t *testing.T) {
-	if !test.ServingFlags.EnableAlphaFeatures {
-		t.Skip()
-	}
-
+// TestInitContainers tests init containers support.
+func TestInitContainers(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -52,18 +48,31 @@ func TestEmptyDirVolume(t *testing.T) {
 	t.Log("Creating a new Service")
 
 	quantity := resource.MustParse("100M")
-	withVolume1 := WithVolume("data", "/data", corev1.VolumeSource{
+	withVolume := WithVolume("data", "/data", corev1.VolumeSource{
 		EmptyDir: &corev1.EmptyDirVolumeSource{
-			Medium:    "Memory",
 			SizeLimit: &quantity,
 		},
 	})
 
-	withVolume2 := WithVolume("cache", "/cache", corev1.VolumeSource{
-		EmptyDir: &corev1.EmptyDirVolumeSource{},
+	withUserContainerEnvVar := WithEnv(corev1.EnvVar{
+		Name:  "SKIP_DATA_WRITE",
+		Value: "True",
 	})
 
-	resources, err := v1test.CreateServiceReady(t, clients, &names, withVolume1, withVolume2)
+	withInitContainer := WithInitContainer(&corev1.Container{
+		Name:  "initsetup",
+		Image: pkgTest.ImagePath(test.EmptyDir),
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      "data",
+			MountPath: "/data",
+		}},
+		Env: []corev1.EnvVar{{
+			Name:  "SKIP_DATA_SERVE",
+			Value: "True",
+		}},
+	})
+
+	resources, err := v1test.CreateServiceReady(t, clients, &names, withVolume, withUserContainerEnvVar, withInitContainer)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -75,7 +84,7 @@ func TestEmptyDirVolume(t *testing.T) {
 		t.Logf,
 		url,
 		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.EmptyDirText)),
-		"EmptyDirText",
+		"InitContainersText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {

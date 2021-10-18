@@ -31,32 +31,35 @@ func main() {
 	if base == "" {
 		base = "/data"
 	}
+
 	shouldSkipDataWrite := false
 	if skip, err := strconv.ParseBool(os.Getenv("SKIP_DATA_WRITE")); err == nil {
 		shouldSkipDataWrite = skip
 	}
 
 	testfilePath := filepath.Join(base, "testfile")
-
 	if !shouldSkipDataWrite {
 		log.Printf("Writing test content to %s.", testfilePath)
 		if err := os.WriteFile(testfilePath, []byte(test.EmptyDirText), 0644); err != nil {
 			panic(err)
 		}
 	}
+
 	shouldSkipDataServe := false
 	if skip, err := strconv.ParseBool(os.Getenv("SKIP_DATA_SERVE")); err == nil {
 		shouldSkipDataServe = skip
 	}
-	if !shouldSkipDataServe {
-		log.Print("Empty dir volume app started.")
-		test.ListenAndServeGracefully(":8080", func(w http.ResponseWriter, _ *http.Request) {
-			content, err := os.ReadFile(testfilePath)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			w.Write(content)
-		})
+	if shouldSkipDataServe {
+		return
 	}
+
+	log.Print("Empty dir volume app started.")
+	test.ListenAndServeGracefully(":8080", func(w http.ResponseWriter, _ *http.Request) {
+		content, err := os.ReadFile(testfilePath)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(content)
+	})
 }
