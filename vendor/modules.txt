@@ -1,4 +1,4 @@
-# cloud.google.com/go v0.96.0
+# cloud.google.com/go v0.97.0
 cloud.google.com/go/compute/metadata
 # contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d
 contrib.go.opencensus.io/exporter/ocagent
@@ -383,7 +383,7 @@ golang.org/x/crypto/pkcs12/internal/rc2
 # golang.org/x/mod v0.4.2
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.0.0-20210928044308-7d9f5e0b762b
+# golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f
 ## explicit
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
@@ -394,7 +394,7 @@ golang.org/x/net/http2/hpack
 golang.org/x/net/idna
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace
-# golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
+# golang.org/x/oauth2 v0.0.0-20211005180243-6b3c2da341f1
 ## explicit
 golang.org/x/oauth2
 golang.org/x/oauth2/authhandler
@@ -476,7 +476,7 @@ google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20210924002016-3dee208752a0
+# google.golang.org/genproto v0.0.0-20211016002631-37fc39342514
 google.golang.org/genproto/googleapis/api/httpbody
 google.golang.org/genproto/googleapis/rpc/code
 google.golang.org/genproto/googleapis/rpc/errdetails
@@ -986,7 +986,7 @@ k8s.io/code-generator/pkg/util
 k8s.io/code-generator/third_party/forked/golang/reflect
 # k8s.io/component-base v0.21.4
 k8s.io/component-base/version
-# k8s.io/gengo v0.0.0-20210203185629-de9496dff47b
+# k8s.io/gengo v0.0.0-20210915205010-39e73c8a59cd
 k8s.io/gengo/args
 k8s.io/gengo/examples/deepcopy-gen/generators
 k8s.io/gengo/examples/defaulter-gen/generators
@@ -1040,7 +1040,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20211018110626-47ac3b032e60
+# knative.dev/hack v0.0.0-20211019034732-ced8ce706528
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
@@ -1074,7 +1074,7 @@ knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serve
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20211018141937-a34efd6b409d
+# knative.dev/pkg v0.0.0-20211019101734-caa95feec115
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
