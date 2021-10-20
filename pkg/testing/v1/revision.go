@@ -220,6 +220,15 @@ func WithRevisionObservedGeneration(gen int64) RevisionOption {
 	}
 }
 
+func WithRevisionInitContainers() RevisionOption {
+	return func(r *v1.Revision) {
+		r.Spec.InitContainers = []corev1.Container{{
+			Name:  "init",
+			Image: "initimage",
+		}}
+	}
+}
+
 // Revision creates a revision object with given ns/name and options.
 func Revision(namespace, name string, ro ...RevisionOption) *v1.Revision {
 	r := &v1.Revision{

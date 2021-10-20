@@ -19,7 +19,6 @@ package revision
 import (
 	"context"
 	"fmt"
-
 	"go.uber.org/zap"
 
 	appsv1 "k8s.io/api/apps/v1"

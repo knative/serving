@@ -129,10 +129,12 @@ type RevisionStatus struct {
 	LogURL string `json:"logUrl,omitempty"`
 
 	// ContainerStatuses is a slice of images present in .Spec.Container[*].Image
-	// to their respective digests and their container name.
+	// and .Spec.InitContainer[*].Image to their respective digests and their container name.
+	// Order within the slice is important as by convention first the regular container info is stored
+	// and then if present init container related info.
 	// The digests are resolved during the creation of Revision.
 	// ContainerStatuses holds the container name and image digests
-	// for both serving and non serving containers.
+	// for serving, non serving and init containers.
 	// ref: http://bit.ly/image-digests
 	// +optional
 	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty"`

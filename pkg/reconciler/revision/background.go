@@ -171,7 +171,7 @@ func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision
 		return nil, ret.err
 	}
 
-	array := make([]v1.ContainerStatus, len(rev.Spec.Containers))
+	array := make([]v1.ContainerStatus, len(rev.Spec.Containers)+len(rev.Spec.InitContainers))
 	for k, v := range ret.statuses {
 		array[k] = v
 	}
@@ -183,18 +183,19 @@ func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision
 // addWorkItems adds a digest resolve item to the queue for each container in the revision.
 // This is expected to be called with the mutex locked.
 func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.NamespacedName, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) {
+	totalNumOfContainers := len(rev.Spec.Containers) + len(rev.Spec.InitContainers)
 	r.results[name] = &resolveResult{
 		opt:              opt,
 		registriesToSkip: registriesToSkip,
 		statuses:         make(map[int]v1.ContainerStatus),
-		want:             len(rev.Spec.Containers),
-		workItems:        make([]workItem, len(rev.Spec.Containers)),
+		want:             totalNumOfContainers,
+		workItems:        make([]workItem, totalNumOfContainers),
 		completionCallback: func() {
 			r.enqueue(name)
 		},
 	}
 
-	for i, container := range rev.Spec.Containers {
+	for i, container := range append(rev.Spec.Containers, rev.Spec.InitContainers...) {
 		item := workItem{
 			revision: name,
 			timeout:  timeout,

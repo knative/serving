@@ -71,12 +71,14 @@ var (
 )
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (bool, error) {
+	totalNumOfContainers := len(rev.Spec.Containers) + len(rev.Spec.InitContainers)
 	if rev.Status.ContainerStatuses == nil {
-		rev.Status.ContainerStatuses = make([]v1.ContainerStatus, 0, len(rev.Spec.Containers))
+		rev.Status.ContainerStatuses = make([]v1.ContainerStatus, 0, totalNumOfContainers)
 	}
 
 	// The image digest has already been resolved.
-	if len(rev.Status.ContainerStatuses) == len(rev.Spec.Containers) {
+	// No need to check for init containers feature flag here because rev.Spec has been validated already
+	if len(rev.Status.ContainerStatuses) == totalNumOfContainers {
 		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
 		return true, nil
 	}

@@ -209,7 +209,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 	}
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
 
-	for _, v := range rev.Spec.Containers {
+	for _, v := range append(rev.Spec.Containers, rev.Spec.InitContainers...) {
 		imageName := kmeta.ChildName(names.ImageCache(rev), "-"+v.Name)
 		image, err := fakecachingclient.Get(ctx).CachingV1alpha1().Images(rev.Namespace).Get(ctx, imageName, metav1.GetOptions{})
 		if err != nil {
@@ -230,9 +230,15 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 type nopResolver struct{}
 
 func (r *nopResolver) Resolve(_ *zap.SugaredLogger, rev *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
-	return []v1.ContainerStatus{{
+	status := []v1.ContainerStatus{{
 		Name: rev.Spec.Containers[0].Name,
-	}}, nil
+	}}
+	if len(rev.Spec.InitContainers) > 0 {
+		status = append(status, v1.ContainerStatus{
+			Name: rev.Spec.InitContainers[0].Name,
+		})
+	}
+	return status, nil
 }
 
 func (r *nopResolver) Clear(types.NamespacedName)  {}
@@ -264,6 +270,10 @@ func testPodSpec() corev1.PodSpec {
 				TimeoutSeconds: 43,
 			},
 			TerminationMessagePath: "/dev/null",
+		}},
+		// derived objects.
+		InitContainers: []corev1.Container{{
+			Image: "gcr.io/repo/init",
 		}},
 	}
 }
