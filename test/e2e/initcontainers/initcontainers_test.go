@@ -59,7 +59,7 @@ func TestInitContainers(t *testing.T) {
 		Value: "True",
 	})
 
-	withInitContainer := WithInitContainer(&corev1.Container{
+	withInitContainer := WithInitContainer(corev1.Container{
 		Name:  "initsetup",
 		Image: pkgTest.ImagePath(test.EmptyDir),
 		VolumeMounts: []corev1.VolumeMount{{
