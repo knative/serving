@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"knative.dev/serving/test"
 )
@@ -31,11 +32,25 @@ func main() {
 		base = "/data"
 	}
 
-	testfilePath := filepath.Join(base, "testfile")
-	log.Printf("Writing test content to %s.", testfilePath)
+	shouldSkipDataWrite := false
+	if skip, err := strconv.ParseBool(os.Getenv("SKIP_DATA_WRITE")); err == nil {
+		shouldSkipDataWrite = skip
+	}
 
-	if err := os.WriteFile(testfilePath, []byte(test.EmptyDirText), 0644); err != nil {
-		panic(err)
+	testfilePath := filepath.Join(base, "testfile")
+	if !shouldSkipDataWrite {
+		log.Printf("Writing test content to %s.", testfilePath)
+		if err := os.WriteFile(testfilePath, []byte(test.EmptyDirText), 0644); err != nil {
+			panic(err)
+		}
+	}
+
+	shouldSkipDataServe := false
+	if skip, err := strconv.ParseBool(os.Getenv("SKIP_DATA_SERVE")); err == nil {
+		shouldSkipDataServe = skip
+	}
+	if shouldSkipDataServe {
+		return
 	}
 
 	log.Print("Empty dir volume app started.")

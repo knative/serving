@@ -106,9 +106,13 @@ go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} || failed=1
 # Run HPA tests
 go_test_e2e -timeout=30m -tags=hpa ./test/e2e ${TEST_OPTIONS} || failed=1
 
-# Run emptyDir tests with alpha enabled avoiding any issues with the testing options guard above
+# Run emptyDir, initContainers tests with alpha enabled avoiding any issues with the testing options guard above
+# InitContainers test uses emptyDir.
 toggle_feature kubernetes.podspec-volumes-emptydir Enabled
-go_test_e2e -tags=emptydir ./test/e2e --enable-alpha ${TEST_OPTIONS} || failed=1
+toggle_feature kubernetes.podspec-init-containers Enabled
+go_test_e2e -timeout=2m ./test/e2e/emptydir ${TEST_OPTIONS} || failed=1
+go_test_e2e -timeout=2m ./test/e2e/initcontainers ${TEST_OPTIONS} || failed=1
+toggle_feature kubernetes.podspec-init-containers Disabled
 toggle_feature kubernetes.podspec-volumes-emptydir Disabled
 
 # Run HA tests separately as they're stopping core Knative Serving pods.

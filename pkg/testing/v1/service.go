@@ -480,3 +480,9 @@ var (
 		},
 	}
 )
+
+func WithInitContainer(p corev1.Container) ServiceOption {
+	return func(s *v1.Service) {
+		s.Spec.Template.Spec.InitContainers = []corev1.Container{p}
+	}
+}
