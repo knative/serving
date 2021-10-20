@@ -631,6 +631,104 @@ func TestRevisionDefaulting(t *testing.T) {
 			ctx = apis.WithinUpdate(ctx, "fake")
 			return ctx
 		},
+	}, {
+		name: "multiple init containers",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "busybox",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}},
+					}, {
+						Name: "helloworld",
+					}},
+					InitContainers: []corev1.Container{{
+						Name: "init1",
+					}, {
+						Name: "init2",
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:           "busybox",
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}},
+					}, {
+						Name:      "helloworld",
+						Resources: defaultResources,
+					}},
+					InitContainers: []corev1.Container{{
+						Name: "init1",
+					}, {
+						Name: "init2",
+					}},
+				},
+			},
+		},
+	}, {
+		name: "multiple init containers with same names empty",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "busybox",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}},
+					}, {
+						Name: "helloworld",
+					}},
+					InitContainers: []corev1.Container{{
+						Name: "init1",
+					}, {
+						Name: "init2",
+					}, {
+						Name: "",
+					}, {
+						Name: "",
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:           "busybox",
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}},
+					}, {
+						Name:      "helloworld",
+						Resources: defaultResources,
+					}},
+					InitContainers: []corev1.Container{{
+						Name: "init1",
+					}, {
+						Name: "init2",
+					}, {
+						Name: "init-container-0",
+					}, {
+						Name: "init-container-1",
+					}},
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {
@@ -653,12 +751,16 @@ func TestRevisionDefaultingContainerName(t *testing.T) {
 	got := &Revision{
 		Spec: RevisionSpec{
 			PodSpec: corev1.PodSpec{
-				Containers: []corev1.Container{{}, {}},
+				Containers:     []corev1.Container{{}, {}},
+				InitContainers: []corev1.Container{{}, {}},
 			},
 		},
 	}
 	got.SetDefaults(context.Background())
 	if got.Spec.Containers[0].Name == "" && got.Spec.Containers[1].Name == "" {
 		t.Errorf("Failed to set default values for container name")
+	}
+	if got.Spec.InitContainers[0].Name == "" && got.Spec.InitContainers[1].Name == "" {
+		t.Errorf("Failed to set default values for init container name")
 	}
 }

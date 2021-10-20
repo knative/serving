@@ -45,6 +45,10 @@ const (
 	// DefaultMaxRevisionTimeoutSeconds will be set if MaxRevisionTimeoutSeconds is not specified.
 	DefaultMaxRevisionTimeoutSeconds = 10 * 60
 
+	// DefaultInitContainerName is the default name we give to the init containers
+	// specified by the user, if `name:` is omitted.
+	DefaultInitContainerName = "init-container"
+
 	// DefaultUserContainerName is the default name we give to the container
 	// specified by the user, if `name:` is omitted.
 	DefaultUserContainerName = "user-container"
@@ -78,6 +82,7 @@ func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
 		RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
 		MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+		InitContainerNameTemplate:     DefaultInitContainerName,
 		UserContainerNameTemplate:     DefaultUserContainerName,
 		ContainerConcurrency:          DefaultContainerConcurrency,
 		ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
@@ -107,6 +112,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	nc := defaultDefaultsConfig()
 
 	if err := cm.Parse(data,
+		cm.AsString("init-container-name-template", &nc.InitContainerNameTemplate),
 		cm.AsString("container-name-template", &nc.UserContainerNameTemplate),
 
 		cm.AsBool("allow-container-concurrency-zero", &nc.AllowContainerConcurrencyZero),
@@ -164,6 +170,8 @@ type Defaults struct {
 	// RevisionTimeoutSeconds must be less than this value.
 	MaxRevisionTimeoutSeconds int64
 
+	InitContainerNameTemplate string
+
 	UserContainerNameTemplate string
 
 	ContainerConcurrency int64
@@ -188,15 +196,15 @@ type Defaults struct {
 	RevisionEphemeralStorageLimit   *resource.Quantity
 }
 
-// UserContainerName returns the name of the user container based on the context.
-func (d *Defaults) UserContainerName(ctx context.Context) string {
+// ContainerNameFromTemplate returns the name of the user container based on the context.
+func ContainerNameFromTemplate(ctx context.Context, containerNameTemplate string, defaultTemplate string) string {
 	var tmpl *template.Template
-	if tt, ok := templateCache.Get(d.UserContainerNameTemplate); ok {
+	if tt, ok := templateCache.Get(containerNameTemplate); ok {
 		tmpl = tt.(*template.Template)
 	} else {
 		// Fallback for unit tests.
 		tmpl = template.Must(
-			template.New("user-container").Parse(d.UserContainerNameTemplate))
+			template.New(defaultTemplate).Parse(containerNameTemplate))
 	}
 	buf := &bytes.Buffer{}
 	if err := tmpl.Execute(buf, apis.ParentMeta(ctx)); err != nil {
