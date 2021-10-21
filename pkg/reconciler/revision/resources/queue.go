@@ -342,6 +342,14 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "CONCURRENCY_STATE_TOKEN_PATH",
 			Value: path.Join(concurrencyStateTokenVolumeMountPath, concurrencyStateTokenName),
 		}, {
+			Name: "HOST_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "status.hostIP",
+				},
+			},
+		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: strconv.FormatBool(cfg.Features.AutoDetectHTTP2 == apicfg.Enabled),
 		}},

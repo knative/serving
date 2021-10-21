@@ -171,6 +171,39 @@ func TestConcurrencyStateTokenRefresh(t *testing.T) {
 	}
 }
 
+func TestConcurrencyStateEndpoint(t *testing.T) {
+	hostIP := "123.4.56.789"
+	os.Setenv("HOST_IP", hostIP)
+
+	tokenPath := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	// no substitution
+	endpoint := "http://test:1234"
+	c := NewConcurrencyEndpoint(endpoint, tokenPath)
+	if c.endpoint != endpoint {
+		t.Errorf("expected %s, got %s", endpoint, c.Endpoint())
+	}
+
+	// hostIP substitution
+	endpoint = "http://$HOST_IP:1234"
+	subEndpoint := "http://" + hostIP + ":1234"
+	c = NewConcurrencyEndpoint(endpoint, tokenPath)
+	if c.endpoint != subEndpoint {
+		t.Errorf("expected %s, got %s", subEndpoint, c.endpoint)
+	}
+
+	// hostIP and no port = no substitution
+	endpoint = "http://$HOST_IP"
+	c = NewConcurrencyEndpoint(endpoint, tokenPath)
+	if c.endpoint != endpoint {
+		t.Errorf("expected %s, got %s", endpoint, c.Endpoint())
+	}
+
+}
+
 func TestConcurrencyStatePauseHeader(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("Token")
