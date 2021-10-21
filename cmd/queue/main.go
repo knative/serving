@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"net"
 	"net/http"
@@ -66,8 +65,6 @@ const (
 )
 
 var (
-	startupProbeTimeout = flag.Duration("probe-timeout", -1, "run startup probe with given timeout")
-
 	// This creates an abstract socket instead of an actual file.
 	unixSocketPath = "@/knative.dev/serving/queue.sock"
 )
@@ -114,9 +111,6 @@ func init() {
 }
 
 func main() {
-	flag.Parse()
-
-	// Otherwise, we run as the queue-proxy service.
 	ctx := signals.NewContext()
 
 	// Parse the environment.
