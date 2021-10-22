@@ -901,6 +901,11 @@ func env(overrides map[string]string) []corev1.EnvVar {
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		},
 	}, {
+		Name: "HOST_IP",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{APIVersion: "v1", FieldPath: "status.hostIP"},
+		},
+	}, {
 		Name: "SERVING_POD_IP",
 		ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},

@@ -114,7 +114,12 @@ type ConcurrencyEndpoint struct {
 
 func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
 	c := ConcurrencyEndpoint{
-		endpoint:  e,
+		endpoint: os.Expand(e, func(s string) string {
+			if s == "HOST_IP" {
+				return os.Getenv("HOST_IP")
+			}
+			return "$" + s // to not change what the user provides
+		}),
 		mountPath: m,
 	}
 	c.RefreshToken()
@@ -151,4 +156,8 @@ func (c *ConcurrencyEndpoint) RefreshToken() error {
 	}
 	c.token.Store(string(token))
 	return nil
+}
+
+func (c *ConcurrencyEndpoint) Endpoint() string {
+	return c.endpoint
 }

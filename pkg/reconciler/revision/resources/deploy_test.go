@@ -175,6 +175,11 @@ var (
 			Name:  "CONCURRENCY_STATE_TOKEN_PATH",
 			Value: "/var/run/secrets/tokens/state-token",
 		}, {
+			Name: "HOST_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{APIVersion: "v1", FieldPath: "status.hostIP"},
+			},
+		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: "false",
 		}},

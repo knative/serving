@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/version: devel
     app.kubernetes.io/part-of: knative-serving
   annotations:
-    knative.dev/example-checksum: "f4cfb8ed"
+    knative.dev/example-checksum: "dd7ee769"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -77,13 +77,20 @@ data:
     # If omitted, no value is specified and the system default is used.
     queue-sidecar-ephemeral-storage-limit: "1024Mi"
 
-    # The endpoint that queue-proxy calls when its traffic drops to zero or
+    # The freezer service endpoint that queue-proxy calls when its traffic drops to zero or
     # scales up from zero.
     #
-    # The value will need to include both the url including the port that will be accessed.
-    # For example: http://pod-freezer.knative-serving.svc.cluster.local:9696
+    # Freezer service is available at: https://github.com/knative-sandbox/container-freezer
+    # or users may write their own service.
     #
-    # If omitted, queue proxy takes no action (this is the default behavior).
+    # The value will need to include both the host and the port that will be accessed.
+    # For the host, $HOST_IP can be passed, and the appropriate host IP value will be swapped
+    # in at runtime, which will enable the freezer daemonset to be reachable via the node IP.
+    #
+    # As an example:
+    #     concurrency-state-endpoint: "http://$HOST_IP:9696"
+    #
+    # If not set, queue proxy takes no action (this is the default behavior).
     #
     # When enabled, a serviceAccountToken will be mounted to queue-proxy using
     # a projected volume. This requires the Service Account Token Volume Projection feature
