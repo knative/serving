@@ -112,9 +112,19 @@ type ConcurrencyEndpoint struct {
 	token     atomic.Value
 }
 
+// mapper converts the HOST_IP envvar in concurrency-state-endpoint string.
+func mapper(s string) string {
+	hostIP := os.Getenv("HOST_IP")
+	switch s {
+	case "HOST_IP":
+		return hostIP
+	}
+	return "$" + s // to not change what the user provides
+}
+
 func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
 	c := ConcurrencyEndpoint{
-		endpoint:  os.ExpandEnv(e),
+		endpoint:  os.Expand(e, mapper),
 		mountPath: m,
 	}
 	c.RefreshToken()

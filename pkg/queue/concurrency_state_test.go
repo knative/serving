@@ -202,6 +202,12 @@ func TestConcurrencyStateEndpoint(t *testing.T) {
 		t.Errorf("expected %s, got %s", endpoint, c.Endpoint())
 	}
 
+	// non-hostIP not substituted
+	endpoint = "http://$SERVING_NAMESPACE:1234"
+	c = NewConcurrencyEndpoint(endpoint, tokenPath)
+	if c.endpoint != endpoint {
+		t.Errorf("expected %s, got %s", endpoint, c.endpoint)
+	}
 }
 
 func TestConcurrencyStatePauseHeader(t *testing.T) {
