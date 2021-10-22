@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"regexp"
 	"sync"
 	"time"
 
@@ -115,9 +114,9 @@ type ConcurrencyEndpoint struct {
 
 func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
 	c := ConcurrencyEndpoint{
+		endpoint:  os.ExpandEnv(e),
 		mountPath: m,
 	}
-	c.setEndpoint(e)
 	c.RefreshToken()
 	return c
 }
@@ -151,21 +150,6 @@ func (c *ConcurrencyEndpoint) RefreshToken() error {
 		return fmt.Errorf("could not read token: %w", err)
 	}
 	c.token.Store(string(token))
-	return nil
-}
-
-// setEndpoint swaps $HOST_IP into the user-provided endpoint if necessary,
-// otherwise it returns the user-provided endpoint with no changes.
-func (c *ConcurrencyEndpoint) setEndpoint(e string) error {
-	r := regexp.MustCompile("(http://|https://)?\\$HOST_IP:\\d\\d\\d\\d")
-	matches := r.Match([]byte(e))
-	if matches {
-		hostIP := os.Getenv("HOST_IP")
-		c.endpoint = "http://" + hostIP + e[len(e)-5:]
-		return nil
-	}
-
-	c.endpoint = e
 	return nil
 }
 

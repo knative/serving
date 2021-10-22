@@ -195,10 +195,10 @@ func TestConcurrencyStateEndpoint(t *testing.T) {
 		t.Errorf("expected %s, got %s", subEndpoint, c.endpoint)
 	}
 
-	// hostIP and no port = no substitution
+	// hostIP and no port
 	endpoint = "http://$HOST_IP"
 	c = NewConcurrencyEndpoint(endpoint, tokenPath)
-	if c.endpoint != endpoint {
+	if c.endpoint != "http://"+hostIP {
 		t.Errorf("expected %s, got %s", endpoint, c.Endpoint())
 	}
 
