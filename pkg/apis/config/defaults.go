@@ -64,9 +64,9 @@ const (
 	// containerConcurrency can be set to zero (i.e. unbounded) by users.
 	DefaultAllowContainerConcurrencyZero = true
 
-	UserContainerTemplateKeyPrefix = "user-container"
+	InitContainerTemplateKeyPrefix = DefaultInitContainerName
 
-	InitContainerTemplateKeyPrefix = "init-container"
+	UserContainerTemplateKeyPrefix = DefaultUserContainerName
 )
 
 var (
