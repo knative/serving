@@ -178,6 +178,22 @@ func TestDefaultsConfiguration(t *testing.T) {
 		data: map[string]string{
 			"container-concurrency-max-limit": "0",
 		},
+	}, {
+		name:    "different user and init container name template values",
+		wantErr: false,
+		wantDefaults: &Defaults{
+			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
+			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
+			AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
+			EnableServiceLinks:            ptr.Bool(false),
+			UserContainerNameTemplate:     "{{.Name}}",
+			InitContainerNameTemplate:     "my-template",
+		},
+		data: map[string]string{
+			"container-name-template":      "{{.Name}}",
+			"init-container-name-template": "my-template",
+		},
 	}}
 
 	for _, tt := range configTests {
@@ -249,11 +265,11 @@ func TestTemplating(t *testing.T) {
 				Namespace: "guardians",
 			})
 
-			if got, want := ContainerNameFromTemplate(ctx, def.UserContainerNameTemplate, DefaultUserContainerName), test.want; got != want {
+			if got, want := ContainerNameFromTemplateKey(ctx, MakeTemplateKey(UserContainerTemplateKeyPrefix, def.UserContainerNameTemplate)), test.want; got != want {
 				t.Errorf("ContainerNameFromTemplate() = %v, wanted %v", got, want)
 			}
 
-			if got, want := ContainerNameFromTemplate(ctx, def.InitContainerNameTemplate, DefaultInitContainerName), test.want; got != want {
+			if got, want := ContainerNameFromTemplateKey(ctx, MakeTemplateKey(InitContainerTemplateKeyPrefix, def.InitContainerNameTemplate)), test.want; got != want {
 				t.Errorf("ContainerNameFromTemplate() = %v, wanted %v", got, want)
 			}
 		})

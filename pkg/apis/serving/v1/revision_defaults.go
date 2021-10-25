@@ -66,9 +66,9 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	for idx := range rs.PodSpec.InitContainers {
 		containerNames.Insert(rs.PodSpec.InitContainers[idx].Name)
 	}
-	defaultUserContainerName := config.ContainerNameFromTemplate(ctx, cfg.Defaults.UserContainerNameTemplate, config.DefaultUserContainerName)
+	defaultUserContainerName := config.ContainerNameFromTemplateKey(ctx, config.MakeTemplateKey(config.UserContainerTemplateKeyPrefix, cfg.Defaults.UserContainerNameTemplate))
 	applyDefaultContainerNames(rs.PodSpec.Containers, containerNames, defaultUserContainerName)
-	defaultInitContainerName := config.ContainerNameFromTemplate(ctx, cfg.Defaults.InitContainerNameTemplate, config.DefaultInitContainerName)
+	defaultInitContainerName := config.ContainerNameFromTemplateKey(ctx, config.MakeTemplateKey(config.InitContainerTemplateKeyPrefix, cfg.Defaults.InitContainerNameTemplate))
 	applyDefaultContainerNames(rs.PodSpec.InitContainers, containerNames, defaultInitContainerName)
 	for idx := range rs.PodSpec.Containers {
 		rs.applyDefault(ctx, &rs.PodSpec.Containers[idx], cfg)

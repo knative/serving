@@ -63,19 +63,24 @@ const (
 	// DefaultAllowContainerConcurrencyZero is whether, by default,
 	// containerConcurrency can be set to zero (i.e. unbounded) by users.
 	DefaultAllowContainerConcurrencyZero = true
+
+	UserContainerTemplateKeyPrefix = "user-container"
+
+	InitContainerTemplateKeyPrefix = "init-container"
 )
 
 var (
 	templateCache *lru.Cache
 
-	// Verify the default template is valid.
+	// Verify the default templates are valid.
 	_ = template.Must(template.New("user-container-template").Parse(DefaultUserContainerName))
+	_ = template.Must(template.New("init-container-template").Parse(DefaultInitContainerName))
 )
 
 func init() {
 	// The only failure is due to negative size.
 	// Store 10 latest templates.
-	templateCache, _ = lru.New(10)
+	templateCache, _ = lru.New(20)
 }
 
 func defaultDefaultsConfig() *Defaults {
@@ -145,16 +150,29 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 			nc.ContainerConcurrency, 0, nc.ContainerConcurrencyMaxLimit, "container-concurrency")
 	}
 
-	tmpl, err := template.New("user-container").Parse(nc.UserContainerNameTemplate)
-	if err != nil {
-		return nil, err
+	for _, t := range []struct {
+		templateName string
+		template     string
+		keyPrefix    string
+	}{{
+		templateName: "user-container",
+		template:     nc.UserContainerNameTemplate,
+		keyPrefix:    UserContainerTemplateKeyPrefix,
+	}, {
+		templateName: "init-container",
+		template:     nc.InitContainerNameTemplate,
+		keyPrefix:    InitContainerTemplateKeyPrefix,
+	}} {
+		tmpl, err := template.New(t.templateName).Parse(t.template)
+		if err != nil {
+			return nil, err
+		}
+		// Check that the template properly applies to ObjectMeta.
+		if err := tmpl.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
+			return nil, fmt.Errorf("error executing template: %w", err)
+		}
+		templateCache.Add(MakeTemplateKey(t.keyPrefix, t.template), tmpl)
 	}
-	// Check that the template properly applies to ObjectMeta.
-	if err := tmpl.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
-		return nil, fmt.Errorf("error executing template: %w", err)
-	}
-	templateCache.Add(nc.UserContainerNameTemplate, tmpl)
-
 	return nc, nil
 }
 
@@ -196,19 +214,25 @@ type Defaults struct {
 	RevisionEphemeralStorageLimit   *resource.Quantity
 }
 
-// ContainerNameFromTemplate returns the name of the user container based on the context.
-func ContainerNameFromTemplate(ctx context.Context, containerNameTemplate string, defaultTemplate string) string {
+// ContainerNameFromTemplate returns the name of the user or init container based on the context.
+func ContainerNameFromTemplateKey(ctx context.Context, containerNameTemplateKey string) string {
 	var tmpl *template.Template
-	if tt, ok := templateCache.Get(containerNameTemplate); ok {
+	if tt, ok := templateCache.Get(containerNameTemplateKey); ok {
 		tmpl = tt.(*template.Template)
 	} else {
 		// Fallback for unit tests.
 		tmpl = template.Must(
-			template.New(defaultTemplate).Parse(containerNameTemplate))
+			template.New("container-template").Parse(containerNameTemplateKey))
 	}
 	buf := &bytes.Buffer{}
 	if err := tmpl.Execute(buf, apis.ParentMeta(ctx)); err != nil {
 		return ""
 	}
 	return buf.String()
+}
+
+// MakeTemplateKey creates a template key using some prefix (eg. container type) to be used with the template cache
+// Using a prefix avoids conflicts for different types of containers eg. user vs init.
+func MakeTemplateKey(keyPrefix string, value string) string {
+	return fmt.Sprintf("%s-%s", keyPrefix, value)
 }
