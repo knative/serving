@@ -64,9 +64,9 @@ const (
 	// containerConcurrency can be set to zero (i.e. unbounded) by users.
 	DefaultAllowContainerConcurrencyZero = true
 
-	InitContainerTemplateKeyPrefix = DefaultInitContainerName
+	initContainerTemplateKeyPrefix = DefaultInitContainerName
 
-	UserContainerTemplateKeyPrefix = DefaultUserContainerName
+	userContainerTemplateKeyPrefix = DefaultUserContainerName
 )
 
 var (
@@ -157,11 +157,11 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	}{{
 		templateName: "user-container",
 		template:     nc.UserContainerNameTemplate,
-		keyPrefix:    UserContainerTemplateKeyPrefix,
+		keyPrefix:    userContainerTemplateKeyPrefix,
 	}, {
 		templateName: "init-container",
 		template:     nc.InitContainerNameTemplate,
-		keyPrefix:    InitContainerTemplateKeyPrefix,
+		keyPrefix:    initContainerTemplateKeyPrefix,
 	}} {
 		tmpl, err := template.New(t.templateName).Parse(t.template)
 		if err != nil {
@@ -171,7 +171,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		if err := tmpl.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
 			return nil, fmt.Errorf("error executing template: %w", err)
 		}
-		templateCache.Add(MakeTemplateKey(t.keyPrefix, t.template), tmpl)
+		templateCache.Add(makeTemplateKey(t.keyPrefix, t.template), tmpl)
 	}
 	return nc, nil
 }
@@ -214,8 +214,7 @@ type Defaults struct {
 	RevisionEphemeralStorageLimit   *resource.Quantity
 }
 
-// ContainerNameFromTemplate returns the name of the user or init container based on the context.
-func ContainerNameFromTemplateKey(ctx context.Context, containerNameTemplateKey string) string {
+func containerNameFromTemplateKey(ctx context.Context, containerNameTemplateKey string) string {
 	var tmpl *template.Template
 	if tt, ok := templateCache.Get(containerNameTemplateKey); ok {
 		tmpl = tt.(*template.Template)
@@ -231,8 +230,24 @@ func ContainerNameFromTemplateKey(ctx context.Context, containerNameTemplateKey 
 	return buf.String()
 }
 
-// MakeTemplateKey creates a template key using some prefix (eg. container type) to be used with the template cache
-// Using a prefix avoids conflicts for different types of containers eg. user vs init.
-func MakeTemplateKey(keyPrefix string, value string) string {
+// UserContainerName returns the name of the user container based on the context.
+func (d Defaults) UserContainerName(ctx context.Context) string {
+	return containerNameFromTemplateKey(ctx, d.makeUserContainerTemplateKey())
+}
+
+// InitContainerName returns the name of the user container based on the context.
+func (d Defaults) InitContainerName(ctx context.Context) string {
+	return containerNameFromTemplateKey(ctx, d.makeInitContainerTemplateKey())
+}
+
+func makeTemplateKey(keyPrefix string, value string) string {
 	return fmt.Sprintf("%s-%s", keyPrefix, value)
+}
+
+func (d Defaults) makeUserContainerTemplateKey() string {
+	return makeTemplateKey(userContainerTemplateKeyPrefix, d.UserContainerNameTemplate)
+}
+
+func (d Defaults) makeInitContainerTemplateKey() string {
+	return makeTemplateKey(initContainerTemplateKeyPrefix, d.InitContainerNameTemplate)
 }

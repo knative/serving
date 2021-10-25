@@ -265,11 +265,11 @@ func TestTemplating(t *testing.T) {
 				Namespace: "guardians",
 			})
 
-			if got, want := ContainerNameFromTemplateKey(ctx, MakeTemplateKey(UserContainerTemplateKeyPrefix, def.UserContainerNameTemplate)), test.want; got != want {
+			if got, want := def.UserContainerName(ctx), test.want; got != want {
 				t.Errorf("ContainerNameFromTemplate() = %v, wanted %v", got, want)
 			}
 
-			if got, want := ContainerNameFromTemplateKey(ctx, MakeTemplateKey(InitContainerTemplateKeyPrefix, def.InitContainerNameTemplate)), test.want; got != want {
+			if got, want := def.InitContainerName(ctx), test.want; got != want {
 				t.Errorf("ContainerNameFromTemplate() = %v, wanted %v", got, want)
 			}
 		})
