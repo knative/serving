@@ -34,8 +34,8 @@ import (
 	v1test "knative.dev/serving/test/v1"
 
 	corev1 "k8s.io/api/core/v1"
-	rtesting "knative.dev/serving/pkg/testing/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	testingv1 "knative.dev/serving/pkg/testing/v1"
 )
 
