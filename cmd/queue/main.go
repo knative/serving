@@ -296,6 +296,7 @@ func buildServer(ctx context.Context, env config, healthState *health.State, pro
 			}
 		}()
 		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, ce.Pause, ce.Resume)
+		ce.Pause() // start paused
 	}
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
