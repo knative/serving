@@ -21,7 +21,6 @@ package v1
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -36,7 +35,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
-
+	"k8s.io/apimachinery/pkg/api/resource"
 	testingv1 "knative.dev/serving/pkg/testing/v1"
 )
 
