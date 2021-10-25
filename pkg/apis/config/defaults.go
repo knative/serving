@@ -240,14 +240,14 @@ func (d Defaults) InitContainerName(ctx context.Context) string {
 	return containerNameFromTemplateKey(ctx, d.makeInitContainerTemplateKey())
 }
 
-func makeTemplateKey(keyPrefix string, value string) string {
-	return fmt.Sprintf("%s-%s", keyPrefix, value)
-}
-
 func (d Defaults) makeUserContainerTemplateKey() string {
 	return makeTemplateKey(userContainerTemplateKeyPrefix, d.UserContainerNameTemplate)
 }
 
 func (d Defaults) makeInitContainerTemplateKey() string {
 	return makeTemplateKey(initContainerTemplateKeyPrefix, d.InitContainerNameTemplate)
+}
+
+func makeTemplateKey(prefix string, value string) string {
+	return fmt.Sprintf("%s-%s", prefix, value)
 }
