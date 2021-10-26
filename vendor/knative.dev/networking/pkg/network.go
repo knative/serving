@@ -28,7 +28,9 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cm "knative.dev/pkg/configmap"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -93,6 +95,11 @@ const (
 	// RolloutDurationKey is the name of the configuration entry
 	// that specifies the default duration of the configuration rollout.
 	RolloutDurationKey = "rollout-duration"
+
+	// NamespaceWildcardCertSelectorKey is the name of the configuration
+	// entry that specifies a LabelSelector to control which namespaces
+	// have a wildcard certificate provisioned for them.
+	NamespaceWildcardCertSelectorKey = "namespace-wildcard-cert-selector"
 
 	// KubeProbeUAPrefix is the user agent prefix of the probe.
 	// Since K8s 1.8, prober requests have
@@ -241,6 +248,18 @@ type Config struct {
 	// DefaultCertificateClass specifies the default Certificate class.
 	DefaultCertificateClass string
 
+	// NamespaceWildcardCertSelector specifies the set of namespaces which should
+	// have wildcard certificates provisioned for the Knative Services within.
+	// Defaults to empty (selecting no namespaces). If set to an exclude rule like:
+	// ```
+	//   matchExpressions:
+	//     key: "kubernetes.io/metadata.name"
+	//     operator: "NotIn"
+	//     values: ["kube-system"]
+	// ```
+	// This can be used to enbale wildcard certs in all non-system namespaces
+	NamespaceWildcardCertSelector *metav1.LabelSelector
+
 	// RolloutDurationSecs specifies the default duration for the rollout.
 	RolloutDurationSecs int
 
@@ -318,6 +337,7 @@ func defaultConfig() *Config {
 		DomainTemplate:                DefaultDomainTemplate,
 		TagTemplate:                   DefaultTagTemplate,
 		AutoTLS:                       false,
+		NamespaceWildcardCertSelector: nil,
 		HTTPProtocol:                  HTTPEnabled,
 		AutocreateClusterDomainClaims: false,
 		DefaultExternalScheme:         "http",
@@ -354,6 +374,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsBool(EnableMeshPodAddressabilityKey, &nc.EnableMeshPodAddressability),
 		cm.AsString(DefaultExternalSchemeKey, &nc.DefaultExternalScheme),
 		asMode(MeshCompatibilityModeKey, &nc.MeshCompatibilityMode),
+		asLabelSelector(NamespaceWildcardCertSelectorKey, &nc.NamespaceWildcardCertSelector),
 	); err != nil {
 		return nil, err
 	}
@@ -563,6 +584,22 @@ func asMode(key string, target *MeshCompatibilityMode) cm.ParseFunc {
 				if strings.EqualFold(raw, string(flag)) {
 					*target = flag
 					return nil
+				}
+			}
+		}
+		return nil
+	}
+}
+
+// asLabelSelector returns a LabelSelector extracted from a given configmap key.
+func asLabelSelector(key string, target **metav1.LabelSelector) cm.ParseFunc {
+	return func(data map[string]string) error {
+		*target = nil
+		if raw, ok := data[key]; ok {
+			if len(raw) > 0 {
+				*target = &metav1.LabelSelector{}
+				if err := yaml.Unmarshal([]byte(raw), *target); err != nil {
+					return err
 				}
 			}
 		}
