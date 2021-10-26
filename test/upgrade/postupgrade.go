@@ -193,7 +193,10 @@ func initialScalePostUpgrade(t *testing.T) {
 
 func CRDStoredVersionPostUpgradeTest() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("CRDStoredVersionPostUpgradeTest", func(c pkgupgrade.Context) {
-		clients := e2e.Setup(c.T)
-		pkgmigrate.ExpectSingleStoredVersion(c.T, clients.Apiextensions.CustomResourceDefinitions(), "knative.dev")
+		crdClient := e2e.Setup(c.T).Apiextensions.CustomResourceDefinitions()
+		pkgmigrate.ExpectSingleStoredVersion(c.T, crdClient, "serving.knative.dev")
+		pkgmigrate.ExpectSingleStoredVersion(c.T, crdClient, "autoscaling.internal.knative.dev")
+		pkgmigrate.ExpectSingleStoredVersion(c.T, crdClient, "caching.internal.knative.dev")
+		pkgmigrate.ExpectSingleStoredVersion(c.T, crdClient, "networking.internal.knative.dev")
 	})
 }
