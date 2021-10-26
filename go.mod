@@ -40,6 +40,7 @@ require (
 	google.golang.org/grpc v1.41.0
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 	k8s.io/api v0.21.4
+	k8s.io/apiextensions-apiserver v0.21.4
 	k8s.io/apimachinery v0.21.4
 	k8s.io/client-go v0.21.4
 	k8s.io/code-generator v0.21.4

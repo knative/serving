@@ -21,6 +21,7 @@ package test
 import (
 	"context"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -48,6 +49,7 @@ type Clients struct {
 	ServingClient      *ServingClients
 	NetworkingClient   *NetworkingClients
 	Dynamic            dynamic.Interface
+	Apiextensions      *apiextensionsv1.ApiextensionsV1Client
 }
 
 // ServingAlphaClients holds instances of interfaces for making requests to knative serving clients.
@@ -114,6 +116,11 @@ func NewClients(cfg *rest.Config, namespace string) (*Clients, error) {
 	}
 
 	clients.NetworkingClient, err = newNetworkingClients(cfg, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	clients.Apiextensions, err = apiextensionsv1.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

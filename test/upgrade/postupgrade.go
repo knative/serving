@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 	ptest "knative.dev/pkg/test"
+	pkgmigrate "knative.dev/pkg/test/migrate"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
@@ -40,6 +41,7 @@ func ServingPostUpgradeTests() []pkgupgrade.Operation {
 		BYORevisionPostUpgradeTest(),
 		CreateNewServicePostUpgradeTest(),
 		InitialScalePostUpgradeTest(),
+		CRDStoredVersionPostUpgradeTest(),
 	}
 }
 
@@ -187,4 +189,14 @@ func initialScalePostUpgrade(t *testing.T) {
 	if !svc.IsReady() {
 		t.Fatalf("Post upgrade Service is not ready with reason %q", svc.Status.GetCondition(v1.ServiceConditionRoutesReady).Reason)
 	}
+}
+
+func CRDStoredVersionPostUpgradeTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("CRDStoredVersionPostUpgradeTest", func(c pkgupgrade.Context) {
+		crdClient := e2e.Setup(c.T).Apiextensions.CustomResourceDefinitions()
+		pkgmigrate.ExpectSingleStoredVersion(c.T, crdClient, "serving.knative.dev")
+		pkgmigrate.ExpectSingleStoredVersion(c.T, crdClient, "autoscaling.internal.knative.dev")
+		pkgmigrate.ExpectSingleStoredVersion(c.T, crdClient, "caching.internal.knative.dev")
+		pkgmigrate.ExpectSingleStoredVersion(c.T, crdClient, "networking.internal.knative.dev")
+	})
 }
