@@ -25,6 +25,8 @@ on:
     inputs:
       releaseFamily:
         description: 'Release? (vX.Y)'
+      moduleReleaseFamily:
+        description: 'Module Release? (vX.Y)'
       slackChannel:
         description: 'Slack Channel? (release-#)'
 
@@ -37,15 +39,19 @@ jobs:
       #########################################
       #   Update this section each release.   #
       RELEASE: 'v1.0'
-      SLACK_CHANNEL: 'release-27'
+      MODULE_RELEASE: 'v0.27'
+      SLACK_CHANNEL: 'release-1dot0'
       #########################################
 
     steps:
       - name: Defaults
         run: |
-          # If manual trigger sent releaseFamily and slackChannel, then override them
+          # If manual trigger sent releaseFamily, moduleReleaseFamily and slackChannel, then override them
           if [[ "${{ github.event.inputs.releaseFamily }}" != "" ]]; then
             echo "RELEASE=${{ github.event.inputs.releaseFamily }}" >> $GITHUB_ENV
+          fi
+          if [[ "${{ github.event.inputs.moduleReleaseFamily }}" != "" ]]; then
+            echo "MODULE_RELEASE=${{ github.event.inputs.moduleReleaseFamily }}" >> $GITHUB_ENV
           fi
           if [[ "${{ github.event.inputs.slackChannel }}" != "" ]]; then
             echo "SLACK_CHANNEL=${{ github.event.inputs.slackChannel }}" >> $GITHUB_ENV
@@ -69,7 +75,7 @@ jobs:
         id: exists
         run: |
           EXISTS=0
-          buoy exists go.mod --release ${RELEASE} --verbose || EXISTS=$?
+          buoy exists go.mod --release ${RELEASE} --module-release ${MODULE_RELEASE} --verbose || EXISTS=$?
           if [[ "$EXISTS" -eq "0" ]]; then
             EXISTS=true
           else
@@ -83,7 +89,7 @@ jobs:
           # The following pushes the stdout of buoy into $CHECK_MESSAGE
           CHECK=0
           echo 'CHECK_MESSAGE<<EOF' >> $GITHUB_ENV
-          buoy check go.mod --release ${RELEASE} --domain knative.dev --verbose >> $GITHUB_ENV 2>&1 || CHECK=$?
+          buoy check go.mod --release ${RELEASE} --module-release ${MODULE_RELEASE} --domain knative.dev --verbose >> $GITHUB_ENV 2>&1 || CHECK=$?
           echo 'EOF' >> $GITHUB_ENV
 
           # We just captured the return code of the buoy call, test it to see
@@ -99,7 +105,7 @@ jobs:
         if: steps.exists.outputs.release-branch == 'false' && env.current == 'true'
         run: |
           # if update deps returns un-successful, then mark current to false.
-          if ! ./hack/update-deps.sh --release ${RELEASE} --upgrade; then
+          if ! ./hack/update-deps.sh --release ${MODULE_RELEASE} --upgrade; then
             echo "VERIFY_MESSAGE=Unable to update deps for ${{ github.repository }}." >> $GITHUB_ENV
             echo 'current=false' >> $GITHUB_ENV
           fi
