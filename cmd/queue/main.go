@@ -164,6 +164,8 @@ func main() {
 
 	drainer := &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
+		// Add Activator probe header to the drainer so it can handle probes directly from activator
+		HealthCheckUAPrefixes: []string{network.ActivatorUserAgent},
 	}
 	mainServer := buildServer(ctx, env, drainer, probe, stats, logger)
 	servers := map[string]*http.Server{
@@ -310,16 +312,14 @@ func buildServer(ctx context.Context, env config, drainer *pkghandler.Drainer, p
 		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	}
 
-	composedHandler = health.ProbeHandler(probeContainer, tracingEnabled, composedHandler)
-	composedHandler = network.NewProbeHandler(composedHandler)
-	// We might sometimes want to capture the probes/healthchecks in the request
-	// logs. Hence we need to have RequestLogHandler to be the first one.
+	var healthcheckHandler http.Handler
+	healthcheckHandler = health.ProbeHandler(probeContainer, tracingEnabled, healthcheckHandler)
 	if env.ServingEnableRequestLog {
-		composedHandler = requestLogHandler(logger, composedHandler, env)
+		healthcheckHandler = requestLogHandler(logger, healthcheckHandler, env)
 	}
 
 	drainer.Inner = composedHandler
-	drainer.HealthCheck = composedHandler.ServeHTTP
+	drainer.HealthCheck = healthcheckHandler.ServeHTTP
 
 	return pkgnet.NewServer(":"+env.QueueServingPort, drainer)
 }
