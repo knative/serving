@@ -677,7 +677,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 	}, {
-		name: "multiple init containers with same names empty",
+		name: "multiple init containers with some names empty",
 		in: &Revision{
 			Spec: RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -730,7 +730,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 	}, {
-		name: "multiple init and user containers with same names empty",
+		name: "multiple init and user containers with some names empty",
 		in: &Revision{
 			Spec: RevisionSpec{
 				PodSpec: corev1.PodSpec{
