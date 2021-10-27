@@ -21,6 +21,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/gc"
 	"knative.dev/serving/pkg/reconciler/labeler"
+	"knative.dev/serving/pkg/reconciler/nscert"
 	"knative.dev/serving/pkg/reconciler/revision"
 	"knative.dev/serving/pkg/reconciler/route"
 	"knative.dev/serving/pkg/reconciler/serverlessservice"
@@ -39,6 +40,7 @@ var ctors = []injection.ControllerConstructor{
 	serverlessservice.NewController,
 	service.NewController,
 	gc.NewController,
+	nscert.NewController,
 }
 
 func main() {

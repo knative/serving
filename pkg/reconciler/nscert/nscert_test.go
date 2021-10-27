@@ -26,7 +26,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -65,6 +67,8 @@ var (
 	defaultCertName       = names.WildcardCertificate(wildcardDNSNames[0])
 	defaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 	defaultDomain         = "example.com"
+	// Used to pass configuration to tests in TestReconcile
+	netConfigContextKey int
 )
 
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
@@ -93,6 +97,8 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		Data: map[string]string{
 			"domainTemplate": defaultDomainTemplate,
 			"autoTLS":        "true",
+			// Apply to all namespaces
+			"namespace-wildcard-cert-selector": "{}",
 		},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
@@ -209,11 +215,18 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo",
 	}, {
-		Name: "certificate not created for excluded namespace with internal label",
-		Key:  "foo",
+		Name: "skip certificate when excluded by config-network",
+		Key:  "excluded",
 		Objects: []runtime.Object{
-			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DisableWildcardCertLabelKey: "true"}),
+			kubeNamespaceWithLabelValue("excluded", map[string]string{"excludeWildcard": "anything"}),
 		},
+		Ctx: context.WithValue(context.Background(), netConfigContextKey,
+			&metav1.LabelSelector{
+				MatchExpressions: []v1.LabelSelectorRequirement{{
+					Key:      "excludeWildcard",
+					Operator: "NotIn",
+					Values:   []string{"yes", "true", "anything"},
+				}}}),
 	}, {
 		Name: "certificate not created for excluded namespace when both internal and external labels are present",
 		Key:  "foo",
@@ -222,6 +235,13 @@ func TestReconcile(t *testing.T) {
 				networking.DisableWildcardCertLabelKey: "true",
 			}),
 		},
+		Ctx: context.WithValue(context.Background(), netConfigContextKey,
+			&metav1.LabelSelector{
+				MatchExpressions: []v1.LabelSelectorRequirement{{
+					Key:      networking.DisableWildcardCertLabelKey,
+					Operator: "NotIn",
+					Values:   []string{"true"},
+				}}}),
 	}, {
 		Name:                    "certificate creation failed",
 		Key:                     "foo",
@@ -259,6 +279,13 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Deleted", "Deleted Knative Certificate %s/%s", "foo", defaultCertName),
 		},
+		Ctx: context.WithValue(context.Background(), netConfigContextKey,
+			&metav1.LabelSelector{
+				MatchExpressions: []v1.LabelSelectorRequirement{{
+					Key:      networking.DisableWildcardCertLabelKey,
+					Operator: "NotIn",
+					Values:   []string{"true"},
+				}}}),
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -267,11 +294,16 @@ func TestReconcile(t *testing.T) {
 			knCertificateLister: listers.GetKnCertificateLister(),
 		}
 
+		netCfg := networkConfig()
+		if ls, ok := ctx.Value(netConfigContextKey).(*metav1.LabelSelector); ok && ls != nil {
+			netCfg.NamespaceWildcardCertSelector = ls
+		}
+
 		return namespacereconciler.NewReconciler(ctx, logging.FromContext(ctx), fakekubeclient.Get(ctx),
 			listers.GetNamespaceLister(), controller.GetEventRecorder(ctx), r,
 			controller.Options{ConfigStore: &testConfigStore{
 				config: &config.Config{
-					Network: networkConfig(),
+					Network: netCfg,
 					Domain:  domainConfig(),
 				},
 			}})
@@ -285,7 +317,8 @@ func TestUpdateDomainTemplate(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"autoTLS": "Enabled",
+			"namespace-wildcard-cert-selector": "{}",
+			"autoTLS":                          "Enabled",
 		},
 	}
 	ctx, cancel, certEvents, watcher := newTestSetup(t, netCfg)
@@ -308,8 +341,9 @@ func TestUpdateDomainTemplate(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"domainTemplate": "{{.Name}}-suffix.{{.Namespace}}.{{.Domain}}",
-			"autoTLS":        "Enabled",
+			"domainTemplate":                   "{{.Name}}-suffix.{{.Namespace}}.{{.Domain}}",
+			"namespace-wildcard-cert-selector": "{}",
+			"autoTLS":                          "Enabled",
 		},
 	}
 	watcher.OnChange(netCfg)
@@ -328,8 +362,9 @@ func TestUpdateDomainTemplate(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"domainTemplate": "{{.Name}}.subdomain.{{.Namespace}}.{{.Domain}}",
-			"autoTLS":        "Enabled",
+			"domainTemplate":                   "{{.Name}}.subdomain.{{.Namespace}}.{{.Domain}}",
+			"namespace-wildcard-cert-selector": `{}`,
+			"autoTLS":                          "Enabled",
 		},
 	}
 	watcher.OnChange(netCfg)
@@ -376,7 +411,8 @@ func TestChangeDefaultDomain(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"autoTLS": "Enabled",
+			"autoTLS":                          "Enabled",
+			"namespace-wildcard-cert-selector": "{}",
 		},
 	}
 
@@ -424,12 +460,23 @@ func TestDomainConfigDomain(t *testing.T) {
 	tests := []struct {
 		name         string
 		domainCfg    map[string]string
+		netCfg       map[string]string
 		wantCertName string
 		wantDNSName  string
 	}{{
+		name:      "no domainmapping without config",
+		domainCfg: map[string]string{},
+		netCfg: map[string]string{
+			"autoTLS": "Enabled",
+		},
+	}, {
 		name: "default domain",
 		domainCfg: map[string]string{
 			"other.com": "selector:\n app: dev",
+		},
+		netCfg: map[string]string{
+			"autoTLS":                          "Enabled",
+			"namespace-wildcard-cert-selector": "{}",
 		},
 		wantCertName: "testns.example.com",
 		wantDNSName:  "*.testns.example.com",
@@ -437,6 +484,10 @@ func TestDomainConfigDomain(t *testing.T) {
 		name: "default domain",
 		domainCfg: map[string]string{
 			"default.com": "",
+		},
+		netCfg: map[string]string{
+			"autoTLS":                          "Enabled",
+			"namespace-wildcard-cert-selector": "{}",
 		},
 		wantCertName: "testns.default.com",
 		wantDNSName:  "*.testns.default.com",
@@ -456,9 +507,7 @@ func TestDomainConfigDomain(t *testing.T) {
 					Name:      network.ConfigName,
 					Namespace: system.Namespace(),
 				},
-				Data: map[string]string{
-					"autoTLS": "Enabled",
-				},
+				Data: test.netCfg,
 			}
 
 			ctx, ccl, ifs := SetupFakeContextWithCancel(t)
@@ -486,11 +535,22 @@ func TestDomainConfigDomain(t *testing.T) {
 			r.ReconcileKind(ctx, namespace)
 
 			cert, err := fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(ns).Get(ctx, test.wantCertName, metav1.GetOptions{})
-			if err != nil {
-				t.Fatal("Could not get certificate:", err)
-			}
-			if got, want := cert.Spec.DNSNames[0], test.wantDNSName; got != want {
-				t.Errorf("DNSName[0] = %s, want %s", got, want)
+			if test.wantCertName == "" || test.wantDNSName == "" {
+				// Expect no cert created
+				if err == nil {
+					t.Error("Expected no cert to be created, got:", cert)
+				} else {
+					if !apierrs.IsNotFound(err) {
+						t.Error("Expected cert to be missing, got unexpected error:", err)
+					}
+				}
+			} else {
+				if err != nil {
+					t.Fatal("Could not get certificate:", err)
+				}
+				if got, want := cert.Spec.DNSNames[0], test.wantDNSName; got != want {
+					t.Errorf("DNSName[0] = %s, want %s", got, want)
+				}
 			}
 		})
 	}
@@ -550,9 +610,10 @@ func kubeNamespaceWithLabelValue(name string, labels map[string]string) *corev1.
 
 func networkConfig() *network.Config {
 	return &network.Config{
-		DomainTemplate:          defaultDomainTemplate,
-		AutoTLS:                 true,
-		DefaultCertificateClass: testCertClass,
+		DomainTemplate:                defaultDomainTemplate,
+		AutoTLS:                       true,
+		DefaultCertificateClass:       testCertClass,
+		NamespaceWildcardCertSelector: &metav1.LabelSelector{},
 	}
 }
 
