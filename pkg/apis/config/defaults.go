@@ -63,10 +63,6 @@ const (
 	// DefaultAllowContainerConcurrencyZero is whether, by default,
 	// containerConcurrency can be set to zero (i.e. unbounded) by users.
 	DefaultAllowContainerConcurrencyZero = true
-
-	initContainerTemplateKeyPrefix = DefaultInitContainerName
-
-	userContainerTemplateKeyPrefix = DefaultUserContainerName
 )
 
 var (
@@ -80,7 +76,7 @@ var (
 func init() {
 	// The only failure is due to negative size.
 	// Store 10 latest templates.
-	templateCache, _ = lru.New(20)
+	templateCache, _ = lru.New(10)
 }
 
 func defaultDefaultsConfig() *Defaults {
@@ -149,21 +145,8 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		return nil, apis.ErrOutOfBoundsValue(
 			nc.ContainerConcurrency, 0, nc.ContainerConcurrencyMaxLimit, "container-concurrency")
 	}
-
-	for _, t := range []struct {
-		templateName string
-		template     string
-		keyPrefix    string
-	}{{
-		templateName: "user-container",
-		template:     nc.UserContainerNameTemplate,
-		keyPrefix:    userContainerTemplateKeyPrefix,
-	}, {
-		templateName: "init-container",
-		template:     nc.InitContainerNameTemplate,
-		keyPrefix:    initContainerTemplateKeyPrefix,
-	}} {
-		tmpl, err := template.New(t.templateName).Parse(t.template)
+	if _, ok := templateCache.Get(nc.UserContainerNameTemplate); !ok {
+		tmpl, err := template.New("container-template").Parse(nc.UserContainerNameTemplate)
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +154,19 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		if err := tmpl.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
 			return nil, fmt.Errorf("error executing template: %w", err)
 		}
-		templateCache.Add(makeTemplateKey(t.keyPrefix, t.template), tmpl)
+
+		templateCache.Add(nc.UserContainerNameTemplate, tmpl)
+	}
+	if _, ok := templateCache.Get(nc.InitContainerNameTemplate); !ok {
+		tmpl, err := template.New("container-template").Parse(nc.InitContainerNameTemplate)
+		if err != nil {
+			return nil, err
+		}
+		// Check that the template properly applies to ObjectMeta.
+		if err := tmpl.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
+			return nil, fmt.Errorf("error executing template: %w", err)
+		}
+		templateCache.Add(nc.InitContainerNameTemplate, tmpl)
 	}
 	return nc, nil
 }
@@ -214,14 +209,14 @@ type Defaults struct {
 	RevisionEphemeralStorageLimit   *resource.Quantity
 }
 
-func containerNameFromTemplateKey(ctx context.Context, containerNameTemplateKey string) string {
+func containerNameFromTemplate(ctx context.Context, templateText string) string {
 	var tmpl *template.Template
-	if tt, ok := templateCache.Get(containerNameTemplateKey); ok {
+	if tt, ok := templateCache.Get(templateText); ok {
 		tmpl = tt.(*template.Template)
 	} else {
 		// Fallback for unit tests.
 		tmpl = template.Must(
-			template.New("container-template").Parse(containerNameTemplateKey))
+			template.New("container-template").Parse(templateText))
 	}
 	buf := &bytes.Buffer{}
 	if err := tmpl.Execute(buf, apis.ParentMeta(ctx)); err != nil {
@@ -232,22 +227,10 @@ func containerNameFromTemplateKey(ctx context.Context, containerNameTemplateKey 
 
 // UserContainerName returns the name of the user container based on the context.
 func (d Defaults) UserContainerName(ctx context.Context) string {
-	return containerNameFromTemplateKey(ctx, d.makeUserContainerTemplateKey())
+	return containerNameFromTemplate(ctx, d.UserContainerNameTemplate)
 }
 
 // InitContainerName returns the name of the user container based on the context.
 func (d Defaults) InitContainerName(ctx context.Context) string {
-	return containerNameFromTemplateKey(ctx, d.makeInitContainerTemplateKey())
-}
-
-func (d Defaults) makeUserContainerTemplateKey() string {
-	return makeTemplateKey(userContainerTemplateKeyPrefix, d.UserContainerNameTemplate)
-}
-
-func (d Defaults) makeInitContainerTemplateKey() string {
-	return makeTemplateKey(initContainerTemplateKeyPrefix, d.InitContainerNameTemplate)
-}
-
-func makeTemplateKey(prefix string, value string) string {
-	return fmt.Sprintf("%s-%s", prefix, value)
+	return containerNameFromTemplate(ctx, d.InitContainerNameTemplate)
 }
