@@ -160,13 +160,13 @@ func (*RevisionSpec) applyProbes(container *corev1.Container) {
 
 func applyDefaultContainerNames(containers []corev1.Container, containerNames sets.String, defaultContainerName string) {
 	// Default container name based on ContainerNameFromTemplate value from configmap.
-	// In multi-container mode, add a numeric suffix, avoiding clashes with user-supplied names.
+	// In multi-container or init-container mode, add a numeric suffix, avoiding clashes with user-supplied names.
 	nextSuffix := 0
 	for idx := range containers {
 		if containers[idx].Name == "" {
 			name := defaultContainerName
 
-			if len(containerNames) > 1 {
+			if len(containers) > 1 || containerNames.Has(name) {
 				for {
 					name = kmeta.ChildName(defaultContainerName, "-"+strconv.Itoa(nextSuffix))
 					nextSuffix++

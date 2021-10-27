@@ -729,6 +729,59 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "multiple init and user containers with same names empty",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}},
+					}, {
+						Name: "",
+					}},
+					InitContainers: []corev1.Container{{
+						Name: "init1",
+					}, {
+						Name: "init2",
+					}, {
+						Name: "",
+					}, {
+						Name: "",
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:           "user-container-0",
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}},
+					}, {
+						Name:      "user-container-1",
+						Resources: defaultResources,
+					}},
+					InitContainers: []corev1.Container{{
+						Name: "init1",
+					}, {
+						Name: "init2",
+					}, {
+						Name: "init-container-0",
+					}, {
+						Name: "init-container-1",
+					}},
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {
