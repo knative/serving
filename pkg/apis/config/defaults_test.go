@@ -266,11 +266,11 @@ func TestTemplating(t *testing.T) {
 			})
 
 			if got, want := def.UserContainerName(ctx), test.want; got != want {
-				t.Errorf("ContainerNameFromTemplate() = %v, wanted %v", got, want)
+				t.Errorf("UserContainerName() = %v, wanted %v", got, want)
 			}
 
 			if got, want := def.InitContainerName(ctx), test.want; got != want {
-				t.Errorf("ContainerNameFromTemplate() = %v, wanted %v", got, want)
+				t.Errorf("InitContainerName() = %v, wanted %v", got, want)
 			}
 		})
 	}

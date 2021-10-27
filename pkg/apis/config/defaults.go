@@ -230,7 +230,7 @@ func (d Defaults) UserContainerName(ctx context.Context) string {
 	return containerNameFromTemplate(ctx, d.UserContainerNameTemplate)
 }
 
-// InitContainerName returns the name of the user container based on the context.
+// InitContainerName returns the name of the init container based on the context.
 func (d Defaults) InitContainerName(ctx context.Context) string {
 	return containerNameFromTemplate(ctx, d.InitContainerNameTemplate)
 }

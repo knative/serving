@@ -166,7 +166,7 @@ func applyDefaultContainerNames(containers []corev1.Container, containerNames se
 		if containers[idx].Name == "" {
 			name := defaultContainerName
 
-			if len(containers) > 1 {
+			if len(containerNames) > 1 {
 				for {
 					name = kmeta.ChildName(defaultContainerName, "-"+strconv.Itoa(nextSuffix))
 					nextSuffix++
