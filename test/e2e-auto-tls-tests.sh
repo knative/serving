@@ -75,6 +75,7 @@ function cleanup_auto_tls_common() {
 
   toggle_feature autoTLS Disabled config-network
   toggle_feature autocreateClusterDomainClaims false config-network
+  toggle_feature namespace-wildcard-cert-selector "" config-network
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 }
 
@@ -118,8 +119,14 @@ function setup_selfsigned_per_namespace_auto_tls() {
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 
   # Enable namespace certificate only for "${TLS_TEST_NAMESPACE}" namespaces
-  export NAMESPACE_WITH_CERT=""${TLS_TEST_NAMESPACE}""
-  go run ./test/e2e/autotls/config/disablenscert
+  selector="matchExpressions:
+  - key: kubernetes.io/metadata.name
+    operator: In
+    values: [${TLS_TEST_NAMESPACE}]
+  "
+  toggle_feature namespace-wildcard-cert-selector "$selector" config-network
+#  export NAMESPACE_WITH_CERT=""${TLS_TEST_NAMESPACE}""
+#  go run ./test/e2e/autotls/config/disablenscert
 
   kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
 
@@ -135,6 +142,7 @@ function setup_selfsigned_per_namespace_auto_tls() {
 
 function cleanup_per_selfsigned_namespace_auto_tls() {
   # Disable namespace cert for all namespaces
+  toggle_feature namespace-wildcard-cert-selector "" config-network
   unset NAMESPACE_WITH_CERT
   go run ./test/e2e/autotls/config/disablenscert
 
