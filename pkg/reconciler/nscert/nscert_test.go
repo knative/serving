@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -62,13 +61,15 @@ import (
 
 const testCertClass = "dns-01.rocks"
 
+type key int
+
 var (
 	wildcardDNSNames      = []string{"*.foo.example.com"}
 	defaultCertName       = names.WildcardCertificate(wildcardDNSNames[0])
 	defaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 	defaultDomain         = "example.com"
 	// Used to pass configuration to tests in TestReconcile
-	netConfigContextKey int
+	netConfigContextKey key
 )
 
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
@@ -222,7 +223,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Ctx: context.WithValue(context.Background(), netConfigContextKey,
 			&metav1.LabelSelector{
-				MatchExpressions: []v1.LabelSelectorRequirement{{
+				MatchExpressions: []metav1.LabelSelectorRequirement{{
 					Key:      "excludeWildcard",
 					Operator: "NotIn",
 					Values:   []string{"yes", "true", "anything"},
@@ -237,7 +238,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Ctx: context.WithValue(context.Background(), netConfigContextKey,
 			&metav1.LabelSelector{
-				MatchExpressions: []v1.LabelSelectorRequirement{{
+				MatchExpressions: []metav1.LabelSelectorRequirement{{
 					Key:      networking.DisableWildcardCertLabelKey,
 					Operator: "NotIn",
 					Values:   []string{"true"},
@@ -281,7 +282,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Ctx: context.WithValue(context.Background(), netConfigContextKey,
 			&metav1.LabelSelector{
-				MatchExpressions: []v1.LabelSelectorRequirement{{
+				MatchExpressions: []metav1.LabelSelectorRequirement{{
 					Key:      networking.DisableWildcardCertLabelKey,
 					Operator: "NotIn",
 					Values:   []string{"true"},

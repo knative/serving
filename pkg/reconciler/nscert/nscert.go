@@ -83,7 +83,7 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 
 	selector, err := metav1.LabelSelectorAsSelector(cfg.Network.NamespaceWildcardCertSelector)
 	if err != nil {
-		return fmt.Errorf("Invalid label selector for namespaces: %w", err)
+		return fmt.Errorf("invalid label selector for namespaces: %w", err)
 	}
 	if !selector.Matches(kubelabels.Set(ns.ObjectMeta.Labels)) {
 		return c.deleteNamespaceCerts(ctx, ns, existingCerts)
