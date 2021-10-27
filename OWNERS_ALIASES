@@ -69,7 +69,7 @@ aliases:
   - pierDipi
   - vaikas
   knative-admin:
-  - ZhiminXiang
+  - benmoss
   - bsnchan
   - dprotaso
   - duglin
@@ -84,12 +84,14 @@ aliases:
   - omerbensaadon
   - pmorie
   - rhuss
+  - salaboy
   - spencerdillard
   - thisisnotapril
   - vaikas
   knative-release-leads:
-  - ZhiminXiang
-  - evankanderson
+  - benmoss
+  - julz
+  - salaboy
   knative-robots:
   - knative-prow-releaser-robot
   - knative-prow-robot
@@ -100,6 +102,7 @@ aliases:
   - ZhiminXiang
   - andrew-su
   - arturenault
+  - carlisia
   - markusthoemmes
   - nak3
   - shashwathi
@@ -157,6 +160,7 @@ aliases:
   - evankanderson
   - gerardo-lc
   - joshua-bone
+  - kvmware
   - steuhs
   productivity-wg-leads:
   - chizhg
@@ -178,7 +182,9 @@ aliases:
   serving-observability-writers:
   - yanweiguo
   serving-reviewers:
+  - carlisia
   - julz
+  - nealhu
   - psschwei
   - whaught
   serving-writers:
