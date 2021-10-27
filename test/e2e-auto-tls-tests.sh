@@ -125,8 +125,6 @@ function setup_selfsigned_per_namespace_auto_tls() {
     values: [${TLS_TEST_NAMESPACE}]
   "
   toggle_feature namespace-wildcard-cert-selector "$selector" config-network
-#  export NAMESPACE_WITH_CERT=""${TLS_TEST_NAMESPACE}""
-#  go run ./test/e2e/autotls/config/disablenscert
 
   kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
 
@@ -143,8 +141,6 @@ function setup_selfsigned_per_namespace_auto_tls() {
 function cleanup_per_selfsigned_namespace_auto_tls() {
   # Disable namespace cert for all namespaces
   toggle_feature namespace-wildcard-cert-selector "" config-network
-  unset NAMESPACE_WITH_CERT
-  go run ./test/e2e/autotls/config/disablenscert
 
   echo "Uninstall namespace cert controller"
   kubectl delete -f ${SERVING_NSCERT_YAML} --ignore-not-found=true

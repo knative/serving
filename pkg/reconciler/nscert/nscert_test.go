@@ -540,10 +540,8 @@ func TestDomainConfigDomain(t *testing.T) {
 				// Expect no cert created
 				if err == nil {
 					t.Error("Expected no cert to be created, got:", cert)
-				} else {
-					if !apierrs.IsNotFound(err) {
-						t.Error("Expected cert to be missing, got unexpected error:", err)
-					}
+				} else if !apierrs.IsNotFound(err) {
+					t.Error("Expected cert to be missing, got unexpected error:", err)
 				}
 			} else {
 				if err != nil {
