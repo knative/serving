@@ -1904,7 +1904,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:029123695bb6748f0b07565b1e5b38967e0e318324841efa0b8323e3365263e5
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4926712a05e1acc7621e58c1c48f7436f8b8dc701ffde7b20cfe46565859a27e
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -2155,7 +2155,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:029123695bb6748f0b07565b1e5b38967e0e318324841efa0b8323e3365263e5
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4926712a05e1acc7621e58c1c48f7436f8b8dc701ffde7b20cfe46565859a27e
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2244,7 +2244,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:029123695bb6748f0b07565b1e5b38967e0e318324841efa0b8323e3365263e5
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4926712a05e1acc7621e58c1c48f7436f8b8dc701ffde7b20cfe46565859a27e
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2326,7 +2326,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:029123695bb6748f0b07565b1e5b38967e0e318324841efa0b8323e3365263e5
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4926712a05e1acc7621e58c1c48f7436f8b8dc701ffde7b20cfe46565859a27e
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -2605,7 +2605,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:029123695bb6748f0b07565b1e5b38967e0e318324841efa0b8323e3365263e5
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4926712a05e1acc7621e58c1c48f7436f8b8dc701ffde7b20cfe46565859a27e
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -2717,7 +2717,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:029123695bb6748f0b07565b1e5b38967e0e318324841efa0b8323e3365263e5
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4926712a05e1acc7621e58c1c48f7436f8b8dc701ffde7b20cfe46565859a27e
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2806,7 +2806,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:029123695bb6748f0b07565b1e5b38967e0e318324841efa0b8323e3365263e5
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4926712a05e1acc7621e58c1c48f7436f8b8dc701ffde7b20cfe46565859a27e
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2888,7 +2888,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:029123695bb6748f0b07565b1e5b38967e0e318324841efa0b8323e3365263e5
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4926712a05e1acc7621e58c1c48f7436f8b8dc701ffde7b20cfe46565859a27e
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
