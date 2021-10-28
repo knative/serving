@@ -537,9 +537,11 @@ function add_trap {
 # Update go deps.
 # Parameters (parsed as flags):
 #   "--upgrade", bool, do upgrade.
-#   "--release <version>" used with upgrade. The release version to upgrade
+#   "--release <release-version>" used with upgrade. The release version to upgrade
 #                         Knative components. ex: --release v0.18. Defaults to
-#                         "master".
+#                         "main".
+#   "--module-release <module-version>" used to define a different go module tag
+#                         for a release. ex: --release v1.0 --module-release v0.27
 # Additional dependencies can be included in the upgrade by providing them in a
 # global env var: FLOATING_DEPS
 # --upgrade will set GOPROXY to direct unless it is already set.
@@ -554,13 +556,15 @@ function go_update_deps() {
   echo "=== Update Deps for Golang"
 
   local UPGRADE=0
-  local VERSION="v9000.1" # release v9000 is so far in the future, it will always pick the default branch.
+  local RELEASE="v9000.1" # release v9000 is so far in the future, it will always pick the default branch.
+  local RELEASE_MODULE=""
   local DOMAIN="knative.dev"
   while [[ $# -ne 0 ]]; do
     parameter=$1
     case ${parameter} in
       --upgrade) UPGRADE=1 ;;
-      --release) shift; VERSION="$1" ;;
+      --release) shift; RELEASE="$1" ;;
+      --module-release) shift; RELEASE_MODULE="$1" ;;
       --domain) shift; DOMAIN="$1" ;;
       *) abort "unknown option ${parameter}" ;;
     esac
@@ -568,8 +572,14 @@ function go_update_deps() {
   done
 
   if [[ $UPGRADE == 1 ]]; then
-    group "Upgrading to ${VERSION}"
-    FLOATING_DEPS+=( $(run_go_tool knative.dev/test-infra/buoy buoy float ${REPO_ROOT_DIR}/go.mod --release ${VERSION} --domain ${DOMAIN}) )
+    local buoyArgs=(--release ${RELEASE}  --domain ${DOMAIN})
+    if [ -n "$RELEASE_MODULE" ]; then
+      group "Upgrading for release ${RELEASE} to release module version ${RELEASE_MODULE}"
+      buoyArgs+=(--module-release ${RELEASE_MODULE})
+    else
+      group "Upgrading to release ${RELEASE}"
+    fi
+    FLOATING_DEPS+=( $(run_go_tool knative.dev/test-infra/buoy buoy float ${REPO_ROOT_DIR}/go.mod "${buoyArgs[@]}") )
     if [[ ${#FLOATING_DEPS[@]} > 0 ]]; then
       echo "Floating deps to ${FLOATING_DEPS[@]}"
       go get -d ${FLOATING_DEPS[@]}
