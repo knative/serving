@@ -128,24 +128,12 @@ function setup_selfsigned_per_namespace_auto_tls() {
 
   kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
 
-  # SERVING_NSCERT_YAML is set in build_knative_from_source function
-  # when building knative.
-  echo "Install namespace cert controller: ${SERVING_NSCERT_YAML}"
-  if [[ -z "${SERVING_NSCERT_YAML}" ]]; then
-    echo "Error: variable SERVING_NSCERT_YAML is not set."
-    exit 1
-  fi
-  overlay_system_namespace "${SERVING_NSCERT_YAML}" | kubectl apply -f -
 }
 
 function cleanup_per_selfsigned_namespace_auto_tls() {
   # Disable namespace cert for all namespaces
   toggle_feature namespace-wildcard-cert-selector "" config-network
 
-  echo "Uninstall namespace cert controller"
-  kubectl delete -f ${SERVING_NSCERT_YAML} --ignore-not-found=true
-
-  kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
   kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found=true
 }
 
