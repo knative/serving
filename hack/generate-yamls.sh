@@ -54,7 +54,6 @@ readonly SERVING_DEFAULT_DOMAIN_YAML=${YAML_OUTPUT_DIR}/serving-default-domain.y
 readonly SERVING_STORAGE_VERSION_MIGRATE_YAML=${YAML_OUTPUT_DIR}/serving-storage-version-migration.yaml
 readonly SERVING_HPA_YAML=${YAML_OUTPUT_DIR}/serving-hpa.yaml
 readonly SERVING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-crds.yaml
-readonly SERVING_NSCERT_YAML=${YAML_OUTPUT_DIR}/serving-nscert.yaml
 readonly SERVING_POST_INSTALL_JOBS_YAML=${YAML_OUTPUT_DIR}/serving-post-install-jobs.yaml
 
 declare -A CONSOLIDATED_ARTIFACTS
@@ -98,9 +97,6 @@ ko resolve ${KO_YAML_FLAGS} -f config/core/300-resources/ -f config/core/300-ima
 # Create hpa-class autoscaling related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
 
-# Create nscert related yaml
-ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
-
 # By putting the list of files used to create serving-upgrade.yaml
 # people can choose to exclude certain ones via 'grep' but still keep in-sync
 # with the complete list if things change in the future
@@ -125,7 +121,6 @@ ${SERVING_STORAGE_VERSION_MIGRATE_YAML}
 ${SERVING_POST_INSTALL_JOBS_YAML}
 ${SERVING_HPA_YAML}
 ${SERVING_CRD_YAML}
-${SERVING_NSCERT_YAML}
 EOF
 
 cat << EOF > "${YAML_ENV_FILE}"
@@ -135,5 +130,4 @@ export SERVING_STORAGE_VERSION_MIGRATE_YAML=${SERVING_STORAGE_VERSION_MIGRATE_YA
 export SERVING_POST_INSTALL_JOBS_YAML=${SERVING_POST_INSTALL_JOBS_YAML}
 export SERVING_HPA_YAML=${SERVING_HPA_YAML}
 export SERVING_CRD_YAML=${SERVING_CRD_YAML}
-export SERVING_NSCERT_YAML=${SERVING_NSCERT_YAML}
 EOF

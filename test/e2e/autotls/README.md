@@ -7,18 +7,17 @@ documentation.
 To run Auto TLS E2E test locally, run the following commands:
 
 1. test case 1: testing per ksvc certificate provision with self-signed CA
-   1. `kubectl label namespace serving-tests networking.internal.knative.dev/disableWildcardCert=true`
+   1. Run `kubectl patch cm config-network -n knative-serving -p '{"data":{"namespace-wildcard-cert-selector": ""}}'` to disable wildcards for namespaces
    1. `kubectl delete kcert --all -n serving-tests`
    1. `kubectl apply -f test/config/autotls/certmanager/selfsigned/`
    1. `go test -v -tags=e2e -count=1 -timeout=600s ./test/e2e/autotls/... -run ^TestTLS`
 1. test case 2: testing per namespace certificate provision with self-signed CA
    1. `kubectl delete kcert --all -n serving-tests`
    1. `kubectl apply -f test/config/autotls/certmanager/selfsigned/`
-   1. Run `kubectl edit namespace serving-tests` and remove the label
-      networking.internal.knative.dev/disableWildcardCert
+   1. Run `kubectl patch cm config-network -n knative-serving -p '{"data":{"namespace-wildcard-cert-selector": "{}"}}'` to enable wildcards for all namespaces
    1. `go test -v -tags=e2e -count=1 -timeout=600s ./test/e2e/autotls/... -run ^TestTLS`
 1. test case 3: testing per ksvc certificate provision with HTTP challenge
-   1. `kubectl label namespace serving-tests networking.internal.knative.dev/disableWildcardCert=true`
+   1. Run `kubectl patch cm config-network -n knative-serving -p '{"data":{"namespace-wildcard-cert-selector": ""}}'` to disable wildcards for namespaces
    1. `kubectl delete kcert --all -n serving-tests`
    1. `kubectl apply -f test/config/autotls/certmanager/http01/`
    1. `export SERVICE_NAME=http01`

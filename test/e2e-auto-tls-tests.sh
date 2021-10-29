@@ -75,6 +75,7 @@ function cleanup_auto_tls_common() {
 
   toggle_feature autoTLS Disabled config-network
   toggle_feature autocreateClusterDomainClaims false config-network
+  toggle_feature namespace-wildcard-cert-selector "" config-network
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 }
 
@@ -118,30 +119,21 @@ function setup_selfsigned_per_namespace_auto_tls() {
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 
   # Enable namespace certificate only for "${TLS_TEST_NAMESPACE}" namespaces
-  export NAMESPACE_WITH_CERT=""${TLS_TEST_NAMESPACE}""
-  go run ./test/e2e/autotls/config/disablenscert
+  selector="matchExpressions:
+  - key: kubernetes.io/metadata.name
+    operator: In
+    values: [${TLS_TEST_NAMESPACE}]
+  "
+  toggle_feature namespace-wildcard-cert-selector "$selector" config-network
 
   kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
 
-  # SERVING_NSCERT_YAML is set in build_knative_from_source function
-  # when building knative.
-  echo "Install namespace cert controller: ${SERVING_NSCERT_YAML}"
-  if [[ -z "${SERVING_NSCERT_YAML}" ]]; then
-    echo "Error: variable SERVING_NSCERT_YAML is not set."
-    exit 1
-  fi
-  overlay_system_namespace "${SERVING_NSCERT_YAML}" | kubectl apply -f -
 }
 
 function cleanup_per_selfsigned_namespace_auto_tls() {
   # Disable namespace cert for all namespaces
-  unset NAMESPACE_WITH_CERT
-  go run ./test/e2e/autotls/config/disablenscert
+  toggle_feature namespace-wildcard-cert-selector "" config-network
 
-  echo "Uninstall namespace cert controller"
-  kubectl delete -f ${SERVING_NSCERT_YAML} --ignore-not-found=true
-
-  kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
   kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found=true
 }
 

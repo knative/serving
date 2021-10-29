@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"strings"
 	"text/template"
 	"time"
 
@@ -82,9 +81,11 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 		return fmt.Errorf("failed to list certificates: %w", err)
 	}
 
-	disabledWildcardCertValue := ns.Labels[networking.DisableWildcardCertLabelKey]
-
-	if strings.EqualFold(disabledWildcardCertValue, "true") {
+	selector, err := metav1.LabelSelectorAsSelector(cfg.Network.NamespaceWildcardCertSelector)
+	if err != nil {
+		return fmt.Errorf("invalid label selector for namespaces: %w", err)
+	}
+	if !selector.Matches(kubelabels.Set(ns.ObjectMeta.Labels)) {
 		return c.deleteNamespaceCerts(ctx, ns, existingCerts)
 	}
 
