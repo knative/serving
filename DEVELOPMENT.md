@@ -174,7 +174,6 @@ activator-7454cd659f-rrz86               1/1     Running   0          105s
 autoscaler-58cbfd4985-fl5h7              1/1     Running   0          105s
 autoscaler-hpa-77964b9b8c-9sbgq          1/1     Running   0          105s
 controller-847b7cc977-5mvvq              1/1     Running   0          105s
-net-nscert-controller-56c58544db-sgstd   1/1     Running   0          105s
 webhook-6b6c77567f-flr59                 1/1     Running   0          105s
 ```
 
