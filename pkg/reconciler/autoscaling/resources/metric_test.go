@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	. "knative.dev/serving/pkg/testing"
@@ -33,9 +33,9 @@ import (
 func TestMakeMetric(t *testing.T) {
 	cases := []struct {
 		name string
-		pa   *v1alpha1.PodAutoscaler
+		pa   *autoscalingv1alpha1.PodAutoscaler
 		msn  string
-		want *v1alpha1.Metric
+		want *autoscalingv1alpha1.Metric
 	}{{
 		name: "defaults",
 		pa:   pa(),
@@ -96,40 +96,40 @@ func TestStableWindow(t *testing.T) {
 	}
 }
 
-type MetricOption func(*v1alpha1.Metric)
+type MetricOption func(*autoscalingv1alpha1.Metric)
 
 func withStableWindow(window time.Duration) MetricOption {
-	return func(metric *v1alpha1.Metric) {
+	return func(metric *autoscalingv1alpha1.Metric) {
 		metric.Spec.StableWindow = window
 	}
 }
 
 func withPanicWindow(window time.Duration) MetricOption {
-	return func(metric *v1alpha1.Metric) {
+	return func(metric *autoscalingv1alpha1.Metric) {
 		metric.Spec.PanicWindow = window
 	}
 }
 
 func withWindowAnnotation(window string) MetricOption {
-	return func(metric *v1alpha1.Metric) {
+	return func(metric *autoscalingv1alpha1.Metric) {
 		metric.Annotations[autoscaling.WindowAnnotationKey] = window
 	}
 }
 
 func withPanicWindowPercentageAnnotation(percentage string) MetricOption {
-	return func(metric *v1alpha1.Metric) {
+	return func(metric *autoscalingv1alpha1.Metric) {
 		metric.Annotations[autoscaling.PanicWindowPercentageAnnotationKey] = percentage
 	}
 }
 
 func withScrapeTarget(s string) MetricOption {
-	return func(metric *v1alpha1.Metric) {
+	return func(metric *autoscalingv1alpha1.Metric) {
 		metric.Spec.ScrapeTarget = s
 	}
 }
 
-func metric(options ...MetricOption) *v1alpha1.Metric {
-	m := &v1alpha1.Metric{
+func metric(options ...MetricOption) *autoscalingv1alpha1.Metric {
+	m := &autoscalingv1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
 			Name:      "test-name",
@@ -139,7 +139,7 @@ func metric(options ...MetricOption) *v1alpha1.Metric {
 			Labels:          map[string]string{},
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa())},
 		},
-		Spec: v1alpha1.MetricSpec{
+		Spec: autoscalingv1alpha1.MetricSpec{
 			StableWindow: 60 * time.Second,
 			PanicWindow:  6 * time.Second,
 		},
@@ -150,8 +150,8 @@ func metric(options ...MetricOption) *v1alpha1.Metric {
 	return m
 }
 
-func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
-	p := &v1alpha1.PodAutoscaler{
+func pa(options ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
+	p := &autoscalingv1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
 			Name:      "test-name",
@@ -159,10 +159,10 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 				autoscaling.ClassAnnotationKey: autoscaling.KPA,
 			},
 		},
-		Spec: v1alpha1.PodAutoscalerSpec{
+		Spec: autoscalingv1alpha1.PodAutoscalerSpec{
 			ContainerConcurrency: 0,
 		},
-		Status: v1alpha1.PodAutoscalerStatus{},
+		Status: autoscalingv1alpha1.PodAutoscalerStatus{},
 	}
 	for _, fn := range options {
 		fn(p)

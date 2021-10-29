@@ -25,7 +25,7 @@ import (
 
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
@@ -44,7 +44,7 @@ const (
 func TestMakeHPA(t *testing.T) {
 	cases := []struct {
 		name string
-		pa   *v1alpha1.PodAutoscaler
+		pa   *autoscalingv1alpha1.PodAutoscaler
 		want *autoscalingv2beta1.HorizontalPodAutoscaler
 	}{{
 		name: "defaults",
@@ -115,8 +115,8 @@ func TestMakeHPA(t *testing.T) {
 	}
 }
 
-func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
-	p := &v1alpha1.PodAutoscaler{
+func pa(options ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
+	p := &autoscalingv1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testName,
@@ -125,7 +125,7 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 				autoscaling.ClassAnnotationKey: autoscaling.HPA,
 			},
 		},
-		Spec: v1alpha1.PodAutoscalerSpec{
+		Spec: autoscalingv1alpha1.PodAutoscalerSpec{
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps",
 				Kind:       "Deployment",
@@ -148,7 +148,7 @@ func hpa(options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
 				autoscaling.ClassAnnotationKey: autoscaling.HPA,
 			},
 			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+				APIVersion:         autoscalingv1alpha1.SchemeGroupVersion.String(),
 				Kind:               "PodAutoscaler",
 				Name:               testName,
 				UID:                "2006",
