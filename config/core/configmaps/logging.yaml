@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/version: devel
     app.kubernetes.io/part-of: knative-serving
   annotations:
-    knative.dev/example-checksum: "c68feb1b"
+    knative.dev/example-checksum: "be93ff10"
 data:
   _example: |
     ################################
@@ -75,4 +75,3 @@ data:
     loglevel.hpaautoscaler: "info"
     loglevel.net-certmanager-controller: "info"
     loglevel.net-istio-controller: "info"
-    loglevel.net-nscert-controller: "info"
