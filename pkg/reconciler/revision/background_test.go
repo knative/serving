@@ -45,11 +45,12 @@ var (
 
 func TestResolveInBackground(t *testing.T) {
 	tests := []struct {
-		name         string
-		resolver     resolveFunc
-		timeout      *time.Duration
-		wantStatuses []v1.ContainerStatus
-		wantError    error
+		name                      string
+		resolver                  resolveFunc
+		timeout                   *time.Duration
+		wantStatuses              []v1.ContainerStatus
+		wantInitContainerStatuses []v1.ContainerStatus
+		wantError                 error
 	}{{
 		name: "success",
 		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
@@ -62,6 +63,10 @@ func TestResolveInBackground(t *testing.T) {
 			Name:        "second",
 			ImageDigest: "second-image-digest",
 		}},
+		wantInitContainerStatuses: []v1.ContainerStatus{{
+			Name:        "first-init",
+			ImageDigest: "init-digest",
+		}},
 	}, {
 		name: "passing params",
 		resolver: func(_ context.Context, img string, opt k8schain.Options, skip sets.String) (string, error) {
@@ -73,6 +78,10 @@ func TestResolveInBackground(t *testing.T) {
 		}, {
 			Name:        "second",
 			ImageDigest: "second-image-san-skip",
+		}},
+		wantInitContainerStatuses: []v1.ContainerStatus{{
+			Name:        "first-init",
+			ImageDigest: "init-san-skip",
 		}},
 	}, {
 		name: "one slow resolve",
@@ -89,6 +98,10 @@ func TestResolveInBackground(t *testing.T) {
 		}, {
 			Name:        "second",
 			ImageDigest: "second-image-digest",
+		}},
+		wantInitContainerStatuses: []v1.ContainerStatus{{
+			Name:        "first-init",
+			ImageDigest: "init-digest",
 		}},
 	}, {
 		name: "resolver entirely fails",
@@ -149,10 +162,10 @@ func TestResolveInBackground(t *testing.T) {
 			for i := 0; i < 2; i++ {
 				t.Run(fmt.Sprint("iteration", i), func(t *testing.T) {
 					logger := logtesting.TestLogger(t)
-					statuses, err := subject.Resolve(logger, fakeRevision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), timeout)
-					if err != nil || statuses != nil {
-						// Initial result should be nil, nil since we have nothing in cache.
-						t.Errorf("Resolve() = %v, %v, wanted nil, nil", statuses, err)
+					statuses, initContainerStatuses, err := subject.Resolve(logger, fakeRevision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), timeout)
+					if err != nil || statuses != nil || initContainerStatuses != nil {
+						// Initial result should be nil, nil, nil since we have nothing in cache.
+						t.Errorf("Resolve() = %v, %v %v, wanted nil, nil, nil", statuses, initContainerStatuses, err)
 					}
 
 					select {
@@ -164,11 +177,16 @@ func TestResolveInBackground(t *testing.T) {
 						t.Fatalf("Resolver did not report ready")
 					}
 
-					statuses, err = subject.Resolve(logger, fakeRevision, k8schain.Options{}, nil, timeout)
+					statuses, initContainerStatuses, err = subject.Resolve(logger, fakeRevision, k8schain.Options{}, nil, timeout)
 					if got, want := err, tt.wantError; !errors.Is(got, want) {
 						t.Errorf("Resolve() = _, %q, wanted %q", got, want)
 					}
+
 					if got, want := statuses, tt.wantStatuses; !reflect.DeepEqual(got, want) {
+						t.Errorf("Resolve() = %v, wanted %v", got, want)
+					}
+
+					if got, want := initContainerStatuses, tt.wantInitContainerStatuses; !reflect.DeepEqual(got, want) {
 						t.Errorf("Resolve() = %v, wanted %v", got, want)
 					}
 
@@ -245,14 +263,14 @@ func TestRateLimitPerItem(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		subject.Clear(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
 		start := time.Now()
-		resolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
-		if err != nil || resolution != nil {
-			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
+		resolution, initResolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		if err != nil || resolution != nil || initResolution != nil {
+			t.Fatalf("Expected Resolve to be nil, nil, nil but got %v, %v, %v", resolution, initResolution, err)
 		}
 
 		<-enqueue
 
-		_, err = subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		_, _, err = subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err == nil {
 			t.Fatalf("Expected Resolve to fail")
 		}
@@ -266,7 +284,7 @@ func TestRateLimitPerItem(t *testing.T) {
 
 	t.Run("Does not affect other revisions", func(t *testing.T) {
 		start := time.Now()
-		resolution, err := subject.Resolve(logger, rev("another-revision", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		resolution, _, err := subject.Resolve(logger, rev("another-revision", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err != nil || resolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
 		}
@@ -281,7 +299,7 @@ func TestRateLimitPerItem(t *testing.T) {
 		subject.Forget(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
 
 		start := time.Now()
-		resolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		resolution, _, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err != nil || resolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
 		}
@@ -313,6 +331,10 @@ func rev(name, firstImage, secondImage string) *v1.Revision {
 				}, {
 					Name:  "second",
 					Image: secondImage,
+				}},
+				InitContainers: []corev1.Container{{
+					Name:  "first-init",
+					Image: "init",
 				}},
 			},
 		},

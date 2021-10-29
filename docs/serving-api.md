@@ -1439,13 +1439,30 @@ based on the revision url template specified in the controller&rsquo;s config.</
 </td>
 <td>
 <em>(Optional)</em>
-<p>ContainerStatuses is a slice of images present in .Spec.Container[<em>].Image
-and .Spec.InitContainer[</em>].Image to their respective digests and their container name.
-Order within the slice is important as by convention first the regular container info is stored
-and then if present init container related info.
+<p>ContainerStatuses is a slice of images present in .Spec.Container[*].Image
+to their respective digests and their container name.
 The digests are resolved during the creation of Revision.
 ContainerStatuses holds the container name and image digests
-for serving, non serving and init containers.
+for both serving and non serving containers.
+ref: <a href="http://bit.ly/image-digests">http://bit.ly/image-digests</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>initContainerStatuses</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.ContainerStatus">
+[]ContainerStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>InitContainerStatuses is a slice of images present in .Spec.InitContainer[*].Image
+to their respective digests and their container name.
+The digests are resolved during the creation of Revision.
+ContainerStatuses holds the container name and image digests
+for both serving and non serving containers.
 ref: <a href="http://bit.ly/image-digests">http://bit.ly/image-digests</a></p>
 </td>
 </tr>

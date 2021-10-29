@@ -634,7 +634,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/image-pull-secrets",
 	}, {
-		Name: "first revision reconciliation",
+		Name: "first revision reconciliation with init containers",
 		// Test the simplest successful reconciliation flow.
 		// We feed in a well formed Revision where none of its sub-resources exist,
 		// and we expect it to create them and initialize the Revision's status.
@@ -746,10 +746,10 @@ func withDefaultContainerStatuses() RevisionOption {
 
 func withInitContainerStatuses() RevisionOption {
 	return func(r *v1.Revision) {
-		r.Status.ContainerStatuses = append(r.Status.ContainerStatuses, v1.ContainerStatus{
+		r.Status.InitContainerStatuses = []v1.ContainerStatus{{
 			Name:        "init",
 			ImageDigest: "",
-		})
+		}}
 	}
 }
 

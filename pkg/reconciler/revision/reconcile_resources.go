@@ -121,7 +121,7 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1.Revision) 
 	ns := rev.Namespace
 	// Revisions are immutable.
 	// Updating image results to new revision so there won't be any chance of resource leak.
-	for _, container := range rev.Status.ContainerStatuses {
+	for _, container := range append(rev.Status.ContainerStatuses, rev.Status.InitContainerStatuses...) {
 		imageName := kmeta.ChildName(resourcenames.ImageCache(rev), "-"+container.Name)
 		if _, err := c.imageLister.Images(ns).Get(imageName); apierrs.IsNotFound(err) {
 			if _, err := c.createImageCache(ctx, rev, container.Name, container.ImageDigest); err != nil {
