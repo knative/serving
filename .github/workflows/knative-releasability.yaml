@@ -105,7 +105,7 @@ jobs:
         if: steps.exists.outputs.release-branch == 'false' && env.current == 'true'
         run: |
           # if update deps returns un-successful, then mark current to false.
-          if ! ./hack/update-deps.sh --release ${MODULE_RELEASE} --upgrade; then
+          if ! ./hack/update-deps.sh --release ${RELEASE} --module-release ${MODULE_RELEASE} --upgrade; then
             echo "VERIFY_MESSAGE=Unable to update deps for ${{ github.repository }}." >> $GITHUB_ENV
             echo 'current=false' >> $GITHUB_ENV
           fi
