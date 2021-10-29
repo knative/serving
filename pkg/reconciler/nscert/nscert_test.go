@@ -134,6 +134,11 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 	var eg errgroup.Group
 	eg.Go(func() error { return ctl.RunContext(ctx, 1) })
+
+	// Short pause to ensure that the controller has started
+	// Ick, but this brought test flakiness from 1-in-100 to less than 1-in-2000.
+	time.Sleep(10 * time.Millisecond)
+
 	return ctx, func() {
 		cancel()
 		eg.Wait()
