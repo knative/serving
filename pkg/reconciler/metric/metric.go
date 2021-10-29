@@ -21,7 +21,7 @@ import (
 	"errors"
 
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -40,7 +40,7 @@ var (
 )
 
 // ReconcileKind implements Interface.ReconcileKind.
-func (r *reconciler) ReconcileKind(_ context.Context, metric *v1alpha1.Metric) pkgreconciler.Event {
+func (r *reconciler) ReconcileKind(_ context.Context, metric *autoscalingv1alpha1.Metric) pkgreconciler.Event {
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
 		switch {
 		case errors.Is(err, metrics.ErrFailedGetEndpoints):

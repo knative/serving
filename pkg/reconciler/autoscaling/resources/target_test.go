@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
 	. "knative.dev/serving/pkg/testing"
@@ -29,7 +29,7 @@ import (
 func TestResolveMetricTarget(t *testing.T) {
 	cases := []struct {
 		name       string
-		pa         *v1alpha1.PodAutoscaler
+		pa         *autoscalingv1alpha1.PodAutoscaler
 		cfgOpt     func(autoscalerconfig.Config) *autoscalerconfig.Config
 		wantTarget float64
 		wantTotal  float64

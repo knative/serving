@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/autoscaler/scaling"
@@ -35,7 +35,7 @@ import (
 func TestMakeDecider(t *testing.T) {
 	cases := []struct {
 		name   string
-		pa     *v1alpha1.PodAutoscaler
+		pa     *autoscalingv1alpha1.PodAutoscaler
 		want   *scaling.Decider
 		cfgOpt func(autoscalerconfig.Config) *autoscalerconfig.Config
 	}{{
@@ -44,16 +44,16 @@ func TestMakeDecider(t *testing.T) {
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
 	}, {
 		name: "unreachable",
-		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
-			pa.Spec.Reachability = v1alpha1.ReachabilityUnreachable
+		pa: pa(func(pa *autoscalingv1alpha1.PodAutoscaler) {
+			pa.Spec.Reachability = autoscalingv1alpha1.ReachabilityUnreachable
 		}),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), func(d *scaling.Decider) {
 			d.Spec.Reachable = false
 		}),
 	}, {
 		name: "explicit reachable",
-		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
-			pa.Spec.Reachability = v1alpha1.ReachabilityReachable
+		pa: pa(func(pa *autoscalingv1alpha1.PodAutoscaler) {
+			pa.Spec.Reachability = autoscalingv1alpha1.ReachabilityReachable
 		}),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
 	}, {
@@ -153,7 +153,7 @@ func TestMakeDecider(t *testing.T) {
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withScaleDownDelay(10*time.Minute), withDeciderScaleDownDelayAnnotation("10m")),
 	}, {
 		name: "with initial scale",
-		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
+		pa: pa(func(pa *autoscalingv1alpha1.PodAutoscaler) {
 			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
 		}),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
@@ -180,7 +180,7 @@ func TestMakeDecider(t *testing.T) {
 func TestGetInitialScale(t *testing.T) {
 	tests := []struct {
 		name          string
-		paMutation    func(*v1alpha1.PodAutoscaler)
+		paMutation    func(*autoscalingv1alpha1.PodAutoscaler)
 		configMutator func(*autoscalerconfig.Config)
 		want          int
 	}{{
@@ -188,13 +188,13 @@ func TestGetInitialScale(t *testing.T) {
 		want: 1,
 	}, {
 		name: "revision initial scale overrides cluster initial scale",
-		paMutation: func(pa *v1alpha1.PodAutoscaler) {
+		paMutation: func(pa *autoscalingv1alpha1.PodAutoscaler) {
 			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
 		},
 		want: 2,
 	}, {
 		name: "cluster allows initial scale zero",
-		paMutation: func(pa *v1alpha1.PodAutoscaler) {
+		paMutation: func(pa *autoscalingv1alpha1.PodAutoscaler) {
 			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
 		},
 		configMutator: func(c *autoscalerconfig.Config) {
@@ -203,7 +203,7 @@ func TestGetInitialScale(t *testing.T) {
 		want: 0,
 	}, {
 		name: "cluster does not allows initial scale zero",
-		paMutation: func(pa *v1alpha1.PodAutoscaler) {
+		paMutation: func(pa *autoscalingv1alpha1.PodAutoscaler) {
 			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
 		},
 		configMutator: func(c *autoscalerconfig.Config) {
@@ -229,8 +229,8 @@ func TestGetInitialScale(t *testing.T) {
 	}
 }
 
-func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
-	p := &v1alpha1.PodAutoscaler{
+func pa(options ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
+	p := &autoscalingv1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
 			Name:      "test-name",
@@ -239,10 +239,10 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 				autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
 			},
 		},
-		Spec: v1alpha1.PodAutoscalerSpec{
+		Spec: autoscalingv1alpha1.PodAutoscalerSpec{
 			ContainerConcurrency: 0,
 		},
-		Status: v1alpha1.PodAutoscalerStatus{},
+		Status: autoscalingv1alpha1.PodAutoscalerStatus{},
 	}
 	for _, fn := range options {
 		fn(p)
@@ -251,7 +251,7 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 }
 
 func withScaleDownDelayAnnotation(sdd string) PodAutoscalerOption {
-	return func(pa *v1alpha1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations[autoscaling.ScaleDownDelayAnnotationKey] = sdd
 	}
 }
@@ -263,7 +263,7 @@ func withDeciderScaleDownDelayAnnotation(sdd string) deciderOption {
 }
 
 func withTBCAnnotation(tbc string) PodAutoscalerOption {
-	return func(pa *v1alpha1.PodAutoscaler) {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations[autoscaling.TargetBurstCapacityKey] = tbc
 	}
 }
