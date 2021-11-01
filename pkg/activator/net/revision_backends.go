@@ -223,18 +223,12 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 		return rw.healthyPods, true /*no-op*/, false /* notMesh */, nil
 	}
 
-	var healthy sets.String
+	healthy := rw.healthyPods.Union(nil)
 	if rw.meshMode != network.MeshCompatibilityModeAuto {
-		// If k8s marked the pod ready before we managed to probe it, and we're
+		// If Kubernetes marked the pod ready before we managed to probe it, and we're
 		// not also using the probe to sniff whether mesh is enabled, we can just
-		// trust k8s and mark it healthy without probing.
-		// TODO: replace with ready.Clone() once we have a recent-enough apimachinery (1.23+).
-		healthy = ready.Union(nil)
-	} else {
-		// When meshMode is auto we need to probe all pods we haven't already
-		// marked healthy - even ones in the kubernetes Ready set - in order to
-		// sniff whether mesh is enabled.
-		healthy = rw.healthyPods.Intersection(dests)
+		// trust Kubernetes and mark "Ready" pods healthy without probing.
+		healthy.Insert(ready.List()...)
 	}
 
 	// Context used for our probe requests.
@@ -273,8 +267,16 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 	close(healthyDests)
 
 	unchanged := probed && len(healthyDests) == 0
+
 	for d := range healthyDests {
 		healthy.Insert(d)
+	}
+
+	for d := range healthy {
+		if !dests.Has(d) {
+			// Remove destinations that are no longer in the ready/notReady set.
+			healthy.Delete(d)
+		}
 	}
 
 	return healthy, unchanged, sawNotMesh.Load(), err
