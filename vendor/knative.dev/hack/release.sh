@@ -131,10 +131,18 @@ function master_version() {
   echo "${tokens[0]}.${tokens[1]}"
 }
 
+# Return the minor version of a release.
+# For example, "v0.2.1" returns "2"
+# Parameters: $1 - release version label.
+function minor_version() {
+  local tokens=(${1//\./ })
+  echo "${tokens[1]}"
+}
+
 # Return the release build number of a release.
 # For example, "v0.2.1" returns "1".
 # Parameters: $1 - release version label.
-function release_build_number() {
+function patch_version() {
   local tokens=(${1//\./ })
   echo "${tokens[2]}"
 }
@@ -171,7 +179,10 @@ function prepare_auto_release() {
   PUBLISH_RELEASE=1
 
   git fetch --all || abort "error fetching branches/tags from remote"
-  local tags="$(git tag | cut -d 'v' -f2 | cut -d '.' -f1-2 | sort -V | uniq)"
+  # Support two different formats for tags
+  # - knative-v1.0.0
+  # - v1.0.0
+  local tags="$(git tag | cut -d '-' -f2 | cut -d 'v' -f2 | cut -d '.' -f1-2 | sort -V | uniq)"
   local branches="$( { (git branch -r | grep upstream/release-) ; (git branch | grep release-); } | cut -d '-' -f2 | sort -V | uniq)"
 
   echo "Versions released (from tags): [" "${tags}" "]"
@@ -210,7 +221,10 @@ function prepare_dot_release() {
   git fetch --all || abort "error fetching branches/tags from remote"
   # List latest release
   local releases # don't combine with the line below, or $? will be 0
-  releases="$(hub_tool release)"
+  # Support tags in two formats
+  # - knative-v1.0.0
+  # - v1.0.0
+  releases="$(hub_tool release | cut -d '-' -f2)"
   echo "Current releases are: ${releases}"
   [[ $? -eq 0 ]] || abort "cannot list releases"
   # If --release-branch passed, restrict to that release
@@ -234,7 +248,9 @@ function prepare_dot_release() {
   [[ -n "${major_minor_version}" ]] || abort "cannot get release major/minor version"
   # Ensure there are new commits in the branch, otherwise we don't create a new release
   setup_branch
-  local last_release_commit="$(git rev-list -n 1 "${last_version}")"
+  # Use the original tag (ie. potentially with a knative- prefix) when determining the last version commit sha
+  local github_tag="$(hub_tool release | grep "${last_version}")"
+  local last_release_commit="$(git rev-list -n 1 "${github_tag}")"
   local release_branch_commit="$(git rev-list -n 1 upstream/"${RELEASE_BRANCH}")"
   [[ -n "${last_release_commit}" ]] || abort "cannot get last release commit"
   [[ -n "${release_branch_commit}" ]] || abort "cannot get release branch last commit"
@@ -246,13 +262,13 @@ function prepare_dot_release() {
     exit 0
   fi
   # Create new release version number
-  local last_build="$(release_build_number "${last_version}")"
+  local last_build="$(patch_version "${last_version}")"
   RELEASE_VERSION="${major_minor_version}.$(( last_build + 1 ))"
   echo "Will create release ${RELEASE_VERSION} at commit ${release_branch_commit}"
   # If --release-notes not used, copy from the latest release
   if [[ -z "${RELEASE_NOTES}" ]]; then
     RELEASE_NOTES="$(mktemp)"
-    hub_tool release show -f "%b" "${last_version}" > "${RELEASE_NOTES}"
+    hub_tool release show -f "%b" "${github_tag}" > "${RELEASE_NOTES}"
     echo "Release notes from ${last_version} copied to ${RELEASE_NOTES}"
   fi
 }
@@ -595,6 +611,8 @@ function publish_to_github() {
   local description="$(mktemp)"
   local attachments_dir="$(mktemp -d)"
   local commitish=""
+  local github_tag="knative-${TAG}"
+
   # Copy files to a separate dir
   for artifact in $@; do
     cp ${artifact} "${attachments_dir}"/
@@ -604,8 +622,22 @@ function publish_to_github() {
   if [[ -n "${RELEASE_NOTES}" ]]; then
     cat "${RELEASE_NOTES}" >> "${description}"
   fi
-  git tag -a "${TAG}" -m "${title}"
-  git_push tag "${TAG}"
+  git tag -a "${github_tag}" -m "${title}"
+  git_push tag "${github_tag}"
+
+  # Include a tag for the go module version
+  #
+  # v1.0.0 = v0.27.0
+  # v1.0.1 = v0.27.1
+  # v1.1.1 = v0.28.1
+  #
+  # See: https://github.com/knative/hack/pull/97
+  if [[ "$TAG" == "v1"* ]]; then
+    local release_minor=$(minor_version $TAG)
+    local go_module_version="v0.$(( release_minor + 27 )).$(patch_version $TAG)"
+    git tag -a "${go_module_version}" -m "${title}"
+    git_push tag "${go_module_version}"
+  fi
 
   [[ -n "${RELEASE_BRANCH}" ]] && commitish="--commitish=${RELEASE_BRANCH}"
   for i in {2..0}; do
@@ -613,7 +645,7 @@ function publish_to_github() {
         ${attachments[@]} \
         --file="${description}" \
         "${commitish}" \
-        "${TAG}" && return 0
+        "${github_tag}" && return 0
     if [[ "${i}" -gt 0 ]]; then
       echo "Error publishing the release, retrying in 15s..."
       sleep 15
