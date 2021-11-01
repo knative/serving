@@ -223,8 +223,6 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 		return rw.healthyPods, true /*no-op*/, false /* notMesh */, nil
 	}
 
-	toProbe := sets.NewString()
-
 	var healthy sets.String
 	if rw.meshMode != network.MeshCompatibilityModeAuto {
 		// If k8s marked the pod ready before we managed to probe it, and we're
@@ -232,25 +230,11 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 		// trust k8s and mark it healthy without probing.
 		// TODO: replace with ready.Clone() once we have a recent-enough apimachinery (1.23+).
 		healthy = ready.Union(nil)
-
-		// We still want to probe non-ready pods because we can beat the kubernetes
-		// readiness propagation sometimes.
-		dests = notReady
 	} else {
-		healthy = sets.NewString()
-	}
-
-	for dest := range dests {
-		if rw.healthyPods.Has(dest) {
-			healthy.Insert(dest)
-		} else {
-			toProbe.Insert(dest)
-		}
-	}
-
-	// Short circuit case where the healthy list got effectively smaller.
-	if toProbe.Len() == 0 {
-		return healthy, false, false, nil
+		// When meshMode is auto we need to probe all pods we haven't already
+		// marked healthy - even ones in the kubernetes Ready set - in order to
+		// sniff whether mesh is enabled.
+		healthy = rw.healthyPods.Intersection(dests)
 	}
 
 	// Context used for our probe requests.
@@ -258,10 +242,18 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 	defer cancel()
 
 	probeGroup, egCtx := errgroup.WithContext(ctx)
-	healthyDests := make(chan string, toProbe.Len())
+	healthyDests := make(chan string, dests.Len())
 
 	var sawNotMesh atomic.Bool
-	for dest := range toProbe {
+	var probed bool
+	for dest := range dests {
+		if healthy.Has(dest) {
+			// If we already know it's healthy we don't need to probe again.
+			continue
+		}
+
+		probed = true
+
 		dest := dest // Standard Go concurrency pattern.
 		probeGroup.Go(func() error {
 			ok, notMesh, err := rw.probe(egCtx, dest)
@@ -279,11 +271,12 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 
 	err = probeGroup.Wait()
 	close(healthyDests)
-	unchanged := len(healthyDests) == 0
 
+	unchanged := probed && len(healthyDests) == 0
 	for d := range healthyDests {
 		healthy.Insert(d)
 	}
+
 	return healthy, unchanged, sawNotMesh.Load(), err
 }
 
