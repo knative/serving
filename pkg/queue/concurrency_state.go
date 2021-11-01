@@ -54,7 +54,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 					logger.Info("Requests dropped to zero")
 					if err := pause(); err != nil {
 						logger.Errorf("Error handling resume request: %v", err)
-						handleStateRequestError(logger, pause)
+						HandleStateRequestError(logger, pause)
 					}
 					paused = true
 					logger.Debug("To-Zero request successfully processed")
@@ -83,7 +83,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 		logger.Info("Requests increased from zero")
 		if err := resume(); err != nil {
 			logger.Errorf("Error handling resume request: %v", err)
-			handleStateRequestError(logger, resume)
+			HandleStateRequestError(logger, resume)
 		}
 		paused = false
 		logger.Debug("From-Zero request successfully processed")
@@ -93,8 +93,8 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	}
 }
 
-// handleStateRequestError handles retry logic
-func handleStateRequestError(logger *zap.SugaredLogger, requestHandler func() error) {
+// HandleStateRequestError handles retry logic
+func HandleStateRequestError(logger *zap.SugaredLogger, requestHandler func() error) {
 	var errReq error
 	retryFunc := func() (bool, error) {
 		errReq = requestHandler()
