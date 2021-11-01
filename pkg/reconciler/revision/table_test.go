@@ -641,13 +641,12 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Revision("foo", "first-reconcile", WithRevisionInitContainers()),
 		},
-		WantCreates: []runtime.Object{
+		WantCreates: append([]runtime.Object{
 			// The first reconciliation of a Revision creates the following resources.
 			pa("foo", "first-reconcile"),
 			deploy(t, "foo", "first-reconcile", WithRevisionInitContainers()),
-			image("foo", "first-reconcile"),
-			imageInit("foo", "first-reconcile"),
-		},
+			image("foo", "first-reconcile")},
+			imageInit("foo", "first-reconcile")...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Revision("foo", "first-reconcile", WithRevisionInitContainers(),
 				// The first reconciliation Populates the following status properties.
@@ -747,7 +746,10 @@ func withDefaultContainerStatuses() RevisionOption {
 func withInitContainerStatuses() RevisionOption {
 	return func(r *v1.Revision) {
 		r.Status.InitContainerStatuses = []v1.ContainerStatus{{
-			Name:        "init",
+			Name:        "init1",
+			ImageDigest: "",
+		}, {
+			Name:        "init2",
 			ImageDigest: "",
 		}}
 	}
@@ -799,13 +801,17 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 	return resources.MakeImageCache(Revision(namespace, name), name, "")
 }
 
-func imageInit(namespace, name string, co ...configOption) *caching.Image {
+func imageInit(namespace, name string, co ...configOption) []runtime.Object {
 	config := reconcilerTestConfig()
 	for _, opt := range co {
 		opt(config)
 	}
 	rev := Revision(namespace, name, WithRevisionInitContainers())
-	return resources.MakeImageCache(rev, rev.Spec.InitContainers[0].Name, "")
+	images := make([]runtime.Object, 0, len(rev.Spec.InitContainers))
+	for _, container := range rev.Spec.InitContainers {
+		images = append(images, resources.MakeImageCache(rev, container.Name, ""))
+	}
+	return images
 }
 
 func pa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {

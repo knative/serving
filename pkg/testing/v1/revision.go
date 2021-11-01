@@ -223,7 +223,10 @@ func WithRevisionObservedGeneration(gen int64) RevisionOption {
 func WithRevisionInitContainers() RevisionOption {
 	return func(r *v1.Revision) {
 		r.Spec.InitContainers = []corev1.Container{{
-			Name:  "init",
+			Name:  "init1",
+			Image: "initimage",
+		}, {
+			Name:  "init2",
 			Image: "initimage",
 		}}
 	}

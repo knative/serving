@@ -234,9 +234,12 @@ func (r *nopResolver) Resolve(_ *zap.SugaredLogger, rev *v1.Revision, _ k8schain
 		Name: rev.Spec.Containers[0].Name,
 	}}
 	if len(rev.Spec.InitContainers) > 0 {
-		initStatus := []v1.ContainerStatus{{
-			Name: rev.Spec.InitContainers[0].Name,
-		}}
+		var initStatus []v1.ContainerStatus
+		for i := range rev.Spec.InitContainers {
+			initStatus = append(initStatus, v1.ContainerStatus{
+				Name: rev.Spec.InitContainers[i].Name,
+			})
+		}
 		return status, initStatus, nil
 	}
 	return status, nil, nil

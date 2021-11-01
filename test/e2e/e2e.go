@@ -191,3 +191,15 @@ func CreateAndVerifyInitialScaleConfiguration(t *testing.T, clients *test.Client
 		t.Fatal("Configuration does not have the desired number of pods running:", err)
 	}
 }
+
+// Get revision name from configuration.
+func RevisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
+	config, err := clients.ServingClient.Configs.Get(context.Background(), configName, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	if config.Status.LatestCreatedRevisionName != "" {
+		return config.Status.LatestCreatedRevisionName, nil
+	}
+	return "", fmt.Errorf("no valid revision name found in configuration %s", configName)
+}
