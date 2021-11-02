@@ -151,7 +151,7 @@ function default_build_test_runner() {
   local tags
   tags="$(grep -r '// +build' . \
     | grep -v '^./vendor/' | grep -v '^./hack/' | grep -v '^./third_party' \
-    | cut -f3 -d' ' | sort | uniq | tr '\n' ' ')"
+    | cut -f3 -d' ' | tr ',' '\n' | sort | uniq | tr '\n' ' ')"
   local tagged_pkgs
   tagged_pkgs="$(grep -r '// +build' . \
     | grep -v '^./vendor/' | grep -v '^./hack/' | grep -v '^./third_party' \
@@ -307,7 +307,7 @@ function main() {
     fi
   fi
 
-  [[ -z $1 ]] && set -- "--all-tests"
+  [[ -z ${1:-} ]] && set -- "--all-tests"
 
   local TESTS_TO_RUN=()
 

@@ -1,3 +1,4 @@
+//go:build hack
 // +build hack
 
 /*
@@ -17,6 +18,6 @@ limitations under the License.
 */
 
 // package hack is a collection of scripts used to bootstrap CI processes and
-// other vital entrypoint functionallity.
+// other vital entrypoint functionality.
 
 package hack
