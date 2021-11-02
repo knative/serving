@@ -60,9 +60,8 @@ readonly BUCKETS=10
 LATEST_SERVING_RELEASE_VERSION=$(latest_version)
 
 # Latest net-istio release.
-LATEST_NET_ISTIO_RELEASE_VERSION=$(
-  curl -L --silent "https://api.github.com/repos/knative/net-istio/releases" | grep '"tag_name"' \
-    | cut -f2 -d: | sed "s/[^v0-9.]//g" | sort | tail -n1)
+LATEST_NET_ISTIO_RELEASE_VERSION=$(curl -L --silent "https://api.github.com/repos/knative/net-istio/releases/latest" \
+  | jq -r '.tag_name')
 
 # Parse our custom flags.
 function parse_flags() {
