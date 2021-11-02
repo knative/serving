@@ -1041,7 +1041,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20211101195839-11d193bf617b
+# knative.dev/hack v0.0.0-20211101195839-11d193bf617b => github.com/dprotaso/hack v0.0.0-20211102155205-c4c65fa0ed20
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
@@ -1202,3 +1202,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit
 sigs.k8s.io/yaml
+# knative.dev/hack => github.com/dprotaso/hack v0.0.0-20211102155205-c4c65fa0ed20
