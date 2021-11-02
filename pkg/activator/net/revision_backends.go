@@ -228,7 +228,9 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 		// If Kubernetes marked the pod ready before we managed to probe it, and we're
 		// not also using the probe to sniff whether mesh is enabled, we can just
 		// trust Kubernetes and mark "Ready" pods healthy without probing.
-		healthy.Insert(ready.List()...)
+		for r := range ready {
+			healthy.Insert(r)
+		}
 	}
 
 	// Context used for our probe requests.
