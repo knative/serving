@@ -1,4 +1,4 @@
-// Copyright 2019 The OpenZipkin Authors
+// Copyright 2021 The OpenZipkin Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ const (
 )
 
 // HTTPDoer will do a request to the Zipkin HTTP Collector
-type HTTPDoer interface {
+type HTTPDoer interface { // nolint: revive // keep as is, we don't want to break dependendants
 	Do(req *http.Request) (*http.Response, error)
 }
 

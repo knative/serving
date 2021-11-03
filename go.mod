@@ -31,14 +31,13 @@ require (
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/goleak v1.1.11-0.20210813005559-691160354723
 	go.uber.org/zap v1.19.1
-	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f
-	golang.org/x/oauth2 v0.0.0-20211005180243-6b3c2da341f1
+	golang.org/x/net v0.0.0-20211101193420-4a448f8816b3
+	golang.org/x/oauth2 v0.0.0-20211028175245-ba495a64dcb5
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gonum.org/v1/gonum v0.0.0-20190331200053-3d26580ed485 // indirect
-	google.golang.org/api v0.58.0
-	google.golang.org/grpc v1.41.0
-	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
+	google.golang.org/api v0.60.0
+	google.golang.org/grpc v1.42.0
 	k8s.io/api v0.21.4
 	k8s.io/apiextensions-apiserver v0.21.4
 	k8s.io/apimachinery v0.21.4
@@ -46,9 +45,9 @@ require (
 	k8s.io/code-generator v0.21.4
 	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
-	knative.dev/caching v0.0.0-20211101215439-72577a3c0ce1
-	knative.dev/hack v0.0.0-20211101195839-11d193bf617b
-	knative.dev/networking v0.0.0-20211101215640-8c71a2708e7d
-	knative.dev/pkg v0.0.0-20211101212339-96c0204a70dc
+	knative.dev/caching v0.0.0-20211101214239-1e1ac2e932c7
+	knative.dev/hack v0.0.0-20211102174540-b284d49386cc
+	knative.dev/networking v0.0.0-20211101214339-4f29f65588a1
+	knative.dev/pkg v0.0.0-20211103135647-464034912f7e
 	sigs.k8s.io/yaml v1.3.0
 )
