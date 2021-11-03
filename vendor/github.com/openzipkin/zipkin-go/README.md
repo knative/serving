@@ -1,9 +1,24 @@
+<!--
+Copyright 2021 The OpenZipkin Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 # Zipkin Library for Go
 
-[![Travis CI](https://travis-ci.org/openzipkin/zipkin-go.svg?branch=master)](https://travis-ci.org/openzipkin/zipkin-go)
+[![GHA](https://github.com/openzipkin/zipkin-go/actions/workflows/ci.yml/badge.svg?event=push)](https://github.com/openzipkin/zipkin-go/actions/workflows/ci.yml)
 [![CircleCI](https://circleci.com/gh/openzipkin/zipkin-go.svg?style=shield)](https://circleci.com/gh/openzipkin/zipkin-go)
-[![Appveyor CI](https://ci.appveyor.com/api/projects/status/1d0e5k96g10ajl63/branch/master?svg=true)](https://ci.appveyor.com/project/basvanbeek/zipkin-go)
-[![Coverage Status](https://img.shields.io/coveralls/github/openzipkin/zipkin-go.svg)](https://coveralls.io/github/openzipkin/zipkin-go?branch=master)
+[![codecov](https://codecov.io/gh/openzipkin/zipkin-go/branch/master/graph/badge.svg?token=gXdWofFlsq)](https://codecov.io/gh/openzipkin/zipkin-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openzipkin/zipkin-go)](https://goreportcard.com/report/github.com/openzipkin/zipkin-go)
 [![GoDoc](https://godoc.org/github.com/openzipkin/zipkin-go?status.svg)](https://godoc.org/github.com/openzipkin/zipkin-go)
 [![Gitter chat](https://badges.gitter.im/openzipkin/zipkin.svg)](https://gitter.im/openzipkin/zipkin?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
@@ -99,4 +114,4 @@ Producer digesting JSON V2 Spans. The reporter uses the
 underneath.
 
 ## usage and examples
-[HTTP Server Example](example_httpserver_test.go)
+[HTTP Server Example](examples/httpserver_test.go)

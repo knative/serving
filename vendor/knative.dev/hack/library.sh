@@ -64,6 +64,31 @@ fi
 # On a Prow job, redirect stderr to stdout so it's synchronously added to log
 (( IS_PROW )) && exec 2>&1
 
+# Return the major version of a release.
+# For example, "v0.2.1" returns "0"
+# Parameters: $1 - release version label.
+function major_version() {
+  local release="${1//v/}"
+  local tokens=(${release//\./ })
+  echo "${tokens[0]}"
+}
+
+# Return the minor version of a release.
+# For example, "v0.2.1" returns "2"
+# Parameters: $1 - release version label.
+function minor_version() {
+  local tokens=(${1//\./ })
+  echo "${tokens[1]}"
+}
+
+# Return the release build number of a release.
+# For example, "v0.2.1" returns "1".
+# Parameters: $1 - release version label.
+function patch_version() {
+  local tokens=(${1//\./ })
+  echo "${tokens[2]}"
+}
+
 # Print error message and exit 1
 # Parameters: $1..$n - error message to be displayed
 function abort() {
@@ -811,31 +836,28 @@ function shellcheck_new_files() {
 }
 
 function latest_version() {
-  # This function works "best effort" and works on Prow but not necessarily locally.
-  # The problem is finding the latest release. If a release occurs on the same commit which
-  # was branched from main, then the tag will be an ancestor to any commit derived from main.
-  # That was the original logic. Additionally in a release branch, the tag is always an ancestor.
-  # However, if the release commit ends up not the first commit from main, then the tag is not
-  # an ancestor of main, so we can't use `git describe` to find the most recent versioned tag. So
-  # we just sort all the tags and find the newest versioned one.
-  # But when running locally, we cannot(?) know if the current branch is a fork of main or a fork
-  # of a release branch. That's where this function will malfunction when the last release did not
-  # occur on the first commit -- it will try to run the upgrade tests from an older version instead
-  # of the most recent release.
-  # Workarounds include:
-  # Tag the first commit of the release branch. Say release-0.75 released v0.75.0 from the second commit
-  # Then tag the first commit in common between main and release-0.75 with `v0.75`.
-  # Always name your local fork master or main.
-  if [ $(current_branch) = "master" ] || [ $(current_branch) = "main" ]; then
+  local branch_name="$(current_branch)"
+
+  if [ "$branch_name" = "master" ] || [ "$branch_name" = "main" ]; then
     # For main branch, simply use git tag without major version, this will work even
     # if the release tag is not in the main
-    git tag -l "v[0-9]*" | sort -r --version-sort | head -n1
+    git tag -l "*$(git tag -l "*v[0-9]*" | cut -d '-' -f2 | sort -r --version-sort | head -n1)*"
   else
-    local semver=$(git describe --match "v[0-9]*" --abbrev=0)
-    local major_minor=$(echo "$semver" | cut -d. -f1-2)
+    ## Assumption here is we are on a release branch
+    local major_minor="${branch_name##release-}"
+    local major_version="$(major_version $major_minor)"
+    local minor_version="$(minor_version $major_minor)"
+
+    # Hardcode the jump back from 1.0
+    if [ "$major_version" = "1" ] && [ "$minor_version" == 0 ]; then
+      local tag='v0.26*'
+    else
+      # Adjust the minor down by one
+      local tag="*v$major_version.$(( minor_version - 1 ))*"
+    fi
 
     # Get the latest patch release for the major minor
-    git tag -l "${major_minor}*" | sort -r --version-sort | head -n1
+    git tag -l "${tag}*" | sort -r --version-sort | head -n1
   fi
 }
 

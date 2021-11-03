@@ -1,4 +1,4 @@
-// Copyright 2019 The OpenZipkin Authors
+// Copyright 2021 The OpenZipkin Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,3 +39,10 @@ func (*noopSpan) Finish() {}
 func (*noopSpan) FinishedWithDuration(duration time.Duration) {}
 
 func (*noopSpan) Flush() {}
+
+// IsNoop tells whether the span is noop or not. Usually used to avoid resource misusage
+// when customizing a span as data won't be recorded
+func IsNoop(s Span) bool {
+	_, ok := s.(*noopSpan)
+	return ok
+}
