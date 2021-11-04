@@ -68,7 +68,6 @@ aliases:
   - pierDipi
   - vaikas
   knative-admin:
-  - benmoss
   - bsnchan
   - dprotaso
   - duglin
@@ -79,18 +78,18 @@ aliases:
   - knative-prow-updater-robot
   - knative-test-reporter-robot
   - markusthoemmes
+  - matzew
   - mbehrendt
+  - nak3
   - omerbensaadon
   - pmorie
   - rhuss
-  - salaboy
   - spencerdillard
   - thisisnotapril
   - vaikas
   knative-release-leads:
-  - benmoss
-  - julz
-  - salaboy
+  - matzew
+  - nak3
   knative-robots:
   - knative-prow-releaser-robot
   - knative-prow-robot
