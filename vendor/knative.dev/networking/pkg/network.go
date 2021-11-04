@@ -594,13 +594,13 @@ func asMode(key string, target *MeshCompatibilityMode) cm.ParseFunc {
 // asLabelSelector returns a LabelSelector extracted from a given configmap key.
 func asLabelSelector(key string, target **metav1.LabelSelector) cm.ParseFunc {
 	return func(data map[string]string) error {
-		*target = nil
 		if raw, ok := data[key]; ok {
 			if len(raw) > 0 {
-				*target = &metav1.LabelSelector{}
-				if err := yaml.Unmarshal([]byte(raw), *target); err != nil {
+				var selector *metav1.LabelSelector
+				if err := yaml.Unmarshal([]byte(raw), &selector); err != nil {
 					return err
 				}
+				*target = selector
 			}
 		}
 		return nil
