@@ -277,6 +277,7 @@ func TestPodSpecValidation(t *testing.T) {
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Image: "busybox",
+				Ports: []corev1.ContainerPort{{}},
 			}, {
 				Image: "helloworld",
 			}},
@@ -500,7 +501,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		want: apis.ErrMissingField("containers.ports"),
+		want: apis.ErrMissingField("containers[*].ports"),
 	}, {
 		name: "flag enabled: multiple containers with multiple port",
 		ps: corev1.PodSpec{
@@ -516,7 +517,11 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		want: apis.ErrMultipleOneOf("containers.ports"),
+		want: &apis.FieldError{
+			Message: "more than one container port is set",
+			Paths:   []string{"containers[*].ports"},
+			Details: "Only a single port is allowed across all containers",
+		},
 	}, {
 		name: "flag enabled: multiple containers with multiple ports for each container",
 		ps: corev1.PodSpec{
@@ -534,11 +539,11 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
-			Message: "More than one container port is set",
-			Paths:   []string{"containers[0].ports"},
-			Details: "Only a single port is allowed",
-		}),
+		want: &apis.FieldError{
+			Message: "more than one container port is set",
+			Paths:   []string{"containers[*].ports"},
+			Details: "Only a single port is allowed across all containers",
+		},
 	}, {
 		name: "flag enabled: multiple containers with multiple port for a single container",
 		ps: corev1.PodSpec{
@@ -553,11 +558,31 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
-			Message: "More than one container port is set",
-			Paths:   []string{"containers[0].ports"},
-			Details: "Only a single port is allowed",
-		}),
+		want: &apis.FieldError{
+			Message: "more than one container port is set",
+			Paths:   []string{"containers[*].ports"},
+			Details: "Only a single port is allowed across all containers",
+		},
+	}, {
+		name: "flag enabled: multiple containers with readinessProbe targeting different container's port",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "work",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 9999,
+				}},
+			}, {
+				Image: "health",
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Port: intstr.FromInt(9999), // This is the other container's port
+						},
+					},
+				},
+			}},
+		},
+		want: apis.ErrDisallowedFields("containers[1].livenessProbe"),
 	}, {
 		name: "flag enabled: multiple containers with illegal env variable defined for side car",
 		ps: corev1.PodSpec{
@@ -1111,9 +1136,9 @@ func TestContainerValidation(t *testing.T) {
 				}},
 			},
 			want: &apis.FieldError{
-				Message: "More than one container port is set",
+				Message: "more than one container port is set",
 				Paths:   []string{"ports"},
-				Details: "Only a single port is allowed",
+				Details: "Only a single port is allowed across all containers",
 			},
 		}, {
 			name: "has an empty port set",
@@ -1133,9 +1158,9 @@ func TestContainerValidation(t *testing.T) {
 				}},
 			},
 			want: &apis.FieldError{
-				Message: "More than one container port is set",
+				Message: "more than one container port is set",
 				Paths:   []string{"ports"},
-				Details: "Only a single port is allowed",
+				Details: "Only a single port is allowed across all containers",
 			},
 		}, {
 			name: "has tcp protocol",
@@ -1262,7 +1287,7 @@ func TestContainerValidation(t *testing.T) {
 			},
 			want: apis.ErrMultipleOneOf("readinessProbe.exec", "readinessProbe.tcpSocket", "readinessProbe.httpGet"),
 		}, {
-			name: "invalid readiness http probe (has port)",
+			name: "invalid readiness http probe (has wrong port)",
 			c: corev1.Container{
 				Image: "foo",
 				ReadinessProbe: &corev1.Probe{
@@ -1273,12 +1298,25 @@ func TestContainerValidation(t *testing.T) {
 					Handler: corev1.Handler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
-							Port: intstr.FromInt(8080),
+							Port: intstr.FromInt(5000),
 						},
 					},
 				},
 			},
-			want: apis.ErrDisallowedFields("readinessProbe.httpGet.port"),
+			want: apis.ErrInvalidValue(5000, "readinessProbe.httpGet.port", "May only probe containerPort"),
+		}, {
+			name: "valid readiness http probe with port",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					SuccessThreshold: 1,
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Port: intstr.FromString("http"), // http is the default
+						},
+					},
+				},
+			},
 		}, {
 			name: "invalid readiness probe (has failureThreshold while using special probe)",
 			c: corev1.Container{
@@ -1360,12 +1398,29 @@ func TestContainerValidation(t *testing.T) {
 				LivenessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
 						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.FromString("http"),
+							Port: intstr.FromString("imap"),
 						},
 					},
 				},
 			},
-			want: apis.ErrDisallowedFields("livenessProbe.tcpSocket.port"),
+			want: apis.ErrInvalidValue("imap", "livenessProbe.tcpSocket.port", "May only probe containerPort"),
+		}, {
+			name: "valid liveness tcp probe with correct port",
+			c: corev1.Container{
+				Image: "foo",
+				Ports: []corev1.ContainerPort{
+					{
+						ContainerPort: 8888,
+					},
+				},
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt(8888),
+						},
+					},
+				},
+			},
 		}, {
 			name: "disallowed container fields",
 			c: corev1.Container{
@@ -1405,8 +1460,9 @@ func TestContainerValidation(t *testing.T) {
 				}
 				ctx = config.ToContext(ctx, cfg)
 			}
+			err, port := validateContainersPorts([]corev1.Container{test.c})
 
-			got := ValidateContainer(ctx, test.c, test.volumes)
+			got := err.Also(ValidateContainer(ctx, test.c, test.volumes, port))
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
 			}

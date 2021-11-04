@@ -397,6 +397,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 					Image: "busybox",
 				}, {
 					Image: "helloworld",
+					Ports: []corev1.ContainerPort{{}},
 				}},
 			},
 		},
