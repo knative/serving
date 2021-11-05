@@ -70,7 +70,6 @@ func TestProbeHandler(t *testing.T) {
 		wantCode:  http.StatusOK,
 	}}
 
-	healthState := &State{}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			writer := httptest.NewRecorder()
@@ -80,7 +79,7 @@ func TestProbeHandler(t *testing.T) {
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 			}
 
-			h := ProbeHandler(healthState, tc.prober, true /*tracingEnabled*/, incHandler)
+			h := ProbeHandler(tc.prober, true /*tracingEnabled*/, incHandler)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {

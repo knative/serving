@@ -17,6 +17,7 @@ limitations under the License.
 package health
 
 import (
+	"io"
 	"net/http"
 
 	"go.opencensus.io/trace"
@@ -29,7 +30,7 @@ const badProbeTemplate = "unexpected probe header value: "
 
 // ProbeHandler returns a http.HandlerFunc that responds to health checks if the
 // knative network probe header is passed, and otherwise delegates to the next handler.
-func ProbeHandler(healthState *State, prober func() bool, tracingEnabled bool, next http.Handler) http.HandlerFunc {
+func ProbeHandler(prober func() bool, tracingEnabled bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := network.KnativeProbeHeader(r)
 
@@ -58,13 +59,13 @@ func ProbeHandler(healthState *State, prober func() bool, tracingEnabled bool, n
 			return
 		}
 
-		healthState.HandleHealthProbe(func() bool {
-			if !prober() {
-				probeSpan.Annotate([]trace.Attribute{
-					trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
-				return false
-			}
-			return true
-		}, w)
+		if !prober() {
+			probeSpan.Annotate([]trace.Attribute{
+				trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+
+		io.WriteString(w, queue.Name)
 	}
 }
