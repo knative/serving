@@ -26,7 +26,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
@@ -325,7 +324,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 		errs = errs.Also(err.ViaField("volumes"))
 	}
 
-	err, port := validateContainersPorts(ps.Containers)
+	port, err := validateContainersPorts(ps.Containers)
 	if err != nil {
 		errs = errs.Also(err.ViaField("containers[*]"))
 	}
@@ -362,7 +361,7 @@ func validateInitContainers(ctx context.Context, containers []corev1.Container, 
 	return errs
 }
 
-func validateContainers(ctx context.Context, containers []corev1.Container, volumes map[string]corev1.Volume, port intstr.IntOrString) (errs *apis.FieldError) {
+func validateContainers(ctx context.Context, containers []corev1.Container, volumes map[string]corev1.Volume, port corev1.ContainerPort) (errs *apis.FieldError) {
 	features := config.FromContextOrDefaults(ctx).Features
 	if features.MultiContainer != config.Enabled {
 		return errs.Also(&apis.FieldError{Message: fmt.Sprintf("multi-container is off, "+
@@ -394,33 +393,36 @@ func AllMountedVolumes(containers []corev1.Container) sets.String {
 
 // validateContainersPorts validates port when specified multiple containers,
 // and returns the single serving port if error is nil
-func validateContainersPorts(containers []corev1.Container) (*apis.FieldError, intstr.IntOrString) {
+func validateContainersPorts(containers []corev1.Container) (corev1.ContainerPort, *apis.FieldError) {
 	var count int
-	var port = intstr.IntOrString{IntVal: 8080, StrVal: "http"}
+	var port = corev1.ContainerPort{
+		Name:          "http",
+		ContainerPort: 8080,
+	}
 	for i := range containers {
 		if c := len(containers[i].Ports); c > 0 {
 			count += c
 			if containers[i].Ports[0].ContainerPort != 0 {
-				port.IntVal = containers[i].Ports[0].ContainerPort
+				port.ContainerPort = containers[i].Ports[0].ContainerPort
 			}
 			if containers[i].Ports[0].Name != "" {
-				port.StrVal = containers[i].Ports[0].Name
+				port.Name = containers[i].Ports[0].Name
 			}
 		}
 	}
 	// When no container ports are specified.
 	if count == 0 && len(containers) > 1 {
-		return apis.ErrMissingField("ports"), port
+		return port, apis.ErrMissingField("ports")
 	}
 	// More than one container sections have ports.
 	if count > 1 {
-		return &apis.FieldError{
+		return port, &apis.FieldError{
 			Message: "more than one container port is set",
 			Paths:   []string{"ports"},
 			Details: "Only a single port is allowed across all containers",
-		}, port
+		}
 	}
-	return nil, port
+	return port, nil
 }
 
 // validateSidecarContainer validate fields for non serving containers
@@ -467,7 +469,7 @@ func validateInitContainer(ctx context.Context, container corev1.Container, volu
 }
 
 // ValidateContainer validate fields for serving containers
-func ValidateContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume, port intstr.IntOrString) (errs *apis.FieldError) {
+func ValidateContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume, port corev1.ContainerPort) (errs *apis.FieldError) {
 	// Liveness Probes
 	errs = errs.Also(validateProbe(container.LivenessProbe, port).ViaField("livenessProbe"))
 	// Readiness Probes
@@ -660,7 +662,7 @@ func validateContainerPortBasic(port corev1.ContainerPort) *apis.FieldError {
 	return errs
 }
 
-func validateReadinessProbe(p *corev1.Probe, port intstr.IntOrString) *apis.FieldError {
+func validateReadinessProbe(p *corev1.Probe, port corev1.ContainerPort) *apis.FieldError {
 	if p == nil {
 		return nil
 	}
@@ -707,7 +709,7 @@ func validateReadinessProbe(p *corev1.Probe, port intstr.IntOrString) *apis.Fiel
 	return errs
 }
 
-func validateProbe(p *corev1.Probe, port intstr.IntOrString) *apis.FieldError {
+func validateProbe(p *corev1.Probe, port corev1.ContainerPort) *apis.FieldError {
 	if p == nil {
 		return nil
 	}
@@ -722,7 +724,7 @@ func validateProbe(p *corev1.Probe, port intstr.IntOrString) *apis.FieldError {
 		handlers = append(handlers, "httpGet")
 		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
 		getPort := h.HTTPGet.Port
-		if (getPort.StrVal != "" && getPort.StrVal != port.StrVal) || (getPort.IntVal != 0 && getPort.IntVal != port.IntVal) {
+		if (getPort.StrVal != "" && getPort.StrVal != port.Name) || (getPort.IntVal != 0 && getPort.IntVal != port.ContainerPort) {
 			errs = errs.Also(apis.ErrInvalidValue(getPort.String(), "httpGet.port", "May only probe containerPort"))
 		}
 	}
@@ -730,7 +732,7 @@ func validateProbe(p *corev1.Probe, port intstr.IntOrString) *apis.FieldError {
 		handlers = append(handlers, "tcpSocket")
 		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
 		tcpPort := h.TCPSocket.Port
-		if (tcpPort.StrVal != "" && tcpPort.StrVal != port.StrVal) || (tcpPort.IntVal != 0 && tcpPort.IntVal != port.IntVal) {
+		if (tcpPort.StrVal != "" && tcpPort.StrVal != port.Name) || (tcpPort.IntVal != 0 && tcpPort.IntVal != port.ContainerPort) {
 			errs = errs.Also(apis.ErrInvalidValue(tcpPort.String(), "tcpSocket.port", "May only probe containerPort"))
 		}
 	}
