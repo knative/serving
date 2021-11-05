@@ -95,7 +95,7 @@ data:
     # You can re-enable them by setting this setting to `true`.
     # This is not recommended without understanding the security implications.
     # Please see the advisory at https://github.com/projectcontour/contour/security/advisories/GHSA-5ph6-qq5x-7jwc for the details.
-    enableExternalNameService: true
+    # enableExternalNameService: false
     ##
     ### Logging options
     # Default setting
@@ -1904,7 +1904,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:6e0f424f173f0facb27cf0ce952fdd9e1c457eaecc13b84e13be482e44720773
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:b1dbbb305b5ac53fb71eea72730bcfa2ca7d70acf2b16ea5d47d62527b5bd94e
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -2155,7 +2155,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:6e0f424f173f0facb27cf0ce952fdd9e1c457eaecc13b84e13be482e44720773
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:b1dbbb305b5ac53fb71eea72730bcfa2ca7d70acf2b16ea5d47d62527b5bd94e
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2244,7 +2244,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:6e0f424f173f0facb27cf0ce952fdd9e1c457eaecc13b84e13be482e44720773
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:b1dbbb305b5ac53fb71eea72730bcfa2ca7d70acf2b16ea5d47d62527b5bd94e
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2263,6 +2263,13 @@ spec:
           volumeMounts:
             - name: envoy-admin
               mountPath: /admin
+          resources:
+            requests:
+              cpu: 40m
+              memory: 40Mi
+            limits:
+              cpu: 400m
+              memory: 400Mi
         - args:
             - -c
             - /config/envoy.json
@@ -2313,6 +2320,13 @@ spec:
                 path: /shutdown
                 port: 8090
                 scheme: HTTP
+          resources:
+            requests:
+              cpu: 200m
+              memory: 200Mi
+            limits:
+              cpu: 500m
+              memory: 500Mi
       initContainers:
         - args:
             - bootstrap
@@ -2326,7 +2340,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:6e0f424f173f0facb27cf0ce952fdd9e1c457eaecc13b84e13be482e44720773
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:b1dbbb305b5ac53fb71eea72730bcfa2ca7d70acf2b16ea5d47d62527b5bd94e
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -2450,7 +2464,7 @@ data:
     # You can re-enable them by setting this setting to `true`.
     # This is not recommended without understanding the security implications.
     # Please see the advisory at https://github.com/projectcontour/contour/security/advisories/GHSA-5ph6-qq5x-7jwc for the details.
-    enableExternalNameService: true
+    # enableExternalNameService: false
     ##
     ### Logging options
     # Default setting
@@ -2605,7 +2619,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:6e0f424f173f0facb27cf0ce952fdd9e1c457eaecc13b84e13be482e44720773
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:b1dbbb305b5ac53fb71eea72730bcfa2ca7d70acf2b16ea5d47d62527b5bd94e
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -2717,7 +2731,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:6e0f424f173f0facb27cf0ce952fdd9e1c457eaecc13b84e13be482e44720773
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:b1dbbb305b5ac53fb71eea72730bcfa2ca7d70acf2b16ea5d47d62527b5bd94e
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -2806,7 +2820,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:6e0f424f173f0facb27cf0ce952fdd9e1c457eaecc13b84e13be482e44720773
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:b1dbbb305b5ac53fb71eea72730bcfa2ca7d70acf2b16ea5d47d62527b5bd94e
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2825,6 +2839,13 @@ spec:
           volumeMounts:
             - name: envoy-admin
               mountPath: /admin
+          resources:
+            requests:
+              cpu: 40m
+              memory: 40Mi
+            limits:
+              cpu: 400m
+              memory: 400Mi
         - args:
             - -c
             - /config/envoy.json
@@ -2875,6 +2896,13 @@ spec:
                 path: /shutdown
                 port: 8090
                 scheme: HTTP
+          resources:
+            requests:
+              cpu: 200m
+              memory: 200Mi
+            limits:
+              cpu: 500m
+              memory: 500Mi
       initContainers:
         - args:
             - bootstrap
@@ -2888,7 +2916,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:6e0f424f173f0facb27cf0ce952fdd9e1c457eaecc13b84e13be482e44720773
+          image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:b1dbbb305b5ac53fb71eea72730bcfa2ca7d70acf2b16ea5d47d62527b5bd94e
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
