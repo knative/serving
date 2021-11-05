@@ -1460,7 +1460,7 @@ func TestContainerValidation(t *testing.T) {
 				}
 				ctx = config.ToContext(ctx, cfg)
 			}
-			err, port := validateContainersPorts([]corev1.Container{test.c})
+			port, err := validateContainersPorts([]corev1.Container{test.c})
 
 			got := err.Also(ValidateContainer(ctx, test.c, test.volumes, port))
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
