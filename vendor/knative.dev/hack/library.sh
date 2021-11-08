@@ -771,6 +771,7 @@ function current_branch() {
   # Get the branch name from Prow's env var, see https://github.com/kubernetes/test-infra/blob/master/prow/jobs.md.
   # Otherwise, try getting the current branch from git.
   (( IS_PROW )) && branch_name="${PULL_BASE_REF:-}"
+  [[ -z "${branch_name}" ]] && branch_name="${GITHUB_BASE_REF:-}"
   [[ -z "${branch_name}" ]] && branch_name="$(git rev-parse --abbrev-ref HEAD)"
   echo "${branch_name}"
 }
@@ -835,30 +836,56 @@ function shellcheck_new_files() {
   fi
 }
 
+# Note: if using Github checkout action please ensure you fetch all tags prior to calling
+# this function
+#
+# ie.
+# - uses: actions/checkout@v2
+#   with:
+#     fetch-depth: 0
+#
+# See: https://github.com/actions/checkout#fetch-all-history-for-all-tags-and-branches
 function latest_version() {
   local branch_name="$(current_branch)"
 
-  if [ "$branch_name" = "master" ] || [ "$branch_name" = "main" ]; then
-    # For main branch, simply use git tag without major version, this will work even
-    # if the release tag is not in the main
+  # Use the latest release for main
+  if [[ "$branch_name" == "main" ]] || [[ "$branch_name" == "master" ]]; then
     git tag -l "*$(git tag -l "*v[0-9]*" | cut -d '-' -f2 | sort -r --version-sort | head -n1)*"
-  else
-    ## Assumption here is we are on a release branch
-    local major_minor="${branch_name##release-}"
-    local major_version="$(major_version $major_minor)"
-    local minor_version="$(minor_version $major_minor)"
-
-    # Hardcode the jump back from 1.0
-    if [ "$major_version" = "1" ] && [ "$minor_version" == 0 ]; then
-      local tag='v0.26*'
-    else
-      # Adjust the minor down by one
-      local tag="*v$major_version.$(( minor_version - 1 ))*"
-    fi
-
-    # Get the latest patch release for the major minor
-    git tag -l "${tag}*" | sort -r --version-sort | head -n1
+    return
   fi
+
+  # Ideally we shouldn't need to treat release branches differently but
+  # there are scenarios where git describe will return newer tags than
+  # the ones on the current branch
+  #
+  # ie. create a PR pulling commits from 0.24 into a release-0.23 branch
+  if [[ "$branch_name" == "release-"* ]]; then
+    # Infer major, minor version from the branch name
+    local tag="${branch_name##release-}"
+  else
+    # Nearest tag with the `knative-` prefix
+    local tag=$(git describe --abbrev=0 --match "knative-v[0-9]*")
+
+    # Fallback to older tag scheme vX.Y.Z
+    [[ -z "${tag}" ]] && tag=$(git describe --abbrev=0 --match "v[0-9]*")
+
+    # Drop the prefix
+    tag="${tag##knative-}"
+  fi
+
+  local major_version="$(major_version ${tag})"
+  local minor_version="$(minor_version ${tag})"
+
+  # Hardcode the jump back from 1.0
+  if [ "$major_version" = "1" ] && [ "$minor_version" = "0" ]; then
+    local tag_filter='v0.26*'
+  else
+    # Adjust the minor down by one
+    local tag_filter="*v$major_version.$(( minor_version - 1 ))*"
+  fi
+
+  # Get the latest patch release for the major minor
+  git tag -l "${tag_filter}" | sort -r --version-sort | head -n1
 }
 
 # Initializations that depend on previous functions.
