@@ -60,10 +60,10 @@ readonly BUCKETS=10
 LATEST_SERVING_RELEASE_VERSION=$(latest_version)
 
 # Latest net-istio release.
-LATEST_NET_ISTIO_RELEASE_VERSION=$(align_net-istio_version "$LATEST_SERVING_RELEASE_VERSION")
+LATEST_NET_ISTIO_RELEASE_VERSION=$(latest_net_istio_version "$LATEST_SERVING_RELEASE_VERSION")
 
 # Receives the latest serving version and searches for the same version with major and minor and searches for the latest patch
-function align_net-istio_version() {
+function latest_net_istio_version() {
   local serving_version=$1
   local major_minor
   major_minor=$(echo "$serving_version" | cut -d '.' -f 1,2)
