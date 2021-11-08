@@ -366,6 +366,7 @@ func HTTPGetActionMask(in *corev1.HTTPGetAction) *corev1.HTTPGetAction {
 	out.Path = in.Path
 	out.Scheme = in.Scheme
 	out.HTTPHeaders = in.HTTPHeaders
+	out.Port = in.Port
 
 	return out
 }
@@ -381,6 +382,7 @@ func TCPSocketActionMask(in *corev1.TCPSocketAction) *corev1.TCPSocketAction {
 
 	// Allowed fields
 	out.Host = in.Host
+	out.Port = in.Port
 
 	return out
 }

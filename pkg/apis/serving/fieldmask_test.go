@@ -309,6 +309,7 @@ func TestHTTPGetActionMask(t *testing.T) {
 		Path:        "/bar",
 		Scheme:      corev1.URISchemeHTTP,
 		HTTPHeaders: []corev1.HTTPHeader{{}},
+		Port:        intstr.FromInt(8080),
 	}
 	in := &corev1.HTTPGetAction{
 		Host:        "foo",
@@ -338,10 +339,11 @@ func TestHTTPGetActionMask(t *testing.T) {
 func TestTCPSocketActionMask(t *testing.T) {
 	want := &corev1.TCPSocketAction{
 		Host: "foo",
+		Port: intstr.FromString("https"),
 	}
 	in := &corev1.TCPSocketAction{
 		Host: "foo",
-		Port: intstr.FromInt(8080),
+		Port: intstr.FromString("https"),
 	}
 
 	got := TCPSocketActionMask(in)
