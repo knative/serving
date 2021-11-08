@@ -26,6 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	kubeinformers "k8s.io/client-go/informers"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	fakekubeclient "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
 	network "knative.dev/networking/pkg"
@@ -34,6 +37,7 @@ import (
 	networkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	corev1service "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
@@ -700,7 +704,9 @@ func TestReconcile(t *testing.T) {
 		},
 	}}
 
+	inf := v1ServiceInformer(context.Background(), k8sServices())
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		ctx = context.WithValue(ctx, corev1service.Key{}, inf)
 		ctx = addressable.WithDuck(ctx)
 		r := &Reconciler{
 			certificateLister: listers.GetCertificateLister(),
@@ -833,7 +839,9 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 		},
 	}}
 
+	inf := v1ServiceInformer(context.Background(), k8sServices())
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		ctx = context.WithValue(ctx, corev1service.Key{}, inf)
 		ctx = addressable.WithDuck(ctx)
 		r := &Reconciler{
 			certificateLister: listers.GetCertificateLister(),
@@ -1190,7 +1198,9 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		},
 	}}
 
+	inf := v1ServiceInformer(context.Background(), k8sServices())
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		ctx = context.WithValue(ctx, corev1service.Key{}, inf)
 		ctx = addressable.WithDuck(ctx)
 		r := &Reconciler{
 			certificateLister: listers.GetCertificateLister(),
@@ -1257,7 +1267,9 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 		},
 	}}
 
+	inf := v1ServiceInformer(context.Background(), k8sServices())
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		ctx = context.WithValue(ctx, corev1service.Key{}, inf)
 		ctx = addressable.WithDuck(ctx)
 		r := &Reconciler{
 			certificateLister: listers.GetCertificateLister(),
@@ -1530,6 +1542,36 @@ func patchRemoveFinalizerAction(namespace, name string) clientgotesting.PatchAct
 		Name:       name,
 		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
 		Patch:      []byte(`{"metadata":{"finalizers":[],"resourceVersion":""}}`),
+	}
+}
+
+func v1ServiceInformer(ctx context.Context, objects []runtime.Object) corev1informers.ServiceInformer {
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(
+		fakekubeclient.NewSimpleClientset(objects...), 0)
+	svcInformerIface := kubeInformerFactory.Core().V1().Services()
+	svcInformerIface.Informer() // register informer in factory
+	go kubeInformerFactory.Start(ctx.Done())
+	kubeInformerFactory.WaitForCacheSync(ctx.Done())
+	return svcInformerIface
+}
+
+func k8sServices() []runtime.Object {
+	return []runtime.Object{
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "target",
+				Namespace: "default",
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Name: "http",
+						Port: 80,
+					},
+				},
+			},
+			Status: corev1.ServiceStatus{},
+		},
 	}
 }
 
