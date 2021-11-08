@@ -125,6 +125,8 @@ const (
 	// points will be missed entirely by the panic window which is
 	// smaller than the stable window. Anything less than 6 seconds
 	// isn't going to work well.
+	//
+	// nolint:revive // False positive, Min means minimum, not minutes.
 	WindowMin = 6 * time.Second
 	// WindowMax is the maximum permitted stable autoscaling window.
 	// This keeps the event horizon to a reasonable enough limit.
