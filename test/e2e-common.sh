@@ -55,13 +55,6 @@ export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
 readonly REPLICAS=3
 readonly BUCKETS=10
 
-# Latest serving release. If user does not supply this as a flag, the latest
-# tagged release on the current branch will be used.
-LATEST_SERVING_RELEASE_VERSION=$(latest_version)
-
-# Latest net-istio release.
-LATEST_NET_ISTIO_RELEASE_VERSION=$(latest_net_istio_version "$LATEST_SERVING_RELEASE_VERSION")
-
 # Receives the latest serving version and searches for the same version with major and minor and searches for the latest patch
 function latest_net_istio_version() {
   local serving_version=$1
@@ -70,6 +63,14 @@ function latest_net_istio_version() {
 
   curl -L --silent "https://api.github.com/repos/knative/net-istio/releases" | jq --arg major_minor "$major_minor" -r '[.[].tag_name] | map(select(. | startswith($major_minor))) | sort_by( sub("knative-";"") | sub("v";"") | split(".") | map(tonumber) ) | reverse[0]'
 }
+
+# Latest serving release. If user does not supply this as a flag, the latest
+# tagged release on the current branch will be used.
+LATEST_SERVING_RELEASE_VERSION=$(latest_version)
+
+# Latest net-istio release.
+LATEST_NET_ISTIO_RELEASE_VERSION=$(latest_net_istio_version "$LATEST_SERVING_RELEASE_VERSION")
+
 
 # Parse our custom flags.
 function parse_flags() {
