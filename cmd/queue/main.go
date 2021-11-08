@@ -311,9 +311,14 @@ func buildServer(ctx context.Context, env config, drainer *pkghandler.Drainer, p
 	if tracingEnabled {
 		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	}
+	if env.ServingEnableRequestLog {
+		composedHandler = requestLogHandler(logger, composedHandler, env)
+	}
 
 	var healthcheckHandler http.Handler
 	healthcheckHandler = health.ProbeHandler(probeContainer, tracingEnabled, healthcheckHandler)
+	// We want to capture the probes/healthchecks in the request logs.
+	// Hence we need to have RequestLogHandler to be the first one.
 	if env.ServingEnableRequestLog {
 		healthcheckHandler = requestLogHandler(logger, healthcheckHandler, env)
 	}
