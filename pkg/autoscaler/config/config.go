@@ -49,7 +49,7 @@ func defaultConfig() *autoscalerconfig.Config {
 		RPSTargetDefault:              200,
 		MaxScaleUpRate:                1000,
 		MaxScaleDownRate:              2,
-		TargetBurstCapacity:           200,
+		TargetBurstCapacity:           -1,
 		PanicWindowPercentage:         10,
 		ActivatorCapacity:             100,
 		PanicThresholdPercentage:      200,

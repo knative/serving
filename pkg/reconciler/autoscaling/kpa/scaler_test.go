@@ -286,6 +286,12 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  0,
 		wantScaling:   false,
+		configMutator: func(c *config.Config) {
+			// If activator is in the path (TBC = -1), we scale down immediately
+			// because we know that's safe, so for this test we need to make sure
+			// it's not in the path.
+			c.Autoscaler.TargetBurstCapacity = 0
+		},
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
@@ -299,6 +305,12 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		wantReplicas:  0,
 		wantScaling:   false,
+		configMutator: func(c *config.Config) {
+			// If activator is in the path (TBC = -1), we scale down immediately
+			// because we know that's safe, so for this test we need to make sure
+			// it's not in the path.
+			c.Autoscaler.TargetBurstCapacity = 0
+		},
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
 		},

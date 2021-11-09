@@ -111,6 +111,7 @@ func defaultConfigMapData() map[string]string {
 		"panic-window":                            "10s",
 		"scale-to-zero-grace-period":              gracePeriod.String(),
 		"tick-interval":                           "2s",
+		"target-burst-capacity":                   "200",
 	}
 }
 
