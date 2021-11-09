@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/version: devel
     app.kubernetes.io/part-of: knative-serving
   annotations:
-    knative.dev/example-checksum: "cdabec96"
+    knative.dev/example-checksum: "a0feb4c6"
 data:
   _example: |
     ################################
@@ -98,6 +98,13 @@ data:
     # enclosing Service or Configuration, so values such as
     # {{.Name}} are also valid.
     container-name-template: "user-container"
+
+    # init-container-name-template contains a template for the default
+    # init container name, if none is specified.  This field supports
+    # Go templating and is supplied with the ObjectMeta of the
+    # enclosing Service or Configuration, so values such as
+    # {{.Name}} are also valid.
+    init-container-name-template: "init-container"
 
     # container-concurrency specifies the maximum number
     # of requests the Container can handle at once, and requests

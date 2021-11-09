@@ -59,34 +59,18 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	}
 
 	// Avoid clashes with user-supplied names when generating defaults.
-	userContainerNames := make(sets.String, len(rs.PodSpec.Containers))
+	containerNames := make(sets.String, len(rs.PodSpec.Containers)+len(rs.PodSpec.InitContainers))
 	for idx := range rs.PodSpec.Containers {
-		userContainerNames.Insert(rs.PodSpec.Containers[idx].Name)
+		containerNames.Insert(rs.PodSpec.Containers[idx].Name)
 	}
-
-	// Default container name based on UserContainerName value from configmap.
-	// In multi-container mode, add a numeric suffix, avoiding clashes with user-supplied names.
-	nextSuffix := 0
-	defaultContainerName := cfg.Defaults.UserContainerName(ctx)
+	for idx := range rs.PodSpec.InitContainers {
+		containerNames.Insert(rs.PodSpec.InitContainers[idx].Name)
+	}
+	defaultUserContainerName := cfg.Defaults.UserContainerName(ctx)
+	applyDefaultContainerNames(rs.PodSpec.Containers, containerNames, defaultUserContainerName)
+	defaultInitContainerName := cfg.Defaults.InitContainerName(ctx)
+	applyDefaultContainerNames(rs.PodSpec.InitContainers, containerNames, defaultInitContainerName)
 	for idx := range rs.PodSpec.Containers {
-		if rs.PodSpec.Containers[idx].Name == "" {
-			name := defaultContainerName
-
-			if len(rs.PodSpec.Containers) > 1 {
-				for {
-					name = kmeta.ChildName(defaultContainerName, "-"+strconv.Itoa(nextSuffix))
-					nextSuffix++
-
-					// Continue until we get a name that doesn't clash with a user-supplied name.
-					if !userContainerNames.Has(name) {
-						break
-					}
-				}
-			}
-
-			rs.PodSpec.Containers[idx].Name = name
-		}
-
 		rs.applyDefault(ctx, &rs.PodSpec.Containers[idx], cfg)
 	}
 }
@@ -170,6 +154,31 @@ func (*RevisionSpec) applyProbes(container *corev1.Container) {
 		}
 		if container.ReadinessProbe.TimeoutSeconds == 0 {
 			container.ReadinessProbe.TimeoutSeconds = 1
+		}
+	}
+}
+
+func applyDefaultContainerNames(containers []corev1.Container, containerNames sets.String, defaultContainerName string) {
+	// Default container name based on ContainerNameFromTemplate value from configmap.
+	// In multi-container or init-container mode, add a numeric suffix, avoiding clashes with user-supplied names.
+	nextSuffix := 0
+	for idx := range containers {
+		if containers[idx].Name == "" {
+			name := defaultContainerName
+
+			if len(containers) > 1 || containerNames.Has(name) {
+				for {
+					name = kmeta.ChildName(defaultContainerName, "-"+strconv.Itoa(nextSuffix))
+					nextSuffix++
+
+					// Continue until we get a name that doesn't clash with a user-supplied name.
+					if !containerNames.Has(name) {
+						break
+					}
+				}
+			}
+
+			containers[idx].Name = name
 		}
 	}
 }

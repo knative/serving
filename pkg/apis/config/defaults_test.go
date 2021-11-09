@@ -78,6 +78,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			ContainerConcurrencyMaxLimit: 1984,
 			RevisionCPURequest:           &oneTwoThree,
 			UserContainerNameTemplate:    "{{.Name}}",
+			InitContainerNameTemplate:    "{{.Name}}",
 			EnableServiceLinks:           ptr.Bool(true),
 		},
 		data: map[string]string{
@@ -86,6 +87,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			"revision-cpu-request":             "123m",
 			"container-concurrency-max-limit":  "1984",
 			"container-name-template":          "{{.Name}}",
+			"init-container-name-template":     "{{.Name}}",
 			"allow-container-concurrency-zero": "false",
 			"enable-service-links":             "true",
 		},
@@ -95,6 +97,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
 			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+			InitContainerNameTemplate:     DefaultInitContainerName,
 			UserContainerNameTemplate:     DefaultUserContainerName,
 			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero: true,
@@ -109,6 +112,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
 			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+			InitContainerNameTemplate:     DefaultInitContainerName,
 			UserContainerNameTemplate:     DefaultUserContainerName,
 			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero: true,
@@ -174,6 +178,22 @@ func TestDefaultsConfiguration(t *testing.T) {
 		data: map[string]string{
 			"container-concurrency-max-limit": "0",
 		},
+	}, {
+		name:    "different user and init container name template values",
+		wantErr: false,
+		wantDefaults: &Defaults{
+			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
+			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
+			AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
+			EnableServiceLinks:            ptr.Bool(false),
+			UserContainerNameTemplate:     "{{.Name}}",
+			InitContainerNameTemplate:     "my-template",
+		},
+		data: map[string]string{
+			"container-name-template":      "{{.Name}}",
+			"init-container-name-template": "my-template",
+		},
 	}}
 
 	for _, tt := range configTests {
@@ -222,7 +242,8 @@ func TestTemplating(t *testing.T) {
 					Name:      DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"container-name-template": test.template,
+					"container-name-template":      test.template,
+					"init-container-name-template": test.template,
 				},
 			}
 			defCM, err := NewDefaultsConfigFromConfigMap(configMap)
@@ -247,12 +268,17 @@ func TestTemplating(t *testing.T) {
 			if got, want := def.UserContainerName(ctx), test.want; got != want {
 				t.Errorf("UserContainerName() = %v, wanted %v", got, want)
 			}
+
+			if got, want := def.InitContainerName(ctx), test.want; got != want {
+				t.Errorf("InitContainerName() = %v, wanted %v", got, want)
+			}
 		})
 	}
 	t.Run("bad-template", func(t *testing.T) {
 		configMap := &corev1.ConfigMap{
 			Data: map[string]string{
-				"container-name-template": "{{animals-being-bros]]",
+				"container-name-template":      "{{animals-being-bros]]",
+				"init-container-name-template": "{{animals-being-bros]]",
 			},
 		}
 		_, err := NewDefaultsConfigFromConfigMap(configMap)

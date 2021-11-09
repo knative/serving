@@ -45,6 +45,10 @@ const (
 	// DefaultMaxRevisionTimeoutSeconds will be set if MaxRevisionTimeoutSeconds is not specified.
 	DefaultMaxRevisionTimeoutSeconds = 10 * 60
 
+	// DefaultInitContainerName is the default name we give to the init containers
+	// specified by the user, if `name:` is omitted.
+	DefaultInitContainerName = "init-container"
+
 	// DefaultUserContainerName is the default name we give to the container
 	// specified by the user, if `name:` is omitted.
 	DefaultUserContainerName = "user-container"
@@ -64,8 +68,9 @@ const (
 var (
 	templateCache *lru.Cache
 
-	// Verify the default template is valid.
+	// Verify the default templates are valid.
 	_ = template.Must(template.New("user-container-template").Parse(DefaultUserContainerName))
+	_ = template.Must(template.New("init-container-template").Parse(DefaultInitContainerName))
 )
 
 func init() {
@@ -78,6 +83,7 @@ func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
 		RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
 		MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+		InitContainerNameTemplate:     DefaultInitContainerName,
 		UserContainerNameTemplate:     DefaultUserContainerName,
 		ContainerConcurrency:          DefaultContainerConcurrency,
 		ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
@@ -107,6 +113,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	nc := defaultDefaultsConfig()
 
 	if err := cm.Parse(data,
+		cm.AsString("init-container-name-template", &nc.InitContainerNameTemplate),
 		cm.AsString("container-name-template", &nc.UserContainerNameTemplate),
 
 		cm.AsBool("allow-container-concurrency-zero", &nc.AllowContainerConcurrencyZero),
@@ -138,17 +145,29 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		return nil, apis.ErrOutOfBoundsValue(
 			nc.ContainerConcurrency, 0, nc.ContainerConcurrencyMaxLimit, "container-concurrency")
 	}
+	if _, ok := templateCache.Get(nc.UserContainerNameTemplate); !ok {
+		tmpl, err := template.New("container-template").Parse(nc.UserContainerNameTemplate)
+		if err != nil {
+			return nil, err
+		}
+		// Check that the template properly applies to ObjectMeta.
+		if err := tmpl.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
+			return nil, fmt.Errorf("error executing template: %w", err)
+		}
 
-	tmpl, err := template.New("user-container").Parse(nc.UserContainerNameTemplate)
-	if err != nil {
-		return nil, err
+		templateCache.Add(nc.UserContainerNameTemplate, tmpl)
 	}
-	// Check that the template properly applies to ObjectMeta.
-	if err := tmpl.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
-		return nil, fmt.Errorf("error executing template: %w", err)
+	if _, ok := templateCache.Get(nc.InitContainerNameTemplate); !ok {
+		tmpl, err := template.New("container-template").Parse(nc.InitContainerNameTemplate)
+		if err != nil {
+			return nil, err
+		}
+		// Check that the template properly applies to ObjectMeta.
+		if err := tmpl.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
+			return nil, fmt.Errorf("error executing template: %w", err)
+		}
+		templateCache.Add(nc.InitContainerNameTemplate, tmpl)
 	}
-	templateCache.Add(nc.UserContainerNameTemplate, tmpl)
-
 	return nc, nil
 }
 
@@ -163,6 +182,8 @@ type Defaults struct {
 	// This is the timeout set for ingress.
 	// RevisionTimeoutSeconds must be less than this value.
 	MaxRevisionTimeoutSeconds int64
+
+	InitContainerNameTemplate string
 
 	UserContainerNameTemplate string
 
@@ -188,19 +209,28 @@ type Defaults struct {
 	RevisionEphemeralStorageLimit   *resource.Quantity
 }
 
-// UserContainerName returns the name of the user container based on the context.
-func (d *Defaults) UserContainerName(ctx context.Context) string {
+func containerNameFromTemplate(ctx context.Context, templateText string) string {
 	var tmpl *template.Template
-	if tt, ok := templateCache.Get(d.UserContainerNameTemplate); ok {
+	if tt, ok := templateCache.Get(templateText); ok {
 		tmpl = tt.(*template.Template)
 	} else {
 		// Fallback for unit tests.
 		tmpl = template.Must(
-			template.New("user-container").Parse(d.UserContainerNameTemplate))
+			template.New("container-template").Parse(templateText))
 	}
 	buf := &bytes.Buffer{}
 	if err := tmpl.Execute(buf, apis.ParentMeta(ctx)); err != nil {
 		return ""
 	}
 	return buf.String()
+}
+
+// UserContainerName returns the name of the user container based on the context.
+func (d Defaults) UserContainerName(ctx context.Context) string {
+	return containerNameFromTemplate(ctx, d.UserContainerNameTemplate)
+}
+
+// InitContainerName returns the name of the init container based on the context.
+func (d Defaults) InitContainerName(ctx context.Context) string {
+	return containerNameFromTemplate(ctx, d.InitContainerNameTemplate)
 }
