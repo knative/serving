@@ -18,6 +18,8 @@ metadata:
   name: config-network
   namespace: knative-serving
   labels:
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/part-of: knative-serving
     serving.knative.dev/release: devel
   annotations:
     knative.dev/example-checksum: "6e2033e0"
