@@ -17,8 +17,8 @@ kind: CustomResourceDefinition
 metadata:
   name: serverlessservices.networking.internal.knative.dev
   labels:
+    app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative-serving
     serving.knative.dev/release: devel
     knative.dev/crd-install: "true"
 spec:
