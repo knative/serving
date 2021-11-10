@@ -45,15 +45,11 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        curl -L https://github.com/google/ko/releases/download/v0.6.0/ko_0.6.0_Linux_x86_64.tar.gz | tar xzf - ko
-        chmod +x ./ko
-        sudo mv ko /usr/local/bin
-        go get github.com/google/go-licenses
+        go install github.com/google/ko@latest
+        go install github.com/google/go-licenses@latest
 
-    - name: Check out code onto GOPATH
+    - name: Check out code
       uses: actions/checkout@v2
-      with:
-        path: ./src/knative.dev/${{ github.event.repository.name }}
 
     - name: Update Codegen
       shell: bash

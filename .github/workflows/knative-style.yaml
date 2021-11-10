@@ -37,7 +37,7 @@ jobs:
         - tool: gofmt
           options: -s
         - tool: goimports
-          importpath: golang.org/x/tools/cmd/goimports
+          package: golang.org/x/tools/cmd/goimports@latest
 
     steps:
       - name: Set up Go
@@ -50,10 +50,10 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install Dependencies
-        if: ${{ matrix.importpath != '' }}
+        if: ${{ matrix.package != '' }}
         run: |
           cd $(mktemp -d)
-          GO111MODULE=on go get ${{ matrix.importpath }}
+          go install ${{ matrix.package }}
 
       - name: ${{ matrix.tool }} ${{ matrix.options }}
         shell: bash
