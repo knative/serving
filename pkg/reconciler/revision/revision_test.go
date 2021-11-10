@@ -240,9 +240,9 @@ func (r *nopResolver) Resolve(_ *zap.SugaredLogger, rev *v1.Revision, _ k8schain
 				Name: rev.Spec.InitContainers[i].Name,
 			})
 		}
-		return status, initStatus, nil
+		return initStatus, status, nil
 	}
-	return status, nil, nil
+	return nil, status, nil
 }
 
 func (r *nopResolver) Clear(types.NamespacedName)  {}

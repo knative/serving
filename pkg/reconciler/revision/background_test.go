@@ -162,7 +162,7 @@ func TestResolveInBackground(t *testing.T) {
 			for i := 0; i < 2; i++ {
 				t.Run(fmt.Sprint("iteration", i), func(t *testing.T) {
 					logger := logtesting.TestLogger(t)
-					statuses, initContainerStatuses, err := subject.Resolve(logger, fakeRevision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), timeout)
+					initContainerStatuses, statuses, err := subject.Resolve(logger, fakeRevision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), timeout)
 					if err != nil || statuses != nil || initContainerStatuses != nil {
 						// Initial result should be nil, nil, nil since we have nothing in cache.
 						t.Errorf("Resolve() = %v, %v %v, wanted nil, nil, nil", statuses, initContainerStatuses, err)
@@ -177,7 +177,7 @@ func TestResolveInBackground(t *testing.T) {
 						t.Fatalf("Resolver did not report ready")
 					}
 
-					statuses, initContainerStatuses, err = subject.Resolve(logger, fakeRevision, k8schain.Options{}, nil, timeout)
+					initContainerStatuses, statuses, err = subject.Resolve(logger, fakeRevision, k8schain.Options{}, nil, timeout)
 					if got, want := err, tt.wantError; !errors.Is(got, want) {
 						t.Errorf("Resolve() = _, %q, wanted %q", got, want)
 					}
@@ -263,7 +263,7 @@ func TestRateLimitPerItem(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		subject.Clear(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
 		start := time.Now()
-		resolution, initResolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		initResolution, resolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err != nil || resolution != nil || initResolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil, nil but got %v, %v, %v", resolution, initResolution, err)
 		}
@@ -284,7 +284,7 @@ func TestRateLimitPerItem(t *testing.T) {
 
 	t.Run("Does not affect other revisions", func(t *testing.T) {
 		start := time.Now()
-		resolution, _, err := subject.Resolve(logger, rev("another-revision", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		_, resolution, err := subject.Resolve(logger, rev("another-revision", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err != nil || resolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
 		}
@@ -299,7 +299,7 @@ func TestRateLimitPerItem(t *testing.T) {
 		subject.Forget(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
 
 		start := time.Now()
-		resolution, _, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		_, resolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
 		if err != nil || resolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
 		}

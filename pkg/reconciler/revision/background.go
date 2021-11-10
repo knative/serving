@@ -149,7 +149,7 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 // If this method returns `nil, nil` this implies a resolve was triggered or is
 // already in progress, so the reconciler should exit and wait for the revision
 // to be re-enqueued when the result is ready.
-func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) (statuses []v1.ContainerStatus, initContainerStatuses []v1.ContainerStatus, error error) {
+func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) (initContainerStatuses []v1.ContainerStatus, statuses []v1.ContainerStatus, error error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -187,7 +187,7 @@ func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision
 	}
 
 	logger.Debugf("Resolve returned %d resolved images for revision", len(statuses)+len(initContainerStatuses))
-	return statuses, initContainerStatuses, nil
+	return initContainerStatuses, statuses, nil
 }
 
 // addWorkItems adds a digest resolve item to the queue for each container in the revision.
@@ -200,7 +200,7 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 		statuses:              make(map[int]v1.ContainerStatus),
 		initContainerStatuses: make(map[int]v1.ContainerStatus),
 		want:                  totalNumOfContainers,
-		workItems:             make([]workItem, totalNumOfContainers),
+		workItems:             make([]workItem, 0, totalNumOfContainers),
 		completionCallback: func() {
 			r.enqueue(name)
 		},
@@ -215,7 +215,7 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 			index:    i,
 		}
 
-		r.results[name].workItems[i] = item
+		r.results[name].workItems = append(r.results[name].workItems, item)
 		r.queue.AddRateLimited(item)
 	}
 
@@ -229,7 +229,7 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 			isInitContainer: true,
 		}
 
-		r.results[name].workItems[len(rev.Spec.Containers)+i] = item
+		r.results[name].workItems = append(r.results[name].workItems, item)
 		r.queue.AddRateLimited(item)
 	}
 }
