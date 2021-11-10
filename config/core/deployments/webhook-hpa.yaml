@@ -18,10 +18,10 @@ metadata:
   name: webhook
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: devel
-    app.kubernetes.io/name: webhook
+    app.kubernetes.io/component: webhook
+    app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative-serving
+    serving.knative.dev/release: devel
 spec:
   minReplicas: 1
   maxReplicas: 5
@@ -45,10 +45,10 @@ metadata:
   name: webhook-pdb
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: devel
-    app.kubernetes.io/name: webhook
+    app.kubernetes.io/component: webhook
+    app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative-serving
+    serving.knative.dev/release: devel
 spec:
   minAvailable: 80%
   selector:

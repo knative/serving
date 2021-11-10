@@ -19,10 +19,10 @@ metadata:
   namespace: knative-serving
   labels:
     app: storage-version-migration-serving
-    serving.knative.dev/release: devel
-    app.kubernetes.io/name: storage-version-migration-serving
+    app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/component: storage-version-migration-job
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative-serving
+    serving.knative.dev/release: devel
 spec:
   ttlSecondsAfterFinished: 600
   backoffLimit: 10
@@ -32,7 +32,8 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: storage-version-migration-serving
-        app.kubernetes.io/name: storage-version-migration-serving
+        app.kubernetes.io/name: knative-serving
+        app.kubernetes.io/component: storage-version-migration-job
         app.kubernetes.io/version: devel
     spec:
       serviceAccountName: controller

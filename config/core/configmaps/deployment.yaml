@@ -18,9 +18,10 @@ metadata:
   name: config-deployment
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: devel
+    app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative-serving
+    serving.knative.dev/release: devel
   annotations:
     knative.dev/example-checksum: "dd7ee769"
 data:

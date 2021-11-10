@@ -17,10 +17,10 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: validation.webhook.serving.knative.dev
   labels:
-    serving.knative.dev/release: devel
-    app.kubernetes.io/name: validating-webhook
+    app.kubernetes.io/component: webhook
+    app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative-serving
+    serving.knative.dev/release: devel
 webhooks:
 - admissionReviewVersions: ["v1", "v1beta1"]
   clientConfig:
