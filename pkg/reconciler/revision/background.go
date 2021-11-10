@@ -60,16 +60,13 @@ type resolveResult struct {
 	// these fields can be written concurrently, so should only be accessed while
 	// holding the backgroundResolver mutex.
 
-	// statuses is a map of container index to resolved status. This is a map
-	// rather than an array so that we can easily determine when we have received
-	// all the digests that we want (by comparing length to `want`).
-	statuses map[int]v1.ContainerStatus
+	// imagesResolved is a map of container image to resolved image with digest.
+	imagesResolved map[string]string
 
-	// initContainerStatuses like `statuses` is a map of init container index to resolved status.
-	initContainerStatuses map[int]v1.ContainerStatus
+	// imagesToBeResolved keeps unique image names so we can quickly compare with the current number of resolved ones
+	imagesToBeResolved sets.String
 
-	want int
-	err  error
+	err error
 }
 
 // workItem is a single task submitted to the queue, to resolve a single image
@@ -78,10 +75,8 @@ type workItem struct {
 	revision types.NamespacedName
 	timeout  time.Duration
 
-	name            string
-	image           string
-	index           int
-	isInitContainer bool
+	name  string
+	image string
 }
 
 func newBackgroundResolver(logger *zap.SugaredLogger, resolver imageResolver, queue workqueue.RateLimitingInterface, enqueue func(types.NamespacedName)) *backgroundResolver {
@@ -176,14 +171,24 @@ func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision
 		return nil, nil, ret.err
 	}
 
-	statuses = make([]v1.ContainerStatus, len(rev.Spec.Containers))
-	for k, v := range ret.statuses {
-		statuses[k] = v
+	initContainerStatuses = make([]v1.ContainerStatus, len(rev.Spec.InitContainers))
+	for i, container := range rev.Spec.InitContainers {
+		if resolvedDigest, ok := ret.imagesResolved[container.Image]; ok {
+			initContainerStatuses[i] = v1.ContainerStatus{
+				Name:        container.Name,
+				ImageDigest: resolvedDigest,
+			}
+		}
 	}
 
-	initContainerStatuses = make([]v1.ContainerStatus, len(rev.Spec.InitContainers))
-	for k, v := range ret.initContainerStatuses {
-		initContainerStatuses[k] = v
+	statuses = make([]v1.ContainerStatus, len(rev.Spec.Containers))
+	for i, container := range rev.Spec.Containers {
+		if resolvedDigest, ok := ret.imagesResolved[container.Image]; ok {
+			statuses[i] = v1.ContainerStatus{
+				Name:        container.Name,
+				ImageDigest: resolvedDigest,
+			}
+		}
 	}
 
 	logger.Debugf("Resolve returned %d resolved images for revision", len(statuses)+len(initContainerStatuses))
@@ -195,40 +200,27 @@ func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision
 func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.NamespacedName, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) {
 	totalNumOfContainers := len(rev.Spec.Containers) + len(rev.Spec.InitContainers)
 	r.results[name] = &resolveResult{
-		opt:                   opt,
-		registriesToSkip:      registriesToSkip,
-		statuses:              make(map[int]v1.ContainerStatus),
-		initContainerStatuses: make(map[int]v1.ContainerStatus),
-		want:                  totalNumOfContainers,
-		workItems:             make([]workItem, 0, totalNumOfContainers),
+		opt:                opt,
+		registriesToSkip:   registriesToSkip,
+		imagesResolved:     make(map[string]string),
+		imagesToBeResolved: sets.String{},
+		workItems:          make([]workItem, 0, totalNumOfContainers),
 		completionCallback: func() {
 			r.enqueue(name)
 		},
 	}
 
-	for i, container := range rev.Spec.Containers {
+	for _, container := range append(rev.Spec.InitContainers, rev.Spec.Containers...) {
+		r.results[name].imagesToBeResolved.Insert(container.Image)
+	}
+
+	for _, container := range append(rev.Spec.InitContainers, rev.Spec.Containers...) {
 		item := workItem{
 			revision: name,
 			timeout:  timeout,
 			name:     container.Name,
 			image:    container.Image,
-			index:    i,
 		}
-
-		r.results[name].workItems = append(r.results[name].workItems, item)
-		r.queue.AddRateLimited(item)
-	}
-
-	for i, container := range rev.Spec.InitContainers {
-		item := workItem{
-			revision:        name,
-			timeout:         timeout,
-			name:            container.Name,
-			image:           container.Image,
-			index:           i,
-			isInitContainer: true,
-		}
-
 		r.results[name].workItems = append(r.results[name].workItems, item)
 		r.queue.AddRateLimited(item)
 	}
@@ -276,24 +268,13 @@ func (r *backgroundResolver) processWorkItem(item workItem) {
 	}
 
 	if resolveErr != nil {
-		result.statuses = nil
-		result.initContainerStatuses = nil
+		result.imagesResolved = nil
 		result.err = fmt.Errorf("%s: %w", v1.RevisionContainerMissingMessage(item.image, "failed to resolve image to digest"), resolveErr)
 		result.completionCallback()
 		return
 	}
 
-	if item.isInitContainer {
-		result.initContainerStatuses[item.index] = v1.ContainerStatus{
-			Name:        item.name,
-			ImageDigest: resolvedDigest,
-		}
-	} else {
-		result.statuses[item.index] = v1.ContainerStatus{
-			Name:        item.name,
-			ImageDigest: resolvedDigest,
-		}
-	}
+	result.imagesResolved[item.image] = resolvedDigest
 
 	if result.ready() {
 		result.completionCallback()
@@ -329,5 +310,5 @@ func (r *backgroundResolver) Forget(name types.NamespacedName) {
 }
 
 func (r *resolveResult) ready() bool {
-	return len(r.statuses)+len(r.initContainerStatuses) == r.want || r.err != nil
+	return len(r.imagesToBeResolved) == len(r.imagesResolved) || r.err != nil
 }
