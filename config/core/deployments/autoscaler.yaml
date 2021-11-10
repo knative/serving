@@ -18,10 +18,10 @@ metadata:
   name: autoscaler
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: devel
-    app.kubernetes.io/name: autoscaler
-    app.kubernetes.io/part-of: knative-serving
+    app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
+    serving.knative.dev/release: devel
 spec:
   replicas: 1
   selector:
@@ -33,10 +33,10 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
         app: autoscaler
-        serving.knative.dev/release: devel
-        app.kubernetes.io/name: autoscaler
-        app.kubernetes.io/part-of: knative-serving
+        app.kubernetes.io/component: autoscaler
+        app.kubernetes.io/name: knative-serving
         app.kubernetes.io/version: devel
+        serving.knative.dev/release: devel
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
       affinity:
@@ -121,10 +121,10 @@ kind: Service
 metadata:
   labels:
     app: autoscaler
-    serving.knative.dev/release: devel
-    app.kubernetes.io/name: autoscaler
-    app.kubernetes.io/part-of: knative-serving
+    app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
+    serving.knative.dev/release: devel
   name: autoscaler
   namespace: knative-serving
 spec:

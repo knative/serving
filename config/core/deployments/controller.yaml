@@ -18,10 +18,10 @@ metadata:
   name: controller
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: devel
-    app.kubernetes.io/name: controller
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative-serving
+    serving.knative.dev/release: devel
 spec:
   selector:
     matchLabels:
@@ -32,10 +32,10 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: controller
-        serving.knative.dev/release: devel
-        app.kubernetes.io/name: controller
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: knative-serving
         app.kubernetes.io/version: devel
-        app.kubernetes.io/part-of: knative-serving
+        serving.knative.dev/release: devel
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
       affinity:
@@ -101,10 +101,10 @@ kind: Service
 metadata:
   labels:
     app: controller
-    serving.knative.dev/release: devel
-    app.kubernetes.io/name: controller
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    app.kubernetes.io/part-of: knative-serving
+    serving.knative.dev/release: devel
   name: controller
   namespace: knative-serving
 spec:
