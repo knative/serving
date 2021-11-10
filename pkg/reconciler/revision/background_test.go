@@ -236,7 +236,7 @@ func TestRateLimitPerItem(t *testing.T) {
 	logger := logtesting.TestLogger(t)
 
 	var resolver resolveFunc = func(_ context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
-		if img == "img1" {
+		if img == "img1" || img == "init"{
 			return "", nil
 		}
 

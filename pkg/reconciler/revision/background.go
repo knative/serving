@@ -268,7 +268,6 @@ func (r *backgroundResolver) processWorkItem(item workItem) {
 	}
 
 	if resolveErr != nil {
-		result.imagesResolved = nil
 		result.err = fmt.Errorf("%s: %w", v1.RevisionContainerMissingMessage(item.image, "failed to resolve image to digest"), resolveErr)
 		result.completionCallback()
 		return
