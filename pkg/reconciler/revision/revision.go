@@ -72,12 +72,6 @@ var (
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (bool, error) {
 	totalNumOfContainers := len(rev.Spec.Containers) + len(rev.Spec.InitContainers)
-	if rev.Status.ContainerStatuses == nil {
-		rev.Status.ContainerStatuses = make([]v1.ContainerStatus, 0, len(rev.Spec.Containers))
-	}
-	if rev.Status.InitContainerStatuses == nil {
-		rev.Status.InitContainerStatuses = make([]v1.ContainerStatus, 0, len(rev.Spec.InitContainers))
-	}
 
 	// The image digest has already been resolved.
 	// No need to check for init containers feature flag here because rev.Spec has been validated already
@@ -108,12 +102,8 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 	}
 
 	if len(statuses) > 0 || len(initContainerStatuses) > 0 {
-		if len(statuses) > 0 {
-			rev.Status.ContainerStatuses = statuses
-		}
-		if len(initContainerStatuses) > 0 {
-			rev.Status.InitContainerStatuses = initContainerStatuses
-		}
+		rev.Status.ContainerStatuses = statuses
+		rev.Status.InitContainerStatuses = initContainerStatuses
 		return true, nil
 	}
 

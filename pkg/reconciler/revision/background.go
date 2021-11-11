@@ -75,7 +75,6 @@ type workItem struct {
 	revision types.NamespacedName
 	timeout  time.Duration
 
-	name  string
 	image string
 }
 
@@ -211,18 +210,16 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 	}
 
 	for _, container := range append(rev.Spec.InitContainers, rev.Spec.Containers...) {
-		r.results[name].imagesToBeResolved.Insert(container.Image)
-	}
-
-	for _, container := range append(rev.Spec.InitContainers, rev.Spec.Containers...) {
-		item := workItem{
-			revision: name,
-			timeout:  timeout,
-			name:     container.Name,
-			image:    container.Image,
+		if !r.results[name].imagesToBeResolved.Has(container.Image) {
+			item := workItem{
+				revision: name,
+				timeout:  timeout,
+				image:    container.Image,
+			}
+			r.results[name].workItems = append(r.results[name].workItems, item)
+			r.results[name].imagesToBeResolved.Insert(container.Image)
+			r.queue.AddRateLimited(item)
 		}
-		r.results[name].workItems = append(r.results[name].workItems, item)
-		r.queue.AddRateLimited(item)
 	}
 }
 
