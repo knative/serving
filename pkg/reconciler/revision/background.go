@@ -181,11 +181,10 @@ func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision
 
 	statuses = make([]v1.ContainerStatus, len(rev.Spec.Containers))
 	for i, container := range rev.Spec.Containers {
-		if resolvedDigest, ok := ret.imagesResolved[container.Image]; ok {
-			statuses[i] = v1.ContainerStatus{
-				Name:        container.Name,
-				ImageDigest: resolvedDigest,
-			}
+		resolvedDigest := ret.imagesResolved[container.Image]
+		statuses[i] = v1.ContainerStatus{
+			Name:        container.Name,
+			ImageDigest: resolvedDigest,
 		}
 	}
 
