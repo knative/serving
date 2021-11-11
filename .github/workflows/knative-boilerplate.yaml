@@ -61,7 +61,7 @@ jobs:
           echo '::endgroup::'
 
           echo '::group:: Installing boilerplate-check ... https://github.com/mattmoor/boilerplate-check'
-          go get github.com/mattmoor/boilerplate-check/cmd/boilerplate-check
+          go install github.com/mattmoor/boilerplate-check/cmd/boilerplate-check@latest
           echo '::endgroup::'
 
           echo "${TEMP_PATH}" >> $GITHUB_PATH
