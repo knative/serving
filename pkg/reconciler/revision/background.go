@@ -172,11 +172,10 @@ func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision
 
 	initContainerStatuses = make([]v1.ContainerStatus, len(rev.Spec.InitContainers))
 	for i, container := range rev.Spec.InitContainers {
-		if resolvedDigest, ok := ret.imagesResolved[container.Image]; ok {
-			initContainerStatuses[i] = v1.ContainerStatus{
-				Name:        container.Name,
-				ImageDigest: resolvedDigest,
-			}
+		resolvedDigest := ret.imagesResolved[container.Image]
+		initContainerStatuses[i] = v1.ContainerStatus{
+			Name:        container.Name,
+			ImageDigest: resolvedDigest,
 		}
 	}
 
@@ -210,16 +209,17 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 	}
 
 	for _, container := range append(rev.Spec.InitContainers, rev.Spec.Containers...) {
-		if !r.results[name].imagesToBeResolved.Has(container.Image) {
-			item := workItem{
-				revision: name,
-				timeout:  timeout,
-				image:    container.Image,
-			}
-			r.results[name].workItems = append(r.results[name].workItems, item)
-			r.results[name].imagesToBeResolved.Insert(container.Image)
-			r.queue.AddRateLimited(item)
+		if r.results[name].imagesToBeResolved.Has(container.Image) {
+			continue
 		}
+		item := workItem{
+			revision: name,
+			timeout:  timeout,
+			image:    container.Image,
+		}
+		r.results[name].workItems = append(r.results[name].workItems, item)
+		r.results[name].imagesToBeResolved.Insert(container.Image)
+		r.queue.AddRateLimited(item)
 	}
 }
 
