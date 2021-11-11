@@ -149,8 +149,6 @@ github.com/gobuffalo/flect
 ## explicit
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
-# github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-github.com/golang/glog
 # github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.5.2
@@ -197,24 +195,10 @@ github.com/google/go-containerregistry/pkg/v1/types
 # github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210624211700-ce35c99b3faf
 ## explicit
 github.com/google/go-containerregistry/pkg/authn/k8schain
-# github.com/google/go-github/v27 v27.0.6
-github.com/google/go-github/v27/github
-# github.com/google/go-querystring v1.0.0
-github.com/google/go-querystring/query
 # github.com/google/gofuzz v1.2.0
 ## explicit
 github.com/google/gofuzz
 github.com/google/gofuzz/bytesource
-# github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
-## explicit
-github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto
-github.com/google/mako/clients/proto/analyzers/utest_analyzer_go_proto
-github.com/google/mako/clients/proto/analyzers/window_deviation_go_proto
-github.com/google/mako/go/quickstore
-github.com/google/mako/internal/go/common
-github.com/google/mako/internal/quickstore_microservice/proto/quickstore_go_proto
-github.com/google/mako/proto/quickstore/quickstore_go_proto
-github.com/google/mako/spec/proto/mako_go_proto
 # github.com/google/uuid v1.3.0
 github.com/google/uuid
 # github.com/googleapis/gax-go/v2 v2.1.1
@@ -371,13 +355,6 @@ go.uber.org/zap/internal/ztest
 go.uber.org/zap/zapcore
 go.uber.org/zap/zaptest
 # golang.org/x/crypto v0.0.0-20210920023735-84f357641f63
-golang.org/x/crypto/cast5
-golang.org/x/crypto/openpgp
-golang.org/x/crypto/openpgp/armor
-golang.org/x/crypto/openpgp/elgamal
-golang.org/x/crypto/openpgp/errors
-golang.org/x/crypto/openpgp/packet
-golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pkcs12
 golang.org/x/crypto/pkcs12/internal/rc2
 # golang.org/x/mod v0.4.2
@@ -1157,24 +1134,16 @@ knative.dev/pkg/system
 knative.dev/pkg/system/testing
 knative.dev/pkg/test
 knative.dev/pkg/test/environment
-knative.dev/pkg/test/ghutil
 knative.dev/pkg/test/ha
 knative.dev/pkg/test/helpers
 knative.dev/pkg/test/ingress
 knative.dev/pkg/test/logging
 knative.dev/pkg/test/logstream
 knative.dev/pkg/test/logstream/v2
-knative.dev/pkg/test/mako
-knative.dev/pkg/test/mako/alerter
-knative.dev/pkg/test/mako/alerter/github
-knative.dev/pkg/test/mako/alerter/slack
-knative.dev/pkg/test/mako/config
 knative.dev/pkg/test/migrate
 knative.dev/pkg/test/monitoring
-knative.dev/pkg/test/slackutil
 knative.dev/pkg/test/spoof
 knative.dev/pkg/test/upgrade
-knative.dev/pkg/test/vegeta/pacers
 knative.dev/pkg/test/zipkin
 knative.dev/pkg/tracing
 knative.dev/pkg/tracing/config
