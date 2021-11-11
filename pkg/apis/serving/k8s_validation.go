@@ -317,17 +317,12 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	errs = errs.Also(ValidatePodSecurityContext(ctx, ps.SecurityContext).ViaField("securityContext"))
 
 	volumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(append(ps.InitContainers, ps.Containers...)))
+	errs = errs.Also(err.ViaField("volumes"))
 
 	errs = errs.Also(validateInitContainers(ctx, ps.InitContainers, volumes))
 
-	if err != nil {
-		errs = errs.Also(err.ViaField("volumes"))
-	}
-
 	port, err := validateContainersPorts(ps.Containers)
-	if err != nil {
-		errs = errs.Also(err.ViaField("containers[*]"))
-	}
+	errs = errs.Also(err.ViaField("containers[*]"))
 
 	switch len(ps.Containers) {
 	case 0:
