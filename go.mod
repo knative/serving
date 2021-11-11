@@ -29,7 +29,6 @@ require (
 	go.opencensus.io v0.23.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/automaxprocs v1.4.0
-	go.uber.org/goleak v1.1.11-0.20210813005559-691160354723
 	go.uber.org/zap v1.19.1
 	golang.org/x/net v0.0.0-20211101193420-4a448f8816b3
 	golang.org/x/oauth2 v0.0.0-20211028175245-ba495a64dcb5

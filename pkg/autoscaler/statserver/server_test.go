@@ -27,7 +27,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/websocket"
-	"go.uber.org/goleak"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	network "knative.dev/networking/pkg"
@@ -150,24 +149,6 @@ func TestServerShutdown(t *testing.T) {
 	if _, err := dial(listenAddr); err == nil {
 		t.Fatal("Connection not refused")
 	}
-
-	closeSink(t, statSink)
-}
-
-func TestServerDoesNotLeakGoroutines(t *testing.T) {
-	statsCh := make(chan metrics.StatMessage)
-	server := newTestServer(statsCh)
-	defer server.Shutdown(0)
-
-	go server.listenAndServe()
-
-	// Check the number of goroutines eventually reduces to the number there were before the connection was created
-	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
-
-	listenAddr := server.listenAddr()
-	statSink := dialOK(t, listenAddr)
-
-	assertReceivedProto(t, both, statSink, statsCh)
 
 	closeSink(t, statSink)
 }
