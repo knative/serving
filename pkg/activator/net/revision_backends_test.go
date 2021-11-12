@@ -65,8 +65,8 @@ func revisionCC1(revID types.NamespacedName, protocol pkgnet.ProtocolType) *v1.R
 	return revision(revID, protocol, 1)
 }
 
-func revision(revID types.NamespacedName, protocol pkgnet.ProtocolType, cc int64) *v1.Revision {
-	return &v1.Revision{
+func revision(revID types.NamespacedName, protocol pkgnet.ProtocolType, cc int64, options ...func(r *v1.Revision)) *v1.Revision {
+	r := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: revID.Namespace,
 			Name:      revID.Name,
@@ -82,6 +82,10 @@ func revision(revID types.NamespacedName, protocol pkgnet.ProtocolType, cc int64
 			},
 		},
 	}
+	for _, o := range options {
+		o(r)
+	}
+	return r
 }
 
 func privateSKSService(revID types.NamespacedName, clusterIP string, ports []corev1.ServicePort) *corev1.Service {
@@ -548,6 +552,7 @@ func TestRevisionWatcher(t *testing.T) {
 				informer.Lister(),
 				tc.usePassthroughLb, // usePassthroughLb
 				tc.meshMode,
+				true,
 				logger)
 			rw.clusterIPHealthy = tc.initialClusterIPState
 
@@ -826,6 +831,64 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			},
 		},
 		updateCnt: 1,
+	}, {
+		name:         "pod with exec probe only goes ready when kubernetes agrees",
+		endpointsArr: []*corev1.Endpoints{epNotReady(testRevision, 1234, "http", nil, []string{"128.0.0.1"})},
+		revisions: []*v1.Revision{
+			revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1, 1, func(r *v1.Revision) {
+				r.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+					Handler: corev1.Handler{
+						Exec: &corev1.ExecAction{},
+					},
+				}
+			}),
+		},
+		services: []*corev1.Service{
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
+				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
+		},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				Err: errors.New("clusterIP transport error"),
+			}},
+			"128.0.0.1:1234": {{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
+		expectDests: map[types.NamespacedName]revisionDestsUpdate{},
+		updateCnt:   0,
+	}, {
+		name:         "pod with exec probe goes ready when kubernetes agrees",
+		endpointsArr: []*corev1.Endpoints{epNotReady(testRevision, 1234, "http", []string{"128.0.0.1"}, nil)},
+		revisions: []*v1.Revision{
+			revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1, 1, func(r *v1.Revision) {
+				r.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+					Handler: corev1.Handler{
+						Exec: &corev1.ExecAction{},
+					},
+				}
+			}),
+		},
+		services: []*corev1.Service{
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
+				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
+		},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				Err: errors.New("clusterIP transport error"),
+			}},
+			"128.0.0.1:1234": {{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
+		expectDests: map[types.NamespacedName]revisionDestsUpdate{
+			{Namespace: testNamespace, Name: testRevision}: {
+				Dests: sets.NewString("128.0.0.1:1234"),
+			},
+		},
+		updateCnt: 1,
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeRT := activatortest.FakeRoundTripper{
@@ -965,15 +1028,16 @@ func TestCheckDestsReadyToNotReady(t *testing.T) {
 	uCh := make(chan revisionDestsUpdate, 1)
 	dCh := make(chan struct{})
 	rw := &revisionWatcher{
-		clusterIPHealthy: true,
-		podsAddressable:  true,
-		rev:              types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-		updateCh:         uCh,
-		serviceLister:    si.Lister(),
-		logger:           TestLogger(t),
-		stopCh:           dCh,
-		transport:        pkgnetwork.RoundTripperFunc(fakeRT.RT),
-		meshMode:         network.MeshCompatibilityModeAuto,
+		clusterIPHealthy:        true,
+		podsAddressable:         true,
+		rev:                     types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+		updateCh:                uCh,
+		serviceLister:           si.Lister(),
+		logger:                  TestLogger(t),
+		stopCh:                  dCh,
+		transport:               pkgnetwork.RoundTripperFunc(fakeRT.RT),
+		meshMode:                network.MeshCompatibilityModeAuto,
+		enableProbeOptimisation: true,
 	}
 	// Initial state. Both are ready.
 	cur := dests{
@@ -1069,13 +1133,14 @@ func TestCheckDests(t *testing.T) {
 	uCh := make(chan revisionDestsUpdate, 1)
 	dCh := make(chan struct{})
 	rw := &revisionWatcher{
-		clusterIPHealthy: true,
-		podsAddressable:  false,
-		rev:              types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-		updateCh:         uCh,
-		serviceLister:    si.Lister(),
-		logger:           TestLogger(t),
-		stopCh:           dCh,
+		clusterIPHealthy:        true,
+		podsAddressable:         false,
+		rev:                     types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+		updateCh:                uCh,
+		serviceLister:           si.Lister(),
+		logger:                  TestLogger(t),
+		stopCh:                  dCh,
+		enableProbeOptimisation: true,
 	}
 	rw.checkDests(dests{
 		ready:    sets.NewString("10.1.1.5"),
@@ -1169,14 +1234,15 @@ func TestCheckDestsSwinging(t *testing.T) {
 	uCh := make(chan revisionDestsUpdate, 1)
 	dCh := make(chan struct{})
 	rw := &revisionWatcher{
-		rev:             types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-		updateCh:        uCh,
-		serviceLister:   si.Lister(),
-		logger:          TestLogger(t),
-		stopCh:          dCh,
-		podsAddressable: true,
-		transport:       pkgnetwork.RoundTripperFunc(fakeRT.RT),
-		meshMode:        network.MeshCompatibilityModeAuto,
+		rev:                     types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+		updateCh:                uCh,
+		serviceLister:           si.Lister(),
+		logger:                  TestLogger(t),
+		stopCh:                  dCh,
+		podsAddressable:         true,
+		transport:               pkgnetwork.RoundTripperFunc(fakeRT.RT),
+		meshMode:                network.MeshCompatibilityModeAuto,
+		enableProbeOptimisation: true,
 	}
 
 	// First not ready, second good, clusterIP: not ready.
