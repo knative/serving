@@ -737,9 +737,7 @@ func TestServiceCreateWithEmptyDir(t *testing.T) {
 	if test.ServingFlags.DisableOptionalAPI {
 		t.Skip("Emptydir support is not required by Knative Serving API Specification")
 	}
-	if !test.ServingFlags.EnableAlphaFeatures {
-		t.Skip()
-	}
+
 	t.Parallel()
 	clients := test.Setup(t)
 
