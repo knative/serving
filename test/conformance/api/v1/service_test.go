@@ -36,7 +36,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	rtesting "knative.dev/serving/pkg/testing/v1"
-	testingv1 "knative.dev/serving/pkg/testing/v1"
 )
 
 // TestServiceCreateListAndDelete tests Creation, Listing and Deletion for Service resources.
@@ -748,7 +747,7 @@ func TestServiceCreateWithEmptyDir(t *testing.T) {
 
 	quantity := resource.MustParse("100M")
 
-	withVolume := testingv1.WithVolume("data", "/data", corev1.VolumeSource{
+	withVolume := rtesting.WithVolume("data", "/data", corev1.VolumeSource{
 		EmptyDir: &corev1.EmptyDirVolumeSource{
 			Medium:    "Memory",
 			SizeLimit: &quantity,
