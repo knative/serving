@@ -65,7 +65,7 @@ func TestImagePullError(t *testing.T) {
 		t.Fatal("Failed to validate configuration state:", err)
 	}
 
-	revisionName, err := revisionFromConfiguration(clients, names.Config)
+	revisionName, err := RevisionFromConfiguration(clients, names.Config)
 	if err != nil {
 		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
 	}

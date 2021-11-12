@@ -258,6 +258,67 @@ func TestMakeImageCache(t *testing.T) {
 				ServiceAccountName: "privilegeless",
 			},
 		},
+	}, {
+		name: "simple user and init container",
+		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				Annotations: map[string]string{
+					"a": "b",
+				},
+				UID: "1234",
+			},
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(1),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+					InitContainers: []corev1.Container{{
+						Image: "busybox",
+						Name:  "init",
+					}},
+				},
+			},
+			Status: v1.RevisionStatus{
+				ContainerStatuses: []v1.ContainerStatus{{
+					Name:        "user-container",
+					ImageDigest: "busybox@sha256:deadbeef",
+				}},
+				InitContainerStatuses: []v1.ContainerStatus{{
+					Name:        "init",
+					ImageDigest: "busybox@sha256:deadbeef",
+				}},
+			},
+		},
+		containerName: "init",
+		image:         "ubuntu@sha256:deadbeef",
+		want: &caching.Image{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar-cache-init",
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "bar",
+					serving.RevisionUID:      "1234",
+					AppLabelKey:              "bar",
+				},
+				Annotations: map[string]string{
+					"a": "b",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1.SchemeGroupVersion.String(),
+					Kind:               "Revision",
+					Name:               "bar",
+					UID:                "1234",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: caching.ImageSpec{
+				Image: "ubuntu@sha256:deadbeef",
+			},
+		},
 	}}
 
 	for _, test := range tests {

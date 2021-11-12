@@ -633,6 +633,28 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
 		}},
 		Key: "foo/image-pull-secrets",
+	}, {
+		Name: "first revision reconciliation with init containers",
+		// Test the simplest successful reconciliation flow.
+		// We feed in a well formed Revision where none of its sub-resources exist,
+		// and we expect it to create them and initialize the Revision's status.
+		Objects: []runtime.Object{
+			Revision("foo", "first-reconcile", WithRevisionInitContainers()),
+		},
+		WantCreates: append([]runtime.Object{
+			// The first reconciliation of a Revision creates the following resources.
+			pa("foo", "first-reconcile"),
+			deploy(t, "foo", "first-reconcile", WithRevisionInitContainers()),
+			image("foo", "first-reconcile")},
+			imageInit("foo", "first-reconcile")...),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Revision("foo", "first-reconcile", WithRevisionInitContainers(),
+				// The first reconciliation Populates the following status properties.
+				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
+				withDefaultContainerStatuses(), withInitContainerStatuses(), WithRevisionObservedGeneration(1)),
+		}},
+		Key: "foo/first-reconcile",
+		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{PodSpecInitContainers: defaultconfig.Enabled}}),
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, _ configmap.Watcher) controller.Reconciler {
@@ -721,6 +743,18 @@ func withDefaultContainerStatuses() RevisionOption {
 	}
 }
 
+func withInitContainerStatuses() RevisionOption {
+	return func(r *v1.Revision) {
+		r.Status.InitContainerStatuses = []v1.ContainerStatus{{
+			Name:        "init1",
+			ImageDigest: "",
+		}, {
+			Name:        "init2",
+			ImageDigest: "",
+		}}
+	}
+}
+
 // TODO(mattmoor): Come up with a better name for this.
 func allUnknownConditions(r *v1.Revision) {
 	WithInitRevConditions(r)
@@ -765,6 +799,19 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 	}
 
 	return resources.MakeImageCache(Revision(namespace, name), name, "")
+}
+
+func imageInit(namespace, name string, co ...configOption) []runtime.Object {
+	config := reconcilerTestConfig()
+	for _, opt := range co {
+		opt(config)
+	}
+	rev := Revision(namespace, name, WithRevisionInitContainers())
+	images := make([]runtime.Object, 0, len(rev.Spec.InitContainers))
+	for _, container := range rev.Spec.InitContainers {
+		images = append(images, resources.MakeImageCache(rev, container.Name, ""))
+	}
+	return images
 }
 
 func pa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {

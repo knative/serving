@@ -137,6 +137,15 @@ type RevisionStatus struct {
 	// +optional
 	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty"`
 
+	// InitContainerStatuses is a slice of images present in .Spec.InitContainer[*].Image
+	// to their respective digests and their container name.
+	// The digests are resolved during the creation of Revision.
+	// ContainerStatuses holds the container name and image digests
+	// for both serving and non serving containers.
+	// ref: http://bit.ly/image-digests
+	// +optional
+	InitContainerStatuses []ContainerStatus `json:"initContainerStatuses,omitempty"`
+
 	// ActualReplicas reflects the amount of ready pods running this revision.
 	// +optional
 	ActualReplicas *int32 `json:"actualReplicas,omitempty"`

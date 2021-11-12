@@ -209,7 +209,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 	}
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
 
-	for _, v := range rev.Spec.Containers {
+	for _, v := range append(rev.Spec.Containers, rev.Spec.InitContainers...) {
 		imageName := kmeta.ChildName(names.ImageCache(rev), "-"+v.Name)
 		image, err := fakecachingclient.Get(ctx).CachingV1alpha1().Images(rev.Namespace).Get(ctx, imageName, metav1.GetOptions{})
 		if err != nil {
@@ -229,10 +229,20 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(_ *zap.SugaredLogger, rev *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
-	return []v1.ContainerStatus{{
+func (r *nopResolver) Resolve(_ *zap.SugaredLogger, rev *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, error) {
+	status := []v1.ContainerStatus{{
 		Name: rev.Spec.Containers[0].Name,
-	}}, nil
+	}}
+	if len(rev.Spec.InitContainers) > 0 {
+		var initStatus []v1.ContainerStatus
+		for i := range rev.Spec.InitContainers {
+			initStatus = append(initStatus, v1.ContainerStatus{
+				Name: rev.Spec.InitContainers[i].Name,
+			})
+		}
+		return initStatus, status, nil
+	}
+	return nil, status, nil
 }
 
 func (r *nopResolver) Clear(types.NamespacedName)  {}
@@ -264,6 +274,10 @@ func testPodSpec() corev1.PodSpec {
 				TimeoutSeconds: 43,
 			},
 			TerminationMessagePath: "/dev/null",
+		}},
+		// derived objects.
+		InitContainers: []corev1.Container{{
+			Image: "gcr.io/repo/init",
 		}},
 	}
 }
@@ -326,8 +340,8 @@ func testDefaultsCM() *corev1.ConfigMap {
 
 type notResolvedYetResolver struct{}
 
-func (r *notResolvedYetResolver) Resolve(_ *zap.SugaredLogger, _ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
-	return nil, nil
+func (r *notResolvedYetResolver) Resolve(_ *zap.SugaredLogger, _ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, error) {
+	return nil, nil, nil
 }
 
 func (r *notResolvedYetResolver) Clear(types.NamespacedName)  {}
@@ -338,8 +352,8 @@ type errorResolver struct {
 	cleared bool
 }
 
-func (r *errorResolver) Resolve(_ *zap.SugaredLogger, _ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
-	return nil, r.err
+func (r *errorResolver) Resolve(_ *zap.SugaredLogger, _ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, error) {
+	return nil, nil, r.err
 }
 
 func (r *errorResolver) Clear(types.NamespacedName) {

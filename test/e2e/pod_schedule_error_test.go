@@ -20,14 +20,12 @@ limitations under the License.
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -87,7 +85,7 @@ func TestPodScheduleError(t *testing.T) {
 		t.Fatal("Failed to validate service state:", err)
 	}
 
-	revisionName, err := revisionFromConfiguration(clients, names.Config)
+	revisionName, err := RevisionFromConfiguration(clients, names.Config)
 	if err != nil {
 		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
 	}
@@ -108,16 +106,4 @@ func TestPodScheduleError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to validate revision state:", err)
 	}
-}
-
-// Get revision name from configuration.
-func revisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
-	config, err := clients.ServingClient.Configs.Get(context.Background(), configName, metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	if config.Status.LatestCreatedRevisionName != "" {
-		return config.Status.LatestCreatedRevisionName, nil
-	}
-	return "", fmt.Errorf("no valid revision name found in configuration %s", configName)
 }

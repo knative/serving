@@ -45,7 +45,7 @@ import (
 )
 
 type resolver interface {
-	Resolve(*zap.SugaredLogger, *v1.Revision, k8schain.Options, sets.String, time.Duration) ([]v1.ContainerStatus, error)
+	Resolve(*zap.SugaredLogger, *v1.Revision, k8schain.Options, sets.String, time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, error)
 	Clear(types.NamespacedName)
 	Forget(types.NamespacedName)
 }
@@ -71,12 +71,11 @@ var (
 )
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (bool, error) {
-	if rev.Status.ContainerStatuses == nil {
-		rev.Status.ContainerStatuses = make([]v1.ContainerStatus, 0, len(rev.Spec.Containers))
-	}
+	totalNumOfContainers := len(rev.Spec.Containers) + len(rev.Spec.InitContainers)
 
 	// The image digest has already been resolved.
-	if len(rev.Status.ContainerStatuses) == len(rev.Spec.Containers) {
+	// No need to check for init containers feature flag here because rev.Spec has been validated already
+	if len(rev.Status.ContainerStatuses)+len(rev.Status.InitContainerStatuses) == totalNumOfContainers {
 		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
 		return true, nil
 	}
@@ -93,7 +92,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 	}
 
 	logger := logging.FromContext(ctx)
-	statuses, err := c.resolver.Resolve(logger, rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, cfgs.Deployment.DigestResolutionTimeout)
+	initContainerStatuses, statuses, err := c.resolver.Resolve(logger, rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, cfgs.Deployment.DigestResolutionTimeout)
 	if err != nil {
 		// Clear the resolver so we can retry the digest resolution rather than
 		// being stuck with this error.
@@ -101,8 +100,10 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing, err.Error())
 		return true, err
 	}
-	if len(statuses) > 0 {
+
+	if len(statuses) > 0 || len(initContainerStatuses) > 0 {
 		rev.Status.ContainerStatuses = statuses
+		rev.Status.InitContainerStatuses = initContainerStatuses
 		return true, nil
 	}
 

@@ -21,16 +21,20 @@ package initcontainers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
-	"knative.dev/serving/test"
-	v1test "knative.dev/serving/test/v1"
-
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	. "knative.dev/serving/pkg/testing/v1"
+	"knative.dev/serving/test"
+	"knative.dev/serving/test/conformance/api/shared"
+	"knative.dev/serving/test/e2e"
+	v1test "knative.dev/serving/test/v1"
 )
 
 // TestInitContainers tests init containers support.
@@ -89,5 +93,26 @@ func TestInitContainers(t *testing.T) {
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.EmptyDirText, err)
+	}
+
+	revisionName, err := e2e.RevisionFromConfiguration(clients, names.Config)
+	if err != nil {
+		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
+	}
+
+	if err := v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
+		if len(r.Status.InitContainerStatuses) != 1 {
+			return true, errors.New("init image digest resolution failed")
+		}
+		initContainerStatus := r.Status.InitContainerStatuses[0]
+		if validDigest, err := shared.ValidateImageDigest(t, names.Image, initContainerStatus.ImageDigest); !validDigest {
+			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", initContainerStatus.ImageDigest, initContainerStatus.Name, err)
+		}
+		if initContainerStatus.Name != "initsetup" {
+			return false, errors.New("init image digest resolution failed container name does not match")
+		}
+		return true, nil
+	}); err != nil {
+		t.Fatal("Failed to validate revision state:", err)
 	}
 }
