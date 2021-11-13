@@ -71,12 +71,14 @@ if (( SHORT )); then
 fi
 
 toggle_feature autocreateClusterDomainClaims true config-network || fail_test
+toggle_feature kubernetes.podspec-volumes-emptydir Enabled
 go_test_e2e -timeout=30m \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
   ./test/e2e \
   ${parallelism} \
   ${TEST_OPTIONS} || failed=1
+toggle_feature kubernetes.podspec-volumes-emptydir Disabled
 toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
 toggle_feature tag-header-based-routing Enabled
