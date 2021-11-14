@@ -58,6 +58,7 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 	if min > 0 {
 		hpa.Spec.MinReplicas = &min
 	}
+	window, hasWindow := pa.Window()
 
 	if target, ok := pa.Target(); ok {
 		switch pa.Metric() {
@@ -85,6 +86,24 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 					},
 				},
 			}}
+		}
+	}
+	if hasWindow {
+		windowSeconds := int32(window.Seconds())
+		hpa.Spec.Behavior = &autoscalingv2beta2.HorizontalPodAutoscalerBehavior{
+			ScaleDown: &autoscalingv2beta2.HPAScalingRules{
+				StabilizationWindowSeconds: &windowSeconds,
+			},
+			ScaleUp: &autoscalingv2beta2.HPAScalingRules{
+				StabilizationWindowSeconds: &windowSeconds,
+				Policies: []autoscalingv2beta2.HPAScalingPolicy{
+					{
+						Type:          "Pods",
+						Value:         1,
+						PeriodSeconds: 120,
+					},
+				},
+			},
 		}
 	}
 
