@@ -82,10 +82,10 @@ function publish_to_gcs() {
 # These are global environment variables.
 SKIP_TESTS=0
 PRESUBMIT_TEST_FAIL_FAST=1
-TAG_RELEASE=0
+export TAG_RELEASE=0
 PUBLISH_RELEASE=0
 PUBLISH_TO_GITHUB=0
-TAG=""
+export TAG=""
 BUILD_COMMIT_HASH=""
 BUILD_YYYYMMDD=""
 BUILD_TIMESTAMP=""
