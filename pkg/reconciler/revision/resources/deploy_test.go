@@ -1135,6 +1135,7 @@ func TestMakePodSpec(t *testing.T) {
 					c.Image = "ubuntu@sha256:deadbeef"
 				}),
 				queueContainer(func(container *corev1.Container) {
+					container.ReadinessProbe = nil
 					container.VolumeMounts = []corev1.VolumeMount{{
 						Name:      varTokenVolume.Name,
 						MountPath: "/var/run/secrets/tokens",

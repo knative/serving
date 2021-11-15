@@ -225,22 +225,27 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		// execprobe would have used (which will then check the user container).
 		// Unlike the StartupProbe, we don't need to override any of the other settings
 		// except period here. See below.
-		httpProbe = container.ReadinessProbe.DeepCopy()
-		httpProbe.Handler = corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(int(servingPort.ContainerPort)),
-				HTTPHeaders: []corev1.HTTPHeader{{
-					Name:  network.ProbeHeaderName,
-					Value: queue.Name,
-				}},
-			},
-		}
+		// If the Container-Freezer has been enabled, the readiness probe is disabled,
+		// so as not to continuously probe a frozen container
+		if cfg.Deployment.ConcurrencyStateEndpoint == "" {
 
-		// Default PeriodSeconds to 1 if not set to make for the quickest possible startup
-		// time.
-		// TODO(#10973): Remove this once we're on K8s 1.21
-		if httpProbe.PeriodSeconds == 0 {
-			httpProbe.PeriodSeconds = 1
+			httpProbe = container.ReadinessProbe.DeepCopy()
+			httpProbe.Handler = corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.FromInt(int(servingPort.ContainerPort)),
+					HTTPHeaders: []corev1.HTTPHeader{{
+						Name:  network.ProbeHeaderName,
+						Value: queue.Name,
+					}},
+				},
+			}
+
+			// Default PeriodSeconds to 1 if not set to make for the quickest possible startup
+			// time.
+			// TODO(#10973): Remove this once we're on K8s 1.21
+			if httpProbe.PeriodSeconds == 0 {
+				httpProbe.PeriodSeconds = 1
+			}
 		}
 	}
 
