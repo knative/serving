@@ -132,6 +132,19 @@ func TestMakeHPA(t *testing.T) {
 				},
 			}),
 		),
+	}, {
+		name: "with custom metric",
+		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation("customMetric")),
+		want: hpa(
+			withAnnotationValue(autoscaling.MetricAnnotationKey, "customMetric"),
+			withAnnotationValue(autoscaling.TargetAnnotationKey, "50"),
+			withMetric(autoscalingv2beta2.MetricSpec{
+				Type: autoscalingv2beta2.PodsMetricSourceType,
+				Pods: &autoscalingv2beta2.PodsMetricSource{
+					MetricName:         "customMetric",
+					TargetAverageValue: *resource.NewQuantity(50, resource.DecimalSI),
+				},
+			})),
 	}}
 
 	for _, tc := range cases {
