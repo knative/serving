@@ -67,7 +67,7 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 				Resource: &autoscalingv2beta2.ResourceMetricSource{
 					Name: corev1.ResourceCPU,
 					Target: autoscalingv2beta2.MetricTarget{
-						Type:               "Utilization",
+						Type:               autoscalingv2beta2.UtilizationMetricType,
 						AverageUtilization: ptr.Int32(int32(math.Ceil(target))),
 					},
 				},
@@ -80,7 +80,7 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 				Resource: &autoscalingv2beta2.ResourceMetricSource{
 					Name: corev1.ResourceMemory,
 					Target: autoscalingv2beta2.MetricTarget{
-						Type:         "AverageValue",
+						Type:         autoscalingv2beta2.AverageValueMetricType,
 						AverageValue: memory,
 					},
 				},
