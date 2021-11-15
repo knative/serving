@@ -69,7 +69,7 @@ func TestMakeHPA(t *testing.T) {
 				Resource: &autoscalingv2beta2.ResourceMetricSource{
 					Name: corev1.ResourceCPU,
 					Target: autoscalingv2beta2.MetricTarget{
-						Type:               "Utilization",
+						Type:               autoscalingv2beta2.UtilizationMetricType,
 						AverageUtilization: ptr.Int32(50),
 					},
 				},
@@ -85,7 +85,7 @@ func TestMakeHPA(t *testing.T) {
 				Resource: &autoscalingv2beta2.ResourceMetricSource{
 					Name: corev1.ResourceMemory,
 					Target: autoscalingv2beta2.MetricTarget{
-						Type:         "AverageValue",
+						Type:         autoscalingv2beta2.AverageValueMetricType,
 						AverageValue: resource.NewQuantity(50*1024*1024, resource.BinarySI),
 					},
 				},
@@ -101,7 +101,7 @@ func TestMakeHPA(t *testing.T) {
 				Resource: &autoscalingv2beta2.ResourceMetricSource{
 					Name: corev1.ResourceCPU,
 					Target: autoscalingv2beta2.MetricTarget{
-						Type:               "Utilization",
+						Type:               autoscalingv2beta2.UtilizationMetricType,
 						AverageUtilization: ptr.Int32(1983),
 					},
 				},
