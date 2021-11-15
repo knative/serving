@@ -58,11 +58,10 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 	if min > 0 {
 		hpa.Spec.MinReplicas = &min
 	}
-	window, hasWindow := pa.Window()
 
-	switch pa.Metric() {
-	case autoscaling.CPU:
-		if target, ok := pa.Target(); ok {
+	if target, ok := pa.Target(); ok {
+		switch pa.Metric() {
+		case autoscaling.CPU:
 			hpa.Spec.Metrics = []autoscalingv2beta2.MetricSpec{{
 				Type: autoscalingv2beta2.ResourceMetricSourceType,
 				Resource: &autoscalingv2beta2.ResourceMetricSource{
@@ -73,10 +72,8 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 					},
 				},
 			}}
-		}
 
-	case autoscaling.Memory:
-		if target, ok := pa.Target(); ok {
+		case autoscaling.Memory:
 			memory := resource.NewQuantity(int64(target)*1024*1024, resource.BinarySI)
 			hpa.Spec.Metrics = []autoscalingv2beta2.MetricSpec{{
 				Type: autoscalingv2beta2.ResourceMetricSourceType,
@@ -90,7 +87,8 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 			}}
 		}
 	}
-	if hasWindow {
+
+	if window, hasWindow := pa.Window(); hasWindow {
 		windowSeconds := int32(window.Seconds())
 		hpa.Spec.Behavior = &autoscalingv2beta2.HorizontalPodAutoscalerBehavior{
 			ScaleDown: &autoscalingv2beta2.HPAScalingRules{
@@ -98,13 +96,6 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 			},
 			ScaleUp: &autoscalingv2beta2.HPAScalingRules{
 				StabilizationWindowSeconds: &windowSeconds,
-				Policies: []autoscalingv2beta2.HPAScalingPolicy{
-					{
-						Type:          "Pods",
-						Value:         1,
-						PeriodSeconds: 120,
-					},
-				},
 			},
 		}
 	}
