@@ -106,32 +106,6 @@ func TestMakeHPA(t *testing.T) {
 					},
 				},
 			})),
-	}, {
-		name: "with window annotation",
-		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(autoscaling.CPU), WithWindowAnnotation("60s")),
-		want: hpa(
-			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.CPU),
-			withAnnotationValue(autoscaling.TargetAnnotationKey, "50"),
-			withAnnotationValue(autoscaling.WindowAnnotationKey, "60s"),
-			withMetric(autoscalingv2beta2.MetricSpec{
-				Type: autoscalingv2beta2.ResourceMetricSourceType,
-				Resource: &autoscalingv2beta2.ResourceMetricSource{
-					Name: corev1.ResourceCPU,
-					Target: autoscalingv2beta2.MetricTarget{
-						Type:               "Utilization",
-						AverageUtilization: ptr.Int32(50),
-					},
-				},
-			}),
-			withBehavior(&autoscalingv2beta2.HorizontalPodAutoscalerBehavior{
-				ScaleDown: &autoscalingv2beta2.HPAScalingRules{
-					StabilizationWindowSeconds: ptr.Int32(60),
-				},
-				ScaleUp: &autoscalingv2beta2.HPAScalingRules{
-					StabilizationWindowSeconds: ptr.Int32(60),
-				},
-			}),
-		),
 	}}
 
 	for _, tc := range cases {
@@ -233,12 +207,6 @@ func withMaxReplicas(i int) hpaOption {
 func withMetric(m autoscalingv2beta2.MetricSpec) hpaOption {
 	return func(hpa *autoscalingv2beta2.HorizontalPodAutoscaler) {
 		hpa.Spec.Metrics = []autoscalingv2beta2.MetricSpec{m}
-	}
-}
-
-func withBehavior(m *autoscalingv2beta2.HorizontalPodAutoscalerBehavior) hpaOption {
-	return func(hpa *autoscalingv2beta2.HorizontalPodAutoscaler) {
-		hpa.Spec.Behavior = m
 	}
 }
 
