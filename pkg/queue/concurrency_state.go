@@ -35,7 +35,7 @@ import (
 // runs the `resume` function. If either of `pause` or `resume` are not passed, it runs
 // the respective local function(s). The local functions are the expected behavior; the
 // function parameters are enabled primarily for testing purposes.
-func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func() error) http.HandlerFunc {
+func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func(*zap.SugaredLogger) error) http.HandlerFunc {
 
 	var (
 		inFlight = atomic.NewInt64(0)
@@ -52,9 +52,8 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 				// handler meanwhile. We don't want to do anything in that case.
 				if !paused && inFlight.Load() == 0 {
 					logger.Info("Requests dropped to zero")
-					if err := pause(); err != nil {
-						logger.Errorf("Error handling resume request: %v", err)
-						HandleStateRequestError(logger, pause)
+					if err := pause(logger); err != nil {
+						logger.Errorf("Error handling pause request: %v", err)
 					}
 					paused = true
 					logger.Debug("To-Zero request successfully processed")
@@ -81,9 +80,8 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 		}
 
 		logger.Info("Requests increased from zero")
-		if err := resume(); err != nil {
+		if err := resume(logger); err != nil {
 			logger.Errorf("Error handling resume request: %v", err)
-			HandleStateRequestError(logger, resume)
 		}
 		paused = false
 		logger.Debug("From-Zero request successfully processed")
@@ -93,11 +91,11 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	}
 }
 
-// HandleStateRequestError handles retry logic
-func HandleStateRequestError(logger *zap.SugaredLogger, requestHandler func() error) {
+// handleStateRequestError handles retry logic
+func handleStateRequestError(logger *zap.SugaredLogger, requestHandler func(*zap.SugaredLogger) error) {
 	var errReq error
 	retryFunc := func() (bool, error) {
-		errReq = requestHandler()
+		errReq = requestHandler(logger)
 		return errReq == nil, nil
 	}
 	if err := wait.Poll(time.Millisecond*200, 15*time.Minute, retryFunc); err != nil {
@@ -126,9 +124,19 @@ func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
 	return c
 }
 
-func (c ConcurrencyEndpoint) Pause() error { return c.Request("pause") }
+func (c ConcurrencyEndpoint) Pause(logger *zap.SugaredLogger) error {
+	if err := c.Request("pause"); err != nil {
+		handleStateRequestError(logger, c.Pause)
+	}
+	return nil
+}
 
-func (c ConcurrencyEndpoint) Resume() error { return c.Request("resume") }
+func (c ConcurrencyEndpoint) Resume(logger *zap.SugaredLogger) error {
+	if err := c.Request("resume"); err != nil {
+		handleStateRequestError(logger, c.Resume)
+	}
+	return nil
+}
 
 func (c ConcurrencyEndpoint) Request(action string) error {
 	bodyText := fmt.Sprintf(`{ "action": %q }`, action)

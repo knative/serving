@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	"go.uber.org/zap"
 	pkglogging "knative.dev/pkg/logging"
 	ltesting "knative.dev/pkg/logging/testing"
 
@@ -38,7 +39,7 @@ func TestConcurrencyStateHandler(t *testing.T) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func(*zap.SugaredLogger) error { paused.Inc(); return nil }, func(*zap.SugaredLogger) error { resumed.Inc(); return nil })
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "http://target", nil))
 	if got, want := paused.Load(), int64(1); got != want {
@@ -71,7 +72,7 @@ func TestConcurrencyStateHandlerParallelSubsumed(t *testing.T) {
 		}
 	}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func(*zap.SugaredLogger) error { paused.Inc(); return nil }, func(*zap.SugaredLogger) error { resumed.Inc(); return nil })
 
 	go func() {
 		defer func() { req1 <- struct{}{} }()
@@ -111,7 +112,7 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 		}
 	}
 	logger := ltesting.TestLogger(t)
-	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func() error { paused.Inc(); return nil }, func() error { resumed.Inc(); return nil })
+	h := ConcurrencyStateHandler(logger, http.HandlerFunc(handler), func(*zap.SugaredLogger) error { paused.Inc(); return nil }, func(*zap.SugaredLogger) error { resumed.Inc(); return nil })
 
 	go func() {
 		defer func() { req1 <- struct{}{} }()
@@ -143,6 +144,7 @@ func TestConcurrencyStateHandlerParallelOverlapping(t *testing.T) {
 }
 
 func TestConcurrencyStateTokenRefresh(t *testing.T) {
+	logger := ltesting.TestLogger(t)
 	var token string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tk := r.Header.Get("Token")
@@ -157,7 +159,7 @@ func TestConcurrencyStateTokenRefresh(t *testing.T) {
 	}
 
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	if err := c.Pause(); err != nil {
+	if err := c.Pause(logger); err != nil {
 		t.Errorf("initial token check returned an error: %s", err)
 	}
 
@@ -166,7 +168,7 @@ func TestConcurrencyStateTokenRefresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.RefreshToken()
-	if err := c.Pause(); err != nil {
+	if err := c.Pause(logger); err != nil {
 		t.Errorf("updated token check returned an error: %s", err)
 	}
 }
@@ -211,6 +213,7 @@ func TestConcurrencyStateEndpoint(t *testing.T) {
 }
 
 func TestConcurrencyStatePauseHeader(t *testing.T) {
+	logger := ltesting.TestLogger(t)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("Token")
 		if token != "0123456789" {
@@ -223,12 +226,13 @@ func TestConcurrencyStatePauseHeader(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	if err := c.Pause(); err != nil {
+	if err := c.Pause(logger); err != nil {
 		t.Errorf("pause header check returned an error: %s", err)
 	}
 }
 
 func TestConcurrencyStatePauseRequest(t *testing.T) {
+	logger := ltesting.TestLogger(t)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		var m struct{ Action string }
@@ -246,12 +250,12 @@ func TestConcurrencyStatePauseRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	if err := c.Pause(); err != nil {
+	if err := c.Pause(logger); err != nil {
 		t.Errorf("request test returned an error: %s", err)
 	}
 }
 
-func TestConcurrencyStatePauseResponse(t *testing.T) {
+func TestConcurrencyStateBadResponse(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
@@ -262,12 +266,16 @@ func TestConcurrencyStatePauseResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	if err := c.Pause(); err == nil {
-		t.Errorf("pausefunction did not return an error")
+	if err := c.Request("pause"); err == nil {
+		t.Errorf(`Request("pause") function did not return an error`)
+	}
+	if err := c.Request("resume"); err == nil {
+		t.Errorf(`Request("resume") function did not return an error`)
 	}
 }
 
 func TestConcurrencyStateResumeHeader(t *testing.T) {
+	logger := ltesting.TestLogger(t)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("Token")
 		if token != "0123456789" {
@@ -280,12 +288,13 @@ func TestConcurrencyStateResumeHeader(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	if err := c.Resume(); err != nil {
+	if err := c.Resume(logger); err != nil {
 		t.Errorf("resume header check returned an error: %s", err)
 	}
 }
 
 func TestConcurrencyStateResumeRequest(t *testing.T) {
+	logger := ltesting.TestLogger(t)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		var m struct{ Action string }
@@ -303,24 +312,8 @@ func TestConcurrencyStateResumeRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	if err := c.Resume(); err != nil {
+	if err := c.Resume(logger); err != nil {
 		t.Errorf("request test returned an error: %s", err)
-	}
-}
-
-func TestConcurrencyStateResumeResponse(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-	}))
-	defer ts.Close()
-
-	tokenPath := filepath.Join(t.TempDir(), "secret")
-	if err := os.WriteFile(tokenPath, []byte("0123456789"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	c := NewConcurrencyEndpoint(ts.URL, tokenPath)
-	if err := c.Resume(); err == nil {
-		t.Errorf("resume function did not return an error")
 	}
 }
 
@@ -403,10 +396,10 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 				promStatReporter.Report(stats.Report(now))
 			}
 		}()
-		pause := func() error {
+		pause := func(*zap.SugaredLogger) error {
 			return nil
 		}
-		resume := func() error {
+		resume := func(*zap.SugaredLogger) error {
 			return nil
 		}
 
