@@ -35,7 +35,7 @@ import (
 // runs the `resume` function. If either of `pause` or `resume` are not passed, it runs
 // the respective local function(s). The local functions are the expected behavior; the
 // function parameters are enabled primarily for testing purposes.
-func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func(*zap.SugaredLogger) error) http.HandlerFunc {
+func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func(*zap.SugaredLogger)) http.HandlerFunc {
 
 	var (
 		inFlight = atomic.NewInt64(0)
@@ -52,9 +52,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 				// handler meanwhile. We don't want to do anything in that case.
 				if !paused && inFlight.Load() == 0 {
 					logger.Info("Requests dropped to zero")
-					if err := pause(logger); err != nil {
-						logger.Errorf("Error handling pause request: %v", err)
-					}
+					pause(logger)
 					paused = true
 					logger.Debug("To-Zero request successfully processed")
 				}
@@ -80,9 +78,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 		}
 
 		logger.Info("Requests increased from zero")
-		if err := resume(logger); err != nil {
-			logger.Errorf("Error handling resume request: %v", err)
-		}
+		resume(logger)
 		paused = false
 		logger.Debug("From-Zero request successfully processed")
 		mux.Unlock()
@@ -91,15 +87,19 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	}
 }
 
-// handleStateRequestError handles retry logic
-func handleStateRequestError(logger *zap.SugaredLogger, requestHandler func(*zap.SugaredLogger) error) {
+// retryRequest takes a request function and repeatedly tries it for a specified period
+// of time or until successful. If the request ultimately fails, it kills the container.
+func retryRequest(logger *zap.SugaredLogger, requestHandler func(string) error, request string) {
 	var errReq error
 	retryFunc := func() (bool, error) {
-		errReq = requestHandler(logger)
+		errReq = requestHandler(request)
+		if errReq != nil {
+			logger.Errorf("request failed: %s", errReq)
+		}
 		return errReq == nil, nil
 	}
-	if err := wait.Poll(time.Millisecond*200, 15*time.Minute, retryFunc); err != nil {
-		logger.Fatalf("Retry pause/resume request failed: %v", errReq)
+	if err := wait.PollImmediate(time.Millisecond*200, 15*time.Minute, retryFunc); err != nil {
+		logger.Fatalf("%s request failed: %v", request, err)
 		os.Exit(1)
 	}
 }
@@ -124,18 +124,16 @@ func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
 	return c
 }
 
-func (c ConcurrencyEndpoint) Pause(logger *zap.SugaredLogger) error {
-	if err := c.Request("pause"); err != nil {
-		handleStateRequestError(logger, c.Pause)
-	}
-	return nil
+// Pause freezes a container, retrying until either successful or a timeout is
+// reached, at which point the container is killed
+func (c ConcurrencyEndpoint) Pause(logger *zap.SugaredLogger) {
+	retryRequest(logger, c.Request, "pause")
 }
 
-func (c ConcurrencyEndpoint) Resume(logger *zap.SugaredLogger) error {
-	if err := c.Request("resume"); err != nil {
-		handleStateRequestError(logger, c.Resume)
-	}
-	return nil
+// Resume thaws a container, retrying until either successful or a timeout is
+// reached, at which point the container is killed
+func (c ConcurrencyEndpoint) Resume(logger *zap.SugaredLogger) {
+	retryRequest(logger, c.Request, "resume")
 }
 
 func (c ConcurrencyEndpoint) Request(action string) error {
