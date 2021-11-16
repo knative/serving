@@ -58,6 +58,31 @@ fi
 # On a Prow job, redirect stderr to stdout so it's synchronously added to log
 (( IS_PROW )) && exec 2>&1
 
+# Return the major version of a release.
+# For example, "v0.2.1" returns "0"
+# Parameters: $1 - release version label.
+function major_version() {
+  local release="${1//v/}"
+  local tokens=(${release//\./ })
+  echo "${tokens[0]}"
+}
+
+# Return the minor version of a release.
+# For example, "v0.2.1" returns "2"
+# Parameters: $1 - release version label.
+function minor_version() {
+  local tokens=(${1//\./ })
+  echo "${tokens[1]}"
+}
+
+# Return the release build number of a release.
+# For example, "v0.2.1" returns "1".
+# Parameters: $1 - release version label.
+function patch_version() {
+  local tokens=(${1//\./ })
+  echo "${tokens[2]}"
+}
+
 # Print error message and exit 1
 # Parameters: $1..$n - error message to be displayed
 function abort() {
