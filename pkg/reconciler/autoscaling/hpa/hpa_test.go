@@ -26,7 +26,7 @@ import (
 	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta2/horizontalpodautoscaler/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -37,7 +37,7 @@ import (
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
+	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -118,7 +118,7 @@ func TestControllerCanReconcile(t *testing.T) {
 		t.Error("Reconcile() =", err)
 	}
 
-	_, err = fakekubeclient.Get(ctx).AutoscalingV2beta1().HorizontalPodAutoscalers(testNamespace).Get(ctx, testRevision, metav1.GetOptions{})
+	_, err = fakekubeclient.Get(ctx).AutoscalingV2beta2().HorizontalPodAutoscalers(testNamespace).Get(ctx, testRevision, metav1.GetOptions{})
 	if err != nil {
 		t.Error("error getting hpa:", err)
 	}
@@ -455,9 +455,9 @@ func pa(namespace, name string, options ...PodAutoscalerOption) *autoscalingv1al
 	return pa
 }
 
-type hpaOption func(*autoscalingv2beta1.HorizontalPodAutoscaler)
+type hpaOption func(*autoscalingv2beta2.HorizontalPodAutoscaler)
 
-func withHPAOwnersRemoved(hpa *autoscalingv2beta1.HorizontalPodAutoscaler) {
+func withHPAOwnersRemoved(hpa *autoscalingv2beta2.HorizontalPodAutoscaler) {
 	hpa.OwnerReferences = nil
 }
 
@@ -467,12 +467,12 @@ func withScales(d, a int32) PodAutoscalerOption {
 	}
 }
 func withHPAScaleStatus(d, a int32) hpaOption {
-	return func(hpa *autoscalingv2beta1.HorizontalPodAutoscaler) {
+	return func(hpa *autoscalingv2beta2.HorizontalPodAutoscaler) {
 		hpa.Status.DesiredReplicas, hpa.Status.CurrentReplicas = d, a
 	}
 }
 
-func hpa(pa *autoscalingv1alpha1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
+func hpa(pa *autoscalingv1alpha1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta2.HorizontalPodAutoscaler {
 	h := resources.MakeHPA(pa, defaultConfig().Autoscaler)
 	for _, o := range options {
 		o(h)
