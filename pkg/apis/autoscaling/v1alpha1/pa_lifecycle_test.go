@@ -596,6 +596,13 @@ func TestScaleBounds(t *testing.T) {
 		max:     "sandwich",
 		wantMin: 0,
 		wantMax: 0,
+	}, {
+		name: "min-scale set but unreachable",
+		config: autoscalerconfig.Config{
+			MinScale: 2,
+		},
+		reachability: ReachabilityUnreachable,
+		wantMin:      0,
 	}}
 
 	for _, tc := range cases {
