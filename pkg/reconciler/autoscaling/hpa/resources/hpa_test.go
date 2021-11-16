@@ -141,8 +141,13 @@ func TestMakeHPA(t *testing.T) {
 			withMetric(autoscalingv2beta2.MetricSpec{
 				Type: autoscalingv2beta2.PodsMetricSourceType,
 				Pods: &autoscalingv2beta2.PodsMetricSource{
-					MetricName:         "customMetric",
-					TargetAverageValue: *resource.NewQuantity(50, resource.DecimalSI),
+					Metric: autoscalingv2beta2.MetricIdentifier{
+						Name: "customMetric",
+					},
+					Target: autoscalingv2beta2.MetricTarget{
+						Type:         autoscalingv2beta2.AverageValueMetricType,
+						AverageValue: resource.NewQuantity(50, resource.DecimalSI),
+					},
 				},
 			})),
 	}}
