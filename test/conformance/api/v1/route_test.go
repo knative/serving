@@ -33,13 +33,17 @@ import (
 )
 
 func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedGeneration, expectedText string) {
+	t.Log("Updates the Route to route traffic to the Revision")
+	if err := v1test.WaitForRouteState(clients.ServingClient, names.Route, v1test.AllRouteTrafficAtRevision(names), "RouteIsUpdated"); err != nil {
+		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
+	}
+
 	t.Log("When the Route reports as Ready, everything should be ready.")
 	if err := v1test.WaitForRouteState(clients.ServingClient, names.Route, v1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
 	}
 
 	t.Log("Serves the expected data at the endpoint")
-
 	_, err := pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
@@ -71,16 +75,12 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 	if err != nil {
 		t.Fatalf("The Configuration %s was not updated indicating that the Revision %s was ready: %v", names.Config, names.Revision, err)
 	}
-	t.Log("Updates the Route to route traffic to the Revision")
-	if err := v1test.CheckRouteState(clients.ServingClient, names.Route, v1test.AllRouteTrafficAtRevision(names)); err != nil {
-		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
-	}
 }
 
 func getRouteURL(clients *test.Clients, names test.ResourceNames) (*url.URL, error) {
 	var url *url.URL
 
-	err := v1test.CheckRouteState(
+	err := v1test.WaitForRouteState(
 		clients.ServingClient,
 		names.Route,
 		func(r *v1.Route) (bool, error) {
@@ -89,7 +89,7 @@ func getRouteURL(clients *test.Clients, names test.ResourceNames) (*url.URL, err
 			}
 			url = r.Status.URL.URL()
 			return url != nil, nil
-		},
+		}, "RouteURLIsPresent",
 	)
 
 	return url, err
