@@ -225,8 +225,8 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		// execprobe would have used (which will then check the user container).
 		// Unlike the StartupProbe, we don't need to override any of the other settings
 		// except period here. See below.
-		// If the Container-Freezer has been enabled, the readiness probe is disabled,
-		// so as not to continuously probe a frozen container
+		// Only add probe if Container-Freezer is not enabled so as not to continuously
+		// probe a frozen container
 		if cfg.Deployment.ConcurrencyStateEndpoint == "" {
 
 			httpProbe = container.ReadinessProbe.DeepCopy()
