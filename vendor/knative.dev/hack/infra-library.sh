@@ -86,7 +86,7 @@ function acquire_cluster_admin_role() {
         --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"
     else
       kubectl create clusterrolebinding cluster-admin-binding \
-        --clusterrole=cluster-admin --user="${USER}"
+        --clusterrole=cluster-admin --user="prow"
     fi
   fi
 }
