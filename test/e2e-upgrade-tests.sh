@@ -33,21 +33,24 @@ source "$(dirname "${BASH_SOURCE[0]}")/e2e-common.sh"
 
 # Script entry point.
 
-# Skip installing istio as an add-on.
-# Temporarily increasing the cluster size for serving tests to rule out
-# resource/eviction as causes of flakiness.
-initialize --skip-istio-addon  --min-nodes=4 --max-nodes=4 --install-latest-release "$@"
+set -x
+latest_version
 
-# TODO(#2656): Reduce the timeout after we get this test to consistently passing.
-TIMEOUT=30m
+# # Skip installing istio as an add-on.
+# # Temporarily increasing the cluster size for serving tests to rule out
+# # resource/eviction as causes of flakiness.
+# initialize --skip-istio-addon  --min-nodes=4 --max-nodes=4 --install-latest-release "$@"
 
-header "Running upgrade tests"
+# # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
+# TIMEOUT=30m
 
-go_test_e2e -tags=upgrade -timeout=${TIMEOUT} \
-  ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
+# header "Running upgrade tests"
 
-# Remove the kail log file if the test flow passes.
-# This is for preventing too many large log files to be uploaded to GCS in CI.
-rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
+# go_test_e2e -tags=upgrade -timeout=${TIMEOUT} \
+#   ./test/upgrade \
+#   --resolvabledomain=$(use_resolvable_domain) || fail_test
+
+# # Remove the kail log file if the test flow passes.
+# # This is for preventing too many large log files to be uploaded to GCS in CI.
+# rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
 success
