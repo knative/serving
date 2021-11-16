@@ -70,6 +70,22 @@ func GetRoutes(clients *test.Clients) (list *v1.RouteList, err error) {
 	})
 }
 
+// CreateRouteReady creates a new Route in state 'Ready'. Returns error if the Route does not come up correctly.
+func CreateRouteReady(t testing.TB, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.RouteOption) (*v1.Route, error) {
+	t.Log("Creating a new Route", "route", names.Route)
+	_, err := CreateRoute(t, clients, names, fopt...)
+	if err != nil {
+		return nil, err
+	}
+
+	t.Log("Waiting for Route to transition to Ready.", "route", names.Route)
+	if err = WaitForRouteState(clients.ServingClient, names.Route, IsRouteReady, "Route is ready"); err != nil {
+		t.Fatal("Route did not become ready:", err)
+	}
+
+	return clients.ServingClient.Routes.Get(context.Background(), names.Route, metav1.GetOptions{})
+}
+
 // CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(t testing.TB, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.RouteOption) (rt *v1.Route, err error) {
 	route := Route(names, fopt...)

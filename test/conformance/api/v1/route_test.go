@@ -161,7 +161,7 @@ func TestRouteCreation(t *testing.T) {
 	}
 	objects.Config = config
 
-	route, err := v1test.CreateRoute(t, clients, names)
+	route, err := v1test.CreateRouteReady(t, clients, names)
 	if err != nil {
 		t.Fatal("Failed to create Route:", err)
 	}
