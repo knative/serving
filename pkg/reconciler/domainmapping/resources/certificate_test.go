@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/networking/pkg/apis/networking"
 	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
@@ -55,7 +56,7 @@ func TestMakeCertificate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "mapping.com",
 				Namespace:   "the-namespace",
-				Annotations: map[string]string{"networking.knative.dev/certificate.class": certClass},
+				Annotations: map[string]string{networking.CertificateClassAnnotationKey: certClass},
 				Labels: map[string]string{
 					serving.DomainMappingUIDLabelKey: "mapping.com",
 				},
@@ -90,8 +91,8 @@ func TestMakeCertificate(t *testing.T) {
 				Name:      "mapping.com",
 				Namespace: "the-namespace",
 				Annotations: map[string]string{
-					"networking.knative.dev/certificate.class": certClass,
-					"others": "kept",
+					networking.CertificateClassAnnotationKey: certClass,
+					"others":                                 "kept",
 				},
 				Labels: map[string]string{
 					serving.DomainMappingUIDLabelKey: "mapping.com",
