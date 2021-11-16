@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
@@ -246,7 +248,10 @@ func validateMetric(annotations map[string]string) *apis.FieldError {
 
 func validateMemorySuffix(annotations map[string]string) *apis.FieldError {
 	if memorySuffix, ok := annotations[MemorySuffixAnnotationKey]; ok {
-		if !unitPattern.MatchString(memorySuffix) {
+		target := annotations[TargetAnnotationKey]
+		memoryValue := fmt.Sprintf("%s%s", target, memorySuffix)
+		_, err := resource.ParseQuantity(memoryValue)
+		if err != nil {
 			return apis.ErrInvalidValue(memorySuffix, MemorySuffixAnnotationKey)
 		}
 	}
