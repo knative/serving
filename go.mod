@@ -46,7 +46,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
 	knative.dev/caching v0.0.0-20210914230307-0184eb914a42
-	knative.dev/hack v0.0.0-20211116185754-d8909dcd6d33
+	knative.dev/hack v0.0.0-20211116200753-bcec9dcb9e41
 	knative.dev/networking v0.0.0-20210914225408-69ad45454096
 	knative.dev/pkg v0.0.0-20210919202233-5ae482141474
 	sigs.k8s.io/yaml v1.2.0

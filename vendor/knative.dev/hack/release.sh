@@ -131,22 +131,6 @@ function master_version() {
   echo "${tokens[0]}.${tokens[1]}"
 }
 
-# Return the minor version of a release.
-# For example, "v0.2.1" returns "2"
-# Parameters: $1 - release version label.
-function minor_version() {
-  local tokens=(${1//\./ })
-  echo "${tokens[1]}"
-}
-
-# Return the release build number of a release.
-# For example, "v0.2.1" returns "1".
-# Parameters: $1 - release version label.
-function patch_version() {
-  local tokens=(${1//\./ })
-  echo "${tokens[2]}"
-}
-
 # Return the short commit SHA from a release tag.
 # For example, "v20010101-deadbeef" returns "deadbeef".
 function hash_from_tag() {
