@@ -1,3 +1,4 @@
+//go:build emptydir
 // +build emptydir
 
 /*
