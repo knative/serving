@@ -68,7 +68,6 @@ rotation, feel free to send a PR to remove yourself.
 - [carlisia](https://github.com/carlisia)
 - [dprotaso](https://github.com/dprotaso)
 - [julz](https://github.com/julz)
-- [markusthoemmes](https://github.com/markusthoemmes)
 - [nader-ziada](https://github.com/nader-ziada)
 - [nak3](https://github.com/nak3)
 - [shinigambit](https://github.com/shinigambit)
