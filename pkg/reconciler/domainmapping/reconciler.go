@@ -99,7 +99,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	dm.Status.Address = &duckv1.Addressable{URL: url}
 
 	// IngressClass can be set via annotations or in the config map.
-	ingressClass := dm.Annotations[networking.IngressClassAnnotationKey]
+	ingressClass := networking.GetIngressClass(dm.Annotations)
 	if ingressClass == "" {
 		ingressClass = config.FromContext(ctx).Network.DefaultIngressClass
 	}
@@ -181,7 +181,7 @@ func autoTLSEnabled(ctx context.Context, dm *v1alpha1.DomainMapping) bool {
 	if !config.FromContext(ctx).Network.AutoTLS {
 		return false
 	}
-	annotationValue := dm.Annotations[networking.DisableAutoTLSAnnotationKey]
+	annotationValue := networking.GetDisableAutoTLS(dm.Annotations)
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
 	if annotationValue != "" && err != nil {
 		logger := logging.FromContext(ctx)

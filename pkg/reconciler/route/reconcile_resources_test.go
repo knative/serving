@@ -608,7 +608,7 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 	}
 
 	updated = getRouteIngressFromClient(ctx, t, r)
-	updatedClass := updated.Annotations[networking.IngressClassAnnotationKey]
+	updatedClass := networking.GetIngressClass(updated.Annotations)
 	if expClass != updatedClass {
 		t.Errorf("Unexpected annotation got %q want %q", expClass, updatedClass)
 	}

@@ -56,7 +56,7 @@ var _ namespacereconciler.Interface = (*reconciler)(nil)
 var domainTemplateRegex = regexp.MustCompile(`^\*\..+$`)
 
 func certClass(ctx context.Context, r *corev1.Namespace) string {
-	if class := r.Annotations[networking.CertificateClassAnnotationKey]; class != "" {
+	if class := networking.GetCertificateClass(r.Annotations); class != "" {
 		return class
 	}
 	return config.FromContext(ctx).Network.DefaultCertificateClass
