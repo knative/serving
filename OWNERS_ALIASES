@@ -5,6 +5,7 @@ aliases:
   api-core-wg-leads:
   - dprotaso
   autoscaling-reviewers:
+  - nader-ziada
   - psschwei
   - taragu
   autoscaling-wg-leads:
@@ -39,11 +40,16 @@ aliases:
   - omerbensaadon
   - pmbanugo
   - snneji
-  docs-wg-leads: []
+  docs-wg-leads:
+  - csantanapr
+  - omerbensaadon
+  - snneji
   docs-writers:
   - RichardJJG
   - abrennan89
   - carieshmarie
+  - csantanapr
+  - omerbensaadon
   - richieescarez
   - snneji
   eventing-reviewers:
@@ -182,6 +188,7 @@ aliases:
   serving-reviewers:
   - carlisia
   - julz
+  - nader-ziada
   - nealhu
   - psschwei
   - whaught
@@ -212,6 +219,8 @@ aliases:
   ux-wg-leads:
   - csantanapr
   - omerbensaadon
+  - snneji
   ux-writers:
   - csantanapr
   - omerbensaadon
+  - snneji
