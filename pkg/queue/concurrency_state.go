@@ -94,12 +94,12 @@ func retryRequest(logger *zap.SugaredLogger, requestHandler func(string) error, 
 	retryFunc := func() (bool, error) {
 		errReq = requestHandler(request)
 		if errReq != nil {
-			logger.Errorf("request failed: %s", errReq)
+			logger.Errorw(fmt.Sprintf("%s request failed", request), zap.Error(errReq))
 		}
 		return errReq == nil, nil
 	}
 	if err := wait.PollImmediate(time.Millisecond*200, 15*time.Minute, retryFunc); err != nil {
-		logger.Fatalf("%s request failed: %v", request, err)
+		logger.Fatalw(fmt.Sprintf("%s request failed", request), zap.Error(err))
 		os.Exit(1)
 	}
 }
