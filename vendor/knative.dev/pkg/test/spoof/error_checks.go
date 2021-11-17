@@ -21,6 +21,7 @@ package spoof
 import (
 	"errors"
 	"net"
+	"net/http"
 	"strings"
 )
 
@@ -61,4 +62,8 @@ func isConnectionReset(err error) bool {
 
 func isNoRouteToHostError(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "connect: no route to host")
+}
+
+func isResponseDNSError(resp *Response) bool {
+	return resp.StatusCode == http.StatusBadGateway && strings.Contains(string(resp.Body), "no such host")
 }
