@@ -257,10 +257,7 @@ func buildServer(ctx context.Context, env config, drainer *pkghandler.Drainer, p
 		}()
 		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, ce.Pause, ce.Resume)
 		// start paused
-		if err := ce.Pause(); err != nil {
-			logger.Errorf("Error handling initial pause request: %v", err)
-			queue.HandleStateRequestError(logger, ce.Pause)
-		}
+		ce.Pause(logger)
 	}
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
