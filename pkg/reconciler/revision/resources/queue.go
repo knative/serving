@@ -208,10 +208,10 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	var httpProbe, execProbe *corev1.Probe
 	var userProbeJSON string
 	if container.ReadinessProbe != nil {
-		// During startup we want to poll the container faster than Kubernetes will
-		// allow, so we use an ExecProbe which starts immediately and then polls
-		// every 25ms. We encode the original probe as JSON in an environment
-		// variable for this probe to use.
+		// The activator attempts to detect readiness itself by checking the Queue
+		// Proxy's health endpoint rather than waiting for Kubernetes to check and
+		// propagate the Ready state. We encode the original probe as JSON in an
+		// environment variable for this health endpoint to use.
 		userProbe := container.ReadinessProbe.DeepCopy()
 		applyReadinessProbeDefaultsForExec(userProbe, userPort)
 
