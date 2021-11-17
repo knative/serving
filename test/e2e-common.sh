@@ -24,7 +24,6 @@ export CERT_MANAGER_VERSION="latest"
 export INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
 export ISTIO_VERSION="latest"
 export KOURIER_VERSION=""
-export AMBASSADOR_VERSION=""
 export CONTOUR_VERSION=""
 export CERTIFICATE_CLASS=""
 # Only build linux/amd64 bit images
@@ -143,25 +142,11 @@ function parse_flags() {
       readonly INGRESS_CLASS="kourier.ingress.networking.knative.dev"
       return 2
       ;;
-    --ambassador-version)
-      # currently, the value of --ambassador-version is ignored
-      # latest version of Ambassador pinned in third_party will be installed
-      readonly AMBASSADOR_VERSION=$2
-      readonly INGRESS_CLASS="ambassador.ingress.networking.knative.dev"
-      return 2
-      ;;
     --contour-version)
       # currently, the value of --contour-version is ignored
       # latest version of Contour pinned in third_party will be installed
       readonly CONTOUR_VERSION=$2
       readonly INGRESS_CLASS="contour.ingress.networking.knative.dev"
-      return 2
-      ;;
-    --kong-version)
-      # currently, the value of --kong-version is ignored
-      # latest version of Kong pinned in third_party will be installed
-      readonly KONG_VERSION=$2
-      readonly INGRESS_CLASS="kong"
       return 2
       ;;
     --system-namespace)

@@ -101,17 +101,9 @@ function setup_ingress_env_vars() {
     export GATEWAY_OVERRIDE=kourier
     export GATEWAY_NAMESPACE_OVERRIDE=kourier-system
   fi
-  if is_ingress_class ambassador; then
-    export GATEWAY_OVERRIDE=ambassador
-    export GATEWAY_NAMESPACE_OVERRIDE=ambassador
-  fi
   if is_ingress_class contour; then
     export GATEWAY_OVERRIDE=envoy
     export GATEWAY_NAMESPACE_OVERRIDE=contour-external
-  fi
-  if is_ingress_class kong; then
-    export GATEWAY_OVERRIDE=kong-proxy
-    export GATEWAY_NAMESPACE_OVERRIDE=kong
   fi
 }
 
