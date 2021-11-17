@@ -221,7 +221,10 @@ func validateMetric(annotations map[string]string) *apis.FieldError {
 				return nil
 			}
 		case HPA:
-			if metric != "" {
+			switch metric {
+			case "":
+				break
+			default:
 				return nil
 			}
 		default:
