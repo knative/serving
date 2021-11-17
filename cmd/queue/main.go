@@ -64,11 +64,6 @@ const (
 	drainSleepDuration = 30 * time.Second
 )
 
-var (
-	// This creates an abstract socket instead of an actual file.
-	unixSocketPath = "@/knative.dev/serving/queue.sock"
-)
-
 type config struct {
 	ContainerConcurrency     int    `split_words:"true" required:"true"`
 	QueueServingPort         string `split_words:"true" required:"true"`
@@ -178,45 +173,14 @@ func main() {
 	}
 
 	errCh := make(chan error)
-	listenCh := make(chan struct{})
 	for name, server := range servers {
 		go func(name string, s *http.Server) {
-			l, err := net.Listen("tcp", s.Addr)
-			if err != nil {
-				errCh <- fmt.Errorf("%s server failed to listen: %w", name, err)
-				return
-			}
-
-			// Notify the unix socket setup that the tcp socket for the main server is ready.
-			if s == mainServer {
-				close(listenCh)
-			}
-
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
-			if err := s.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
 			}
 		}(name, server)
 	}
-
-	// Listen on a unix socket so that the exec probe can avoid having to go
-	// through the full tcp network stack.
-	go func() {
-		// Only start listening on the unix socket once the tcp socket for the
-		// main server is setup.
-		// This avoids the unix socket path succeeding before the tcp socket path
-		// is actually working and thus it avoids a race.
-		<-listenCh
-
-		l, err := net.Listen("unix", unixSocketPath)
-		if err != nil {
-			errCh <- fmt.Errorf("failed to listen to unix socket: %w", err)
-			return
-		}
-		if err := http.Serve(l, mainServer.Handler); err != nil {
-			errCh <- fmt.Errorf("serving failed on unix socket: %w", err)
-		}
-	}()
 
 	// Blocks until we actually receive a TERM signal or one of the servers
 	// exits unexpectedly. We fold both signals together because we only want
