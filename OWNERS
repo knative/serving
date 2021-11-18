@@ -6,3 +6,9 @@ approvers:
 - autoscaling-wg-leads
 - networking-wg-leads
 - knative-release-leads
+
+dir_denylist:
+# Ignore OWNERS files in vendor (so we can stop stripping them out)
+- ^vendor/
+# Directory for testing
+- ^hack/boilerplate

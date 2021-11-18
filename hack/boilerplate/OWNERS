@@ -1,0 +1,3 @@
+# Sample OWNERS file which should be ignored by the top-level OWNERS (for testing)
+approvers:
+- kvmware
