@@ -228,6 +228,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		// except period here. See below.
 
 		startupProbe = container.ReadinessProbe.DeepCopy()
+		startupProbe.PeriodSeconds = 1
 		startupProbe.Handler = corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt(int(servingPort.ContainerPort)),
@@ -237,14 +238,6 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 				}},
 			},
 		}
-
-		// Default PeriodSeconds to 1 if not set to make for the quickest possible startup
-		// time.
-		// TODO(#10973): Remove this once we're on K8s 1.21
-		if startupProbe.PeriodSeconds == 0 {
-			startupProbe.PeriodSeconds = 1
-		}
-
 	}
 
 	c := &corev1.Container{
