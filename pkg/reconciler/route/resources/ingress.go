@@ -25,7 +25,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -98,9 +97,7 @@ func MakeIngressWithRollout(
 			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
 				networking.RolloutAnnotationKey:      serializeRollout(ctx, ro),
-			}, r.GetAnnotations()), func(key string) bool {
-				return key == corev1.LastAppliedConfigAnnotation
-			}),
+			}, r.GetAnnotations()), ExcludedAnnotations.Has),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 		},
 		Spec: spec,

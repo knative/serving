@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -42,9 +41,7 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName
 			Namespace: dm.Namespace,
 			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
-			}, dm.GetAnnotations()), func(key string) bool {
-				return key == corev1.LastAppliedConfigAnnotation
-			}),
+			}, dm.GetAnnotations()), routeresources.ExcludedAnnotations.Has),
 			Labels: kmeta.UnionMaps(dm.Labels, map[string]string{
 				serving.DomainMappingUIDLabelKey:       string(dm.UID),
 				serving.DomainMappingNamespaceLabelKey: dm.Namespace,

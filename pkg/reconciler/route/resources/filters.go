@@ -18,7 +18,9 @@ package resources
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -26,3 +28,14 @@ import (
 func IsClusterLocalService(svc *corev1.Service) bool {
 	return svc.GetLabels()[network.VisibilityLabelKey] == serving.VisibilityClusterLocal
 }
+
+// ExcludedAnnotations is the set of annotations that should not propagate to the
+// Ingress or Certificate Resources
+var ExcludedAnnotations = sets.NewString(
+	corev1.LastAppliedConfigAnnotation,
+
+	// We're probably never going to drop support for the older annotation casing (camelCase)
+	// so we don't need to propagate these to the internal types
+	networking.CertificateClassAnnotationAltKey,
+	networking.IngressClassAnnotationAltKey,
+)
