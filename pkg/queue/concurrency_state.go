@@ -51,7 +51,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 				// We need to doublecheck this since another request can have reached the
 				// handler meanwhile. We don't want to do anything in that case.
 				if !paused && inFlight.Load() == 0 {
-					logger.Info("Requests dropped to zero")
+					logger.Debug("Requests dropped to zero")
 					pause(logger)
 					paused = true
 					logger.Debug("To-Zero request successfully processed")
@@ -77,7 +77,7 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 			return
 		}
 
-		logger.Info("Requests increased from zero")
+		logger.Debug("Requests increased from zero")
 		resume(logger)
 		paused = false
 		logger.Debug("From-Zero request successfully processed")
@@ -126,17 +126,17 @@ func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
 
 // Pause freezes a container, retrying until either successful or a timeout is
 // reached, at which point the container is killed
-func (c ConcurrencyEndpoint) Pause(logger *zap.SugaredLogger) {
+func (c *ConcurrencyEndpoint) Pause(logger *zap.SugaredLogger) {
 	retryRequest(logger, c.Request, "pause")
 }
 
 // Resume thaws a container, retrying until either successful or a timeout is
 // reached, at which point the container is killed
-func (c ConcurrencyEndpoint) Resume(logger *zap.SugaredLogger) {
+func (c *ConcurrencyEndpoint) Resume(logger *zap.SugaredLogger) {
 	retryRequest(logger, c.Request, "resume")
 }
 
-func (c ConcurrencyEndpoint) Request(action string) error {
+func (c *ConcurrencyEndpoint) Request(action string) error {
 	bodyText := fmt.Sprintf(`{ "action": %q }`, action)
 	body := bytes.NewBufferString(bodyText)
 	req, err := http.NewRequest(http.MethodPost, c.endpoint, body)
