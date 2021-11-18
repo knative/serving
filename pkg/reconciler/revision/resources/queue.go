@@ -205,7 +205,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 
 	container := rev.Spec.GetContainer()
 
-	var httpProbe, execProbe *corev1.Probe
+	var httpProbe, startupProbe *corev1.Probe
 	var userProbeJSON string
 	if container.ReadinessProbe != nil {
 		// The activator attempts to detect readiness itself by checking the Queue
@@ -221,32 +221,30 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			return nil, fmt.Errorf("failed to serialize readiness probe: %w", err)
 		}
 
+		// TODO Update comment
 		// After startup we'll directly use the same http health check endpoint the
 		// execprobe would have used (which will then check the user container).
 		// Unlike the StartupProbe, we don't need to override any of the other settings
 		// except period here. See below.
-		// Only add probe if Container-Freezer is not enabled so as not to continuously
-		// probe a frozen container
-		if cfg.Deployment.ConcurrencyStateEndpoint == "" {
 
-			httpProbe = container.ReadinessProbe.DeepCopy()
-			httpProbe.Handler = corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.FromInt(int(servingPort.ContainerPort)),
-					HTTPHeaders: []corev1.HTTPHeader{{
-						Name:  network.ProbeHeaderName,
-						Value: queue.Name,
-					}},
-				},
-			}
-
-			// Default PeriodSeconds to 1 if not set to make for the quickest possible startup
-			// time.
-			// TODO(#10973): Remove this once we're on K8s 1.21
-			if httpProbe.PeriodSeconds == 0 {
-				httpProbe.PeriodSeconds = 1
-			}
+		startupProbe = container.ReadinessProbe.DeepCopy()
+		startupProbe.Handler = corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port: intstr.FromInt(int(servingPort.ContainerPort)),
+				HTTPHeaders: []corev1.HTTPHeader{{
+					Name:  network.ProbeHeaderName,
+					Value: queue.Name,
+				}},
+			},
 		}
+
+		// Default PeriodSeconds to 1 if not set to make for the quickest possible startup
+		// time.
+		// TODO(#10973): Remove this once we're on K8s 1.21
+		if startupProbe.PeriodSeconds == 0 {
+			startupProbe.PeriodSeconds = 1
+		}
+
 	}
 
 	c := &corev1.Container{
@@ -254,7 +252,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		Image:           cfg.Deployment.QueueSidecarImage,
 		Resources:       createQueueResources(cfg.Deployment, rev.GetAnnotations(), container),
 		Ports:           ports,
-		StartupProbe:    execProbe,
+		StartupProbe:    startupProbe,
 		ReadinessProbe:  httpProbe,
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
