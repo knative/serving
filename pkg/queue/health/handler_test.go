@@ -23,17 +23,12 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/atomic"
 
 	"knative.dev/pkg/network"
 	"knative.dev/serving/pkg/queue"
 )
 
 func TestProbeHandler(t *testing.T) {
-	var passed atomic.Int32
-	incHandler := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		passed.Inc()
-	})
 	testcases := []struct {
 		name          string
 		prober        func() bool
@@ -65,9 +60,9 @@ func TestProbeHandler(t *testing.T) {
 		wantCode:      http.StatusServiceUnavailable,
 		requestHeader: queue.Name,
 	}, {
-		name:      "not a probe, verify chaining",
+		name:      "must be called with a probe header",
 		notAProbe: true,
-		wantCode:  http.StatusOK,
+		wantCode:  http.StatusBadRequest,
 	}}
 
 	for _, tc := range testcases {
@@ -79,7 +74,7 @@ func TestProbeHandler(t *testing.T) {
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 			}
 
-			h := ProbeHandler(tc.prober, true /*tracingEnabled*/, incHandler)
+			h := ProbeHandler(tc.prober, true /*tracingEnabled*/)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
