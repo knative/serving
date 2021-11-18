@@ -111,6 +111,7 @@ func defaultConfigMapData() map[string]string {
 		"panic-window":                            "10s",
 		"scale-to-zero-grace-period":              gracePeriod.String(),
 		"tick-interval":                           "2s",
+		"min-scale":                               "0",
 	}
 }
 
@@ -118,6 +119,7 @@ func initialScaleZeroASConfig() *autoscalerconfig.Config {
 	ac, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
 	ac.AllowZeroInitialScale = true
 	ac.InitialScale = 0
+	ac.MinScale = 0
 	ac.EnableScaleToZero = true
 	return ac
 }
