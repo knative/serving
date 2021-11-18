@@ -110,7 +110,7 @@ type ConcurrencyEndpoint struct {
 	token     atomic.Value
 }
 
-func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
+func NewConcurrencyEndpoint(e, m string) *ConcurrencyEndpoint {
 	c := ConcurrencyEndpoint{
 		endpoint: os.Expand(e, func(s string) string {
 			if s == "HOST_IP" {
@@ -121,7 +121,7 @@ func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
 		mountPath: m,
 	}
 	c.RefreshToken()
-	return c
+	return &c
 }
 
 // Pause freezes a container, retrying until either successful or a timeout is
