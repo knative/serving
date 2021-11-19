@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/networking/pkg/apis/networking"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
@@ -115,7 +116,7 @@ func createQueueResources(cfg *deployment.Config, annotations map[string]string,
 
 	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
 
-	if resourceFraction, ok := fractionFromPercentage(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
+	if resourceFraction, ok := fractionFromPercentage(annotations, serving.QueueSidecarResourcePercentageAnnotation); ok {
 		if ok, requestCPU = computeResourceRequirements(userContainer.Resources.Requests.Cpu(), resourceFraction, queueContainerRequestCPU); ok {
 			resourceRequests[corev1.ResourceCPU] = requestCPU
 		}
@@ -167,8 +168,9 @@ func computeResourceRequirements(resourceQuantity *resource.Quantity, fraction f
 	return true, newquantity
 }
 
-func fractionFromPercentage(m map[string]string, k string) (float64, bool) {
-	value, err := strconv.ParseFloat(m[k], 64)
+func fractionFromPercentage(m map[string]string, key kmap.KeyPriority) (float64, bool) {
+	_, v, _ := key.Get(m)
+	value, err := strconv.ParseFloat(v, 64)
 	return value / 100, err == nil
 }
 

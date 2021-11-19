@@ -64,7 +64,7 @@ func (r *Route) IsFailed() bool {
 // annotation.
 // 0 is returned if missing or cannot be parsed.
 func (r *Route) RolloutDuration() time.Duration {
-	if v, ok := r.Annotations[serving.RolloutDurationKey]; ok && v != "" {
+	if _, v, ok := serving.RolloutDurationAnnotation.Get(r.Annotations); ok && v != "" {
 		// WH should've declined all the invalid values for this annotation.
 		if d, err := time.ParseDuration(v); err == nil {
 			return d

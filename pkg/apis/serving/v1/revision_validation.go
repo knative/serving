@@ -182,18 +182,16 @@ func validateQueueSidecarAnnotation(annotations map[string]string) *apis.FieldEr
 	if len(annotations) == 0 {
 		return nil
 	}
-	v, ok := annotations[serving.QueueSideCarResourcePercentageAnnotation]
+	k, v, ok := serving.QueueSidecarResourcePercentageAnnotation.Get(annotations)
 	if !ok {
 		return nil
 	}
 	value, err := strconv.ParseFloat(v, 64)
 	if err != nil {
-		return apis.ErrInvalidValue(v, apis.CurrentField).
-			ViaKey(serving.QueueSideCarResourcePercentageAnnotation)
+		return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k)
 	}
 	if value < 0.1 || value > 100 {
-		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, apis.CurrentField).
-			ViaKey(serving.QueueSideCarResourcePercentageAnnotation)
+		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, apis.CurrentField).ViaKey(k)
 	}
 	return nil
 }

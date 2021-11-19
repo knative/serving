@@ -50,25 +50,25 @@ func ValidateObjectMetadata(ctx context.Context, meta metav1.Object, allowAutosc
 // ValidateRolloutDurationAnnotation validates the rollout duration annotation.
 // This annotation can be set on either service or route objects.
 func ValidateRolloutDurationAnnotation(annos map[string]string) (errs *apis.FieldError) {
-	if v := annos[RolloutDurationKey]; v != "" {
+	if k, v, _ := RolloutDurationAnnotation.Get(annos); v != "" {
 		// Parse as duration.
 		d, err := time.ParseDuration(v)
 		if err != nil {
-			return errs.Also(apis.ErrInvalidValue(v, RolloutDurationKey))
+			return errs.Also(apis.ErrInvalidValue(v, k))
 		}
 		// Validate that it has second precision.
 		if d.Round(time.Second) != d {
 			return errs.Also(&apis.FieldError{
 				// Even if tempting %v won't work here, since it might output the value spelled differently.
-				Message: fmt.Sprintf("rolloutDuration=%s is not at second precision", v),
-				Paths:   []string{RolloutDurationKey},
+				Message: fmt.Sprintf("rollout-duration=%s is not at second precision", v),
+				Paths:   []string{k},
 			})
 		}
 		// And positive.
 		if d < 0 {
 			return errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("rolloutDuration=%s must be positive", v),
-				Paths:   []string{RolloutDurationKey},
+				Message: fmt.Sprintf("rollout-duration=%s must be positive", v),
+				Paths:   []string{k},
 			})
 		}
 	}

@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -40,11 +41,9 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 		serving.ServiceLabelKey:    service.Name,
 		serving.ServiceUIDLabelKey: string(service.ObjectMeta.UID),
 	}
-	anns := kmeta.FilterMap(service.GetAnnotations(), func(key string) bool {
-		return key == corev1.LastAppliedConfigAnnotation ||
-			// Configs & Revisions don't use rollout information, it is only for routes.
-			key == serving.RolloutDurationKey
-	})
+
+	exclude := append([]string{corev1.LastAppliedConfigAnnotation}, serving.RolloutDurationAnnotation...)
+	anns := kmap.ExcludeKeyList(service.GetAnnotations(), exclude)
 
 	routeName := names.Route(service)
 	set := labeler.GetListAnnValue(existing.Annotations, serving.RoutesAnnotationKey)
