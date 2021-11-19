@@ -42,9 +42,6 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 		mux      sync.RWMutex
 	)
 
-	// start paused
-	pause(logger)
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if inFlight.Dec() == 0 {
