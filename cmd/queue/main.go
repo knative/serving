@@ -157,7 +157,11 @@ func main() {
 		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection).ProbeContainer
 	}
 
-	mainServer, drain := buildServer(ctx, env, probe, stats, logger)
+	var concurrencyendpoint *queue.ConcurrencyEndpoint
+	if env.ConcurrencyStateEndpoint != "" {
+		concurrencyendpoint = queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, env.ConcurrencyStateTokenPath)
+	}
+	mainServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint)
 	servers := map[string]*http.Server{
 		"main":    mainServer,
 		"admin":   buildAdminServer(logger, drain),
@@ -187,10 +191,9 @@ func main() {
 		flush(logger)
 		os.Exit(1)
 	case <-ctx.Done():
-		// If container-freezer enabled, resume container so that normal shutdown can occur
+		// If container-freezer enabled, call terminiating function
 		if env.ConcurrencyStateEndpoint != "" {
-			ce := queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, env.ConcurrencyStateTokenPath)
-			ce.Resume(logger)
+			concurrencyendpoint.Terminating(logger)
 		}
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
@@ -220,7 +223,8 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *network.RequestStats, logger *zap.SugaredLogger) (server *http.Server, drain func()) {
+func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *network.RequestStats, logger *zap.SugaredLogger,
+	ce *queue.ConcurrencyEndpoint) (server *http.Server, drain func()) {
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
 	if env.ContainerConcurrency > 0 {
 		maxIdleConns = env.ContainerConcurrency
@@ -237,7 +241,6 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	breaker := buildBreaker(logger, env)
 	metricsSupported := supportsMetrics(ctx, logger, env)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
-	concurrencyStateEnabled := env.ConcurrencyStateEndpoint != ""
 	firstByteTimeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
 	// hardcoded to always disable idle timeout for now, will expose this later
 	var idleTimeout time.Duration
@@ -245,8 +248,7 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
-	if concurrencyStateEnabled {
-		ce := queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, env.ConcurrencyStateTokenPath)
+	if ce != nil {
 		logger.Info("Concurrency state endpoint set, tracking request counts, using endpoint: ", ce.Endpoint())
 		go func() {
 			for range time.NewTicker(1 * time.Minute).C {
@@ -254,8 +256,6 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 			}
 		}()
 		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, ce.Pause, ce.Resume)
-		// start paused
-		ce.Pause(logger)
 	}
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
