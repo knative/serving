@@ -101,7 +101,7 @@ const (
 
 	// WildcardCertDomainLabelKey is the label key attached to a certificate to indicate the
 	// domain for which it was issued.
-	WildcardCertDomainLabelKey = PublicGroupName + "/wildcard-domain"
+	WildcardCertDomainLabelKey = PublicGroupName + "/wildcardDomain"
 )
 
 // Pseudo-constants
