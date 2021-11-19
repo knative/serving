@@ -111,6 +111,9 @@ var (
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: "45",
 		}, {
+			Name:  "REVISION_MAX_DURATION_TIMEOUT_SECONDS",
+			Value: "100",
+		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -264,7 +267,8 @@ func defaultRevision() *v1.Revision {
 			UID: "1234",
 		},
 		Spec: v1.RevisionSpec{
-			TimeoutSeconds: ptr.Int64(45),
+			TimeoutSeconds:            ptr.Int64(45),
+			MaxDurationTimeoutSeconds: ptr.Int64(100),
 		},
 	}
 }
@@ -416,7 +420,8 @@ func withContainers(containers []corev1.Container) RevisionOption {
 			PodSpec: corev1.PodSpec{
 				Containers: containers,
 			},
-			TimeoutSeconds: ptr.Int64(45),
+			TimeoutSeconds:            ptr.Int64(45),
+			MaxDurationTimeoutSeconds: ptr.Int64(100),
 		}
 	}
 }

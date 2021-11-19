@@ -30,11 +30,12 @@ import (
 )
 
 type timeoutHandler struct {
-	handler          http.Handler
-	firstByteTimeout time.Duration
-	idleTimeout      time.Duration
-	body             string
-	clock            clock.Clock
+	handler            http.Handler
+	firstByteTimeout   time.Duration
+	idleTimeout        time.Duration
+	maxDurationTimeout time.Duration
+	body               string
+	clock              clock.Clock
 }
 
 // NewTimeoutHandler returns a Handler that runs `h` with the
@@ -53,13 +54,14 @@ type timeoutHandler struct {
 // https://golang.org/pkg/net/http/#Handler.
 //
 // The implementation is largely inspired by http.TimeoutHandler.
-func NewTimeoutHandler(h http.Handler, msg string, firstByteTimeout time.Duration, idleTimeout time.Duration) http.Handler {
+func NewTimeoutHandler(h http.Handler, msg string, firstByteTimeout time.Duration, idleTimeout time.Duration, maxDurationTimeout time.Duration) http.Handler {
 	return &timeoutHandler{
-		handler:          h,
-		body:             msg,
-		firstByteTimeout: firstByteTimeout,
-		idleTimeout:      idleTimeout,
-		clock:            clock.RealClock{},
+		handler:            h,
+		body:               msg,
+		firstByteTimeout:   firstByteTimeout,
+		idleTimeout:        idleTimeout,
+		maxDurationTimeout: maxDurationTimeout,
+		clock:              clock.RealClock{},
 	}
 }
 
@@ -86,6 +88,19 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		idleTimeoutCh = idleTimeout.C()
 	}
 
+	var maxDurationTimeout clock.Timer
+	var maxDurationTimeoutDrained bool
+	if h.maxDurationTimeout > 0 {
+		maxDurationTimeout = getTimer(h.clock, h.maxDurationTimeout)
+		defer func() {
+			putTimer(maxDurationTimeout, maxDurationTimeoutDrained)
+		}()
+	}
+	var maxDurationTimeoutCh <-chan time.Time
+	if maxDurationTimeout != nil {
+		maxDurationTimeoutCh = maxDurationTimeout.C()
+	}
+
 	// done is closed when h.handler.ServeHTTP completes and contains
 	// the panic from h.handler.ServeHTTP if h.handler.ServeHTTP panics.
 	done := make(chan interface{})
@@ -97,6 +112,9 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				done <- p
 			}
 		}()
+		tw.mu.Lock()
+		tw.requestStartTime = tw.clock.Now()
+		tw.mu.Unlock()
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
 	}()
 
@@ -119,6 +137,12 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			idleTimeout.Reset(timeToNextTimeout)
+		case cur := <-maxDurationTimeoutCh:
+			timedOut := tw.tryMaxDurationTimeoutAndWriteError(cur, h.maxDurationTimeout, h.body)
+			if timedOut {
+				maxDurationTimeoutDrained = true
+				return
+			}
 		}
 	}
 }
@@ -134,9 +158,10 @@ type timeoutWriter struct {
 	w     http.ResponseWriter
 	clock clock.PassiveClock
 
-	mu            sync.Mutex
-	timedOut      bool
-	lastWriteTime time.Time
+	mu               sync.Mutex
+	timedOut         bool
+	lastWriteTime    time.Time
+	requestStartTime time.Time
 }
 
 var _ http.Flusher = (*timeoutWriter)(nil)
@@ -220,6 +245,18 @@ func (tw *timeoutWriter) tryIdleTimeoutAndWriteError(curTime time.Time, idleTime
 	}
 
 	return false, idleTimeout - timeSinceLastWrite
+}
+
+func (tw *timeoutWriter) tryMaxDurationTimeoutAndWriteError(curTime time.Time, maxDurationTimeout time.Duration, msg string) bool {
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+
+	if curTime.Sub(tw.requestStartTime) >= maxDurationTimeout {
+		tw.timeoutAndWriteError(msg)
+		return true
+	}
+
+	return false
 }
 
 func (tw *timeoutWriter) timeoutAndWriteError(msg string) {

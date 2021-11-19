@@ -88,6 +88,11 @@ type RevisionSpec struct {
 	// (send network traffic). If unspecified, a system default will be provided.
 	// +optional
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
+
+	// maxDurationTimeoutSeconds is the maximum duration in seconds a request will be allowed
+	// to stay open.
+	// +optional
+	MaxDurationTimeoutSeconds *int64 `json:"maxDurationTimeoutSeconds,omitempty"`
 }
 
 const (

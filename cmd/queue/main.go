@@ -70,13 +70,14 @@ var (
 )
 
 type config struct {
-	ContainerConcurrency     int    `split_words:"true" required:"true"`
-	QueueServingPort         string `split_words:"true" required:"true"`
-	UserPort                 string `split_words:"true" required:"true"`
-	RevisionTimeoutSeconds   int    `split_words:"true" required:"true"`
-	ServingReadinessProbe    string `split_words:"true"` // optional
-	EnableProfiling          bool   `split_words:"true"` // optional
-	EnableHTTP2AutoDetection bool   `split_words:"true"` // optional
+	ContainerConcurrency              int    `split_words:"true" required:"true"`
+	QueueServingPort                  string `split_words:"true" required:"true"`
+	UserPort                          string `split_words:"true" required:"true"`
+	RevisionTimeoutSeconds            int    `split_words:"true" required:"true"`
+	RevisionMaxDurationTimeoutSeconds int    `split_words:"true" required:"true"`
+	ServingReadinessProbe             string `split_words:"true"` // optional
+	EnableProfiling                   bool   `split_words:"true"` // optional
+	EnableHTTP2AutoDetection          bool   `split_words:"true"` // optional
 
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
@@ -280,6 +281,8 @@ func buildServer(ctx context.Context, env config, drainer *pkghandler.Drainer, p
 	// hardcoded to always disable idle timeout for now, will expose this later
 	var idleTimeout time.Duration
 
+	maxDurationTimeout := time.Duration(env.RevisionMaxDurationTimeoutSeconds) * time.Second
+
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
@@ -303,7 +306,7 @@ func buildServer(ctx context.Context, env config, drainer *pkghandler.Drainer, p
 	}
 	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", firstByteTimeout, idleTimeout)
+	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", firstByteTimeout, idleTimeout, maxDurationTimeout)
 
 	if metricsSupported {
 		composedHandler = requestMetricsHandler(logger, composedHandler, env)
