@@ -28,16 +28,11 @@ import (
 
 const badProbeTemplate = "unexpected probe header value: "
 
-// ProbeHandler returns a http.HandlerFunc that responds to health checks if the
-// knative network probe header is passed, and otherwise delegates to the next handler.
-func ProbeHandler(prober func() bool, tracingEnabled bool, next http.Handler) http.HandlerFunc {
+// ProbeHandler returns a http.HandlerFunc that responds to health checks.
+// This handler assumes the Knative Probe Header will be passed.
+func ProbeHandler(prober func() bool, tracingEnabled bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := network.KnativeProbeHeader(r)
-
-		if ph == "" {
-			next.ServeHTTP(w, r)
-			return
-		}
 
 		var probeSpan *trace.Span
 		if tracingEnabled {

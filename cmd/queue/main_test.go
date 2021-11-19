@@ -148,7 +148,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				h := queue.ProxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
-				h := health.ProbeHandler(tc.prober, true /*tracingEnabled*/, nil)
+				h := health.ProbeHandler(tc.prober, true /*tracingEnabled*/)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}
