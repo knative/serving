@@ -187,6 +187,11 @@ func main() {
 		flush(logger)
 		os.Exit(1)
 	case <-ctx.Done():
+		// If container-freezer enabled, resume container so that normal shutdown can occur
+		if env.ConcurrencyStateEndpoint != "" {
+			ce := queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, env.ConcurrencyStateTokenPath)
+			ce.Resume(logger)
+		}
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drain()
