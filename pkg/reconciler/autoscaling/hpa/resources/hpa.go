@@ -88,5 +88,17 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 		}
 	}
 
+	if window, hasWindow := pa.Window(); hasWindow {
+		windowSeconds := int32(window.Seconds())
+		hpa.Spec.Behavior = &autoscalingv2beta2.HorizontalPodAutoscalerBehavior{
+			ScaleDown: &autoscalingv2beta2.HPAScalingRules{
+				StabilizationWindowSeconds: &windowSeconds,
+			},
+			ScaleUp: &autoscalingv2beta2.HPAScalingRules{
+				StabilizationWindowSeconds: &windowSeconds,
+			},
+		}
+	}
+
 	return hpa
 }
