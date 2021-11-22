@@ -241,6 +241,7 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	breaker := buildBreaker(logger, env)
 	metricsSupported := supportsMetrics(ctx, logger, env)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
+	concurrencyStateEnabled := env.ConcurrencyStateEndpoint != ""
 	firstByteTimeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
 	// hardcoded to always disable idle timeout for now, will expose this later
 	var idleTimeout time.Duration
@@ -248,7 +249,7 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
-	if ce != nil {
+	if concurrencyStateEnabled {
 		logger.Info("Concurrency state endpoint set, tracking request counts, using endpoint: ", ce.Endpoint())
 		go func() {
 			for range time.NewTicker(1 * time.Minute).C {
