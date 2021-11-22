@@ -191,7 +191,6 @@ func main() {
 		flush(logger)
 		os.Exit(1)
 	case <-ctx.Done():
-		// If container-freezer enabled, call terminiating function
 		if env.ConcurrencyStateEndpoint != "" {
 			concurrencyendpoint.Terminating(logger)
 		}
