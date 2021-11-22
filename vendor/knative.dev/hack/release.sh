@@ -606,8 +606,6 @@ function publish_to_github() {
   if [[ -n "${RELEASE_NOTES}" ]]; then
     cat "${RELEASE_NOTES}" >> "${description}"
   fi
-  git tag -a "${github_tag}" -m "${title}"
-  git_push tag "${github_tag}"
 
   # Include a tag for the go module version
   #
@@ -621,7 +619,13 @@ function publish_to_github() {
     local go_module_version="v0.$(( release_minor + 27 )).$(patch_version $TAG)"
     git tag -a "${go_module_version}" -m "${title}"
     git_push tag "${go_module_version}"
+  else
+    # Pre-1.0 - use the tag as the release tag
+    github_tag="${TAG}"
   fi
+
+  git tag -a "${github_tag}" -m "${title}"
+  git_push tag "${github_tag}"
 
   [[ -n "${RELEASE_BRANCH}" ]] && commitish="--commitish=${RELEASE_BRANCH}"
   for i in {2..0}; do
