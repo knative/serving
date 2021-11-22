@@ -36,7 +36,6 @@ import (
 // the respective local function(s). The local functions are the expected behavior; the
 // function parameters are enabled primarily for testing purposes.
 func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func(*zap.SugaredLogger)) http.HandlerFunc {
-
 	var (
 		inFlight = atomic.NewInt64(0)
 		paused   = true
@@ -153,6 +152,10 @@ func (c *ConcurrencyEndpoint) Request(action string) error {
 		return fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
 	}
 	return nil
+}
+
+func (c *ConcurrencyEndpoint) Terminating(logger *zap.SugaredLogger) {
+	retryRequest(logger, c.Request, "resume")
 }
 
 func (c *ConcurrencyEndpoint) RefreshToken() error {
