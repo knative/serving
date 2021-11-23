@@ -494,19 +494,19 @@ func TestValidateRolloutDurationAnnotation(t *testing.T) {
 	}, {
 		name:  "in ns",
 		value: "120000000000",
-		want:  "invalid value: 120000000000: serving.knative.dev/rolloutDuration",
+		want:  "invalid value: 120000000000: serving.knative.dev/rollout-duration",
 	}, {
 		name:  "not a valid duration",
 		value: "five minutes and 6 seconds",
-		want:  "invalid value: five minutes and 6 seconds: serving.knative.dev/rolloutDuration",
+		want:  "invalid value: five minutes and 6 seconds: serving.knative.dev/rollout-duration",
 	}, {
 		name:  "negative",
 		value: "-211s",
-		want:  "rolloutDuration=-211s must be positive: serving.knative.dev/rolloutDuration",
+		want:  "rollout-duration=-211s must be positive: serving.knative.dev/rollout-duration",
 	}, {
 		name:  "too precise",
 		value: "211s44ms",
-		want:  "rolloutDuration=211s44ms is not at second precision: serving.knative.dev/rolloutDuration",
+		want:  "rollout-duration=211s44ms is not at second precision: serving.knative.dev/rollout-duration",
 	}}
 
 	for _, tc := range tests {

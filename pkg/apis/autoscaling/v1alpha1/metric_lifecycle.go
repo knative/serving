@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
 const (
@@ -73,4 +74,15 @@ func (m *Metric) IsReady() bool {
 	ms := m.Status
 	return ms.ObservedGeneration == m.Generation &&
 		ms.GetCondition(MetricConditionReady).IsTrue()
+}
+
+func (m *Metric) AggregationAlgorithm() string {
+	if _, s, ok := autoscaling.MetricAggregationAlgorithmAnnotation.Get(m.Annotations); ok {
+		// Normalize and use the regular casing
+		if s == autoscaling.MetricAggregationAlgorithmWeightedExponentialAlt {
+			return autoscaling.MetricAggregationAlgorithmWeightedExponential
+		}
+		return s
+	}
+	return ""
 }

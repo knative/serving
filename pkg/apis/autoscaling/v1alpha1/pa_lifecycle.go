@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/kmap"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
@@ -63,16 +64,16 @@ func (pa *PodAutoscaler) Metric() string {
 	return defaultMetric(pa.Class())
 }
 
-func (pa *PodAutoscaler) annotationInt32(key string) (int32, bool) {
-	if s, ok := pa.Annotations[key]; ok {
+func (pa *PodAutoscaler) annotationInt32(k kmap.KeyPriority) (int32, bool) {
+	if _, s, ok := k.Get(pa.Annotations); ok {
 		i, err := strconv.ParseInt(s, 10, 32)
 		return int32(i), err == nil
 	}
 	return 0, false
 }
 
-func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
-	if s, ok := pa.Annotations[key]; ok {
+func (pa *PodAutoscaler) annotationFloat64(k kmap.KeyPriority) (float64, bool) {
+	if _, s, ok := k.Get(pa.Annotations); ok {
 		f, err := strconv.ParseFloat(s, 64)
 		return f, err == nil
 	}
@@ -87,13 +88,13 @@ func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (int32, 
 	var min int32
 	if pa.Spec.Reachability != ReachabilityUnreachable {
 		min = asConfig.MinScale
-		if paMin, ok := pa.annotationInt32(autoscaling.MinScaleAnnotationKey); ok {
+		if paMin, ok := pa.annotationInt32(autoscaling.MinScaleAnnotation); ok {
 			min = paMin
 		}
 	}
 
 	max := asConfig.MaxScale
-	if paMax, ok := pa.annotationInt32(autoscaling.MaxScaleAnnotationKey); ok {
+	if paMax, ok := pa.annotationInt32(autoscaling.MaxScaleAnnotation); ok {
 		max = paMax
 	}
 
@@ -102,13 +103,13 @@ func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (int32, 
 
 // Target returns the target annotation value or false if not present, or invalid.
 func (pa *PodAutoscaler) Target() (float64, bool) {
-	return pa.annotationFloat64(autoscaling.TargetAnnotationKey)
+	return pa.annotationFloat64(autoscaling.TargetAnnotation)
 }
 
 // TargetUtilization returns the target utilization percentage as a fraction, if
 // the corresponding annotation is set.
 func (pa *PodAutoscaler) TargetUtilization() (float64, bool) {
-	if tu, ok := pa.annotationFloat64(autoscaling.TargetUtilizationPercentageKey); ok {
+	if tu, ok := pa.annotationFloat64(autoscaling.TargetUtilizationPercentageAnnotation); ok {
 		return tu / 100, true
 	}
 	return 0, false
@@ -117,11 +118,11 @@ func (pa *PodAutoscaler) TargetUtilization() (float64, bool) {
 // TargetBC returns the target burst capacity, if the corresponding annotation is set.
 func (pa *PodAutoscaler) TargetBC() (float64, bool) {
 	// The value is validated in the webhook.
-	return pa.annotationFloat64(autoscaling.TargetBurstCapacityKey)
+	return pa.annotationFloat64(autoscaling.TargetBurstCapacityAnnotation)
 }
 
-func (pa *PodAutoscaler) annotationDuration(key string) (time.Duration, bool) {
-	if s, ok := pa.Annotations[key]; ok {
+func (pa *PodAutoscaler) annotationDuration(k kmap.KeyPriority) (time.Duration, bool) {
+	if _, s, ok := k.Get(pa.Annotations); ok {
 		d, err := time.ParseDuration(s)
 		return d, err == nil
 	}
@@ -132,37 +133,37 @@ func (pa *PodAutoscaler) annotationDuration(key string) (time.Duration, bool) {
 // or false if not present.
 func (pa *PodAutoscaler) ScaleToZeroPodRetention() (time.Duration, bool) {
 	// The value is validated in the webhook.
-	return pa.annotationDuration(autoscaling.ScaleToZeroPodRetentionPeriodKey)
+	return pa.annotationDuration(autoscaling.ScaleToZeroPodRetentionPeriodAnnotation)
 }
 
 // Window returns the window annotation value, or false if not present.
 func (pa *PodAutoscaler) Window() (time.Duration, bool) {
 	// The value is validated in the webhook.
-	return pa.annotationDuration(autoscaling.WindowAnnotationKey)
+	return pa.annotationDuration(autoscaling.WindowAnnotation)
 }
 
 // ScaleDownDelay returns the scale down delay annotation, or false if not present.
 func (pa *PodAutoscaler) ScaleDownDelay() (time.Duration, bool) {
 	// The value is validated in the webhook.
-	return pa.annotationDuration(autoscaling.ScaleDownDelayAnnotationKey)
+	return pa.annotationDuration(autoscaling.ScaleDownDelayAnnotation)
 }
 
 // PanicWindowPercentage returns the panic window annotation value, or false if not present.
 func (pa *PodAutoscaler) PanicWindowPercentage() (percentage float64, ok bool) {
 	// The value is validated in the webhook.
-	return pa.annotationFloat64(autoscaling.PanicWindowPercentageAnnotationKey)
+	return pa.annotationFloat64(autoscaling.PanicWindowPercentageAnnotation)
 }
 
 // PanicThresholdPercentage returns the panic threshold annotation value, or false if not present.
 func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool) {
 	// The value is validated in the webhook.
-	return pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
+	return pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotation)
 }
 
 // InitialScale returns the initial scale on the revision if present, or false if not present.
 func (pa *PodAutoscaler) InitialScale() (int32, bool) {
 	// The value is validated in the webhook.
-	return pa.annotationInt32(autoscaling.InitialScaleAnnotationKey)
+	return pa.annotationInt32(autoscaling.InitialScaleAnnotation)
 }
 
 // IsReady returns true if the Status condition PodAutoscalerConditionReady

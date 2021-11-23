@@ -890,7 +890,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					serving.QueueSideCarResourcePercentageAnnotation: "200",
+					serving.QueueSidecarResourcePercentageAnnotationKey: "200",
 				},
 			},
 			Spec: RevisionSpec{
@@ -903,14 +903,14 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "expected 0.1 <= 200 <= 100",
-			Paths:   []string{"[" + serving.QueueSideCarResourcePercentageAnnotation + "]"},
+			Paths:   []string{"[" + serving.QueueSidecarResourcePercentageAnnotationKey + "]"},
 		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					serving.QueueSideCarResourcePercentageAnnotation: "50mx",
+					serving.QueueSidecarResourcePercentageAnnotationKey: "50mx",
 				},
 			},
 			Spec: RevisionSpec{
@@ -923,7 +923,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "invalid value: 50mx",
-			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
 		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Invalid initial scale when cluster doesn't allow zero",
@@ -1001,47 +1001,47 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 	}{{
 		name: "too small",
 		annotation: map[string]string{
-			serving.QueueSideCarResourcePercentageAnnotation: "0.01982",
+			serving.QueueSidecarResourcePercentageAnnotationKey: "0.01982",
 		},
 		expectErr: &apis.FieldError{
 			Message: "expected 0.1 <= 0.01982 <= 100",
-			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
 		},
 	}, {
 		name: "too big for Queue sidecar resource percentage annotation",
 		annotation: map[string]string{
-			serving.QueueSideCarResourcePercentageAnnotation: "100.0001",
+			serving.QueueSidecarResourcePercentageAnnotationKey: "100.0001",
 		},
 		expectErr: &apis.FieldError{
 			Message: "expected 0.1 <= 100.0001 <= 100",
-			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
 		},
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",
 		annotation: map[string]string{
-			serving.QueueSideCarResourcePercentageAnnotation: "",
+			serving.QueueSidecarResourcePercentageAnnotationKey: "",
 		},
 		expectErr: &apis.FieldError{
 			Message: "invalid value: ",
-			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
 		},
 	}, {
 		name:       "empty annotation",
 		annotation: map[string]string{},
 	}, {
-		name: "different annotation other than QueueSideCarResourcePercentageAnnotation",
+		name: "different annotation other than QueueSidecarResourcePercentageAnnotation",
 		annotation: map[string]string{
 			serving.CreatorAnnotation: "umph",
 		},
 	}, {
 		name: "valid value for Queue sidecar resource percentage annotation",
 		annotation: map[string]string{
-			serving.QueueSideCarResourcePercentageAnnotation: "0.1",
+			serving.QueueSidecarResourcePercentageAnnotationKey: "0.1",
 		},
 	}, {
 		name: "valid value for Queue sidecar resource percentage annotation",
 		annotation: map[string]string{
-			serving.QueueSideCarResourcePercentageAnnotation: "100",
+			serving.QueueSidecarResourcePercentageAnnotationKey: "100",
 		},
 	}}
 

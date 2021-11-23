@@ -26,11 +26,12 @@ import (
 	"time"
 
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/kmap"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
-func getIntGE0(m map[string]string, k string) (int32, *apis.FieldError) {
-	v, ok := m[k]
+func getIntGE0(m map[string]string, key kmap.KeyPriority) (int32, *apis.FieldError) {
+	k, v, ok := key.Get(m)
 	if !ok {
 		return 0, nil
 	}
@@ -62,107 +63,109 @@ func ValidateAnnotations(ctx context.Context, config *autoscalerconfig.Config, a
 		Also(validateInitialScale(config, anns))
 }
 
-func validateClass(annotations map[string]string) *apis.FieldError {
-	if c, ok := annotations[ClassAnnotationKey]; ok {
-		if strings.HasSuffix(c, domain) && c != KPA && c != HPA {
-			return apis.ErrInvalidValue(c, ClassAnnotationKey)
+func validateClass(m map[string]string) *apis.FieldError {
+	if k, v, ok := ClassAnnotation.Get(m); ok {
+		if strings.HasSuffix(v, domain) && v != KPA && v != HPA {
+			return apis.ErrInvalidValue(v, k)
 		}
 	}
 	return nil
 }
 
-func validateAlgorithm(annotations map[string]string) *apis.FieldError {
+func validateAlgorithm(m map[string]string) *apis.FieldError {
 	// Not a KPA? Don't validate, custom autoscalers might have custom values.
-	if c := annotations[ClassAnnotationKey]; c != KPA {
+	if _, v, _ := ClassAnnotation.Get(m); v != KPA {
 		return nil
 	}
-	if a := annotations[MetricAggregationAlgorithmKey]; a != "" {
-		switch a {
-		case MetricAggregationAlgorithmLinear, MetricAggregationAlgorithmWeightedExponential:
+	if k, v, _ := MetricAggregationAlgorithmAnnotation.Get(m); v != "" {
+		switch v {
+		case MetricAggregationAlgorithmLinear,
+			MetricAggregationAlgorithmWeightedExponential,
+			MetricAggregationAlgorithmWeightedExponentialAlt:
 			return nil
 		default:
-			return apis.ErrInvalidValue(a, MetricAggregationAlgorithmKey)
+			return apis.ErrInvalidValue(v, k)
 		}
 	}
 	return nil
 }
 
-func validateFloats(annotations map[string]string) (errs *apis.FieldError) {
-	if v, ok := annotations[PanicWindowPercentageAnnotationKey]; ok {
+func validateFloats(m map[string]string) (errs *apis.FieldError) {
+	if k, v, ok := PanicWindowPercentageAnnotation.Get(m); ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, PanicWindowPercentageAnnotationKey))
+			errs = errs.Also(apis.ErrInvalidValue(v, k))
 		} else if fv < PanicWindowPercentageMin || fv > PanicWindowPercentageMax {
 			errs = apis.ErrOutOfBoundsValue(v, PanicWindowPercentageMin,
-				PanicWindowPercentageMax, PanicWindowPercentageAnnotationKey)
+				PanicWindowPercentageMax, k)
 		}
 	}
-	if v, ok := annotations[PanicThresholdPercentageAnnotationKey]; ok {
+	if k, v, ok := PanicThresholdPercentageAnnotation.Get(m); ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, PanicThresholdPercentageAnnotationKey))
+			errs = errs.Also(apis.ErrInvalidValue(v, k))
 		} else if fv < PanicThresholdPercentageMin || fv > PanicThresholdPercentageMax {
 			errs = errs.Also(apis.ErrOutOfBoundsValue(v, PanicThresholdPercentageMin,
-				PanicThresholdPercentageMax, PanicThresholdPercentageAnnotationKey))
+				PanicThresholdPercentageMax, k))
 		}
 	}
 
-	if v, ok := annotations[TargetAnnotationKey]; ok {
+	if k, v, ok := TargetAnnotation.Get(m); ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < TargetMin {
-			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("target %s should be at least %g", v, TargetMin), TargetAnnotationKey))
+			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("target %s should be at least %g", v, TargetMin), k))
 		}
 	}
 
-	if v, ok := annotations[TargetUtilizationPercentageKey]; ok {
+	if k, v, ok := TargetUtilizationPercentageAnnotation.Get(m); ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, TargetUtilizationPercentageKey))
+			errs = errs.Also(apis.ErrInvalidValue(v, k))
 		} else if fv < 1 || fv > 100 {
-			errs = errs.Also(apis.ErrOutOfBoundsValue(v, 1, 100, TargetUtilizationPercentageKey))
+			errs = errs.Also(apis.ErrOutOfBoundsValue(v, 1, 100, k))
 		}
 	}
 
-	if v, ok := annotations[TargetBurstCapacityKey]; ok {
+	if k, v, ok := TargetBurstCapacityAnnotation.Get(m); ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < 0 && fv != -1 {
-			errs = errs.Also(apis.ErrInvalidValue(v, TargetBurstCapacityKey))
+			errs = errs.Also(apis.ErrInvalidValue(v, k))
 		}
 	}
 	return errs
 }
 
-func validateScaleDownDelay(annotations map[string]string) *apis.FieldError {
+func validateScaleDownDelay(m map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
-	if w, ok := annotations[ScaleDownDelayAnnotationKey]; ok {
-		if d, err := time.ParseDuration(w); err != nil {
-			errs = apis.ErrInvalidValue(w, ScaleDownDelayAnnotationKey)
+	if k, v, ok := ScaleDownDelayAnnotation.Get(m); ok {
+		if d, err := time.ParseDuration(v); err != nil {
+			errs = apis.ErrInvalidValue(v, k)
 		} else if d < 0 || d > WindowMax {
 			// Since we disallow windows longer than WindowMax, so we should limit this
 			// as well.
-			errs = apis.ErrOutOfBoundsValue(w, 0*time.Second, WindowMax, ScaleDownDelayAnnotationKey)
+			errs = apis.ErrOutOfBoundsValue(v, 0*time.Second, WindowMax, k)
 		} else if d.Round(time.Second) != d {
-			errs = apis.ErrGeneric("must be specified with at most second precision", ScaleDownDelayAnnotationKey)
+			errs = apis.ErrGeneric("must be specified with at most second precision", k)
 		}
 	}
 	return errs
 }
 
-func validateLastPodRetention(annotations map[string]string) *apis.FieldError {
-	if w, ok := annotations[ScaleToZeroPodRetentionPeriodKey]; ok {
-		if d, err := time.ParseDuration(w); err != nil {
-			return apis.ErrInvalidValue(w, ScaleToZeroPodRetentionPeriodKey)
+func validateLastPodRetention(m map[string]string) *apis.FieldError {
+	if k, v, ok := ScaleToZeroPodRetentionPeriodAnnotation.Get(m); ok {
+		if d, err := time.ParseDuration(v); err != nil {
+			return apis.ErrInvalidValue(v, k)
 		} else if d < 0 || d > WindowMax {
 			// Since we disallow windows longer than WindowMax, so we should limit this
 			// as well.
-			return apis.ErrOutOfBoundsValue(w, time.Duration(0), WindowMax, ScaleToZeroPodRetentionPeriodKey)
+			return apis.ErrOutOfBoundsValue(v, time.Duration(0), WindowMax, k)
 		}
 	}
 	return nil
 }
 
-func validateWindow(annotations map[string]string) *apis.FieldError {
-	if w, ok := annotations[WindowAnnotationKey]; ok {
-		switch d, err := time.ParseDuration(w); {
+func validateWindow(m map[string]string) *apis.FieldError {
+	if _, v, ok := WindowAnnotation.Get(m); ok {
+		switch d, err := time.ParseDuration(v); {
 		case err != nil:
-			return apis.ErrInvalidValue(w, WindowAnnotationKey)
+			return apis.ErrInvalidValue(v, WindowAnnotationKey)
 		case d < WindowMin || d > WindowMax:
-			return apis.ErrOutOfBoundsValue(w, WindowMin, WindowMax, WindowAnnotationKey)
+			return apis.ErrOutOfBoundsValue(v, WindowMin, WindowMax, WindowAnnotationKey)
 		case d.Truncate(time.Second) != d:
 			return apis.ErrGeneric("must be specified with at most second precision", WindowAnnotationKey)
 		}
@@ -170,48 +173,48 @@ func validateWindow(annotations map[string]string) *apis.FieldError {
 	return nil
 }
 
-func validateMinMaxScale(config *autoscalerconfig.Config, annotations map[string]string) *apis.FieldError {
-	min, errs := getIntGE0(annotations, MinScaleAnnotationKey)
-	max, err := getIntGE0(annotations, MaxScaleAnnotationKey)
+func validateMinMaxScale(config *autoscalerconfig.Config, m map[string]string) *apis.FieldError {
+	min, errs := getIntGE0(m, MinScaleAnnotation)
+	max, err := getIntGE0(m, MaxScaleAnnotation)
 	errs = errs.Also(err)
 
 	if max != 0 && max < min {
 		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprintf("maxScale=%d is less than minScale=%d", max, min),
+			Message: fmt.Sprintf("max-scale=%d is less than min-scale=%d", max, min),
 			Paths:   []string{MaxScaleAnnotationKey, MinScaleAnnotationKey},
 		})
 	}
 
-	if _, hasMaxScaleAnnotation := annotations[MaxScaleAnnotationKey]; hasMaxScaleAnnotation {
-		errs = errs.Also(validateMaxScaleWithinLimit(max, config.MaxScaleLimit))
+	if k, _, ok := MaxScaleAnnotation.Get(m); ok {
+		errs = errs.Also(validateMaxScaleWithinLimit(k, max, config.MaxScaleLimit))
 	}
 
 	return errs
 }
 
-func validateMaxScaleWithinLimit(maxScale, maxScaleLimit int32) (errs *apis.FieldError) {
+func validateMaxScaleWithinLimit(key string, maxScale, maxScaleLimit int32) (errs *apis.FieldError) {
 	if maxScaleLimit == 0 {
 		return nil
 	}
 
 	if maxScale > maxScaleLimit {
-		errs = errs.Also(apis.ErrOutOfBoundsValue(maxScale, 1, maxScaleLimit, MaxScaleAnnotationKey))
+		errs = errs.Also(apis.ErrOutOfBoundsValue(maxScale, 1, maxScaleLimit, key))
 	}
 
 	if maxScale == 0 {
 		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprint("maxScale=0 (unlimited), must be less than ", maxScaleLimit),
-			Paths:   []string{MaxScaleAnnotationKey},
+			Message: fmt.Sprint("max-scale=0 (unlimited), must be less than ", maxScaleLimit),
+			Paths:   []string{key},
 		})
 	}
 
 	return errs
 }
 
-func validateMetric(annotations map[string]string) *apis.FieldError {
-	if metric, ok := annotations[MetricAnnotationKey]; ok {
+func validateMetric(m map[string]string) *apis.FieldError {
+	if _, metric, ok := MetricAnnotation.Get(m); ok {
 		classValue := KPA
-		if c, ok := annotations[ClassAnnotationKey]; ok {
+		if _, c, ok := ClassAnnotation.Get(m); ok {
 			classValue = c
 		}
 		switch classValue {
@@ -234,11 +237,11 @@ func validateMetric(annotations map[string]string) *apis.FieldError {
 	return nil
 }
 
-func validateInitialScale(config *autoscalerconfig.Config, annotations map[string]string) *apis.FieldError {
-	if initialScale, ok := annotations[InitialScaleAnnotationKey]; ok {
-		initScaleInt, err := strconv.Atoi(initialScale)
+func validateInitialScale(config *autoscalerconfig.Config, m map[string]string) *apis.FieldError {
+	if k, v, ok := InitialScaleAnnotation.Get(m); ok {
+		initScaleInt, err := strconv.Atoi(v)
 		if err != nil || initScaleInt < 0 || (!config.AllowZeroInitialScale && initScaleInt == 0) {
-			return apis.ErrInvalidValue(initialScale, InitialScaleAnnotationKey)
+			return apis.ErrInvalidValue(v, k)
 		}
 	}
 	return nil
