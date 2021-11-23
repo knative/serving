@@ -160,12 +160,12 @@ func validateLastPodRetention(m map[string]string) *apis.FieldError {
 }
 
 func validateWindow(m map[string]string) *apis.FieldError {
-	if _, w, ok := WindowAnnotation.Get(m); ok {
-		switch d, err := time.ParseDuration(w); {
+	if _, v, ok := WindowAnnotation.Get(m); ok {
+		switch d, err := time.ParseDuration(v); {
 		case err != nil:
-			return apis.ErrInvalidValue(w, WindowAnnotationKey)
+			return apis.ErrInvalidValue(v, WindowAnnotationKey)
 		case d < WindowMin || d > WindowMax:
-			return apis.ErrOutOfBoundsValue(w, WindowMin, WindowMax, WindowAnnotationKey)
+			return apis.ErrOutOfBoundsValue(v, WindowMin, WindowMax, WindowAnnotationKey)
 		case d.Truncate(time.Second) != d:
 			return apis.ErrGeneric("must be specified with at most second precision", WindowAnnotationKey)
 		}

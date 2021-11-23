@@ -178,11 +178,11 @@ func validateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.Fie
 }
 
 // validateQueueSidecarAnnotation validates QueueSideCarResourcePercentageAnnotation
-func validateQueueSidecarAnnotation(annotations map[string]string) *apis.FieldError {
-	if len(annotations) == 0 {
+func validateQueueSidecarAnnotation(m map[string]string) *apis.FieldError {
+	if len(m) == 0 {
 		return nil
 	}
-	k, v, ok := serving.QueueSidecarResourcePercentageAnnotation.Get(annotations)
+	k, v, ok := serving.QueueSidecarResourcePercentageAnnotation.Get(m)
 	if !ok {
 		return nil
 	}
