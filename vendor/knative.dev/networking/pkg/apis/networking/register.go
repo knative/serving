@@ -16,6 +16,8 @@ limitations under the License.
 
 package networking
 
+import "knative.dev/pkg/kmap"
+
 const (
 	// GroupName is the name for the networking API group.
 	GroupName = "networking.internal.knative.dev"
@@ -108,36 +110,40 @@ const (
 var (
 	// DefaultRetryCount will be set if Attempts not specified.
 	DefaultRetryCount = 3
+
+	IngressClassAnnotation = kmap.KeyPriority{
+		IngressClassAnnotationKey,
+		IngressClassAnnotationAltKey,
+	}
+
+	CertificateClassAnnotation = kmap.KeyPriority{
+		CertificateClassAnnotationKey,
+		CertificateClassAnnotationAltKey,
+	}
+
+	DisableAutoTLSAnnotation = kmap.KeyPriority{
+		DisableAutoTLSAnnotationKey,
+		DisableAutoTLSAnnotationAltKey,
+	}
+
+	HTTPProtocolAnnotation = kmap.KeyPriority{
+		HTTPOptionAnnotationKey,
+		HTTPProtocolAnnotationKey,
+	}
 )
 
 func GetIngressClass(annotations map[string]string) (val string) {
-	val, ok := annotations[IngressClassAnnotationAltKey]
-	if ok {
-		return val
-	}
-	return annotations[IngressClassAnnotationKey]
+	return IngressClassAnnotation.Value(annotations)
 }
 
 func GetCertificateClass(annotations map[string]string) (val string) {
-	val, ok := annotations[CertificateClassAnnotationAltKey]
-	if ok {
-		return val
-	}
-	return annotations[CertificateClassAnnotationKey]
+	return CertificateClassAnnotation.Value(annotations)
 }
 
 func GetHTTPProtocol(annotations map[string]string) (val string) {
-	val, ok := annotations[HTTPProtocolAnnotationKey]
-	if ok {
-		return val
-	}
-	return annotations[HTTPOptionAnnotationKey]
+	return HTTPProtocolAnnotation.Value(annotations)
 }
 
 func GetDisableAutoTLS(annotations map[string]string) (val string) {
-	val, ok := annotations[DisableAutoTLSAnnotationAltKey]
-	if ok {
-		return val
-	}
-	return annotations[DisableAutoTLSAnnotationKey]
+	return DisableAutoTLSAnnotation.Value(annotations)
 }
