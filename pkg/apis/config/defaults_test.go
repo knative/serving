@@ -77,8 +77,8 @@ func TestDefaultsConfiguration(t *testing.T) {
 			MaxRevisionTimeoutSeconds:    456,
 			ContainerConcurrencyMaxLimit: 1984,
 			RevisionCPURequest:           &oneTwoThree,
-			UserContainerNameTemplate:    "{{.Name}}",
-			InitContainerNameTemplate:    "{{.Name}}",
+			UserContainerNameTemplate:    mustParse("{{.Name}}"),
+			InitContainerNameTemplate:    mustParse("{{.Name}}"),
 			EnableServiceLinks:           ptr.Bool(true),
 		},
 		data: map[string]string{
@@ -97,8 +97,8 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
 			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
-			InitContainerNameTemplate:     DefaultInitContainerName,
-			UserContainerNameTemplate:     DefaultUserContainerName,
+			InitContainerNameTemplate:     DefaultInitContainerNameTemplate,
+			UserContainerNameTemplate:     DefaultUserContainerNameTemplate,
 			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero: true,
 			EnableServiceLinks:            ptr.Bool(false),
@@ -112,8 +112,8 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
 			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
-			InitContainerNameTemplate:     DefaultInitContainerName,
-			UserContainerNameTemplate:     DefaultUserContainerName,
+			InitContainerNameTemplate:     DefaultInitContainerNameTemplate,
+			UserContainerNameTemplate:     DefaultUserContainerNameTemplate,
 			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero: true,
 			EnableServiceLinks:            nil,
@@ -187,8 +187,8 @@ func TestDefaultsConfiguration(t *testing.T) {
 			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
 			EnableServiceLinks:            ptr.Bool(false),
-			UserContainerNameTemplate:     "{{.Name}}",
-			InitContainerNameTemplate:     "my-template",
+			UserContainerNameTemplate:     mustParse("{{.Name}}"),
+			InitContainerNameTemplate:     mustParse("my-template"),
 		},
 		data: map[string]string{
 			"container-name-template":      "{{.Name}}",
