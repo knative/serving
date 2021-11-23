@@ -88,6 +88,15 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		idleTimeoutCh = idleTimeout.C()
 	}
 
+	// done is closed when h.handler.ServeHTTP completes and contains
+	// the panic from h.handler.ServeHTTP if h.handler.ServeHTTP panics.
+	done := make(chan interface{})
+	tw := &timeoutWriter{w: w, clock: h.clock}
+
+	// make sure that when max duration time out expires
+	// curTime - requestTime >= timeout
+	tw.requestStartTime = tw.clock.Now()
+
 	var maxDurationTimeout clock.Timer
 	var maxDurationTimeoutDrained bool
 	if h.maxDurationTimeout > 0 {
@@ -101,10 +110,6 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		maxDurationTimeoutCh = maxDurationTimeout.C()
 	}
 
-	// done is closed when h.handler.ServeHTTP completes and contains
-	// the panic from h.handler.ServeHTTP if h.handler.ServeHTTP panics.
-	done := make(chan interface{})
-	tw := &timeoutWriter{w: w, clock: h.clock}
 	go func() {
 		defer func() {
 			defer close(done)
@@ -112,9 +117,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				done <- p
 			}
 		}()
-		tw.mu.Lock()
-		tw.requestStartTime = tw.clock.Now()
-		tw.mu.Unlock()
+
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
 	}()
 
@@ -137,8 +140,8 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			idleTimeout.Reset(timeToNextTimeout)
-		case cur := <-maxDurationTimeoutCh:
-			timedOut := tw.tryMaxDurationTimeoutAndWriteError(cur, h.maxDurationTimeout, h.body)
+		case <-maxDurationTimeoutCh:
+			timedOut := tw.maxDurationTimeoutAndWriteError(h.body)
 			if timedOut {
 				maxDurationTimeoutDrained = true
 				return
@@ -247,16 +250,11 @@ func (tw *timeoutWriter) tryIdleTimeoutAndWriteError(curTime time.Time, idleTime
 	return false, idleTimeout - timeSinceLastWrite
 }
 
-func (tw *timeoutWriter) tryMaxDurationTimeoutAndWriteError(curTime time.Time, maxDurationTimeout time.Duration, msg string) bool {
+func (tw *timeoutWriter) maxDurationTimeoutAndWriteError(msg string) bool {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
-
-	if curTime.Sub(tw.requestStartTime) >= maxDurationTimeout {
-		tw.timeoutAndWriteError(msg)
-		return true
-	}
-
-	return false
+	tw.timeoutAndWriteError(msg)
+	return true
 }
 
 func (tw *timeoutWriter) timeoutAndWriteError(msg string) {

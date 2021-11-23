@@ -37,7 +37,7 @@ import (
 
 // sendRequests send a request to "endpoint", returns error if unexpected response code, nil otherwise.
 func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
-	initialSleep, sleep time.Duration, expectedResponseCode int) error {
+	initialSleep, sleep time.Duration, expectedResponseCode int, expectedBody string) error {
 	client, err := pkgtest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return fmt.Errorf("error creating Spoofing client: %w", err)
@@ -67,40 +67,55 @@ func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	if expectedResponseCode != resp.StatusCode {
 		return fmt.Errorf("response status code = %v, want = %v, response = %v", resp.StatusCode, expectedResponseCode, resp)
 	}
+	if expectedBody != "" {
+		gotBody := string(resp.Body)
+		if expectedBody != gotBody {
+			return fmt.Errorf("response body = %v, want = %v, response = %v", gotBody, expectedBody, resp)
+		}
+	}
+
 	return nil
+}
+
+type revisionTimeoutTestCase struct {
+	name                      string
+	timeoutSeconds            int64
+	maxDurationTimeoutSeconds int64
+	initialSleep              time.Duration
+	sleep                     time.Duration
+	expectedStatus            int
+	expectedBody              string
+}
+
+func getDefaultTestCases() []revisionTimeoutTestCase {
+	return []revisionTimeoutTestCase{
+		{
+			name:           "does not exceed timeout seconds",
+			timeoutSeconds: 10,
+			initialSleep:   2 * time.Second,
+			expectedStatus: http.StatusOK,
+		}, {
+			name:           "exceeds timeout seconds",
+			timeoutSeconds: 10,
+			initialSleep:   12 * time.Second,
+			expectedStatus: http.StatusGatewayTimeout,
+			expectedBody:   "request timeout",
+		}, {
+			name:           "writes first byte before timeout",
+			timeoutSeconds: 10,
+			expectedStatus: http.StatusOK,
+			sleep:          15 * time.Second,
+			initialSleep:   0,
+		}}
 }
 
 func TestRevisionTimeout(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	testCases := []struct {
-		name           string
-		shouldScaleTo0 bool
-		timeoutSeconds int64
-		initialSleep   time.Duration
-		sleep          time.Duration
-		expectedStatus int
-	}{{
-		name:           "does not exceed timeout seconds",
-		timeoutSeconds: 10,
-		initialSleep:   2 * time.Second,
-		expectedStatus: http.StatusOK,
-	}, {
-		name:           "exceeds timeout seconds",
-		timeoutSeconds: 10,
-		initialSleep:   12 * time.Second,
-		expectedStatus: http.StatusGatewayTimeout,
-	}, {
-		name:           "writes first byte before timeout",
-		timeoutSeconds: 10,
-		expectedStatus: http.StatusOK,
-		sleep:          15 * time.Second,
-		initialSleep:   0,
-	}}
-
-	for _, tc := range testCases {
+	for _, tc := range getDefaultTestCases() {
 		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -132,7 +147,84 @@ func TestRevisionTimeout(t *testing.T) {
 				t.Fatalf("Error probing %s: %v", serviceURL, err)
 			}
 
-			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus); err != nil {
+			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus, tc.expectedBody); err != nil {
+				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds and expecting status %v: %v",
+					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.expectedStatus, err)
+			}
+		})
+	}
+}
+
+func TestMaxDurationRevisionTimeout(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+	neverExpireMaxDurationSeconds := int64(100)
+	testCases := getDefaultTestCases()
+
+	// make sure high enough max duration has no effect in default cases
+	for _, tc := range testCases {
+		tc.maxDurationTimeoutSeconds = neverExpireMaxDurationSeconds
+	}
+
+	testCases = append(testCases, []revisionTimeoutTestCase{
+		{
+			name:                      "exceeds max duration timeout",
+			timeoutSeconds:            15,
+			maxDurationTimeoutSeconds: 10,
+			initialSleep:              12 * time.Second,
+			expectedStatus:            http.StatusGatewayTimeout,
+			expectedBody:              "request timeout",
+		}, {
+			name:                      "exceeds multiple timeouts",
+			timeoutSeconds:            10,
+			maxDurationTimeoutSeconds: 10,
+			initialSleep:              12 * time.Second,
+			expectedStatus:            http.StatusGatewayTimeout,
+			expectedBody:              "request timeout",
+		}, {
+			name:                      "writes first byte (HTTP OK), max duration violated, request can still timeout",
+			timeoutSeconds:            10,
+			maxDurationTimeoutSeconds: 12,
+			expectedStatus:            http.StatusOK,
+			sleep:                     15 * time.Second,
+			initialSleep:              0,
+			expectedBody:              "request timeout",
+		}}...)
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			names := test.ResourceNames{
+				Service: test.ObjectNameForTest(t),
+				Image:   test.Timeout,
+			}
+
+			test.EnsureTearDown(t, clients, &names)
+
+			t.Log("Creating a new Service ")
+			resources, err := v1test.CreateServiceReady(t, clients, &names, WithRevisionTimeoutSeconds(tc.timeoutSeconds), WithRevisionMaxDurationTimeoutSeconds(tc.maxDurationTimeoutSeconds))
+			if err != nil {
+				t.Fatal("Failed to create Service:", err)
+			}
+
+			serviceURL := resources.Service.Status.URL.URL()
+
+			t.Log("Probing to force at least one pod", serviceURL)
+			if _, err := pkgtest.CheckEndpointState(
+				context.Background(),
+				clients.KubeClient,
+				t.Logf,
+				serviceURL,
+				spoof.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout),
+				"CheckSuccessfulResponse",
+				test.ServingFlags.ResolvableDomain,
+				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
+				t.Fatalf("Error probing %s: %v", serviceURL, err)
+			}
+
+			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus, tc.expectedBody); err != nil {
 				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds and expecting status %v: %v",
 					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.expectedStatus, err)
 			}
