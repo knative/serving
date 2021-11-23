@@ -15,8 +15,8 @@ require (
 	github.com/go-openapi/spec v0.20.2 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.6
-	github.com/google/go-containerregistry v0.6.0
-	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210624211700-ce35c99b3faf
+	github.com/google/go-containerregistry v0.7.1-0.20211118220127-abdc633f8305
+	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20211118220127-abdc633f8305
 	github.com/google/gofuzz v1.2.0
 	github.com/googleapis/gnostic v0.5.3 // indirect
 	github.com/gorilla/websocket v1.4.2
@@ -29,8 +29,8 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.19.1
-	golang.org/x/net v0.0.0-20211101193420-4a448f8816b3
-	golang.org/x/oauth2 v0.0.0-20211028175245-ba495a64dcb5
+	golang.org/x/net v0.0.0-20211118161319-6a13c67c3ce4
+	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gonum.org/v1/gonum v0.0.0-20190331200053-3d26580ed485 // indirect
