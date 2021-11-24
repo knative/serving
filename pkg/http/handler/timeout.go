@@ -93,10 +93,6 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	done := make(chan interface{})
 	tw := &timeoutWriter{w: w, clock: h.clock}
 
-	// make sure that when max duration time out expires
-	// curTime - requestTime >= timeout
-	tw.requestStartTime = tw.clock.Now()
-
 	var maxDurationTimeout clock.Timer
 	var maxDurationTimeoutDrained bool
 	if h.maxDurationTimeout > 0 {
@@ -161,10 +157,9 @@ type timeoutWriter struct {
 	w     http.ResponseWriter
 	clock clock.PassiveClock
 
-	mu               sync.Mutex
-	timedOut         bool
-	lastWriteTime    time.Time
-	requestStartTime time.Time
+	mu            sync.Mutex
+	timedOut      bool
+	lastWriteTime time.Time
 }
 
 var _ http.Flusher = (*timeoutWriter)(nil)

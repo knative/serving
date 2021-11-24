@@ -77,122 +77,83 @@ func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	return nil
 }
 
-type revisionTimeoutTestCase struct {
-	name                      string
-	timeoutSeconds            int64
-	maxDurationTimeoutSeconds int64
-	initialSleep              time.Duration
-	sleep                     time.Duration
-	expectedStatus            int
-	expectedBody              string
-}
-
-func getDefaultTestCases() []revisionTimeoutTestCase {
-	return []revisionTimeoutTestCase{
-		{
-			name:           "does not exceed timeout seconds",
-			timeoutSeconds: 10,
-			initialSleep:   2 * time.Second,
-			expectedStatus: http.StatusOK,
-		}, {
-			name:           "exceeds timeout seconds",
-			timeoutSeconds: 10,
-			initialSleep:   12 * time.Second,
-			expectedStatus: http.StatusGatewayTimeout,
-			expectedBody:   "request timeout",
-		}, {
-			name:           "writes first byte before timeout",
-			timeoutSeconds: 10,
-			expectedStatus: http.StatusOK,
-			sleep:          15 * time.Second,
-			initialSleep:   0,
-		}}
-}
-
 func TestRevisionTimeout(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
-
-	for _, tc := range getDefaultTestCases() {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			names := test.ResourceNames{
-				Service: test.ObjectNameForTest(t),
-				Image:   test.Timeout,
-			}
-
-			test.EnsureTearDown(t, clients, &names)
-
-			t.Log("Creating a new Service ")
-			resources, err := v1test.CreateServiceReady(t, clients, &names, WithRevisionTimeoutSeconds(tc.timeoutSeconds))
-			if err != nil {
-				t.Fatal("Failed to create Service:", err)
-			}
-
-			serviceURL := resources.Service.Status.URL.URL()
-
-			t.Log("Probing to force at least one pod", serviceURL)
-			if _, err := pkgtest.CheckEndpointState(
-				context.Background(),
-				clients.KubeClient,
-				t.Logf,
-				serviceURL,
-				spoof.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout),
-				"CheckSuccessfulResponse",
-				test.ServingFlags.ResolvableDomain,
-				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
-				t.Fatalf("Error probing %s: %v", serviceURL, err)
-			}
-
-			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus, tc.expectedBody); err != nil {
-				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds and expecting status %v: %v",
-					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.expectedStatus, err)
-			}
-		})
-	}
-}
-
-func TestMaxDurationRevisionTimeout(t *testing.T) {
-	t.Parallel()
-	clients := test.Setup(t)
 	neverExpireMaxDurationSeconds := int64(100)
-	testCases := getDefaultTestCases()
 
-	// make sure high enough max duration has no effect in default cases
-	for _, tc := range testCases {
-		tc.maxDurationTimeoutSeconds = neverExpireMaxDurationSeconds
-	}
-
-	testCases = append(testCases, []revisionTimeoutTestCase{
-		{
-			name:                      "exceeds max duration timeout",
-			timeoutSeconds:            15,
-			maxDurationTimeoutSeconds: 10,
-			initialSleep:              12 * time.Second,
-			expectedStatus:            http.StatusGatewayTimeout,
-			expectedBody:              "request timeout",
-		}, {
-			name:                      "exceeds multiple timeouts",
-			timeoutSeconds:            10,
-			maxDurationTimeoutSeconds: 10,
-			initialSleep:              12 * time.Second,
-			expectedStatus:            http.StatusGatewayTimeout,
-			expectedBody:              "request timeout",
-		}, {
-			name:                      "writes first byte (HTTP OK), max duration violated, request can still timeout",
-			timeoutSeconds:            10,
-			maxDurationTimeoutSeconds: 12,
-			expectedStatus:            http.StatusOK,
-			sleep:                     15 * time.Second,
-			initialSleep:              0,
-			expectedBody:              "request timeout",
-		}}...)
+	testCases := []struct {
+		name                      string
+		timeoutSeconds            int64
+		maxDurationTimeoutSeconds int64
+		initialSleep              time.Duration
+		sleep                     time.Duration
+		expectedStatus            int
+		expectedBody              string
+	}{{
+		name:           "does not exceed timeout seconds, no max duration timeout set",
+		timeoutSeconds: 10,
+		initialSleep:   2 * time.Second,
+		expectedStatus: http.StatusOK,
+	}, {
+		name:           "exceeds timeout seconds, no max duration timeout set",
+		timeoutSeconds: 10,
+		initialSleep:   12 * time.Second,
+		expectedStatus: http.StatusGatewayTimeout,
+		expectedBody:   "request timeout",
+	}, {
+		name:           "writes first byte before timeout, no max duration timeout set",
+		timeoutSeconds: 10,
+		expectedStatus: http.StatusOK,
+		sleep:          15 * time.Second,
+		initialSleep:   0,
+	}, {
+		name:                      "does not exceed timeout seconds, long max duration timeout has no effect",
+		timeoutSeconds:            10,
+		maxDurationTimeoutSeconds: neverExpireMaxDurationSeconds,
+		initialSleep:              2 * time.Second,
+		expectedStatus:            http.StatusOK,
+	}, {
+		name:                      "exceeds timeout seconds, long max duration timeout has no effect",
+		timeoutSeconds:            10,
+		maxDurationTimeoutSeconds: neverExpireMaxDurationSeconds,
+		initialSleep:              12 * time.Second,
+		expectedStatus:            http.StatusGatewayTimeout,
+		expectedBody:              "request timeout",
+	}, {
+		name:                      "writes first byte before timeout, long max duration timeout has no effect",
+		timeoutSeconds:            10,
+		maxDurationTimeoutSeconds: neverExpireMaxDurationSeconds,
+		expectedStatus:            http.StatusOK,
+		sleep:                     15 * time.Second,
+		initialSleep:              0,
+	}, {
+		name:                      "exceeds max duration timeout",
+		timeoutSeconds:            15,
+		maxDurationTimeoutSeconds: 10,
+		initialSleep:              12 * time.Second,
+		expectedStatus:            http.StatusGatewayTimeout,
+		expectedBody:              "request timeout",
+	}, {
+		name:                      "exceeds multiple timeouts",
+		timeoutSeconds:            10,
+		maxDurationTimeoutSeconds: 10,
+		initialSleep:              12 * time.Second,
+		expectedStatus:            http.StatusGatewayTimeout,
+		expectedBody:              "request timeout",
+	}, {
+		name:                      "writes first byte (HTTP OK), max duration violated, request can still timeout",
+		timeoutSeconds:            10,
+		maxDurationTimeoutSeconds: 12,
+		expectedStatus:            http.StatusOK,
+		sleep:                     15 * time.Second,
+		initialSleep:              0,
+		expectedBody:              "request timeout",
+	}}
 
 	for _, tc := range testCases {
 		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -225,8 +186,8 @@ func TestMaxDurationRevisionTimeout(t *testing.T) {
 			}
 
 			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus, tc.expectedBody); err != nil {
-				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds and expecting status %v: %v",
-					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.expectedStatus, err)
+				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds,expecting status %v and expecting body %q: %v",
+					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.expectedStatus, tc.expectedBody, err)
 			}
 		})
 	}
