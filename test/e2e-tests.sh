@@ -59,6 +59,7 @@ fi
 # Currently only Istio, Contour and Kourier implement the alpha features.
 alpha=""
 if [[ -z "${INGRESS_CLASS}" \
+  || "${INGRESS_CLASS}" == "gateway-api.ingress.networking.knative.dev" \
   || "${INGRESS_CLASS}" == "istio.ingress.networking.knative.dev" \
   || "${INGRESS_CLASS}" == "contour.ingress.networking.knative.dev" \
   || "${INGRESS_CLASS}" == "kourier.ingress.networking.knative.dev" ]]; then
