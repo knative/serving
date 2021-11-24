@@ -24,8 +24,7 @@ jobs:
 
         test-suite:
         - ./test/conformance/runtime
-        - ./test/conformance/api/v1
-        - ./test/conformance/api/v1alpha1
+        - ./test/conformance/api/...
         - ./test/e2e
 
         include:
@@ -47,11 +46,6 @@ jobs:
           kind-image-sha: sha256:f638a08c1f68fe2a99e724ace6df233a546eaf6713019a0b310130a4f91ebe7f
           kingress: istio
           cluster-suffix: c${{ github.run_id }}.local
-
-          # The tests in api/v1alpha1 require the --enable-alpha flag to be set,
-          # and alpha components to be deployed.
-        - test-suite: ./test/conformance/api/v1alpha1
-          test-flags: "--enable-alpha"
 
     env:
       GOPATH: ${{ github.workspace }}
@@ -207,4 +201,4 @@ jobs:
         # Run the tests tagged as e2e on the KinD cluster.
         go test -race -count=1 -timeout=20m -tags=e2e ${{ matrix.test-suite }} \
            --ingressendpoint="${IPS[0]}" \
-           ${{ matrix.test-flags }}
+           --enable-alpha --enable-beta
