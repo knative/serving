@@ -74,7 +74,7 @@ type config struct {
 	QueueServingPort                  string `split_words:"true" required:"true"`
 	UserPort                          string `split_words:"true" required:"true"`
 	RevisionTimeoutSeconds            int    `split_words:"true" required:"true"`
-	RevisionMaxDurationTimeoutSeconds int    `split_words:"true" required:"true"`
+	RevisionMaxDurationTimeoutSeconds int    `split_words:"true"` // optional
 	ServingReadinessProbe             string `split_words:"true"` // optional
 	EnableProfiling                   bool   `split_words:"true"` // optional
 	EnableHTTP2AutoDetection          bool   `split_words:"true"` // optional
