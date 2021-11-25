@@ -73,9 +73,6 @@ func dial(ctx *TestContext, host, domain string) (*grpc.ClientConn, error) {
 	if !hasPort(host) {
 		host = net.JoinHostPort(host, defaultPort)
 	}
-	if !hasPort(domain) {
-		domain = net.JoinHostPort(domain, defaultPort)
-	}
 
 	secureOpt := grpc.WithInsecure()
 	if test.ServingFlags.HTTPS {
