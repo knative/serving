@@ -73,16 +73,17 @@ func dial(ctx *TestContext, host, domain string) (*grpc.ClientConn, error) {
 	if !hasPort(host) {
 		host = net.JoinHostPort(host, defaultPort)
 	}
+	var err error
+	domain, _, err = net.SplitHostPort(domain)
+	if err != nil {
+		return nil, err
+	}
 
 	secureOpt := grpc.WithInsecure()
 	if test.ServingFlags.HTTPS {
 		tlsConfig := test.TLSClientConfig(context.Background(), ctx.t.Logf, ctx.clients)
 		// Set ServerName for pseudo hostname with TLS.
-		var err error
-		tlsConfig.ServerName, _, err = net.SplitHostPort(domain)
-		if err != nil {
-			return nil, err
-		}
+		tlsConfig.ServerName = domain
 		secureOpt = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 	}
 
