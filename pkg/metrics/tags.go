@@ -29,8 +29,7 @@ import (
 )
 
 var (
-	// contextCache stores the metrics recorder contexts
-	// in an LRU cache.
+	// contextCache stores the metrics recorder contexts in an LRU cache.
 	// Hashicorp LRU cache is synchronized.
 	contextCache *lru.Cache
 )
@@ -58,36 +57,35 @@ func valueOrUnknown(v string) string {
 // the respective revision specific tags.
 func RevisionContext(ns, svc, cfg, rev string) context.Context {
 	key := types.NamespacedName{Namespace: ns, Name: rev}
-	ctx, ok := contextCache.Get(key)
-	if !ok {
-		rctx := AugmentWithRevision(context.Background(), ns, svc, cfg, rev)
-		contextCache.Add(key, rctx)
-		ctx = rctx
+	if ctx, ok := contextCache.Get(key); ok {
+		return ctx.(context.Context)
 	}
-	return ctx.(context.Context)
+
+	ctx := augmentWithRevision(context.Background(), ns, svc, cfg, rev)
+	contextCache.Add(key, ctx)
+
+	return ctx
 }
 
 type podCtx struct {
 	pod, container string
 }
 
-// PodContext generate a new base metric reporting context containing
+// podContext generates a new base metric reporting context containing
 // the respective pod specific tags.
-func PodContext(pod, container string) (context.Context, error) {
+func podContext(pod, container string) (context.Context, error) {
 	key := podCtx{pod: pod, container: container}
-	ctx, ok := contextCache.Get(key)
-	if !ok {
-		rctx, err := tag.New(
-			context.Background(),
-			tag.Upsert(PodKey, pod),
-			tag.Upsert(ContainerKey, container))
-		if err != nil {
-			return rctx, err
-		}
-		contextCache.Add(key, rctx)
-		ctx = rctx
+	if ctx, ok := contextCache.Get(key); ok {
+		return ctx.(context.Context), nil
 	}
-	return ctx.(context.Context), nil
+
+	ctx, err := tag.New(context.Background(), tag.Upsert(PodKey, pod), tag.Upsert(ContainerKey, container))
+	if err != nil {
+		return ctx, err
+	}
+
+	contextCache.Add(key, ctx)
+	return ctx, nil
 }
 
 type podRevisionCtx struct {
@@ -102,21 +100,23 @@ func PodRevisionContext(pod, container, ns, svc, cfg, rev string) (context.Conte
 		pod:      podCtx{pod: pod, container: container},
 		revision: types.NamespacedName{Namespace: ns, Name: rev},
 	}
-	ctx, ok := contextCache.Get(key)
-	if !ok {
-		rctx, err := PodContext(pod, container)
-		if err != nil {
-			return rctx, err
-		}
-		rctx = AugmentWithRevision(rctx, ns, svc, cfg, rev)
-		contextCache.Add(key, rctx)
-		ctx = rctx
+
+	if ctx, ok := contextCache.Get(key); ok {
+		return ctx.(context.Context), nil
 	}
-	return ctx.(context.Context), nil
+
+	ctx, err := podContext(pod, container)
+	if err != nil {
+		return ctx, err
+	}
+
+	ctx = augmentWithRevision(ctx, ns, svc, cfg, rev)
+	contextCache.Add(key, ctx)
+	return ctx, nil
 }
 
-// AugmentWithRevision augments the given context with a knative_revision resource.
-func AugmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string) context.Context {
+// augmentWithRevision augments the given context with a knative_revision resource.
+func augmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string) context.Context {
 	r := resource.Resource{
 		Type: ResourceTypeKnativeRevision,
 		Labels: map[string]string{
