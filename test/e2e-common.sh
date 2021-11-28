@@ -76,9 +76,14 @@ LATEST_NET_ISTIO_RELEASE_VERSION=$(latest_net_istio_version "$LATEST_SERVING_REL
 function parse_flags() {
   case "$1" in
     --istio-version)
-      [[ $2 =~ ^(stable|latest|head)$ ]] || abort "version format must be 'stable', 'latest', or 'head'"
-      readonly ISTIO_VERSION=$2
-      readonly INGRESS_CLASS="istio.ingress.networking.knative.dev"
+      # DO_NOT_SUBBMIT: This is temporary change to verify gateway-api.
+      #
+      #[[ $2 =~ ^(stable|latest|head)$ ]] || abort "version format must be 'stable', 'latest', or 'head'"
+      #readonly ISTIO_VERSION=$2
+      #readonly INGRESS_CLASS="istio.ingress.networking.knative.dev"
+      #return 2
+      readonly GATEWAY_API_VERSION="latest"
+      readonly INGRESS_CLASS="gateway-api.ingress.networking.knative.dev"
       return 2
       ;;
     --version)
