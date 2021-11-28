@@ -84,6 +84,7 @@ function parse_flags() {
       #return 2
       readonly GATEWAY_API_VERSION="latest"
       readonly INGRESS_CLASS="gateway-api.ingress.networking.knative.dev"
+      readonly SHORT=1
       return 2
       ;;
     --version)
@@ -160,6 +161,7 @@ function parse_flags() {
       # latest version of Contour pinned in third_party will be installed
       readonly GATEWAY_API_VERSION=$2
       readonly INGRESS_CLASS="gateway-api.ingress.networking.knative.dev"
+      readonly SHORT=1
       return 2
       ;;
     --system-namespace)
