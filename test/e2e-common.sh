@@ -230,8 +230,7 @@ function knative_setup() {
     if (( KIND )); then
       $HOME/.istioctl/bin/istioctl install -y --set values.gateways.istio-ingressgateway.type=NodePort --set values.global.proxy.clusterDomain="${CLUSTER_DOMAIN}"
     else
-      #$HOME/.istioctl/bin/istioctl install -y --set values.global.proxy.clusterDomain="${CLUSTER_DOMAIN}"
-      $HOME/.istioctl/bin/istioctl install -y -f third_party/tmp/istio-ci-no-mesh.yaml
+      $HOME/.istioctl/bin/istioctl install -y --set values.global.proxy.clusterDomain="${CLUSTER_DOMAIN}"
     fi
   fi
 
