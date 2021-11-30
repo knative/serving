@@ -138,7 +138,7 @@ rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
 
 header "Collecting performance data"
 
-cat <<EOF | ko apply -f -
+cat <<EOF | ko apply $(ko_flags) -f -
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
