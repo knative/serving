@@ -342,8 +342,8 @@ function install() {
 
   # Due to https://github.com/vmware-tanzu/carvel-kapp/issues/381, deploy svc by kubectl instead of kapp.
   if is_ingress_class gateway-api; then
-    kubectl delete -f ${REPO_ROOT_DIR}/third_party/gateway-api-latest/gateway.yaml
-    kubectl apply -f ${REPO_ROOT_DIR}/third_party/gateway-api-latest/gateway.yaml
+    kubectl delete -f ${REPO_ROOT_DIR}/third_party/gateway-api-latest/istio-gateway.yaml
+    kubectl apply -f ${REPO_ROOT_DIR}/third_party/gateway-api-latest/istio-gateway.yaml
   fi
 }
 

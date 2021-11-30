@@ -144,7 +144,7 @@ jobs:
           image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
         EOF
 
-    - name: Add Workers to KinD Cluster (Istio)
+    - name: Add Workers to KinD Cluster (Istio, Gateway API)
       working-directory: ./src/knative.dev/serving
       if: matrix.kingress == 'istio' || matrix.kingress == 'gateway-api'
       run: |
