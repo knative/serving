@@ -98,6 +98,5 @@ func Setup(t testing.TB, namespace ...string) *Clients {
 	if err != nil {
 		t.Fatal("Couldn't initialize clients", "error", err)
 	}
-
 	return clients
 }

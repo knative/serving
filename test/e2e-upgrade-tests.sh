@@ -45,8 +45,6 @@ TIMEOUT=30m
 
 header "Running upgrade tests"
 
-kubectl delete namespace serving-tests
-
 go_test_e2e -tags=upgrade -timeout=${TIMEOUT} \
   ./test/upgrade \
   --resolvabledomain=$(use_resolvable_domain) || fail_test
