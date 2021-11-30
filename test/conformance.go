@@ -17,12 +17,7 @@ limitations under the License.
 package test
 
 import (
-	"context"
 	"testing"
-
-	corev1 "k8s.io/api/core/v1"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	// For our e2e testing, we want this linked first so that our
 	// systen namespace environment variable is defaulted prior to
@@ -102,20 +97,6 @@ func Setup(t testing.TB, namespace ...string) *Clients {
 	clients, err := NewClients(cfg, ns)
 	if err != nil {
 		t.Fatal("Couldn't initialize clients", "error", err)
-	}
-
-	if _, err = clients.KubeClient.CoreV1().Namespaces().
-		Get(context.Background(), ns, metav1.GetOptions{}); apierrs.IsNotFound(err) {
-		// As multiple tests are using the same namespace, try creating the namespace
-		// but do not fail if other tests already created it.
-		if _, err := clients.KubeClient.CoreV1().Namespaces().
-			Create(context.Background(),
-				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}},
-				metav1.CreateOptions{}); err != nil && !apierrs.IsAlreadyExists(err) {
-			t.Fatalf("Couldn't create test namespace %q: %v", ns, err)
-		}
-	} else if err != nil {
-		t.Fatalf("Couldn't check existence of namespace %q: %v", ns, err)
 	}
 
 	return clients
