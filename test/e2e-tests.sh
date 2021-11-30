@@ -65,7 +65,16 @@ if [[ -z "${INGRESS_CLASS}" \
   alpha="--enable-alpha"
 fi
 
-TEST_OPTIONS="${TEST_OPTIONS:-${alpha} --enable-beta --resolvabledomain=$(use_resolvable_domain) ${use_https}}"
+# Currently only Istio, Contour and Kourier implement the beta features.
+beta=""
+if [[ -z "${INGRESS_CLASS}" \
+  || "${INGRESS_CLASS}" == "istio.ingress.networking.knative.dev" \
+  || "${INGRESS_CLASS}" == "contour.ingress.networking.knative.dev" \
+  || "${INGRESS_CLASS}" == "kourier.ingress.networking.knative.dev" ]]; then
+  beta="--enable-beta"
+fi
+
+TEST_OPTIONS="${TEST_OPTIONS:-${alpha} ${beta} --resolvabledomain=$(use_resolvable_domain) ${use_https}}"
 if (( SHORT )); then
   TEST_OPTIONS+=" -short"
 fi

@@ -25,6 +25,7 @@ export INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
 export ISTIO_VERSION="latest"
 export KOURIER_VERSION=""
 export CONTOUR_VERSION=""
+export GATEWAY_API_VERSION=""
 export CERTIFICATE_CLASS=""
 # Only build linux/amd64 bit images
 export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
@@ -149,6 +150,14 @@ function parse_flags() {
       readonly INGRESS_CLASS="contour.ingress.networking.knative.dev"
       return 2
       ;;
+    --gateway-api-version)
+      # currently, the value of --gateway-api-version is ignored
+      # latest version of Contour pinned in third_party will be installed
+      readonly GATEWAY_API_VERSION=$2
+      readonly INGRESS_CLASS="gateway-api.ingress.networking.knative.dev"
+      readonly SHORT=1
+      return 2
+      ;;
     --system-namespace)
       [[ -z "$2" ]] || [[ $2 = --* ]] && fail_test "Missing argument to --system-namespace"
       export SYSTEM_NAMESPACE=$2
@@ -207,6 +216,18 @@ function knative_setup() {
     # Download istio resources we need for upgrade tests
     if (( need_latest_version )); then
       stage_istio_latest
+    fi
+  fi
+
+  # Install gateway-api and istio. Gateway API CRD must be installed before Istio.
+  if is_ingress_class gateway-api; then
+    # TODO: Do not use fixed Gateway API version and Istio version.
+    kubectl apply -k 'github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.3.0'
+    export ISTIO_VERSION=1.11.4 && curl -sL https://istio.io/downloadIstioctl | sh -
+    if (( KIND )); then
+      $HOME/.istioctl/bin/istioctl install -y --set values.gateways.istio-ingressgateway.type=NodePort --set values.global.proxy.clusterDomain="${CLUSTER_DOMAIN}"
+    else
+      $HOME/.istioctl/bin/istioctl install -y --set values.global.proxy.clusterDomain="${CLUSTER_DOMAIN}"
     fi
   fi
 
@@ -317,6 +338,12 @@ function install() {
     # # lease resources at the old sharding factor, so clean these up.
     # kubectl -n ${SYSTEM_NAMESPACE} delete leases --all
     wait_for_leader_controller || return 1
+  fi
+
+  # Due to https://github.com/vmware-tanzu/carvel-kapp/issues/381, deploy svc by kubectl instead of kapp.
+  if is_ingress_class gateway-api; then
+    kubectl delete -f ${REPO_ROOT_DIR}/third_party/gateway-api-latest/istio-gateway.yaml
+    kubectl apply -f ${REPO_ROOT_DIR}/third_party/gateway-api-latest/istio-gateway.yaml
   fi
 }
 

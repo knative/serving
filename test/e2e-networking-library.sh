@@ -105,5 +105,9 @@ function setup_ingress_env_vars() {
     export GATEWAY_OVERRIDE=envoy
     export GATEWAY_NAMESPACE_OVERRIDE=contour-external
   fi
+  if is_ingress_class gateway-api; then
+    export GATEWAY_OVERRIDE=istio-ingressgateway
+    export GATEWAY_NAMESPACE_OVERRIDE=istio-system
+  fi
 }
 
