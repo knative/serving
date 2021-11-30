@@ -18,10 +18,11 @@ package test
 
 import (
 	"context"
+	"testing"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 
 	// For our e2e testing, we want this linked first so that our
 	// systen namespace environment variable is defaulted prior to
