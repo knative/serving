@@ -31,6 +31,12 @@
 # shellcheck disable=SC1090
 source "$(dirname "${BASH_SOURCE[0]}")/e2e-common.sh"
 
+# Overrides
+function stage_test_resources() {
+  # Nothing to install before tests.
+  true
+}
+
 # Script entry point.
 
 # Skip installing istio as an add-on.
