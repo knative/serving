@@ -93,14 +93,9 @@ func CreateTestNamespace() pkgupgrade.Operation {
 func createTestNamespace(t *testing.T, ns string) {
 	clients := e2e.Setup(t)
 	if _, err := clients.KubeClient.CoreV1().Namespaces().
-		Get(context.Background(), ns, metav1.GetOptions{}); apierrs.IsNotFound(err) {
-		if _, err := clients.KubeClient.CoreV1().Namespaces().
-			Create(context.Background(),
-				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}},
-				metav1.CreateOptions{}); err != nil {
-			t.Fatalf("Couldn't create namespace %q: %v", ns, err)
-		}
-	} else if err != nil {
-		t.Fatalf("Couldn't check existence of namespace %q: %v", ns, err)
+		Create(context.Background(),
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}},
+			metav1.CreateOptions{}); err != nil && !apierrs.IsAlreadyExists(err) {
+		t.Fatalf("Couldn't create namespace %q: %v", ns, err)
 	}
 }
