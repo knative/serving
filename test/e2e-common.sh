@@ -76,15 +76,9 @@ LATEST_NET_ISTIO_RELEASE_VERSION=$(latest_net_istio_version "$LATEST_SERVING_REL
 function parse_flags() {
   case "$1" in
     --istio-version)
-      # DO_NOT_SUBBMIT: This is temporary change to verify gateway-api.
-      #
-      #[[ $2 =~ ^(stable|latest|head)$ ]] || abort "version format must be 'stable', 'latest', or 'head'"
-      #readonly ISTIO_VERSION=$2
-      #readonly INGRESS_CLASS="istio.ingress.networking.knative.dev"
-      #return 2
-      readonly GATEWAY_API_VERSION="latest"
-      readonly INGRESS_CLASS="gateway-api.ingress.networking.knative.dev"
-      readonly SHORT=1
+      [[ $2 =~ ^(stable|latest|head)$ ]] || abort "version format must be 'stable', 'latest', or 'head'"
+      readonly ISTIO_VERSION=$2
+      readonly INGRESS_CLASS="istio.ingress.networking.knative.dev"
       return 2
       ;;
     --version)
@@ -225,8 +219,9 @@ function knative_setup() {
     fi
   fi
 
-  # Install gateway-api and istio.
+  # Install gateway-api and istio. Gateway API CRD must be installed before Istio.
   if is_ingress_class gateway-api; then
+    # TODO: Do not use fixed Gateway API version and Istio version.
     kubectl apply -k 'github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.3.0'
     export ISTIO_VERSION=1.11.4 && curl -sL https://istio.io/downloadIstioctl | sh -
     if (( KIND )); then

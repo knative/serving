@@ -56,7 +56,7 @@ fi
 
 # Run conformance and e2e tests.
 
-# Currently only Istio, Contour and Kourier implement the alpha and beta features.
+# Currently only Istio, Contour and Kourier implement the alpha features.
 alpha=""
 if [[ -z "${INGRESS_CLASS}" \
   || "${INGRESS_CLASS}" == "istio.ingress.networking.knative.dev" \
@@ -65,7 +65,7 @@ if [[ -z "${INGRESS_CLASS}" \
   alpha="--enable-alpha"
 fi
 
-# Currently only Istio, Contour and Kourier implement the alpha and beta features.
+# Currently only Istio, Contour and Kourier implement the beta features.
 beta=""
 if [[ -z "${INGRESS_CLASS}" \
   || "${INGRESS_CLASS}" == "istio.ingress.networking.knative.dev" \
