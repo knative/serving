@@ -29,7 +29,7 @@ jobs:
         - ./test/e2e
 
         include:
-          # Map between kingress and KinD versions.
+          # Map between K8s and KinD versions.
           # This is attempting to make it a bit clearer what's being tested.
           # See: https://github.com/kubernetes-sigs/kind/releases
         - k8s-version: v1.20.7
