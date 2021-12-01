@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+
 	"knative.dev/serving/pkg/apis/config"
 )
 
@@ -417,6 +418,41 @@ func TestPodSpecValidation(t *testing.T) {
 			Message: `volume with name "debugging-support-files" not mounted`,
 			Paths:   []string{"volumes[0].name"},
 		},
+	}, {
+		name: "init-container name collision",
+		ps: corev1.PodSpec{
+			InitContainers: []corev1.Container{{
+				Name:  "the-name",
+				Image: "busybox",
+			}},
+			Containers: []corev1.Container{{
+				Name:  "the-name",
+				Image: "busybox",
+			}},
+		},
+		cfgOpts: []configOption{withPodSpecInitContainersEnabled()},
+		want: (&apis.FieldError{
+			Message: `duplicate container name "the-name"`,
+			Paths:   []string{"name"},
+		}).ViaFieldIndex("containers", 0),
+	}, {
+		name: "container name collision",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "the-name",
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Name:  "the-name",
+				Image: "busybox",
+			}},
+		},
+		want: (&apis.FieldError{
+			Message: `duplicate container name "the-name"`,
+			Paths:   []string{"name"},
+		}).ViaFieldIndex("containers", 1),
 	}}
 
 	for _, test := range tests {
@@ -461,11 +497,13 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: more than one container with one container port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 			}},
 		},
@@ -474,11 +512,13 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: probes are not allowed for non serving containers",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 				LivenessProbe: &corev1.Probe{
 					TimeoutSeconds: 1,
@@ -496,8 +536,10 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with no port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 			}},
 		},
@@ -506,11 +548,13 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with multiple port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 9999,
@@ -526,6 +570,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with multiple ports for each container",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
@@ -533,6 +578,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 					ContainerPort: 9999,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 80,
@@ -548,6 +594,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with multiple port for a single container",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
@@ -555,6 +602,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 					ContainerPort: 9999,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 			}},
 		},
@@ -567,11 +615,13 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with readinessProbe targeting different container's port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "work",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 9999,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "health",
 				LivenessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -587,11 +637,13 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with illegal env variable defined for side car",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 				Env: []corev1.EnvVar{{
 					Name:  "PORT",
@@ -610,11 +662,13 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with PORT defined for side car",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 				Env: []corev1.EnvVar{{
 					Name:  "PORT",
@@ -683,6 +737,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 			},
 			Containers: []corev1.Container{
 				{
+					Name:  "container-a",
 					Image: "busybox",
 					Ports: []corev1.ContainerPort{{ContainerPort: 8888}},
 					VolumeMounts: []corev1.VolumeMount{{
@@ -692,6 +747,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 					}},
 				},
 				{
+					Name:  "container-b",
 					Image: "busybox",
 					VolumeMounts: []corev1.VolumeMount{{
 						MountPath: "/mount/path",
@@ -721,6 +777,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 			},
 			Containers: []corev1.Container{
 				{
+					Name:  "container-a",
 					Image: "busybox",
 					Ports: []corev1.ContainerPort{{ContainerPort: 8888}},
 					VolumeMounts: []corev1.VolumeMount{{
@@ -729,7 +786,9 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 						ReadOnly:  true,
 					}},
 				},
-				{Image: "busybox"},
+				{
+					Name:  "container-b",
+					Image: "busybox"},
 			},
 		},
 		want: &apis.FieldError{
@@ -744,6 +803,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Name:  "install-nodejs-debug-support",
 			}},
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox1",
 				Ports: []corev1.ContainerPort{{ContainerPort: 8888}},
 				VolumeMounts: []corev1.VolumeMount{{
@@ -751,6 +811,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 					MountPath: "/data",
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "busybox2",
 				VolumeMounts: []corev1.VolumeMount{{
 					Name:      "debugging-support-files",
