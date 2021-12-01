@@ -317,8 +317,8 @@ func TestValidateAnnotations(t *testing.T) {
 		expectErr:   "invalid value: cpu: " + MetricAnnotationKey,
 	}, {
 		name:        "invalid metric for HPA class",
-		annotations: map[string]string{MetricAnnotationKey: "metrics", ClassAnnotationKey: HPA},
-		expectErr:   "invalid value: metrics: " + MetricAnnotationKey,
+		annotations: map[string]string{MetricAnnotationKey: "", ClassAnnotationKey: HPA},
+		expectErr:   "invalid value: : " + MetricAnnotationKey,
 	}, {
 		name:        "valid class KPA with metric RPS",
 		annotations: map[string]string{MetricAnnotationKey: RPS},

@@ -225,7 +225,9 @@ func validateMetric(m map[string]string) *apis.FieldError {
 			}
 		case HPA:
 			switch metric {
-			case CPU, Memory:
+			case "":
+				break
+			default:
 				return nil
 			}
 		default:
