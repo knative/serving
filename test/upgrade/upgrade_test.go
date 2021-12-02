@@ -39,8 +39,8 @@ func TestServingUpgrades(t *testing.T) {
 		},
 		Installations: pkgupgrade.Installations{
 			Base: []pkgupgrade.Operation{
-				// Do nothing. The initial version is already installed by scripts
-				// together with additional test resources.
+				CreateTestNamespace(),
+				// The initial Knative Serving version is already installed by scripts.
 			},
 			UpgradeWith: []pkgupgrade.Operation{
 				installation.Head(),
