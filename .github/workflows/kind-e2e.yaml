@@ -206,9 +206,14 @@ jobs:
       run: |
         set -x
 
+        source ./test/e2e-common.sh
+
         # Exclude the control-plane node, which doesn't seem to expose the nodeport service.
         IPS=( $(kubectl get nodes -lkubernetes.io/hostname!=kind-control-plane -ojsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}') )
         # Run the tests tagged as e2e on the KinD cluster.
+        # TODO: Remove feature toogle when emptyDir is enabled by default
+        toggle_feature kubernetes.podspec-volumes-emptydir Enabled
         go test -race -count=1 -parallel=1 -timeout=30m -tags=e2e ${{ matrix.test-suite }} \
           --ingressendpoint="${IPS[0]}" \
           --enable-alpha --enable-beta
+        toggle_feature kubernetes.podspec-volumes-emptydir Disabled
