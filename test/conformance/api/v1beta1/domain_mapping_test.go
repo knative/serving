@@ -115,7 +115,7 @@ func TestDomainMapping(t *testing.T) {
 		t.Logf,
 		endpoint,
 		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText1)),
-		"WaitForSuccessfulResponse",
+		"CheckSuccessfulResponse",
 		resolvableCustomDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
@@ -176,13 +176,13 @@ func TestDomainMapping(t *testing.T) {
 
 	// Because the second DomainMapping collided with the first, it should not have taken effect.
 	t.Log("Probing", endpoint)
-	if _, err := pkgtest.WaitForEndpointState(
+	if _, err := pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		endpoint,
 		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText1)),
-		"WaitForSuccessfulResponse",
+		"CheckSuccessfulResponse",
 		resolvableCustomDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
@@ -209,13 +209,13 @@ func TestDomainMapping(t *testing.T) {
 
 	endpoint = altDm.Status.URL.URL()
 	t.Log("Probing", endpoint)
-	if _, err := pkgtest.WaitForEndpointState(
+	if _, err := pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		endpoint,
 		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText2)),
-		"WaitForSuccessfulResponse",
+		"CheckSuccessfulResponse",
 		resolvableCustomDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
