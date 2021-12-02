@@ -86,7 +86,7 @@ func createNewService(serviceName string, t *testing.T) {
 
 func CreateTestNamespace() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("CreateTestNamespace", func(c pkgupgrade.Context) {
-		createTestNamespace(c.T, "serving-tests")
+		createTestNamespace(c.T, test.ServingFlags.TestNamespace)
 	})
 }
 
