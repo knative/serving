@@ -16,7 +16,11 @@ limitations under the License.
 
 package autoscaling
 
-import "time"
+import (
+	"time"
+
+	"knative.dev/pkg/kmap"
+)
 
 const (
 	domain = ".knative.dev"
@@ -39,20 +43,21 @@ const (
 
 	// MinScaleAnnotationKey is the annotation to specify the minimum number of Pods
 	// the PodAutoscaler should provision. For example,
-	//   autoscaling.knative.dev/minScale: "1"
-	MinScaleAnnotationKey = GroupName + "/minScale"
+	//   autoscaling.knative.dev/min-scale: "1"
+	MinScaleAnnotationKey = GroupName + "/min-scale"
+
 	// MaxScaleAnnotationKey is the annotation to specify the maximum number of Pods
 	// the PodAutoscaler should provision. For example,
-	//   autoscaling.knative.dev/maxScale: "10"
-	MaxScaleAnnotationKey = GroupName + "/maxScale"
+	//   autoscaling.knative.dev/max-scale: "10"
+	MaxScaleAnnotationKey = GroupName + "/max-scale"
 
 	// InitialScaleAnnotationKey is the annotation to specify the initial scale of
 	// a revision when a service is initially deployed. This number can be set to 0 iff
 	// allow-zero-initial-scale of config-autoscaler is true.
-	InitialScaleAnnotationKey = GroupName + "/initialScale"
+	InitialScaleAnnotationKey = GroupName + "/initial-scale"
 
 	// ScaleDownDelayAnnotationKey is the annotation to specify a scale down delay.
-	ScaleDownDelayAnnotationKey = GroupName + "/scaleDownDelay"
+	ScaleDownDelayAnnotationKey = GroupName + "/scale-down-delay"
 
 	// MetricAnnotationKey is the annotation to specify what metric the PodAutoscaler
 	// should be scaled on. For example,
@@ -86,7 +91,7 @@ const (
 	// made the decision to scale to 0.
 	// This is the per-revision setting compliment to the
 	// scale-to-zero-pod-retention-period global setting.
-	ScaleToZeroPodRetentionPeriodKey = GroupName + "/scaleToZeroPodRetentionPeriod"
+	ScaleToZeroPodRetentionPeriodKey = GroupName + "/scale-to-zero-pod-retention-period"
 
 	// MetricAggregationAlgorithmKey is the annotation that can be used for selection
 	// of the algorithm to use for averaging metric data in the Autoscaler.
@@ -102,13 +107,21 @@ const (
 	//   KPA will compute the decay multiplier automatically based on the window size
 	//   and it is at least 0.2. This algorithm might not utilize all the values
 	//   in the window, due to their coefficients being infinitesimal.
-	MetricAggregationAlgorithmKey = GroupName + "/metricAggregationAlgorithm"
+	MetricAggregationAlgorithmKey = GroupName + "/metric-aggregation-algorithm"
+
 	// MetricAggregationAlgorithmLinear is the linear aggregation algorithm with all weights
 	// equal to 1.
 	MetricAggregationAlgorithmLinear = "linear"
+
 	// MetricAggregationAlgorithmWeightedExponential is the weighted aggregation algorithm
 	// with exponentially decaying weights.
-	MetricAggregationAlgorithmWeightedExponential = "weightedExponential"
+	MetricAggregationAlgorithmWeightedExponential = "weighted-exponential"
+
+	// MetricAggregationAlgorithmWeightedExponentialAlt is the alternate casing for MetricAggregationAlgorithmWeightedExponential
+
+	// Note: use the Metric.AggregationAlgorithm() method as it will normalize the casing
+	// and return MetricAggregationAlgorithmWeightedExponential
+	MetricAggregationAlgorithmWeightedExponentialAlt = "weightedExponential"
 
 	// WindowAnnotationKey is the annotation to specify the time
 	// interval over which to calculate the average metric.  Larger
@@ -136,7 +149,7 @@ const (
 	// desired target resource utilization for the revision.
 	// TargetUtilization is a percentage in the 1 <= TU <= 100 range.
 	// This annotation takes precedence over the config map value.
-	TargetUtilizationPercentageKey = GroupName + "/targetUtilizationPercentage"
+	TargetUtilizationPercentageKey = GroupName + "/target-utilization-percentage"
 
 	// TargetBurstCapacityKey specifies the desired burst capacity for the
 	// revision. Possible values are:
@@ -144,7 +157,7 @@ const (
 	//  0 -- no TBC;
 	// >0 -- actual TBC.
 	// <0 && != -1 -- an error.
-	TargetBurstCapacityKey = GroupName + "/targetBurstCapacity"
+	TargetBurstCapacityKey = GroupName + "/target-burst-capacity"
 
 	// PanicWindowPercentageAnnotationKey is the annotation to
 	// specify the time interval over which to calculate the average
@@ -153,15 +166,16 @@ const (
 	// mode). Lower values make panic mode more sensitive. Note:
 	// Panic threshold can be overridden with the
 	// PanicThresholdPercentageAnnotationKey. For example,
-	//   autoscaling.knative.dev/panicWindowPercentage: "5.0"
-	//   autoscaling.knative.dev/panicThresholdPercentage: "150.0"
+	//   autoscaling.knative.dev/panic-window-percentage: "5.0"
+	//   autoscaling.knative.dev/panic-threshold-percentage: "150.0"
 	// Only the kpa.autoscaling.knative.dev class autoscaler supports
-	// the panicWindowPercentage annotation.
+	// the panic-window-percentage annotation.
 	// Panic window is specified as a percentage to maintain the
 	// autoscaler's algorithm behavior when only the stable window is
 	// specified. The panic window will change along with the stable
 	// window at the default percentage.
-	PanicWindowPercentageAnnotationKey = GroupName + "/panicWindowPercentage"
+	PanicWindowPercentageAnnotationKey = GroupName + "/panic-window-percentage"
+
 	// PanicWindowPercentageMin is the minimum allowable panic window
 	// percentage. The autoscaler calculates desired replicas every 2
 	// seconds (tick-interval in config-autoscaler), so a panic
@@ -182,11 +196,12 @@ const (
 	// in the panic window. The level is defined as a percentage of
 	// the metric target. Lower values make panic mode more
 	// sensitive. For example,
-	//   autoscaling.knative.dev/panicWindowPercentage: "5.0"
-	//   autoscaling.knative.dev/panicThresholdPercentage: "150.0"
+	//   autoscaling.knative.dev/panic-window-percentage: "5.0"
+	//   autoscaling.knative.dev/panic-threshold-percentage: "150.0"
 	// Only the kpa.autoscaling.knative.dev class autoscaler supports
 	// the panicThresholdPercentage annotation
-	PanicThresholdPercentageAnnotationKey = GroupName + "/panicThresholdPercentage"
+	PanicThresholdPercentageAnnotationKey = GroupName + "/panic-threshold-percentage"
+
 	// PanicThresholdPercentageMin is the minimum allowable panic
 	// threshold percentage. The KPA autoscaler's panic feature
 	// allows the autoscaler to be more responsive over a smaller
@@ -201,4 +216,59 @@ const (
 	// PanicThresholdPercentageMax is the counterpart to the PanicThresholdPercentageMin
 	// but bounding from above.
 	PanicThresholdPercentageMax = 1000.0
+)
+
+var (
+	ClassAnnotation = kmap.KeyPriority{
+		ClassAnnotationKey,
+	}
+	InitialScaleAnnotation = kmap.KeyPriority{
+		InitialScaleAnnotationKey,
+		GroupName + "/initialScale",
+	}
+	MaxScaleAnnotation = kmap.KeyPriority{
+		MaxScaleAnnotationKey,
+		GroupName + "/maxScale",
+	}
+	MetricAnnotation = kmap.KeyPriority{
+		MetricAnnotationKey,
+	}
+	MetricAggregationAlgorithmAnnotation = kmap.KeyPriority{
+		MetricAggregationAlgorithmKey,
+		GroupName + "/metricAggregationAlgorithm",
+	}
+	MinScaleAnnotation = kmap.KeyPriority{
+		MinScaleAnnotationKey,
+		GroupName + "/minScale",
+	}
+	PanicThresholdPercentageAnnotation = kmap.KeyPriority{
+		PanicThresholdPercentageAnnotationKey,
+		GroupName + "/panicThresholdPercentage",
+	}
+	PanicWindowPercentageAnnotation = kmap.KeyPriority{
+		PanicWindowPercentageAnnotationKey,
+		GroupName + "/panicWindowPercentage",
+	}
+	ScaleDownDelayAnnotation = kmap.KeyPriority{
+		ScaleDownDelayAnnotationKey,
+		GroupName + "/scaleDownDelay",
+	}
+	ScaleToZeroPodRetentionPeriodAnnotation = kmap.KeyPriority{
+		ScaleToZeroPodRetentionPeriodKey,
+		GroupName + "/scaleToZeroPodRetentionPeriod",
+	}
+	TargetAnnotation = kmap.KeyPriority{
+		TargetAnnotationKey,
+	}
+	TargetBurstCapacityAnnotation = kmap.KeyPriority{
+		TargetBurstCapacityKey,
+		GroupName + "/targetBurstCapacity",
+	}
+	TargetUtilizationPercentageAnnotation = kmap.KeyPriority{
+		TargetUtilizationPercentageKey,
+		GroupName + "/targetUtilizationPercentage",
+	}
+	WindowAnnotation = kmap.KeyPriority{
+		WindowAnnotationKey,
+	}
 )

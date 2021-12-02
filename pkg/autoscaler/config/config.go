@@ -60,6 +60,7 @@ func defaultConfig() *autoscalerconfig.Config {
 		PodAutoscalerClass:            autoscaling.KPA,
 		AllowZeroInitialScale:         false,
 		InitialScale:                  1,
+		MinScale:                      0,
 		MaxScale:                      0,
 		MaxScaleLimit:                 0,
 	}
@@ -86,6 +87,7 @@ func NewConfigFromMap(data map[string]string) (*autoscalerconfig.Config, error) 
 		cm.AsFloat64("panic-threshold-percentage", &lc.PanicThresholdPercentage),
 
 		cm.AsInt32("initial-scale", &lc.InitialScale),
+		cm.AsInt32("min-scale", &lc.MinScale),
 		cm.AsInt32("max-scale", &lc.MaxScale),
 		cm.AsInt32("max-scale-limit", &lc.MaxScaleLimit),
 
@@ -176,6 +178,10 @@ func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 		return nil, fmt.Errorf("initial-scale = %v, must be at least 0 (or at least 1 when allow-zero-initial-scale is false)", lc.InitialScale)
 	}
 
+	if lc.MinScale < 0 {
+		return nil, fmt.Errorf("min-scale = %v, must be at least 0", lc.MinScale)
+	}
+
 	var minMaxScale int32
 	if lc.MaxScaleLimit > 0 {
 		// Default maxScale must be set if maxScaleLimit is set.
@@ -189,6 +195,10 @@ func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 
 	if lc.MaxScaleLimit < 0 {
 		return nil, fmt.Errorf("max-scale-limit = %v, must be at least 0", lc.MaxScaleLimit)
+	}
+
+	if lc.MinScale > lc.MaxScale && lc.MaxScale > 0 {
+		return nil, fmt.Errorf("min-scale (%d) must be less than max-scale (%d)", lc.MinScale, lc.MaxScale)
 	}
 
 	return lc, nil

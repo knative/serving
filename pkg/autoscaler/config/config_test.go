@@ -133,10 +133,14 @@ func TestNewConfig(t *testing.T) {
 		name: "with toggles explicitly flipped",
 		input: map[string]string{
 			"enable-scale-to-zero": "false",
+			"min-scale":            "1",
+			"max-scale":            "2",
 		},
 		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.EnableScaleToZero = false
+			c.MinScale = 1
+			c.MaxScale = 2
 			return c
 		}(),
 	}, {
@@ -144,11 +148,15 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"enable-scale-to-zero":       "false",
 			"scale-to-zero-grace-period": "33s",
+			"min-scale":                  "1",
+			"max-scale":                  "2",
 		},
 		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.EnableScaleToZero = false
 			c.ScaleToZeroGracePeriod = 33 * time.Second
+			c.MinScale = 1
+			c.MaxScale = 2
 			return c
 		}(),
 	}, {
@@ -350,6 +358,23 @@ func TestNewConfig(t *testing.T) {
 			"max-scale-limit": "11",
 		},
 		wantErr: true,
+	}, {
+		name: "with max scale less than min-scale",
+		input: map[string]string{
+			"min-scale": "4",
+			"max-scale": "3",
+		},
+		wantErr: true,
+	}, {
+		name: "with min scale set but max-scale not set",
+		input: map[string]string{
+			"min-scale": "4",
+		},
+		want: func() *autoscalerconfig.Config {
+			c := defaultConfig()
+			c.MinScale = 4
+			return c
+		}(),
 	}, {
 		name: "with valid default max scale and max scale limit",
 		input: map[string]string{

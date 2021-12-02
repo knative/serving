@@ -17,41 +17,45 @@ jobs:
     strategy:
       fail-fast: false # Keep running if one leg fails.
       matrix:
-        k8s-version:
-        - v1.20.7
-        - v1.21.1
-        - v1.22.2
+        cluster:
+        - v1.20.7/contour
+        - v1.21.1/kourier
+        - v1.22.2/istio
+        - v1.22.2/gateway-api
 
         test-suite:
         - ./test/conformance/runtime
-        - ./test/conformance/api/v1
-        - ./test/conformance/api/v1alpha1
+        - ./test/conformance/api/...
         - ./test/e2e
 
         include:
           # Map between K8s and KinD versions.
           # This is attempting to make it a bit clearer what's being tested.
           # See: https://github.com/kubernetes-sigs/kind/releases
-        - k8s-version: v1.20.7
+        - cluster: v1.20.7/contour
+          k8s-version: v1.20.7
           kind-version: v0.11.1
           kind-image-sha: sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf6b04f930bd14c67c671ff9
           kingress: contour
           cluster-suffix: c${{ github.run_id }}.local
-        - k8s-version: v1.21.1
+        - cluster: v1.21.1/kourier
+          k8s-version: v1.21.1
           kind-version: v0.11.1
           kind-image-sha: sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6
           kingress: kourier
           cluster-suffix: c${{ github.run_id }}.local
-        - k8s-version: v1.22.2
+        - cluster: v1.22.2/istio
+          k8s-version: v1.22.2
           kind-version: v0.11.1
           kind-image-sha: sha256:f638a08c1f68fe2a99e724ace6df233a546eaf6713019a0b310130a4f91ebe7f
           kingress: istio
           cluster-suffix: c${{ github.run_id }}.local
-
-          # The tests in api/v1alpha1 require the --enable-alpha flag to be set,
-          # and alpha components to be deployed.
-        - test-suite: ./test/conformance/api/v1alpha1
-          test-flags: "--enable-alpha"
+        - cluster: v1.22.2/gateway-api
+          k8s-version: v1.22.2
+          kind-version: v0.11.1
+          kind-image-sha: sha256:f638a08c1f68fe2a99e724ace6df233a546eaf6713019a0b310130a4f91ebe7f
+          kingress: gateway-api
+          cluster-suffix: c${{ github.run_id }}.local
 
     env:
       GOPATH: ${{ github.workspace }}
@@ -144,9 +148,9 @@ jobs:
           image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
         EOF
 
-    - name: Add Workers to KinD Cluster (Istio)
+    - name: Add Workers to KinD Cluster (Istio, Gateway API)
       working-directory: ./src/knative.dev/serving
-      if: matrix.kingress == 'istio'
+      if: matrix.kingress == 'istio' || matrix.kingress == 'gateway-api'
       run: |
         set -x
 
@@ -205,6 +209,6 @@ jobs:
         # Exclude the control-plane node, which doesn't seem to expose the nodeport service.
         IPS=( $(kubectl get nodes -lkubernetes.io/hostname!=kind-control-plane -ojsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}') )
         # Run the tests tagged as e2e on the KinD cluster.
-        go test -race -count=1 -timeout=20m -tags=e2e ${{ matrix.test-suite }} \
-           --ingressendpoint="${IPS[0]}" \
-           ${{ matrix.test-flags }}
+        go test -race -count=1 -parallel=1 -timeout=30m -tags=e2e ${{ matrix.test-suite }} \
+          --ingressendpoint="${IPS[0]}" \
+          --enable-alpha --enable-beta

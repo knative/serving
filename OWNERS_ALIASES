@@ -5,15 +5,13 @@ aliases:
   api-core-wg-leads:
   - dprotaso
   autoscaling-reviewers:
+  - nader-ziada
   - psschwei
   - taragu
   autoscaling-wg-leads:
-  - markusthoemmes
-  - vagababov
+  - julz
   autoscaling-writers:
   - julz
-  - markusthoemmes
-  - vagababov
   - yanweiguo
   client-reviewers:
   - itsmurugappan
@@ -39,11 +37,16 @@ aliases:
   - omerbensaadon
   - pmbanugo
   - snneji
-  docs-wg-leads: []
+  docs-wg-leads:
+  - csantanapr
+  - omerbensaadon
+  - snneji
   docs-writers:
   - RichardJJG
   - abrennan89
   - carieshmarie
+  - csantanapr
+  - omerbensaadon
   - richieescarez
   - snneji
   eventing-reviewers:
@@ -81,7 +84,6 @@ aliases:
   - matzew
   - mbehrendt
   - nak3
-  - omerbensaadon
   - pmorie
   - rhuss
   - spencerdillard
@@ -101,7 +103,6 @@ aliases:
   - andrew-su
   - arturenault
   - carlisia
-  - markusthoemmes
   - nak3
   - shashwathi
   - tcnghia
@@ -120,7 +121,6 @@ aliases:
   - aliok
   - houshengbo
   - jcrossley3
-  - markusthoemmes
   - matzew
   - trshafer
   operations-wg-leads:
@@ -130,7 +130,6 @@ aliases:
   - aliok
   - houshengbo
   - jcrossley3
-  - markusthoemmes
   - matzew
   - trshafer
   pkg-configmap-reviewers:
@@ -182,6 +181,7 @@ aliases:
   serving-reviewers:
   - carlisia
   - julz
+  - nader-ziada
   - nealhu
   - psschwei
   - whaught
@@ -207,11 +207,13 @@ aliases:
   - rhuss
   trademark-committee:
   - duglin
-  - omerbensaadon
+  - evankanderson
   - spencerdillard
   ux-wg-leads:
   - csantanapr
   - omerbensaadon
+  - snneji
   ux-writers:
   - csantanapr
   - omerbensaadon
+  - snneji

@@ -35,8 +35,7 @@ import (
 // runs the `resume` function. If either of `pause` or `resume` are not passed, it runs
 // the respective local function(s). The local functions are the expected behavior; the
 // function parameters are enabled primarily for testing purposes.
-func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func() error) http.HandlerFunc {
-
+func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, resume func(*zap.SugaredLogger)) http.HandlerFunc {
 	var (
 		inFlight = atomic.NewInt64(0)
 		paused   = true
@@ -51,11 +50,8 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 				// We need to doublecheck this since another request can have reached the
 				// handler meanwhile. We don't want to do anything in that case.
 				if !paused && inFlight.Load() == 0 {
-					logger.Info("Requests dropped to zero")
-					if err := pause(); err != nil {
-						logger.Errorf("Error handling resume request: %v", err)
-						HandleStateRequestError(logger, pause)
-					}
+					logger.Debug("Requests dropped to zero")
+					pause(logger)
 					paused = true
 					logger.Debug("To-Zero request successfully processed")
 				}
@@ -80,11 +76,8 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 			return
 		}
 
-		logger.Info("Requests increased from zero")
-		if err := resume(); err != nil {
-			logger.Errorf("Error handling resume request: %v", err)
-			HandleStateRequestError(logger, resume)
-		}
+		logger.Debug("Requests increased from zero")
+		resume(logger)
 		paused = false
 		logger.Debug("From-Zero request successfully processed")
 		mux.Unlock()
@@ -93,15 +86,19 @@ func ConcurrencyStateHandler(logger *zap.SugaredLogger, h http.Handler, pause, r
 	}
 }
 
-// HandleStateRequestError handles retry logic
-func HandleStateRequestError(logger *zap.SugaredLogger, requestHandler func() error) {
+// retryRequest takes a request function and repeatedly tries it for a specified period
+// of time or until successful. If the request ultimately fails, it kills the container.
+func retryRequest(logger *zap.SugaredLogger, requestHandler func(string) error, request string) {
 	var errReq error
 	retryFunc := func() (bool, error) {
-		errReq = requestHandler()
+		errReq = requestHandler(request)
+		if errReq != nil {
+			logger.Errorw(fmt.Sprintf("%s request failed", request), zap.Error(errReq))
+		}
 		return errReq == nil, nil
 	}
-	if err := wait.Poll(time.Millisecond*200, 15*time.Minute, retryFunc); err != nil {
-		logger.Fatalf("Retry pause/resume request failed: %v", errReq)
+	if err := wait.PollImmediate(time.Millisecond*200, 15*time.Minute, retryFunc); err != nil {
+		logger.Fatalw(fmt.Sprintf("%s request failed", request), zap.Error(err))
 		os.Exit(1)
 	}
 }
@@ -112,7 +109,7 @@ type ConcurrencyEndpoint struct {
 	token     atomic.Value
 }
 
-func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
+func NewConcurrencyEndpoint(e, m string) *ConcurrencyEndpoint {
 	c := ConcurrencyEndpoint{
 		endpoint: os.Expand(e, func(s string) string {
 			if s == "HOST_IP" {
@@ -123,14 +120,22 @@ func NewConcurrencyEndpoint(e, m string) ConcurrencyEndpoint {
 		mountPath: m,
 	}
 	c.RefreshToken()
-	return c
+	return &c
 }
 
-func (c ConcurrencyEndpoint) Pause() error { return c.Request("pause") }
+// Pause freezes a container, retrying until either successful or a timeout is
+// reached, at which point the container is killed
+func (c *ConcurrencyEndpoint) Pause(logger *zap.SugaredLogger) {
+	retryRequest(logger, c.Request, "pause")
+}
 
-func (c ConcurrencyEndpoint) Resume() error { return c.Request("resume") }
+// Resume thaws a container, retrying until either successful or a timeout is
+// reached, at which point the container is killed
+func (c *ConcurrencyEndpoint) Resume(logger *zap.SugaredLogger) {
+	retryRequest(logger, c.Request, "resume")
+}
 
-func (c ConcurrencyEndpoint) Request(action string) error {
+func (c *ConcurrencyEndpoint) Request(action string) error {
 	bodyText := fmt.Sprintf(`{ "action": %q }`, action)
 	body := bytes.NewBufferString(bodyText)
 	req, err := http.NewRequest(http.MethodPost, c.endpoint, body)
@@ -147,6 +152,10 @@ func (c ConcurrencyEndpoint) Request(action string) error {
 		return fmt.Errorf("expected 200 response, got: %d: %s", resp.StatusCode, resp.Status)
 	}
 	return nil
+}
+
+func (c *ConcurrencyEndpoint) Terminating(logger *zap.SugaredLogger) {
+	retryRequest(logger, c.Request, "resume")
 }
 
 func (c *ConcurrencyEndpoint) RefreshToken() error {

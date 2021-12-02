@@ -18,7 +18,6 @@ package autoscaling
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -88,7 +87,7 @@ func TestValidateAnnotations(t *testing.T) {
 	}, {
 		name:        "minScale is 5, maxScale is 2",
 		annotations: map[string]string{MinScaleAnnotationKey: "5", MaxScaleAnnotationKey: "2"},
-		expectErr:   "maxScale=2 is less than minScale=5: " + MaxScaleAnnotationKey + ", " + MinScaleAnnotationKey,
+		expectErr:   "max-scale=2 is less than min-scale=5: " + MaxScaleAnnotationKey + ", " + MinScaleAnnotationKey,
 	}, {
 		name: "minScale is 0, maxScale is 0",
 		annotations: map[string]string{
@@ -117,7 +116,7 @@ func TestValidateAnnotations(t *testing.T) {
 			config.MaxScale = 1
 		},
 		annotations: map[string]string{MaxScaleAnnotationKey: "0"},
-		expectErr:   "maxScale=0 (unlimited), must be less than 10: " + MaxScaleAnnotationKey,
+		expectErr:   "max-scale=0 (unlimited), must be less than 10: " + MaxScaleAnnotationKey,
 	}, {
 		name: "maxScale is not set when both MaxScaleLimit and default MaxScale are set",
 		configMutator: func(config *autoscalerconfig.Config) {
@@ -239,10 +238,6 @@ func TestValidateAnnotations(t *testing.T) {
 		annotations: map[string]string{WindowAnnotationKey: "1m9s82ms"},
 		expectErr:   "must be specified with at most second precision: " + WindowAnnotationKey,
 	}, {
-		name:        "annotation /window is invalid for class HPA and metric CPU",
-		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
-		expectErr:   fmt.Sprintf("invalid key name %q: \n%s for %s %s", WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
-	}, {
 		name:        "annotation /window is valid for class KPA",
 		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: KPA},
 		expectErr:   "",
@@ -250,10 +245,6 @@ func TestValidateAnnotations(t *testing.T) {
 		name:        "annotation /window is valid for other than HPA and KPA class",
 		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: "test"},
 		expectErr:   "",
-	}, {
-		name:        "value too short and invalid class for /window annotation",
-		annotations: map[string]string{WindowAnnotationKey: "1s", ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
-		expectErr:   fmt.Sprintf("invalid key name %q: \n%s for %s %s", WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
 	}, {
 		name:        "value too long and valid class for /window annotation",
 		annotations: map[string]string{WindowAnnotationKey: "365h", ClassAnnotationKey: KPA},
@@ -326,8 +317,8 @@ func TestValidateAnnotations(t *testing.T) {
 		expectErr:   "invalid value: cpu: " + MetricAnnotationKey,
 	}, {
 		name:        "invalid metric for HPA class",
-		annotations: map[string]string{MetricAnnotationKey: "metrics", ClassAnnotationKey: HPA},
-		expectErr:   "invalid value: metrics: " + MetricAnnotationKey,
+		annotations: map[string]string{MetricAnnotationKey: "", ClassAnnotationKey: HPA},
+		expectErr:   "invalid value: : " + MetricAnnotationKey,
 	}, {
 		name:        "valid class KPA with metric RPS",
 		annotations: map[string]string{MetricAnnotationKey: RPS},
@@ -343,7 +334,7 @@ func TestValidateAnnotations(t *testing.T) {
 	}, {
 		name:        "initial scale is zero but cluster doesn't allow",
 		annotations: map[string]string{InitialScaleAnnotationKey: "0"},
-		expectErr:   "invalid value: 0: autoscaling.knative.dev/initialScale",
+		expectErr:   "invalid value: 0: autoscaling.knative.dev/initial-scale",
 	}, {
 		name: "initial scale is zero and cluster allows",
 		configMutator: func(config *autoscalerconfig.Config) {
@@ -356,7 +347,7 @@ func TestValidateAnnotations(t *testing.T) {
 	}, {
 		name:        "initial scale non-parseable",
 		annotations: map[string]string{InitialScaleAnnotationKey: "invalid"},
-		expectErr:   "invalid value: invalid: autoscaling.knative.dev/initialScale",
+		expectErr:   "invalid value: invalid: autoscaling.knative.dev/initial-scale",
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -1,6 +1,0 @@
-#@ load("@ytt:overlay", "overlay")
-
-#@data/values
----
-serving:
-  ingress_class: ambassador.ingress.networking.knative.dev

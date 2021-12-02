@@ -270,7 +270,7 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 	bucketCtor := func(w time.Duration, g time.Duration) windowAverager {
 		return aggregation.NewTimedFloat64Buckets(w, g)
 	}
-	if metric.Annotations[autoscaling.MetricAggregationAlgorithmKey] == autoscaling.MetricAggregationAlgorithmWeightedExponential {
+	if metric.AggregationAlgorithm() == autoscaling.MetricAggregationAlgorithmWeightedExponential {
 		bucketCtor = func(w time.Duration, g time.Duration) windowAverager {
 			return aggregation.NewWeightedFloat64Buckets(w, g)
 		}

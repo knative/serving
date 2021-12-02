@@ -16,7 +16,10 @@ limitations under the License.
 
 package serving
 
-import "k8s.io/apimachinery/pkg/runtime/schema"
+import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/kmap"
+)
 
 const (
 	// GroupName is the group name for knative labels and annotations
@@ -55,7 +58,7 @@ const (
 	// of the rollout of the latest revision. The value must be a valid positive
 	// Golang time.Duration value serialized to string.
 	// The value can be specified with at most with a second precision.
-	RolloutDurationKey = GroupName + "/rolloutDuration"
+	RolloutDurationKey = GroupName + "/rollout-duration"
 
 	// RoutingStateLabelKey is the label attached to a Revision indicating
 	// its state in relation to serving a Route.
@@ -111,9 +114,9 @@ const (
 	// last updated the resource.
 	UpdaterAnnotation = GroupName + "/lastModifier"
 
-	// QueueSideCarResourcePercentageAnnotation is the percentage of user container resources to be used for queue-proxy
+	// QueueSidecarResourcePercentageAnnotationKey is the percentage of user container resources to be used for queue-proxy
 	// It has to be in [0.1,100]
-	QueueSideCarResourcePercentageAnnotation = "queue.sidecar." + GroupName + "/resourcePercentage"
+	QueueSidecarResourcePercentageAnnotationKey = "queue.sidecar." + GroupName + "/resource-percentage"
 
 	// VisibilityClusterLocal is the label value for VisibilityLabelKey
 	// that will result to the Route/KService getting a cluster local
@@ -144,5 +147,16 @@ var (
 	RoutesResource = schema.GroupResource{
 		Group:    GroupName,
 		Resource: "routes",
+	}
+)
+
+var (
+	RolloutDurationAnnotation = kmap.KeyPriority{
+		RolloutDurationKey,
+		GroupName + "/rolloutDuration",
+	}
+	QueueSidecarResourcePercentageAnnotation = kmap.KeyPriority{
+		QueueSidecarResourcePercentageAnnotationKey,
+		"queue.sidecar." + GroupName + "/resourcePercentage",
 	}
 )

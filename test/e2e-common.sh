@@ -24,8 +24,8 @@ export CERT_MANAGER_VERSION="latest"
 export INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
 export ISTIO_VERSION="latest"
 export KOURIER_VERSION=""
-export AMBASSADOR_VERSION=""
 export CONTOUR_VERSION=""
+export GATEWAY_API_VERSION=""
 export CERTIFICATE_CLASS=""
 # Only build linux/amd64 bit images
 export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
@@ -143,13 +143,6 @@ function parse_flags() {
       readonly INGRESS_CLASS="kourier.ingress.networking.knative.dev"
       return 2
       ;;
-    --ambassador-version)
-      # currently, the value of --ambassador-version is ignored
-      # latest version of Ambassador pinned in third_party will be installed
-      readonly AMBASSADOR_VERSION=$2
-      readonly INGRESS_CLASS="ambassador.ingress.networking.knative.dev"
-      return 2
-      ;;
     --contour-version)
       # currently, the value of --contour-version is ignored
       # latest version of Contour pinned in third_party will be installed
@@ -157,11 +150,12 @@ function parse_flags() {
       readonly INGRESS_CLASS="contour.ingress.networking.knative.dev"
       return 2
       ;;
-    --kong-version)
-      # currently, the value of --kong-version is ignored
-      # latest version of Kong pinned in third_party will be installed
-      readonly KONG_VERSION=$2
-      readonly INGRESS_CLASS="kong"
+    --gateway-api-version)
+      # currently, the value of --gateway-api-version is ignored
+      # latest version of Contour pinned in third_party will be installed
+      readonly GATEWAY_API_VERSION=$2
+      readonly INGRESS_CLASS="gateway-api.ingress.networking.knative.dev"
+      readonly SHORT=1
       return 2
       ;;
     --system-namespace)
@@ -222,6 +216,18 @@ function knative_setup() {
     # Download istio resources we need for upgrade tests
     if (( need_latest_version )); then
       stage_istio_latest
+    fi
+  fi
+
+  # Install gateway-api and istio. Gateway API CRD must be installed before Istio.
+  if is_ingress_class gateway-api; then
+    # TODO: Do not use fixed Gateway API version and Istio version.
+    kubectl apply -k 'github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.3.0'
+    export ISTIO_VERSION=1.11.4 && curl -sL https://istio.io/downloadIstioctl | sh -
+    if (( KIND )); then
+      $HOME/.istioctl/bin/istioctl install -y --set values.gateways.istio-ingressgateway.type=NodePort --set values.global.proxy.clusterDomain="${CLUSTER_DOMAIN}"
+    else
+      $HOME/.istioctl/bin/istioctl install -y --set values.global.proxy.clusterDomain="${CLUSTER_DOMAIN}"
     fi
   fi
 
@@ -332,6 +338,12 @@ function install() {
     # # lease resources at the old sharding factor, so clean these up.
     # kubectl -n ${SYSTEM_NAMESPACE} delete leases --all
     wait_for_leader_controller || return 1
+  fi
+
+  # Due to https://github.com/vmware-tanzu/carvel-kapp/issues/381, deploy svc by kubectl instead of kapp.
+  if is_ingress_class gateway-api; then
+    kubectl delete -f ${REPO_ROOT_DIR}/third_party/gateway-api-latest/istio-gateway.yaml
+    kubectl apply -f ${REPO_ROOT_DIR}/third_party/gateway-api-latest/istio-gateway.yaml
   fi
 }
 

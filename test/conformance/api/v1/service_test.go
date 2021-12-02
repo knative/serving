@@ -34,6 +34,7 @@ import (
 	v1test "knative.dev/serving/test/v1"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 )
 
@@ -725,6 +726,51 @@ func TestServiceCreateWithMultipleContainers(t *testing.T) {
 	}
 
 	if err := validateDataPlane(t, clients, names, test.MultiContainerResponse); err != nil {
+		t.Error(err)
+	}
+}
+
+// TestServiceCreateWithEmptyDir tests both Creation paths for a service with emptydir enabled.
+// The test performs a series of Validate steps to ensure that the service transitions as expected during each step.
+func TestServiceCreateWithEmptyDir(t *testing.T) {
+	if test.ServingFlags.DisableOptionalAPI {
+		t.Skip("Emptydir support is not required by Knative Serving API Specification")
+	}
+	if !test.ServingFlags.EnableBetaFeatures {
+		t.Skip()
+	}
+	t.Parallel()
+	clients := test.Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.EmptyDir,
+	}
+
+	quantity := resource.MustParse("100M")
+
+	withVolume := rtesting.WithVolume("data", "/data", corev1.VolumeSource{
+		EmptyDir: &corev1.EmptyDirVolumeSource{
+			Medium:    "Memory",
+			SizeLimit: &quantity,
+		},
+	})
+
+	// Clean up on test failure or interrupt
+	test.EnsureTearDown(t, clients, &names)
+
+	// Setup initial Service
+	_, err := v1test.CreateServiceReady(t, clients, &names, withVolume)
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	// Validate State after Creation
+	if err := validateControlPlane(t, clients, names, "1" /*1 is the expected generation value*/); err != nil {
+		t.Error(err)
+	}
+
+	if err := validateDataPlane(t, clients, names, test.EmptyDirText); err != nil {
 		t.Error(err)
 	}
 }

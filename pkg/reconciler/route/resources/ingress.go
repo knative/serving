@@ -25,7 +25,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -98,9 +97,7 @@ func MakeIngressWithRollout(
 			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
 				networking.RolloutAnnotationKey:      serializeRollout(ctx, ro),
-			}, r.GetAnnotations()), func(key string) bool {
-				return key == corev1.LastAppliedConfigAnnotation
-			}),
+			}, r.GetAnnotations()), ExcludedAnnotations.Has),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 		},
 		Spec: spec,
@@ -195,7 +192,7 @@ func makeIngressSpec(
 		}
 	}
 
-	httpOption, err := getHTTPOption(ctx, r.Annotations)
+	httpProtocol, err := getHTTPProtocol(ctx, r.Annotations)
 	if err != nil {
 		return netv1alpha1.IngressSpec{}, err
 	}
@@ -203,20 +200,20 @@ func makeIngressSpec(
 	return netv1alpha1.IngressSpec{
 		Rules:      rules,
 		TLS:        tls,
-		HTTPOption: httpOption,
+		HTTPOption: httpProtocol,
 	}, nil
 }
 
-func getHTTPOption(ctx context.Context, annotations map[string]string) (netv1alpha1.HTTPOption, error) {
-	if len(annotations) != 0 && annotations[networking.HTTPOptionAnnotationKey] != "" {
-		annotation := annotations[networking.HTTPOptionAnnotationKey]
-		switch strings.ToLower(annotation) {
-		case "enabled":
+func getHTTPProtocol(ctx context.Context, annotations map[string]string) (netv1alpha1.HTTPOption, error) {
+	if len(annotations) != 0 && networking.GetHTTPProtocol(annotations) != "" {
+		protocol := strings.ToLower(networking.GetHTTPProtocol(annotations))
+		switch network.HTTPProtocol(protocol) {
+		case network.HTTPEnabled:
 			return netv1alpha1.HTTPOptionEnabled, nil
-		case "redirected":
+		case network.HTTPRedirected:
 			return netv1alpha1.HTTPOptionRedirected, nil
 		default:
-			return "", fmt.Errorf("incorrect HTTPOption annotation:" + annotation)
+			return "", fmt.Errorf("incorrect http-protocol annotation:" + protocol)
 		}
 	}
 

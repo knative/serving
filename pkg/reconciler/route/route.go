@@ -83,14 +83,14 @@ type Reconciler struct {
 var _ routereconciler.Interface = (*Reconciler)(nil)
 
 func ingressClassForRoute(ctx context.Context, r *v1.Route) string {
-	if ingressClass := r.Annotations[networking.IngressClassAnnotationKey]; ingressClass != "" {
+	if ingressClass := networking.GetIngressClass(r.Annotations); ingressClass != "" {
 		return ingressClass
 	}
 	return config.FromContext(ctx).Network.DefaultIngressClass
 }
 
 func certClass(ctx context.Context, r *v1.Route) string {
-	if class := r.Annotations[networking.CertificateClassAnnotationKey]; class != "" {
+	if class := networking.GetCertificateClass(r.Annotations); class != "" {
 		return class
 	}
 	return config.FromContext(ctx).Network.DefaultCertificateClass
@@ -476,7 +476,7 @@ func autoTLSEnabled(ctx context.Context, r *v1.Route) bool {
 	}
 
 	logger := logging.FromContext(ctx)
-	annotationValue := r.Annotations[networking.DisableAutoTLSAnnotationKey]
+	annotationValue := networking.GetDisableAutoTLS(r.Annotations)
 
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
 	if annotationValue != "" && err != nil {

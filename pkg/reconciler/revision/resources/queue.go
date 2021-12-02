@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/networking/pkg/apis/networking"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
@@ -115,7 +116,7 @@ func createQueueResources(cfg *deployment.Config, annotations map[string]string,
 
 	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
 
-	if resourceFraction, ok := fractionFromPercentage(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
+	if resourceFraction, ok := fractionFromPercentage(annotations, serving.QueueSidecarResourcePercentageAnnotation); ok {
 		if ok, requestCPU = computeResourceRequirements(userContainer.Resources.Requests.Cpu(), resourceFraction, queueContainerRequestCPU); ok {
 			resourceRequests[corev1.ResourceCPU] = requestCPU
 		}
@@ -167,8 +168,9 @@ func computeResourceRequirements(resourceQuantity *resource.Quantity, fraction f
 	return true, newquantity
 }
 
-func fractionFromPercentage(m map[string]string, k string) (float64, bool) {
-	value, err := strconv.ParseFloat(m[k], 64)
+func fractionFromPercentage(m map[string]string, key kmap.KeyPriority) (float64, bool) {
+	_, v, _ := key.Get(m)
+	value, err := strconv.ParseFloat(v, 64)
 	return value / 100, err == nil
 }
 
@@ -211,10 +213,10 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	var httpProbe, execProbe *corev1.Probe
 	var userProbeJSON string
 	if container.ReadinessProbe != nil {
-		// During startup we want to poll the container faster than Kubernetes will
-		// allow, so we use an ExecProbe which starts immediately and then polls
-		// every 25ms. We encode the original probe as JSON in an environment
-		// variable for this probe to use.
+		// The activator attempts to detect readiness itself by checking the Queue
+		// Proxy's health endpoint rather than waiting for Kubernetes to check and
+		// propagate the Ready state. We encode the original probe as JSON in an
+		// environment variable for this health endpoint to use.
 		userProbe := container.ReadinessProbe.DeepCopy()
 		applyReadinessProbeDefaultsForExec(userProbe, userPort)
 

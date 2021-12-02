@@ -103,7 +103,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 				corev1.ResourceMemory: resource.MustParse("258Mi"),
 			},
 		}), rtesting.WithConfigAnnotations(map[string]string{
-			serving.QueueSideCarResourcePercentageAnnotation: "0.2",
+			serving.QueueSidecarResourcePercentageAnnotationKey: "0.2",
 		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)

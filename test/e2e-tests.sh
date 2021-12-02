@@ -65,18 +65,29 @@ if [[ -z "${INGRESS_CLASS}" \
   alpha="--enable-alpha"
 fi
 
-TEST_OPTIONS="${TEST_OPTIONS:-${alpha} --enable-beta --resolvabledomain=$(use_resolvable_domain) ${use_https}}"
+# Currently only Istio, Contour and Kourier implement the beta features.
+beta=""
+if [[ -z "${INGRESS_CLASS}" \
+  || "${INGRESS_CLASS}" == "istio.ingress.networking.knative.dev" \
+  || "${INGRESS_CLASS}" == "contour.ingress.networking.knative.dev" \
+  || "${INGRESS_CLASS}" == "kourier.ingress.networking.knative.dev" ]]; then
+  beta="--enable-beta"
+fi
+
+TEST_OPTIONS="${TEST_OPTIONS:-${alpha} ${beta} --resolvabledomain=$(use_resolvable_domain) ${use_https}}"
 if (( SHORT )); then
   TEST_OPTIONS+=" -short"
 fi
 
 toggle_feature autocreateClusterDomainClaims true config-network || fail_test
+toggle_feature kubernetes.podspec-volumes-emptydir Enabled
 go_test_e2e -timeout=30m \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
   ./test/e2e \
   ${parallelism} \
   ${TEST_OPTIONS} || failed=1
+toggle_feature kubernetes.podspec-volumes-emptydir Disabled
 toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
 toggle_feature tag-header-based-routing Enabled
@@ -110,7 +121,6 @@ go_test_e2e -timeout=30m -tags=hpa ./test/e2e ${TEST_OPTIONS} || failed=1
 # InitContainers test uses emptyDir.
 toggle_feature kubernetes.podspec-volumes-emptydir Enabled
 toggle_feature kubernetes.podspec-init-containers Enabled
-go_test_e2e -timeout=2m ./test/e2e/emptydir ${TEST_OPTIONS} || failed=1
 go_test_e2e -timeout=2m ./test/e2e/initcontainers ${TEST_OPTIONS} || failed=1
 toggle_feature kubernetes.podspec-init-containers Disabled
 toggle_feature kubernetes.podspec-volumes-emptydir Disabled
@@ -138,7 +148,7 @@ rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
 
 header "Collecting performance data"
 
-cat <<EOF | ko apply -f -
+cat <<EOF | ko apply $(ko_flags) -f -
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:

@@ -59,7 +59,10 @@ import (
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 )
 
-const testCertClass = "dns-01.rocks"
+const (
+	disableWildcardCertLabelKey = "networking.knative.dev/disableWildcardCert"
+	testCertClass               = "dns-01.rocks"
+)
 
 type key int
 
@@ -198,7 +201,7 @@ func TestReconcile(t *testing.T) {
 		Name:                    "create Knative certificate for namespace with explicitly enabled",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
-			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DisableWildcardCertLabelKey: "false"}),
+			kubeNamespaceWithLabelValue("foo", map[string]string{disableWildcardCertLabelKey: "false"}),
 		},
 		WantCreates: []runtime.Object{
 			knCert(kubeNamespace("foo")),
@@ -211,7 +214,7 @@ func TestReconcile(t *testing.T) {
 		Name:                    "create Knative certificate for namespace with explicitly enabled for internal label",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
-			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DisableWildcardCertLabelKey: "false"}),
+			kubeNamespaceWithLabelValue("foo", map[string]string{disableWildcardCertLabelKey: "false"}),
 		},
 		WantCreates: []runtime.Object{
 			knCert(kubeNamespace("foo")),
@@ -238,13 +241,13 @@ func TestReconcile(t *testing.T) {
 		Key:  "foo",
 		Objects: []runtime.Object{
 			kubeNamespaceWithLabelValue("foo", map[string]string{
-				networking.DisableWildcardCertLabelKey: "true",
+				disableWildcardCertLabelKey: "true",
 			}),
 		},
 		Ctx: context.WithValue(context.Background(), netConfigContextKey,
 			&metav1.LabelSelector{
 				MatchExpressions: []metav1.LabelSelectorRequirement{{
-					Key:      networking.DisableWildcardCertLabelKey,
+					Key:      disableWildcardCertLabelKey,
 					Operator: "NotIn",
 					Values:   []string{"true"},
 				}}}),
@@ -270,7 +273,7 @@ func TestReconcile(t *testing.T) {
 		Name: "disabling namespace cert feature deletes the cert",
 		Key:  "foo",
 		Objects: []runtime.Object{
-			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DisableWildcardCertLabelKey: "true"}),
+			kubeNamespaceWithLabelValue("foo", map[string]string{disableWildcardCertLabelKey: "true"}),
 			knCert(kubeNamespace("foo")),
 		},
 		SkipNamespaceValidation: true,
@@ -288,7 +291,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), netConfigContextKey,
 			&metav1.LabelSelector{
 				MatchExpressions: []metav1.LabelSelectorRequirement{{
-					Key:      networking.DisableWildcardCertLabelKey,
+					Key:      disableWildcardCertLabelKey,
 					Operator: "NotIn",
 					Values:   []string{"true"},
 				}}}),

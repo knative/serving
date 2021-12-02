@@ -64,11 +64,6 @@ const (
 	drainSleepDuration = 30 * time.Second
 )
 
-var (
-	// This creates an abstract socket instead of an actual file.
-	unixSocketPath = "@/knative.dev/serving/queue.sock"
-)
-
 type config struct {
 	ContainerConcurrency              int    `split_words:"true" required:"true"`
 	QueueServingPort                  string `split_words:"true" required:"true"`
@@ -163,15 +158,14 @@ func main() {
 		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection).ProbeContainer
 	}
 
-	drainer := &pkghandler.Drainer{
-		QuietPeriod: drainSleepDuration,
-		// Add Activator probe header to the drainer so it can handle probes directly from activator
-		HealthCheckUAPrefixes: []string{network.ActivatorUserAgent},
+	var concurrencyendpoint *queue.ConcurrencyEndpoint
+	if env.ConcurrencyStateEndpoint != "" {
+		concurrencyendpoint = queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, env.ConcurrencyStateTokenPath)
 	}
-	mainServer := buildServer(ctx, env, drainer, probe, stats, logger)
+	mainServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint)
 	servers := map[string]*http.Server{
 		"main":    mainServer,
-		"admin":   buildAdminServer(logger, drainer),
+		"admin":   buildAdminServer(logger, drain),
 		"metrics": buildMetricsServer(promStatReporter, protoStatReporter),
 	}
 	if env.EnableProfiling {
@@ -179,45 +173,14 @@ func main() {
 	}
 
 	errCh := make(chan error)
-	listenCh := make(chan struct{})
 	for name, server := range servers {
 		go func(name string, s *http.Server) {
-			l, err := net.Listen("tcp", s.Addr)
-			if err != nil {
-				errCh <- fmt.Errorf("%s server failed to listen: %w", name, err)
-				return
-			}
-
-			// Notify the unix socket setup that the tcp socket for the main server is ready.
-			if s == mainServer {
-				close(listenCh)
-			}
-
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
-			if err := s.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
 			}
 		}(name, server)
 	}
-
-	// Listen on a unix socket so that the exec probe can avoid having to go
-	// through the full tcp network stack.
-	go func() {
-		// Only start listening on the unix socket once the tcp socket for the
-		// main server is setup.
-		// This avoids the unix socket path succeeding before the tcp socket path
-		// is actually working and thus it avoids a race.
-		<-listenCh
-
-		l, err := net.Listen("unix", unixSocketPath)
-		if err != nil {
-			errCh <- fmt.Errorf("failed to listen to unix socket: %w", err)
-			return
-		}
-		if err := http.Serve(l, mainServer.Handler); err != nil {
-			errCh <- fmt.Errorf("serving failed on unix socket: %w", err)
-		}
-	}()
 
 	// Blocks until we actually receive a TERM signal or one of the servers
 	// exits unexpectedly. We fold both signals together because we only want
@@ -229,9 +192,12 @@ func main() {
 		flush(logger)
 		os.Exit(1)
 	case <-ctx.Done():
+		if env.ConcurrencyStateEndpoint != "" {
+			concurrencyendpoint.Terminating(logger)
+		}
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
-		drainer.Drain()
+		drain()
 
 		// Removing the main server from the shutdown logic as we've already shut it down.
 		delete(servers, "main")
@@ -257,9 +223,8 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(ctx context.Context, env config, drainer *pkghandler.Drainer, probeContainer func() bool, stats *network.RequestStats,
-	logger *zap.SugaredLogger) *http.Server {
-
+func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *network.RequestStats, logger *zap.SugaredLogger,
+	ce *queue.ConcurrencyEndpoint) (server *http.Server, drain func()) {
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
 	if env.ContainerConcurrency > 0 {
 		maxIdleConns = env.ContainerConcurrency
@@ -287,7 +252,6 @@ func buildServer(ctx context.Context, env config, drainer *pkghandler.Drainer, p
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
 	if concurrencyStateEnabled {
-		ce := queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, env.ConcurrencyStateTokenPath)
 		logger.Info("Concurrency state endpoint set, tracking request counts, using endpoint: ", ce.Endpoint())
 		go func() {
 			for range time.NewTicker(1 * time.Minute).C {
@@ -296,10 +260,7 @@ func buildServer(ctx context.Context, env config, drainer *pkghandler.Drainer, p
 		}()
 		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, ce.Pause, ce.Resume)
 		// start paused
-		if err := ce.Pause(); err != nil {
-			logger.Errorf("Error handling initial pause request: %v", err)
-			queue.HandleStateRequestError(logger, ce.Pause)
-		}
+		ce.Pause(logger)
 	}
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
@@ -314,22 +275,23 @@ func buildServer(ctx context.Context, env config, drainer *pkghandler.Drainer, p
 	if tracingEnabled {
 		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	}
+
+	drainer := &pkghandler.Drainer{
+		QuietPeriod: drainSleepDuration,
+		// Add Activator probe header to the drainer so it can handle probes directly from activator
+		HealthCheckUAPrefixes: []string{network.ActivatorUserAgent},
+		Inner:                 composedHandler,
+		HealthCheck:           health.ProbeHandler(probeContainer, tracingEnabled),
+	}
+	composedHandler = drainer
+
 	if env.ServingEnableRequestLog {
+		// We want to capture the probes/healthchecks in the request logs.
+		// Hence we need to have RequestLogHandler be the first one.
 		composedHandler = requestLogHandler(logger, composedHandler, env)
 	}
 
-	var healthcheckHandler http.Handler
-	healthcheckHandler = health.ProbeHandler(probeContainer, tracingEnabled, healthcheckHandler)
-	// We want to capture the probes/healthchecks in the request logs.
-	// Hence we need to have RequestLogHandler to be the first one.
-	if env.ServingEnableRequestLog {
-		healthcheckHandler = requestLogHandler(logger, healthcheckHandler, env)
-	}
-
-	drainer.Inner = composedHandler
-	drainer.HealthCheck = healthcheckHandler.ServeHTTP
-
-	return pkgnet.NewServer(":"+env.QueueServingPort, drainer)
+	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler), drainer.Drain
 }
 
 func buildTransport(env config, logger *zap.SugaredLogger, maxConns int) http.RoundTripper {
@@ -385,11 +347,11 @@ func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config)
 	return true
 }
 
-func buildAdminServer(logger *zap.SugaredLogger, drainer *pkghandler.Drainer) *http.Server {
+func buildAdminServer(logger *zap.SugaredLogger, drain func()) *http.Server {
 	adminMux := http.NewServeMux()
 	adminMux.HandleFunc(queue.RequestQueueDrainPath, func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Attached drain handler from user-container")
-		drainer.Drain()
+		drain()
 	})
 
 	return &http.Server{
