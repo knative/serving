@@ -77,8 +77,8 @@ func TestDefaultsConfiguration(t *testing.T) {
 			MaxRevisionTimeoutSeconds:    456,
 			ContainerConcurrencyMaxLimit: 1984,
 			RevisionCPURequest:           &oneTwoThree,
-			UserContainerNameTemplate:    mustParse("{{.Name}}"),
-			InitContainerNameTemplate:    mustParse("{{.Name}}"),
+			UserContainerNameTemplate:    mustParseTemplate("{{.Name}}"),
+			InitContainerNameTemplate:    mustParseTemplate("{{.Name}}"),
 			EnableServiceLinks:           ptr.Bool(true),
 		},
 		data: map[string]string{
@@ -187,8 +187,8 @@ func TestDefaultsConfiguration(t *testing.T) {
 			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
 			EnableServiceLinks:            ptr.Bool(false),
-			UserContainerNameTemplate:     mustParse("{{.Name}}"),
-			InitContainerNameTemplate:     mustParse("my-template"),
+			UserContainerNameTemplate:     mustParseTemplate("{{.Name}}"),
+			InitContainerNameTemplate:     mustParseTemplate("my-template"),
 		},
 		data: map[string]string{
 			"container-name-template":      "{{.Name}}",

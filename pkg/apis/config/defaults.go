@@ -65,8 +65,8 @@ const (
 )
 
 var (
-	DefaultInitContainerNameTemplate = mustParse(DefaultInitContainerName)
-	DefaultUserContainerNameTemplate = mustParse(DefaultUserContainerName)
+	DefaultInitContainerNameTemplate = mustParseTemplate(DefaultInitContainerName)
+	DefaultUserContainerNameTemplate = mustParseTemplate(DefaultUserContainerName)
 )
 
 func defaultDefaultsConfig() *Defaults {
@@ -224,7 +224,7 @@ type ObjectMetaTemplate struct {
 	*template.Template
 }
 
-func mustParse(t string) *ObjectMetaTemplate {
+func mustParseTemplate(t string) *ObjectMetaTemplate {
 	return &ObjectMetaTemplate{
 		Template: template.Must(template.New("container-template").Parse(t)),
 	}
