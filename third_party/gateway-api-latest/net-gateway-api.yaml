@@ -1,3 +1,4 @@
+# Generated with "kubectl kustomize https://github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.3.0"
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -2124,7 +2125,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: knative-gateway-api-admin
   labels:
-    serving.knative.dev/release: "v20211202-2cb86845"
+    serving.knative.dev/release: "v20211203-b31bd9c2"
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
@@ -2136,7 +2137,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: knative-gateway-api-core
   labels:
-    serving.knative.dev/release: "v20211202-2cb86845"
+    serving.knative.dev/release: "v20211203-b31bd9c2"
     serving.knative.dev/controller: "true"
 rules:
   - apiGroups: ["networking.x-k8s.io"]
@@ -2164,7 +2165,7 @@ metadata:
   name: config-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20211202-2cb86845"
+    serving.knative.dev/release: "v20211203-b31bd9c2"
 data:
   _example: |
     ################################
@@ -2218,9 +2219,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
-    app.kubernetes.io/version: "20211202-2cb86845"
+    app.kubernetes.io/version: "20211203-b31bd9c2"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20211202-2cb86845"
+    serving.knative.dev/release: "v20211203-b31bd9c2"
 spec:
   replicas: 1
   selector:
@@ -2246,7 +2247,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:3eee4ba9dcd172f805dada6a5f29df0f16c93fd95c232411501e5e36543d28be
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:dcf4a2bbfae5a811b5f606ead0eca42b8c5e005403fc115aededb14d0c862f47
           resources:
             requests:
               cpu: 100m
