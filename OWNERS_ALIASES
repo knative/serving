@@ -71,7 +71,7 @@ aliases:
   - pierDipi
   - vaikas
   knative-admin:
-  - bsnchan
+  - csantanapr
   - dprotaso
   - duglin
   - evankanderson
@@ -80,9 +80,9 @@ aliases:
   - knative-prow-robot
   - knative-prow-updater-robot
   - knative-test-reporter-robot
+  - lance
   - markusthoemmes
   - matzew
-  - mbehrendt
   - nak3
   - pmorie
   - rhuss
@@ -194,8 +194,8 @@ aliases:
   source-wg-leads:
   - lionelvillard
   steering-committee:
-  - bsnchan
-  - mbehrendt
+  - csantanapr
+  - lance
   - pmorie
   - thisisnotapril
   - vaikas
