@@ -95,9 +95,9 @@ func routeHasGeneration(clients *test.Clients, serviceName string, generation in
 // ServicePostUpgradeFromScaleToZeroTest verifies a scaled-to-zero service after upgrade.
 func ServicePostUpgradeFromScaleToZeroTest() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("PostUpgradeFromScaleToZeroTest", func(c pkgupgrade.Context) {
-		test.EnsureTearDown(c.T, e2e.Setup(c.T), &upgradeServiceNames)
+		test.EnsureTearDown(c.T, e2e.Setup(c.T), &scaleToZeroServiceNames)
 		updateServiceAndCheck(c.T,
-			upgradeServiceNames.Service,
+			scaleToZeroServiceNames.Service,
 			test.PizzaPlanet2,
 			test.PizzaPlanetText1,
 			test.PizzaPlanetText2,
