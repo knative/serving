@@ -103,17 +103,13 @@ function net_istio_file_url() {
   local sha="$1"
   local file="$2"
 
-  local profile="istio"
-  if (( KIND )); then
-    profile+="-kind"
-  else
-    profile+="-ci"
-  fi
-  if [[ $MESH -eq 0 ]]; then
-    profile+="-no"
-  fi
+  local profile="istio-ci-no-mesh"
 
-  profile+="-mesh"
+  if (( KIND )); then
+    profile="istio-kind-no-mesh"
+  elif (( MESH )); then
+    profile="istio-ci-mesh"
+  fi
 
   echo "https://raw.githubusercontent.com/knative-sandbox/net-istio/${sha}/third_party/istio-${ISTIO_VERSION}/${profile}/${file}"
 }
