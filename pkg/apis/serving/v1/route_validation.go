@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/validation"
-	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -193,20 +192,8 @@ func (tt *TrafficTarget) validateURL(ctx context.Context, errs *apis.FieldError)
 	return errs
 }
 
-func validateClusterVisibilityLabel(label string) *apis.FieldError {
-	if label != serving.VisibilityClusterLocal {
-		return apis.ErrInvalidValue(label, network.VisibilityLabelKey)
-	}
-
-	return nil
-}
-
 // validateLabels function validates route labels.
 func (r *Route) validateLabels() (errs *apis.FieldError) {
-	if val, ok := r.Labels[network.VisibilityLabelKey]; ok {
-		errs = errs.Also(validateClusterVisibilityLabel(val))
-	}
-
 	if val, ok := r.Labels[serving.ServiceLabelKey]; ok {
 		errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))
 	}

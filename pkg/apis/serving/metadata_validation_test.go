@@ -25,7 +25,6 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -315,35 +314,6 @@ func TestValidateContainerConcurrency(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestValidateClusterVisibilityLabel(t *testing.T) {
-	tests := []struct {
-		name      string
-		label     string
-		expectErr *apis.FieldError
-	}{{
-		name:      "empty label",
-		label:     "",
-		expectErr: apis.ErrInvalidValue("", network.VisibilityLabelKey),
-	}, {
-		name:  "valid label",
-		label: VisibilityClusterLocal,
-	}, {
-		name:      "invalid label",
-		label:     "not-cluster-local",
-		expectErr: apis.ErrInvalidValue("not-cluster-local", network.VisibilityLabelKey),
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			err := validateClusterVisibilityLabel(test.label, network.VisibilityLabelKey)
-			if got, want := err.Error(), test.expectErr.Error(); got != want {
-				t.Errorf("\nGot:  %q\nwant: %q", got, want)
-			}
-		})
-	}
-
 }
 
 type withPod struct {
