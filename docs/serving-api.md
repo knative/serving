@@ -929,7 +929,7 @@ int64
 </td>
 <td>
 <em>(Optional)</em>
-<p>requestMaxDurationSeconds is the maximum duration in seconds a request will be allowed
+<p>RequestMaxDurationSeconds is the maximum duration in seconds a request will be allowed
 to stay open.</p>
 </td>
 </tr>
@@ -1404,7 +1404,7 @@ int64
 </td>
 <td>
 <em>(Optional)</em>
-<p>requestMaxDurationSeconds is the maximum duration in seconds a request will be allowed
+<p>RequestMaxDurationSeconds is the maximum duration in seconds a request will be allowed
 to stay open.</p>
 </td>
 </tr>
@@ -1617,7 +1617,7 @@ int64
 </td>
 <td>
 <em>(Optional)</em>
-<p>requestMaxDurationSeconds is the maximum duration in seconds a request will be allowed
+<p>RequestMaxDurationSeconds is the maximum duration in seconds a request will be allowed
 to stay open.</p>
 </td>
 </tr>
