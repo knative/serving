@@ -279,7 +279,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: strconv.Itoa(int(ts)),
 		}, {
-			Name:  "REVISION_MAX_DURATION_TIMEOUT_SECONDS",
+			Name:  "REQUEST_MAX_DURATION_SECONDS",
 			Value: strconv.Itoa(int(maxDurationTS)),
 		}, {
 			Name: "SERVING_POD",

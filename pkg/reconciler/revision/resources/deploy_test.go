@@ -111,7 +111,7 @@ var (
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: "45",
 		}, {
-			Name:  "REVISION_MAX_DURATION_TIMEOUT_SECONDS",
+			Name:  "REQUEST_MAX_DURATION_SECONDS",
 			Value: "100",
 		}, {
 			Name: "SERVING_POD",
