@@ -255,11 +255,11 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
-		name: "custom maxDurationTimeoutSeconds",
+		name: "custom requestMaxDurationSeconds",
 		rev: revision("bar", "foo",
 			withContainers(containers),
 			func(revision *v1.Revision) {
-				revision.Spec.MaxDurationTimeoutSeconds = ptr.Int64(99)
+				revision.Spec.RequestMaxDurationSeconds = ptr.Int64(99)
 			},
 		),
 		want: queueContainer(func(c *corev1.Container) {
@@ -693,7 +693,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		rev: v1.RevisionSpec{
 			TimeoutSeconds:            ptr.Int64(45),
-			MaxDurationTimeoutSeconds: ptr.Int64(100),
+			RequestMaxDurationSeconds: ptr.Int64(100),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Name: servingContainerName,
@@ -734,7 +734,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		name: "tcp defaults",
 		rev: v1.RevisionSpec{
 			TimeoutSeconds:            ptr.Int64(45),
-			MaxDurationTimeoutSeconds: ptr.Int64(100),
+			RequestMaxDurationSeconds: ptr.Int64(100),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Name: servingContainerName,
@@ -791,7 +791,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		rev: v1.RevisionSpec{
 			TimeoutSeconds:            ptr.Int64(45),
-			MaxDurationTimeoutSeconds: ptr.Int64(100),
+			RequestMaxDurationSeconds: ptr.Int64(100),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Name: servingContainerName,

@@ -85,7 +85,7 @@ func TestRevisionTimeout(t *testing.T) {
 	testCases := []struct {
 		name                      string
 		timeoutSeconds            int64
-		maxDurationTimeoutSeconds int64
+		requestMaxDurationSeconds int64
 		initialSleep              time.Duration
 		sleep                     time.Duration
 		expectedStatus            int
@@ -110,41 +110,41 @@ func TestRevisionTimeout(t *testing.T) {
 	}, {
 		name:                      "does not exceed timeout seconds, long max duration timeout has no effect",
 		timeoutSeconds:            10,
-		maxDurationTimeoutSeconds: neverExpireMaxDurationSeconds,
+		requestMaxDurationSeconds: neverExpireMaxDurationSeconds,
 		initialSleep:              2 * time.Second,
 		expectedStatus:            http.StatusOK,
 	}, {
 		name:                      "exceeds timeout seconds, long max duration timeout has no effect",
 		timeoutSeconds:            10,
-		maxDurationTimeoutSeconds: neverExpireMaxDurationSeconds,
+		requestMaxDurationSeconds: neverExpireMaxDurationSeconds,
 		initialSleep:              12 * time.Second,
 		expectedStatus:            http.StatusGatewayTimeout,
 		expectedBody:              "request timeout",
 	}, {
 		name:                      "writes first byte before timeout, long max duration timeout has no effect",
 		timeoutSeconds:            10,
-		maxDurationTimeoutSeconds: neverExpireMaxDurationSeconds,
+		requestMaxDurationSeconds: neverExpireMaxDurationSeconds,
 		expectedStatus:            http.StatusOK,
 		sleep:                     15 * time.Second,
 		initialSleep:              0,
 	}, {
 		name:                      "exceeds max duration timeout",
 		timeoutSeconds:            15,
-		maxDurationTimeoutSeconds: 10,
+		requestMaxDurationSeconds: 10,
 		initialSleep:              12 * time.Second,
 		expectedStatus:            http.StatusGatewayTimeout,
 		expectedBody:              "request timeout",
 	}, {
 		name:                      "exceeds multiple timeouts",
 		timeoutSeconds:            10,
-		maxDurationTimeoutSeconds: 10,
+		requestMaxDurationSeconds: 10,
 		initialSleep:              12 * time.Second,
 		expectedStatus:            http.StatusGatewayTimeout,
 		expectedBody:              "request timeout",
 	}, {
 		name:                      "writes first byte (HTTP OK), max duration violated, request can still timeout",
 		timeoutSeconds:            10,
-		maxDurationTimeoutSeconds: 12,
+		requestMaxDurationSeconds: 12,
 		expectedStatus:            http.StatusOK,
 		sleep:                     15 * time.Second,
 		initialSleep:              0,
@@ -165,7 +165,7 @@ func TestRevisionTimeout(t *testing.T) {
 			test.EnsureTearDown(t, clients, &names)
 
 			t.Log("Creating a new Service ")
-			resources, err := v1test.CreateServiceReady(t, clients, &names, WithRevisionTimeoutSeconds(tc.timeoutSeconds), WithRevisionMaxDurationTimeoutSeconds(tc.maxDurationTimeoutSeconds))
+			resources, err := v1test.CreateServiceReady(t, clients, &names, WithRevisionTimeoutSeconds(tc.timeoutSeconds), WithRequestMaxDurationSeconds(tc.requestMaxDurationSeconds))
 			if err != nil {
 				t.Fatal("Failed to create Service:", err)
 			}

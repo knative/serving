@@ -268,7 +268,7 @@ func defaultRevision() *v1.Revision {
 		},
 		Spec: v1.RevisionSpec{
 			TimeoutSeconds:            ptr.Int64(45),
-			MaxDurationTimeoutSeconds: ptr.Int64(100),
+			RequestMaxDurationSeconds: ptr.Int64(100),
 		},
 	}
 }
@@ -421,7 +421,7 @@ func withContainers(containers []corev1.Container) RevisionOption {
 				Containers: containers,
 			},
 			TimeoutSeconds:            ptr.Int64(45),
-			MaxDurationTimeoutSeconds: ptr.Int64(100),
+			RequestMaxDurationSeconds: ptr.Int64(100),
 		}
 	}
 }

@@ -89,10 +89,10 @@ type RevisionSpec struct {
 	// +optional
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 
-	// maxDurationTimeoutSeconds is the maximum duration in seconds a request will be allowed
+	// RequestMaxDurationSeconds is the maximum duration in seconds a request will be allowed
 	// to stay open.
 	// +optional
-	MaxDurationTimeoutSeconds *int64 `json:"maxDurationTimeoutSeconds,omitempty"`
+	RequestMaxDurationSeconds *int64 `json:"requestMaxDurationSeconds,omitempty"`
 }
 
 const (

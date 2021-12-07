@@ -194,8 +194,8 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		ts = *rev.Spec.TimeoutSeconds
 	}
 	maxDurationTS := int64(0)
-	if rev.Spec.MaxDurationTimeoutSeconds != nil {
-		maxDurationTS = *rev.Spec.MaxDurationTimeoutSeconds
+	if rev.Spec.RequestMaxDurationSeconds != nil {
+		maxDurationTS = *rev.Spec.RequestMaxDurationSeconds
 	}
 	ports := queueNonServingPorts
 	if cfg.Observability.EnableProfiling {
