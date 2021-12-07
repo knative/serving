@@ -98,7 +98,7 @@ func (s *Store) Load() *Config {
 	if dep, ok := s.UntypedLoad(deployment.ConfigName).(*deployment.Config); ok {
 		cfg.Deployment = dep.DeepCopy()
 	}
-	if log, ok := s.UntypedLoad((logging.ConfigMapName())).(*logging.Config); ok {
+	if log, ok := s.UntypedLoad(logging.ConfigMapName()).(*logging.Config); ok {
 		cfg.Logging = log.DeepCopy()
 	}
 	if net, ok := s.UntypedLoad(network.ConfigName).(*network.Config); ok {
