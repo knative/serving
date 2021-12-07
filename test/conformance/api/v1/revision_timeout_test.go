@@ -186,7 +186,7 @@ func TestRevisionTimeout(t *testing.T) {
 			}
 
 			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus, tc.expectedBody); err != nil {
-				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds,expecting status %v and expecting body %q: %v",
+				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds, expecting status %v and body %q: %v",
 					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.expectedStatus, tc.expectedBody, err)
 			}
 		})
