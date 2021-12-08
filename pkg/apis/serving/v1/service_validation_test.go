@@ -98,21 +98,6 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 	}, {
-		name: "invalid visibility label value",
-		r: &Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
-				Labels: map[string]string{
-					network.VisibilityLabelKey: "bad-label",
-				},
-			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: goodConfigSpec,
-				RouteSpec:         goodRouteSpec,
-			},
-		},
-		wantErr: apis.ErrInvalidValue("bad-label", "metadata.labels."+network.VisibilityLabelKey),
-	}, {
 		name: "valid release",
 		r: &Service{
 			ObjectMeta: metav1.ObjectMeta{

@@ -19,7 +19,6 @@ package v1
 import (
 	"context"
 
-	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -32,7 +31,6 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 	// spec validation.
 	if !apis.IsInStatusUpdate(ctx) {
 		errs = errs.Also(serving.ValidateObjectMetadata(ctx, s.GetObjectMeta(), false))
-		errs = errs.Also(s.validateLabels().ViaField("labels"))
 		errs = errs.Also(serving.ValidateRolloutDurationAnnotation(
 			s.GetAnnotations()).ViaField("annotations"))
 		errs = errs.ViaField("metadata")
@@ -60,12 +58,4 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 		// Within the context of Service, the RouteSpec has a default
 		// configurationName.
 		ss.RouteSpec.Validate(WithDefaultConfigurationName(ctx)))
-}
-
-// validateLabels function validates service labels
-func (s *Service) validateLabels() (errs *apis.FieldError) {
-	if val, ok := s.Labels[network.VisibilityLabelKey]; ok {
-		errs = errs.Also(validateClusterVisibilityLabel(val))
-	}
-	return errs
 }
