@@ -25,7 +25,6 @@ import (
 	"strings"
 	"text/template"
 
-	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,25 +65,16 @@ const (
 )
 
 var (
-	templateCache *lru.Cache
-
-	// Verify the default templates are valid.
-	_ = template.Must(template.New("user-container-template").Parse(DefaultUserContainerName))
-	_ = template.Must(template.New("init-container-template").Parse(DefaultInitContainerName))
+	DefaultInitContainerNameTemplate = mustParseTemplate(DefaultInitContainerName)
+	DefaultUserContainerNameTemplate = mustParseTemplate(DefaultUserContainerName)
 )
-
-func init() {
-	// The only failure is due to negative size.
-	// Store 10 latest templates.
-	templateCache, _ = lru.New(10)
-}
 
 func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
 		RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
 		MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
-		InitContainerNameTemplate:     DefaultInitContainerName,
-		UserContainerNameTemplate:     DefaultUserContainerName,
+		InitContainerNameTemplate:     DefaultInitContainerNameTemplate,
+		UserContainerNameTemplate:     DefaultUserContainerNameTemplate,
 		ContainerConcurrency:          DefaultContainerConcurrency,
 		ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
 		AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
@@ -113,8 +103,8 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	nc := defaultDefaultsConfig()
 
 	if err := cm.Parse(data,
-		cm.AsString("init-container-name-template", &nc.InitContainerNameTemplate),
-		cm.AsString("container-name-template", &nc.UserContainerNameTemplate),
+		asTemplate("init-container-name-template", &nc.InitContainerNameTemplate),
+		asTemplate("container-name-template", &nc.UserContainerNameTemplate),
 
 		cm.AsBool("allow-container-concurrency-zero", &nc.AllowContainerConcurrencyZero),
 		asTriState("enable-service-links", &nc.EnableServiceLinks, nil),
@@ -145,28 +135,12 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		return nil, apis.ErrOutOfBoundsValue(
 			nc.ContainerConcurrency, 0, nc.ContainerConcurrencyMaxLimit, "container-concurrency")
 	}
-	if _, ok := templateCache.Get(nc.UserContainerNameTemplate); !ok {
-		tmpl, err := template.New("container-template").Parse(nc.UserContainerNameTemplate)
-		if err != nil {
-			return nil, err
-		}
-		// Check that the template properly applies to ObjectMeta.
-		if err := tmpl.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
-			return nil, fmt.Errorf("error executing template: %w", err)
-		}
-
-		templateCache.Add(nc.UserContainerNameTemplate, tmpl)
+	// Check that the templates properly apply to ObjectMeta.
+	if err := nc.UserContainerNameTemplate.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
+		return nil, fmt.Errorf("error executing template: %w", err)
 	}
-	if _, ok := templateCache.Get(nc.InitContainerNameTemplate); !ok {
-		tmpl, err := template.New("container-template").Parse(nc.InitContainerNameTemplate)
-		if err != nil {
-			return nil, err
-		}
-		// Check that the template properly applies to ObjectMeta.
-		if err := tmpl.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
-			return nil, fmt.Errorf("error executing template: %w", err)
-		}
-		templateCache.Add(nc.InitContainerNameTemplate, tmpl)
+	if err := nc.InitContainerNameTemplate.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
+		return nil, fmt.Errorf("error executing template: %w", err)
 	}
 	return nc, nil
 }
@@ -183,9 +157,9 @@ type Defaults struct {
 	// RevisionTimeoutSeconds must be less than this value.
 	MaxRevisionTimeoutSeconds int64
 
-	InitContainerNameTemplate string
+	InitContainerNameTemplate *ObjectMetaTemplate
 
-	UserContainerNameTemplate string
+	UserContainerNameTemplate *ObjectMetaTemplate
 
 	ContainerConcurrency int64
 
@@ -209,15 +183,7 @@ type Defaults struct {
 	RevisionEphemeralStorageLimit   *resource.Quantity
 }
 
-func containerNameFromTemplate(ctx context.Context, templateText string) string {
-	var tmpl *template.Template
-	if tt, ok := templateCache.Get(templateText); ok {
-		tmpl = tt.(*template.Template)
-	} else {
-		// Fallback for unit tests.
-		tmpl = template.Must(
-			template.New("container-template").Parse(templateText))
-	}
+func containerNameFromTemplate(ctx context.Context, tmpl *ObjectMetaTemplate) string {
 	buf := &bytes.Buffer{}
 	if err := tmpl.Execute(buf, apis.ParentMeta(ctx)); err != nil {
 		return ""
@@ -233,4 +199,59 @@ func (d Defaults) UserContainerName(ctx context.Context) string {
 // InitContainerName returns the name of the init container based on the context.
 func (d Defaults) InitContainerName(ctx context.Context) string {
 	return containerNameFromTemplate(ctx, d.InitContainerNameTemplate)
+}
+
+func asTemplate(key string, target **ObjectMetaTemplate) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			val, err := template.New("container-template").Parse(raw)
+			if err != nil {
+				return err
+			}
+
+			*target = &ObjectMetaTemplate{val}
+		}
+
+		return nil
+	}
+}
+
+// ObjectMetaTemplate is a template.Template wrapper for templates
+// which can be applied to ObjectMeta. It implements DeepCopy and
+// Equal so it can be used in Config structs and with go-cmp in
+// tests.
+type ObjectMetaTemplate struct {
+	*template.Template
+}
+
+func mustParseTemplate(t string) *ObjectMetaTemplate {
+	return &ObjectMetaTemplate{
+		Template: template.Must(template.New("container-template").Parse(t)),
+	}
+}
+
+func (t ObjectMetaTemplate) DeepCopy() ObjectMetaTemplate {
+	var err error
+	t.Template, err = t.Template.Clone()
+	if err != nil {
+		// Can't fail since the template is validated.
+		panic(err)
+	}
+
+	return t
+}
+
+// Equal compares two ObjectMetaTemplates for equality, it is
+// implemented so that tests using go-cmp work nicely. Equality is
+// defined to mean that applying the template results in the same
+// value given the same ObjectMeta.Name.
+func (t ObjectMetaTemplate) Equal(t2 ObjectMetaTemplate) bool {
+	var a, b bytes.Buffer
+	if err := t.Execute(&a, metav1.ObjectMeta{Name: "abc"}); err != nil {
+		return false
+	}
+	if err := t2.Execute(&b, metav1.ObjectMeta{Name: "abc"}); err != nil {
+		return false
+	}
+	return a.String() == b.String()
 }

@@ -18,6 +18,32 @@ function is_ingress_class() {
   [[ "${INGRESS_CLASS}" == *"${1}"* ]]
 }
 
+function stage_gateway_api_resources() {
+  # This installs an istio version that works with the v1alpha1 gateway api
+  header "Staging Gateway API Resources"
+
+  local gateway_dir="${E2E_YAML_DIR}/gateway-api/install"
+  mkdir -p "${gateway_dir}"
+
+  # TODO: if we switch to istio 1.12 we can reuse stage_istio_head
+  curl -sL https://istio.io/downloadIstioctl | ISTIO_VERSION=1.11.4 sh -
+
+  local params="--set values.global.proxy.clusterDomain=${CLUSTER_DOMAIN}"
+  if (( KIND )); then
+    params="${params} --set values.gateways.istio-ingressgateway.type=NodePort"
+  fi
+
+  cat <<EOF > "${gateway_dir}/istio.yaml"
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+---
+EOF
+
+  $HOME/.istioctl/bin/istioctl manifest generate $params >> "${gateway_dir}/istio.yaml"
+}
+
 function stage_istio_head() {
   header "Staging Istio YAML (HEAD)"
   local istio_head_dir="${E2E_YAML_DIR}/istio/HEAD/install"
@@ -77,17 +103,13 @@ function net_istio_file_url() {
   local sha="$1"
   local file="$2"
 
-  local profile="istio"
-  if (( KIND )); then
-    profile+="-kind"
-  else
-    profile+="-ci"
-  fi
-  if [[ $MESH -eq 0 ]]; then
-    profile+="-no"
-  fi
+  local profile="istio-ci-no-mesh"
 
-  profile+="-mesh"
+  if (( KIND )); then
+    profile="istio-kind-no-mesh"
+  elif (( MESH )); then
+    profile="istio-ci-mesh"
+  fi
 
   echo "https://raw.githubusercontent.com/knative-sandbox/net-istio/${sha}/third_party/istio-${ISTIO_VERSION}/${profile}/${file}"
 }

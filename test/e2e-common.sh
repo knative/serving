@@ -221,14 +221,7 @@ function knative_setup() {
 
   # Install gateway-api and istio. Gateway API CRD must be installed before Istio.
   if is_ingress_class gateway-api; then
-    # TODO: Do not use fixed Gateway API version and Istio version.
-    kubectl apply -k 'github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.3.0'
-    export ISTIO_VERSION=1.11.4 && curl -sL https://istio.io/downloadIstioctl | sh -
-    if (( KIND )); then
-      $HOME/.istioctl/bin/istioctl install -y --set values.gateways.istio-ingressgateway.type=NodePort --set values.global.proxy.clusterDomain="${CLUSTER_DOMAIN}"
-    else
-      $HOME/.istioctl/bin/istioctl install -y --set values.global.proxy.clusterDomain="${CLUSTER_DOMAIN}"
-    fi
+    stage_gateway_api_resources
   fi
 
   stage_test_resources
@@ -267,6 +260,10 @@ function install() {
   if is_ingress_class istio; then
     # Istio - see cluster_setup for how the files are staged
     YTT_FILES+=("${E2E_YAML_DIR}/istio/${ingress_version}/install")
+  elif is_ingress_class gateway-api; then
+    # This installs an istio version that works with the v1alpha1 gateway api
+    YTT_FILES+=("${E2E_YAML_DIR}/gateway-api/install")
+    YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest")
   else
     YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest")
   fi
@@ -338,12 +335,6 @@ function install() {
     # # lease resources at the old sharding factor, so clean these up.
     # kubectl -n ${SYSTEM_NAMESPACE} delete leases --all
     wait_for_leader_controller || return 1
-  fi
-
-  # Due to https://github.com/vmware-tanzu/carvel-kapp/issues/381, deploy svc by kubectl instead of kapp.
-  if is_ingress_class gateway-api; then
-    kubectl delete -f ${REPO_ROOT_DIR}/third_party/gateway-api-latest/istio-gateway.yaml
-    kubectl apply -f ${REPO_ROOT_DIR}/third_party/gateway-api-latest/istio-gateway.yaml
   fi
 }
 
