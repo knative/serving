@@ -230,8 +230,8 @@ func (in *RevisionSpec) DeepCopyInto(out *RevisionSpec) {
 		*out = new(int64)
 		**out = **in
 	}
-	if in.RequestMaxDurationSeconds != nil {
-		in, out := &in.RequestMaxDurationSeconds, &out.RequestMaxDurationSeconds
+	if in.MaxDurationSeconds != nil {
+		in, out := &in.MaxDurationSeconds, &out.MaxDurationSeconds
 		*out = new(int64)
 		**out = **in
 	}

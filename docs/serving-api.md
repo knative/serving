@@ -922,14 +922,14 @@ layer will wait for a request delivered to a container to begin replying
 </tr>
 <tr>
 <td>
-<code>requestMaxDurationSeconds</code><br/>
+<code>maxDurationSeconds</code><br/>
 <em>
 int64
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>RequestMaxDurationSeconds is the maximum duration in seconds a request will be allowed
+<p>MaxDurationSeconds is the maximum duration in seconds a request will be allowed
 to stay open.</p>
 </td>
 </tr>
@@ -1397,14 +1397,14 @@ layer will wait for a request delivered to a container to begin replying
 </tr>
 <tr>
 <td>
-<code>requestMaxDurationSeconds</code><br/>
+<code>maxDurationSeconds</code><br/>
 <em>
 int64
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>RequestMaxDurationSeconds is the maximum duration in seconds a request will be allowed
+<p>MaxDurationSeconds is the maximum duration in seconds a request will be allowed
 to stay open.</p>
 </td>
 </tr>
@@ -1610,14 +1610,14 @@ layer will wait for a request delivered to a container to begin replying
 </tr>
 <tr>
 <td>
-<code>requestMaxDurationSeconds</code><br/>
+<code>maxDurationSeconds</code><br/>
 <em>
 int64
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>RequestMaxDurationSeconds is the maximum duration in seconds a request will be allowed
+<p>MaxDurationSeconds is the maximum duration in seconds a request will be allowed
 to stay open.</p>
 </td>
 </tr>

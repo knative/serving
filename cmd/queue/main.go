@@ -65,14 +65,14 @@ const (
 )
 
 type config struct {
-	ContainerConcurrency      int    `split_words:"true" required:"true"`
-	QueueServingPort          string `split_words:"true" required:"true"`
-	UserPort                  string `split_words:"true" required:"true"`
-	RevisionTimeoutSeconds    int    `split_words:"true" required:"true"`
-	RequestMaxDurationSeconds int    `split_words:"true"` // optional
-	ServingReadinessProbe     string `split_words:"true"` // optional
-	EnableProfiling           bool   `split_words:"true"` // optional
-	EnableHTTP2AutoDetection  bool   `split_words:"true"` // optional
+	ContainerConcurrency     int    `split_words:"true" required:"true"`
+	QueueServingPort         string `split_words:"true" required:"true"`
+	UserPort                 string `split_words:"true" required:"true"`
+	RevisionTimeoutSeconds   int    `split_words:"true" required:"true"`
+	MaxDurationSeconds       int    `split_words:"true"` // optional
+	ServingReadinessProbe    string `split_words:"true"` // optional
+	EnableProfiling          bool   `split_words:"true"` // optional
+	EnableHTTP2AutoDetection bool   `split_words:"true"` // optional
 
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
@@ -246,7 +246,7 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	// hardcoded to always disable idle timeout for now, will expose this later
 	var idleTimeout time.Duration
 
-	maxDurationTimeout := time.Duration(env.RequestMaxDurationSeconds) * time.Second
+	maxDurationTimeout := time.Duration(env.MaxDurationSeconds) * time.Second
 
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
