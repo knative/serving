@@ -78,15 +78,16 @@ func TestTimeoutWriterErrorsWriteAfterTimeout(t *testing.T) {
 }
 
 type timeoutHandlerTestScenario struct {
-	name             string
-	firstByteTimeout time.Duration
-	idleTimeout      time.Duration
-	handler          func(clock *clock.FakeClock, mux *sync.Mutex, writeErrors chan error) http.Handler
-	timeoutMessage   string
-	wantStatus       int
-	wantBody         string
-	wantWriteError   bool
-	wantPanic        bool
+	name               string
+	firstByteTimeout   time.Duration
+	idleTimeout        time.Duration
+	maxDurationTimeout time.Duration
+	handler            func(clock *clock.FakeClock, mux *sync.Mutex, writeErrors chan error) http.Handler
+	timeoutMessage     string
+	wantStatus         int
+	wantBody           string
+	wantWriteError     bool
+	wantPanic          bool
 }
 
 // This has to be global as the timer cache would otherwise return timers from another clock.
@@ -102,11 +103,12 @@ func testTimeoutScenario(t *testing.T, scenarios []timeoutHandlerTestScenario) {
 			rr := httptest.NewRecorder()
 
 			handler := &timeoutHandler{
-				handler:          scenario.handler(fakeClock, &reqMux, writeErrors),
-				body:             scenario.timeoutMessage,
-				firstByteTimeout: scenario.firstByteTimeout,
-				idleTimeout:      scenario.idleTimeout,
-				clock:            fakeClock,
+				handler:            scenario.handler(fakeClock, &reqMux, writeErrors),
+				body:               scenario.timeoutMessage,
+				firstByteTimeout:   scenario.firstByteTimeout,
+				idleTimeout:        scenario.idleTimeout,
+				maxDurationTimeout: scenario.maxDurationTimeout,
+				clock:              fakeClock,
 			}
 
 			defer func() {
@@ -320,6 +322,82 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		wantPanic:  true,
 	}}
 
+	// Max duration is 0, thus disabled
+	testTimeoutScenario(t, scenarios)
+
+	// If max duration is set high enough it should not affect any idle timeout test
+	for i := range scenarios {
+		scenarios[i].maxDurationTimeout = 5 * longIdleTimeout
+	}
+	testTimeoutScenario(t, scenarios)
+}
+
+func TestMaxDurationTimeoutHandler(t *testing.T) {
+	const (
+		noTimeout        = 0 * time.Millisecond
+		immediateTimeout = 1 * time.Millisecond
+		shortTimeout     = 100 * time.Millisecond
+		longTimeout      = 1 * time.Minute
+	)
+
+	scenarios := []timeoutHandlerTestScenario{{
+		name:               "all good",
+		firstByteTimeout:   shortTimeout,
+		idleTimeout:        shortTimeout,
+		maxDurationTimeout: longTimeout,
+		handler: func(*clock.FakeClock, *sync.Mutex, chan error) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("hi"))
+			})
+		},
+		wantStatus: http.StatusOK,
+		wantBody:   "hi",
+	}, {
+		name:               "max duration timeout with writes",
+		firstByteTimeout:   shortTimeout,
+		idleTimeout:        shortTimeout,
+		maxDurationTimeout: longTimeout,
+		handler: func(c *clock.FakeClock, mux *sync.Mutex, _ chan error) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				c.Step(longTimeout)
+				mux.Lock()
+				defer mux.Unlock()
+				w.Write([]byte("hi"))
+			})
+		},
+		wantStatus: http.StatusGatewayTimeout,
+	}, {
+		name:               "propagate panic, max duration too short",
+		idleTimeout:        longTimeout,
+		firstByteTimeout:   longTimeout,
+		maxDurationTimeout: immediateTimeout,
+		handler: func(*clock.FakeClock, *sync.Mutex, chan error) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				panic(http.ErrAbortHandler)
+			})
+		},
+		wantStatus: http.StatusGatewayTimeout,
+		wantBody:   "request timeout",
+		wantPanic:  true,
+	}, {
+		name:               "timeout before panic, max duration too short",
+		idleTimeout:        shortTimeout,
+		firstByteTimeout:   shortTimeout,
+		maxDurationTimeout: immediateTimeout,
+		handler: func(c *clock.FakeClock, mux *sync.Mutex, _ chan error) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				c.Step(immediateTimeout)
+				mux.Lock()
+				defer mux.Unlock()
+				panic(http.ErrAbortHandler)
+			})
+		},
+		timeoutMessage: "request timeout",
+		wantStatus:     http.StatusGatewayTimeout,
+		wantBody:       "request timeout",
+		wantPanic:      false,
+	}}
+
 	testTimeoutScenario(t, scenarios)
 
 }
@@ -332,7 +410,7 @@ func BenchmarkTimeoutHandler(b *testing.B) {
 			w.Write(write)
 		}
 	})
-	handler := NewTimeoutHandler(baseHandler, "test", 10*time.Minute, 10*time.Minute)
+	handler := NewTimeoutHandler(baseHandler, "test", 10*time.Minute, 10*time.Minute, 10*time.Minute)
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 
 	b.Run("sequential", func(b *testing.B) {

@@ -182,6 +182,13 @@ func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
 	}
 }
 
+// WithMaxDurationSeconds sets revision max duration timeout
+func WithMaxDurationSeconds(maxDurationSeconds int64) ServiceOption {
+	return func(service *v1.Service) {
+		service.Spec.Template.Spec.MaxDurationSeconds = ptr.Int64(maxDurationSeconds)
+	}
+}
+
 // WithServiceAccountName sets revision service account name
 func WithServiceAccountName(serviceAccountName string) ServiceOption {
 	return func(service *v1.Service) {

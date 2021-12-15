@@ -69,6 +69,7 @@ type config struct {
 	QueueServingPort         string `split_words:"true" required:"true"`
 	UserPort                 string `split_words:"true" required:"true"`
 	RevisionTimeoutSeconds   int    `split_words:"true" required:"true"`
+	MaxDurationSeconds       int    `split_words:"true"` // optional
 	ServingReadinessProbe    string `split_words:"true"` // optional
 	EnableProfiling          bool   `split_words:"true"` // optional
 	EnableHTTP2AutoDetection bool   `split_words:"true"` // optional
@@ -245,6 +246,8 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	// hardcoded to always disable idle timeout for now, will expose this later
 	var idleTimeout time.Duration
 
+	maxDurationTimeout := time.Duration(env.MaxDurationSeconds) * time.Second
+
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
@@ -264,7 +267,7 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	}
 	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", firstByteTimeout, idleTimeout)
+	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", firstByteTimeout, idleTimeout, maxDurationTimeout)
 
 	if metricsSupported {
 		composedHandler = requestMetricsHandler(logger, composedHandler, env)
