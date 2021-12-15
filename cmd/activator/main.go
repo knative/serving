@@ -207,7 +207,7 @@ func main() {
 	ah = network.NewProbeHandler(ah)
 
 	// Set up our health check based on the health of stat sink and environmental factors.
-	sigCtx, sigCancel := context.WithCancel(context.Background())
+	sigCtx := signals.NewContext()
 	hc := newHealthCheck(sigCtx, logger, statSink)
 	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah, Logger: logger}
 
@@ -241,14 +241,10 @@ func main() {
 		}(name, server)
 	}
 
-	sigCh := signals.SetupSignalHandler()
-
 	// Wait for the signal to drain.
 	select {
-	case <-sigCh:
+	case <-sigCtx.Done():
 		logger.Info("Received SIGTERM")
-		// Send a signal to let readiness probes start failing.
-		sigCancel()
 	case err := <-errCh:
 		logger.Errorw("Failed to run HTTP server", zap.Error(err))
 	}
