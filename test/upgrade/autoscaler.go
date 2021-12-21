@@ -62,7 +62,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 			if err := wait(); err != nil {
 				c.T.Error("Error: ", err)
 			}
-			c.T.Error("Induced error")
+			c.T.Fatal("Induced error")
 		},
 	)
 }
