@@ -54,5 +54,5 @@ func TestServingUpgrades(t *testing.T) {
 }
 
 func newUpgradeConfig(t *testing.T) pkgupgrade.Configuration {
-	return pkgupgrade.Configuration{T: t, LogConfig: &pkgupgrade.LogConfig{Config: zap.NewDevelopmentConfig()}}
+	return pkgupgrade.Configuration{T: t, LogConfig: pkgupgrade.LogConfig{Config: zap.NewDevelopmentConfig()}}
 }
