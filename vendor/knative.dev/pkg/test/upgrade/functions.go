@@ -17,6 +17,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"bytes"
 	"fmt"
 	"time"
 
@@ -27,16 +28,15 @@ import (
 
 // Execute the Suite of upgrade tests with a Configuration given.
 func (s *Suite) Execute(c Configuration) {
-	l, err := c.logger()
+	l, err := c.logger(c.T)
 	if err != nil {
-		l.Error("Failed to build logger")
+		c.T.Fatal("Failed to build logger:", err)
 		return
 	}
 	se := suiteExecution{
 		suite:         enrichSuite(s),
 		configuration: c,
 		failed:        false,
-		logger:        l,
 	}
 	l.Info("🏃 Running upgrade test suite...")
 
@@ -100,26 +100,6 @@ func WaitForStopEvent(bc BackgroundContext, w WaitForStopEventConfiguration) {
 	}
 }
 
-func (c Configuration) logger() (*zap.SugaredLogger, error) {
-	if c.LogConfig != nil {
-		var (
-			log *zap.Logger
-			err error
-		)
-		if c.LogConfig.Build != nil {
-			// Build the logger using the provided config and build function.
-			log, err = c.LogConfig.Build(c.LogConfig.Config)
-		} else {
-			log, err = c.LogConfig.Config.Build()
-		}
-		if err != nil {
-			return nil, err
-		}
-		return log.Sugar(), nil
-	}
-	return c.Log.Sugar(), nil
-}
-
 // Name returns a friendly human readable text.
 func (s *StopEvent) Name() string {
 	return s.name
@@ -130,10 +110,20 @@ func handleStopEvent(
 	bc BackgroundContext,
 	wc WaitForStopEventConfiguration,
 ) {
-	bc.Log.Infof("%s have received a stop event: %s", wc.Name, se.Name())
-	defer close(se.Finished)
+	bc.Log.Debugf("%s have received a stop event: %s", wc.Name, se.Name())
+
+	logFn := se.logger.Info
+	logFn(wrapLog(bc.logBuffer.Dump()))
+
+	defer func() {
+		defer close(se.Finished)
+		if se.T.Failed() {
+			logFn = se.logger.Error
+		}
+		logFn(wrapLog(bc.logBuffer.Dump()))
+	}()
+
 	wc.OnStop(se)
-	se.T.Log(wrapLogs(bc.logBuffer))
 }
 
 func enrichSuite(s *Suite) *enrichedSuite {
@@ -185,34 +175,39 @@ func (s *simpleBackgroundOperation) Handler() func(bc BackgroundContext) {
 	return s.handler
 }
 
-func (b *ThreadSafeBuffer) Read(p []byte) (n int, err error) {
+func (b *threadSafeBuffer) Read(p []byte) (n int, err error) {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
 	return b.Buffer.Read(p)
 }
 
-func (b *ThreadSafeBuffer) Write(p []byte) (n int, err error) {
+func (b *threadSafeBuffer) Write(p []byte) (n int, err error) {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
 	return b.Buffer.Write(p)
 }
 
-func (b *ThreadSafeBuffer) String() string {
+// Dump returns the previous content of the buffer and creates a new
+// empty buffer for future writes.
+func (b *threadSafeBuffer) Dump() string {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
-	return b.Buffer.String()
+	buf := b.Buffer.String()
+	b.Buffer = bytes.Buffer{}
+	return buf
 }
 
 // newInMemoryLoggerBuffer creates a logger that writes logs into a byte buffer.
 // This byte buffer is returned and can be used to process the logs at later stage.
-func newInMemoryLoggerBuffer(logConfig *LogConfig) (*zap.Logger, *ThreadSafeBuffer) {
-	buf := &ThreadSafeBuffer{}
+func newInMemoryLoggerBuffer(config Configuration) (*zap.Logger, *threadSafeBuffer) {
+	logConfig := config.logConfig()
+	buf := &threadSafeBuffer{}
 	core := zapcore.NewCore(
 		zapcore.NewConsoleEncoder(logConfig.Config.EncoderConfig),
 		zapcore.AddSync(buf),
 		logConfig.Config.Level)
 
-	opts := []zap.Option{}
+	var opts []zap.Option
 	if logConfig.Config.Development {
 		opts = append(opts, zap.Development())
 	}
@@ -229,6 +224,9 @@ func newInMemoryLoggerBuffer(logConfig *LogConfig) (*zap.Logger, *ThreadSafeBuff
 	return zap.New(core, opts...), buf
 }
 
-func wrapLogs(stringer fmt.Stringer) string {
-	return fmt.Sprintf("\n=== Background Log Start ===\n%s=== Background Log End ===", stringer)
+func wrapLog(log string) string {
+	return fmt.Sprintf("Rewind of background logs:\n"+
+		"Background Log Start:\n"+
+		"%s"+
+		"Background Log End", log)
 }
