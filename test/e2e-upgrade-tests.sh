@@ -51,7 +51,7 @@ TIMEOUT=30m
 
 header "Running upgrade tests"
 
-go_test_e2e -tags=upgrade -timeout=${TIMEOUT} \
+go_test_e2e -tags=upgrade -v -timeout=${TIMEOUT} \
   ./test/upgrade \
   --resolvabledomain=$(use_resolvable_domain) || fail_test
 
