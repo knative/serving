@@ -67,14 +67,15 @@ func (se *suiteExecution) startContinualTests(num int) {
 				}
 				setup := operation.Setup()
 
+				logger, buffer := newInMemoryLoggerBuffer(se.configuration)
 				t.Run("Setup"+operation.Name(), func(t *testing.T) {
 					l, err = se.configuration.logger(t)
 					if err != nil {
 						t.Fatal(err)
 					}
-					setup(Context{T: t, Log: l})
+					setup(Context{T: t, Log: logger.Sugar()})
 				})
-				logger, buffer := newInMemoryLoggerBuffer(se.configuration)
+
 				handler := operation.Handler()
 				go func() {
 					handler(BackgroundContext{
@@ -86,7 +87,7 @@ func (se *suiteExecution) startContinualTests(num int) {
 				se.failed = se.failed || t.Failed()
 				if se.failed {
 					// need to dump logs here, because verify will not be executed.
-					l.Error(wrapLogs(buffer))
+					l.Error(wrapLog(buffer.Dump()))
 					return
 				}
 			}
