@@ -86,7 +86,7 @@ func (se *suiteExecution) startContinualTests(num int) {
 				se.failed = se.failed || t.Failed()
 				if se.failed {
 					// need to dump logs here, because verify will not be executed.
-					l.Error(wrapLog(buffer.Dump()))
+					l.Error(wrapLogs(buffer))
 					return
 				}
 			}

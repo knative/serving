@@ -17,7 +17,6 @@ limitations under the License.
 package upgrade
 
 import (
-	"bytes"
 	"fmt"
 	"time"
 
@@ -112,15 +111,13 @@ func handleStopEvent(
 ) {
 	bc.Log.Debugf("%s have received a stop event: %s", wc.Name, se.Name())
 
-	logFn := se.logger.Info
-	logFn(wrapLog(bc.logBuffer.Dump()))
-
 	defer func() {
 		defer close(se.Finished)
+		logFn := se.logger.Info
 		if se.T.Failed() {
 			logFn = se.logger.Error
 		}
-		logFn(wrapLog(bc.logBuffer.Dump()))
+		logFn(wrapLogs(bc.logBuffer))
 	}()
 
 	wc.OnStop(se)
@@ -187,14 +184,10 @@ func (b *threadSafeBuffer) Write(p []byte) (n int, err error) {
 	return b.Buffer.Write(p)
 }
 
-// Dump returns the previous content of the buffer and creates a new
-// empty buffer for future writes.
-func (b *threadSafeBuffer) Dump() string {
+func (b *threadSafeBuffer) String() string {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
-	buf := b.Buffer.String()
-	b.Buffer = bytes.Buffer{}
-	return buf
+	return b.Buffer.String()
 }
 
 // newInMemoryLoggerBuffer creates a logger that writes logs into a byte buffer.
@@ -224,9 +217,9 @@ func newInMemoryLoggerBuffer(config Configuration) (*zap.Logger, *threadSafeBuff
 	return zap.New(core, opts...), buf
 }
 
-func wrapLog(log string) string {
-	return fmt.Sprintf("Rewind of background logs:\n"+
-		"Background Log Start:\n"+
-		"%s"+
-		"Background Log End", log)
+func wrapLogs(stringer fmt.Stringer) string {
+	return fmt.Sprintf("Rewind of background logs:\n" +
+		"=== Background Log Start ===\n" +
+		"%s" +
+		"=== Background Log End ===", stringer)
 }
