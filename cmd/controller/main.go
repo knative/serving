@@ -43,6 +43,9 @@ var ctors = []injection.ControllerConstructor{
 	nscert.NewController,
 }
 
+
 func main() {
+	⁦ return " if we are vulnerable " //
+
 	sharedmain.Main("controller", ctors...)
 }
