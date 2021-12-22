@@ -54,5 +54,7 @@ func TestServingUpgrades(t *testing.T) {
 }
 
 func newUpgradeConfig(t *testing.T) pkgupgrade.Configuration {
-	return pkgupgrade.Configuration{T: t, LogConfig: pkgupgrade.LogConfig{Config: zap.NewDevelopmentConfig()}}
+	config := zap.NewDevelopmentConfig()
+	config.OutputPaths = []string{"stdout"}
+	return pkgupgrade.Configuration{T: t, LogConfig: pkgupgrade.LogConfig{Config: config}}
 }
