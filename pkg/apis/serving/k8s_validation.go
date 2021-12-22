@@ -31,12 +31,14 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/profiling"
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving/helpers"
 	"knative.dev/serving/pkg/networking"
 )
 
 const (
-	minUserID, maxUserID   = 0, math.MaxInt32
-	minGroupID, maxGroupID = 0, math.MaxInt32
+	minUserID, maxUserID                     = 0, math.MaxInt32
+	minGroupID, maxGroupID                   = 0, math.MaxInt32
+	PodSpecPersistenceVolumesWriteAnnotation = "features.knative.dev/podspec-persistence-volumes-write"
 )
 
 var (
@@ -91,6 +93,7 @@ func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes set
 			errs = errs.Also((&apis.FieldError{Message: fmt.Sprintf("EmptyDir volume support is off, "+
 				"but found EmptyDir volume %s", volume.Name)}).ViaIndex(i))
 		}
+		errs = errs.Also(shouldAllowPersistenVolumeClaims(ctx, volume.VolumeSource, features).ViaIndex(i))
 		if _, ok := volumes[volume.Name]; ok {
 			errs = errs.Also((&apis.FieldError{
 				Message: fmt.Sprintf("duplicate volume name %q", volume.Name),
@@ -107,6 +110,32 @@ func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes set
 		volumes[volume.Name] = volume
 	}
 	return volumes, errs
+}
+
+func shouldAllowPersistenVolumeClaims(ctx context.Context, volume corev1.VolumeSource, features *config.Features) *apis.FieldError {
+	var errs *apis.FieldError
+	if volume.PersistentVolumeClaim != nil {
+		if features.PodSpecPersistentVolumesClaims != config.Enabled {
+			errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("Persistent volumes claims support is off, "+
+				"but found Persistent Volume claim %s", volume.PersistentVolumeClaim.ClaimName)})
+		}
+		var isWriteAllowed bool
+		if features.PodSpecPersistentVolumesWrite == config.Enabled {
+			isWriteAllowed = true
+		}
+		if features.PodSpecPersistentVolumesWrite == config.Allowed {
+			anns := helpers.AnnotationsFrom(ctx)
+			if anns[PodSpecPersistenceVolumesWriteAnnotation] == "enabled" {
+				isWriteAllowed = true
+			}
+		}
+		isWriteDisabled := features.PodSpecPersistentVolumesWrite == config.Disabled || !isWriteAllowed
+		if !volume.PersistentVolumeClaim.ReadOnly && isWriteDisabled {
+			errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("Persistent volumes write support is off, "+
+				"but found Persistent Volume claim %s that is not read-only", volume.PersistentVolumeClaim.ClaimName)})
+		}
+	}
+	return errs
 }
 
 func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError {
@@ -142,11 +171,19 @@ func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError 
 		specified = append(specified, "emptyDir")
 		errs = errs.Also(validateEmptyDirFields(vs.EmptyDir).ViaField("emptyDir"))
 	}
+
+	if vs.PersistentVolumeClaim != nil {
+		specified = append(specified, "persistentVolumeClaim")
+	}
+
 	if len(specified) == 0 {
 		fieldPaths := []string{"secret", "configMap", "projected"}
 		cfg := config.FromContextOrDefaults(ctx)
 		if cfg.Features.PodSpecVolumesEmptyDir == config.Enabled {
 			fieldPaths = append(fieldPaths, "emptyDir")
+		}
+		if cfg.Features.PodSpecPersistentVolumesClaims == config.Enabled {
+			fieldPaths = append(fieldPaths, "persistenVolumeClaims")
 		}
 		errs = errs.Also(apis.ErrMissingOneOf(fieldPaths...))
 	} else if len(specified) > 1 {
@@ -616,8 +653,15 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes map[string]corev1
 		}
 		seenMountPath.Insert(filepath.Clean(vm.MountPath))
 
-		if volumes[vm.Name].EmptyDir == nil && !vm.ReadOnly {
+		shouldCheckReadOnlyVolume := volumes[vm.Name].EmptyDir == nil && volumes[vm.Name].PersistentVolumeClaim == nil
+		if shouldCheckReadOnlyVolume && !vm.ReadOnly {
 			errs = errs.Also(apis.ErrMissingField("readOnly").ViaIndex(i))
+		}
+
+		if volumes[vm.Name].PersistentVolumeClaim != nil {
+			if volumes[vm.Name].PersistentVolumeClaim.ReadOnly && !vm.ReadOnly {
+				errs = errs.Also(apis.ErrMissingField("readOnly").ViaIndex(i))
+			}
 		}
 	}
 	return errs

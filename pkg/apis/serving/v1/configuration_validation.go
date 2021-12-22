@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/helpers"
 )
 
 // Validate makes sure that Configuration is properly configured.
@@ -36,7 +37,7 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 		errs = errs.ViaField("metadata")
 
 		ctx = apis.WithinParent(ctx, c.ObjectMeta)
-		errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+		errs = errs.Also(c.Spec.Validate(helpers.WithAnnotations(apis.WithinSpec(ctx), c.Annotations)).ViaField("spec"))
 	}
 
 	if apis.IsInUpdate(ctx) {

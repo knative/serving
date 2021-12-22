@@ -28,6 +28,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/helpers"
 )
 
 // Validate ensures Revision is properly configured.
@@ -52,7 +53,7 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 			}
 		}
 	} else {
-		errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+		errs = errs.Also(r.Spec.Validate(helpers.WithAnnotations(ctx, r.Annotations)).ViaField("spec"))
 	}
 
 	return errs

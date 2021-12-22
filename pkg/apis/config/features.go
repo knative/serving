@@ -41,22 +41,24 @@ const (
 
 func defaultFeaturesConfig() *Features {
 	return &Features{
-		MultiContainer:               Enabled,
-		PodSpecAffinity:              Disabled,
-		PodSpecDryRun:                Allowed,
-		PodSpecHostAliases:           Disabled,
-		PodSpecFieldRef:              Disabled,
-		PodSpecNodeSelector:          Disabled,
-		PodSpecRuntimeClassName:      Disabled,
-		PodSpecSecurityContext:       Disabled,
-		PodSpecPriorityClassName:     Disabled,
-		PodSpecSchedulerName:         Disabled,
-		ContainerSpecAddCapabilities: Disabled,
-		PodSpecTolerations:           Disabled,
-		PodSpecVolumesEmptyDir:       Disabled,
-		PodSpecInitContainers:        Disabled,
-		TagHeaderBasedRouting:        Disabled,
-		AutoDetectHTTP2:              Disabled,
+		MultiContainer:                 Enabled,
+		PodSpecAffinity:                Disabled,
+		PodSpecDryRun:                  Allowed,
+		PodSpecHostAliases:             Disabled,
+		PodSpecFieldRef:                Disabled,
+		PodSpecNodeSelector:            Disabled,
+		PodSpecRuntimeClassName:        Disabled,
+		PodSpecSecurityContext:         Disabled,
+		PodSpecPriorityClassName:       Disabled,
+		PodSpecSchedulerName:           Disabled,
+		ContainerSpecAddCapabilities:   Disabled,
+		PodSpecTolerations:             Disabled,
+		PodSpecVolumesEmptyDir:         Disabled,
+		PodSpecPersistentVolumesClaims: Disabled,
+		PodSpecPersistentVolumesWrite:  Disabled,
+		PodSpecInitContainers:          Disabled,
+		TagHeaderBasedRouting:          Disabled,
+		AutoDetectHTTP2:                Disabled,
 	}
 }
 
@@ -79,6 +81,8 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
 		asFlag("kubernetes.podspec-volumes-emptydir", &nc.PodSpecVolumesEmptyDir),
 		asFlag("kubernetes.podspec-init-containers", &nc.PodSpecInitContainers),
+		asFlag("kubernetes.podspec-persistent-volumes-claims", &nc.PodSpecPersistentVolumesClaims),
+		asFlag("kubernetes.podspec-persistent-volumes-write", &nc.PodSpecPersistentVolumesWrite),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
 		asFlag("autodetect-http2", &nc.AutoDetectHTTP2)); err != nil {
 		return nil, err
@@ -93,22 +97,24 @@ func NewFeaturesConfigFromConfigMap(config *corev1.ConfigMap) (*Features, error)
 
 // Features specifies which features are allowed by the webhook.
 type Features struct {
-	MultiContainer               Flag
-	PodSpecAffinity              Flag
-	PodSpecDryRun                Flag
-	PodSpecFieldRef              Flag
-	PodSpecHostAliases           Flag
-	PodSpecNodeSelector          Flag
-	PodSpecRuntimeClassName      Flag
-	PodSpecSecurityContext       Flag
-	PodSpecPriorityClassName     Flag
-	PodSpecSchedulerName         Flag
-	ContainerSpecAddCapabilities Flag
-	PodSpecTolerations           Flag
-	PodSpecVolumesEmptyDir       Flag
-	PodSpecInitContainers        Flag
-	TagHeaderBasedRouting        Flag
-	AutoDetectHTTP2              Flag
+	MultiContainer                 Flag
+	PodSpecAffinity                Flag
+	PodSpecDryRun                  Flag
+	PodSpecFieldRef                Flag
+	PodSpecHostAliases             Flag
+	PodSpecNodeSelector            Flag
+	PodSpecRuntimeClassName        Flag
+	PodSpecSecurityContext         Flag
+	PodSpecPriorityClassName       Flag
+	PodSpecSchedulerName           Flag
+	ContainerSpecAddCapabilities   Flag
+	PodSpecTolerations             Flag
+	PodSpecVolumesEmptyDir         Flag
+	PodSpecInitContainers          Flag
+	PodSpecPersistentVolumesClaims Flag
+	PodSpecPersistentVolumesWrite  Flag
+	TagHeaderBasedRouting          Flag
+	AutoDetectHTTP2                Flag
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.

@@ -355,6 +355,42 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-volumes-emptydir": "Enabled",
 		},
 	}, {
+		name:    "kubernetes.podspec-persistent-volumes-claims Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecPersistentVolumesClaims: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-persistent-volumes-claims": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-persistent-volumes-claims Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecPersistentVolumesClaims: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-persistent-volumes-claims": "Enabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-persistent-volumes-write Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecPersistentVolumesWrite: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-persistent-volumes-write": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-persistent-volumes-claims Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecPersistentVolumesWrite: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-persistent-volumes-write": "Enabled",
+		},
+	}, {
 		name:    "kubernetes.podspec-init-containers Disabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{

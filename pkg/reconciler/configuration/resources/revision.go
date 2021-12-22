@@ -93,6 +93,11 @@ func updateRevisionAnnotations(rev *v1.Revision, config metav1.Object, tm time.T
 		rev.SetRoutingState(v1.RoutingStateActive, tm)
 	}
 
+	// Populate persistent volume annotation if exists
+	if c, ok := cans[serving.PodSpecPersistenceVolumesWriteAnnotation]; ok {
+		annotations[serving.PodSpecPersistenceVolumesWriteAnnotation] = c
+	}
+
 	rev.SetAnnotations(annotations)
 }
 
