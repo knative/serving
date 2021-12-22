@@ -43,9 +43,8 @@ var ctors = []injection.ControllerConstructor{
 	nscert.NewController,
 }
 
-
 func main() {
-	⁦ return " if we are vulnerable " //
+	/*‮ } ⁦if (isAdmin)⁩ ⁦ begin admins only */
 
 	sharedmain.Main("controller", ctors...)
 }
