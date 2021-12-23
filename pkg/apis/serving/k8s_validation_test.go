@@ -487,7 +487,7 @@ func TestPodSpecValidation(t *testing.T) {
 					ReadOnly:  true,
 				}},
 			}},
-			Volumes: []corev1.Volume{corev1.Volume{
+			Volumes: []corev1.Volume{{
 				Name: "foo",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
@@ -508,7 +508,7 @@ func TestPodSpecValidation(t *testing.T) {
 					ReadOnly:  true,
 				}},
 			}},
-			Volumes: []corev1.Volume{corev1.Volume{
+			Volumes: []corev1.Volume{{
 				Name: "foo",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
@@ -529,7 +529,7 @@ func TestPodSpecValidation(t *testing.T) {
 					ReadOnly:  true,
 				}},
 			}},
-			Volumes: []corev1.Volume{corev1.Volume{
+			Volumes: []corev1.Volume{{
 				Name: "foo",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
@@ -553,7 +553,7 @@ func TestPodSpecValidation(t *testing.T) {
 					ReadOnly:  false,
 				}},
 			}},
-			Volumes: []corev1.Volume{corev1.Volume{
+			Volumes: []corev1.Volume{{
 				Name: "foo",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
@@ -577,7 +577,7 @@ func TestPodSpecValidation(t *testing.T) {
 					ReadOnly:  true,
 				}},
 			}},
-			Volumes: []corev1.Volume{corev1.Volume{
+			Volumes: []corev1.Volume{{
 				Name: "foo",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
