@@ -225,6 +225,7 @@ func newInMemoryLoggerBuffer(config Configuration) (*zap.Logger, *threadSafeBuff
 }
 
 func wrapLog(log string) string {
+	s := strings.Join(strings.Split(log, "\n"), "\n⏳ ")
 	return "Rewind of background logs (prefix ⏳):\n" +
-		"⏳ " + strings.Join(strings.Split(log, "\n"), "\n⏳ ")
+		"⏳ " + strings.TrimSuffix(s, "⏳ ")
 }
