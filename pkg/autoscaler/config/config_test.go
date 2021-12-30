@@ -52,6 +52,7 @@ func TestNewConfig(t *testing.T) {
 			"enable-scale-to-zero":                    "true",
 			"max-scale-down-rate":                     "3.0",
 			"max-scale-up-rate":                       "1.01",
+			"target-utilization":                      "0.71",
 			"container-concurrency-target-percentage": "0.71",
 			"container-concurrency-target-default":    "10.5",
 			"requests-per-second-target-default":      "10.11",
@@ -70,6 +71,7 @@ func TestNewConfig(t *testing.T) {
 			c.TargetBurstCapacity = 12345
 			c.ContainerConcurrencyTargetDefault = 10.5
 			c.ContainerConcurrencyTargetFraction = 0.71
+			c.TargetUtilization = 0.71
 			c.RPSTargetDefault = 10.11
 			c.MaxScaleDownRate = 3
 			c.MaxScaleUpRate = 1.01
@@ -84,6 +86,7 @@ func TestNewConfig(t *testing.T) {
 		name: "minimum",
 		input: map[string]string{
 			"max-scale-up-rate":                       "1.001",
+			"target-utilization":                      "0.5",
 			"container-concurrency-target-percentage": "0.5",
 			"container-concurrency-target-default":    "10.0",
 			"target-burst-capacity":                   "0",
@@ -95,6 +98,7 @@ func TestNewConfig(t *testing.T) {
 		},
 		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
+			c.TargetUtilization = 0.5
 			c.ContainerConcurrencyTargetFraction = 0.5
 			c.ContainerConcurrencyTargetDefault = 10
 			c.MaxScaleUpRate = 1.001
@@ -111,6 +115,16 @@ func TestNewConfig(t *testing.T) {
 		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.ContainerConcurrencyTargetFraction = 0.55
+			return c
+		}(),
+	}, {
+		name: "target utilization percentage as percent",
+		input: map[string]string{
+			"target-utilization": "55",
+		},
+		want: func() *autoscalerconfig.Config {
+			c := defaultConfig()
+			c.TargetUtilization = 0.55
 			return c
 		}(),
 	}, {
@@ -202,6 +216,18 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
+		name: "invalid target %, too small",
+		input: map[string]string{
+			"target-utilization": "-42",
+		},
+		wantErr: true,
+	}, {
+		name: "invalid target %, too big",
+		input: map[string]string{
+			"target-utilization": "142.4",
+		},
+		wantErr: true,
+	}, {
 		name: "invalid RPS target, too small",
 		input: map[string]string{
 			"requests-per-second-target-default": "-5.25",
@@ -274,6 +300,20 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"container-concurrency-target-percentage": "1",
 			"container-concurrency-target-default":    "0.001",
+		},
+		wantErr: true,
+	}, {
+		name: "TargetUtilization*CC < 0.01",
+		input: map[string]string{
+			"target-utilization": "1",
+			"container-concurrency-target-default":    "0.001",
+		},
+		wantErr: true,
+	}, {
+		name: "TargetUtilization*RPS < 0.01",
+		input: map[string]string{
+			"target-utilization": "1",
+			"requests-per-second-target-default":    "0.001",
 		},
 		wantErr: true,
 	}, {

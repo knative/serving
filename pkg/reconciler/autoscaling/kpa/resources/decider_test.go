@@ -65,6 +65,14 @@ func TestMakeDecider(t *testing.T) {
 			return &c
 		},
 	}, {
+		name: "tu < 1(calculate from TargetUtilization)",
+		pa:   pa(),
+		want: decider(withTarget(80), withPanicThreshold(2.0), withTotal(100)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.8
+			return &c
+		},
+	}, {
 		name: "scale up and scale down rates",
 		pa:   pa(),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
@@ -83,11 +91,36 @@ func TestMakeDecider(t *testing.T) {
 		pa:   pa(WithTargetAnnotation("1")),
 		want: decider(withTarget(1.0), withTotal(1), withPanicThreshold(2.0), withTargetAnnotation("1")),
 	}, {
+		name: "rps with target annotation and tu=0.8 and cc=0.7",
+		pa:   pa(WithTargetAnnotation("100"), WithMetricAnnotation(autoscaling.RPS)),
+		want: decider(withTarget(80), withTotal(100), withPanicThreshold(2.0), withMetric("rps"), withMetricAnnotation("rps"), withTargetAnnotation("100")),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.ContainerConcurrencyTargetFraction = 0.7
+			c.TargetUtilization = 0.8
+			return &c
+		},
+	}, {
+		name: "rps with target annotation and tu=0.8",
+		pa:   pa(WithTargetAnnotation("100"), WithMetricAnnotation(autoscaling.RPS)),
+		want: decider(withTarget(80), withTotal(100), withPanicThreshold(2.0), withMetric("rps"), withMetricAnnotation("rps"), withTargetAnnotation("100")),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.8
+			return &c
+		},
+	}, {
 		name: "with container concurrency and tu < 1",
 		pa:   pa(WithPAContainerConcurrency(100)),
 		want: decider(withTarget(80), withTotal(100), withPanicThreshold(2.0)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
+			return &c
+		},
+	}, {
+		name: "with target utilization and tu < 1",
+		pa:   pa(WithPAContainerConcurrency(100)),
+		want: decider(withTarget(80), withTotal(100), withPanicThreshold(2.0)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.8
 			return &c
 		},
 	}, {
@@ -97,6 +130,15 @@ func TestMakeDecider(t *testing.T) {
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.TargetBurstCapacity = 63
 			c.ContainerConcurrencyTargetFraction = 0.8
+			return &c
+		},
+	}, {
+		name: "with burst capacity and target utilization set",
+		pa:   pa(WithPAContainerConcurrency(120)),
+		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0), withTargetBurstCapacity(63)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetBurstCapacity = 63
+			c.TargetUtilization = 0.8
 			return &c
 		},
 	}, {
@@ -115,6 +157,16 @@ func TestMakeDecider(t *testing.T) {
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.TargetBurstCapacity = 63
 			c.ContainerConcurrencyTargetFraction = 0.8
+			return &c
+		},
+	}, {
+		name: "with burst capacity set on the annotation",
+		pa:   pa(WithPAContainerConcurrency(120), withTBCAnnotation("211")),
+		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0),
+			withDeciderTBCAnnotation("211"), withTargetBurstCapacity(211)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetBurstCapacity = 63
+			c.TargetUtilization = 0.8
 			return &c
 		},
 	}, {
@@ -374,7 +426,7 @@ func withPanicThresholdPercentageAnnotation(percentage string) deciderOption {
 
 var config = &autoscalerconfig.Config{
 	EnableScaleToZero:                  true,
-	ContainerConcurrencyTargetFraction: 1.0,
+	ContainerConcurrencyTargetFraction: 0,
 	ContainerConcurrencyTargetDefault:  100.0,
 	TargetBurstCapacity:                211.0,
 	MaxScaleUpRate:                     10.0,

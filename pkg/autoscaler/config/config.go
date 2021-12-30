@@ -42,7 +42,7 @@ const (
 func defaultConfig() *autoscalerconfig.Config {
 	return &autoscalerconfig.Config{
 		EnableScaleToZero:                  true,
-		ContainerConcurrencyTargetFraction: defaultTargetUtilization,
+		ContainerConcurrencyTargetFraction: 0,
 		ContainerConcurrencyTargetDefault:  100,
 		// TODO(#1956): Tune target usage based on empirical data.
 		TargetUtilization: defaultTargetUtilization,
@@ -79,6 +79,7 @@ func NewConfigFromMap(data map[string]string) (*autoscalerconfig.Config, error) 
 
 		cm.AsFloat64("max-scale-up-rate", &lc.MaxScaleUpRate),
 		cm.AsFloat64("max-scale-down-rate", &lc.MaxScaleDownRate),
+		cm.AsFloat64("target-utilization", &lc.TargetUtilization),
 		cm.AsFloat64("container-concurrency-target-percentage", &lc.ContainerConcurrencyTargetFraction),
 		cm.AsFloat64("container-concurrency-target-default", &lc.ContainerConcurrencyTargetDefault),
 		cm.AsFloat64("requests-per-second-target-default", &lc.RPSTargetDefault),
@@ -107,6 +108,9 @@ func NewConfigFromMap(data map[string]string) (*autoscalerconfig.Config, error) 
 	if lc.ContainerConcurrencyTargetFraction > 1.0 {
 		lc.ContainerConcurrencyTargetFraction /= 100.0
 	}
+	if lc.TargetUtilization > 1.0 {
+		lc.TargetUtilization /= 100.0
+	}
 
 	return validate(lc)
 }
@@ -132,16 +136,24 @@ func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 		return nil, fmt.Errorf("target-burst-capacity must be either non-negative or -1 (for unlimited), was: %f", lc.TargetBurstCapacity)
 	}
 
-	if lc.ContainerConcurrencyTargetFraction <= 0 || lc.ContainerConcurrencyTargetFraction > 1 {
+	if lc.ContainerConcurrencyTargetFraction < 0 || lc.ContainerConcurrencyTargetFraction > 1 {
 		return nil, fmt.Errorf("container-concurrency-target-percentage = %f is outside of valid range of (0, 100]", lc.ContainerConcurrencyTargetFraction)
 	}
 
-	if x := lc.ContainerConcurrencyTargetFraction * lc.ContainerConcurrencyTargetDefault; x < autoscaling.TargetMin {
+	if lc.TargetUtilization <= 0 || lc.TargetUtilization > 1 {
+		return nil, fmt.Errorf("target-utilization = %f is outside of valid range of (0, 100]", lc.TargetUtilization)
+	}
+
+	if x := lc.ContainerConcurrencyTargetFraction * lc.ContainerConcurrencyTargetDefault; lc.ContainerConcurrencyTargetFraction != 0 && x < autoscaling.TargetMin {
 		return nil, fmt.Errorf("container-concurrency-target-percentage and container-concurrency-target-default yield target concurrency of %v, can't be less than %v", x, autoscaling.TargetMin)
 	}
 
-	if lc.RPSTargetDefault < autoscaling.TargetMin {
-		return nil, fmt.Errorf("requests-per-second-target-default must be at least %v, was: %v", autoscaling.TargetMin, lc.RPSTargetDefault)
+	if x := lc.TargetUtilization * lc.ContainerConcurrencyTargetDefault; x < autoscaling.TargetMin {
+		return nil, fmt.Errorf("target-utilization and container-concurrency-target-default yield target concurrency of %v, can't be less than %v", x, autoscaling.TargetMin)
+	}
+
+	if x := lc.TargetUtilization * lc.RPSTargetDefault; x < autoscaling.TargetMin {
+		return nil, fmt.Errorf("target-utilization and requests-per-second-target-default yield target rps of %v, can't be less than %v", x, autoscaling.TargetMin)
 	}
 
 	if lc.ActivatorCapacity < 1 {

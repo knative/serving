@@ -136,6 +136,88 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTarget: 7.5,
 		wantTotal:  10,
 	}, {
+		name: "default CC + 80% TargetUtilization",
+		pa:   pa(),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.8
+			return &c
+		},
+		wantTarget: 80,
+		wantTotal:  100,
+	}, {
+		name: "non-default CC and TargetUtilization",
+		pa:   pa(),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.3
+			c.ContainerConcurrencyTargetDefault = 2
+			return &c
+		},
+		wantTarget: 0.6,
+		wantTotal:  2,
+	}, {
+		name: "with container concurrency 12 and TargetUtilization=80%, but TU annotation 75%",
+		pa:   pa(WithPAContainerConcurrency(12), WithTUAnnotation("75")),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.8
+			return &c
+		},
+		wantTarget: 9,
+		wantTotal:  12,
+	}, {
+		name: "with container concurrency 10 and TargetUtilization=80%",
+		pa:   pa(WithPAContainerConcurrency(10)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.8
+			return &c
+		},
+		wantTarget: 8,
+		wantTotal:  10,
+	}, {
+		name: "with container concurrency 1 and TargetUtilization=80%",
+		pa:   pa(WithPAContainerConcurrency(1)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.8
+			return &c
+		},
+		wantTarget: 0.8,
+		wantTotal:  1,
+	}, {
+		name: "with container concurrency 10 and TargetUtilization=80%",
+		pa:   pa(WithPAContainerConcurrency(10)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.8
+			return &c
+		},
+		wantTarget: 8,
+		wantTotal:  10,
+	}, {
+		name: "with target annotation 1 and TargetUtilization=0.1%",
+		pa:   pa(WithTargetAnnotation("1")),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.001
+			return &c
+		},
+		wantTarget: autoscaling.TargetMin,
+		wantTotal:  1,
+	}, {
+		name: "with target annotation 1 and TargetUtilization=75%",
+		pa:   pa(WithTargetAnnotation("1")),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.75
+			return &c
+		},
+		wantTarget: 0.75,
+		wantTotal:  1,
+	}, {
+		name: "with target annotation 10 and TargetUtilization=75%",
+		pa:   pa(WithTargetAnnotation("10")),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.75
+			return &c
+		},
+		wantTarget: 7.5,
+		wantTotal:  10,
+	}, {
 		name:       "with container concurrency greater than target annotation (ok)",
 		pa:         pa(WithPAContainerConcurrency(10), WithTargetAnnotation("1")),
 		wantTarget: 1,
@@ -151,14 +233,24 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTarget: 1,
 		wantTotal:  1,
 	}, {
+		name: "Concurrency: default CC + 80% TargetUtilization + 75% ContainerConcurrencyTargetFraction",
+		pa:   pa(WithMetricAnnotation(autoscaling.Concurrency)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.8
+			c.ContainerConcurrencyTargetFraction = 0.75
+			return &c
+		},
+		wantTarget: 75,
+		wantTotal:  100,
+	}, {
 		name:       "RPS: defaults",
 		pa:         pa(WithMetricAnnotation(autoscaling.RPS), WithPAContainerConcurrency(1)),
-		wantTarget: 140,
+		wantTarget: 200,
 		wantTotal:  200,
 	}, {
 		name:       "RPS: with target annotation 1",
 		pa:         pa(WithMetricAnnotation(autoscaling.RPS), WithTargetAnnotation("1")),
-		wantTarget: 0.7,
+		wantTarget: 1,
 		wantTotal:  1,
 	}, {
 		name:       "RPS: with TU annotation 75%",
@@ -168,8 +260,18 @@ func TestResolveMetricTarget(t *testing.T) {
 	}, {
 		name:       "RPS: with target annotation greater than default",
 		pa:         pa(WithMetricAnnotation(autoscaling.RPS), WithTargetAnnotation("300")),
-		wantTarget: 210,
+		wantTarget: 300,
 		wantTotal:  300,
+	}, {
+		name:       "RPS: default CC + 80% TargetUtilization + 75% CC, CC will be ignore",
+		pa:         pa(WithMetricAnnotation(autoscaling.RPS)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.TargetUtilization = 0.8
+			c.ContainerConcurrencyTargetFraction = 0.75
+			return &c
+		},
+		wantTarget: 160,
+		wantTotal:  200,
 	}}
 
 	for _, tc := range cases {

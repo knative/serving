@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "47c2487f"
+    knative.dev/example-checksum: "50900868"
 data:
   _example: |
     ################################
@@ -40,6 +40,23 @@ data:
     # this example block and unindented to be in the data block
     # to actually change the configuration.
 
+    # This value specifies what percentage of the target (requests per second or concurrency requests) should actually
+    # be targeted by the Autoscaler. This is also known as specifying the hotness at which a replica runs,
+    # which causes the Autoscaler to scale up before the defined hard limit is reached. For example,
+    # if containerConcurrency is set to 10, and the target utilization value is set to 70 (percent),
+    # the Autoscaler will create a new replica when the average number of concurrent requests across
+    # all existing replicas reaches 7.
+    # Note: this limit will be applied to container concurrency or requests per second set at every
+    # level (ConfigMap, Revision Spec or Annotation).
+    # For legacy and backwards compatibility reasons, this value also accepts
+    # fractional values in (0, 1] interval (i.e. 0.7 ⇒ 70%).
+    # Thus minimal percentage value must be greater than 1.0, or it will be
+    # treated as a fraction.
+    # NOTE: that this value does not affect actual number of concurrent requests or requests per second
+    #       the user container may receive, but only the average number of requests
+    #       that the revision pods will receive.
+    target-utilization: "70"
+
     # The Revision ContainerConcurrency field specifies the maximum number
     # of requests the Container can handle at once. Container concurrency
     # target percentage is how much of that maximum to use in a stable
@@ -55,7 +72,8 @@ data:
     # NOTE: that this value does not affect actual number of concurrent requests
     #       the user container may receive, but only the average number of requests
     #       that the revision pods will receive.
-    container-concurrency-target-percentage: "70"
+    # This config will be deprecated, use target-utilization instead.
+    container-concurrency-target-percentage: "0"
 
     # The container concurrency target default is what the Autoscaler will
     # try to maintain when concurrency is used as the scaling metric for the
