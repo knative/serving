@@ -39,8 +39,8 @@ go test -v -race -count=1 -timeout=20m -tags=performance ./test/performance
 
 ### Overriding the gateway
 
-If you are using an ingress provider other than Istio, you will also need to set 
-the `GATEWAY_OVERRIDE` and `GATEWAY_NAMESPACE_OVERRIDE` environment variables to 
+If you are using an ingress provider other than Istio, you will also need to set
+the `GATEWAY_OVERRIDE` and `GATEWAY_NAMESPACE_OVERRIDE` environment variables to
 allow the gateway to be used by the test. For example, for kourier you would do:
 
 ```
