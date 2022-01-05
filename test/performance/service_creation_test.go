@@ -51,9 +51,9 @@ func TestPerformanceServiceCreation(t *testing.T) {
 	clients := test.Setup(t)
 	ctx := signals.NewContext()
 
-	servicesCount := KperfFlags.ServicesCount
+	servicesCount := KperfConfig.ServicesCount
 	servicesRange := fmt.Sprintf("1,%d", servicesCount)
-	servicesTimeout := time.Duration(KperfFlags.ServicesTimeout) * time.Second
+	servicesTimeout := time.Duration(KperfConfig.ServicesTimeout) * time.Second
 
 	namespaces := []string{}
 	nsNamePrefix := test.AppendRandomString("kperf")
@@ -80,7 +80,7 @@ func TestPerformanceServiceCreation(t *testing.T) {
 		"--min-scale", "1", "--max-scale", "2",
 		"--namespace-prefix", nsNamePrefix,
 		"--namespace-range", servicesRange,
-		"--svc-prefix", KperfFlags.ServiceNamePrefix,
+		"--svc-prefix", KperfConfig.ServiceNamePrefix,
 		"--wait", "true",
 		"--timeout", servicesTimeout.String())
 	var out bytes.Buffer
@@ -98,14 +98,14 @@ func TestPerformanceServiceCreation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get serving client %#v", err)
 		}
-		if err := v1test.WaitForServiceState(servingClientInNamespace, fmt.Sprintf("%s-%d", KperfFlags.ServiceNamePrefix, index), v1test.IsServiceReady, "ServiceIsReady"); err != nil {
+		if err := v1test.WaitForServiceState(servingClientInNamespace, fmt.Sprintf("%s-%d", KperfConfig.ServiceNamePrefix, index), v1test.IsServiceReady, "ServiceIsReady"); err != nil {
 			t.Fatalf("Failed waiting for serving to get Ready %#v", err)
 		}
 		index++
 	}
 
 	t.Log("Measuring results by kperf.")
-	output := KperfFlags.KperfOutput
+	output := KperfConfig.KperfOutput
 	if output == "" {
 		output, err = os.MkdirTemp("", "kperfoutput")
 		if err != nil {
@@ -119,7 +119,7 @@ func TestPerformanceServiceCreation(t *testing.T) {
 		"--verbose",
 		"--namespace-prefix", nsNamePrefix,
 		"--namespace-range", servicesRange,
-		"--svc-prefix", KperfFlags.ServiceNamePrefix,
+		"--svc-prefix", KperfConfig.ServiceNamePrefix,
 		"--range", servicesRange,
 		"--output", output)
 
@@ -140,40 +140,40 @@ func TestPerformanceServiceCreation(t *testing.T) {
 		t.Fatalf("Failed to parse kperf service measurment result %#v", err)
 	}
 
-	if measurment.Result.OverallAverage > KperfFlags.ServiceAverage {
+	if measurment.Result.OverallAverage > KperfConfig.ServiceAverage {
 		t.Fatal("kperf Services creation took too long")
 	}
 
-	if KperfFlags.UploadLatestResults {
+	if KperfConfig.UploadLatestResults {
 
-		if KperfFlags.ServiceAccount == "" {
+		if KperfConfig.ServiceAccount == "" {
 			t.Fatal("Service Account required for generating combined results")
 		}
-		if KperfFlags.BucketName == "" {
+		if KperfConfig.BucketName == "" {
 			t.Fatal("Bucket name required for generating combined results")
 		}
 
-		err = uploadLatestResults(ctx, KperfFlags.ServiceAccount, KperfFlags.BucketName, servicesCreateLatestDstName, output)
+		err = uploadLatestResults(ctx, KperfConfig.ServiceAccount, KperfConfig.BucketName, servicesCreateLatestDstName, output)
 		if err != nil {
 			t.Fatalf("uploading of latest results failed %#v", err)
 		}
 	}
 
-	if KperfFlags.GenerateCombinedResults {
-		if KperfFlags.ServiceAccount == "" {
+	if KperfConfig.GenerateCombinedResults {
+		if KperfConfig.ServiceAccount == "" {
 			t.Fatal("Service Account required for generating combined results")
 		}
-		if KperfFlags.BucketName == "" {
+		if KperfConfig.BucketName == "" {
 			t.Fatal("Bucket name required for generating combined results")
 		}
 
 		downloadFailed := false
-		objPath, err := getFilenameFromBucket(ctx, KperfFlags.ServiceAccount, KperfFlags.BucketName, servicesCreateLatestDstName, "csv")
+		objPath, err := getFilenameFromBucket(ctx, KperfConfig.ServiceAccount, KperfConfig.BucketName, servicesCreateLatestDstName, "csv")
 		if err != nil {
 			log.Printf("getting filename from bucket of latest results failed %#v", err)
 		}
 		latestCsvFile := fmt.Sprintf("%s-latest.csv", servicesCreateTestName)
-		err = downloadLatestResults(ctx, output, KperfFlags.ServiceAccount, KperfFlags.BucketName, objPath, latestCsvFile)
+		err = downloadLatestResults(ctx, output, KperfConfig.ServiceAccount, KperfConfig.BucketName, objPath, latestCsvFile)
 		if err != nil {
 			log.Printf("downloading of latest results failed %#v", err)
 			downloadFailed = true

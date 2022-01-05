@@ -26,11 +26,11 @@ import (
 	_ "knative.dev/pkg/test"
 )
 
-// KperfFlags holds the flags or defaults for kperf performance test tool.
-var KperfFlags = initializeKperfFlags()
+// KperfConfig holds the config or defaults for kperf performance test tool.
+var KperfConfig = initializeKperfConfig()
 
-// KperfEnvironmentFlags holds the flags needed only by the kperf testing tool.
-type KperfEnvironmentFlags struct {
+// KperfEnvironmentConfig holds the config needed only by the kperf testing tool.
+type KperfEnvironmentConfig struct {
 	ServiceNamePrefix       string
 	ServicesCount           int
 	ServicesTimeout         int
@@ -42,8 +42,8 @@ type KperfEnvironmentFlags struct {
 	UploadLatestResults     bool
 }
 
-func initializeKperfFlags() *KperfEnvironmentFlags {
-	var f KperfEnvironmentFlags
+func initializeKperfConfig() *KperfEnvironmentConfig {
+	var f KperfEnvironmentConfig
 
 	flag.StringVar(&f.ServiceNamePrefix, "service-prefix", "ksvc", "Set this flag for the kperf Service name prefix.")
 
@@ -59,9 +59,9 @@ func initializeKperfFlags() *KperfEnvironmentFlags {
 
 	flag.StringVar(&f.BucketName, "bucket", "", "GCP bucket with reference results.")
 
-	flag.BoolVar(&f.GenerateCombinedResults, "combine-results", false, "Set this flag to generate combined resutls of current run with reference latest run.")
+	flag.BoolVar(&f.GenerateCombinedResults, "combine-results", false, "Set this flag to generate combined results of current run with reference latest run.")
 
-	flag.BoolVar(&f.UploadLatestResults, "upload-results", false, "Set this flag to upload latest resutls of current to reference bucket.")
+	flag.BoolVar(&f.UploadLatestResults, "upload-results", false, "Set this flag to upload latest results of current to reference bucket.")
 
 	return &f
 }

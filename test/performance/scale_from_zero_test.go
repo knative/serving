@@ -55,9 +55,9 @@ func TestPerformanceScaleFromZero(t *testing.T) {
 	clients := test.Setup(t)
 	ctx := context.Background()
 
-	servicesCount := KperfFlags.ServicesCount
+	servicesCount := KperfConfig.ServicesCount
 	servicesRange := fmt.Sprintf("1,%d", servicesCount)
-	servicesTimeout := time.Duration(KperfFlags.ServicesTimeout) * time.Second
+	servicesTimeout := time.Duration(KperfConfig.ServicesTimeout) * time.Second
 
 	namespaces := []string{}
 	nsName := test.AppendRandomString("kperf")
@@ -80,7 +80,7 @@ func TestPerformanceScaleFromZero(t *testing.T) {
 		"-i", "10", "-b", "10",
 		"--min-scale", "0", "--max-scale", "2",
 		"--namespace", nsName,
-		"--svc-prefix", KperfFlags.ServiceNamePrefix,
+		"--svc-prefix", KperfConfig.ServiceNamePrefix,
 		"--timeout", servicesTimeout.String())
 	var out bytes.Buffer
 	generateCmd.Stdout = &out
@@ -89,7 +89,7 @@ func TestPerformanceScaleFromZero(t *testing.T) {
 		t.Fatalf("Failed to execute kperf service generate command %#v", err)
 	}
 	fmt.Println(out.String())
-	defer cleanupServices(t, KperfFlags.ServiceNamePrefix, nsName)
+	defer cleanupServices(t, KperfConfig.ServiceNamePrefix, nsName)
 
 	t.Log("Waiting for Services.")
 	servingClientInNamespace, err := servingClientForNamespace(nsName)
@@ -99,8 +99,8 @@ func TestPerformanceScaleFromZero(t *testing.T) {
 
 	objs := []*v1.Service{}
 	for i := 0; i < servicesCount; i++ {
-		svcName := fmt.Sprintf("%s-%d", KperfFlags.ServiceNamePrefix, i)
-		if err := v1test.WaitForServiceState(servingClientInNamespace, fmt.Sprintf("%s-%d", KperfFlags.ServiceNamePrefix, i), v1test.IsServiceReady, "ServiceIsReady"); err != nil {
+		svcName := fmt.Sprintf("%s-%d", KperfConfig.ServiceNamePrefix, i)
+		if err := v1test.WaitForServiceState(servingClientInNamespace, fmt.Sprintf("%s-%d", KperfConfig.ServiceNamePrefix, i), v1test.IsServiceReady, "ServiceIsReady"); err != nil {
 			t.Fatalf("Failed waiting for serving to get Ready %#v", err)
 		}
 		svc, err := servingClientInNamespace.Services.Get(ctx, svcName, metav1.GetOptions{})
@@ -117,7 +117,7 @@ func TestPerformanceScaleFromZero(t *testing.T) {
 	}
 
 	t.Log("Scale and measure results by kperf.")
-	output := KperfFlags.KperfOutput
+	output := KperfConfig.KperfOutput
 	if output == "" {
 		output, err = os.MkdirTemp("", "kperfscaleoutput")
 		if err != nil {
@@ -130,7 +130,7 @@ func TestPerformanceScaleFromZero(t *testing.T) {
 	scaleCmd := exec.Command("kperf", "service", "scale",
 		"--verbose",
 		"--namespace", nsName,
-		"--svc-prefix", KperfFlags.ServiceNamePrefix,
+		"--svc-prefix", KperfConfig.ServiceNamePrefix,
 		"--range", servicesRange,
 		"--output", output)
 	var outScale bytes.Buffer
@@ -150,35 +150,35 @@ func TestPerformanceScaleFromZero(t *testing.T) {
 		t.Fatal("kperf Services didn't scale")
 	}
 
-	if KperfFlags.UploadLatestResults {
-		if KperfFlags.ServiceAccount == "" {
+	if KperfConfig.UploadLatestResults {
+		if KperfConfig.ServiceAccount == "" {
 			t.Fatal("Service Account required for generating combined results")
 		}
-		if KperfFlags.BucketName == "" {
+		if KperfConfig.BucketName == "" {
 			t.Fatal("Bucket name required for generating combined results")
 		}
 
-		err = uploadLatestResults(ctx, KperfFlags.ServiceAccount, KperfFlags.BucketName, scaleFromZeroLatestDstName, output)
+		err = uploadLatestResults(ctx, KperfConfig.ServiceAccount, KperfConfig.BucketName, scaleFromZeroLatestDstName, output)
 		if err != nil {
 			t.Fatalf("uploading of latest results failed %#v", err)
 		}
 	}
 
-	if KperfFlags.GenerateCombinedResults {
-		if KperfFlags.ServiceAccount == "" {
+	if KperfConfig.GenerateCombinedResults {
+		if KperfConfig.ServiceAccount == "" {
 			t.Fatal("Service Account required for generating combined results")
 		}
-		if KperfFlags.BucketName == "" {
+		if KperfConfig.BucketName == "" {
 			t.Fatal("Bucket name required for generating combined results")
 		}
 
 		downloadFailed := false
-		objPath, err := getFilenameFromBucket(ctx, KperfFlags.ServiceAccount, KperfFlags.BucketName, scaleFromZeroLatestDstName, "json")
+		objPath, err := getFilenameFromBucket(ctx, KperfConfig.ServiceAccount, KperfConfig.BucketName, scaleFromZeroLatestDstName, "json")
 		if err != nil {
 			log.Printf("getting filename from bucket of latest results failed %#v", err)
 		}
 		latestFilename := fmt.Sprintf("%s-latest.json", scaleFromZeroTestName)
-		err = downloadLatestResults(ctx, output, KperfFlags.ServiceAccount, KperfFlags.BucketName, objPath, latestFilename)
+		err = downloadLatestResults(ctx, output, KperfConfig.ServiceAccount, KperfConfig.BucketName, objPath, latestFilename)
 		if err != nil {
 			log.Printf("downloading of latest results failed %#v", err)
 			downloadFailed = true
@@ -254,10 +254,10 @@ func TestPerformanceScaleFromZero(t *testing.T) {
 	}
 }
 
-func waitForScaleToZero(ctx context.Context, client *test.Clients, namespace string, objs []*v1.Service) error {
+func waitForScaleToZero(ctx context.Context, client *test.Clients, namespace string, services []*v1.Service) error {
 	g := errgroup.Group{}
-	for i := 0; i < len(objs); i++ {
-		ro := objs[i]
+	for _, ro := range services {
+		ro := ro // avoid data race
 		g.Go(func() error {
 			selector := labels.SelectorFromSet(labels.Set{
 				serving.ServiceLabelKey: ro.Name,
