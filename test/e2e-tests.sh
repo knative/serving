@@ -78,34 +78,34 @@ if (( SHORT )); then
   TEST_OPTIONS+=" -short"
 fi
 
-toggle_feature autocreateClusterDomainClaims true config-network || fail_test
-toggle_feature kubernetes.podspec-volumes-emptydir Enabled
-go_test_e2e -timeout=30m \
-  ./test/conformance/api/... \
-  ./test/conformance/runtime/... \
-  ./test/e2e \
-  ${parallelism} \
-  ${TEST_OPTIONS} || failed=1
-toggle_feature kubernetes.podspec-volumes-emptydir Disabled
-toggle_feature autocreateClusterDomainClaims false config-network || fail_test
+# toggle_feature autocreateClusterDomainClaims true config-network || fail_test
+# toggle_feature kubernetes.podspec-volumes-emptydir Enabled
+# go_test_e2e -timeout=30m \
+#   ./test/conformance/api/... \
+#   ./test/conformance/runtime/... \
+#   ./test/e2e \
+#   ${parallelism} \
+#   ${TEST_OPTIONS} || failed=1
+# toggle_feature kubernetes.podspec-volumes-emptydir Disabled
+# toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
-toggle_feature tag-header-based-routing Enabled
-go_test_e2e -timeout=2m ./test/e2e/tagheader ${TEST_OPTIONS} || failed=1
-toggle_feature tag-header-based-routing Disabled
+# toggle_feature tag-header-based-routing Enabled
+# go_test_e2e -timeout=2m ./test/e2e/tagheader ${TEST_OPTIONS} || failed=1
+# toggle_feature tag-header-based-routing Disabled
 
-toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
-go_test_e2e -timeout=2m ./test/e2e/initscale ${TEST_OPTIONS} || failed=1
-toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
+# toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
+# go_test_e2e -timeout=2m ./test/e2e/initscale ${TEST_OPTIONS} || failed=1
+# toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
 
-toggle_feature autocreateClusterDomainClaims true config-network || fail_test
-go_test_e2e -timeout=2m ./test/e2e/domainmapping ${TEST_OPTIONS} || failed=1
-toggle_feature autocreateClusterDomainClaims false config-network || fail_test
+# toggle_feature autocreateClusterDomainClaims true config-network || fail_test
+# go_test_e2e -timeout=2m ./test/e2e/domainmapping ${TEST_OPTIONS} || failed=1
+# toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
-kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > ${TMP_DIR}/config-gc.yaml
-add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml" SIGKILL SIGTERM SIGQUIT
-immediate_gc
-go_test_e2e -timeout=2m ./test/e2e/gc ${TEST_OPTIONS} || failed=1
-kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml
+# kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > ${TMP_DIR}/config-gc.yaml
+# add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml" SIGKILL SIGTERM SIGQUIT
+# immediate_gc
+# go_test_e2e -timeout=2m ./test/e2e/gc ${TEST_OPTIONS} || failed=1
+# kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml
 
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
@@ -113,31 +113,31 @@ kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.ya
 # simply cannot pass.
 go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} || failed=1
 
-# Run HPA tests
-go_test_e2e -timeout=30m -tags=hpa ./test/e2e ${TEST_OPTIONS} || failed=1
+# # Run HPA tests
+# go_test_e2e -timeout=30m -tags=hpa ./test/e2e ${TEST_OPTIONS} || failed=1
 
-# Run emptyDir, initContainers tests with alpha enabled avoiding any issues with the testing options guard above
-# InitContainers test uses emptyDir.
-toggle_feature kubernetes.podspec-volumes-emptydir Enabled
-toggle_feature kubernetes.podspec-init-containers Enabled
-go_test_e2e -timeout=2m ./test/e2e/initcontainers ${TEST_OPTIONS} || failed=1
-toggle_feature kubernetes.podspec-init-containers Disabled
-toggle_feature kubernetes.podspec-volumes-emptydir Disabled
+# # Run emptyDir, initContainers tests with alpha enabled avoiding any issues with the testing options guard above
+# # InitContainers test uses emptyDir.
+# toggle_feature kubernetes.podspec-volumes-emptydir Enabled
+# toggle_feature kubernetes.podspec-init-containers Enabled
+# go_test_e2e -timeout=2m ./test/e2e/initcontainers ${TEST_OPTIONS} || failed=1
+# toggle_feature kubernetes.podspec-init-containers Disabled
+# toggle_feature kubernetes.podspec-volumes-emptydir Disabled
 
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
-toggle_feature autocreateClusterDomainClaims true config-network || fail_test
-go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
-  ${TEST_OPTIONS} \
-  -replicas="${REPLICAS:-1}" \
-  -buckets="${BUCKETS:-1}" \
-  -spoofinterval="10ms" || failed=1
-toggle_feature autocreateClusterDomainClaims false config-network || fail_test
+# toggle_feature autocreateClusterDomainClaims true config-network || fail_test
+# go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
+#   ${TEST_OPTIONS} \
+#   -replicas="${REPLICAS:-1}" \
+#   -buckets="${BUCKETS:-1}" \
+#   -spoofinterval="10ms" || failed=1
+# toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
-if (( HTTPS )); then
-  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
-  toggle_feature autoTLS Disabled config-network
-fi
+# if (( HTTPS )); then
+#   kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
+#   toggle_feature autoTLS Disabled config-network
+# fi
 
 (( failed )) && fail_test
 
@@ -145,31 +145,31 @@ fi
 # This is for preventing too many large log files to be uploaded to GCS in CI.
 rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
 
-header "Collecting performance data"
+# header "Collecting performance data"
 
-cat <<EOF | ko apply $(ko_flags) -f -
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
-  name: podspeed
-spec:
-  template:
-    metadata:
-      annotations:
-        autoscaling.knative.dev/minScale: "1"
-    spec:
-      containers:
-      - image: ko://knative.dev/serving/test/test_images/helloworld
-EOF
+# cat <<EOF | ko apply $(ko_flags) -f -
+# apiVersion: serving.knative.dev/v1
+# kind: Service
+# metadata:
+#   name: podspeed
+# spec:
+#   template:
+#     metadata:
+#       annotations:
+#         autoscaling.knative.dev/minScale: "1"
+#     spec:
+#       containers:
+#       - image: ko://knative.dev/serving/test/test_images/helloworld
+# EOF
 
-kubectl wait ksvc/podspeed --for=condition=Ready
+# kubectl wait ksvc/podspeed --for=condition=Ready
 
-template=$(mktemp)
-kubectl get pods -lserving.knative.dev/service=podspeed -ojson | jq '.items[0]' > "$template"
+# template=$(mktemp)
+# kubectl get pods -lserving.knative.dev/service=podspeed -ojson | jq '.items[0]' > "$template"
 
-run_go_tool github.com/markusthoemmes/podspeed/cmd/podspeed@358209f podspeed --prepull -pods 100 -template "$template" > "${ARTIFACTS}/pod-bringup-performance.txt"
-cat "${ARTIFACTS}/pod-bringup-performance.txt"
+# run_go_tool github.com/markusthoemmes/podspeed/cmd/podspeed@358209f podspeed --prepull -pods 100 -template "$template" > "${ARTIFACTS}/pod-bringup-performance.txt"
+# cat "${ARTIFACTS}/pod-bringup-performance.txt"
 
-kubectl delete ksvc podspeed
+# kubectl delete ksvc podspeed
 
 success
