@@ -93,10 +93,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 	switch {
 	case p.HTTPGet != nil:
-		// For HTTP probes, we route them through the queue container
-		// so that we know the queue proxy is ready/live as well.
-		// It doesn't matter to which queue serving port we are forwarding the probe.
-		p.HTTPGet.Port = intstr.FromInt(networking.BackendHTTPPort)
+		p.HTTPGet.Port = intstr.FromInt(userPort)
 		// With mTLS enabled, Istio rewrites probes, but doesn't spoof the kubelet
 		// user agent, so we need to inject an extra header to be able to distinguish
 		// between probes and real requests.
