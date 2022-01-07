@@ -111,7 +111,6 @@ fi
 # Note that we use a very high -parallel because each ksvc is run as its own
 # sub-test. If this is not larger than the maximum scale tested then the test
 # simply cannot pass.
-kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=0 || fail_test
 go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} || failed=1
 
 # # Run HPA tests
