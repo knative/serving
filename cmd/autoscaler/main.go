@@ -66,7 +66,7 @@ const (
 	statsServerAddr = ":8080"
 	statsBufferLen  = 1000
 	component       = "autoscaler"
-	controllerNum   = 2
+	controllerNum   = 20
 )
 
 func main() {
