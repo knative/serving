@@ -6,6 +6,7 @@ require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210609063737-0067dc6dcea2
 	github.com/c2h5oh/datasize v0.0.0-20200112174442-28bbd4740fee // indirect
 	github.com/davecgh/go-spew v1.1.1
+	github.com/go-logr/zapr v1.2.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.6
 	github.com/google/go-containerregistry v0.7.1-0.20211118220127-abdc633f8305
@@ -35,7 +36,6 @@ require (
 	k8s.io/apimachinery v0.22.5
 	k8s.io/client-go v0.22.5
 	k8s.io/code-generator v0.22.5
-	k8s.io/klog v1.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c
 	knative.dev/caching v0.0.0-20220113145613-9df2c0c8a931
 	knative.dev/hack v0.0.0-20220111151514-59b0cf17578e

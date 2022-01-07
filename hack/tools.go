@@ -53,4 +53,6 @@ import (
 
 	// For load testing
 	_ "github.com/tsenart/vegeta/v12"
+
+	_ "github.com/go-logr/zapr"
 )
