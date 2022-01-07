@@ -30,6 +30,7 @@ import (
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/signals"
 )
 
 var ctors = []injection.ControllerConstructor{
@@ -44,5 +45,6 @@ var ctors = []injection.ControllerConstructor{
 }
 
 func main() {
-	sharedmain.Main("controller", ctors...)
+	ctx := sharedmain.WithHADisabled(signals.NewContext())
+	sharedmain.MainWithContext(ctx, "controller", ctors...)
 }

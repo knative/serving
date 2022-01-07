@@ -399,7 +399,7 @@ type flushSyncWriter interface {
 // init sets up the defaults and runs flushDaemon.
 func init() {
 	logging.stderrThreshold = errorLog // Default stderrThreshold is ERROR.
-	logging.setVState(0, nil, false)
+	logging.setVState(10, nil, false)
 	logging.logDir = ""
 	logging.logFile = ""
 	logging.logFileMaxSizeMB = 1800

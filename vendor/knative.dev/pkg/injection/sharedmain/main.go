@@ -204,7 +204,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 
 	ctx, startInformers := injection.EnableInjectionOrDie(ctx, cfg)
 
-	logger, atomicLevel := SetupLoggerOrDie(ctx, component)
+	logger, _ := SetupLoggerOrDie(ctx, component)
 	defer flush(logger)
 	ctx = logging.WithLogger(ctx, logger)
 
@@ -230,7 +230,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	}
 
 	controllers, webhooks := ControllersAndWebhooksFromCtors(ctx, cmw, ctors...)
-	WatchLoggingConfigOrDie(ctx, cmw, logger, atomicLevel, component)
+	// WatchLoggingConfigOrDie(ctx, cmw, logger, atomicLevel, component)
 	WatchObservabilityConfigOrDie(ctx, cmw, profilingHandler, logger, component)
 
 	eg, egCtx := errgroup.WithContext(ctx)

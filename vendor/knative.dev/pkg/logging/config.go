@@ -24,9 +24,11 @@ import (
 	"strings"
 
 	"github.com/blendle/zapdriver"
+	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
 
 	"knative.dev/pkg/changeset"
 	"knative.dev/pkg/logging/logkey"
@@ -93,6 +95,17 @@ func NewLoggerFromConfig(config *Config, name string, opts ...zap.Option) (*zap.
 	}
 
 	logger, level := NewLogger(config.LoggingConfig, componentLvl, opts...)
+	level.SetLevel(-128)
+
+	log := zapr.NewLogger(logger.Named("klog").Desugar())
+	klog.SetLogger(log)
+	var klogLevel klog.Level
+	klogLevel.Set("6")
+
+	for i := 0; i < 20; i++ {
+		klog.V(klog.Level(i)).Info(i)
+	}
+
 	return logger.Named(name), level
 }
 
