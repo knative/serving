@@ -676,8 +676,8 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/first-reconcile",
 		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{
-			PodSpecPersistentVolumesClaims: defaultconfig.Enabled,
-			PodSpecPersistentVolumesWrite:  defaultconfig.Enabled,
+			PodSpecPersistentVolumeClaim: defaultconfig.Enabled,
+			PodSpecPersistentVolumeWrite: defaultconfig.Enabled,
 		}}),
 	}}
 

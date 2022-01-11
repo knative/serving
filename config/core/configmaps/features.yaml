@@ -23,7 +23,7 @@ metadata:
     app.kubernetes.io/version: devel
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "a5fcfbcf"
+    knative.dev/example-checksum: "d9e300ba"
 data:
   _example: |-
     ################################
@@ -150,15 +150,12 @@ data:
     # 2. Disabled: disabling init containers support
     kubernetes.podspec-init-containers: "disabled"
 
-    # Controls whether persistent volumes support is enabled or not.
-    # 1. Enabled: enabling persistent volumes support
-    # 2. Disabled: disabling persistent volumes support
-    kubernetes.podspec-persistent-volumes-claims: "disabled"
+    # Controls whether persistent volume claim support is enabled or not.
+    # 1. Enabled: enabling persistent volume claim support
+    # 2. Disabled: disabling persistent volume claim support
+    kubernetes.podspec-persistent-volume-claim: "disabled"
 
     # Controls whether write access for persistent volumes is enabled or not.
     # 1. Enabled: enabling write access for persistent volumes
     # 2. Disabled: disabling write access for persistent volumes
-    # 3. Allowed: write access for persistent-volumes is not enabled by default.
-    #   However, clients may enable the behavior on an individual Service by
-    #   attaching the following metadata annotation: "features.knative.dev/podspec-persistent-volumes-write":"enabled".
-    kubernetes.podspec-persistent-volumes-write: "disabled"
+    kubernetes.podspec-persistent-volume-write: "disabled"

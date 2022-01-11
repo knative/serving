@@ -21,7 +21,6 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/helpers"
 )
 
 // Validate makes sure that Service is properly configured.
@@ -37,7 +36,7 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 		errs = errs.ViaField("metadata")
 
 		ctx = apis.WithinParent(ctx, s.ObjectMeta)
-		errs = errs.Also(s.Spec.Validate(helpers.WithAnnotations(apis.WithinSpec(ctx), s.Annotations)).ViaField("spec"))
+		errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
 
 	if apis.IsInUpdate(ctx) {

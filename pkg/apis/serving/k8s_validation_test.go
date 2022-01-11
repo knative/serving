@@ -32,7 +32,6 @@ import (
 	"knative.dev/pkg/ptr"
 
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/serving/helpers"
 )
 
 type configOption func(*config.Config) *config.Config
@@ -115,23 +114,16 @@ func withPodSpecVolumesEmptyDirEnabled() configOption {
 	}
 }
 
-func withPodSpecPersistentVolumesClaimsEnabled() configOption {
+func withPodSpecPersistentVolumeClaimEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
-		cfg.Features.PodSpecPersistentVolumesClaims = config.Enabled
+		cfg.Features.PodSpecPersistentVolumeClaim = config.Enabled
 		return cfg
 	}
 }
 
-func withPodSpecPersistentVolumesWriteEnabled() configOption {
+func withPodSpecPersistentVolumeWriteEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
-		cfg.Features.PodSpecPersistentVolumesWrite = config.Enabled
-		return cfg
-	}
-}
-
-func withPodSpecPersistentVolumesWriteAllowed() configOption {
-	return func(cfg *config.Config) *config.Config {
-		cfg.Features.PodSpecPersistentVolumesWrite = config.Allowed
+		cfg.Features.PodSpecPersistentVolumeWrite = config.Enabled
 		return cfg
 	}
 }
@@ -159,11 +151,10 @@ func withPodSpecInitContainersEnabled() configOption {
 
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
-		name         string
-		ps           corev1.PodSpec
-		cfgOpts      []configOption
-		want         *apis.FieldError
-		extraCtxFunc func(ctx context.Context) context.Context
+		name    string
+		ps      corev1.PodSpec
+		cfgOpts []configOption
+		want    *apis.FieldError
 	}{{
 		name: "valid",
 		ps: corev1.PodSpec{
@@ -477,6 +468,76 @@ func TestPodSpecValidation(t *testing.T) {
 			Paths:   []string{"name"},
 		}).ViaFieldIndex("containers", 1),
 	},  {
+		name: "PVC not read-only, mount read-only, write disabled by default",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  true,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  false,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+	},  {
+		name: "PVC not read-only, mount not read-only, write disabled by default",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  false,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  false,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+		want: &apis.FieldError{
+			Message: `Persistent volumes write support is off, but found Persistent Volume claim myclaim that is not read-only`,
+		},
+	}, {
+		name: "PVC read-only, mount not read-only, write disabled by default",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  false,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  true,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+		want: &apis.FieldError{
+			Message: "volume is readOnly but volume mount is not",
+			Paths:   []string{"containers[0].volumeMounts[0].readOnly"},
+		},
+	}, {
 		name: "PVC read-only, write disabled by default",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
@@ -496,7 +557,7 @@ func TestPodSpecValidation(t *testing.T) {
 					},
 				}},
 			}},
-		cfgOpts: []configOption{withPodSpecPersistentVolumesClaimsEnabled()},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
 	}, {
 		name: "PVC not read-only, write enabled",
 		ps: corev1.PodSpec{
@@ -517,33 +578,9 @@ func TestPodSpecValidation(t *testing.T) {
 					},
 				}},
 			}},
-		cfgOpts: []configOption{withPodSpecPersistentVolumesClaimsEnabled(), withPodSpecPersistentVolumesWriteEnabled()},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled(), withPodSpecPersistentVolumeWriteEnabled()},
 	}, {
-		name: "PVC not read-only, write allowed, annotation missing",
-		ps: corev1.PodSpec{
-			Containers: []corev1.Container{{
-				Image: "busybox",
-				VolumeMounts: []corev1.VolumeMount{{
-					Name:      "foo",
-					MountPath: "/data",
-					ReadOnly:  true,
-				}},
-			}},
-			Volumes: []corev1.Volume{{
-				Name: "foo",
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "myclaim",
-						ReadOnly:  false,
-					},
-				}},
-			}},
-		cfgOpts: []configOption{withPodSpecPersistentVolumesClaimsEnabled(), withPodSpecPersistentVolumesWriteAllowed()},
-		want: &apis.FieldError{
-			Message: `Persistent volumes write support is off, but found Persistent Volume claim myclaim that is not read-only`,
-		},
-	}, {
-		name: "PVC not read-only, write allowed, annotation set to enabled",
+		name: "PVC read-only, write enabled",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Image: "busybox",
@@ -562,37 +599,7 @@ func TestPodSpecValidation(t *testing.T) {
 					},
 				}},
 			}},
-		cfgOpts: []configOption{withPodSpecPersistentVolumesClaimsEnabled(), withPodSpecPersistentVolumesWriteAllowed()},
-		extraCtxFunc: func(ctx context.Context) context.Context {
-			return helpers.WithAnnotations(ctx, map[string]string{PodSpecPersistenceVolumesWriteAnnotation: "enabled"})
-		},
-	}, {
-		name: "PVC not read-only, write allowed, annotation set to disabled",
-		ps: corev1.PodSpec{
-			Containers: []corev1.Container{{
-				Image: "busybox",
-				VolumeMounts: []corev1.VolumeMount{{
-					Name:      "foo",
-					MountPath: "/data",
-					ReadOnly:  true,
-				}},
-			}},
-			Volumes: []corev1.Volume{{
-				Name: "foo",
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "myclaim",
-						ReadOnly:  false,
-					},
-				}},
-			}},
-		cfgOpts: []configOption{withPodSpecPersistentVolumesClaimsEnabled(), withPodSpecPersistentVolumesWriteAllowed()},
-		want: &apis.FieldError{
-			Message: `Persistent volumes write support is off, but found Persistent Volume claim myclaim that is not read-only`,
-		},
-		extraCtxFunc: func(ctx context.Context) context.Context {
-			return helpers.WithAnnotations(ctx, map[string]string{PodSpecPersistenceVolumesWriteAnnotation: "disabled"})
-		},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled(), withPodSpecPersistentVolumeWriteEnabled()},
 	}}
 
 	for _, test := range tests {
@@ -604,9 +611,6 @@ func TestPodSpecValidation(t *testing.T) {
 					cfg = opt(cfg)
 				}
 				ctx = config.ToContext(ctx, cfg)
-				if test.extraCtxFunc != nil {
-					ctx = test.extraCtxFunc(ctx)
-				}
 			}
 			got := ValidatePodSpec(ctx, test.ps)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
@@ -1904,7 +1908,10 @@ func getCommonContainerValidationTestCases() []containerValidationTestCase {
 				Message: "volumeMount has no matching volume",
 				Paths:   []string{"name"},
 			}).ViaFieldIndex("volumeMounts", 0).Also(
-				apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", 0)).Also(
+				(&apis.FieldError{
+					Message: "volume mount should be readOnly for this type of volume",
+					Paths:   []string{"readOnly"},
+				}).ViaFieldIndex("volumeMounts", 0)).Also(
 				apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
 				apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
 		}, {
@@ -2179,11 +2186,10 @@ func getCommonContainerValidationTestCases() []containerValidationTestCase {
 
 func TestVolumeValidation(t *testing.T) {
 	tests := []struct {
-		name         string
-		v            corev1.Volume
-		want         *apis.FieldError
-		cfgOpts      []configOption
-		extraCtxFunc func(ctx context.Context) context.Context
+		name    string
+		v       corev1.Volume
+		want    *apis.FieldError
+		cfgOpts []configOption
 	}{{
 		name: "just name",
 		v: corev1.Volume{
@@ -2246,7 +2252,7 @@ func TestVolumeValidation(t *testing.T) {
 				},
 			},
 		},
-		cfgOpts: []configOption{withPodSpecPersistentVolumesClaimsEnabled()},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
 	}, {
 		name: "disabled PVC with valid PVC",
 		v: corev1.Volume{
