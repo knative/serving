@@ -135,6 +135,11 @@ func makeIngressSpec(
 	rules := make([]netv1alpha1.IngressRule, 0, len(names))
 
 	featuresConfig := config.FromContextOrDefaults(ctx).Features
+	// Use ConfigMap to enable internalTLS.
+	internalTLS := false
+	if true {
+		internalTLS = true
+	}
 
 	for _, name := range names {
 		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
@@ -148,7 +153,7 @@ func makeIngressSpec(
 				return netv1alpha1.IngressSpec{}, err
 			}
 			rule := makeIngressRule(domains, r.Namespace,
-				visibility, tc.Targets[name], ro.RolloutsByTag(name))
+				visibility, tc.Targets[name], ro.RolloutsByTag(name), internalTLS)
 			if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string, 1)
@@ -170,7 +175,7 @@ func makeIngressSpec(
 					// Since names are sorted `DefaultTarget == ""` is the first one,
 					// so just pass the subslice.
 					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(r.Namespace, tc, ro, names[1:]), rule.HTTP.Paths...)
+						makeTagBasedRoutingIngressPaths(r.Namespace, tc, ro, internalTLS, names[1:]), rule.HTTP.Paths...)
 				} else {
 					// If a request is routed by a tag-attached hostname instead of the tag header,
 					// the request may not have the tag header "Knative-Serving-Tag",
@@ -263,24 +268,25 @@ func MakeACMEIngressPaths(acmeChallenges []netv1alpha1.HTTP01Challenge, domains 
 func makeIngressRule(domains []string, ns string,
 	visibility netv1alpha1.IngressVisibility,
 	targets traffic.RevisionTargets,
-	roCfgs []*traffic.ConfigurationRollout) netv1alpha1.IngressRule {
+	roCfgs []*traffic.ConfigurationRollout,
+	internalTLS bool) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{
-				*makeBaseIngressPath(ns, targets, roCfgs),
+				*makeBaseIngressPath(ns, targets, roCfgs, internalTLS),
 			},
 		},
 	}
 }
 
 // `names` must not include `""` — the DefaultTarget.
-func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.Rollout, names []string) []netv1alpha1.HTTPIngressPath {
+func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.Rollout, internalTLS bool, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
-		path := makeBaseIngressPath(ns, tc.Targets[name], ro.RolloutsByTag(name))
+		path := makeBaseIngressPath(ns, tc.Targets[name], ro.RolloutsByTag(name), internalTLS)
 		path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
 		paths = append(paths, *path)
 	}
@@ -300,7 +306,7 @@ func rolloutConfig(cfgName string, ros []*traffic.ConfigurationRollout) *traffic
 }
 
 func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
-	roCfgs []*traffic.ConfigurationRollout) *netv1alpha1.HTTPIngressPath {
+	roCfgs []*traffic.ConfigurationRollout, internalTLS bool) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
@@ -312,6 +318,10 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 		if t.LatestRevision != nil && *t.LatestRevision {
 			cfg = rolloutConfig(t.ConfigurationName, roCfgs)
 		}
+		servicePort := intstr.FromInt(networking.ServicePort(t.Protocol))
+		if internalTLS {
+			servicePort = intstr.FromInt(443)
+		}
 		if cfg == nil || len(cfg.Revisions) < 2 {
 			// No rollout in progress.
 			splits = append(splits, netv1alpha1.IngressBackendSplit{
@@ -320,7 +330,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 					ServiceName:      t.RevisionName,
 					// Port on the public service must match port on the activator.
 					// Otherwise, the serverless services can't guarantee seamless positive handoff.
-					ServicePort: intstr.FromInt(networking.ServicePort(t.Protocol)),
+					ServicePort: servicePort,
 				},
 				Percent: int(*t.Percent),
 				AppendHeaders: map[string]string{
@@ -337,7 +347,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 						ServiceName:      rev.RevisionName,
 						// Port on the public service must match port on the activator.
 						// Otherwise, the serverless services can't guarantee seamless positive handoff.
-						ServicePort: intstr.FromInt(networking.ServicePort(t.Protocol)),
+						ServicePort: servicePort,
 					},
 					Percent: rev.Percent,
 					AppendHeaders: map[string]string{

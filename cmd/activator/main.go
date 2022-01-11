@@ -68,6 +68,10 @@ const (
 
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort = ":8080"
+
+	certDirectory = "/var/lib/knative/certs"
+	certPath      = certDirectory + "/tls.crt"
+	keyPath       = certDirectory + "/tls.key"
 )
 
 type config struct {
@@ -239,6 +243,22 @@ func main() {
 				errCh <- fmt.Errorf("%s server failed: %w", name, err)
 			}
 		}(name, server)
+	}
+
+	// TODO: Use configmap to enable tls mode.
+	if true {
+		tlsServers := map[string]*http.Server{
+			"https": pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah),
+		}
+
+		for name, server := range tlsServers {
+			go func(name string, s *http.Server) {
+				// Don't forward ErrServerClosed as that indicates we're already shutting down.
+				if err := s.ListenAndServeTLS(certPath, keyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
+					errCh <- fmt.Errorf("%s server failed: %w", name, err)
+				}
+			}(name, server)
+		}
 	}
 
 	// Wait for the signal to drain.

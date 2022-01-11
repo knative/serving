@@ -54,6 +54,11 @@ spec:
             cpu: 1000m
             memory: 600Mi
 
+        volumeMounts:
+        - name: server-certs
+          mountPath: /var/lib/knative/certs
+          readOnly: true
+
         env:
         # Run Activator with GC collection when newly generated memory is 500%.
         - name: GOGC
@@ -123,6 +128,11 @@ spec:
       # connections.
       terminationGracePeriodSeconds: 600
 
+      volumes:
+      - name: server-certs
+        secret:
+          secretName: server-certs
+
 ---
 apiVersion: v1
 kind: Service
@@ -148,6 +158,9 @@ spec:
   - name: http
     port: 80
     targetPort: 8012
+  - name: https
+    port: 443
+    targetPort: 8112
   - name: http2
     port: 81
     targetPort: 8013

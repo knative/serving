@@ -53,14 +53,30 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				Name:       pkgnet.ServicePortName(sks.Spec.ProtocolType),
-				Protocol:   corev1.ProtocolTCP,
-				Port:       int32(pkgnet.ServicePort(sks.Spec.ProtocolType)),
-				TargetPort: targetPort(sks),
-			}},
+			Ports: makePublicServicePorts(sks),
 		},
 	}
+}
+
+func makePublicServicePorts(sks *v1alpha1.ServerlessService) []corev1.ServicePort {
+	ports := []corev1.ServicePort{{
+		Name:       pkgnet.ServicePortName(sks.Spec.ProtocolType),
+		Protocol:   corev1.ProtocolTCP,
+		Port:       int32(pkgnet.ServicePort(sks.Spec.ProtocolType)),
+		TargetPort: targetPort(sks),
+	}}
+
+	// TODO: Use annotation or sks.spec whether add HTTPS port or not.
+	if true {
+		p := corev1.ServicePort{
+			Name:       pkgnet.ServicePortNameHTTPS,
+			Protocol:   corev1.ProtocolTCP,
+			Port:       pkgnet.ServiceHTTPSPort,
+			TargetPort: intstr.FromInt(networking.BackendHTTPSPort),
+		}
+		ports = append(ports, p)
+	}
+	return ports
 }
 
 // MakePublicEndpoints constructs a K8s Endpoints that is not backed a selector
@@ -99,11 +115,20 @@ func filterSubsetPorts(targetPort int32, subsets []corev1.EndpointSubset) []core
 	ret := make([]corev1.EndpointSubset, len(subsets))
 	for i, sss := range subsets {
 		sst := sss.DeepCopy()
+		ssts := sss.DeepCopy()
 		// Find the port we care about and remove all others.
 		for j, p := range sst.Ports {
 			if p.Port == targetPort {
 				sst.Ports = sst.Ports[j : j+1]
-				break
+			}
+		}
+
+		// TODO: Use annotation or configmap to add HTTPS port.
+		if true {
+			for j, p := range ssts.Ports {
+				if p.Port == networking.BackendHTTPSPort {
+					sst.Ports = append(sst.Ports, ssts.Ports[j:j+1]...)
+				}
 			}
 		}
 		ret[i] = *sst
@@ -134,6 +159,12 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				// This one is matching the public one, since this is the
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),
+			}, {
+				// TODO: Add https port only when tls mode is enabled?
+				Name:       pkgnet.ServicePortNameHTTPS,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       pkgnet.ServiceHTTPSPort,
+				TargetPort: intstr.FromInt(networking.BackendHTTPSPort),
 			}, {
 				Name:       servingv1.AutoscalingQueueMetricsPortName,
 				Protocol:   corev1.ProtocolTCP,

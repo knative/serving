@@ -866,8 +866,9 @@ func TestMakeIngressRuleVanilla(t *testing.T) {
 		},
 	}
 	ro := tc.BuildRollout()
+	internalTLS := false
 	rule := makeIngressRule(domains, ns,
-		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget))
+		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget), internalTLS)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{
 			"a.com",
@@ -919,8 +920,9 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 		},
 	}
 	ro := tc.BuildRollout()
+	internalTLS := false
 	rule := makeIngressRule(domains, ns,
-		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget))
+		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget), internalTLS)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -968,9 +970,10 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 		},
 	}
 	ro := tc.BuildRollout()
+	internalTLS := false
 	domains := []string{"test.org"}
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP,
-		targets, ro.RolloutsByTag("a-tag"))
+		targets, ro.RolloutsByTag("a-tag"), internalTLS)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
