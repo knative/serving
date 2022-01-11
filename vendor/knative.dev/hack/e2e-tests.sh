@@ -17,7 +17,7 @@
 # This is a helper script for Knative E2E test scripts.
 # See README.md for instructions on how to use it.
 
-source $(dirname "${BASH_SOURCE[0]}")/infra-library.sh
+source "$(dirname "${BASH_SOURCE[0]:-$0}")/infra-library.sh"
 
 readonly TEST_RESULT_FILE=/tmp/${REPO_NAME}-e2e-result
 
@@ -29,8 +29,12 @@ function teardown_test_resources() {
   # On boskos, save time and don't teardown as the cluster will be destroyed anyway.
   (( IS_BOSKOS )) && return
   header "Tearing down test environment"
-  function_exists test_teardown && test_teardown
-  function_exists knative_teardown && knative_teardown
+  if function_exists test_teardown; then
+    test_teardown
+  fi
+  if function_exists knative_teardown; then
+    knative_teardown
+  fi
 }
 
 # Run the given E2E tests. Assume tests are tagged e2e, unless `-tags=XXX` is passed.
