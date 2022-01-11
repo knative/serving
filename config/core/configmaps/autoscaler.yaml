@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "50900868"
+    knative.dev/example-checksum: "679f6acd"
 data:
   _example: |
     ################################
@@ -73,6 +73,7 @@ data:
     #       the user container may receive, but only the average number of requests
     #       that the revision pods will receive.
     # This config will be deprecated, use target-utilization instead.
+    # Setting to "0" or remove it will disable this option.
     container-concurrency-target-percentage: "0"
 
     # The container concurrency target default is what the Autoscaler will

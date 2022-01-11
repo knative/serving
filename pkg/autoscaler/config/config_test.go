@@ -52,7 +52,7 @@ func TestNewConfig(t *testing.T) {
 			"enable-scale-to-zero":                    "true",
 			"max-scale-down-rate":                     "3.0",
 			"max-scale-up-rate":                       "1.01",
-			"target-utilization":                      "0.71",
+			"target-utilization":                      "0.8",
 			"container-concurrency-target-percentage": "0.71",
 			"container-concurrency-target-default":    "10.5",
 			"requests-per-second-target-default":      "10.11",
@@ -71,7 +71,7 @@ func TestNewConfig(t *testing.T) {
 			c.TargetBurstCapacity = 12345
 			c.ContainerConcurrencyTargetDefault = 10.5
 			c.ContainerConcurrencyTargetFraction = 0.71
-			c.TargetUtilization = 0.71
+			c.TargetUtilization = 0.8
 			c.RPSTargetDefault = 10.11
 			c.MaxScaleDownRate = 3
 			c.MaxScaleUpRate = 1.01

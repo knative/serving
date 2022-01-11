@@ -137,7 +137,7 @@ func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 	}
 
 	if lc.ContainerConcurrencyTargetFraction < 0 || lc.ContainerConcurrencyTargetFraction > 1 {
-		return nil, fmt.Errorf("container-concurrency-target-percentage = %f is outside of valid range of (0, 100]", lc.ContainerConcurrencyTargetFraction)
+		return nil, fmt.Errorf("container-concurrency-target-percentage = %f is outside of valid range of [0, 100]", lc.ContainerConcurrencyTargetFraction)
 	}
 
 	if lc.TargetUtilization <= 0 || lc.TargetUtilization > 1 {
