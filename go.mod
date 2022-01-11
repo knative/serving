@@ -37,7 +37,7 @@ require (
 	k8s.io/code-generator v0.22.5
 	k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c
 	knative.dev/caching v0.0.0-20220105210833-30ba0b6609c6
-	knative.dev/hack v0.0.0-20211222071919-abd085fc43de
+	knative.dev/hack v0.0.0-20220110200259-f08cb0dcdee7
 	knative.dev/networking v0.0.0-20220107020122-0dbedcd88acf
 	knative.dev/pkg v0.0.0-20220105211333-96f18522d78d
 	sigs.k8s.io/yaml v1.3.0
