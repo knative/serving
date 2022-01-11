@@ -88,7 +88,7 @@ func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes set
 	features := config.FromContextOrDefaults(ctx).Features
 	for i, volume := range vs {
 		if volume.EmptyDir != nil && features.PodSpecVolumesEmptyDir != config.Enabled {
-			errs = errs.Also((&apis.FieldError{Message: fmt.Sprintf("EmptyDir volume support is off, "+
+			errs = errs.Also((&apis.FieldError{Message: fmt.Sprintf("EmptyDir volume support is disabled, "+
 				"but found EmptyDir volume %s", volume.Name)}).ViaIndex(i))
 		}
 		errs = errs.Also(shouldAllowPersistentVolumeClaims(volume.VolumeSource, features).ViaIndex(i))
@@ -116,13 +116,13 @@ func shouldAllowPersistentVolumeClaims(volume corev1.VolumeSource, features *con
 		return nil
 	}
 	if features.PodSpecPersistentVolumeClaim != config.Enabled {
-		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("Persistent volumes claims support is off, "+
-			"but found Persistent Volume claim %s", volume.PersistentVolumeClaim.ClaimName)})
+		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("Persistent volumes claims support is disabled, "+
+			"but found Persistent Volume Claim %s", volume.PersistentVolumeClaim.ClaimName)})
 	}
 	isWriteEnabled := features.PodSpecPersistentVolumeWrite == config.Enabled
 	if !volume.PersistentVolumeClaim.ReadOnly && !isWriteEnabled {
-		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("Persistent volumes write support is off, "+
-			"but found Persistent Volume claim %s that is not read-only", volume.PersistentVolumeClaim.ClaimName)})
+		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("Persistent volumes write support is disabled, "+
+			"but found Persistent Volume Claim %s that is not read-only", volume.PersistentVolumeClaim.ClaimName)})
 	}
 
 	return errs
