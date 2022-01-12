@@ -40,12 +40,16 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-// readinessPropagationTime is how long to poll to allow for readiness probe
-// changes to propagate to ingresses/activator.
-// This is based on the default scaleToZeroGracePeriod.
-const readinessPropagationTime = 30 * time.Second
+const (
+	// readinessPropagationTime is how long to poll to allow for readiness probe
+	// changes to propagate to ingresses/activator.
+	// This is based on the default scaleToZeroGracePeriod.
+	readinessPropagationTime = 30 * time.Second
 
-func TestProbeRuntime(t *testing.T) {
+	readinessPath = "/healthz/readiness"
+)
+
+func TestReadiness(t *testing.T) {
 	t.Parallel()
 	if test.ServingFlags.DisableOptionalAPI {
 		t.Skip("Container.readinessProbe is not required by Knative Serving API Specification")
@@ -67,7 +71,7 @@ func TestProbeRuntime(t *testing.T) {
 		}},
 		handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/healthz",
+				Path: readinessPath,
 			},
 		},
 	}, {
@@ -87,7 +91,7 @@ func TestProbeRuntime(t *testing.T) {
 		}},
 		handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/readiness", "probe"},
+				Command: []string{"/ko-app/healthprobes", "probe"},
 			},
 		},
 	}}
@@ -106,7 +110,7 @@ func TestProbeRuntime(t *testing.T) {
 				t.Parallel()
 				names := test.ResourceNames{
 					Service: test.ObjectNameForTest(t),
-					Image:   test.Readiness,
+					Image:   test.HealthProbes,
 				}
 
 				test.EnsureTearDown(t, clients, &names)
@@ -125,7 +129,7 @@ func TestProbeRuntime(t *testing.T) {
 
 				// Once the service reports ready we should immediately be able to curl it.
 				url := resources.Route.Status.URL.URL()
-				url.Path = "/healthz"
+				url.Path = readinessPath
 				if _, err = pkgtest.CheckEndpointState(
 					context.Background(),
 					clients.KubeClient,
@@ -155,7 +159,7 @@ func TestProbeRuntime(t *testing.T) {
 // The goal of this test is largely to describe the current behaviour, so that
 // we can confidently change it.
 // See https://github.com/knative/serving/issues/10765.
-func TestProbeRuntimeAfterStartup(t *testing.T) {
+func TestReadinessAfterStartup(t *testing.T) {
 	t.Parallel()
 	if test.ServingFlags.DisableOptionalAPI {
 		t.Skip("Container.readinessProbe behaviour after startup is not defined by Knative Serving API Specification")
@@ -166,7 +170,7 @@ func TestProbeRuntimeAfterStartup(t *testing.T) {
 		t.Run(fmt.Sprintf("periodSeconds=%d", period), func(t *testing.T) {
 			t.Parallel()
 			clients := test.Setup(t)
-			names := test.ResourceNames{Service: test.ObjectNameForTest(t), Image: test.Readiness}
+			names := test.ResourceNames{Service: test.ObjectNameForTest(t), Image: test.HealthProbes}
 			test.EnsureTearDown(t, clients, &names)
 
 			url, client := waitReadyThenStartFailing(t, clients, names, period)
@@ -216,7 +220,7 @@ func waitReadyThenStartFailing(t *testing.T, clients *test.Clients, names test.R
 			PeriodSeconds: probePeriod,
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/healthz",
+					Path: readinessPath,
 				},
 			},
 		}))
@@ -230,7 +234,7 @@ func waitReadyThenStartFailing(t *testing.T, clients *test.Clients, names test.R
 	// Ref: https://github.com/knative/serving/issues/11404
 	t.Log("Wait for initial readiness")
 	url := resources.Route.Status.URL.URL()
-	url.Path = "/healthz"
+	url.Path = readinessPath
 	if _, err = pkgtest.CheckEndpointState(
 		context.Background(),
 		clients.KubeClient,

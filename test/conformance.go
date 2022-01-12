@@ -47,7 +47,7 @@ const (
 	PizzaPlanet1        = "pizzaplanetv1"
 	PizzaPlanet2        = "pizzaplanetv2"
 	Protocols           = "protocols"
-	Readiness           = "readiness"
+	HealthProbes        = "healthprobes"
 	Runtime             = "runtime"
 	ServingContainer    = "servingcontainer"
 	SidecarContainer    = "sidecarcontainer"

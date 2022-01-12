@@ -54,7 +54,7 @@ func main() {
 		}()
 	}
 
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+	http.HandleFunc("/healthz/readiness", func(w http.ResponseWriter, _ *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
 
@@ -63,6 +63,11 @@ func main() {
 			return
 		}
 
+		fmt.Fprint(w, test.HelloWorldText)
+	})
+
+	http.HandleFunc("/healthz/liveness", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, test.HelloWorldText)
 	})
 
@@ -91,7 +96,7 @@ func main() {
 }
 
 func execProbeMain() {
-	resp, err := http.Get(os.ExpandEnv("http://localhost:$PORT/healthz"))
+	resp, err := http.Get(os.ExpandEnv("http://localhost:$PORT/healthz/readiness"))
 	if err != nil {
 		log.Fatal("Failed to probe: ", err)
 	}
