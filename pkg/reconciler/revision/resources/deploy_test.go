@@ -40,7 +40,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 
 	_ "knative.dev/pkg/metrics/testing"
@@ -802,7 +801,7 @@ func TestMakePodSpec(t *testing.T) {
 					withLivenessProbe(corev1.Handler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
-							Port: intstr.FromInt(networking.BackendHTTPPort),
+							Port: intstr.FromInt(v1.DefaultUserPort),
 							HTTPHeaders: []corev1.HTTPHeader{{
 								Name:  network.KubeletProbeHeaderName,
 								Value: queue.Name,
