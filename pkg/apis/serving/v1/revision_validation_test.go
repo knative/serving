@@ -328,11 +328,13 @@ func TestRevisionSpecValidation(t *testing.T) {
 		rs: &RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
+					Name:  "container-a",
 					Image: "busybox",
 					Ports: []corev1.ContainerPort{{
 						ContainerPort: 8881,
 					}},
 				}, {
+					Name:  "container-b",
 					Image: "helloworld",
 				}},
 			},

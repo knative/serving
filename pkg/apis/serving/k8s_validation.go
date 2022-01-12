@@ -319,7 +319,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	volumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(append(ps.InitContainers, ps.Containers...)))
 	errs = errs.Also(err.ViaField("volumes"))
 
-	errs = errs.Also(validateInitContainers(ctx, ps.InitContainers, volumes))
+	errs = errs.Also(validateInitContainers(ctx, ps.InitContainers, ps.Containers, volumes))
 
 	port, err := validateContainersPorts(ps.Containers)
 	errs = errs.Also(err.ViaField("containers[*]"))
@@ -341,7 +341,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	return errs
 }
 
-func validateInitContainers(ctx context.Context, containers []corev1.Container, volumes map[string]corev1.Volume) (errs *apis.FieldError) {
+func validateInitContainers(ctx context.Context, containers, otherContainers []corev1.Container, volumes map[string]corev1.Volume) (errs *apis.FieldError) {
 	if len(containers) == 0 {
 		return nil
 	}
@@ -350,7 +350,17 @@ func validateInitContainers(ctx context.Context, containers []corev1.Container, 
 		return errs.Also(&apis.FieldError{Message: fmt.Sprintf("pod spec support for init-containers is off, "+
 			"but found %d init containers", len(containers))})
 	}
+	allNames := make(sets.String, len(otherContainers)+len(containers))
+	for _, ctr := range otherContainers {
+		allNames.Insert(ctr.Name)
+	}
 	for i := range containers {
+		if allNames.Has(containers[i].Name) {
+			errs = errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("duplicate container name %q", containers[i].Name),
+				Paths:   []string{"name"},
+			}).ViaFieldIndex("containers", i)
+		}
 		errs = errs.Also(validateInitContainer(ctx, containers[i], volumes).ViaFieldIndex("containers", i))
 	}
 	return errs
@@ -362,7 +372,16 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 		return errs.Also(&apis.FieldError{Message: fmt.Sprintf("multi-container is off, "+
 			"but found %d containers", len(containers))})
 	}
+	allNames := make(sets.String, len(containers))
 	for i := range containers {
+		if allNames.Has(containers[i].Name) {
+			errs = errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("duplicate container name %q", containers[i].Name),
+				Paths:   []string{"name"},
+			}).ViaFieldIndex("containers", i)
+		} else {
+			allNames.Insert(containers[i].Name)
+		}
 		// Probes are not allowed on other than serving container,
 		// ref: http://bit.ly/probes-condition
 		if len(containers[i].Ports) == 0 {
