@@ -129,7 +129,16 @@ go test -v -tags=e2e -count=1 -short ./test/e2e
 ```
 
 To get a better idea where the flag is used, search for `testing.Short()`
-throughout the test source code.
+### Running e2e tests on Google Cloud
+
+You can run the e2e tests independently of Prow on Google Cloud
+
+- Create a VM on Google Cloud with a service account that has Owner(GKE, GCS, GCE Admin) role with cloud-platform scope.
+- Install all the development tools
+- configure gcr.io cred helper by running `gcloud auth configure-docker`
+- look for an `initialize` call and append the following argument: `--gcp-project-id=[REPLACE_ME]`
+- The GKE Clusters created by the tests are NOT DELETED AUTOMATICALLY. Don't forget to delete them to avoid incurring costs.
+- The output is very long so you may want to redirect it to a text file `./e2e-auto-tls-tests.sh 2>&1 | tee auto-out.log`
 
 ### Environment requirements
 
