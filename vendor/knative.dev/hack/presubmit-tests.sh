@@ -138,42 +138,18 @@ function default_build_test_runner() {
   [[ -z "${go_pkg_dirs}" ]] && return ${failed}
   # Ensure all the code builds
   subheader "Checking that go code builds"
-  local report
-  report="$(mktemp)"
-  local errors_go1=""
-  local errors_go2=""
-  if ! capture_output "${report}" go build -v ./... ; then
-    failed=1
-    # Consider an error message everything that's not a package name.
-    errors_go1="$(grep -v '^\(github\.com\|knative\.dev\)/' "${report}" | sort | uniq)"
-  fi
   # Get all build tags in go code (ignore /vendor, /hack and /third_party)
   local tags
-  tags="$(grep -r '// +build' . \
-    | grep -v '^./vendor/' | grep -v '^./hack/' | grep -v '^./third_party' \
-    | cut -f3 -d' ' | tr ',' '\n' | sort | uniq | tr '\n' ' ')"
-  local tagged_pkgs
-  tagged_pkgs="$(grep -r '// +build' . \
-    | grep -v '^./vendor/' | grep -v '^./hack/' | grep -v '^./third_party' \
-    | grep ":// +build " | cut -f1 -d: | xargs dirname \
-    | sort | uniq | tr '\n' ' ')"
-  for pkg in ${tagged_pkgs}; do
-    # `go test -c` lets us compile the tests but do not run them.
-    if ! capture_output "${report}" go test -c -tags="${tags}" "${pkg}" ; then
-      failed=1
-      # Consider an error message everything that's not a successful test result.
-      errors_go2+="$(grep -v '^\(ok\|\?\)\s\+\(github\.com\|knative\.dev\)/' "${report}")"
-    fi
-    # Remove unused generated binary, if any.
-    rm -f e2e.test
-  done
+  tags="$(find . \
+    -path './vendor' -prune -o -path './hack' -prune -o -path './third_party' -prune \
+    -o -type f -name '*.go' -exec grep '// +build' {} + \
+    | cut -f3 -d' ' | tr ',' '\n' | uniq | sort | tr '\n' ' ')"
+  report_build_test Build_Go \
+    go test -vet=off -tags "${tags}" -exec echo ./... || failed=2
 
-  local errors_go
-  errors_go="$(echo -e "${errors_go1}\n${errors_go2}" | uniq)"
-  create_junit_xml _build_tests Build_Go "${errors_go}"
   # Check that we don't have any forbidden licenses in our images.
   subheader "Checking for forbidden licenses"
-  report_build_test Check_Licenses check_licenses || failed=1
+  report_build_test Check_Licenses check_licenses || failed=3
   return ${failed}
 }
 
