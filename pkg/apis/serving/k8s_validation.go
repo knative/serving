@@ -116,13 +116,13 @@ func shouldAllowPersistentVolumeClaims(volume corev1.VolumeSource, features *con
 		return nil
 	}
 	if features.PodSpecPersistentVolumeClaim != config.Enabled {
-		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("Persistent volumes claims support is disabled, "+
-			"but found Persistent Volume Claim %s", volume.PersistentVolumeClaim.ClaimName)})
+		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("Persistent volume claim support is disabled, "+
+			"but found persistent volume claim %s", volume.PersistentVolumeClaim.ClaimName)})
 	}
 	isWriteEnabled := features.PodSpecPersistentVolumeWrite == config.Enabled
 	if !volume.PersistentVolumeClaim.ReadOnly && !isWriteEnabled {
-		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("Persistent volumes write support is disabled, "+
-			"but found Persistent Volume Claim %s that is not read-only", volume.PersistentVolumeClaim.ClaimName)})
+		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("Persistent volume write support is disabled, "+
+			"but found persistent volume claim %s that is not read-only", volume.PersistentVolumeClaim.ClaimName)})
 	}
 
 	return errs

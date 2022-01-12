@@ -489,7 +489,7 @@ func TestPodSpecValidation(t *testing.T) {
 			}},
 		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
 		want: &apis.FieldError{
-			Message: `Persistent volumes write support is disabled, but found Persistent Volume Claim myclaim that is not read-only`,
+			Message: `Persistent volume write support is disabled, but found persistent volume claim myclaim that is not read-only`,
 		},
 	}, {
 		name: "PVC not read-only, mount not read-only, write disabled by default",
@@ -513,7 +513,7 @@ func TestPodSpecValidation(t *testing.T) {
 			}},
 		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
 		want: &apis.FieldError{
-			Message: `Persistent volumes write support is disabled, but found Persistent Volume Claim myclaim that is not read-only`,
+			Message: `Persistent volume write support is disabled, but found persistent volume claim myclaim that is not read-only`,
 		},
 	}, {
 		name: "PVC read-only, mount not read-only, write disabled by default",
