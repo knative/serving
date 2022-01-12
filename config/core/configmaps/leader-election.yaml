@@ -25,6 +25,9 @@ metadata:
   annotations:
     knative.dev/example-checksum: "f7948630"
 data:
+  lease-duration: "60s"
+  renew-deadline: "40s"
+  retry-period: "10s"
   _example: |
     ################################
     #                              #
