@@ -467,7 +467,7 @@ func TestPodSpecValidation(t *testing.T) {
 			Message: `duplicate container name "the-name"`,
 			Paths:   []string{"name"},
 		}).ViaFieldIndex("containers", 1),
-	},  {
+	}, {
 		name: "PVC not read-only, mount read-only, write disabled by default",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
@@ -2245,7 +2245,7 @@ func TestVolumeValidation(t *testing.T) {
 		want:    apis.ErrInvalidValue(-1, "emptyDir.sizeLimit"),
 		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled()},
 	}, {
-		name: "valid PVC with PVC enabled",
+		name: "valid PVC with PVC feature enabled",
 		v: corev1.Volume{
 			Name: "foo",
 			VolumeSource: corev1.VolumeSource{
@@ -2257,7 +2257,7 @@ func TestVolumeValidation(t *testing.T) {
 		},
 		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
 	}, {
-		name: "disabled PVC with valid PVC",
+		name: "valid PVC with PVC feature disabled",
 		v: corev1.Volume{
 			Name: "foo",
 			VolumeSource: corev1.VolumeSource{
