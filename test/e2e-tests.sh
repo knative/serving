@@ -139,7 +139,7 @@ go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} || failed=1
 #   toggle_feature autoTLS Disabled config-network
 # fi
 
-# (( failed )) && fail_test
+(( failed )) && fail_test
 
 # Remove the kail log file if the test flow passes.
 # This is for preventing too many large log files to be uploaded to GCS in CI.
