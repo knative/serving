@@ -91,7 +91,7 @@ func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes set
 			errs = errs.Also((&apis.FieldError{Message: fmt.Sprintf("EmptyDir volume support is disabled, "+
 				"but found EmptyDir volume %s", volume.Name)}).ViaIndex(i))
 		}
-		errs = errs.Also(shouldAllowPersistentVolumeClaims(volume.VolumeSource, features).ViaIndex(i))
+		errs = errs.Also(validatePersistentVolumeClaims(volume.VolumeSource, features).ViaIndex(i))
 		if _, ok := volumes[volume.Name]; ok {
 			errs = errs.Also((&apis.FieldError{
 				Message: fmt.Sprintf("duplicate volume name %q", volume.Name),
@@ -110,7 +110,7 @@ func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes set
 	return volumes, errs
 }
 
-func shouldAllowPersistentVolumeClaims(volume corev1.VolumeSource, features *config.Features) *apis.FieldError {
+func validatePersistentVolumeClaims(volume corev1.VolumeSource, features *config.Features) *apis.FieldError {
 	var errs *apis.FieldError
 	if volume.PersistentVolumeClaim == nil {
 		return nil
@@ -173,7 +173,7 @@ func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError 
 			fieldPaths = append(fieldPaths, "emptyDir")
 		}
 		if cfg.Features.PodSpecPersistentVolumeClaim == config.Enabled {
-			fieldPaths = append(fieldPaths, "persistenVolumeClaim")
+			fieldPaths = append(fieldPaths, "persistentVolumeClaim")
 		}
 		errs = errs.Also(apis.ErrMissingOneOf(fieldPaths...))
 	} else if len(specified) > 1 {
