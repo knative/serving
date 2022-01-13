@@ -45,6 +45,7 @@ var ctors = []injection.ControllerConstructor{
 }
 
 func main() {
-	ctx := sharedmain.WithHADisabled(signals.NewContext())
+	ctx := signals.NewContext()
+	// ctx := sharedmain.WithHADisabled(ctx)
 	sharedmain.MainWithContext(ctx, "controller", ctors...)
 }
