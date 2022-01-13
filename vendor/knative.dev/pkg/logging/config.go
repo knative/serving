@@ -100,7 +100,7 @@ func NewLoggerFromConfig(config *Config, name string, opts ...zap.Option) (*zap.
 	log := zapr.NewLogger(logger.Named("klog").Desugar())
 	klog.SetLogger(log)
 	var klogLevel klog.Level
-	klogLevel.Set("10")
+	klogLevel.Set("8")
 
 	for i := 0; i < 20; i++ {
 		klog.V(klog.Level(i)).Info(i)
