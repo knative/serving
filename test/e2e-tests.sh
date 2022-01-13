@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+set -x 
 # Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,7 +33,7 @@ source $(dirname $0)/e2e-common.sh
 # Skip installing istio as an add-on.
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
-initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.21 "$@"
+initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --cluster-version=1.21 "$@"
 
 # Run the tests
 header "Running tests"
@@ -139,11 +140,11 @@ go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} || failed=1
 #   toggle_feature autoTLS Disabled config-network
 # fi
 
-(( failed )) && fail_test
+# (( failed )) && fail_test
 
 # Remove the kail log file if the test flow passes.
 # This is for preventing too many large log files to be uploaded to GCS in CI.
-rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
+# rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
 
 # header "Collecting performance data"
 

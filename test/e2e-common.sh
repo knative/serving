@@ -276,10 +276,10 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/mesh")
   fi
 
-  # if (( ENABLE_HA )); then
-  #   YTT_FILES+=("${E2E_YAML_DIR}/test/config/chaosduck/chaosduck.yaml")
-  #   YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ha")
-  # fi
+  if (( ENABLE_HA )); then
+    YTT_FILES+=("${E2E_YAML_DIR}/test/config/chaosduck/chaosduck.yaml")
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ha")
+  fi
 
   if (( KIND )); then
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/core")
