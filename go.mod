@@ -35,10 +35,11 @@ require (
 	k8s.io/apimachinery v0.22.5
 	k8s.io/client-go v0.22.5
 	k8s.io/code-generator v0.22.5
+	k8s.io/klog v1.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c
-	knative.dev/caching v0.0.0-20220111134414-669d362b44c5
+	knative.dev/caching v0.0.0-20220113145613-9df2c0c8a931
 	knative.dev/hack v0.0.0-20220111151514-59b0cf17578e
-	knative.dev/networking v0.0.0-20220107020122-0dbedcd88acf
-	knative.dev/pkg v0.0.0-20220111210214-785eb637f693
+	knative.dev/networking v0.0.0-20220112013650-eac673fb5c49
+	knative.dev/pkg v0.0.0-20220113045912-c0e1594c2fb1
 	sigs.k8s.io/yaml v1.3.0
 )

@@ -99,18 +99,18 @@ func TestServingConfig(t *testing.T) {
 		name: "Default config",
 		want: &kle.Config{
 			Buckets:       1,
-			LeaseDuration: 15 * time.Second,
-			RenewDeadline: 10 * time.Second,
-			RetryPeriod:   2 * time.Second,
+			LeaseDuration: 1 * time.Minute,
+			RenewDeadline: 40 * time.Second,
+			RetryPeriod:   10 * time.Second,
 		},
 		data: actual,
 	}, {
 		name: "Example config",
 		want: &kle.Config{
 			Buckets:       1,
-			LeaseDuration: 15 * time.Second,
-			RenewDeadline: 10 * time.Second,
-			RetryPeriod:   2 * time.Second,
+			LeaseDuration: 1 * time.Minute,
+			RenewDeadline: 40 * time.Second,
+			RetryPeriod:   10 * time.Second,
 		},
 		data: example,
 	}} {

@@ -965,6 +965,7 @@ k8s.io/gengo/namer
 k8s.io/gengo/parser
 k8s.io/gengo/types
 # k8s.io/klog v1.0.0
+## explicit
 k8s.io/klog
 # k8s.io/klog/v2 v2.40.1
 k8s.io/klog/v2
@@ -986,7 +987,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20220111134414-669d362b44c5
+# knative.dev/caching v0.0.0-20220113145613-9df2c0c8a931
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1011,7 +1012,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20220107020122-0dbedcd88acf
+# knative.dev/networking v0.0.0-20220112013650-eac673fb5c49
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1041,7 +1042,7 @@ knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serve
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20220111210214-785eb637f693
+# knative.dev/pkg v0.0.0-20220113045912-c0e1594c2fb1
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
