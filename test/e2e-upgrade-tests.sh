@@ -40,9 +40,6 @@ function stage_test_resources() {
 # Script entry point.
 
 # Skip installing istio as an add-on.
-# Temporarily increasing the cluster size for serving tests to rule out
-# resource/eviction as causes of flakiness.
-# Pin to 1.20 since scale test is super flakey on 1.21
 initialize "$@" --skip-istio-addon  --min-nodes=4 --max-nodes=4 --cluster-version=1.21 \
   --install-latest-release
 
