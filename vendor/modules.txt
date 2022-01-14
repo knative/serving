@@ -970,6 +970,7 @@ k8s.io/gengo/types
 # k8s.io/klog v0.2.0
 k8s.io/klog
 # k8s.io/klog/v2 v2.40.1
+## explicit
 k8s.io/klog/v2
 # k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c
 ## explicit
