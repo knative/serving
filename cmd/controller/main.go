@@ -18,6 +18,7 @@ package main
 
 import (
 	// The set of controllers this controller process runs.
+	"k8s.io/klog/v2"
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/gc"
 	"knative.dev/serving/pkg/reconciler/labeler"
@@ -44,5 +45,7 @@ var ctors = []injection.ControllerConstructor{
 }
 
 func main() {
+	var klogLevel klog.Level
+	klogLevel.Set("6")
 	sharedmain.Main("controller", ctors...)
 }
