@@ -8,7 +8,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.6
-	github.com/google/go-containerregistry v0.8.1-0.20220114162153-10347fbd778c
+	github.com/google/go-containerregistry v0.8.1-0.20220114205711-890d5b362eb8
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20220114162153-10347fbd778c
 	github.com/google/gofuzz v1.2.0
 	github.com/gorilla/websocket v1.4.2
