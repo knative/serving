@@ -138,3 +138,27 @@ func (dk *defaultKeychain) Resolve(target Resource) (Authenticator, error) {
 		RegistryToken: cfg.RegistryToken,
 	}), nil
 }
+
+// Helper is a subset of the Docker credential helper credentials.Helper
+// interface used by NewKeychainFromHelper.
+//
+// See:
+// https://pkg.go.dev/github.com/docker/docker-credential-helpers/credentials#Helper
+type Helper interface {
+	Get(serverURL string) (string, string, error)
+}
+
+// NewKeychainFromHelper returns a Keychain based on a Docker credential helper
+// implementation that can Get username and password credentials for a given
+// server URL.
+func NewKeychainFromHelper(h Helper) Keychain { return wrapper{h} }
+
+type wrapper struct{ h Helper }
+
+func (w wrapper) Resolve(r Resource) (Authenticator, error) {
+	u, p, err := w.h.Get(r.String())
+	if err != nil {
+		return Anonymous, nil
+	}
+	return FromConfig(AuthConfig{Username: u, Password: p}), nil
+}
