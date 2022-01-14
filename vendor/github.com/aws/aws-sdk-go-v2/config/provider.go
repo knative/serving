@@ -162,6 +162,28 @@ func getCredentialsProvider(ctx context.Context, configs configs) (p aws.Credent
 	return
 }
 
+// credentialsCacheOptionsProvider is an interface for retrieving a function for setting
+// the aws.CredentialsCacheOptions.
+type credentialsCacheOptionsProvider interface {
+	getCredentialsCacheOptions(ctx context.Context) (func(*aws.CredentialsCacheOptions), bool, error)
+}
+
+// getCredentialsCacheOptionsProvider is an interface for retrieving a function for setting
+// the aws.CredentialsCacheOptions.
+func getCredentialsCacheOptionsProvider(ctx context.Context, configs configs) (
+	f func(*aws.CredentialsCacheOptions), found bool, err error,
+) {
+	for _, config := range configs {
+		if p, ok := config.(credentialsCacheOptionsProvider); ok {
+			f, found, err = p.getCredentialsCacheOptions(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
 // processCredentialOptions is an interface for retrieving a function for setting
 // the processcreds.Options.
 type processCredentialOptions interface {
@@ -328,6 +350,25 @@ func getEndpointResolver(ctx context.Context, configs configs) (f aws.EndpointRe
 	for _, c := range configs {
 		if p, ok := c.(endpointResolverProvider); ok {
 			f, found, err = p.getEndpointResolver(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
+// endpointResolverWithOptionsProvider is an interface for retrieving an aws.EndpointResolverWithOptions from a configuration source
+type endpointResolverWithOptionsProvider interface {
+	getEndpointResolverWithOptions(ctx context.Context) (aws.EndpointResolverWithOptions, bool, error)
+}
+
+// getEndpointResolver searches the provided config sources for a EndpointResolverFunc that can be used
+// to configure the aws.Config.EndpointResolver value.
+func getEndpointResolverWithOptions(ctx context.Context, configs configs) (f aws.EndpointResolverWithOptions, found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(endpointResolverWithOptionsProvider); ok {
+			f, found, err = p.getEndpointResolverWithOptions(ctx)
 			if err != nil || found {
 				break
 			}

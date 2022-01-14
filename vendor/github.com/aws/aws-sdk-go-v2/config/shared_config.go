@@ -64,10 +64,18 @@ const (
 
 	ec2MetadataServiceEndpointKey = "ec2_metadata_service_endpoint"
 
+	// Use DualStack Endpoint Resolution
+	useDualStackEndpoint = "use_dualstack_endpoint"
+
 	// DefaultSharedConfigProfile is the default profile to be used when
 	// loading configuration from the config files if another profile name
 	// is not provided.
 	DefaultSharedConfigProfile = `default`
+
+	// S3 Disable Multi-Region AccessPoints
+	s3DisableMultiRegionAccessPointsKey = `s3_disable_multiregion_access_points`
+
+	useFIPSEndpointKey = "use_fips_endpoint"
 )
 
 // defaultSharedConfigProfile allows for swapping the default profile for testing
@@ -167,6 +175,24 @@ type SharedConfig struct {
 	//
 	// ec2_metadata_service_endpoint=http://fd00:ec2::254
 	EC2IMDSEndpoint string
+
+	// Specifies if the S3 service should disable support for Multi-Region
+	// access-points
+	//
+	// s3_disable_multiregion_access_points=true
+	S3DisableMultiRegionAccessPoints *bool
+
+	// Specifies that SDK clients must resolve a dual-stack endpoint for
+	// services.
+	//
+	// use_dualstack_endpoint=true
+	UseDualStackEndpoint aws.DualStackEndpointState
+
+	// Specifies that SDK clients must resolve a FIPS endpoint for
+	// services.
+	//
+	// use_fips_endpoint=true
+	UseFIPSEndpoint aws.FIPSEndpointState
 }
 
 // GetS3UseARNRegion returns if the S3 service should allow ARNs to direct the region
@@ -186,6 +212,16 @@ func (c SharedConfig) GetEnableEndpointDiscovery(ctx context.Context) (value aws
 	}
 
 	return c.EnableEndpointDiscovery, true, nil
+}
+
+// GetS3DisableMultiRegionAccessPoints returns if the S3 service should disable support for Multi-Region
+// access-points.
+func (c SharedConfig) GetS3DisableMultiRegionAccessPoints(ctx context.Context) (value, ok bool, err error) {
+	if c.S3DisableMultiRegionAccessPoints == nil {
+		return false, false, nil
+	}
+
+	return *c.S3DisableMultiRegionAccessPoints, true, nil
 }
 
 // GetRegion returns the region for the profile if a region is set.
@@ -217,6 +253,26 @@ func (c SharedConfig) GetEC2IMDSEndpoint() (string, bool, error) {
 	}
 
 	return c.EC2IMDSEndpoint, true, nil
+}
+
+// GetUseDualStackEndpoint returns whether the service's dual-stack endpoint should be
+// used for requests.
+func (c SharedConfig) GetUseDualStackEndpoint(ctx context.Context) (value aws.DualStackEndpointState, found bool, err error) {
+	if c.UseDualStackEndpoint == aws.DualStackEndpointStateUnset {
+		return aws.DualStackEndpointStateUnset, false, nil
+	}
+
+	return c.UseDualStackEndpoint, true, nil
+}
+
+// GetUseFIPSEndpoint returns whether the service's FIPS endpoint should be
+// used for requests.
+func (c SharedConfig) GetUseFIPSEndpoint(ctx context.Context) (value aws.FIPSEndpointState, found bool, err error) {
+	if c.UseFIPSEndpoint == aws.FIPSEndpointStateUnset {
+		return aws.FIPSEndpointStateUnset, false, nil
+	}
+
+	return c.UseFIPSEndpoint, true, nil
 }
 
 // loadSharedConfigIgnoreNotExist is an alias for loadSharedConfig with the
@@ -762,6 +818,25 @@ func mergeSections(dst, src ini.Sections) error {
 			dstSection.UpdateSourceFile(s3UseARNRegionKey, srcSection.SourceFile[s3UseARNRegionKey])
 		}
 
+		if srcSection.Has(s3DisableMultiRegionAccessPointsKey) {
+			key := srcSection.String(s3DisableMultiRegionAccessPointsKey)
+			val, err := ini.NewStringValue(key)
+			if err != nil {
+				return fmt.Errorf("error merging s3DisableMultiRegionAccessPointsKey, %w", err)
+			}
+
+			if dstSection.Has(s3DisableMultiRegionAccessPointsKey) {
+				dstSection.Logs = append(dstSection.Logs,
+					fmt.Sprintf("For profile: %v, overriding %v value, defined in %v "+
+						"with a %v value found in a duplicate profile defined at file %v. \n",
+						sectionName, s3DisableMultiRegionAccessPointsKey, dstSection.SourceFile[s3DisableMultiRegionAccessPointsKey],
+						s3DisableMultiRegionAccessPointsKey, srcSection.SourceFile[s3DisableMultiRegionAccessPointsKey]))
+			}
+
+			dstSection.UpdateValue(s3DisableMultiRegionAccessPointsKey, val)
+			dstSection.UpdateSourceFile(s3DisableMultiRegionAccessPointsKey, srcSection.SourceFile[s3DisableMultiRegionAccessPointsKey])
+		}
+
 		// set srcSection on dst srcSection
 		dst = dst.SetSection(sectionName, dstSection)
 	}
@@ -906,11 +981,15 @@ func (c *SharedConfig) setFromIniSection(profile string, section ini.Section) er
 
 	updateEndpointDiscoveryType(&c.EnableEndpointDiscovery, section, enableEndpointDiscoveryKey)
 	updateBoolPtr(&c.S3UseARNRegion, section, s3UseARNRegionKey)
+	updateBoolPtr(&c.S3DisableMultiRegionAccessPoints, section, s3DisableMultiRegionAccessPointsKey)
 
 	if err := updateEC2MetadataServiceEndpointMode(&c.EC2IMDSEndpointMode, section, ec2MetadataServiceEndpointModeKey); err != nil {
 		return fmt.Errorf("failed to load %s from shared config, %v", ec2MetadataServiceEndpointModeKey, err)
 	}
 	updateString(&c.EC2IMDSEndpoint, section, ec2MetadataServiceEndpointKey)
+
+	updateUseDualStackEndpoint(&c.UseDualStackEndpoint, section, useDualStackEndpoint)
+	updateUseFIPSEndpoint(&c.UseFIPSEndpoint, section, useFIPSEndpointKey)
 
 	// Shared Credentials
 	creds := aws.Credentials{
@@ -1196,4 +1275,36 @@ func updateEndpointDiscoveryType(dst *aws.EndpointDiscoveryEnableState, section 
 	case strings.EqualFold(value, endpointDiscoveryAuto):
 		*dst = aws.EndpointDiscoveryAuto
 	}
+}
+
+// updateEndpointDiscoveryType will only update the dst with the value in the section, if
+// a valid key and corresponding EndpointDiscoveryType is found.
+func updateUseDualStackEndpoint(dst *aws.DualStackEndpointState, section ini.Section, key string) {
+	if !section.Has(key) {
+		return
+	}
+
+	if section.Bool(key) {
+		*dst = aws.DualStackEndpointStateEnabled
+	} else {
+		*dst = aws.DualStackEndpointStateDisabled
+	}
+
+	return
+}
+
+// updateEndpointDiscoveryType will only update the dst with the value in the section, if
+// a valid key and corresponding EndpointDiscoveryType is found.
+func updateUseFIPSEndpoint(dst *aws.FIPSEndpointState, section ini.Section, key string) {
+	if !section.Has(key) {
+		return
+	}
+
+	if section.Bool(key) {
+		*dst = aws.FIPSEndpointStateEnabled
+	} else {
+		*dst = aws.FIPSEndpointStateDisabled
+	}
+
+	return
 }
