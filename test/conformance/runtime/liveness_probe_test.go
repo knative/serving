@@ -21,6 +21,9 @@ package runtime
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
@@ -29,8 +32,6 @@ import (
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/conformance/api/shared"
 	v1test "knative.dev/serving/test/v1"
-	"testing"
-	"time"
 )
 
 const livenessPath = "/healthz/liveness"
