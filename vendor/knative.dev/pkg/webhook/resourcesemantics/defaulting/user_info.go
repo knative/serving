@@ -19,8 +19,11 @@ package defaulting
 import (
 	"context"
 
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"knative.dev/pkg/apis"
 )
 
@@ -48,5 +51,35 @@ func setUserInfoAnnotations(ctx context.Context, resource apis.HasSpec, groupNam
 			annotations[groupName+apis.CreatorAnnotationSuffix] = ui.Username
 			annotations[groupName+apis.UpdaterAnnotationSuffix] = ui.Username
 		}
+		objectMetaAccessor.GetObjectMeta().SetAnnotations(annotations)
 	}
+}
+
+type unstructuredHasSpec struct {
+	*unstructured.Unstructured
+}
+
+func (us unstructuredHasSpec) GetObjectMeta() metav1.Object {
+	return us.Unstructured
+}
+
+var _ metav1.ObjectMetaAccessor = unstructuredHasSpec{}
+
+func (us unstructuredHasSpec) GetUntypedSpec() interface{} {
+	if s, ok := us.Unstructured.Object["spec"]; ok {
+		return s
+	}
+	return nil
+}
+
+func adaptUnstructuredHasSpecCtx(ctx context.Context, req *admissionv1.AdmissionRequest) context.Context {
+	if apis.IsInUpdate(ctx) {
+		b := apis.GetBaseline(ctx)
+		if apis.IsInStatusUpdate(ctx) {
+			ctx = apis.WithinSubResourceUpdate(ctx, unstructuredHasSpec{b.(*unstructured.Unstructured)}, req.SubResource)
+		} else {
+			ctx = apis.WithinUpdate(ctx, unstructuredHasSpec{b.(*unstructured.Unstructured)})
+		}
+	}
+	return ctx
 }
