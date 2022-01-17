@@ -1012,7 +1012,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20220112013650-eac673fb5c49
+# knative.dev/networking v0.0.0-20220117015928-52fb6ee37bf9
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1042,7 +1042,7 @@ knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serve
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20220113045912-c0e1594c2fb1
+# knative.dev/pkg v0.0.0-20220114141842-0a429cba1c73
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
