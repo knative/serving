@@ -2,7 +2,7 @@
 // +build e2e
 
 /*
-Copyright 2019 The Knative Authors
+Copyright 2022 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@ package runtime
 
 import (
 	"context"
-	"testing"
-
 	corev1 "k8s.io/api/core/v1"
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
@@ -31,6 +29,8 @@ import (
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/conformance/api/shared"
 	v1test "knative.dev/serving/test/v1"
+	"testing"
+	"time"
 )
 
 const livenessPath = "/healthz/liveness"
@@ -48,6 +48,7 @@ func TestLiveness(t *testing.T) {
 		// (e.g., "service-to-service-call-svc-cluster-local-uagkdshh-frkml-service" is too long.)
 		name    string
 		handler corev1.Handler
+		sleep   bool
 	}{{
 		name: "httpGet",
 		handler: corev1.Handler{
@@ -55,10 +56,17 @@ func TestLiveness(t *testing.T) {
 				Path: livenessPath,
 			},
 		},
+	}, {
+		name: "httpGetAfterFirstProbe",
+		handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: livenessPath,
+			},
+		},
+		sleep: true,
 	}}
 
 	for _, tc := range testCases {
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			names := test.ResourceNames{
@@ -72,16 +80,20 @@ func TestLiveness(t *testing.T) {
 			resources, err := v1test.CreateServiceReady(t, clients, &names,
 				v1opts.WithLivenessProbe(
 					&corev1.Probe{
-						Handler: tc.handler,
+						Handler:          tc.handler,
+						PeriodSeconds:    10,
+						FailureThreshold: 1,
 					}))
 			if err != nil {
 				t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 			}
 
-			// Once the service reports ready we should immediately be able to curl it.
+			// If true sleeping till the first kubelet probe check.
+			if tc.sleep {
+				time.Sleep(15 * time.Second)
+			}
 			url := resources.Route.Status.URL.URL()
 			url.Path = livenessPath
-			//time.Sleep(15*time.Second)
 			if _, err = pkgtest.CheckEndpointState(
 				context.Background(),
 				clients.KubeClient,
