@@ -35,6 +35,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -81,18 +82,18 @@ func dial(ctx *TestContext, host, domain string) (*grpc.ClientConn, error) {
 		}
 	}
 
-	secureOpt := grpc.WithInsecure()
+	creds := insecure.NewCredentials()
 	if test.ServingFlags.HTTPS {
 		tlsConfig := test.TLSClientConfig(context.Background(), ctx.t.Logf, ctx.clients)
 		// Set ServerName for pseudo hostname with TLS.
 		tlsConfig.ServerName = domain
-		secureOpt = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
+		creds = credentials.NewTLS(tlsConfig)
 	}
 
 	return grpc.Dial(
 		host,
 		grpc.WithAuthority(domain),
-		secureOpt,
+		grpc.WithTransportCredentials(creds),
 		// Retrying DNS errors to avoid .sslip.io issues.
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 	)
