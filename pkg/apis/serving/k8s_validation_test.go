@@ -2251,7 +2251,7 @@ func TestVolumeValidation(t *testing.T) {
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: "myclaim",
-					ReadOnly:  false,
+					ReadOnly:  true,
 				},
 			},
 		},
@@ -2266,7 +2266,12 @@ func TestVolumeValidation(t *testing.T) {
 					ReadOnly:  false,
 				},
 			}},
-		want: &apis.FieldError{Message: "must not set the field(s)", Paths: []string{"persistentVolumeClaim"}},
+		want: (&apis.FieldError{
+			Message: `Persistent volume claim support is disabled, but found persistent volume claim myclaim`,
+		}).Also(&apis.FieldError{
+			Message: `Persistent volume write support is disabled, but found persistent volume claim myclaim that is not read-only`,
+		}).Also(
+			&apis.FieldError{Message: "must not set the field(s)", Paths: []string{"persistentVolumeClaim"}}),
 	}, {
 		name: "no volume source",
 		v: corev1.Volume{

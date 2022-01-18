@@ -85,13 +85,7 @@ var (
 func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes sets.String) (map[string]corev1.Volume, *apis.FieldError) {
 	volumes := make(map[string]corev1.Volume, len(vs))
 	var errs *apis.FieldError
-	features := config.FromContextOrDefaults(ctx).Features
 	for i, volume := range vs {
-		if volume.EmptyDir != nil && features.PodSpecVolumesEmptyDir != config.Enabled {
-			errs = errs.Also((&apis.FieldError{Message: fmt.Sprintf("EmptyDir volume support is disabled, "+
-				"but found EmptyDir volume %s", volume.Name)}).ViaIndex(i))
-		}
-		errs = errs.Also(validatePersistentVolumeClaims(volume.VolumeSource, features).ViaIndex(i))
 		if _, ok := volumes[volume.Name]; ok {
 			errs = errs.Also((&apis.FieldError{
 				Message: fmt.Sprintf("duplicate volume name %q", volume.Name),
@@ -124,18 +118,22 @@ func validatePersistentVolumeClaims(volume corev1.VolumeSource, features *config
 		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("Persistent volume write support is disabled, "+
 			"but found persistent volume claim %s that is not read-only", volume.PersistentVolumeClaim.ClaimName)})
 	}
-
 	return errs
 }
 
 func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError {
-	errs := apis.CheckDisallowedFields(volume, *VolumeMask(ctx, &volume))
+	features := config.FromContextOrDefaults(ctx).Features
+	errs := validatePersistentVolumeClaims(volume.VolumeSource, features)
+	if volume.EmptyDir != nil && features.PodSpecVolumesEmptyDir != config.Enabled {
+		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("EmptyDir volume support is disabled, "+
+			"but found EmptyDir volume %s", volume.Name)})
+	}
+	errs = errs.Also(apis.CheckDisallowedFields(volume, *VolumeMask(ctx, &volume)))
 	if volume.Name == "" {
 		errs = apis.ErrMissingField("name")
 	} else if len(validation.IsDNS1123Label(volume.Name)) != 0 {
 		errs = apis.ErrInvalidValue(volume.Name, "name")
 	}
-
 	vs := volume.VolumeSource
 	errs = errs.Also(apis.CheckDisallowedFields(vs, *VolumeSourceMask(ctx, &vs)))
 	var specified []string
