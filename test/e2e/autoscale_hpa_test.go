@@ -94,6 +94,7 @@ func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
 				autoscaling.MetricAnnotationKey:   metric,
 				autoscaling.TargetAnnotationKey:   strconv.Itoa(target),
 				autoscaling.MaxScaleAnnotationKey: fmt.Sprintf("%d", int(maxPods)),
+				autoscaling.WindowAnnotationKey:   "20s",
 			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("30m"),
@@ -253,7 +254,7 @@ func waitForHPAState(t *testing.T, name, namespace string, clients *test.Clients
 			return false, err
 		}
 		if hpa.Status.CurrentMetrics == nil {
-			t.Logf("Waiting for hpa.status is available: %v", hpa.Status)
+			t.Logf("Waiting for hpa.status is available: %#v", hpa.Status)
 			return false, nil
 		}
 		return true, nil
