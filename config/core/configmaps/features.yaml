@@ -23,7 +23,7 @@ metadata:
     app.kubernetes.io/version: devel
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "2897f625"
+    knative.dev/example-checksum: "d9e300ba"
 data:
   _example: |-
     ################################
@@ -149,3 +149,13 @@ data:
     # 1. Enabled: enabling init containers support
     # 2. Disabled: disabling init containers support
     kubernetes.podspec-init-containers: "disabled"
+
+    # Controls whether persistent volume claim support is enabled or not.
+    # 1. Enabled: enabling persistent volume claim support
+    # 2. Disabled: disabling persistent volume claim support
+    kubernetes.podspec-persistent-volume-claim: "disabled"
+
+    # Controls whether write access for persistent volumes is enabled or not.
+    # 1. Enabled: enabling write access for persistent volumes
+    # 2. Disabled: disabling write access for persistent volumes
+    kubernetes.podspec-persistent-volume-write: "disabled"

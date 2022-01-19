@@ -655,6 +655,30 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/first-reconcile",
 		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{PodSpecInitContainers: defaultconfig.Enabled}}),
+	}, {
+		Name: "first revision reconciliation with PVC, PVC enabled",
+		// Test the simplest successful reconciliation flow.
+		// We feed in a well formed Revision where none of its sub-resources exist,
+		// and we expect it to create them and initialize the Revision's status.
+		Objects: []runtime.Object{
+			Revision("foo", "first-reconcile", WithRevisionPVC()),
+		},
+		WantCreates: []runtime.Object{
+			// The first reconciliation of a Revision creates the following resources.
+			pa("foo", "first-reconcile"),
+			deploy(t, "foo", "first-reconcile", WithRevisionPVC()),
+			image("foo", "first-reconcile")},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Revision("foo", "first-reconcile",
+				// The first reconciliation Populates the following status properties.
+				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
+				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1), WithRevisionPVC()),
+		}},
+		Key: "foo/first-reconcile",
+		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{
+			PodSpecPersistentVolumeClaim: defaultconfig.Enabled,
+			PodSpecPersistentVolumeWrite: defaultconfig.Enabled,
+		}}),
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, _ configmap.Watcher) controller.Reconciler {
