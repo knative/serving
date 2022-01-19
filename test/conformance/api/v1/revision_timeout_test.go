@@ -76,13 +76,12 @@ func TestRevisionTimeout(t *testing.T) {
 	clients := test.Setup(t)
 
 	testCases := []struct {
-		name               string
-		timeoutSeconds     int64
-		maxDurationSeconds int64
-		initialSleep       time.Duration
-		sleep              time.Duration
-		expectedStatus     int
-		expectedBody       string
+		name           string
+		timeoutSeconds int64
+		initialSleep   time.Duration
+		sleep          time.Duration
+		expectedStatus int
+		expectedBody   string
 	}{{
 		name:           "does not exceed timeout seconds",
 		timeoutSeconds: 10,
