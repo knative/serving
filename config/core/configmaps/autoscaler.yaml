@@ -23,7 +23,7 @@ metadata:
     app.kubernetes.io/version: devel
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "b4401cf4"
+    knative.dev/example-checksum: "16af78ce"
 data:
   _example: |
     ################################
@@ -165,8 +165,8 @@ data:
     scale-to-zero-pod-retention-period: "0s"
 
     # pod-autoscaler-class specifies the default pod autoscaler class
-    # that should be used if none is specified. If omitted, the Knative
-    # Horizontal Pod Autoscaler (KPA) is used by default.
+    # that should be used if none is specified. If omitted,
+    # the Knative Pod Autoscaler (KPA) is used by default.
     pod-autoscaler-class: "kpa.autoscaling.knative.dev"
 
     # The capacity of a single activator task.
