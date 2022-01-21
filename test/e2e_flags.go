@@ -103,13 +103,15 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 func (f *ServingEnvironmentFlags) RequestHeader() http.Header {
 	header := make(http.Header)
 
-	headers := strings.Split(f.RequestHeaders, ",")
-	if len(headers)%2 != 0 {
-		panic("incorrect input of request headers: " + f.RequestHeaders)
-	}
+	if f.RequestHeaders != "" {
+		headers := strings.Split(f.RequestHeaders, ",")
+		if len(headers)%2 != 0 {
+			panic("incorrect input of request headers: " + f.RequestHeaders)
+		}
 
-	for i := 0; i < len(headers); i += 2 {
-		header.Add(headers[i], headers[i+1])
+		for i := 0; i < len(headers); i += 2 {
+			header.Add(headers[i], headers[i+1])
+		}
 	}
 
 	return header
