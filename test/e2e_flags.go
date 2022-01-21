@@ -93,12 +93,13 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 			"You service is set with 300 MB memory limit and shoud return a non-200 response when consuming such amount of memory.")
 
 	flag.StringVar(&f.RequestHeaders, "request-headers", "",
-		"Set this flag to set extra HTTP request headers sent to the testing service. "+
+		"Set this flag to add extra HTTP request headers sent to the testing service. "+
 			"Format: -request-headers=key1,value1,key2,value2")
 
 	return &f
 }
 
+// RequestHeader returns a http.Header object including key-value header pairs passed via testing flag.
 func (f *ServingEnvironmentFlags) RequestHeader() http.Header {
 	header := make(http.Header)
 
