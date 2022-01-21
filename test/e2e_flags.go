@@ -21,6 +21,8 @@ package test
 
 import (
 	"flag"
+	"net/http"
+	"strings"
 
 	// Load the generic flags of knative.dev/pkg too.
 	_ "knative.dev/pkg/test"
@@ -44,6 +46,7 @@ type ServingEnvironmentFlags struct {
 	AltTestNamespace         string // Alternative namespace for running cross-namespace tests in
 	TLSTestNamespace         string // Namespace for Serving TLS tests
 	ExceedingMemoryLimitSize int    // Memory size used to trigger a non-200 response when the service is set with 300MB memory limit.
+	RequestHeadersString     string
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -89,5 +92,19 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 		"Set this flag to the MB of memory consumed by your service in resource limit tests. "+
 			"You service is set with 300 MB memory limit and shoud return a non-200 response when consuming such amount of memory.")
 
+	flag.StringVar(&f.RequestHeadersString, "request-headers", "",
+		"Set this flag to change the namespace for running TLS tests.")
+
 	return &f
+}
+
+func (f *ServingEnvironmentFlags) RequestHeader() http.Header {
+	header := make(http.Header)
+
+	headers := strings.Split(f.RequestHeadersString, ",")
+	for i := 0; i < len(headers); i += 2 {
+		header.Add(headers[i], headers[i+1])
+	}
+
+	return header
 }

@@ -480,7 +480,8 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 		spoof.MatchesAllOf(spoof.IsStatusOK, isJWT),
 		"CheckEndpointToServeTheToken",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+		spoof.WithHeader(test.ServingFlags.RequestHeader())); err != nil {
 		t.Error(err)
 	}
 }

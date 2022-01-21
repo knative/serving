@@ -108,6 +108,7 @@ type manager struct {
 	m                sync.RWMutex
 	probes           map[*url.URL]Prober
 	transportOptions []spoof.TransportOption
+	requestOptions   []spoof.RequestOption
 }
 
 var _ ProberManager = (*manager)(nil)
@@ -148,6 +149,9 @@ func (m *manager) Spawn(url *url.URL) Prober {
 		req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 		if err != nil {
 			return fmt.Errorf("failed to generate request: %w", err)
+		}
+		for _, o := range m.requestOptions {
+			o(req)
 		}
 
 		// We keep polling the domain and accumulate success rates
@@ -212,18 +216,28 @@ func (m *manager) Foreach(f func(url *url.URL, p Prober)) {
 }
 
 // NewProberManager creates a new manager for probes.
-func NewProberManager(logf logging.FormatLogger, clients *Clients, minProbes int64, opts ...spoof.TransportOption) ProberManager {
-	return &manager{
+func NewProberManager(logf logging.FormatLogger, clients *Clients, minProbes int64, opts ...interface{}) ProberManager {
+	m := manager{
 		logf:             logf,
 		clients:          clients,
 		minProbes:        minProbes,
 		probes:           make(map[*url.URL]Prober),
-		transportOptions: opts,
+		transportOptions: []spoof.TransportOption{},
+		requestOptions:   []spoof.RequestOption{},
 	}
+	for _, opt := range opts {
+		switch o := opt.(type) {
+		case spoof.RequestOption:
+			m.requestOptions = append(m.requestOptions, o)
+		case spoof.TransportOption:
+			m.transportOptions = append(m.transportOptions, o)
+		}
+	}
+	return &m
 }
 
 // RunRouteProber starts a single Prober of the given domain.
-func RunRouteProber(logf logging.FormatLogger, clients *Clients, url *url.URL, opts ...spoof.TransportOption) Prober {
+func RunRouteProber(logf logging.FormatLogger, clients *Clients, url *url.URL, opts ...interface{}) Prober {
 	// Default to 10 probes
 	pm := NewProberManager(logf, clients, 10, opts...)
 	pm.Spawn(url)
