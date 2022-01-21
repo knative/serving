@@ -16,11 +16,10 @@ limitations under the License.
 package registry
 
 import (
-	"context"
 	"time"
 )
 
-const secureScheme = "https://"
-
-var defaultTimeOut = time.Duration(30) * time.Second
-var OAuthHTTPContext = context.Background()
+const (
+	secureScheme   = "https://"
+	defaultTimeOut = time.Duration(30) * time.Second
+)
