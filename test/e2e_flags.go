@@ -46,7 +46,7 @@ type ServingEnvironmentFlags struct {
 	AltTestNamespace         string // Alternative namespace for running cross-namespace tests in
 	TLSTestNamespace         string // Namespace for Serving TLS tests
 	ExceedingMemoryLimitSize int    // Memory size used to trigger a non-200 response when the service is set with 300MB memory limit.
-	RequestHeadersString     string
+	RequestHeaders           string //
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -92,8 +92,9 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 		"Set this flag to the MB of memory consumed by your service in resource limit tests. "+
 			"You service is set with 300 MB memory limit and shoud return a non-200 response when consuming such amount of memory.")
 
-	flag.StringVar(&f.RequestHeadersString, "request-headers", "",
-		"Set this flag to change the namespace for running TLS tests.")
+	flag.StringVar(&f.RequestHeaders, "request-headers", "",
+		"Set this flag to set extra HTTP request headers sent to the testing service. "+
+			"Format: -request-headers=key1,value1,key2,value2")
 
 	return &f
 }
@@ -101,7 +102,11 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 func (f *ServingEnvironmentFlags) RequestHeader() http.Header {
 	header := make(http.Header)
 
-	headers := strings.Split(f.RequestHeadersString, ",")
+	headers := strings.Split(f.RequestHeaders, ",")
+	if len(headers)%2 != 0 {
+		panic("incorrect input of request headers: " + f.RequestHeaders)
+	}
+
 	for i := 0; i < len(headers); i += 2 {
 		header.Add(headers[i], headers[i+1])
 	}
