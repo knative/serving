@@ -29,6 +29,9 @@
 # (e.g. --version v0.7.0). If this argument is not specified, the script will
 # run against the latest tagged version on the current branch.
 # shellcheck disable=SC1090
+
+git checkout 9073261f9
+
 source "$(dirname "${BASH_SOURCE[0]}")/e2e-common.sh"
 
 # Overrides
