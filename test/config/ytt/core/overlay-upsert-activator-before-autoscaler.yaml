@@ -1,0 +1,18 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("helpers.lib.yaml", "system_resource")
+
+#@overlay/match by=system_resource(name="activator"), expects="1+"
+---
+#@overlay/match-child-defaults missing_ok=True
+metadata:
+  annotations:
+    kapp.k14s.io/change-group: "activator"
+    kapp.k14s.io/change-rule: "upsert after upserting autoscaler"
+
+#@overlay/match by=system_resource(name="autoscaler"), expects="1+"
+---
+#@overlay/match-child-defaults missing_ok=True
+metadata:
+  annotations:
+    kapp.k14s.io/change-group: "autoscaler"
+

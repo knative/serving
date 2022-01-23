@@ -27,6 +27,10 @@ spec:
     matchLabels:
       app: activator
       role: activator
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
   template:
     metadata:
       annotations:

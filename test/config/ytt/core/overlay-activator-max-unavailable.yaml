@@ -1,0 +1,12 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+#@ load("helpers.lib.yaml", "system_resource")
+
+#@overlay/match by=system_resource(name="activator", kind="Deployment"), expects=1
+---
+#@overlay/match-child-defaults missing_ok=True
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
