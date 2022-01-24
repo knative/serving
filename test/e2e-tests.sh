@@ -128,7 +128,9 @@ fi
 
 toggle_feature kubernetes.podspec-persistent-volume-claim Enabled
 toggle_feature kubernetes.podspec-persistent-volume-write Enabled
+toogle feature kubernetes.podspec-securitycontext Enabled
 go_test_e2e -timeout=5m ./test/e2e/pvc ${TEST_OPTIONS} || failed=1
+toogle feature kubernetes.podspec-securitycontext Disabled
 toggle_feature kubernetes.podspec-persistent-volume-write Disabled
 toggle_feature kubernetes.podspec-persistent-volume-claim Disabled
 

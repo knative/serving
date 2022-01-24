@@ -1,5 +1,4 @@
 //go:build e2e
-// +build e2e
 
 /*
 Copyright 2022 The Knative Authors
@@ -24,11 +23,17 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	. "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
+)
+
+const (
+	unprivilegedUserID = 65532
 )
 
 // TestPersistentVolumeClaims tests pvc support.
@@ -52,7 +57,12 @@ func TestPersistentVolumeClaims(t *testing.T) {
 		},
 	})
 
-	resources, err := v1test.CreateServiceReady(t, clients, &names, withVolume)
+	// make sure default user can access the written file
+	withPodSecurityContext := WithPodSecurityContext(corev1.PodSecurityContext{
+		FSGroup: ptr.Int64(unprivilegedUserID),
+	})
+
+	resources, err := v1test.CreateServiceReady(t, clients, &names, withVolume, withPodSecurityContext)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -69,5 +79,11 @@ func TestPersistentVolumeClaims(t *testing.T) {
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.EmptyDirText, err)
+	}
+}
+
+func WithPodSecurityContext(secCtx corev1.PodSecurityContext) ServiceOption {
+	return func(s *v1.Service) {
+		s.Spec.Template.Spec.SecurityContext = &secCtx
 	}
 }
