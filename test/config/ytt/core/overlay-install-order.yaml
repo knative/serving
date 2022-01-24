@@ -1,0 +1,34 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("helpers.lib.yaml", "system_deployment")
+
+#@overlay/match by=system_deployment(name="webhook"), expects="1+"
+---
+#@overlay/match-child-defaults missing_ok=True
+metadata:
+  annotations:
+    kapp.k14s.io/change-group: "webhook"
+
+#@overlay/match by=system_deployment(name="controller"), expects="1+"
+---
+#@overlay/match-child-defaults missing_ok=True
+metadata:
+  annotations:
+    kapp.k14s.io/change-group: "controller"
+    kapp.k14s.io/change-rule: "upsert after upserting webhook"
+
+#@overlay/match by=system_deployment(name="autoscaler"), expects="1+"
+---
+#@overlay/match-child-defaults missing_ok=True
+metadata:
+  annotations:
+    kapp.k14s.io/change-group: "autoscaler"
+    kapp.k14s.io/change-rule: "upsert after upserting webhook"
+
+#@overlay/match by=system_deployment(name="activator"), expects="1+"
+---
+#@overlay/match-child-defaults missing_ok=True
+metadata:
+  annotations:
+    kapp.k14s.io/change-group: "activator"
+    kapp.k14s.io/change-rule: "upsert after upserting autoscaler"
+

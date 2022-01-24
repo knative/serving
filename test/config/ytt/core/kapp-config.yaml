@@ -11,3 +11,27 @@ rebaseRules:
       matcher:
         emptyFieldMatcher:
           path: [aggregationRule]
+---
+apiVersion: kapp.k14s.io/v1alpha1
+kind: Config
+rebaseRules:
+- path: [spec, replicas]
+  type: copy
+  sources: [existing, new]
+  resourceMatchers:
+  - kindNamespaceNameMatcher:
+      kind: Deployment
+      namespace: knative-serving
+      name: activator
+---
+apiVersion: kapp.k14s.io/v1alpha1
+kind: Config
+rebaseRules:
+- path: [spec, replicas]
+  type: copy
+  sources: [existing, new]
+  resourceMatchers:
+  - kindNamespaceNameMatcher:
+      kind: Deployment
+      namespace: knative-serving
+      name: webhook
