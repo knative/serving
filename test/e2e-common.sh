@@ -55,6 +55,8 @@ export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
 readonly REPLICAS=3
 readonly BUCKETS=10
 
+export USE_DEFAULT_STORAGE=${USE_DEFAULT_STORAGE:-1}
+
 # Receives the latest serving version and searches for the same version with major and minor and searches for the latest patch
 function latest_net_istio_version() {
   local serving_version=$1

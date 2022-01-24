@@ -121,6 +121,21 @@ go_test_e2e -timeout=2m ./test/e2e/initcontainers ${TEST_OPTIONS} || failed=1
 toggle_feature kubernetes.podspec-init-containers Disabled
 toggle_feature kubernetes.podspec-volumes-emptydir Disabled
 
+# RUN PVC tests with default storage class if available.
+if (( USE_DEFAULT_STORAGE )) ; then
+  kubectl apply -f "${E2E_YAML_DIR}/test/config/pvc/pvc.yaml"
+fi
+
+toggle_feature kubernetes.podspec-persistent-volume-claim Enabled
+toggle_feature kubernetes.podspec-persistent-volume-write Enabled
+go_test_e2e -timeout=5m ./test/e2e/pvc ${TEST_OPTIONS} || failed=1
+toggle_feature kubernetes.podspec-persistent-volume-write Disabled
+toggle_feature kubernetes.podspec-persistent-volume-claim Disabled
+
+if (( USE_DEFAULT_STORAGE )) ; then
+  kubectl delete -f "${E2E_YAML_DIR}/test/config/pvc/pvc.yaml"
+fi
+
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
 toggle_feature autocreateClusterDomainClaims true config-network || fail_test
