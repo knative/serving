@@ -123,7 +123,7 @@ toggle_feature kubernetes.podspec-volumes-emptydir Disabled
 
 # RUN PVC tests with default storage class if available.
 if (( USE_DEFAULT_STORAGE )) ; then
-  kubectl apply -f "${E2E_YAML_DIR}/test/config/pvc/pvc.yaml"
+  kubectl apply -f "${E2E_YAML_DIR}/test/config/pvc/pvc.yaml" -n serving-tests
 fi
 
 toggle_feature kubernetes.podspec-persistent-volume-claim Enabled
@@ -133,7 +133,7 @@ toggle_feature kubernetes.podspec-persistent-volume-write Disabled
 toggle_feature kubernetes.podspec-persistent-volume-claim Disabled
 
 if (( USE_DEFAULT_STORAGE )) ; then
-  kubectl delete -f "${E2E_YAML_DIR}/test/config/pvc/pvc.yaml"
+  kubectl delete -f "${E2E_YAML_DIR}/test/config/pvc/pvc.yaml" -n serving-tests
 fi
 
 # Run HA tests separately as they're stopping core Knative Serving pods.
