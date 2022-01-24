@@ -48,7 +48,7 @@ func TestPersistentVolumeClaims(t *testing.T) {
 	withVolume := WithVolume("data", "/data", corev1.VolumeSource{
 		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 			ClaimName: "knative-pv-claim",
-			ReadOnly: false,
+			ReadOnly:  false,
 		},
 	})
 
