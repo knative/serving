@@ -31,7 +31,7 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-// TestPersistentVolumeClaims tests init containers support.
+// TestPersistentVolumeClaims tests pvc support.
 func TestPersistentVolumeClaims(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
