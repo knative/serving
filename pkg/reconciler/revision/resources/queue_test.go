@@ -724,7 +724,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 						}},
 					},
 				},
-				PeriodSeconds:    1,
+				PeriodSeconds:    0,
 				TimeoutSeconds:   0,
 				SuccessThreshold: 3,
 			}
