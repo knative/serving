@@ -86,7 +86,7 @@ var (
 					}},
 				},
 			},
-			PeriodSeconds: 1,
+			PeriodSeconds: 0,
 		},
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{

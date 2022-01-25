@@ -240,13 +240,6 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 				}},
 			},
 		}
-
-		// Default PeriodSeconds to 1 if not set to make for the quickest possible startup
-		// time.
-		// TODO(#10973): Remove this once we're on K8s 1.21
-		if httpProbe.PeriodSeconds == 0 {
-			httpProbe.PeriodSeconds = 1
-		}
 	}
 
 	c := &corev1.Container{
