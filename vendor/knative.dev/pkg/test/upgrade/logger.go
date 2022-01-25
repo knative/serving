@@ -46,15 +46,15 @@ func (c Configuration) logger(tb testing.TB) (*zap.SugaredLogger, error) {
 
 	testName := tb.Name()
 	testingTeeBees[testName] = tb
-	cfg := c.Config
+	cfg := c.logConfig().Config
 	outs := []string{fmt.Sprintf("%s://Log/%s", testingTScheme, testName)}
-	if len(cfg.OutputPaths) == 1 && cfg.OutputPaths[0] == "stdout" {
+	if isStandardOutputOnly(cfg.OutputPaths) {
 		cfg.OutputPaths = outs
 	} else {
 		cfg.OutputPaths = append(cfg.OutputPaths, outs...)
 	}
 	errOuts := []string{fmt.Sprintf("%s://Error/%s", testingTScheme, testName)}
-	if len(cfg.ErrorOutputPaths) == 1 && cfg.ErrorOutputPaths[0] == "stderr" {
+	if isStandardOutputOnly(cfg.ErrorOutputPaths) {
 		cfg.ErrorOutputPaths = errOuts
 	} else {
 		cfg.ErrorOutputPaths = append(cfg.ErrorOutputPaths, errOuts...)
@@ -78,7 +78,7 @@ func (c Configuration) logger(tb testing.TB) (*zap.SugaredLogger, error) {
 		return nil, err
 	}
 	var logger *zap.Logger
-	logger, err = cfg.Build(c.Options...)
+	logger, err = cfg.Build(c.logConfig().Options...)
 	if err != nil {
 		return nil, err
 	}
@@ -101,4 +101,10 @@ func (t sink) Sync() error {
 
 func (t sink) Close() error {
 	return nil
+}
+
+// isStandardOutputOnly checks the output paths and returns true, if they
+// contain only standard outputs.
+func isStandardOutputOnly(paths []string) bool {
+	return len(paths) == 1 && (paths[0] == "stderr" || paths[0] == "stdout")
 }

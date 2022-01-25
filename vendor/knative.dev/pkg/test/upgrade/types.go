@@ -123,13 +123,13 @@ type Configuration struct {
 	LogConfig
 }
 
-// TODO(mgencur): Remove when dependent repositories use LogConfig instead of Log.
-// This is for backwards compatibility.
 func (c Configuration) logConfig() LogConfig {
-	if c.Log != nil {
-		c.LogConfig = LogConfig{Config: zap.NewDevelopmentConfig()}
+	cfg := c.LogConfig
+	if cfg.Config == nil {
+		zc := zap.NewDevelopmentConfig()
+		cfg.Config = &zc
 	}
-	return c.LogConfig
+	return cfg
 }
 
 // LogConfig holds the logger configuration. It allows for passing just the
@@ -137,7 +137,7 @@ func (c Configuration) logConfig() LogConfig {
 // logger.
 type LogConfig struct {
 	// Config from which the zap.Logger be created.
-	Config zap.Config
+	Config *zap.Config
 	// Options holds options for the zap.Logger.
 	Options []zap.Option
 }
