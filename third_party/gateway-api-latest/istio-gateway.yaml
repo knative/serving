@@ -20,7 +20,7 @@ metadata:
   name: knative-local-gateway
   namespace: istio-system
   labels:
-    serving.knative.dev/release: "v20220121-a6f41410"
+    serving.knative.dev/release: "v20220125-1a7d3eb6"
     networking.knative.dev/ingress-provider: istio
     experimental.istio.io/disable-gateway-port-translation: "true"
 spec:
