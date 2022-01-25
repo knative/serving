@@ -8,7 +8,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220121-a248e38c"
+    app.kubernetes.io/version: "20220125-8253890e"
     serving.knative.dev/controller: "true"
 rules:
   - apiGroups: ["projectcontour.io"]
@@ -38,8 +38,8 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220121-a248e38c"
-    serving.knative.dev/release: "v20220121-a248e38c"
+    app.kubernetes.io/version: "20220125-8253890e"
+    serving.knative.dev/release: "v20220125-8253890e"
 data:
   _example: |
     ################################
@@ -105,14 +105,14 @@ spec:
         app: net-contour-controller
         app.kubernetes.io/component: net-contour
         app.kubernetes.io/name: knative-serving
-        app.kubernetes.io/version: "20220121-a248e38c"
+        app.kubernetes.io/version: "20220125-8253890e"
     spec:
       serviceAccountName: controller
       containers:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:28215f178dfac25985ecc6c54b41ad582c754f61f62b94a3c4eafed799423c30
+          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:38573c42f5f74cb1d3d2774bc986b96625dda71c8085069b40ae2b8d1f21a29f
           resources:
             requests:
               cpu: 40m
