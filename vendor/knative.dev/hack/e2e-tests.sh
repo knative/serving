@@ -179,10 +179,14 @@ function initialize() {
   (( IS_PROW )) && [[ -z "${GCP_PROJECT_ID:-}" ]] && IS_BOSKOS=1
 
   if [[ "${CLOUD_PROVIDER}" == "gke" ]]; then
+    # GKE 1.21 defaults to a vpc-native network mode, and we've been
+    # having issues with GKE 1.21 when running tests (#12545).
+    # Using the `no-enable-ip-alias` flag to default to pre 1.21
+    # behavior (i.e. using a routes-based network mode)
     if (( SKIP_ISTIO_ADDON )); then
-      custom_flags+=("--addons=NodeLocalDNS")
+      custom_flags+=("--addons=NodeLocalDNS --no-enable-ip-alias")
     else
-      custom_flags+=("--addons=Istio,NodeLocalDNS")
+      custom_flags+=("--addons=Istio,NodeLocalDNS --no-enable-ip-alias")
     fi
   fi
 
