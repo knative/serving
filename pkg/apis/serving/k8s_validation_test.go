@@ -1459,6 +1459,13 @@ func TestContainerValidation(t *testing.T) {
 			},
 			want: nil,
 		}, {
+			name: "valid with startup probe",
+			c: corev1.Container{
+				Image:        "foo",
+				StartupProbe: &corev1.Probe{},
+			},
+			want: nil,
+		}, {
 			name: "invalid with no handler",
 			c: corev1.Container{
 				Image: "foo",

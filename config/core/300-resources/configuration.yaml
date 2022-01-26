@@ -429,6 +429,77 @@ spec:
                                     type: integer
                                     format: int64
                                 x-kubernetes-preserve-unknown-fields: true
+                              startupProbe:
+                                description: 'StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod''s lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                                type: object
+                                properties:
+                                  exec:
+                                    description: One and only one of the following should be specified. Exec specifies the action to take.
+                                    type: object
+                                    properties:
+                                      command:
+                                        description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                                        type: array
+                                        items:
+                                          type: string
+                                  failureThreshold:
+                                    description: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1.
+                                    type: integer
+                                    format: int32
+                                  httpGet:
+                                    description: HTTPGet specifies the http request to perform.
+                                    type: object
+                                    properties:
+                                      host:
+                                        description: Host name to connect to, defaults to the pod IP. You probably want to set "Host" in httpHeaders instead.
+                                        type: string
+                                      httpHeaders:
+                                        description: Custom headers to set in the request. HTTP allows repeated headers.
+                                        type: array
+                                        items:
+                                          description: HTTPHeader describes a custom header to be used in HTTP probes
+                                          type: object
+                                          required:
+                                            - name
+                                            - value
+                                          properties:
+                                            name:
+                                              description: The header field name
+                                              type: string
+                                            value:
+                                              description: The header field value
+                                              type: string
+                                      path:
+                                        description: Path to access on the HTTP server.
+                                        type: string
+                                      scheme:
+                                        description: Scheme to use for connecting to the host. Defaults to HTTP.
+                                        type: string
+                                    x-kubernetes-preserve-unknown-fields: true
+                                  initialDelaySeconds:
+                                    description: 'Number of seconds after the container has started before liveness probes are initiated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                                    type: integer
+                                    format: int32
+                                  periodSeconds:
+                                    description: How often (in seconds) to perform the probe.
+                                    type: integer
+                                    format: int32
+                                  successThreshold:
+                                    description: Minimum consecutive successes for the probe to be considered successful after having failed. Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.
+                                    type: integer
+                                    format: int32
+                                  tcpSocket:
+                                    description: 'TCPSocket specifies an action involving a TCP port. TCP hooks not yet supported TODO: implement a realistic TCP lifecycle hook'
+                                    type: object
+                                    properties:
+                                      host:
+                                        description: 'Optional: Host name to connect to, defaults to the pod IP.'
+                                        type: string
+                                    x-kubernetes-preserve-unknown-fields: true
+                                  timeoutSeconds:
+                                    description: 'Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                                    type: integer
+                                    format: int32
                               terminationMessagePath:
                                 description: 'Optional: Path at which the file to which the container''s termination message will be written is mounted into the container''s filesystem. Message written is intended to be brief final status, such as an assertion failure message. Will be truncated by the node if greater than 4096 bytes. The total message length across all containers will be limited to 12kb. Defaults to /dev/termination-log. Cannot be updated.'
                                 type: string
