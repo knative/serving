@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2021 The Knative Authors
+# Copyright 2022 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # This script runs the end-to-end tests against Knative Serving built from source.
 # It is started by prow for each PR. For convenience, it can also be executed manually.
 
-# If you already have a Knative cluster setup and kubectl pointing
+# If you already have a Kubernetes cluster setup and kubectl pointing
 # to it, call this script with the --run-tests arguments and it will use
 # the cluster and run the tests.
 
@@ -30,7 +30,6 @@ source $(dirname $0)/../e2e-common.sh
 # Skip installing istio as an add-on.
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
-# Pin to 1.20 since scale test is super flakey on 1.21
 initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --perf --cluster-version=1.21 "$@"
 
 header "Updating cluster"
@@ -84,7 +83,7 @@ done
 #scale and measure
 kperf service scale --namespace kperf  --svc-prefix ktest --range 0,99  --verbose --output "${ARTIFACTS}/kperf"
 
-#kperf service clean --namespace kperf --svc-prefix ktest
+kperf service clean --namespace kperf --svc-prefix ktest
 
 # Remove the kail log file if the test flow passes.
 # This is for preventing too many large log files to be uploaded to GCS in CI.
