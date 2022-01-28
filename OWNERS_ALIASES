@@ -149,16 +149,16 @@ aliases:
   - efiturri
   - evankanderson
   - gerardo-lc
-  - joshua-bone
   - kvmware
   - shinigambit
-  - steuhs
   productivity-wg-leads:
   - chizhg
   productivity-writers:
+  - cardil
   - chaodaiG
   - chizhg
   - coryrc
+  - psschwei
   security-wg-leads:
   - evankanderson
   - julz
