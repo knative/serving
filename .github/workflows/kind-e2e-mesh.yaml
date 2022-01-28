@@ -168,6 +168,7 @@ jobs:
         source ./test/e2e-common.sh
 
         KIND=1
+        MESH=1
         INGRESS_CLASS="${{ matrix.kingress }}.ingress.networking.knative.dev"
         CLUSTER_DOMAIN="${{ matrix.cluster-suffix }}"
 
