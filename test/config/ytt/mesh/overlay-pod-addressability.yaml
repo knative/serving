@@ -7,3 +7,4 @@
 #@overlay/match-child-defaults missing_ok=True
 data:
   enable-mesh-pod-addressability: "true"
+  mesh-compatibility-mode: "disabled"
