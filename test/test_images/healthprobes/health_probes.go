@@ -22,6 +22,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -54,6 +55,8 @@ func main() {
 		}()
 	}
 
+	var livenessCounter int
+
 	http.HandleFunc("/healthz/readiness", func(w http.ResponseWriter, _ *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -67,8 +70,15 @@ func main() {
 	})
 
 	http.HandleFunc("/healthz/liveness", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, test.HelloWorldText)
+		mu.Lock()
+		defer mu.Unlock()
+
+		if !healthy {
+			http.Error(w, "not healthy", http.StatusInternalServerError)
+			return
+		}
+		livenessCounter = livenessCounter + 1
+		fmt.Fprint(w, test.LivenessText+strconv.Itoa(livenessCounter))
 	})
 
 	http.HandleFunc("/start-failing", func(w http.ResponseWriter, _ *http.Request) {
@@ -76,7 +86,7 @@ func main() {
 		defer mu.Unlock()
 
 		healthy = false
-		fmt.Fprint(w, "will now fail readiness")
+		fmt.Fprint(w, "will now fail readiness and liveness if configured")
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
