@@ -232,8 +232,6 @@ function knative_setup() {
   fi
 
   stage_test_resources
-
-  install "${INSTALL_SERVING_VERSION}" "${INSTALL_ISTIO_VERSION}"
 }
 
 # Installs Knative Serving in the current cluster.
