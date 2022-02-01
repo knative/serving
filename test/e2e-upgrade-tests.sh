@@ -49,7 +49,8 @@ TIMEOUT=30m
 
 header "Running upgrade tests"
 
-for i in  $(seq 1 1000); do
+for i in  $(seq 1 10); do
+  export TEST_PREFIX=$i
   install "${INSTALL_SERVING_VERSION}" "${INSTALL_ISTIO_VERSION}"
   go_test_e2e -tags=upgrade -timeout=${TIMEOUT} \
     ./test/upgrade \
