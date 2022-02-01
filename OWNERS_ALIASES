@@ -66,6 +66,7 @@ aliases:
   - pierDipi
   - vaikas
   knative-admin:
+  - carlisia
   - csantanapr
   - dprotaso
   - duglin
@@ -77,14 +78,14 @@ aliases:
   - knative-test-reporter-robot
   - lance
   - pmorie
-  - psschwei
   - rhuss
   - spencerdillard
   - thisisnotapril
   - vaikas
+  - xtreme-sameer-vohra
   knative-release-leads:
-  - dprotaso
-  - psschwei
+  - carlisia
+  - xtreme-sameer-vohra
   knative-robots:
   - knative-prow-releaser-robot
   - knative-prow-robot
