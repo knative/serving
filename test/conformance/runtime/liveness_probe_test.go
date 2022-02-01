@@ -21,6 +21,9 @@ package runtime
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
@@ -29,8 +32,6 @@ import (
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/conformance/api/shared"
 	v1test "knative.dev/serving/test/v1"
-	"testing"
-	"time"
 )
 
 const livenessPath = "/healthz/liveness"
@@ -99,7 +100,7 @@ func TestLiveness(t *testing.T) {
 				clients.KubeClient,
 				t.Logf,
 				url,
-				spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.LivenessText+"15")),
+				spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.LivenessText)),
 				"livenessIsReady",
 				test.ServingFlags.ResolvableDomain,
 				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
