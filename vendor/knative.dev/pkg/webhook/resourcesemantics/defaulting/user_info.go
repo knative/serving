@@ -27,6 +27,11 @@ import (
 	"knative.dev/pkg/apis"
 )
 
+var (
+	emptyGroupUpdaterAnnotation = apis.UpdaterAnnotationSuffix[1:]
+	emptyGroupCreatorAnnotation = apis.CreatorAnnotationSuffix[1:]
+)
+
 // setUserInfoAnnotations sets creator and updater annotations on a resource.
 func setUserInfoAnnotations(ctx context.Context, resource apis.HasSpec, groupName string) {
 	if ui := apis.GetUserInfo(ctx); ui != nil {
@@ -41,15 +46,22 @@ func setUserInfoAnnotations(ctx context.Context, resource apis.HasSpec, groupNam
 			objectMetaAccessor.GetObjectMeta().SetAnnotations(annotations)
 		}
 
+		updaterAnnotation := emptyGroupUpdaterAnnotation
+		creatorAnnotation := emptyGroupCreatorAnnotation
+		if groupName != "" {
+			updaterAnnotation = groupName + apis.UpdaterAnnotationSuffix
+			creatorAnnotation = groupName + apis.CreatorAnnotationSuffix
+		}
+
 		if apis.IsInUpdate(ctx) {
 			old := apis.GetBaseline(ctx).(apis.HasSpec)
 			if equality.Semantic.DeepEqual(old.GetUntypedSpec(), resource.GetUntypedSpec()) {
 				return
 			}
-			annotations[groupName+apis.UpdaterAnnotationSuffix] = ui.Username
+			annotations[updaterAnnotation] = ui.Username
 		} else {
-			annotations[groupName+apis.CreatorAnnotationSuffix] = ui.Username
-			annotations[groupName+apis.UpdaterAnnotationSuffix] = ui.Username
+			annotations[creatorAnnotation] = ui.Username
+			annotations[updaterAnnotation] = ui.Username
 		}
 		objectMetaAccessor.GetObjectMeta().SetAnnotations(annotations)
 	}
