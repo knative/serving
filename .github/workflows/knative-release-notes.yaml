@@ -21,13 +21,13 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch? (main)'
+        description: 'Branch'
         required: true
         default: 'main'
-      start-sha:
-        description: 'Starting SHA? (last tag on branch)'
-      end-sha:
-        description: 'Ending SHA? (latest HEAD)'
+      start-rev:
+        description: 'Start Tag (defaults to merge-base(branch, prev-branch))'
+      end-rev:
+        description: 'End Tag (defaults to HEAD of the target branch)'
 
 jobs:
   release-notes:
@@ -44,6 +44,7 @@ jobs:
           go-version: 1.17.x
 
       - name: Install Dependencies
+        # https://github.com/kubernetes/release/tree/master/cmd/release-notes
         run: go install k8s.io/release/cmd/release-notes@latest
 
       - name: Check out code
@@ -52,38 +53,45 @@ jobs:
           # fetch-depth of 0 indicates all history for all branches and tags.
           fetch-depth: 0
 
-      # Note: Defaults needs to run after we check out the repo.
-      - name: Defaults
-        run: |
-          echo ORG=$(echo '${{ github.repository }}' | awk -F '/' '{print $1}') >> $GITHUB_ENV
-          echo REPO=$(echo '${{ github.repository }}' | awk -F '/' '{print $2}') >> $GITHUB_ENV
-
-          echo "BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
-
-          if [[ "${{ github.event.inputs.start-sha }}" != "" ]]; then
-            echo "START_SHA=${{ github.event.inputs.start-sha }}" >> $GITHUB_ENV
-          else
-            # Default Starting SHA (thanks @dprotaso)
-            export semver=$(git describe --match "v[0-9]*" --abbrev=0)
-            echo "Using ${semver} tag for starting sha."
-            echo START_SHA=$(git rev-list -n 1 "${semver}") >> $GITHUB_ENV
-          fi
-
-          if [[ "${{ github.event.inputs.end-sha }}" != "" ]]; then
-            echo "END_SHA=${{ github.event.inputs.end-sha }}" >> $GITHUB_ENV
-          else
-            # Default Ending SHA (thanks @dprotaso)
-            echo "END_SHA=$(git rev-list -n 1 HEAD)" >> $GITHUB_ENV
-          fi
-
       - name: Generate Notes
         run: |
-          # See  https://github.com/kubernetes/release/tree/master/cmd/release-notes for options.
-          # Note: we are setting env vars in the Defaults step.
+          set -x
+          # The release-notes tool access ENV vars as options
+          # https://github.com/kubernetes/release/tree/master/cmd/release-notes#options
+
+          export ORG=$(echo '${{ github.repository }}' | awk -F '/' '{print $1}')
+          export REPO=$(echo '${{ github.repository }}' | awk -F '/' '{print $2}')
+          export BRANCH="${{ github.event.inputs.branch }}"
+
+          export START_REV=${{ github.event.inputs.start-rev }}
+          export END_REV=${{ github.event.inputs.end-rev }}
+
+          if [[ -z "$END_REV" ]]; then
+            END_REV="origin/$BRANCH"
+          fi
+
+          # If start rev isn't set find the merge base of
+          # the target branch and the previous branch
+          if [[ -z "$START_REV" ]]; then
+            BRANCHES=$(mktemp)
+            # List of branches sorted by semver descending
+            git branch -r -l "origin/release-[0-9]*\.[0-9]*" | sed 's/ //g' | sort -Vr > "$BRANCHES"
+
+            if [[ "$BRANCH" == "main" ]]; then
+              LAST_BRANCH="$(head -n1 "$BRANCHES")"
+            else
+              # use grep magic to find the next branch
+              # '-A 1' - prints the line after the match which we can parse
+              LAST_BRANCH="$(grep -A 1 "$BRANCH" "$BRANCHES" | tail -n1)"
+            fi
+
+            export START_SHA=$(git merge-base $LAST_BRANCH origin/$BRANCH)
+          fi
+
           release-notes \
-            --required-author "" \
-            --repo-path       "$(pwd)" \
-            --output          release-notes.md
+           --required-author="" \
+           --output=release-notes.md \
+           --repo-path="$PWD" \
 
       - name: Display Notes
         run: |
