@@ -40,10 +40,12 @@ type ServingEnvironmentFlags struct {
 	EnableBetaFeatures       bool   // Indicates whether we run tests for beta features
 	DisableLogStream         bool   // Indicates whether log streaming is disabled
 	DisableOptionalAPI       bool   // Indicates whether to skip conformance tests against optional API
+	SkipCleanupOnFail        bool   // Indicates whether to skip cleanup if test fails
 	TestNamespace            string // Default namespace for Serving E2E/Conformance tests
 	AltTestNamespace         string // Alternative namespace for running cross-namespace tests in
 	TLSTestNamespace         string // Namespace for Serving TLS tests
 	ExceedingMemoryLimitSize int    // Memory size used to trigger a non-200 response when the service is set with 300MB memory limit.
+
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -75,6 +77,8 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.BoolVar(&f.DisableOptionalAPI, "disable-optional-api", false,
 		"Set this flag to skip conformance tests against optional API.")
+
+	flag.BoolVar(&f.SkipCleanupOnFail, "skip-cleanup-on-fail", false, "Set this flag to skip cleanup if test fails.")
 
 	flag.StringVar(&f.TestNamespace, "test-namespace", "serving-tests",
 		"Set this flag to change the default namespace for running tests.")
