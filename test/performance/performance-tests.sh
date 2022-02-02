@@ -49,23 +49,23 @@ kubectl patch configmap/config-network -n "${SYSTEM_NAMESPACE}"\
 
 header "Running tests"
 
- function run_kperf() { 
-   run_go_tool knative.dev/kperf/cmd/kperf kperf "$@" 
- } 
+function run_kperf() {
+  run_go_tool knative.dev/kperf/cmd/kperf kperf "$@"
+}
 
 mkdir -p "${ARTIFACTS}/kperf"
 
 header "Running performance tests"
 export TIMEOUT=30m
 
-#  kperf options 
+#  kperf options
 #  -b, --batch int                 Number of Knative Service each time to be created
 #  -c, --concurrency int           Number of multiple Knative Services to make at a time (default 10)
 #  -i, --interval int              Interval for each batch generation
 #  -n, --number int                Total number of Knative Service to be created
 
 # create services
-run_kperf service generate -n 100 -b 30 -c 10 -i 15 --namespace kperf --svc-prefix ktest --wait --timeout 30s --max-scale 3 --min-scale 0
+run_kperf service generate -n 100 -b 30 -c 10 -i 15 --namespace kperf --svc-prefix ktest --wait --timeout 30s --max-scale 3 --min-scale 0 || fail_test "kperf service generate failed"
 
 # wait for scale to zero
 counter=100
@@ -76,9 +76,9 @@ do
 done
 
 #scale and measure
-run_kperf service scale --namespace kperf  --svc-prefix ktest --range 0,99  --verbose --output "${ARTIFACTS}/kperf"
+run_kperf service scale --namespace kperf  --svc-prefix ktest --range 0,99  --verbose --output "${ARTIFACTS}/kperf" || fail_test "kperf service scale failed"
 
-run_kperf service clean --namespace kperf --svc-prefix ktest
+run_kperf service clean --namespace kperf --svc-prefix ktest || fail_test "kperf service clean failed"
 
 # Remove the kail log file if the test flow passes.
 # This is for preventing too many large log files to be uploaded to GCS in CI.
