@@ -42,6 +42,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
 	"knative.dev/pkg/tracker"
+
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -52,6 +53,7 @@ import (
 
 	"knative.dev/pkg/client/injection/ducks/duck/v1/addressable"
 	. "knative.dev/pkg/reconciler/testing"
+
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing"
 )
@@ -217,7 +219,7 @@ func TestReconcile(t *testing.T) {
 				withInitDomainMappingConditions,
 				withTLSNotEnabled,
 				withDomainClaimed,
-				withReferenceNotResolved(`services.serving.knative.dev "target" not found`),
+				withReferenceNotResolved(`failed to get object default/target: services.serving.knative.dev "target" not found`),
 			),
 		}},
 		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
@@ -229,7 +231,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
-			Eventf(corev1.EventTypeWarning, "InternalError", `resolving reference: services.serving.knative.dev "target" not found`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `resolving reference: failed to get object default/target: services.serving.knative.dev "target" not found`),
 		},
 	}, {
 		Name: "first reconcile, ref has a path",

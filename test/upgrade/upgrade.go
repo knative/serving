@@ -40,15 +40,29 @@ import (
 )
 
 const (
+	byoServiceName = "byo-revision-name-upgrade-test"
+	byoRevName     = byoServiceName + "-" + "rev1"
+)
+
+var (
 	// These service names need to be stable, since we use them across
-	// multiple "go test" invocations.
-	serviceName              = "pizzaplanet-upgrade-service"
-	postUpgradeServiceName   = "pizzaplanet-post-upgrade-service"
-	postDowngradeServiceName = "pizzaplanet-post-downgrade-service"
-	scaleToZeroServiceName   = "scale-to-zero-upgrade-service"
-	byoServiceName           = "byo-revision-name-upgrade-test"
-	byoRevName               = byoServiceName + "-" + "rev1"
-	initialScaleServiceName  = "init-scale-service"
+	// multiple tests.
+	upgradeServiceNames = test.ResourceNames{
+		Service: "pizzaplanet-upgrade-service",
+		Image:   test.PizzaPlanet1,
+	}
+	scaleToZeroServiceNames = test.ResourceNames{
+		Service: "scale-to-zero-upgrade-service",
+		Image:   test.PizzaPlanet1,
+	}
+	byoServiceNames = test.ResourceNames{
+		Service: byoServiceName,
+		Image:   test.PizzaPlanet1,
+	}
+	initialScaleServiceNames = test.ResourceNames{
+		Service: "init-scale-service",
+		Image:   test.PizzaPlanet1,
+	}
 )
 
 // Shamelessly cribbed from conformance/service_test.
@@ -75,6 +89,7 @@ func createNewService(serviceName string, t *testing.T) {
 		Service: serviceName,
 		Image:   test.PizzaPlanet1,
 	}
+	test.EnsureTearDown(t, clients, &names)
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {

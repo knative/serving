@@ -225,15 +225,11 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 
 func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *network.RequestStats, logger *zap.SugaredLogger,
 	ce *queue.ConcurrencyEndpoint) (server *http.Server, drain func()) {
-	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
-	if env.ContainerConcurrency > 0 {
-		maxIdleConns = env.ContainerConcurrency
-	}
 
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 
 	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders)
-	httpProxy.Transport = buildTransport(env, logger, maxIdleConns)
+	httpProxy.Transport = buildTransport(env, logger)
 	httpProxy.ErrorHandler = pkghandler.Error(logger)
 	httpProxy.BufferPool = network.NewBufferPool()
 	httpProxy.FlushInterval = network.FlushInterval
@@ -294,9 +290,13 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler), drainer.Drain
 }
 
-func buildTransport(env config, logger *zap.SugaredLogger, maxConns int) http.RoundTripper {
+func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
+	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
+	if env.ContainerConcurrency > 0 {
+		maxIdleConns = env.ContainerConcurrency
+	}
 	// set max-idle and max-idle-per-host to same value since we're always proxying to the same host.
-	transport := pkgnet.NewProxyAutoTransport(maxConns /* max-idle */, maxConns /* max-idle-per-host */)
+	transport := pkgnet.NewProxyAutoTransport(maxIdleConns /* max-idle */, maxIdleConns /* max-idle-per-host */)
 
 	if env.TracingConfigBackend == tracingconfig.None {
 		return transport

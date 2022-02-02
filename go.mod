@@ -8,8 +8,8 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.6
-	github.com/google/go-containerregistry v0.8.1-0.20220114205711-890d5b362eb8
-	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20220114205711-890d5b362eb8
+	github.com/google/go-containerregistry v0.8.1-0.20220120151853-ac864e57b117
+	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20220120151853-ac864e57b117
 	github.com/google/gofuzz v1.2.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
@@ -27,7 +27,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11
-	google.golang.org/api v0.62.0
+	google.golang.org/api v0.63.0
 	google.golang.org/grpc v1.43.0
 	k8s.io/api v0.22.5
 	k8s.io/apiextensions-apiserver v0.22.5
@@ -36,9 +36,9 @@ require (
 	k8s.io/code-generator v0.22.5
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
-	knative.dev/caching v0.0.0-20220113145613-9df2c0c8a931
-	knative.dev/hack v0.0.0-20220111151514-59b0cf17578e
-	knative.dev/networking v0.0.0-20220117015928-52fb6ee37bf9
-	knative.dev/pkg v0.0.0-20220114141842-0a429cba1c73
+	knative.dev/caching v0.0.0-20220131155330-f91093f141e7
+	knative.dev/hack v0.0.0-20220201013531-82bfca153560
+	knative.dev/networking v0.0.0-20220131174231-d23a06807e6c
+	knative.dev/pkg v0.0.0-20220131144930-f4b57aef0006
 	sigs.k8s.io/yaml v1.3.0
 )

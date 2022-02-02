@@ -18,6 +18,8 @@ package credhelper
 import (
 	"errors"
 	"fmt"
+	"net/url"
+	"regexp"
 
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/registry"
@@ -25,7 +27,12 @@ import (
 	"github.com/docker/docker-credential-helpers/credentials"
 )
 
-const tokenUsername = "<token>"
+var acrRE = regexp.MustCompile(`.*\.azurecr\.io|.*\.azurecr\.cn|.*\.azurecr\.de|.*\.azurecr\.us`)
+
+const (
+	mcrHostname   = "mcr.microsoft.com"
+	tokenUsername = "<token>"
+)
 
 type ACRCredHelper struct {
 }
@@ -42,7 +49,26 @@ func (a ACRCredHelper) Delete(_ string) error {
 	return errors.New("list is unimplemented")
 }
 
+func isACRRegistry(input string) bool {
+	serverURL, err := url.Parse("https://" + input)
+	if err != nil {
+		return false
+	}
+	if serverURL.Hostname() == mcrHostname {
+		return true
+	}
+	matches := acrRE.FindStringSubmatch(serverURL.Hostname())
+	if len(matches) == 0 {
+		return false
+	}
+	return true
+}
+
 func (a ACRCredHelper) Get(serverURL string) (string, string, error) {
+	if !isACRRegistry(serverURL) {
+		return "", "", errors.New("serverURL does not refer to Azure Container Registry")
+	}
+
 	spToken, settings, err := token.GetServicePrincipalTokenFromEnvironment()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to acquire sp token %w", err)

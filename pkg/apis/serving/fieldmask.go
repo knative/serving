@@ -45,6 +45,10 @@ func VolumeMask(ctx context.Context, in *corev1.Volume) *corev1.Volume {
 		out.EmptyDir = in.EmptyDir
 	}
 
+	if cfg.Features.PodSpecPersistentVolumeClaim != config.Disabled {
+		out.PersistentVolumeClaim = in.PersistentVolumeClaim
+	}
+
 	return out
 }
 
@@ -65,6 +69,10 @@ func VolumeSourceMask(ctx context.Context, in *corev1.VolumeSource) *corev1.Volu
 
 	if cfg.Features.PodSpecVolumesEmptyDir != config.Disabled {
 		out.EmptyDir = in.EmptyDir
+	}
+
+	if cfg.Features.PodSpecPersistentVolumeClaim != config.Disabled {
+		out.PersistentVolumeClaim = in.PersistentVolumeClaim
 	}
 
 	// Too many disallowed fields to list

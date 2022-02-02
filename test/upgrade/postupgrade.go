@@ -58,18 +58,22 @@ func servicePostUpgrade(t *testing.T) {
 
 	// Before updating the service, the route and configuration objects should
 	// not be updated just because there has been an upgrade.
-	if hasGeneration, err := configHasGeneration(clients, serviceName, 1); err != nil {
+	if hasGeneration, err := configHasGeneration(clients, upgradeServiceNames.Service, 1); err != nil {
 		t.Fatal("Error comparing Configuration generation", err)
 	} else if !hasGeneration {
 		t.Fatal("Configuration is updated after an upgrade.")
 	}
-	if hasGeneration, err := routeHasGeneration(clients, serviceName, 1); err != nil {
+	if hasGeneration, err := routeHasGeneration(clients, upgradeServiceNames.Service, 1); err != nil {
 		t.Fatal("Error comparing Route generation", err)
 	} else if !hasGeneration {
 		t.Fatal("Route is updated after an upgrade.")
 	}
-
-	updateService(serviceName, t)
+	updateServiceAndCheck(t,
+		upgradeServiceNames.Service,
+		test.PizzaPlanet2,
+		test.PizzaPlanetText1,
+		test.PizzaPlanetText2,
+	)
 }
 
 func configHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
@@ -91,7 +95,13 @@ func routeHasGeneration(clients *test.Clients, serviceName string, generation in
 // ServicePostUpgradeFromScaleToZeroTest verifies a scaled-to-zero service after upgrade.
 func ServicePostUpgradeFromScaleToZeroTest() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("PostUpgradeFromScaleToZeroTest", func(c pkgupgrade.Context) {
-		updateService(scaleToZeroServiceName, c.T)
+		test.EnsureTearDown(c.T, e2e.Setup(c.T), &scaleToZeroServiceNames)
+		updateServiceAndCheck(c.T,
+			scaleToZeroServiceNames.Service,
+			test.PizzaPlanet2,
+			test.PizzaPlanetText1,
+			test.PizzaPlanetText2,
+		)
 	})
 }
 
@@ -106,11 +116,9 @@ func BYORevisionPostUpgradeTest() pkgupgrade.Operation {
 func bYORevisionPostUpgrade(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
-	names := test.ResourceNames{
-		Service: byoServiceName,
-	}
+	test.EnsureTearDown(t, clients, &byoServiceNames)
 
-	if _, err := v1test.PatchServiceRouteSpec(t, clients, names, v1.RouteSpec{
+	if _, err := v1test.PatchServiceRouteSpec(t, clients, byoServiceNames, v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{{
 			Tag:          "example-tag",
 			RevisionName: byoRevName,
@@ -121,7 +129,7 @@ func bYORevisionPostUpgrade(t *testing.T) {
 	}
 }
 
-func updateService(serviceName string, t *testing.T) {
+func updateServiceAndCheck(t *testing.T, serviceName, toImage, textBeforeUpdate, textAfterUpdate string) {
 	t.Helper()
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
@@ -140,10 +148,10 @@ func updateService(serviceName string, t *testing.T) {
 	routeURL := svc.Status.URL.URL()
 
 	t.Log("Check that we can hit the old service and get the old response.")
-	assertServiceResourcesUpdated(t, clients, names, routeURL, test.PizzaPlanetText1)
+	assertServiceResourcesUpdated(t, clients, names, routeURL, textBeforeUpdate)
 
 	t.Log("Updating the Service to use a different image")
-	newImage := ptest.ImagePath(test.PizzaPlanet2)
+	newImage := ptest.ImagePath(toImage)
 	if _, err := v1test.PatchService(t, clients, svc, rtesting.WithServiceImage(newImage)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, newImage, err)
 	}
@@ -151,7 +159,7 @@ func updateService(serviceName string, t *testing.T) {
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
 	revisionName, err := v1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, test.PizzaPlanet2, err)
+		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, toImage, err)
 	}
 	names.Revision = revisionName
 
@@ -159,13 +167,13 @@ func updateService(serviceName string, t *testing.T) {
 	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
-	assertServiceResourcesUpdated(t, clients, names, routeURL, test.PizzaPlanetText2)
+	assertServiceResourcesUpdated(t, clients, names, routeURL, textAfterUpdate)
 }
 
 // CreateNewServicePostUpgradeTest verifies creating a new service after upgrade.
 func CreateNewServicePostUpgradeTest() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("CreateNewServicePostUpgradeTest", func(c pkgupgrade.Context) {
-		createNewService(postUpgradeServiceName, c.T)
+		createNewService("pizzaplanet-post-upgrade-service", c.T)
 	})
 }
 
@@ -180,9 +188,10 @@ func InitialScalePostUpgradeTest() pkgupgrade.Operation {
 func initialScalePostUpgrade(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
+	test.EnsureTearDown(t, clients, &initialScaleServiceNames)
 
-	t.Logf("Getting service %q", initialScaleServiceName)
-	svc, err := clients.ServingClient.Services.Get(context.Background(), initialScaleServiceName, metav1.GetOptions{})
+	t.Logf("Getting service %q", initialScaleServiceNames.Service)
+	svc, err := clients.ServingClient.Services.Get(context.Background(), initialScaleServiceNames.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get Service:", err)
 	}

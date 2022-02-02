@@ -54,6 +54,8 @@ func defaultFeaturesConfig() *Features {
 		ContainerSpecAddCapabilities: Disabled,
 		PodSpecTolerations:           Disabled,
 		PodSpecVolumesEmptyDir:       Disabled,
+		PodSpecPersistentVolumeClaim: Disabled,
+		PodSpecPersistentVolumeWrite: Disabled,
 		PodSpecInitContainers:        Disabled,
 		TagHeaderBasedRouting:        Disabled,
 		AutoDetectHTTP2:              Disabled,
@@ -79,6 +81,8 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
 		asFlag("kubernetes.podspec-volumes-emptydir", &nc.PodSpecVolumesEmptyDir),
 		asFlag("kubernetes.podspec-init-containers", &nc.PodSpecInitContainers),
+		asFlag("kubernetes.podspec-persistent-volume-claim", &nc.PodSpecPersistentVolumeClaim),
+		asFlag("kubernetes.podspec-persistent-volume-write", &nc.PodSpecPersistentVolumeWrite),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
 		asFlag("autodetect-http2", &nc.AutoDetectHTTP2)); err != nil {
 		return nil, err
@@ -107,6 +111,8 @@ type Features struct {
 	PodSpecTolerations           Flag
 	PodSpecVolumesEmptyDir       Flag
 	PodSpecInitContainers        Flag
+	PodSpecPersistentVolumeClaim Flag
+	PodSpecPersistentVolumeWrite Flag
 	TagHeaderBasedRouting        Flag
 	AutoDetectHTTP2              Flag
 }

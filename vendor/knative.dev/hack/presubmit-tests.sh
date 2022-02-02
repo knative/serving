@@ -266,8 +266,6 @@ function main() {
     git version
     echo ">> ko version"
     [[ -f /ko_version ]] && cat /ko_version || echo "unknown"
-    echo ">> bazel version"
-    [[ -f /bazel_version ]] && cat /bazel_version || echo "unknown"
     if [[ "${DOCKER_IN_DOCKER_ENABLED}" == "true" ]]; then
       echo ">> docker version"
       docker version
@@ -281,6 +279,8 @@ function main() {
       echo ">> maven version"
       mvn --version
     fi
+    echo ">> prow-tests image version"
+    [[ -f /commit_hash ]] && echo "Prow test image was built from $(cat /commit_hash) commit which is viewable at https://github.com/knative/test-infra/tree/$(cat /commit_hash) " || echo "unknown"
   fi
 
   [[ -z ${1:-} ]] && set -- "--all-tests"

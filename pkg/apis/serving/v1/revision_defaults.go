@@ -121,7 +121,7 @@ func (rs *RevisionSpec) applyDefault(ctx context.Context, container *corev1.Cont
 
 	vNames := make(sets.String)
 	for _, v := range rs.PodSpec.Volumes {
-		if v.EmptyDir != nil {
+		if v.EmptyDir != nil || v.PersistentVolumeClaim != nil {
 			vNames.Insert(v.Name)
 		}
 	}
