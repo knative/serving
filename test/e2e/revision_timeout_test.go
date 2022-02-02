@@ -2,7 +2,7 @@
 // +build e2e
 
 /*
-Copyright 2019 The Knative Authors
+Copyright 2022 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package e2e
 
 import (
 	"context"
@@ -36,8 +36,8 @@ import (
 )
 
 // sendRequests send a request to "endpoint", returns error if unexpected response code, nil otherwise.
-func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
-	initialSleep, sleep time.Duration, expectedResponseCode int) error {
+func sendRequestWithTimeout(t *testing.T, clients *test.Clients, endpoint *url.URL,
+	initialSleep, sleep time.Duration, expectedResponseCode int, expectedBody string) error {
 	client, err := pkgtest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return fmt.Errorf("error creating Spoofing client: %w", err)
@@ -67,37 +67,71 @@ func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	if expectedResponseCode != resp.StatusCode {
 		return fmt.Errorf("response status code = %v, want = %v, response = %v", resp.StatusCode, expectedResponseCode, resp)
 	}
+	if expectedBody != "" {
+		gotBody := string(resp.Body)
+		if expectedBody != gotBody {
+			return fmt.Errorf("response body = %v, want = %v, response = %v", gotBody, expectedBody, resp)
+		}
+	}
 
 	return nil
 }
 
-func TestRevisionTimeout(t *testing.T) {
+func TestRevisionTimeoutAndMaxDuration(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
+	neverExpireMaxDurationSeconds := int64(100)
 
 	testCases := []struct {
-		name           string
-		timeoutSeconds int64
-		initialSleep   time.Duration
-		sleep          time.Duration
-		expectedStatus int
-		expectedBody   string
+		name               string
+		timeoutSeconds     int64
+		maxDurationSeconds int64
+		initialSleep       time.Duration
+		sleep              time.Duration
+		expectedStatus     int
+		expectedBody       string
 	}{{
-		name:           "does not exceed timeout seconds",
-		timeoutSeconds: 10,
-		initialSleep:   2 * time.Second,
-		expectedStatus: http.StatusOK,
+		name:               "does not exceed timeout seconds, long max duration timeout has no effect",
+		timeoutSeconds:     10,
+		maxDurationSeconds: neverExpireMaxDurationSeconds,
+		initialSleep:       2 * time.Second,
+		expectedStatus:     http.StatusOK,
 	}, {
-		name:           "exceeds timeout seconds",
-		timeoutSeconds: 10,
-		initialSleep:   12 * time.Second,
-		expectedStatus: http.StatusGatewayTimeout,
+		name:               "exceeds timeout seconds, long max duration timeout has no effect",
+		timeoutSeconds:     10,
+		maxDurationSeconds: neverExpireMaxDurationSeconds,
+		initialSleep:       12 * time.Second,
+		expectedStatus:     http.StatusGatewayTimeout,
+		expectedBody:       "request timeout",
 	}, {
-		name:           "writes first byte before timeout",
-		timeoutSeconds: 10,
-		expectedStatus: http.StatusOK,
-		sleep:          15 * time.Second,
-		initialSleep:   0,
+		name:               "writes first byte before timeout, long max duration timeout has no effect",
+		timeoutSeconds:     10,
+		maxDurationSeconds: neverExpireMaxDurationSeconds,
+		expectedStatus:     http.StatusOK,
+		sleep:              15 * time.Second,
+		initialSleep:       0,
+	}, {
+		name:               "exceeds max duration timeout",
+		timeoutSeconds:     15,
+		maxDurationSeconds: 10,
+		initialSleep:       12 * time.Second,
+		expectedStatus:     http.StatusGatewayTimeout,
+		expectedBody:       "request timeout",
+	}, {
+		name:               "exceeds multiple timeouts",
+		timeoutSeconds:     10,
+		maxDurationSeconds: 10,
+		initialSleep:       12 * time.Second,
+		expectedStatus:     http.StatusGatewayTimeout,
+		expectedBody:       "request timeout",
+	}, {
+		name:               "writes first byte (HTTP OK), max duration violated, request can still timeout",
+		timeoutSeconds:     10,
+		maxDurationSeconds: 12,
+		expectedStatus:     http.StatusOK,
+		sleep:              15 * time.Second,
+		initialSleep:       0,
+		expectedBody:       "request timeout",
 	}}
 
 	for _, tc := range testCases {
@@ -114,7 +148,7 @@ func TestRevisionTimeout(t *testing.T) {
 			test.EnsureTearDown(t, clients, &names)
 
 			t.Log("Creating a new Service ")
-			resources, err := v1test.CreateServiceReady(t, clients, &names, WithRevisionTimeoutSeconds(tc.timeoutSeconds))
+			resources, err := v1test.CreateServiceReady(t, clients, &names, WithRevisionTimeoutSeconds(tc.timeoutSeconds), WithMaxDurationSeconds(tc.maxDurationSeconds))
 			if err != nil {
 				t.Fatal("Failed to create Service:", err)
 			}
@@ -134,9 +168,9 @@ func TestRevisionTimeout(t *testing.T) {
 				t.Fatalf("Error probing %s: %v", serviceURL, err)
 			}
 
-			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus); err != nil {
-				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds, expecting status %v: %v",
-					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.expectedStatus, err)
+			if err := sendRequestWithTimeout(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus, tc.expectedBody); err != nil {
+				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds, expecting status %v and body %q: %v",
+					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.expectedStatus, tc.expectedBody, err)
 			}
 		})
 	}
