@@ -43,14 +43,8 @@ mkdir -p "${ARTIFACTS}/kperf"
 header "Running performance tests"
 export TIMEOUT=30m
 
-#  kperf options
-#  -b, --batch int                 Number of Knative Service each time to be created
-#  -c, --concurrency int           Number of multiple Knative Services to make at a time (default 10)
-#  -i, --interval int              Interval for each batch generation
-#  -n, --number int                Total number of Knative Service to be created
-
 # create services
-run_kperf service generate -n 100 -b 30 -c 10 -i 15 --namespace kperf --svc-prefix ktest --wait --timeout 30s --max-scale 3 --min-scale 0 || fail_test "kperf service generate failed"
+run_kperf service generate --number 100 --batch 30 --concurrency 10 --interval 15 --namespace kperf --svc-prefix ktest --wait --timeout 30s --max-scale 3 --min-scale 0 || fail_test "kperf service generate failed"
 
 # wait for scale to zero
 counter=100
