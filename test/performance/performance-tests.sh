@@ -32,21 +32,6 @@ source $(dirname $0)/../e2e-common.sh
 # resource/eviction as causes of flakiness.
 initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --perf --cluster-version=1.21 "$@"
 
-header "Updating cluster"
-
-# Update the activator hpa minReplicas to 10
-kubectl patch hpa -n "${SYSTEM_NAMESPACE}" activator --patch '{"spec": {"minReplicas": 10}}'
-
-# Update the scale-to-zero grace period to 10s
-kubectl patch configmap/config-autoscaler -n "${SYSTEM_NAMESPACE}" \
-    --type merge \
-    -p '{"data":{"scale-to-zero-grace-period":"10s"}}'
-
-# Ensure gradual rollout is enabled.
-kubectl patch configmap/config-network -n "${SYSTEM_NAMESPACE}"\
-    --type merge \
-    -p '{"data":{"rolloutDuration":"240"}}'
-
 header "Running tests"
 
 function run_kperf() {
@@ -72,7 +57,7 @@ counter=100
 until counter=0
 do
    sleep 1
-   counter="kubectl get pods -n knative-serving | awk '{print $1}' | grep domain | wc -l"
+   counter="kubectl get pods -n kperf | awk '{print $1}' | grep domain | wc -l"
 done
 
 #scale and measure
