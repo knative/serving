@@ -71,6 +71,7 @@ aliases:
   - dprotaso
   - duglin
   - evankanderson
+  - itsmurugappan
   - julz
   - knative-prow-releaser-robot
   - knative-prow-robot
@@ -188,6 +189,7 @@ aliases:
   - lionelvillard
   steering-committee:
   - csantanapr
+  - itsmurugappan
   - lance
   - pmorie
   - thisisnotapril
