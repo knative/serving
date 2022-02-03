@@ -84,10 +84,12 @@ type Context struct {
 // down to each handler of BackgroundOperation. It contains a StopEvent channel
 // which end user should use to obtain a testing.T for error reporting. Until
 // StopEvent is sent user may use zap.SugaredLogger to log state of execution if
-// necessary.
+// necessary. The logs are stored in a threadSafeBuffer and flushed to the test
+// output when the test fails.
 type BackgroundContext struct {
-	Log  *zap.SugaredLogger
-	Stop <-chan StopEvent
+	Log       *zap.SugaredLogger
+	Stop      <-chan StopEvent
+	logBuffer *threadSafeBuffer
 }
 
 // StopEvent represents an event that is to be received by background operation
@@ -98,6 +100,7 @@ type StopEvent struct {
 	T        *testing.T
 	Finished chan<- struct{}
 	name     string
+	logger   *zap.SugaredLogger
 }
 
 // WaitForStopEventConfiguration holds a values to be used be WaitForStopEvent
@@ -113,8 +116,28 @@ type WaitForStopEventConfiguration struct {
 
 // Configuration holds required and optional configuration to run upgrade tests.
 type Configuration struct {
-	T   *testing.T
+	T *testing.T
+	// TODO(mgencur): Remove when dependent repositories migrate to LogConfig.
+	// Keep this for backwards compatibility.
 	Log *zap.Logger
+	LogConfig
+}
+
+func (c Configuration) logConfig() LogConfig {
+	if len(c.LogConfig.Config.OutputPaths) == 0 {
+		c.LogConfig.Config = zap.NewDevelopmentConfig()
+	}
+	return c.LogConfig
+}
+
+// LogConfig holds the logger configuration. It allows for passing just the
+// logger configuration and also a custom function for building the resulting
+// logger.
+type LogConfig struct {
+	// Config from which the zap.Logger be created.
+	Config zap.Config
+	// Options holds options for the zap.Logger.
+	Options []zap.Option
 }
 
 // SuiteExecutor is to execute upgrade test suite.
