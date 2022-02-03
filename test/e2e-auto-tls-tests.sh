@@ -51,7 +51,7 @@ metadata:
   name: config-domain
   namespace: ${SYSTEM_NAMESPACE}
   labels:
-    app.kubernetes.io/part-of: knative-serving
+    app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
 data:
   ${CUSTOM_DOMAIN_SUFFIX}: ""
