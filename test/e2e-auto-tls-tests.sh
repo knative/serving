@@ -51,7 +51,6 @@ metadata:
   name: config-domain
   namespace: ${SYSTEM_NAMESPACE}
   labels:
-    serving.knative.dev/release: devel
     app.kubernetes.io/part-of: knative-serving
     app.kubernetes.io/version: devel
 data:
