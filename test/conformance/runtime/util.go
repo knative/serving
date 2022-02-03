@@ -63,7 +63,7 @@ func fetchRuntimeInfo(
 		spoof.IsStatusOK,
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain,
-		append(reqOpts, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))...)
+		append(reqOpts, spoof.WithHeader(test.ServingFlags.RequestHeader()), test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))...)
 	if err != nil {
 		return nil, nil, err
 	}

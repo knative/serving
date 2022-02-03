@@ -57,6 +57,7 @@ func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	if err != nil {
 		return fmt.Errorf("failed to create new HTTP request: %w", err)
 	}
+	spoof.WithHeader(test.ServingFlags.RequestHeader())(req)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -130,7 +131,8 @@ func TestRevisionTimeout(t *testing.T) {
 				spoof.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout),
 				"CheckSuccessfulResponse",
 				test.ServingFlags.ResolvableDomain,
-				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
+				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+				spoof.WithHeader(test.ServingFlags.RequestHeader())); err != nil {
 				t.Fatalf("Error probing %s: %v", serviceURL, err)
 			}
 

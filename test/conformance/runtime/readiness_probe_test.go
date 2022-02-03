@@ -135,6 +135,7 @@ func TestProbeRuntime(t *testing.T) {
 					"readinessIsReady",
 					test.ServingFlags.ResolvableDomain,
 					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+					spoof.WithHeader(test.ServingFlags.RequestHeader()),
 				); err != nil {
 					t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
 				}
@@ -240,6 +241,7 @@ func waitReadyThenStartFailing(t *testing.T, clients *test.Clients, names test.R
 		"readinessIsReady",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+		spoof.WithHeader(test.ServingFlags.RequestHeader()),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
 	}

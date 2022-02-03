@@ -103,6 +103,7 @@ func sendRequests(ctx context.Context, client *spoof.SpoofingClient, url *url.UR
 			if err != nil {
 				return err
 			}
+			spoof.WithHeader(test.ServingFlags.RequestHeader())(req)
 
 			resp, err := client.Do(req)
 			if err != nil {

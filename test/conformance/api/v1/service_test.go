@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 	pkgtest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -130,7 +131,11 @@ func TestServiceCreateAndUpdate(t *testing.T) {
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, names.URL, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+	prober := test.RunRouteProber(
+		t.Logf,
+		clients, names.URL,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+		spoof.WithHeader(test.ServingFlags.RequestHeader()))
 	defer test.AssertProberDefault(t, prober)
 
 	// Update Container Image
@@ -287,7 +292,12 @@ func TestServiceBYOName(t *testing.T) {
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, names.URL, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+	prober := test.RunRouteProber(
+		t.Logf,
+		clients,
+		names.URL,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+		spoof.WithHeader(test.ServingFlags.RequestHeader()))
 	defer test.AssertProberDefault(t, prober)
 
 	// Update Container Image

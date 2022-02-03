@@ -72,7 +72,8 @@ func TestCustomResourcesLimits(t *testing.T) {
 		spoof.MatchesAllOf(spoof.IsStatusOK),
 		"ResourceTestServesText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+		spoof.WithHeader(test.ServingFlags.RequestHeader()))
 	if err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}
@@ -88,6 +89,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
+		spoof.WithHeader(test.ServingFlags.RequestHeader())(req)
 		return client.Do(req)
 	}
 

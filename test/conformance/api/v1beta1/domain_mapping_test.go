@@ -117,7 +117,8 @@ func TestDomainMapping(t *testing.T) {
 		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText1)),
 		"CheckSuccessfulResponse",
 		resolvableCustomDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+		spoof.WithHeader(test.ServingFlags.RequestHeader())); err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}
 
@@ -184,7 +185,8 @@ func TestDomainMapping(t *testing.T) {
 		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText1)),
 		"CheckSuccessfulResponse",
 		resolvableCustomDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+		spoof.WithHeader(test.ServingFlags.RequestHeader())); err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}
 
@@ -217,7 +219,8 @@ func TestDomainMapping(t *testing.T) {
 		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText2)),
 		"CheckSuccessfulResponse",
 		resolvableCustomDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+		spoof.WithHeader(test.ServingFlags.RequestHeader())); err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}
 }
