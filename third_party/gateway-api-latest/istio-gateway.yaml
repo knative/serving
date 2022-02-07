@@ -20,7 +20,7 @@ metadata:
   name: knative-local-gateway
   namespace: istio-system
   labels:
-    serving.knative.dev/release: "v20220125-1a7d3eb6"
+    serving.knative.dev/release: "v20220207-e43cad20"
     networking.knative.dev/ingress-provider: istio
     experimental.istio.io/disable-gateway-port-translation: "true"
 spec:
@@ -48,25 +48,22 @@ spec:
 # limitations under the License.
 
 kind: Gateway
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 metadata:
   name: knative-local-gateway
   namespace: istio-system
 spec:
   gatewayClassName: istio
   addresses:
-    - type: NamedAddress
+    - type: Hostname
       value: knative-local-gateway
   listeners:
-    - protocol: HTTP
+    - name: default
       port: 80
-      routes:
-        kind: HTTPRoute
-        selector:
-          matchLabels:
-            networking.knative.dev/visibility: "cluster-local"
+      protocol: HTTP
+      allowedRoutes:
         namespaces:
-          from: "All"
+          from: All
 
 ---
 # Copyright 2021 The Knative Authors
@@ -84,38 +81,22 @@ spec:
 # limitations under the License.
 
 kind: Gateway
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 metadata:
   name: knative-gateway
   namespace: istio-system
 spec:
   gatewayClassName: istio
   addresses:
-    - type: NamedAddress
+    - type: Hostname
       value: istio-ingressgateway
   listeners:
-    - protocol: HTTP
+    - name: default
       port: 80
-      routes:
-        kind: HTTPRoute
-        selector:
-          matchLabels:
-            networking.knative.dev/visibility: ""
+      protocol: HTTP
+      allowedRoutes:
         namespaces:
-          from: "All"
-    - protocol: HTTPS
-      port: 443
-      tls:
-        mode: Terminate
-        routeOverride:
-          certificate: Allow
-      routes:
-        kind: HTTPRoute
-        selector:
-          matchLabels:
-            networking.knative.dev/visibility: ""
-        namespaces:
-          from: "All"
+          from: All
 
 ---
 # Copyright 2021 The Knative Authors
@@ -132,11 +113,11 @@ spec:
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: GatewayClass
 metadata:
   name: istio
 spec:
-  controller: istio.io/gateway-controller
+  controllerName: istio.io/gateway-controller
 
 ---
