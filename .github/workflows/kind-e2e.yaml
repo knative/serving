@@ -37,24 +37,28 @@ jobs:
           kind-version: v0.11.1
           kind-image-sha: sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6
           kingress: kourier
+          test-flags: "--enable-alpha --enable-beta"
           cluster-suffix: c${{ github.run_id }}.local
         - cluster: v1.22.2/istio
           k8s-version: v1.22.2
           kind-version: v0.11.1
           kind-image-sha: sha256:f638a08c1f68fe2a99e724ace6df233a546eaf6713019a0b310130a4f91ebe7f
           kingress: istio
+          test-flags: "--enable-alpha --enable-beta"
           cluster-suffix: c${{ github.run_id }}.local
         - cluster: v1.23.0/contour
           k8s-version: v1.23.0
           kind-version: v0.11.1
           kind-image-sha: sha256:49824ab1727c04e56a21a5d8372a402fcd32ea51ac96a2706a12af38934f81ac
           kingress: contour
+          test-flags: "--enable-alpha --enable-beta"
           cluster-suffix: c${{ github.run_id }}.local
         - cluster: v1.23.0/gateway-api
           k8s-version: v1.23.0
           kind-version: v0.11.1
           kind-image-sha: sha256:49824ab1727c04e56a21a5d8372a402fcd32ea51ac96a2706a12af38934f81ac
           kingress: gateway-api
+          test-flags: "--enable-alpha"
           cluster-suffix: c${{ github.run_id }}.local
 
     env:
@@ -215,5 +219,5 @@ jobs:
         toggle_feature kubernetes.podspec-volumes-emptydir Enabled
         go test -race -count=1 -parallel=1 -timeout=30m -tags=e2e ${{ matrix.test-suite }} \
           --ingressendpoint="${IPS[0]}" \
-          --enable-alpha --enable-beta
+        ${{ matrix.test-flags }}
         toggle_feature kubernetes.podspec-volumes-emptydir Disabled
