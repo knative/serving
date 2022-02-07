@@ -1287,7 +1287,7 @@ func TestContainerValidation(t *testing.T) {
 			},
 			want: apis.ErrMultipleOneOf("readinessProbe.exec", "readinessProbe.tcpSocket", "readinessProbe.httpGet"),
 		}, {
-			name: "invalid readiness http probe (has wrong port)",
+			name: "valid readiness http probe with a different container port",
 			c: corev1.Container{
 				Image: "foo",
 				ReadinessProbe: &corev1.Probe{
@@ -1303,7 +1303,22 @@ func TestContainerValidation(t *testing.T) {
 					},
 				},
 			},
-			want: apis.ErrInvalidValue(5000, "readinessProbe.httpGet.port", "May only probe containerPort"),
+		}, {
+			name: "valid readiness tcp probe with a different container port",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					Handler: corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt(5000),
+						},
+					},
+				},
+			},
 		}, {
 			name: "valid readiness http probe with port",
 			c: corev1.Container{
