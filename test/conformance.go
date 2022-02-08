@@ -35,24 +35,24 @@ import (
 // Constants for test images located in test/test_images.
 const (
 	// Test image names
-	Autoscale         = "autoscale"
-	Volumes           = "volumes"
-	Failing           = "failing"
-	GRPCPing          = "grpc-ping"
-	HelloHTTP2        = "hellohttp2"
-	HelloVolume       = "hellovolume"
-	HelloWorld        = "helloworld"
-	HTTPProxy         = "httpproxy"
-	InvalidHelloWorld = "invalidhelloworld" // Not a real image
-	PizzaPlanet1      = "pizzaplanetv1"
-	PizzaPlanet2      = "pizzaplanetv2"
-	Protocols         = "protocols"
+	Autoscale           = "autoscale"
+	Failing             = "failing"
+	GRPCPing            = "grpc-ping"
+	HelloHTTP2          = "hellohttp2"
+	HelloVolume         = "hellovolume"
+	HelloWorld          = "helloworld"
+	HTTPProxy           = "httpproxy"
+	InvalidHelloWorld   = "invalidhelloworld" // Not a real image
+	PizzaPlanet1        = "pizzaplanetv1"
+	PizzaPlanet2        = "pizzaplanetv2"
+	Protocols           = "protocols"
 	Readiness           = "readiness"
 	Runtime             = "runtime"
 	ServingContainer    = "servingcontainer"
 	SidecarContainer    = "sidecarcontainer"
 	SingleThreadedImage = "singlethreaded"
 	Timeout             = "timeout"
+	Volumes             = "volumes"
 	WorkingDir          = "workingdir"
 
 	// Constants for test image output.
