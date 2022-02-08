@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - imagePullPolicy: Always
-          image: ko://knative.dev/serving/test/test_images/emptydir
+          image: ko://knative.dev/serving/test/test_images/volumes
           volumeMounts:
             - name: data
               mountPath: /data
@@ -31,7 +31,7 @@ spec:
               value: /data
       initContainers:
         - imagePullPolicy: Always
-          image: ko://knative.dev/serving/test/test_images/emptydir
+          image: ko://knative.dev/serving/test/test_images/volumes
           volumeMounts:
             - name: data
               mountPath: /data

@@ -39,12 +39,15 @@ const (
 
 // TestPersistentVolumeClaims tests pvc support.
 func TestPersistentVolumeClaims(t *testing.T) {
+	if !test.ServingFlags.EnableAlphaFeatures {
+		t.Skip("Alpha features not enabled")
+	}
 	t.Parallel()
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.EmptyDir,
+		Image:   test.Volumes,
 	}
 
 	test.EnsureTearDown(t, clients, &names)

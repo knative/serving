@@ -20,7 +20,7 @@ spec:
   template:
     spec:
       containers:
-        - image: ko://knative.dev/serving/test/test_images/emptydir
+        - image: ko://knative.dev/serving/test/test_images/volumes
           name: event-display
           volumeMounts:
             - mountPath: /data
@@ -34,3 +34,14 @@ spec:
           persistentVolumeClaim:
             claimName: knative-pv-claim
             readOnly: false
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: knative-pv-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
