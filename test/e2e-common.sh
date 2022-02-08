@@ -55,6 +55,8 @@ export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
 readonly REPLICAS=3
 readonly BUCKETS=10
 
+export PVC=${PVC:-1}
+
 # Receives the latest serving version and searches for the same version with major and minor and searches for the latest patch
 function latest_net_istio_version() {
   local serving_version=$1
@@ -286,7 +288,9 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/ingress/${ingress}-kind.yaml")
   fi
 
-  YTT_FILES+=("${REPO_ROOT_DIR}/test/config/pvc/pvc.yaml")
+  if (( PVC )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/pvc/pvc.yaml")
+  fi
 
   local ytt_result=$(mktemp)
   local ytt_post_install_result=$(mktemp)

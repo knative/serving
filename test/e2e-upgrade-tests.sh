@@ -40,7 +40,8 @@ function stage_test_resources() {
 # Script entry point.
 
 # Skip installing istio as an add-on.
-initialize "$@" --skip-istio-addon  --min-nodes=4 --max-nodes=4 --cluster-version=1.21 \
+# Skip installing a pvc as it is not used in upgrade tests
+PVC=0 initialize "$@" --skip-istio-addon  --min-nodes=4 --max-nodes=4 --cluster-version=1.21 \
   --install-latest-release
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
