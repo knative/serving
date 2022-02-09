@@ -1,0 +1,33 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("helpers.lib.yaml", "subset")
+
+#@overlay/match by=subset(kind="ConfigMap", name="istio", namespace="istio-system")
+#@overlay/replace
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+  namespace: istio-system
+  labels:
+    istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: Pilot
+    release: istio
+data:
+  meshNetworks: 'networks: {}'
+  mesh: |-
+    accessLogEncoding: JSON
+    accessLogFile: /dev/stdout
+    defaultConfig:
+      discoveryAddress: istiod.istio-system.svc:15012
+      proxyMetadata: {}
+      terminationDrainDuration: 20s
+      tracing:
+        zipkin:
+          address: zipkin.istio-system:9411
+    enablePrometheusMerge: true
+    enableTracing: true
+    rootNamespace: istio-system
+    trustDomain: cluster.local
+
