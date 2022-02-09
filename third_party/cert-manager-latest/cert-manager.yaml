@@ -5044,7 +5044,6 @@ spec:
           args:
           - --v=2
           - --leader-election-namespace=kube-system
-          - --enable-certificate-owner-ref
           env:
           - name: POD_NAMESPACE
             valueFrom:

@@ -22,7 +22,3 @@ YAML_URL=https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANA
 
 # Download the cert-manager yaml file
 wget $YAML_URL
-
-# Add enable-certificate-owner-ref option to cert-manager's controller.
-# The option is to cleans up secret(certificate) by adding ownerref.
-patch -l cert-manager.yaml owner-ref.patch
