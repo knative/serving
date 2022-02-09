@@ -1,0 +1,14 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: health-check
+  namespace: istio-system
+spec:
+  configPatches:
+  - applyTo: CLUSTER
+    patch:
+      operation: MERGE
+      value:
+        health_checks:
+          always_log_health_check_failures: true
+          event_log_path: /dev/stdout
