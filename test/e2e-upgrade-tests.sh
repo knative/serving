@@ -25,6 +25,8 @@
 # project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster.
 
+export ENABLE_GKE_TELEMETRY=true
+
 # You can specify the version to run against with the --version argument
 # (e.g. --version v0.7.0). If this argument is not specified, the script will
 # run against the latest tagged version on the current branch.
