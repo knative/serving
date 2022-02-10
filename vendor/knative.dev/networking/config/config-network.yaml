@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/version: devel
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "6e2033e0"
+    knative.dev/example-checksum: "ddc3250f"
 data:
   _example: |
     ################################
@@ -172,3 +172,19 @@ data:
     # fronting Knative with an external loadbalancer that deals with TLS termination and
     # Knative doesn't know about that otherwise.
     default-external-scheme: "http"
+
+    # The CA public certificate used to sign the activator TLS certificate.
+    # It is specified by the secret name, which has the "ca.crt" data field.
+    # Use an empty value to disable the feature (default).
+    #
+    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
+    #       for now. Use with caution.
+    activator-ca: ""
+
+    # The SAN (Subject Alt Name) used to validate the activator TLS certificate.
+    # It is available only when "activator-ca" is specified.
+    # Use an empty value to disable the feature (default).
+    #
+    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
+    #       for now. Use with caution.
+    activator-san: ""

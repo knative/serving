@@ -189,6 +189,13 @@ const (
 
 	// DefaultExternalSchemeKey is the config for defining the scheme of external URLs.
 	DefaultExternalSchemeKey = "default-external-scheme"
+
+	// ActivatorCAKey is the config for the secret name, which stores CA public certificate used
+	// to sign the activator TLS certificate.
+	ActivatorCAKey = "activator-ca"
+
+	// ActivatorSANKey is the config for the SAN used to validate the activator TLS certificate.
+	ActivatorSANKey = "activator-san"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -287,6 +294,14 @@ type Config struct {
 	// DefaultExternalScheme defines the scheme used in external URLs if AutoTLS is
 	// not enabled. Defaults to "http".
 	DefaultExternalScheme string
+
+	// ActivatorCA defines the secret name of the CA public certificate used to sign the activator TLS certificate.
+	// The traffic is not encrypted if ActivatorCA is empty.
+	ActivatorCA string
+
+	// ActivatorSAN defines the SAN (Subject Alt Name) used to validate the activator TLS certificate.
+	// It is used only when ActivatorCA is specified.
+	ActivatorSAN string
 }
 
 // HTTPProtocol indicates a type of HTTP endpoint behavior
@@ -342,6 +357,8 @@ func defaultConfig() *Config {
 		AutocreateClusterDomainClaims: false,
 		DefaultExternalScheme:         "http",
 		MeshCompatibilityMode:         MeshCompatibilityModeAuto,
+		ActivatorCA:                   "",
+		ActivatorSAN:                  "",
 	}
 }
 
@@ -373,6 +390,8 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsBool(AutocreateClusterDomainClaimsKey, &nc.AutocreateClusterDomainClaims),
 		cm.AsBool(EnableMeshPodAddressabilityKey, &nc.EnableMeshPodAddressability),
 		cm.AsString(DefaultExternalSchemeKey, &nc.DefaultExternalScheme),
+		cm.AsString(ActivatorCAKey, &nc.ActivatorCA),
+		cm.AsString(ActivatorSANKey, &nc.ActivatorSAN),
 		asMode(MeshCompatibilityModeKey, &nc.MeshCompatibilityMode),
 		asLabelSelector(NamespaceWildcardCertSelectorKey, &nc.NamespaceWildcardCertSelector),
 	); err != nil {
