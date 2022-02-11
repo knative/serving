@@ -24,7 +24,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
@@ -56,48 +55,6 @@ func TestMustNotContainerConstraints(t *testing.T) {
 				MountPath:        "/",
 				MountPropagation: &propagationMode,
 			}}
-		},
-	}, {
-		name: "TestReadinessHTTPProbePort",
-		options: func(s *v1.Service) {
-			s.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt(8888),
-					},
-				},
-			}
-		},
-	}, {
-		name: "TestLivenessHTTPProbePort",
-		options: func(s *v1.Service) {
-			s.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt(8888),
-					},
-				},
-			}
-		},
-	}, {
-		name: "TestReadinessTCPProbePort",
-		options: func(s *v1.Service) {
-			s.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
-				},
-			}
-		},
-	}, {
-		name: "TestLivenessTCPProbePort",
-		options: func(s *v1.Service) {
-			s.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
-				},
-			}
 		},
 	}}
 
