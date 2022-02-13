@@ -105,7 +105,7 @@ spec:
             - name: k-kubelet-probe
               value: "activator"
           periodSeconds: 5
-          failureThreshold: 1
+          failureThreshold: 5
         livenessProbe:
           httpGet:
             port: 8012
