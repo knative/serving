@@ -104,13 +104,15 @@ spec:
             httpHeaders:
             - name: k-kubelet-probe
               value: "activator"
-          failureThreshold: 12
+          periodSeconds: 5
+          failureThreshold: 1
         livenessProbe:
           httpGet:
             port: 8012
             httpHeaders:
             - name: k-kubelet-probe
               value: "activator"
+          periodSeconds: 10
           failureThreshold: 12
           initialDelaySeconds: 15
 
