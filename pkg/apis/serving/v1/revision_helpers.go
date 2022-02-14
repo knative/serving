@@ -34,6 +34,10 @@ const (
 	// a user specifies a port or the default value is chosen.
 	UserPortName = "user-port"
 
+	// ReadinessPortName is the name that will be used for the Port on the
+	// Deployment and Pod created by a Revision for the readiness probe.
+	ReadinessPortName = "readiness-port"
+
 	// QueueAdminPortName specifies the port name for
 	// health check and lifecycle hooks for queue-proxy.
 	QueueAdminPortName = "http-queueadm"

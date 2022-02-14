@@ -1,10 +1,16 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: readiness-test-image
+  name: readiness-port-test-image
   namespace: default
 spec:
   template:
     spec:
       containers:
-      - image: ko://knative.dev/serving/test/test_images/readiness
+      - image: ko://knative.dev/serving/test/test_images/readinessport
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8077
+          initialDelaySeconds: 5
+          periodSeconds: 5

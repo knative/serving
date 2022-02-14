@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Knative Authors
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -28,17 +27,18 @@ import (
 	"knative.dev/serving/test"
 )
 
-func main() {
-	// Exec probe.
-	flag.Parse()
-	args := flag.Args()
-	if len(args) > 0 && args[0] == "probe" {
-		execProbeMain()
-	}
+type probeHandler struct {
+}
 
+var (
+	healthy bool
+	mu      sync.Mutex
+)
+
+func main() {
+	finish := make(chan bool)
 	// HTTP/TCP Probe.
-	healthy := true
-	var mu sync.Mutex
+	healthy = true
 	if env := os.Getenv("READY_DELAY"); env != "" {
 		delay, err := time.ParseDuration(env)
 		if err != nil {
@@ -54,30 +54,6 @@ func main() {
 		}()
 	}
 
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		mu.Lock()
-		defer mu.Unlock()
-
-		if !healthy {
-			http.Error(w, "not healthy", http.StatusInternalServerError)
-			return
-		}
-
-		fmt.Fprint(w, test.HelloWorldText)
-	})
-
-	http.HandleFunc("/start-failing", func(w http.ResponseWriter, _ *http.Request) {
-		mu.Lock()
-		defer mu.Unlock()
-
-		healthy = false
-		fmt.Fprint(w, "will now fail readiness")
-	})
-
-	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprint(w, test.HelloWorldText)
-	})
-
 	if env := os.Getenv("LISTEN_DELAY"); env != "" {
 		delay, err := time.ParseDuration(env)
 		if err != nil {
@@ -87,16 +63,44 @@ func main() {
 		time.Sleep(delay)
 	}
 
-	http.ListenAndServe(":8080", nil)
+	mainServer := http.NewServeMux()
+	mainServer.HandleFunc("/", handleMain)
+	mainServer.HandleFunc("/start-failing", handleStartFailing)
+
+	probeServer := http.NewServeMux()
+	probeServer.HandleFunc("/healthz", handleHealthz)
+
+	go func() {
+		http.ListenAndServe(":8077", probeServer)
+	}()
+
+	go func() {
+		http.ListenAndServe(":8080", mainServer)
+	}()
+
+	<-finish
 }
 
-func execProbeMain() {
-	resp, err := http.Get(os.ExpandEnv("http://localhost:$PORT/healthz"))
-	if err != nil {
-		log.Fatal("Failed to probe: ", err)
+func handleHealthz(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if !healthy {
+		http.Error(w, "not healthy", http.StatusInternalServerError)
+		return
 	}
-	if resp.StatusCode > 299 {
-		os.Exit(1)
-	}
-	os.Exit(0)
+
+	fmt.Fprint(w, test.HelloWorldText)
+}
+
+func handleStartFailing(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	healthy = false
+	fmt.Fprint(w, "will now fail readiness")
+}
+
+func handleMain(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, test.HelloWorldText)
 }
