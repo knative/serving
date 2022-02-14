@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -65,10 +65,10 @@ func main() {
 
 	mainServer := http.NewServeMux()
 	mainServer.HandleFunc("/", handleMain)
-	mainServer.HandleFunc("/start-failing", handleStartFailing)
+	//mainServer.HandleFunc("/start-failing", handleStartFailing)
 
 	probeServer := http.NewServeMux()
-	probeServer.HandleFunc("/healthz", handleHealthz)
+	probeServer.HandleFunc("/", handleHealthz)
 
 	go func() {
 		http.ListenAndServe(":8077", probeServer)
@@ -90,16 +90,16 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprint(w, test.HelloWorldText)
+	fmt.Fprint(w, test.ReadinessPortText)
 }
 
-func handleStartFailing(w http.ResponseWriter, r *http.Request) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	healthy = false
-	fmt.Fprint(w, "will now fail readiness")
-}
+//func handleStartFailing(w http.ResponseWriter, r *http.Request) {
+//	mu.Lock()
+//	defer mu.Unlock()
+//
+//	healthy = false
+//	fmt.Fprint(w, "will now fail readiness")
+//}
 
 func handleMain(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, test.HelloWorldText)

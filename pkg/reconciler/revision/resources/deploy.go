@@ -93,7 +93,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 	switch {
 	case p.HTTPGet != nil:
-		if p.HTTPGet.Port != intstr.FromInt(0) {
+		if p.HTTPGet.Port == intstr.FromInt(0) {
 			p.HTTPGet.Port = intstr.FromInt(userPort)
 		}
 		// With mTLS enabled, Istio rewrites probes, but doesn't spoof the kubelet
@@ -104,7 +104,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 			Value: queue.Name,
 		})
 	case p.TCPSocket != nil:
-		if p.TCPSocket.Port != intstr.FromInt(0) {
+		if p.TCPSocket.Port == intstr.FromInt(0) {
 			p.TCPSocket.Port = intstr.FromInt(userPort)
 		}
 	}
