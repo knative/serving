@@ -20,8 +20,8 @@ metadata:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220211-c568c453"
-    serving.knative.dev/release: "v20220211-c568c453"
+    app.kubernetes.io/version: "20220215-a95fd305"
+    serving.knative.dev/release: "v20220215-a95fd305"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -46,9 +46,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220211-c568c453"
+    app.kubernetes.io/version: "20220215-a95fd305"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220211-c568c453"
+    serving.knative.dev/release: "v20220215-a95fd305"
 data:
   envoy-bootstrap.yaml: |
     dynamic_resources:
@@ -152,9 +152,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220211-c568c453"
+    app.kubernetes.io/version: "20220215-a95fd305"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220211-c568c453"
+    serving.knative.dev/release: "v20220215-a95fd305"
 data:
   _example: |
     ################################
@@ -176,6 +176,12 @@ data:
     # in the context of services should be logged. Readiness
     # probes etc. must be configured via the bootstrap config.
     enable-service-access-logging: "true"
+
+    # Specifies whether to use proxy-protocol in order to safely
+    # transport connection information such as a client's address
+    # across multiple layers of TCP proxies.
+    # NOTE THAT THIS IS AN EXPERIMENTAL / ALPHA FEATURE
+    enable-proxy-protocol: "false"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -200,9 +206,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220211-c568c453"
+    app.kubernetes.io/version: "20220215-a95fd305"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220211-c568c453"
+    serving.knative.dev/release: "v20220215-a95fd305"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -212,9 +218,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220211-c568c453"
+    app.kubernetes.io/version: "20220215-a95fd305"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220211-c568c453"
+    serving.knative.dev/release: "v20220215-a95fd305"
 rules:
   - apiGroups: [""]
     resources: ["events"]
@@ -242,9 +248,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220211-c568c453"
+    app.kubernetes.io/version: "20220215-a95fd305"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220211-c568c453"
+    serving.knative.dev/release: "v20220215-a95fd305"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -277,9 +283,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220211-c568c453"
+    app.kubernetes.io/version: "20220215-a95fd305"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220211-c568c453"
+    serving.knative.dev/release: "v20220215-a95fd305"
 spec:
   replicas: 1
   selector:
@@ -291,7 +297,7 @@ spec:
         app: net-kourier-controller
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:8898a42045f3590f1544cbec36068d3928163266db968b82ede580c6e01a79a1
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:1769e81f194abcd0e364a9f9da5b38aec4bc13ad2e0ed0c0c2a98a9dbe045b4f
           name: controller
           env:
             - name: CERTS_SECRET_NAMESPACE
@@ -331,9 +337,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220211-c568c453"
+    app.kubernetes.io/version: "20220215-a95fd305"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220211-c568c453"
+    serving.knative.dev/release: "v20220215-a95fd305"
 spec:
   ports:
     - name: grpc-xds
@@ -367,9 +373,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220211-c568c453"
+    app.kubernetes.io/version: "20220215-a95fd305"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220211-c568c453"
+    serving.knative.dev/release: "v20220215-a95fd305"
 spec:
   strategy:
     type: RollingUpdate
@@ -406,6 +412,12 @@ spec:
               protocol: TCP
             - name: https-external
               containerPort: 8443
+              protocol: TCP
+            - name: http-probe
+              containerPort: 8090
+              protocol: TCP
+            - name: https-probe
+              containerPort: 9443
               protocol: TCP
           securityContext:
             allowPrivilegeEscalation: false
@@ -445,9 +457,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220211-c568c453"
+    app.kubernetes.io/version: "20220215-a95fd305"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220211-c568c453"
+    serving.knative.dev/release: "v20220215-a95fd305"
 spec:
   ports:
     - name: http2
@@ -470,9 +482,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220211-c568c453"
+    app.kubernetes.io/version: "20220215-a95fd305"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220211-c568c453"
+    serving.knative.dev/release: "v20220215-a95fd305"
 spec:
   ports:
     - name: http2
