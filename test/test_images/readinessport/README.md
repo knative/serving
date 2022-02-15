@@ -1,5 +1,11 @@
 # Ready test image
 
+This directory contains the test image used to simulate an image that responds
+to various types of readiness probe.
+
+The image provides an endpoint which will reply with a 200 status code
+and the Hello World text only after the delay requested by the READY_DELAY
+environment variable has elapsed.
 
 ## Trying out
 
