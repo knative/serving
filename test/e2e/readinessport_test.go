@@ -55,21 +55,4 @@ func TestReadinessPort(t *testing.T) {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
 
-	readinessUrl, err := url.Parse(url.String() + ":8077")
-	if err != nil {
-		t.Fatalf("Couldn't parse readiness url")
-	}
-
-	if _, err := pkgTest.CheckEndpointState(
-		context.Background(),
-		clients.KubeClient,
-		t.Logf,
-		readinessUrl,
-		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.ReadinessPortText)),
-		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
-	); err != nil {
-		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", readinessUrl, names.Route, test.ReadinessPortText, err)
-	}
 }

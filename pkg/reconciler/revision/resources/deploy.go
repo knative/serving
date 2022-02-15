@@ -93,9 +93,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 	switch {
 	case p.HTTPGet != nil:
-		if p.HTTPGet.Port == intstr.FromInt(0) {
-			p.HTTPGet.Port = intstr.FromInt(userPort)
-		}
+		p.HTTPGet.Port = intstr.FromInt(userPort)
 		// With mTLS enabled, Istio rewrites probes, but doesn't spoof the kubelet
 		// user agent, so we need to inject an extra header to be able to distinguish
 		// between probes and real requests.
@@ -104,9 +102,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 			Value: queue.Name,
 		})
 	case p.TCPSocket != nil:
-		if p.TCPSocket.Port == intstr.FromInt(0) {
-			p.TCPSocket.Port = intstr.FromInt(userPort)
-		}
+		p.TCPSocket.Port = intstr.FromInt(userPort)
 	}
 }
 
@@ -192,12 +188,6 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 	servingContainer.Ports = buildContainerPorts(userPort)
 	servingContainer.Env = append(servingContainer.Env, buildUserPortEnv(userPortStr))
 
-	probePort := getReadinessProbePort(rev)
-	if probePort != 0 {
-		servingContainer.Ports = append(servingContainer.Ports,
-			corev1.ContainerPort{Name: v1.ReadinessPortName, ContainerPort: probePort})
-	}
-
 	container := makeContainer(servingContainer, rev)
 	if container.ReadinessProbe != nil {
 		if container.ReadinessProbe.HTTPGet != nil || container.ReadinessProbe.TCPSocket != nil {
@@ -231,19 +221,6 @@ func getUserPort(rev *v1.Revision) int32 {
 	}
 
 	return v1.DefaultUserPort
-}
-
-func getReadinessProbePort(rev *v1.Revision) int32 {
-	container := rev.Spec.GetContainer()
-	if container.ReadinessProbe != nil {
-		if container.ReadinessProbe.HTTPGet != nil && container.ReadinessProbe.HTTPGet.Port != intstr.FromInt(int(0)) {
-			return container.ReadinessProbe.HTTPGet.Port.IntVal
-		}
-		if container.ReadinessProbe.TCPSocket != nil && container.ReadinessProbe.TCPSocket.Port != intstr.FromInt(int(0)) {
-			return container.ReadinessProbe.TCPSocket.Port.IntVal
-		}
-	}
-	return 0
 }
 
 func buildContainerPorts(userPort int32) []corev1.ContainerPort {
