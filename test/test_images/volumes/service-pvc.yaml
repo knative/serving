@@ -1,4 +1,4 @@
-# Copyright 2021 The Knative Authors
+# Copyright 2022 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,20 +15,33 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: emptydir
-  namespace: default
+  name: event-display
 spec:
   template:
     spec:
       containers:
-        - imagePullPolicy: Always
-          image: ko://knative.dev/serving/test/test_images/emptydir
+        - image: ko://knative.dev/serving/test/test_images/volumes
+          name: event-display
           volumeMounts:
-            - name: data
-              mountPath: /data
+            - mountPath: /data
+              name: mydata
+              readOnly: false
           env:
             - name: DATA_PATH
               value: /data
       volumes:
-        - name: data
-          emptyDir: {}
+        - name: mydata
+          persistentVolumeClaim:
+            claimName: knative-pv-claim
+            readOnly: false
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: knative-pv-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

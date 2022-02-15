@@ -15,7 +15,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: initcontainers
+  name: emptydir
   namespace: default
 spec:
   template:
@@ -29,12 +29,6 @@ spec:
           env:
             - name: DATA_PATH
               value: /data
-      initContainers:
-        - imagePullPolicy: Always
-          image: ko://knative.dev/serving/test/test_images/volumes
-          volumeMounts:
-            - name: data
-              mountPath: /data
       volumes:
         - name: data
           emptyDir: {}

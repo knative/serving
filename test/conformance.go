@@ -36,7 +36,6 @@ import (
 const (
 	// Test image names
 	Autoscale           = "autoscale"
-	EmptyDir            = "emptydir"
 	Failing             = "failing"
 	GRPCPing            = "grpc-ping"
 	HelloHTTP2          = "hellohttp2"
@@ -53,6 +52,7 @@ const (
 	SidecarContainer    = "sidecarcontainer"
 	SingleThreadedImage = "singlethreaded"
 	Timeout             = "timeout"
+	Volumes             = "volumes"
 	WorkingDir          = "workingdir"
 
 	// Constants for test image output.

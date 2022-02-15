@@ -754,7 +754,7 @@ func TestServiceCreateWithEmptyDir(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.EmptyDir,
+		Image:   test.Volumes,
 	}
 
 	quantity := resource.MustParse("100M")
