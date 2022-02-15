@@ -19,6 +19,7 @@ metadata:
   namespace: knative-serving
   labels:
     app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/component: networking
     app.kubernetes.io/version: devel
     serving.knative.dev/release: devel
   annotations:
