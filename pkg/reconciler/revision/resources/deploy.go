@@ -187,7 +187,6 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 	// Replacement is safe as only up to a single port is allowed on the Revision
 	servingContainer.Ports = buildContainerPorts(userPort)
 	servingContainer.Env = append(servingContainer.Env, buildUserPortEnv(userPortStr))
-
 	container := makeContainer(servingContainer, rev)
 	if container.ReadinessProbe != nil {
 		if container.ReadinessProbe.HTTPGet != nil || container.ReadinessProbe.TCPSocket != nil {

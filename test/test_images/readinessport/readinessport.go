@@ -65,7 +65,6 @@ func main() {
 
 	mainServer := http.NewServeMux()
 	mainServer.HandleFunc("/", handleMain)
-	//mainServer.HandleFunc("/start-failing", handleStartFailing)
 
 	probeServer := http.NewServeMux()
 	probeServer.HandleFunc("/", handleHealthz)
@@ -89,17 +88,8 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not healthy", http.StatusInternalServerError)
 		return
 	}
-
-	fmt.Fprint(w, test.ReadinessPortText)
+	fmt.Fprint(w, test.HelloWorldText)
 }
-
-//func handleStartFailing(w http.ResponseWriter, r *http.Request) {
-//	mu.Lock()
-//	defer mu.Unlock()
-//
-//	healthy = false
-//	fmt.Fprint(w, "will now fail readiness")
-//}
 
 func handleMain(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, test.HelloWorldText)

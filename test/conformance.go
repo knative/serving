@@ -62,7 +62,6 @@ const (
 	HelloWorldText   = "Hello World! How about some tasty noodles?"
 	HelloHTTP2Text   = "Hello, New World! How about donuts and coffee?"
 	EmptyDirText     = "From file in empty dir!"
-	ReadinessPortText = "I'm ready!"
 
 	MultiContainerResponse = "Yay!! multi-container works"
 
