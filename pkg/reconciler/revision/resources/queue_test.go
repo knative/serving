@@ -255,19 +255,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
-		name: "custom maxDurationSeconds",
-		rev: revision("bar", "foo",
-			withContainers(containers),
-			func(revision *v1.Revision) {
-				revision.Spec.MaxDurationSeconds = ptr.Int64(99)
-			},
-		),
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"MAX_DURATION_SECONDS": "99",
-			})
-		}),
-	}, {
 		name: "default resource config",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
@@ -692,8 +679,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			SuccessThreshold: 3,
 		},
 		rev: v1.RevisionSpec{
-			TimeoutSeconds:     ptr.Int64(45),
-			MaxDurationSeconds: ptr.Int64(100),
+			TimeoutSeconds: ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Name: servingContainerName,
@@ -733,8 +719,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 	}, {
 		name: "tcp defaults",
 		rev: v1.RevisionSpec{
-			TimeoutSeconds:     ptr.Int64(45),
-			MaxDurationSeconds: ptr.Int64(100),
+			TimeoutSeconds: ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Name: servingContainerName,
@@ -790,8 +775,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			InitialDelaySeconds: 3,
 		},
 		rev: v1.RevisionSpec{
-			TimeoutSeconds:     ptr.Int64(45),
-			MaxDurationSeconds: ptr.Int64(100),
+			TimeoutSeconds: ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Name: servingContainerName,
@@ -872,7 +856,6 @@ var defaultEnv = map[string]string{
 	"METRICS_COLLECTOR_ADDRESS":        "",
 	"QUEUE_SERVING_PORT":               "8012",
 	"REVISION_TIMEOUT_SECONDS":         "45",
-	"MAX_DURATION_SECONDS":             "100",
 	"SERVING_CONFIGURATION":            "",
 	"SERVING_ENABLE_PROBE_REQUEST_LOG": "false",
 	"SERVING_ENABLE_REQUEST_LOG":       "false",
