@@ -21,6 +21,8 @@ package e2e
 
 import (
 	"context"
+	"testing"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	pkgTest "knative.dev/pkg/test"
@@ -28,7 +30,6 @@ import (
 	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
-	"testing"
 )
 
 func TestReadinessPort(t *testing.T) {
