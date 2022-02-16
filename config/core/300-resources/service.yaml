@@ -478,10 +478,6 @@ spec:
                               name:
                                 description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                                 type: string
-                        maxDurationSeconds:
-                          description: MaxDurationSeconds is the maximum duration in seconds a request will be allowed to stay open.
-                          type: integer
-                          format: int64
                         serviceAccountName:
                           description: 'ServiceAccountName is the name of the ServiceAccount to use to run this pod. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                           type: string

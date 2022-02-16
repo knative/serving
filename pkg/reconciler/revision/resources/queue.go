@@ -193,10 +193,6 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	if rev.Spec.TimeoutSeconds != nil {
 		ts = *rev.Spec.TimeoutSeconds
 	}
-	maxDurationTS := int64(0)
-	if rev.Spec.MaxDurationSeconds != nil {
-		maxDurationTS = *rev.Spec.MaxDurationSeconds
-	}
 	ports := queueNonServingPorts
 	if cfg.Observability.EnableProfiling {
 		ports = append(ports, profilingPort)
@@ -271,9 +267,6 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: strconv.Itoa(int(ts)),
-		}, {
-			Name:  "MAX_DURATION_SECONDS",
-			Value: strconv.Itoa(int(maxDurationTS)),
 		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{
