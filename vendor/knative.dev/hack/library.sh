@@ -695,7 +695,7 @@ function go_mod_gopath_hack() {
 # Parameters: $1..$n - parameters passed to the tool.
 function run_kntest() {
   if [[ ! -x "$(command -v kntest)" ]]; then
-    echo "--- FAIL: kntest not installed, please clone knative test-infra repo and run \`go install ./kntest/cmd/kntest\` to install it"; return 1;
+    echo "--- FAIL: kntest not installed, please clone knative test-infra repo and run \`go install ./tools/kntest/cmd/kntest\` to install it"; return 1;
   fi
   kntest "$@"
 }
