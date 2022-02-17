@@ -30,7 +30,12 @@ webhooks:
   failurePolicy: Fail
   sideEffects: None
   name: config.webhook.serving.knative.dev
-  namespaceSelector:
-    matchLabels:
-      app.kubernetes.io/name: knative-serving
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: In
+      values: ["knative-serving"]
+    - key: app.kubernetes.io/component
+      operator: In
+      values: ["autoscaler", "controller", "logging", "networking", "observability", "tracing"]
   timeoutSeconds: 10

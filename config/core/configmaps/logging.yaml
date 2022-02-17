@@ -20,6 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
     app.kubernetes.io/version: devel
+    app.kubernetes.io/component: logging
     app.kubernetes.io/name: knative-serving
   annotations:
     knative.dev/example-checksum: "b0f3c6f2"
