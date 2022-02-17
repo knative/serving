@@ -246,6 +246,7 @@ jobs:
             cat > .wokeignore <<EOF
             vendor/*
             third_party/*
+            *.svg
           EOF
           fi
 
