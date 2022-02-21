@@ -302,11 +302,14 @@ func (le *LeaderElector) release() bool {
 		RenewTime:            now,
 		AcquireTime:          now,
 	}
+
+	desc := le.config.Lock.Describe()
+	klog.V(4).Infof("lease releasing %v", desc)
 	if err := le.config.Lock.Update(context.TODO(), leaderElectionRecord); err != nil {
 		klog.Errorf("Failed to release lock: %v", err)
 		return false
 	}
-
+	klog.V(4).Infof("lease released %v", desc)
 	le.setObservedRecord(&leaderElectionRecord)
 	return true
 }

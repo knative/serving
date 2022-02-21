@@ -448,12 +448,15 @@ func (c *Impl) EnqueueKeyAfter(key types.NamespacedName, delay time.Duration) {
 func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 	sg := sync.WaitGroup{}
 	defer func() {
+		c.logger.Info("Work queue shutting down")
 		c.workQueue.ShutDown()
 		for c.workQueue.Len() > 0 {
 			time.Sleep(time.Millisecond * 100)
 		}
+		c.logger.Info("Work queue drained")
 		sg.Wait()
 		runtime.HandleCrash()
+		c.logger.Info("Shutdown complete")
 	}()
 
 	if la, ok := c.Reconciler.(reconciler.LeaderAware); ok {
@@ -465,7 +468,9 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 		sg.Add(1)
 		go func() {
 			defer sg.Done()
+			c.logger.Info("Leader election running")
 			le.Run(ctx)
+			c.logger.Info("Leader election stopped")
 		}()
 	}
 
