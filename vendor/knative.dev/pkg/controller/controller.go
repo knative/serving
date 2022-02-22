@@ -454,7 +454,9 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 			time.Sleep(time.Millisecond * 100)
 		}
 		c.logger.Info("Work queue drained")
+		c.logger.Info("Wait go")
 		sg.Wait()
+		c.logger.Info("Wait done")
 		runtime.HandleCrash()
 		c.logger.Info("Shutdown complete")
 	}()

@@ -284,17 +284,25 @@ func (le *LeaderElector) renew(ctx context.Context) {
 		cancel()
 	}, le.config.RetryPeriod, ctx.Done())
 
+	desc := le.config.Lock.Describe()
+	klog.Infof("check release lease %v %v", desc, le.config.ReleaseOnCancel)
 	// if we hold the lease, give it up
 	if le.config.ReleaseOnCancel {
+		klog.Infof("calling release %v", le.config.ReleaseOnCancel)
 		le.release()
 	}
+	klog.Infof("done release %v %v", desc, le.config.ReleaseOnCancel)
 }
 
 // release attempts to release the leader lease if we have acquired it.
 func (le *LeaderElector) release() bool {
+	desc := le.config.Lock.Describe()
+	klog.Infof("is leader check %v", desc)
 	if !le.IsLeader() {
+		klog.Infof("not leader for %v", desc)
 		return true
 	}
+	klog.Infof("is leader %v", desc)
 	now := metav1.Now()
 	leaderElectionRecord := rl.LeaderElectionRecord{
 		LeaderTransitions:    le.observedRecord.LeaderTransitions,
@@ -303,7 +311,6 @@ func (le *LeaderElector) release() bool {
 		AcquireTime:          now,
 	}
 
-	desc := le.config.Lock.Describe()
 	klog.V(4).Infof("lease releasing %v", desc)
 	if err := le.config.Lock.Update(context.TODO(), leaderElectionRecord); err != nil {
 		klog.Errorf("Failed to release lock: %v", err)
