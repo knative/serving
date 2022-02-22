@@ -501,17 +501,21 @@ function stage_serving_latest() {
   mkdir -p "${latest_dir}"
   mkdir -p "${latest_post_install_dir}"
 
-  # Download the latest release of Knative Serving.
-  local url="https://github.com/knative/serving/releases/download/${version}"
+  # # Download the latest release of Knative Serving.
+  # local url="https://github.com/knative/serving/releases/download/${version}"
 
-  wget "${url}/serving-core.yaml" -P "${latest_dir}" \
-    || fail_test "Unable to download latest knative/serving core file."
+  # wget "${url}/serving-core.yaml" -P "${latest_dir}" \
+  #   || fail_test "Unable to download latest knative/serving core file."
 
-  wget "${url}/serving-hpa.yaml" -P "${latest_dir}" \
-    || fail_test "Unable to download latest knative/serving hpa file."
+  # wget "${url}/serving-hpa.yaml" -P "${latest_dir}" \
+  #   || fail_test "Unable to download latest knative/serving hpa file."
 
-  wget "${url}/serving-post-install-jobs.yaml" -P "${latest_post_install_dir}" \
-    || fail_test "Unable to download latest knative/serving post install file."
+  # wget "${url}/serving-post-install-jobs.yaml" -P "${latest_post_install_dir}" \
+  #   || fail_test "Unable to download latest knative/serving post install file."
+
+  cp "${REPO_ROOT_DIR}/yamls/serving-core.yaml" "${latest_dir}/serving-core.yaml"
+  cp "${REPO_ROOT_DIR}/yamls/serving-hpa.yaml" "${latest_dir}/serving-hpa.yaml"
+  cp "${REPO_ROOT_DIR}/yamls/serving-post-install-jobs.yaml" "${latest_dir}/serving-post-install-jobs.yaml"
 }
 
 function stage_test_resources() {
