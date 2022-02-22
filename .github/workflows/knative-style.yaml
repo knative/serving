@@ -149,6 +149,7 @@ jobs:
           git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$' | cut -d: -f1 |
           git check-attr --stdin ignore-lint | grep -Ev ': (set|true)$' | cut -d: -f1 |
           grep -Ev '^(vendor/|third_party/|.git)' |
+          grep -v '\.svg$' |
           xargs misspell -i importas -error |
           reviewdog -efm="%f:%l:%c: %m" \
                 -name="github.com/client9/misspell" \
@@ -179,6 +180,7 @@ jobs:
           git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$' | cut -d: -f1 |
           git check-attr --stdin ignore-lint | grep -Ev ': (set|true)$' | cut -d: -f1 |
           grep -Ev '^(vendor/|third_party/|.git)' |
+          grep -v '\.svg$' |
           xargs grep -nE " +$" |
           reviewdog -efm="%f:%l:%m" \
                 -name="trailing whitespace" \
@@ -211,7 +213,8 @@ jobs:
           git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$' | cut -d: -f1 |
           git check-attr --stdin ignore-lint | grep -Ev ': (set|true)$' | cut -d: -f1 |
           grep -Ev '^(vendor/|third_party/|.git)' |
-          grep -v '\.ai$')
+          grep -v '\.ai$' |
+          grep -v '\.svg$')
 
           for x in $LINT_FILES; do
             # Based on https://stackoverflow.com/questions/34943632/linux-check-if-there-is-an-empty-line-at-the-end-of-a-file
