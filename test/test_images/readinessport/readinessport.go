@@ -27,9 +27,6 @@ import (
 	"knative.dev/serving/test"
 )
 
-type probeHandler struct {
-}
-
 var (
 	healthy bool
 	mu      sync.Mutex
