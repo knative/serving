@@ -515,7 +515,7 @@ function stage_serving_latest() {
 
   cp "${REPO_ROOT_DIR}/yamls/serving-core.yaml" "${latest_dir}/serving-core.yaml"
   cp "${REPO_ROOT_DIR}/yamls/serving-hpa.yaml" "${latest_dir}/serving-hpa.yaml"
-  cp "${REPO_ROOT_DIR}/yamls/serving-post-install-jobs.yaml" "${latest_dir}/serving-post-install-jobs.yaml"
+  cp "${REPO_ROOT_DIR}/yamls/serving-post-install-jobs.yaml" "${latest_post_install_dir}/serving-post-install-jobs.yaml"
 }
 
 function stage_test_resources() {
