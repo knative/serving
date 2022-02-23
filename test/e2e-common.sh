@@ -551,7 +551,7 @@ function overlay_system_namespace() {
 }
 
 function run_ytt() {
-  run_go_tool github.com/k14s/ytt/cmd/ytt ytt "$@"
+  run_go_tool github.com/vmware-tanzu/carvel-ytt/cmd/ytt ytt "$@"
 }
 
 
