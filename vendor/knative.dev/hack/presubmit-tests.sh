@@ -23,7 +23,7 @@ source $(dirname "${BASH_SOURCE[0]}")/library.sh
 readonly PRESUBMIT_TEST_FAIL_FAST=${PRESUBMIT_TEST_FAIL_FAST:-0}
 
 # Extensions or file patterns that don't require presubmit tests.
-readonly NO_PRESUBMIT_FILES=(\.png \.gitignore \.gitattributes ^OWNERS ^OWNERS_ALIASES ^AUTHORS)
+readonly NO_PRESUBMIT_FILES=(\.png \.gitignore \.gitattributes ^OWNERS ^OWNERS_ALIASES ^AUTHORS \.github/.*)
 
 # Flag if this is a presubmit run or not.
 (( IS_PROW )) && [[ ${JOB_TYPE} == "presubmit" ]] && IS_PRESUBMIT=1 || IS_PRESUBMIT=0

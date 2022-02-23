@@ -266,7 +266,9 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 		wh.InformersHaveSynced()
 	}
 	logger.Info("Starting controllers...")
-	go controller.StartAll(ctx, controllers...)
+	eg.Go(func() error {
+		return controller.StartAll(ctx, controllers...)
+	})
 
 	// This will block until either a signal arrives or one of the grouped functions
 	// returns an error.
