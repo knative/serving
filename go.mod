@@ -7,8 +7,8 @@ require (
 	github.com/c2h5oh/datasize v0.0.0-20200112174442-28bbd4740fee // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/gogo/protobuf v1.3.2
-	github.com/google/go-cmp v0.5.6
-	github.com/google/go-containerregistry v0.8.1-0.20220120151853-ac864e57b117
+	github.com/google/go-cmp v0.5.7
+	github.com/google/go-containerregistry v0.8.1-0.20220219142810-1571d7fdc46e
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20220120151853-ac864e57b117
 	github.com/google/gofuzz v1.2.0
 	github.com/gorilla/websocket v1.4.2
@@ -23,12 +23,12 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.19.1
-	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
+	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11
-	google.golang.org/api v0.63.0
-	google.golang.org/grpc v1.43.0
+	google.golang.org/api v0.65.0
+	google.golang.org/grpc v1.44.0
 	k8s.io/api v0.22.5
 	k8s.io/apiextensions-apiserver v0.22.5
 	k8s.io/apimachinery v0.22.5
