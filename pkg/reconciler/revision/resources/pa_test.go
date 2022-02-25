@@ -203,6 +203,9 @@ func TestMakePA(t *testing.T) {
 					Namespace: "blah",
 					Name:      "batman",
 					UID:       "4321",
+					Labels: map[string]string{
+						serving.RoutingStateLabelKey: string(v1.RoutingStatePending),
+					},
 				},
 				Spec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(0),
