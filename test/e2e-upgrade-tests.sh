@@ -39,6 +39,8 @@ function stage_test_resources() {
 
 # Script entry point.
 
+export ENABLE_GKE_TELEMETRY=true
+
 # Skip installing istio as an add-on.
 initialize "$@" --skip-istio-addon  --min-nodes=4 --max-nodes=4 --cluster-version=1.21 \
   --install-latest-release
@@ -48,9 +50,14 @@ TIMEOUT=30m
 
 header "Running upgrade tests"
 
-go_test_e2e -tags=upgrade -timeout=${TIMEOUT} \
-  ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
+for i in  $(seq 1 10); do
+   export TEST_PREFIX=$i
+   install "${INSTALL_SERVING_VERSION}" "${INSTALL_ISTIO_VERSION}"
+   go_test_e2e -tags=upgrade -timeout=${TIMEOUT} \
+     ./test/upgrade \
+     --resolvabledomain=$(use_resolvable_domain) || fail_test
+   knative_teardown
+ done
 
 # Remove the kail log file if the test flow passes.
 # This is for preventing too many large log files to be uploaded to GCS in CI.
