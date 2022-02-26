@@ -20,6 +20,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"os"
 	"testing"
 
 	"go.uber.org/zap"
@@ -29,6 +30,10 @@ import (
 )
 
 func TestServingUpgrades(t *testing.T) {
+	t.Run(os.Getenv("TEST_PREFIX"), testServingUpgrades)
+}
+
+func testServingUpgrades(t *testing.T) {
 	c := newUpgradeConfig(t)
 	suite := pkgupgrade.Suite{
 		Tests: pkgupgrade.Tests{
