@@ -36,6 +36,7 @@ import (
 	pkgnet "knative.dev/networking/pkg/apis/networking"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/reconciler"
@@ -570,8 +571,13 @@ func (t *Throttler) revisionUpdated(obj interface{}) {
 // revisionDeleted is to clean up revision throttlers after a revision is deleted to prevent unbounded
 // memory growth
 func (t *Throttler) revisionDeleted(obj interface{}) {
-	rev := obj.(*v1.Revision)
-	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
+	acc, err := kmeta.DeletionHandlingAccessor(obj)
+	if err != nil {
+		t.logger.Warnw("Revision delete failure to process", zap.Error(err))
+		return
+	}
+
+	revID := types.NamespacedName{Namespace: acc.GetNamespace(), Name: acc.GetName()}
 
 	t.logger.Debugw("Revision delete", zap.String(logkey.Key, revID.String()))
 
