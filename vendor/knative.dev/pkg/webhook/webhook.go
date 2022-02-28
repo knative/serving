@@ -144,7 +144,8 @@ func New(
 			// If we return (nil, nil) the client sees - 'tls: no certificates configured'
 			//
 			// We'll return (nil, nil) when we don't find a certificate
-			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+			GetCertificate: func(ch *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				logger.Infof("client hello %s", ch.ServerName)
 				secret, err := secretInformer.Lister().Secrets(system.Namespace()).Get(opts.SecretName)
 				if err != nil {
 					logger.Errorw("failed to fetch secret", zap.Error(err))
@@ -161,8 +162,10 @@ func New(
 					logger.Warn("server cert missing")
 					return nil, nil
 				}
+
 				cert, err := tls.X509KeyPair(serverCert, serverKey)
 				if err != nil {
+					logger.Errorw("bad key pair", zap.Error(err))
 					return nil, err
 				}
 				return &cert, nil
@@ -229,6 +232,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 				return err
 			}
 		}
+		logger.Info("ListenAndServe finished")
 		return nil
 	})
 
@@ -241,7 +245,9 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 			// Start failing readiness probes immediately.
 			logger.Info("Starting to fail readiness probes...")
 			drainer.Drain()
+			logger.Info("Drain finished")
 
+			defer logger.Info("Shutdown finished")
 			return server.Shutdown(context.Background())
 		})
 
