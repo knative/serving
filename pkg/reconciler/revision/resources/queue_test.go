@@ -925,10 +925,10 @@ func probeJSON(container *corev1.Container) string {
 	if container == nil {
 		return fmt.Sprintf(testProbeJSONTemplate, v1.DefaultUserPort)
 	}
-	if container.ReadinessProbe.TCPSocket != nil && container.ReadinessProbe.TCPSocket.Port != intstr.FromInt(int(0)) {
+	if container.ReadinessProbe.TCPSocket != nil && container.ReadinessProbe.TCPSocket.Port.IntValue() != 0 {
 		return fmt.Sprintf(testProbeJSONTemplate, container.ReadinessProbe.TCPSocket.Port.IntVal)
 	}
-	if container.ReadinessProbe.HTTPGet != nil && container.ReadinessProbe.HTTPGet.Port != intstr.FromInt(int(0)) {
+	if container.ReadinessProbe.HTTPGet != nil && container.ReadinessProbe.HTTPGet.Port.IntValue() != 0 {
 		return fmt.Sprintf(testProbeJSONTemplate, container.ReadinessProbe.HTTPGet.Port.IntVal)
 	}
 	if ports := container.Ports; len(ports) > 0 && ports[0].ContainerPort != 0 {

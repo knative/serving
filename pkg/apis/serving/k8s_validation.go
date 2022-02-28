@@ -780,7 +780,7 @@ func validateProbe(p *corev1.Probe, port corev1.ContainerPort) *apis.FieldError 
 		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
 		getPort := h.HTTPGet.Port
 		if getPort.StrVal != "" && getPort.StrVal != port.Name {
-			errs = errs.Also(apis.ErrInvalidValue(getPort.String(), "httpGet.port", "May only probe containerPort"))
+			errs = errs.Also(apis.ErrInvalidValue(getPort.String(), "httpGet.port", "Probe port must match container port"))
 		}
 	}
 	if h.TCPSocket != nil {
@@ -788,7 +788,7 @@ func validateProbe(p *corev1.Probe, port corev1.ContainerPort) *apis.FieldError 
 		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
 		tcpPort := h.TCPSocket.Port
 		if tcpPort.StrVal != "" && tcpPort.StrVal != port.Name {
-			errs = errs.Also(apis.ErrInvalidValue(tcpPort.String(), "tcpSocket.port", "May only probe containerPort"))
+			errs = errs.Also(apis.ErrInvalidValue(tcpPort.String(), "tcpSocket.port", "Probe port must match container port"))
 		}
 	}
 	if h.Exec != nil {

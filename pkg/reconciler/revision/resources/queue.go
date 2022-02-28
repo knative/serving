@@ -214,10 +214,10 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	var userProbeJSON string
 	if container.ReadinessProbe != nil {
 		probePort := userPort
-		if container.ReadinessProbe.HTTPGet != nil && container.ReadinessProbe.HTTPGet.Port != intstr.FromInt(int(0)) {
+		if container.ReadinessProbe.HTTPGet != nil && container.ReadinessProbe.HTTPGet.Port.IntValue() != 0 {
 			probePort = container.ReadinessProbe.HTTPGet.Port.IntVal
 		}
-		if container.ReadinessProbe.TCPSocket != nil && container.ReadinessProbe.TCPSocket.Port != intstr.FromInt(int(0)) {
+		if container.ReadinessProbe.TCPSocket != nil && container.ReadinessProbe.TCPSocket.Port.IntValue() != 0 {
 			probePort = container.ReadinessProbe.TCPSocket.Port.IntVal
 		}
 

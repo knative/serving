@@ -32,14 +32,14 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-func TestReadinessPort(t *testing.T) {
+func TestReadinessAlternatePort(t *testing.T) {
 	t.Parallel()
 
 	clients := Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.ReadinessPort,
+		Image:   test.Readiness,
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -47,6 +47,10 @@ func TestReadinessPort(t *testing.T) {
 	t.Log("Creating a new Service")
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
+		v1opts.WithEnv(corev1.EnvVar{
+			Name:  "HEALTHCHECK_PORT",
+			Value: "8077",
+		}),
 		v1opts.WithReadinessProbe(
 			&corev1.Probe{
 				Handler: corev1.Handler{

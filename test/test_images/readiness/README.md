@@ -3,8 +3,8 @@
 This directory contains the test image used to simulate an image that responds
 to various types of readiness probe.
 
-The image provides a /healthz endpoint which will reply with a 200 status code
-and the Hello World text only after the delay requested by the STARTUP_DELAY
+The image provides an endpoint which will reply with a 200 status code
+and the Hello World text only after the delay requested by the READY_DELAY
 environment variable has elapsed.
 
 The image also contains an exec probe when run with "probe" as its only argument.
