@@ -1629,7 +1629,7 @@ func TestContainerValidation(t *testing.T) {
 					},
 				},
 			},
-			want: apis.ErrInvalidValue("imap", "livenessProbe.tcpSocket.port", "May only probe containerPort"),
+			want: apis.ErrInvalidValue("imap", "livenessProbe.tcpSocket.port", "Probe port must match container port"),
 		}, {
 			name: "valid liveness tcp probe with correct port",
 			c: corev1.Container{

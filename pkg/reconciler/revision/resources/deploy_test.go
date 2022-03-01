@@ -524,7 +524,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name:      "asdf",
 					MountPath: "/asdf",
 				}},
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				ReadinessProbe: withTCPReadinessProbe(8888),
 			}}),
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -555,7 +555,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("USER_PORT", "8888"),
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
 				),
 			}, withAppendedVolumes(corev1.Volume{
 				Name: "asdf",
@@ -952,7 +952,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				ReadinessProbe: withTCPReadinessProbe(8888),
 			}, {
 				Name:  sidecarContainerName,
 				Image: "ubuntu",
@@ -994,7 +994,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("SERVING_SERVICE", "svc"),
 					withEnvVar("USER_PORT", "8888"),
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
 				),
 			}),
 	}, {
