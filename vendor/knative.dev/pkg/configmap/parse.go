@@ -244,3 +244,16 @@ func Parse(data map[string]string, parsers ...ParseFunc) error {
 	}
 	return nil
 }
+
+// AsOptionalMap parses the data into the target as a map[string]string, if it exists.
+// The map is represented as a list of key-value pairs with a common prefix.
+func AsOptionalMap(prefix string, target map[string]string) ParseFunc {
+	return func(data map[string]string) error {
+		for k, v := range data {
+			if strings.HasPrefix(k, prefix) && len(k) > len(prefix)+1 {
+				target[k[len(prefix)+1: /* remove dot `.` */]] = v
+			}
+		}
+		return nil
+	}
+}
