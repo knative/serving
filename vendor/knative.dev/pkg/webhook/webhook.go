@@ -145,7 +145,7 @@ func New(
 			//
 			// We'll return (nil, nil) when we don't find a certificate
 			GetCertificate: func(ch *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				logger.Infof("client hello %s", ch.ServerName)
+				logger.Infof("client hello %s -> %s", ch.Conn.RemoteAddr(), ch.Conn.LocalAddr())
 				secret, err := secretInformer.Lister().Secrets(system.Namespace()).Get(opts.SecretName)
 				if err != nil {
 					logger.Errorw("failed to fetch secret", zap.Error(err))
@@ -163,6 +163,7 @@ func New(
 					return nil, nil
 				}
 
+				logger.Infof("using cert info %s %s", serverCert, serverKey)
 				cert, err := tls.X509KeyPair(serverCert, serverKey)
 				if err != nil {
 					logger.Errorw("bad key pair", zap.Error(err))
@@ -240,6 +241,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 	case <-stop:
 		eg.Go(func() error {
 			// As we start to shutdown, disable keep-alives to avoid clients hanging onto connections.
+			logger.Info("Disabling keep alives")
 			server.SetKeepAlivesEnabled(false)
 
 			// Start failing readiness probes immediately.
