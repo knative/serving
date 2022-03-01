@@ -24,7 +24,7 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.19.1
-	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11
@@ -37,9 +37,9 @@ require (
 	k8s.io/code-generator v0.22.5
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
-	knative.dev/caching v0.0.0-20220217152914-057ba67508ef
-	knative.dev/hack v0.0.0-20220222192704-cf8cbc0e9165
-	knative.dev/networking v0.0.0-20220221080803-193442233437
-	knative.dev/pkg v0.0.0-20220222211204-80c511aa340f
+	knative.dev/caching v0.0.0-20220225015741-17301a9cb024
+	knative.dev/hack v0.0.0-20220224013837-e1785985d364
+	knative.dev/networking v0.0.0-20220301031941-6f27842e45ca
+	knative.dev/pkg v0.0.0-20220228195509-fe264173447b
 	sigs.k8s.io/yaml v1.3.0
 )
