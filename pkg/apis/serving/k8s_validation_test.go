@@ -1686,22 +1686,6 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		}, {
-			name: "valid liveness tcp probe on a different container port",
-			c: corev1.Container{
-				Image: "foo",
-				LivenessProbe: &corev1.Probe{
-					PeriodSeconds:    1,
-					TimeoutSeconds:   1,
-					SuccessThreshold: 1,
-					FailureThreshold: 3,
-					Handler: corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.FromInt(5000),
-						},
-					},
-				},
-			},
-		}, {
 			name: "disallowed container fields",
 			c: corev1.Container{
 				Image:     "foo",
