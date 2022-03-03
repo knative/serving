@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Knative Authors
+Copyright 2022 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -44,11 +44,6 @@ func main() {
 		execProbeMain()
 	}
 
-	healthcheckPort := 0
-	if env := os.Getenv("HEALTHCHECK_PORT"); env != "" {
-		healthcheckPort, _ = strconv.Atoi(env)
-	}
-
 	// HTTP/TCP Probe.
 	healthy = true
 	var mu sync.Mutex
@@ -83,9 +78,14 @@ func main() {
 	probeServer := http.NewServeMux()
 	probeServer.HandleFunc("/", handleHealthz)
 
-	go func() {
-		http.ListenAndServe(":"+strconv.Itoa(healthcheckPort), probeServer)
-	}()
+	if env := os.Getenv("HEALTHCHECK_PORT"); env != "" {
+		healthcheckPort, _ := strconv.Atoi(env)
+		go func() {
+			http.ListenAndServe(":"+strconv.Itoa(healthcheckPort), probeServer)
+		}()
+	} else {
+		mainServer.HandleFunc("/healthz", handleHealthz)
+	}
 
 	go func() {
 		http.ListenAndServe(":8080", mainServer)
