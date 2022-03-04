@@ -38,9 +38,9 @@ jobs:
     env:
       #########################################
       #   Update this section each release.   #
-      RELEASE: 'v1.2'
-      MODULE_RELEASE: 'v0.29'
-      SLACK_CHANNEL: 'release-1dot2'
+      RELEASE: 'v1.3'
+      MODULE_RELEASE: 'v0.30'
+      SLACK_CHANNEL: 'release-1dot3'
       #########################################
 
     steps:
