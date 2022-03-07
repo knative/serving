@@ -1287,6 +1287,41 @@ func TestContainerValidation(t *testing.T) {
 			},
 			want: apis.ErrMultipleOneOf("readinessProbe.exec", "readinessProbe.tcpSocket", "readinessProbe.httpGet"),
 		}, {
+			name: "valid liveness http probe with a different container port",
+			c: corev1.Container{
+				Image: "foo",
+				LivenessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt(5000),
+						},
+					},
+				},
+			},
+			want: nil,
+		}, {
+			name: "valid liveness tcp probe with a different container port",
+			c: corev1.Container{
+				Image: "foo",
+				LivenessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					Handler: corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt(5000),
+						},
+					},
+				},
+			},
+			want: nil,
+		}, {
 			name: "valid readiness http probe with a different container port",
 			c: corev1.Container{
 				Image: "foo",
@@ -1303,6 +1338,7 @@ func TestContainerValidation(t *testing.T) {
 					},
 				},
 			},
+			want: nil,
 		}, {
 			name: "valid readiness tcp probe with a different container port",
 			c: corev1.Container{
@@ -1319,6 +1355,7 @@ func TestContainerValidation(t *testing.T) {
 					},
 				},
 			},
+			want: nil,
 		}, {
 			name: "valid readiness http probe with port",
 			c: corev1.Container{
@@ -1332,6 +1369,7 @@ func TestContainerValidation(t *testing.T) {
 					},
 				},
 			},
+			want: nil,
 		}, {
 			name: "invalid readiness probe (has failureThreshold while using special probe)",
 			c: corev1.Container{
@@ -1418,7 +1456,7 @@ func TestContainerValidation(t *testing.T) {
 					},
 				},
 			},
-			want: apis.ErrInvalidValue("imap", "livenessProbe.tcpSocket.port", "May only probe containerPort"),
+			want: apis.ErrInvalidValue("imap", "livenessProbe.tcpSocket.port", "Probe port must match container port"),
 		}, {
 			name: "valid liveness tcp probe with correct port",
 			c: corev1.Container{

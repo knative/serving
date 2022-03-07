@@ -102,6 +102,36 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
+		name: "custom readiness probe port",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name: servingContainerName,
+				ReadinessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Host: "127.0.0.1",
+							Port: intstr.FromInt(8087),
+						},
+					},
+				},
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 1955,
+					Name:          string(networking.ProtocolH2C),
+				}},
+			}})),
+		dc: deployment.Config{
+			QueueSidecarImage: "alpine",
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Image = "alpine"
+			c.Ports = append(queueNonServingPorts, queueHTTP2Port)
+			c.ReadinessProbe.Handler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
+			c.Env = env(map[string]string{
+				"USER_PORT":          "1955",
+				"QUEUE_SERVING_PORT": "8013",
+			})
+		}),
+	}, {
 		name: "custom sidecar image, container port, protocol",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -877,7 +907,12 @@ func probeJSON(container *corev1.Container) string {
 	if container == nil {
 		return fmt.Sprintf(testProbeJSONTemplate, v1.DefaultUserPort)
 	}
-
+	if container.ReadinessProbe.TCPSocket != nil && container.ReadinessProbe.TCPSocket.Port.IntValue() != 0 {
+		return fmt.Sprintf(testProbeJSONTemplate, container.ReadinessProbe.TCPSocket.Port.IntVal)
+	}
+	if container.ReadinessProbe.HTTPGet != nil && container.ReadinessProbe.HTTPGet.Port.IntValue() != 0 {
+		return fmt.Sprintf(testProbeJSONTemplate, container.ReadinessProbe.HTTPGet.Port.IntVal)
+	}
 	if ports := container.Ports; len(ports) > 0 && ports[0].ContainerPort != 0 {
 		return fmt.Sprintf(testProbeJSONTemplate, ports[0].ContainerPort)
 	}
