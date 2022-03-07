@@ -89,7 +89,6 @@ func ValidateHasNoAutoscalingAnnotation(annotations map[string]string) (errs *ap
 }
 
 // ValidateContainerConcurrency function validates the ContainerConcurrency field
-// TODO(#5007): Move this to autoscaling.
 func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int64) *apis.FieldError {
 	if containerConcurrency != nil {
 		cfg := config.FromContextOrDefaults(ctx).Defaults
