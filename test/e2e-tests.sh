@@ -151,31 +151,4 @@ fi
 # This is for preventing too many large log files to be uploaded to GCS in CI.
 rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
 
-header "Collecting performance data"
-
-cat <<EOF | ko apply $(ko_flags) -f -
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
-  name: podspeed
-spec:
-  template:
-    metadata:
-      annotations:
-        autoscaling.knative.dev/minScale: "1"
-    spec:
-      containers:
-      - image: ko://knative.dev/serving/test/test_images/helloworld
-EOF
-
-kubectl wait ksvc/podspeed --for=condition=Ready
-
-template=$(mktemp)
-kubectl get pods -lserving.knative.dev/service=podspeed -ojson | jq '.items[0]' > "$template"
-
-run_go_tool github.com/markusthoemmes/podspeed/cmd/podspeed@358209f podspeed --prepull -pods 100 -template "$template" > "${ARTIFACTS}/pod-bringup-performance.txt"
-cat "${ARTIFACTS}/pod-bringup-performance.txt"
-
-kubectl delete ksvc podspeed
-
 success
