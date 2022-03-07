@@ -244,8 +244,12 @@ func validateMetric(m map[string]string) *apis.FieldError {
 func validateInitialScale(config *autoscalerconfig.Config, m map[string]string) *apis.FieldError {
 	if k, v, ok := InitialScaleAnnotation.Get(m); ok {
 		initScaleInt, err := strconv.Atoi(v)
-		if err != nil || initScaleInt < 0 || (!config.AllowZeroInitialScale && initScaleInt == 0) {
+		if err != nil {
 			return apis.ErrInvalidValue(v, k)
+		} else if initScaleInt < 0 {
+			return apis.ErrGeneric(fmt.Sprintf("initial-scale=%d, must be greater than 0", initScaleInt), k)
+		} else if !config.AllowZeroInitialScale && initScaleInt == 0 {
+			return apis.ErrGeneric("cluster does not allow initial-scale=0", k)
 		}
 	}
 	return nil

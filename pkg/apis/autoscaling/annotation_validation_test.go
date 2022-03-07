@@ -338,7 +338,7 @@ func TestValidateAnnotations(t *testing.T) {
 	}, {
 		name:        "initial scale is zero but cluster doesn't allow",
 		annotations: map[string]string{InitialScaleAnnotationKey: "0"},
-		expectErr:   "invalid value: 0: autoscaling.knative.dev/initial-scale",
+		expectErr:   "cluster does not allow initial-scale=0: " + InitialScaleAnnotationKey,
 	}, {
 		name: "initial scale is zero and cluster allows",
 		configMutator: func(config *autoscalerconfig.Config) {
@@ -348,6 +348,10 @@ func TestValidateAnnotations(t *testing.T) {
 	}, {
 		name:        "initial scale is greater than 0",
 		annotations: map[string]string{InitialScaleAnnotationKey: "2"},
+	}, {
+		name:        "initial scale is less than 0",
+		annotations: map[string]string{InitialScaleAnnotationKey: "-1"},
+		expectErr:   "initial-scale=-1, must be greater than 0: " + InitialScaleAnnotationKey,
 	}, {
 		name:        "initial scale non-parseable",
 		annotations: map[string]string{InitialScaleAnnotationKey: "invalid"},
