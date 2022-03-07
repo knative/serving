@@ -189,6 +189,10 @@ func TestValidateAnnotations(t *testing.T) {
 		name:        "target 0",
 		annotations: map[string]string{TargetAnnotationKey: "0"},
 		expectErr:   "target 0 should be at least 0.01: " + TargetAnnotationKey,
+	}, {}, {
+		name:        "invalid target",
+		annotations: map[string]string{TargetAnnotationKey: "100}"},
+		expectErr:   "invalid value: 100}: " + TargetAnnotationKey,
 	}, {
 		name:        "target okay",
 		annotations: map[string]string{TargetAnnotationKey: "11"},
