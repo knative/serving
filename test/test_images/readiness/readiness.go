@@ -35,8 +35,6 @@ var (
 )
 
 func main() {
-	finish := make(chan bool)
-
 	// Exec probe.
 	flag.Parse()
 	args := flag.Args()
@@ -87,11 +85,7 @@ func main() {
 		mainServer.HandleFunc("/healthz", handleHealthz)
 	}
 
-	go func() {
-		http.ListenAndServe(":8080", mainServer)
-	}()
-
-	<-finish
+	http.ListenAndServe(":8080", mainServer)
 }
 
 func execProbeMain() {
