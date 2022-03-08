@@ -170,7 +170,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 				autoscaling.InitialScaleAnnotationKey: "-2",
 			},
 		},
-		expectErr: apis.ErrInvalidValue("-2", "annotations."+autoscaling.InitialScaleAnnotationKey),
+		expectErr: apis.ErrInvalidValue("-2", "annotations."+autoscaling.InitialScaleAnnotationKey+" must be greater than 0"),
 	}, {
 		name:             "cluster allows zero revision initial scale",
 		ctx:              config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
@@ -190,7 +190,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 				autoscaling.InitialScaleAnnotationKey: "0",
 			},
 		},
-		expectErr: apis.ErrInvalidValue("0", "annotations."+autoscaling.InitialScaleAnnotationKey),
+		expectErr: apis.ErrInvalidValue("0", "annotations."+autoscaling.InitialScaleAnnotationKey+"=0 not allowed by cluster"),
 	}, {
 		name:             "autoscaling annotations on a resource that doesn't allow them",
 		allowAutoscaling: false,
