@@ -113,12 +113,13 @@ func NewConfigFromMap(data map[string]string) (*autoscalerconfig.Config, error) 
 	}
 
 	// only one of the following should be set, since target utilization have default value,
-	// it is greater than zero regardless of whether set or not
+	// it is greater than zero regardless of whether set or not. Side note: this should be removed once container-concurrency-target-percentage is removed.
 	if _, isTargetDefined := data["target-utilization"]; isTargetDefined && lc.ContainerConcurrencyTargetFraction > 0 {
 		return nil, fmt.Errorf("target-utilization and container-concurrency-target-percentage are mutually exclusive, please remove container-concurrency-target-percentage")
 	}
 
-	// if only ContainerConcurrencyTargetFraction is set, then set the target utilization to its value
+	// If only ContainerConcurrencyTargetFraction is set, then set the target utilization to its value.
+	// This should be removed once container-concurrency-target-percentage is removed.
 	if lc.ContainerConcurrencyTargetFraction > 0 {
 		lc.TargetUtilization = lc.ContainerConcurrencyTargetFraction
 	}
