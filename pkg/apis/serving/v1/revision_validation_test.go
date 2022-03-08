@@ -946,7 +946,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "invalid value: 0",
-			Paths:   []string{autoscaling.InitialScaleAnnotationKey},
+			Paths:   []string{fmt.Sprintf("%s=0 not allowed by cluster", autoscaling.InitialScaleAnnotationKey)},
 		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Valid initial scale when cluster allows zero",
