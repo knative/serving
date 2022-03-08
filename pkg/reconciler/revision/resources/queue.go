@@ -209,12 +209,20 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	var httpProbe, execProbe *corev1.Probe
 	var userProbeJSON string
 	if container.ReadinessProbe != nil {
+		probePort := userPort
+		if container.ReadinessProbe.HTTPGet != nil && container.ReadinessProbe.HTTPGet.Port.IntValue() != 0 {
+			probePort = container.ReadinessProbe.HTTPGet.Port.IntVal
+		}
+		if container.ReadinessProbe.TCPSocket != nil && container.ReadinessProbe.TCPSocket.Port.IntValue() != 0 {
+			probePort = container.ReadinessProbe.TCPSocket.Port.IntVal
+		}
+
 		// The activator attempts to detect readiness itself by checking the Queue
 		// Proxy's health endpoint rather than waiting for Kubernetes to check and
 		// propagate the Ready state. We encode the original probe as JSON in an
 		// environment variable for this health endpoint to use.
 		userProbe := container.ReadinessProbe.DeepCopy()
-		applyReadinessProbeDefaultsForExec(userProbe, userPort)
+		applyReadinessProbeDefaultsForExec(userProbe, probePort)
 
 		var err error
 		userProbeJSON, err = readiness.EncodeProbe(userProbe)
