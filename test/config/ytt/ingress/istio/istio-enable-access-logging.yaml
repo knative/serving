@@ -3,25 +3,21 @@
 #@ load("helpers.lib.yaml", "subset")
 
 #! The data.mesh property in the istio config map is a string literal
-#! but the contents are yaml. So we want to do a deep merge and apply
-#! the fragment below. This is why we use a custom replace function
-#! and use yaml.encode/decode
+#! but the contents are yaml. Thus we use a custom replace function
 
-#! This is the YAML fragment we want to merge
-#@ def log_access():
-#@overlay/match missing_ok=True
-accessLogEncoding: JSON
-#@overlay/match missing_ok=True
-accessLogFile: /dev/stdout
-#@ end
-
-#@ def overlay_yaml_string(old, _):
+#@ def append_to_yaml_string(old, new):
 #@   yaml_old = yaml.decode(old)
-#@   return yaml.encode(overlay.apply(yaml_old, log_access()))
+#@   return yaml.encode(overlay.apply(yaml_old, new))
 #@ end
 
 #@overlay/match by=subset(kind="ConfigMap", name="istio", namespace="istio-system")
 ---
 data:
-  #@overlay/replace via=overlay_yaml_string
+  #@overlay/replace via=append_to_yaml_string
   mesh:
+    #! The custom replace function appends these properties
+    #! to the mesh string literal
+    #@overlay/match missing_ok=True
+    accessLogEncoding: JSON
+    #@overlay/match missing_ok=True
+    accessLogFile: /dev/stdout
