@@ -3,8 +3,9 @@
 #@ load("helpers.lib.yaml", "subset")
 
 #! The data.mesh property in the istio config map is a string literal
-#! but the contents are yaml. So we want do a deep merge with the
-#! fragment below. This is why we use a custom replace function
+#! but the contents are yaml. So we want to do a deep merge and apply
+#! the fragment below. This is why we use a custom replace function
+#! and use yaml.encode/decode
 
 #! This is the YAML fragment we want to merge
 #@ def log_access():
