@@ -42,8 +42,15 @@ import (
 
 // readinessPropagationTime is how long to poll to allow for readiness probe
 // changes to propagate to ingresses/activator.
-// This is based on the default scaleToZeroGracePeriod.
-const readinessPropagationTime = 30 * time.Second
+//
+// When Readiness.PeriodSeconds=0 the underlying Pods use the K8s
+// defaults for readiness. Those are:
+// - Readiness.PeriodSeconds=10
+// - Readiness.FailureThreshold=3
+//
+// Thus it takes at a mininum 30 seconds for the Pod to become
+// unready. To account for this we bump max propagation time
+const readinessPropagationTime = time.Minute
 
 func TestProbeRuntime(t *testing.T) {
 	t.Parallel()
