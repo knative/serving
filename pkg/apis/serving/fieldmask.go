@@ -200,6 +200,9 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	if cfg.Features.PodSpecAffinity != config.Disabled {
 		out.Affinity = in.Affinity
 	}
+	if cfg.Features.PodSpecTopologySpreadConstraints != config.Disabled {
+		out.TopologySpreadConstraints = in.TopologySpreadConstraints
+	}
 	if cfg.Features.PodSpecHostAliases != config.Disabled {
 		out.HostAliases = in.HostAliases
 	}

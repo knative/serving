@@ -41,24 +41,25 @@ const (
 
 func defaultFeaturesConfig() *Features {
 	return &Features{
-		MultiContainer:               Enabled,
-		PodSpecAffinity:              Disabled,
-		PodSpecDryRun:                Allowed,
-		PodSpecHostAliases:           Disabled,
-		PodSpecFieldRef:              Disabled,
-		PodSpecNodeSelector:          Disabled,
-		PodSpecRuntimeClassName:      Disabled,
-		PodSpecSecurityContext:       Disabled,
-		PodSpecPriorityClassName:     Disabled,
-		PodSpecSchedulerName:         Disabled,
-		ContainerSpecAddCapabilities: Disabled,
-		PodSpecTolerations:           Disabled,
-		PodSpecVolumesEmptyDir:       Disabled,
-		PodSpecPersistentVolumeClaim: Disabled,
-		PodSpecPersistentVolumeWrite: Disabled,
-		PodSpecInitContainers:        Disabled,
-		TagHeaderBasedRouting:        Disabled,
-		AutoDetectHTTP2:              Disabled,
+		MultiContainer:                   Enabled,
+		PodSpecAffinity:                  Disabled,
+		PodSpecTopologySpreadConstraints: Disabled,
+		PodSpecDryRun:                    Allowed,
+		PodSpecHostAliases:               Disabled,
+		PodSpecFieldRef:                  Disabled,
+		PodSpecNodeSelector:              Disabled,
+		PodSpecRuntimeClassName:          Disabled,
+		PodSpecSecurityContext:           Disabled,
+		PodSpecPriorityClassName:         Disabled,
+		PodSpecSchedulerName:             Disabled,
+		ContainerSpecAddCapabilities:     Disabled,
+		PodSpecTolerations:               Disabled,
+		PodSpecVolumesEmptyDir:           Disabled,
+		PodSpecPersistentVolumeClaim:     Disabled,
+		PodSpecPersistentVolumeWrite:     Disabled,
+		PodSpecInitContainers:            Disabled,
+		TagHeaderBasedRouting:            Disabled,
+		AutoDetectHTTP2:                  Disabled,
 	}
 }
 
@@ -69,6 +70,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 	if err := cm.Parse(data,
 		asFlag("multi-container", &nc.MultiContainer),
 		asFlag("kubernetes.podspec-affinity", &nc.PodSpecAffinity),
+		asFlag("kubernetes.podspec-topologyspreadconstraints", &nc.PodSpecTopologySpreadConstraints),
 		asFlag("kubernetes.podspec-dryrun", &nc.PodSpecDryRun),
 		asFlag("kubernetes.podspec-hostaliases", &nc.PodSpecHostAliases),
 		asFlag("kubernetes.podspec-fieldref", &nc.PodSpecFieldRef),
@@ -97,24 +99,25 @@ func NewFeaturesConfigFromConfigMap(config *corev1.ConfigMap) (*Features, error)
 
 // Features specifies which features are allowed by the webhook.
 type Features struct {
-	MultiContainer               Flag
-	PodSpecAffinity              Flag
-	PodSpecDryRun                Flag
-	PodSpecFieldRef              Flag
-	PodSpecHostAliases           Flag
-	PodSpecNodeSelector          Flag
-	PodSpecRuntimeClassName      Flag
-	PodSpecSecurityContext       Flag
-	PodSpecPriorityClassName     Flag
-	PodSpecSchedulerName         Flag
-	ContainerSpecAddCapabilities Flag
-	PodSpecTolerations           Flag
-	PodSpecVolumesEmptyDir       Flag
-	PodSpecInitContainers        Flag
-	PodSpecPersistentVolumeClaim Flag
-	PodSpecPersistentVolumeWrite Flag
-	TagHeaderBasedRouting        Flag
-	AutoDetectHTTP2              Flag
+	MultiContainer                   Flag
+	PodSpecAffinity                  Flag
+	PodSpecTopologySpreadConstraints Flag
+	PodSpecDryRun                    Flag
+	PodSpecFieldRef                  Flag
+	PodSpecHostAliases               Flag
+	PodSpecNodeSelector              Flag
+	PodSpecRuntimeClassName          Flag
+	PodSpecSecurityContext           Flag
+	PodSpecPriorityClassName         Flag
+	PodSpecSchedulerName             Flag
+	ContainerSpecAddCapabilities     Flag
+	PodSpecTolerations               Flag
+	PodSpecVolumesEmptyDir           Flag
+	PodSpecInitContainers            Flag
+	PodSpecPersistentVolumeClaim     Flag
+	PodSpecPersistentVolumeWrite     Flag
+	TagHeaderBasedRouting            Flag
+	AutoDetectHTTP2                  Flag
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.
