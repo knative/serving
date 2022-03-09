@@ -2264,7 +2264,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: knative-gateway-api-admin
   labels:
-    serving.knative.dev/release: "v20220303-47c68d22"
+    serving.knative.dev/release: "v20220309-373ee988"
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
@@ -2276,7 +2276,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: knative-gateway-api-core
   labels:
-    serving.knative.dev/release: "v20220303-47c68d22"
+    serving.knative.dev/release: "v20220309-373ee988"
     serving.knative.dev/controller: "true"
 rules:
   - apiGroups: ["gateway.networking.k8s.io"]
@@ -2304,7 +2304,7 @@ metadata:
   name: config-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20220303-47c68d22"
+    serving.knative.dev/release: "v20220309-373ee988"
 data:
   _example: |
     ################################
@@ -2358,9 +2358,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
-    app.kubernetes.io/version: "20220303-47c68d22"
+    app.kubernetes.io/version: "20220309-373ee988"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220303-47c68d22"
+    serving.knative.dev/release: "v20220309-373ee988"
 spec:
   replicas: 1
   selector:
@@ -2386,7 +2386,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:55923d62d88a544b59a1c1b8373ff8e440947fa3dcfd8c85abf7e3c3d6675d99
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:d5cfc4a85e4f73b334a7f8843ecf6d81f60ef97ebf8841a5754e04309cc9a43e
           resources:
             requests:
               cpu: 100m
