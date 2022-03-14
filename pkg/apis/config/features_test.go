@@ -147,7 +147,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			PodSpecTopologySpreadConstraints: Enabled,
 		}),
 		data: map[string]string{
-			"kubernetes.podspec-fieldtopologyspreadconstraintsref": "Enabled",
+			"kubernetes.podspec-topologyspreadconstraints": "Enabled",
 		},
 	}, {
 		name:    "kubernetes.podspec-topologyspreadconstraints Disabled",
