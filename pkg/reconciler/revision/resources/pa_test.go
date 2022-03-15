@@ -18,12 +18,14 @@ package resources
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/networking/pkg/apis/networking"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -203,9 +205,6 @@ func TestMakePA(t *testing.T) {
 					Namespace: "blah",
 					Name:      "batman",
 					UID:       "4321",
-					Labels: map[string]string{
-						serving.RoutingStateLabelKey: string(v1.RoutingStatePending),
-					},
 				},
 				Spec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(0),
@@ -310,6 +309,56 @@ func TestMakePA(t *testing.T) {
 				ProtocolType: networking.ProtocolH2C,
 				// Reachability trumps failure of Revisions.
 				Reachability: autoscalingv1alpha1.ReachabilityUnknown,
+			}},
+	}, {
+		name: "name is bruce (Revision pending)",
+		rev: func() *v1.Revision {
+			rev := v1.Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "blah",
+					Name:      "bruce",
+					UID:       "4321",
+				},
+				Status: v1.RevisionStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
+							Type:   v1.RevisionConditionReady,
+							Status: "False",
+						}},
+					},
+				},
+			}
+			rev.SetRoutingState(v1.RoutingStatePending, time.Now())
+			return &rev
+		}(),
+		want: &autoscalingv1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "blah",
+				Name:      "bruce",
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "bruce",
+					serving.RevisionUID:      "4321",
+					AppLabelKey:              "bruce",
+				},
+				Annotations: map[string]string{},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1.SchemeGroupVersion.String(),
+					Kind:               "Revision",
+					Name:               "bruce",
+					UID:                "4321",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: autoscalingv1alpha1.PodAutoscalerSpec{
+				ContainerConcurrency: 0,
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bruce-deployment",
+				},
+				ProtocolType: networking.ProtocolHTTP1,
+				Reachability: autoscalingv1alpha1.ReachabilityUnreachable,
 			}},
 	}}
 
