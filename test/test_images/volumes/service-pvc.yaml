@@ -15,13 +15,13 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: event-display
+  name: pvc-test
 spec:
   template:
     spec:
       containers:
         - image: ko://knative.dev/serving/test/test_images/volumes
-          name: event-display
+          name: pvc-test
           volumeMounts:
             - mountPath: /data
               name: mydata
