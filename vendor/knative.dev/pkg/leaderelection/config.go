@@ -57,7 +57,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 
 		cm.AsUint32("buckets", &config.Buckets),
 
-		cm.AsOptionalMap("map-lease-prefix", config.LeaseNamesPrefixMapping),
+		cm.CollectMapEntriesWithPrefix("map-lease-prefix", &config.LeaseNamesPrefixMapping),
 	); err != nil {
 		return nil, err
 	}
