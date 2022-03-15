@@ -27,7 +27,6 @@ import (
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	. "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
