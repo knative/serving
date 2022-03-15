@@ -20,8 +20,8 @@ metadata:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220310-ae4836e3"
-    serving.knative.dev/release: "v20220310-ae4836e3"
+    app.kubernetes.io/version: "20220315-a7937d60"
+    serving.knative.dev/release: "v20220315-a7937d60"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -46,9 +46,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220310-ae4836e3"
+    app.kubernetes.io/version: "20220315-a7937d60"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220310-ae4836e3"
+    serving.knative.dev/release: "v20220315-a7937d60"
 data:
   envoy-bootstrap.yaml: |
     dynamic_resources:
@@ -152,9 +152,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220310-ae4836e3"
+    app.kubernetes.io/version: "20220315-a7937d60"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220310-ae4836e3"
+    serving.knative.dev/release: "v20220315-a7937d60"
 data:
   _example: |
     ################################
@@ -206,9 +206,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220310-ae4836e3"
+    app.kubernetes.io/version: "20220315-a7937d60"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220310-ae4836e3"
+    serving.knative.dev/release: "v20220315-a7937d60"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -218,9 +218,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220310-ae4836e3"
+    app.kubernetes.io/version: "20220315-a7937d60"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220310-ae4836e3"
+    serving.knative.dev/release: "v20220315-a7937d60"
 rules:
   - apiGroups: [""]
     resources: ["events"]
@@ -248,9 +248,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220310-ae4836e3"
+    app.kubernetes.io/version: "20220315-a7937d60"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220310-ae4836e3"
+    serving.knative.dev/release: "v20220315-a7937d60"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -283,9 +283,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220310-ae4836e3"
+    app.kubernetes.io/version: "20220315-a7937d60"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220310-ae4836e3"
+    serving.knative.dev/release: "v20220315-a7937d60"
 spec:
   replicas: 1
   selector:
@@ -297,7 +297,7 @@ spec:
         app: net-kourier-controller
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:b71c5cc28617c50412bc35f37c43432ce9e5ba71cc30e8aca93d99267d7af7ce
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:ffc7834902d382ff0c4152e78a3e19ca025217bb4cd6828bc6a14a6965f775fc
           name: controller
           env:
             - name: CERTS_SECRET_NAMESPACE
@@ -337,9 +337,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220310-ae4836e3"
+    app.kubernetes.io/version: "20220315-a7937d60"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220310-ae4836e3"
+    serving.knative.dev/release: "v20220315-a7937d60"
 spec:
   ports:
     - name: grpc-xds
@@ -373,9 +373,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220310-ae4836e3"
+    app.kubernetes.io/version: "20220315-a7937d60"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220310-ae4836e3"
+    serving.knative.dev/release: "v20220315-a7937d60"
 spec:
   strategy:
     type: RollingUpdate
@@ -401,7 +401,7 @@ spec:
             - --log-level info
           command:
             - /usr/local/bin/envoy
-          image: docker.io/envoyproxy/envoy:v1.18-latest
+          image: docker.io/envoyproxy/envoy:v1.19-latest
           name: kourier-gateway
           ports:
             - name: http2-external
@@ -457,9 +457,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220310-ae4836e3"
+    app.kubernetes.io/version: "20220315-a7937d60"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220310-ae4836e3"
+    serving.knative.dev/release: "v20220315-a7937d60"
 spec:
   ports:
     - name: http2
@@ -482,9 +482,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220310-ae4836e3"
+    app.kubernetes.io/version: "20220315-a7937d60"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220310-ae4836e3"
+    serving.knative.dev/release: "v20220315-a7937d60"
 spec:
   ports:
     - name: http2
