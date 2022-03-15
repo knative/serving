@@ -85,9 +85,3 @@ func TestPersistentVolumeClaims(t *testing.T) {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.EmptyDirText, err)
 	}
 }
-
-func WithPodSecurityContext(secCtx corev1.PodSecurityContext) ServiceOption {
-	return func(s *v1.Service) {
-		s.Spec.Template.Spec.SecurityContext = &secCtx
-	}
-}
