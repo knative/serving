@@ -27,7 +27,6 @@ import (
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	. "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -83,11 +82,5 @@ func TestPersistentVolumeClaims(t *testing.T) {
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.EmptyDirText, err)
-	}
-}
-
-func WithPodSecurityContext(secCtx corev1.PodSecurityContext) ServiceOption {
-	return func(s *v1.Service) {
-		s.Spec.Template.Spec.SecurityContext = &secCtx
 	}
 }

@@ -481,8 +481,16 @@ var (
 	}
 )
 
+// WithInitContainer adds init container to a service.
 func WithInitContainer(p corev1.Container) ServiceOption {
 	return func(s *v1.Service) {
 		s.Spec.Template.Spec.InitContainers = []corev1.Container{p}
+	}
+}
+
+// WithPodSecurityContext assigns security context to a service.
+func WithPodSecurityContext(secCtx corev1.PodSecurityContext) ServiceOption {
+	return func(s *v1.Service) {
+		s.Spec.Template.Spec.SecurityContext = &secCtx
 	}
 }
