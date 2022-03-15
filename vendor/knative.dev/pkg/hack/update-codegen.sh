@@ -51,7 +51,7 @@ EXTERNAL_INFORMER_PKG="k8s.io/client-go/informers" \
     k8s.io/api \
     "${K8S_TYPES}" \
     --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
-    --force-genreconciler-kinds "Namespace,Deployment,Secret,Pod,CronJob"
+    --force-genreconciler-kinds "Namespace,Deployment,Secret,Pod,CronJob,NetworkPolicy"
 
 OUTPUT_PKG="knative.dev/pkg/client/injection/apiextensions" \
 VERSIONED_CLIENTSET_PKG="k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset" \
