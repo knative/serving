@@ -25,8 +25,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
@@ -1045,8 +1045,8 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 		name: "TopologySpreadConstraints",
 		featureSpec: corev1.PodSpec{
 			TopologySpreadConstraints: []corev1.TopologySpreadConstraint{{
-				MaxSkew: 1,
-				TopologyKey: "topology.kubernetes.io/zone",
+				MaxSkew:           1,
+				TopologyKey:       "topology.kubernetes.io/zone",
 				WhenUnsatisfiable: "DoNotSchedule",
 				LabelSelector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{{
