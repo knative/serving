@@ -160,6 +160,12 @@ func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool
 	return pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotation)
 }
 
+// ProgressDeadline returns the progress deadline annotation value, or false if not present.
+func (pa *PodAutoscaler) ProgressDeadline() (time.Duration, bool) {
+	// the value is validated in the webhook
+	return pa.annotationDuration(autoscaling.ProgressDeadlineAnnotation)
+}
+
 // InitialScale returns the initial scale on the revision if present, or false if not present.
 func (pa *PodAutoscaler) InitialScale() (int32, bool) {
 	// The value is validated in the webhook.

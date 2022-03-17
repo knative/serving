@@ -258,6 +258,26 @@ func TestValidateAnnotations(t *testing.T) {
 		annotations: map[string]string{WindowAnnotationKey: "jerry-was-a-racecar-driver", ClassAnnotationKey: KPA},
 		expectErr:   "invalid value: jerry-was-a-racecar-driver: " + WindowAnnotationKey,
 	}, {
+		name:        "progressDeadline invalid",
+		annotations: map[string]string{ProgressDeadlineAnnotationKey: "jerry-was-a-racecar-driver"},
+		expectErr:   "invalid value: jerry-was-a-racecar-driver: " + ProgressDeadlineAnnotationKey,
+	}, {
+		name:        "progressDeadline too precise",
+		annotations: map[string]string{ProgressDeadlineAnnotationKey: "1m9s82ms"},
+		expectErr:   "must be specified with at most second precision: " + ProgressDeadlineAnnotationKey,
+	}, {
+		name:        "annotation /progressDeadline is valid for class KPA",
+		annotations: map[string]string{ProgressDeadlineAnnotationKey: "7s", ClassAnnotationKey: KPA},
+		expectErr:   "",
+	}, {
+		name:        "annotation /progressDeadline is valid for other than HPA and KPA class",
+		annotations: map[string]string{ProgressDeadlineAnnotationKey: "7s", ClassAnnotationKey: "test"},
+		expectErr:   "",
+	}, {
+		name:        "invalid format and valid class for /progressDeadline annotation",
+		annotations: map[string]string{ProgressDeadlineAnnotationKey: "jerry-was-a-racecar-driver", ClassAnnotationKey: KPA},
+		expectErr:   "invalid value: jerry-was-a-racecar-driver: " + ProgressDeadlineAnnotationKey,
+	}, {
 		name:        "valid 0 last pod scaledown timeout",
 		annotations: map[string]string{ScaleToZeroPodRetentionPeriodKey: "0"},
 	}, {

@@ -1253,6 +1253,43 @@ func TestMakeDeployment(t *testing.T) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
 		}),
 	}, {
+		name: "with ProgressDeadline annotation",
+		rev: revision("bar", "foo",
+			WithRevisionAnn("autoscaling.knative.dev/progressDeadline", "42s"),
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "ubuntu",
+				ReadinessProbe: withTCPReadinessProbe(12345),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}), withoutLabels),
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
+			deploy.Annotations = map[string]string{autoscaling.ProgressDeadlineAnnotationKey: "42s"}
+			deploy.Spec.Template.Annotations = map[string]string{autoscaling.ProgressDeadlineAnnotationKey: "42s"}
+		}),
+	}, {
+		name: "with ProgressDeadline annotation and configmap override",
+		dc: deployment.Config{
+			ProgressDeadline: 503 * time.Second,
+		},
+		rev: revision("bar", "foo",
+			WithRevisionAnn("autoscaling.knative.dev/progressDeadline", "42s"),
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "ubuntu",
+				ReadinessProbe: withTCPReadinessProbe(12345),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}), withoutLabels),
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
+			deploy.Annotations = map[string]string{autoscaling.ProgressDeadlineAnnotationKey: "42s"}
+			deploy.Spec.Template.Annotations = map[string]string{autoscaling.ProgressDeadlineAnnotationKey: "42s"}
+		}),
+	}, {
 		name: "cluster initial scale",
 		acMutator: func(ac *autoscalerconfig.Config) {
 			ac.InitialScale = 10

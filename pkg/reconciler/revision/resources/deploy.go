@@ -19,6 +19,7 @@ package resources
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/kmeta"
@@ -269,6 +270,14 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 		replicaCount = int32(rc)
 	}
 
+	progressDeadline := int32(cfg.Deployment.ProgressDeadline.Seconds())
+	pdAnn, pdFound := rev.Annotations[autoscaling.ProgressDeadlineAnnotationKey]
+	if pdFound {
+		// Ignore errors and no error checking because already validated in webhook.
+		pd, _ := time.ParseDuration(pdAnn)
+		progressDeadline = int32(pd.Seconds())
+	}
+
 	labels := makeLabels(rev)
 	anns := makeAnnotations(rev)
 
@@ -285,7 +294,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                ptr.Int32(replicaCount),
 			Selector:                makeSelector(rev),
-			ProgressDeadlineSeconds: ptr.Int32(int32(cfg.Deployment.ProgressDeadline.Seconds())),
+			ProgressDeadlineSeconds: ptr.Int32(int32(progressDeadline)),
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{

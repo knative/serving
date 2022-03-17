@@ -781,6 +781,53 @@ func TestScaleDownDelayAnnotation(t *testing.T) {
 	}
 }
 
+func TestProgressDelayAnnotation(t *testing.T) {
+	cases := []struct {
+		name      string
+		pa        *PodAutoscaler
+		wantDelay time.Duration
+		wantOK    bool
+	}{{
+		name:      "not present",
+		pa:        pa(map[string]string{}),
+		wantDelay: 0,
+		wantOK:    false,
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.ProgressDeadlineAnnotationKey: "120s",
+		}),
+		wantDelay: 120 * time.Second,
+		wantOK:    true,
+	}, {
+		name: "complex",
+		pa: pa(map[string]string{
+			autoscaling.ProgressDeadlineAnnotationKey: "2m33s",
+		}),
+		wantDelay: 153 * time.Second,
+		wantOK:    true,
+	}, {
+		name: "invalid",
+		pa: pa(map[string]string{
+			autoscaling.ProgressDeadlineAnnotationKey: "365d",
+		}),
+		wantDelay: 0,
+		wantOK:    false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotDelay, gotOK := tc.pa.ProgressDeadline()
+			if gotDelay != tc.wantDelay {
+				t.Errorf("ProgressDeadline = %v, want: %v", gotDelay, tc.wantDelay)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+			}
+		})
+	}
+}
+
 func TestWindowAnnotation(t *testing.T) {
 	cases := []struct {
 		name       string
