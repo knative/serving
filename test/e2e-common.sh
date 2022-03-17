@@ -301,6 +301,8 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/pvc/pvc.yaml")
   fi
 
+  YTT_FILES+=("${REPO_ROOT_DIR}/test/config/resource-quota/resource-quota.yaml")
+
   local ytt_result=$(mktemp)
   local ytt_post_install_result=$(mktemp)
   local ytt_flags=""
