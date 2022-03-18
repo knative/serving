@@ -774,7 +774,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Name:  "container-b",
 				Image: "health",
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Port: intstr.FromInt(9999), // This is the other container's port
 						},
@@ -1422,14 +1422,14 @@ func TestContainerValidation(t *testing.T) {
 					TimeoutSeconds:   1,
 					SuccessThreshold: 1,
 					FailureThreshold: 3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
 					},
 				},
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{},
 					},
 				},
@@ -1445,14 +1445,14 @@ func TestContainerValidation(t *testing.T) {
 					TimeoutSeconds:      1,
 					SuccessThreshold:    1,
 					FailureThreshold:    3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
 					},
 				},
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{},
 					},
 				},
@@ -1467,14 +1467,14 @@ func TestContainerValidation(t *testing.T) {
 					TimeoutSeconds:   1,
 					SuccessThreshold: 1,
 					FailureThreshold: 3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
 					},
 				},
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{},
+					ProbeHandler: corev1.ProbeHandler{},
 				},
 			},
 			want: apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec"),
@@ -1487,7 +1487,7 @@ func TestContainerValidation(t *testing.T) {
 					TimeoutSeconds:   1,
 					SuccessThreshold: 1,
 					FailureThreshold: 3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
@@ -1506,7 +1506,7 @@ func TestContainerValidation(t *testing.T) {
 					TimeoutSeconds:   1,
 					SuccessThreshold: 1,
 					FailureThreshold: 3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 							Port: intstr.FromInt(5000),
@@ -1524,7 +1524,7 @@ func TestContainerValidation(t *testing.T) {
 					TimeoutSeconds:   1,
 					SuccessThreshold: 1,
 					FailureThreshold: 3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.FromInt(5000),
 						},
@@ -1541,7 +1541,7 @@ func TestContainerValidation(t *testing.T) {
 					TimeoutSeconds:   1,
 					SuccessThreshold: 1,
 					FailureThreshold: 3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 							Port: intstr.FromInt(5000),
@@ -1559,7 +1559,7 @@ func TestContainerValidation(t *testing.T) {
 					TimeoutSeconds:   1,
 					SuccessThreshold: 1,
 					FailureThreshold: 3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.FromInt(5000),
 						},
@@ -1573,7 +1573,7 @@ func TestContainerValidation(t *testing.T) {
 				Image: "foo",
 				ReadinessProbe: &corev1.Probe{
 					SuccessThreshold: 1,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Port: intstr.FromString("http"), // http is the default
 						},
@@ -1589,7 +1589,7 @@ func TestContainerValidation(t *testing.T) {
 					PeriodSeconds:    0,
 					FailureThreshold: 2,
 					SuccessThreshold: 1,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
@@ -1608,7 +1608,7 @@ func TestContainerValidation(t *testing.T) {
 					PeriodSeconds:    0,
 					TimeoutSeconds:   2,
 					SuccessThreshold: 1,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
@@ -1629,7 +1629,7 @@ func TestContainerValidation(t *testing.T) {
 					SuccessThreshold:    0,
 					FailureThreshold:    0,
 					InitialDelaySeconds: -1,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{},
 					},
 				},
@@ -1660,7 +1660,7 @@ func TestContainerValidation(t *testing.T) {
 			c: corev1.Container{
 				Image: "foo",
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.FromString("imap"),
 						},
@@ -1678,7 +1678,7 @@ func TestContainerValidation(t *testing.T) {
 					},
 				},
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.FromInt(8888),
 						},
@@ -1763,7 +1763,7 @@ func TestInitContainerValidation(t *testing.T) {
 			c: corev1.Container{
 				Image: "foo",
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.FromString("http"),
 						},

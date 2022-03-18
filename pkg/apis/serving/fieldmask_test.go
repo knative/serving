@@ -229,7 +229,7 @@ func TestVolumeMountMask(t *testing.T) {
 
 func TestProbeMask(t *testing.T) {
 	want := &corev1.Probe{
-		Handler:             corev1.Handler{},
+		ProbeHandler:        corev1.ProbeHandler{},
 		InitialDelaySeconds: 42,
 		TimeoutSeconds:      42,
 		PeriodSeconds:       42,
@@ -256,7 +256,7 @@ func TestProbeMask(t *testing.T) {
 }
 
 func TestHandlerMask(t *testing.T) {
-	want := &corev1.Handler{
+	want := &corev1.ProbeHandler{
 		Exec:      &corev1.ExecAction{},
 		HTTPGet:   &corev1.HTTPGetAction{},
 		TCPSocket: &corev1.TCPSocketAction{},

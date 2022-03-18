@@ -78,7 +78,7 @@ var (
 	// to block the user-container from exiting before the queue-proxy is ready
 	// to exit so we can guarantee that there are no more requests in flight.
 	userLifecycle = &corev1.Lifecycle{
-		PreStop: &corev1.Handler{
+		PreStop: &corev1.LifecycleHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt(networking.QueueAdminPort),
 				Path: queue.RequestQueueDrainPath,

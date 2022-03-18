@@ -54,7 +54,7 @@ import (
 
 var (
 	testProbe = &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 			},
@@ -107,7 +107,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			withContainers([]corev1.Container{{
 				Name: servingContainerName,
 				ReadinessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Host: "127.0.0.1",
 							Port: intstr.FromInt(8087),
@@ -125,7 +125,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Image = "alpine"
 			c.Ports = append(queueNonServingPorts, queueHTTP2Port)
-			c.ReadinessProbe.Handler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
+			c.ReadinessProbe.ProbeHandler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
 			c.Env = env(map[string]string{
 				"USER_PORT":          "1955",
 				"QUEUE_SERVING_PORT": "8013",
@@ -148,7 +148,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Image = "alpine"
 			c.Ports = append(queueNonServingPorts, queueHTTP2Port)
-			c.ReadinessProbe.Handler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
+			c.ReadinessProbe.ProbeHandler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
 			c.Env = env(map[string]string{
 				"USER_PORT":          "1955",
 				"QUEUE_SERVING_PORT": "8013",
@@ -550,7 +550,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 			revision.Spec.PodSpec.Containers = []corev1.Container{{
 				Name: servingContainerName,
 				ReadinessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
@@ -562,7 +562,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		})
 
 	expectedProbe := &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Host:   "127.0.0.1",
 				Path:   "/",
@@ -588,7 +588,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 			"SERVING_READINESS_PROBE": string(wantProbeJSON),
 		})
 		c.ReadinessProbe = &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
 					HTTPHeaders: []corev1.HTTPHeader{{
@@ -624,7 +624,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 					ContainerPort: userPort,
 				}},
 				ReadinessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path:   probePath,
 							Scheme: corev1.URISchemeHTTPS,
@@ -637,7 +637,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		})
 
 	expectedProbe := &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Host:   "127.0.0.1",
 				Path:   probePath,
@@ -664,7 +664,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			"SERVING_READINESS_PROBE": string(wantProbeJSON),
 		})
 		c.ReadinessProbe = &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
 					HTTPHeaders: []corev1.HTTPHeader{{
@@ -699,7 +699,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 	}{{
 		name: "knative tcp probe",
 		wantProbe: &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				TCPSocket: &corev1.TCPSocketAction{
 					Host: "127.0.0.1",
 					Port: intstr.FromInt(userPort),
@@ -717,7 +717,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 						ContainerPort: userPort,
 					}},
 					ReadinessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							TCPSocket: &corev1.TCPSocketAction{},
 						},
 						PeriodSeconds:    0,
@@ -731,7 +731,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
 						HTTPHeaders: []corev1.HTTPHeader{{
@@ -754,7 +754,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				Containers: []corev1.Container{{
 					Name: servingContainerName,
 					ReadinessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							TCPSocket: &corev1.TCPSocketAction{},
 						},
 						PeriodSeconds: 1,
@@ -763,7 +763,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			},
 		},
 		wantProbe: &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				TCPSocket: &corev1.TCPSocketAction{
 					Host: "127.0.0.1",
 					Port: intstr.FromInt(int(v1.DefaultUserPort)),
@@ -774,7 +774,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
 						HTTPHeaders: []corev1.HTTPHeader{{
@@ -792,7 +792,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 	}, {
 		name: "user defined tcp probe",
 		wantProbe: &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				TCPSocket: &corev1.TCPSocketAction{
 					Host: "127.0.0.1",
 					Port: intstr.FromInt(userPort),
@@ -813,7 +813,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 						ContainerPort: userPort,
 					}},
 					ReadinessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							TCPSocket: &corev1.TCPSocketAction{},
 						},
 						PeriodSeconds:       2,
@@ -827,7 +827,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
 						HTTPHeaders: []corev1.HTTPHeader{{

@@ -147,7 +147,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 						autoscaling.MaxScaleAnnotationKey: "1",
 					}),
 					rtesting.WithReadinessProbe(&corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							HTTPGet: &corev1.HTTPGetAction{
 								Path: "/",
 							},

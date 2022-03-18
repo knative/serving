@@ -53,7 +53,7 @@ func TestReadinessAlternatePort(t *testing.T) {
 		}),
 		v1opts.WithReadinessProbe(
 			&corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Scheme: "http",
 						Port:   intstr.FromInt(8077),

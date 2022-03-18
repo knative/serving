@@ -837,7 +837,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		revisions: []*v1.Revision{
 			revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1, 1, func(r *v1.Revision) {
 				r.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{},
 					},
 				}
@@ -864,7 +864,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		revisions: []*v1.Revision{
 			revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1, 1, func(r *v1.Revision) {
 				r.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{},
 					},
 				}

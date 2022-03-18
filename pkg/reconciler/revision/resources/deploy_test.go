@@ -77,7 +77,7 @@ var (
 		Resources: createQueueResources(&deploymentConfig, make(map[string]string), &corev1.Container{}),
 		Ports:     append(queueNonServingPorts, queueHTTPPort),
 		ReadinessProbe: &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
 					HTTPHeaders: []corev1.HTTPHeader{{
@@ -313,7 +313,7 @@ func withEnvVar(name, value string) containerOption {
 
 func withTCPReadinessProbe(port int) *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 				Port: intstr.FromInt(port),
@@ -322,7 +322,7 @@ func withTCPReadinessProbe(port int) *corev1.Probe {
 
 func withHTTPReadinessProbe(port int) *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt(port),
 				Path: "/",
@@ -332,16 +332,16 @@ func withHTTPReadinessProbe(port int) *corev1.Probe {
 
 func withExecReadinessProbe(command []string) *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: command,
 			},
 		}}
 }
 
-func withLivenessProbe(handler corev1.Handler) containerOption {
+func withLivenessProbe(handler corev1.ProbeHandler) containerOption {
 	return func(container *corev1.Container) {
-		container.LivenessProbe = &corev1.Probe{Handler: handler}
+		container.LivenessProbe = &corev1.Probe{ProbeHandler: handler}
 	}
 }
 
@@ -781,7 +781,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
@@ -798,7 +798,7 @@ func TestMakePodSpec(t *testing.T) {
 					func(container *corev1.Container) {
 						container.Image = "busybox@sha256:deadbeef"
 					},
-					withLivenessProbe(corev1.Handler{
+					withLivenessProbe(corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 							Port: intstr.FromInt(v1.DefaultUserPort),
@@ -819,7 +819,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{},
 					}}}},
 			),
@@ -833,7 +833,7 @@ func TestMakePodSpec(t *testing.T) {
 					func(container *corev1.Container) {
 						container.Image = "busybox@sha256:deadbeef"
 					},
-					withLivenessProbe(corev1.Handler{
+					withLivenessProbe(corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.FromInt(v1.DefaultUserPort),
 						},
