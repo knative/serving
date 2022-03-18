@@ -23,7 +23,7 @@ metadata:
     app.kubernetes.io/version: devel
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "d9e300ba"
+    knative.dev/example-checksum: "e1c6e542"
 data:
   _example: |-
     ################################
@@ -52,6 +52,12 @@ data:
     # WARNING: Cannot safely be disabled once enabled.
     # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-node-affinity
     kubernetes.podspec-affinity: "disabled"
+
+    # Indicates whether Kubernetes topologySpreadConstraints support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-topology-spread-constraints
+    kubernetes.podspec-topologyspreadconstraints: "disabled"
 
     # Indicates whether Kubernetes hostAliases support is enabled
     #

@@ -26,6 +26,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
@@ -61,6 +62,13 @@ func withPodSpecFieldRefEnabled() configOption {
 func withPodSpecAffinityEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecAffinity = config.Enabled
+		return cfg
+	}
+}
+
+func withPodSpecTopologySpreadConstraintsEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecTopologySpreadConstraints = config.Enabled
 		return cfg
 	}
 }
@@ -1033,6 +1041,27 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 			Paths:   []string{"affinity"},
 		},
 		cfgOpts: []configOption{withPodSpecAffinityEnabled()},
+	}, {
+		name: "TopologySpreadConstraints",
+		featureSpec: corev1.PodSpec{
+			TopologySpreadConstraints: []corev1.TopologySpreadConstraint{{
+				MaxSkew:           1,
+				TopologyKey:       "topology.kubernetes.io/zone",
+				WhenUnsatisfiable: "DoNotSchedule",
+				LabelSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{{
+						Key:      "key",
+						Operator: "In",
+						Values:   []string{"value"},
+					}},
+				},
+			}},
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"topologySpreadConstraints"},
+		},
+		cfgOpts: []configOption{withPodSpecTopologySpreadConstraintsEnabled()},
 	}, {
 		name: "HostAliases",
 		featureSpec: corev1.PodSpec{
