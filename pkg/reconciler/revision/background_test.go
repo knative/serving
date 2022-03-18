@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/atomic"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 
@@ -196,39 +195,6 @@ func TestResolveInBackground(t *testing.T) {
 				})
 			}
 		})
-	}
-}
-
-func TestNoInitialItemRateLimit(t *testing.T) {
-	logger := logtesting.TestLogger(t)
-
-	var resolves atomic.Int32
-	var resolver resolveFunc = func(_ context.Context, _ string, _ k8schain.Options, _ sets.String) (string, error) {
-		resolves.Inc()
-		return "", errors.New("failed")
-	}
-
-	queue := workqueue.NewRateLimitingQueue(newItemExponentialFailureRateLimiter(1*time.Second, 5*time.Second))
-	subject := newBackgroundResolver(logger, resolver, queue, func(types.NamespacedName) {})
-
-	stop := make(chan struct{})
-	done := subject.Start(stop, 1)
-
-	defer func() {
-		close(stop)
-		<-done
-	}()
-
-	for i := 0; i < 5; i++ {
-		name := fmt.Sprint("rev", i)
-		subject.Resolve(logger, rev(name, name+"img1", name+"img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
-	}
-
-	// No rate limiting will apply on the first try; 3 containers * 5 revisions == 15 resolves
-	time.Sleep(500 * time.Millisecond)
-
-	if r := resolves.Load(); r != 15 {
-		t.Fatalf("Expected resolves to not be rate limited, but was called %d times", r)
 	}
 }
 
