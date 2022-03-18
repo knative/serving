@@ -294,7 +294,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                ptr.Int32(replicaCount),
 			Selector:                makeSelector(rev),
-			ProgressDeadlineSeconds: ptr.Int32(int32(progressDeadline)),
+			ProgressDeadlineSeconds: ptr.Int32(progressDeadline),
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{
