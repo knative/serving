@@ -21,7 +21,6 @@ metadata:
     app.kubernetes.io/component: activator
     app.kubernetes.io/version: devel
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: devel
 spec:
   selector:
     matchLabels:
@@ -37,7 +36,6 @@ spec:
         app.kubernetes.io/component: activator
         app.kubernetes.io/name: knative-serving
         app.kubernetes.io/version: devel
-        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:
@@ -136,7 +134,6 @@ metadata:
     app.kubernetes.io/component: activator
     app.kubernetes.io/version: devel
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: devel
 spec:
   selector:
     app: activator

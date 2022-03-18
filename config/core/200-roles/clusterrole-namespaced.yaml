@@ -18,7 +18,6 @@ metadata:
   name: knative-serving-namespaced-admin
   labels:
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
-    serving.knative.dev/release: devel
     app.kubernetes.io/version: devel
     app.kubernetes.io/name: knative-serving
 rules:
@@ -35,7 +34,6 @@ metadata:
   name: knative-serving-namespaced-edit
   labels:
     rbac.authorization.k8s.io/aggregate-to-edit: "true"
-    serving.knative.dev/release: devel
     app.kubernetes.io/version: devel
     app.kubernetes.io/name: knative-serving
 rules:
@@ -52,7 +50,6 @@ metadata:
   name: knative-serving-namespaced-view
   labels:
     rbac.authorization.k8s.io/aggregate-to-view: "true"
-    serving.knative.dev/release: devel
     app.kubernetes.io/version: devel
     app.kubernetes.io/name: knative-serving
 rules:

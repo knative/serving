@@ -22,7 +22,6 @@ metadata:
     app.kubernetes.io/component: default-domain-job
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
 spec:
   template:
     metadata:
@@ -85,7 +84,6 @@ metadata:
     app.kubernetes.io/component: default-domain-job
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
 spec:
   selector:
     app: default-domain
