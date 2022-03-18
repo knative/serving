@@ -31,9 +31,6 @@ import (
 //
 // Copyright 2016 The Kubernetes Authors.
 // From: https://github.com/kubernetes/client-go/blob/master/util/workqueue/default_rate_limiters.go
-//
-// TODO - drop this file when we pick up the following upstream change
-// https://github.com/kubernetes/kubernetes/pull/108343
 type itemExponentialFailureRateLimiter struct {
 	failuresLock sync.Mutex
 	failures     map[interface{}]int
