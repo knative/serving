@@ -218,49 +218,10 @@ spec:
                                 description: 'Periodic probe of container liveness. Container will be restarted if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                 type: object
                                 properties:
-                                  exec:
-                                    description: One and only one of the following should be specified. Exec specifies the action to take.
-                                    type: object
-                                    properties:
-                                      command:
-                                        description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
-                                        type: array
-                                        items:
-                                          type: string
                                   failureThreshold:
                                     description: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1.
                                     type: integer
                                     format: int32
-                                  httpGet:
-                                    description: HTTPGet specifies the http request to perform.
-                                    type: object
-                                    properties:
-                                      host:
-                                        description: Host name to connect to, defaults to the pod IP. You probably want to set "Host" in httpHeaders instead.
-                                        type: string
-                                      httpHeaders:
-                                        description: Custom headers to set in the request. HTTP allows repeated headers.
-                                        type: array
-                                        items:
-                                          description: HTTPHeader describes a custom header to be used in HTTP probes
-                                          type: object
-                                          required:
-                                            - name
-                                            - value
-                                          properties:
-                                            name:
-                                              description: The header field name
-                                              type: string
-                                            value:
-                                              description: The header field value
-                                              type: string
-                                      path:
-                                        description: Path to access on the HTTP server.
-                                        type: string
-                                      scheme:
-                                        description: Scheme to use for connecting to the host. Defaults to HTTP.
-                                        type: string
-                                    x-kubernetes-preserve-unknown-fields: true
                                   initialDelaySeconds:
                                     description: 'Number of seconds after the container has started before liveness probes are initiated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                     type: integer
@@ -273,14 +234,6 @@ spec:
                                     description: Minimum consecutive successes for the probe to be considered successful after having failed. Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.
                                     type: integer
                                     format: int32
-                                  tcpSocket:
-                                    description: 'TCPSocket specifies an action involving a TCP port. TCP hooks not yet supported TODO: implement a realistic TCP lifecycle hook'
-                                    type: object
-                                    properties:
-                                      host:
-                                        description: 'Optional: Host name to connect to, defaults to the pod IP.'
-                                        type: string
-                                    x-kubernetes-preserve-unknown-fields: true
                                   timeoutSeconds:
                                     description: 'Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                     type: integer
@@ -317,49 +270,10 @@ spec:
                                 description: 'Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                 type: object
                                 properties:
-                                  exec:
-                                    description: One and only one of the following should be specified. Exec specifies the action to take.
-                                    type: object
-                                    properties:
-                                      command:
-                                        description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
-                                        type: array
-                                        items:
-                                          type: string
                                   failureThreshold:
                                     description: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1.
                                     type: integer
                                     format: int32
-                                  httpGet:
-                                    description: HTTPGet specifies the http request to perform.
-                                    type: object
-                                    properties:
-                                      host:
-                                        description: Host name to connect to, defaults to the pod IP. You probably want to set "Host" in httpHeaders instead.
-                                        type: string
-                                      httpHeaders:
-                                        description: Custom headers to set in the request. HTTP allows repeated headers.
-                                        type: array
-                                        items:
-                                          description: HTTPHeader describes a custom header to be used in HTTP probes
-                                          type: object
-                                          required:
-                                            - name
-                                            - value
-                                          properties:
-                                            name:
-                                              description: The header field name
-                                              type: string
-                                            value:
-                                              description: The header field value
-                                              type: string
-                                      path:
-                                        description: Path to access on the HTTP server.
-                                        type: string
-                                      scheme:
-                                        description: Scheme to use for connecting to the host. Defaults to HTTP.
-                                        type: string
-                                    x-kubernetes-preserve-unknown-fields: true
                                   initialDelaySeconds:
                                     description: 'Number of seconds after the container has started before liveness probes are initiated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                     type: integer
@@ -372,14 +286,6 @@ spec:
                                     description: Minimum consecutive successes for the probe to be considered successful after having failed. Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.
                                     type: integer
                                     format: int32
-                                  tcpSocket:
-                                    description: 'TCPSocket specifies an action involving a TCP port. TCP hooks not yet supported TODO: implement a realistic TCP lifecycle hook'
-                                    type: object
-                                    properties:
-                                      host:
-                                        description: 'Optional: Host name to connect to, defaults to the pod IP.'
-                                        type: string
-                                    x-kubernetes-preserve-unknown-fields: true
                                   timeoutSeconds:
                                     description: 'Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                     type: integer
@@ -411,7 +317,7 @@ spec:
                                 type: object
                                 properties:
                                   capabilities:
-                                    description: The capabilities to add/drop when running containers. Defaults to the default set of capabilities granted by the container runtime.
+                                    description: The capabilities to add/drop when running containers. Defaults to the default set of capabilities granted by the container runtime. Note that this field cannot be set when spec.os.name is windows.
                                     type: object
                                     properties:
                                       drop:
@@ -422,10 +328,10 @@ spec:
                                           type: string
                                     x-kubernetes-preserve-unknown-fields: true
                                   readOnlyRootFilesystem:
-                                    description: Whether this container has a read-only root filesystem. Default is false.
+                                    description: Whether this container has a read-only root filesystem. Default is false. Note that this field cannot be set when spec.os.name is windows.
                                     type: boolean
                                   runAsUser:
-                                    description: The UID to run the entrypoint of the container process. Defaults to user specified in image metadata if unspecified. May also be set in PodSecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
+                                    description: The UID to run the entrypoint of the container process. Defaults to user specified in image metadata if unspecified. May also be set in PodSecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence. Note that this field cannot be set when spec.os.name is windows.
                                     type: integer
                                     format: int64
                                 x-kubernetes-preserve-unknown-fields: true

@@ -117,7 +117,7 @@ func (c *FakeDomainMappings) UpdateStatus(ctx context.Context, domainMapping *v1
 // Delete takes name of the domainMapping and deletes it. Returns an error if one occurs.
 func (c *FakeDomainMappings) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(domainmappingsResource, c.ns, name), &v1alpha1.DomainMapping{})
+		Invokes(testing.NewDeleteActionWithOptions(domainmappingsResource, c.ns, name, opts), &v1alpha1.DomainMapping{})
 
 	return err
 }

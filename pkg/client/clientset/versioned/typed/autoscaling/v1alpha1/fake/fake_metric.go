@@ -117,7 +117,7 @@ func (c *FakeMetrics) UpdateStatus(ctx context.Context, metric *v1alpha1.Metric,
 // Delete takes name of the metric and deletes it. Returns an error if one occurs.
 func (c *FakeMetrics) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(metricsResource, c.ns, name), &v1alpha1.Metric{})
+		Invokes(testing.NewDeleteActionWithOptions(metricsResource, c.ns, name, opts), &v1alpha1.Metric{})
 
 	return err
 }
