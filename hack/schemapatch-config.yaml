@@ -76,7 +76,7 @@ k8s.io/api/core/v1.VolumeMount:
     - SubPath
 k8s.io/api/core/v1.Probe:
   allowedFields:
-    - Handler
+    - ProbeHandler
     - InitialDelaySeconds
     - TimeoutSeconds
     - PeriodSeconds
@@ -85,7 +85,7 @@ k8s.io/api/core/v1.Probe:
   fieldOverrides:
     PeriodSeconds:
       description: "How often (in seconds) to perform the probe."
-k8s.io/api/core/v1.Handler:
+k8s.io/api/core/v1.ProbeHandler:
   allowedFields:
     - Exec
     - HTTPGet
