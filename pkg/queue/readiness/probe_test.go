@@ -42,7 +42,7 @@ func TestNewProbe(t *testing.T) {
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 				Port: intstr.FromInt(12345),
@@ -67,7 +67,7 @@ func TestTCPFailure(t *testing.T) {
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 				Port: intstr.FromInt(12345),
@@ -86,7 +86,7 @@ func TestAggressiveFailureOnlyLogsOnce(t *testing.T) {
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 				Port: intstr.FromInt(12345),
@@ -125,7 +125,7 @@ func TestAggressiveFailureNotLoggedOnSuccess(t *testing.T) {
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Scheme: "http",
 				Host:   tsURL.Hostname(),
@@ -149,7 +149,7 @@ func TestEmptyHandler(t *testing.T) {
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler:          corev1.Handler{},
+		ProbeHandler:     corev1.ProbeHandler{},
 	})
 
 	if pb.ProbeContainer() {
@@ -163,7 +163,7 @@ func TestExecHandler(t *testing.T) {
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"echo", "hello"},
 			}},
@@ -184,7 +184,7 @@ func TestTCPSuccess(t *testing.T) {
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: tsURL.Hostname(),
 				Port: intstr.FromString(tsURL.Port()),
@@ -203,7 +203,7 @@ func TestHTTPFailureToConnect(t *testing.T) {
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Host:   "127.0.0.1",
 				Port:   intstr.FromInt(12345),
@@ -227,7 +227,7 @@ func TestHTTPBadResponse(t *testing.T) {
 		TimeoutSeconds:   5,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Host:   tsURL.Hostname(),
 				Port:   intstr.FromString(tsURL.Port()),
@@ -251,7 +251,7 @@ func TestHTTPSuccess(t *testing.T) {
 		TimeoutSeconds:   5,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Host:   tsURL.Hostname(),
 				Port:   intstr.FromString(tsURL.Port()),
@@ -279,7 +279,7 @@ func TestHTTPManyParallel(t *testing.T) {
 		TimeoutSeconds:   5,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Host:   tsURL.Hostname(),
 				Port:   intstr.FromString(tsURL.Port()),
@@ -325,7 +325,7 @@ func TestHTTPTimeout(t *testing.T) {
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Host:   tsURL.Hostname(),
 				Port:   intstr.FromString(tsURL.Port()),
@@ -350,7 +350,7 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Host:   tsURL.Hostname(),
 				Port:   intstr.FromString(tsURL.Port()),
@@ -380,7 +380,7 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
 		FailureThreshold: 0,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Host:   tsURL.Hostname(),
 				Port:   intstr.FromString(tsURL.Port()),
@@ -408,7 +408,7 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 		TimeoutSeconds:   0,
 		SuccessThreshold: threshold,
 		FailureThreshold: 0,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Host:   tsURL.Hostname(),
 				Port:   intstr.FromString(tsURL.Port()),
@@ -445,7 +445,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 		TimeoutSeconds:   0,
 		SuccessThreshold: threshold,
 		FailureThreshold: 0,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Host: tsURL.Hostname(),
 				Port: intstr.FromString(tsURL.Port()),
@@ -482,7 +482,7 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
 		FailureThreshold: 0,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Host:   tsURL.Hostname(),
 				Port:   intstr.FromString(tsURL.Port()),
@@ -512,7 +512,7 @@ func TestKnTCPProbeSuccess(t *testing.T) {
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
 		FailureThreshold: 0,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 				Port: intstr.FromInt(addr.Port),
@@ -531,7 +531,7 @@ func TestKnUnimplementedProbe(t *testing.T) {
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
 		FailureThreshold: 0,
-		Handler:          corev1.Handler{},
+		ProbeHandler:     corev1.ProbeHandler{},
 	})
 
 	if pb.ProbeContainer() {
@@ -545,7 +545,7 @@ func TestKnTCPProbeFailure(t *testing.T) {
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
 		FailureThreshold: 0,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 				Port: intstr.FromInt(12345),
@@ -574,7 +574,7 @@ func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 		TimeoutSeconds:   0,
 		SuccessThreshold: 3,
 		FailureThreshold: 0,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 				Port: intstr.FromInt(addr.Port),
@@ -604,7 +604,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 		TimeoutSeconds:   0,
 		SuccessThreshold: successThreshold,
 		FailureThreshold: 0,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 				Port: intstr.FromInt(addr.Port),

@@ -110,7 +110,7 @@ func (c *FakeRealms) UpdateStatus(ctx context.Context, realm *v1alpha1.Realm, op
 // Delete takes name of the realm and deletes it. Returns an error if one occurs.
 func (c *FakeRealms) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(realmsResource, name), &v1alpha1.Realm{})
+		Invokes(testing.NewRootDeleteActionWithOptions(realmsResource, name, opts), &v1alpha1.Realm{})
 	return err
 }
 

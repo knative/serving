@@ -266,7 +266,7 @@ func testPodSpec() corev1.PodSpec {
 				TimeoutSeconds: 42,
 			},
 			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "health",
 					},

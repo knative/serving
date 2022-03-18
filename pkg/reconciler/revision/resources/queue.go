@@ -235,7 +235,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		// Unlike the StartupProbe, we don't need to override any of the other settings
 		// except period here. See below.
 		httpProbe = container.ReadinessProbe.DeepCopy()
-		httpProbe.Handler = corev1.Handler{
+		httpProbe.ProbeHandler = corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt(int(servingPort.ContainerPort)),
 				HTTPHeaders: []corev1.HTTPHeader{{

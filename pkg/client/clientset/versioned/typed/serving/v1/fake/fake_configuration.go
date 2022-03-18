@@ -117,7 +117,7 @@ func (c *FakeConfigurations) UpdateStatus(ctx context.Context, configuration *se
 // Delete takes name of the configuration and deletes it. Returns an error if one occurs.
 func (c *FakeConfigurations) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(configurationsResource, c.ns, name), &servingv1.Configuration{})
+		Invokes(testing.NewDeleteActionWithOptions(configurationsResource, c.ns, name, opts), &servingv1.Configuration{})
 
 	return err
 }

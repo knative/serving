@@ -770,7 +770,7 @@ func validateProbe(p *corev1.Probe, port corev1.ContainerPort) *apis.FieldError 
 	}
 	errs := apis.CheckDisallowedFields(*p, *ProbeMask(p))
 
-	h := p.Handler
+	h := p.ProbeHandler
 	errs = errs.Also(apis.CheckDisallowedFields(h, *HandlerMask(&h)))
 
 	var handlers []string

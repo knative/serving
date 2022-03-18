@@ -89,7 +89,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				Command: []string{"/bin/sh", "-c", "echo Hello from the post start handler > /usr/share/message"},
 			}
 			s.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{
-				PostStart: &corev1.Handler{Exec: lifecycleHandler},
+				PostStart: &corev1.LifecycleHandler{Exec: lifecycleHandler},
 			}
 		},
 	}, {
@@ -99,7 +99,7 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				Command: []string{"/bin/sh", "-c", "echo Hello from the pre stop handler > /usr/share/message"},
 			}
 			s.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{
-				PreStop: &corev1.Handler{Exec: lifecycleHandler},
+				PreStop: &corev1.LifecycleHandler{Exec: lifecycleHandler},
 			}
 		},
 	}, {

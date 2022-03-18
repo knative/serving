@@ -110,7 +110,7 @@ func (c *FakeDomains) UpdateStatus(ctx context.Context, domain *v1alpha1.Domain,
 // Delete takes name of the domain and deletes it. Returns an error if one occurs.
 func (c *FakeDomains) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(domainsResource, name), &v1alpha1.Domain{})
+		Invokes(testing.NewRootDeleteActionWithOptions(domainsResource, name, opts), &v1alpha1.Domain{})
 	return err
 }
 

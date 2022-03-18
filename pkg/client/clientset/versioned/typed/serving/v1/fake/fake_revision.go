@@ -117,7 +117,7 @@ func (c *FakeRevisions) UpdateStatus(ctx context.Context, revision *servingv1.Re
 // Delete takes name of the revision and deletes it. Returns an error if one occurs.
 func (c *FakeRevisions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(revisionsResource, c.ns, name), &servingv1.Revision{})
+		Invokes(testing.NewDeleteActionWithOptions(revisionsResource, c.ns, name, opts), &servingv1.Revision{})
 
 	return err
 }

@@ -64,7 +64,7 @@ func TestProbeRuntime(t *testing.T) {
 		// Use a short name here to avoid hitting the 63-character limit in names
 		// (e.g., "service-to-service-call-svc-cluster-local-uagkdshh-frkml-service" is too long.)
 		name    string
-		handler corev1.Handler
+		handler corev1.ProbeHandler
 		env     []corev1.EnvVar
 	}{{
 		name: "httpGet",
@@ -72,7 +72,7 @@ func TestProbeRuntime(t *testing.T) {
 			Name:  "READY_DELAY",
 			Value: "10s",
 		}},
-		handler: corev1.Handler{
+		handler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/healthz",
 			},
@@ -83,7 +83,7 @@ func TestProbeRuntime(t *testing.T) {
 			Name:  "LISTEN_DELAY",
 			Value: "10s",
 		}},
-		handler: corev1.Handler{
+		handler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{},
 		},
 	}, {
@@ -92,7 +92,7 @@ func TestProbeRuntime(t *testing.T) {
 			Name:  "READY_DELAY",
 			Value: "10s",
 		}},
-		handler: corev1.Handler{
+		handler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"/ko-app/readiness", "probe"},
 			},
@@ -123,7 +123,7 @@ func TestProbeRuntime(t *testing.T) {
 					v1opts.WithEnv(tc.env...),
 					v1opts.WithReadinessProbe(
 						&corev1.Probe{
-							Handler:       tc.handler,
+							ProbeHandler:  tc.handler,
 							PeriodSeconds: period,
 						}))
 				if err != nil {
@@ -222,7 +222,7 @@ func waitReadyThenStartFailing(t *testing.T, clients *test.Clients, names test.R
 	resources, err := v1test.CreateServiceReady(t, clients, &names, v1opts.WithReadinessProbe(
 		&corev1.Probe{
 			PeriodSeconds: probePeriod,
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/healthz",
 				},

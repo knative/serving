@@ -41,7 +41,7 @@ var (
 	}
 	defaultProbe = &corev1.Probe{
 		SuccessThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{},
 		},
 	}
@@ -336,7 +336,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "foo",
 						ReadinessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
+							ProbeHandler: corev1.ProbeHandler{
 								TCPSocket: &corev1.TCPSocketAction{
 									Host: "127.0.0.2",
 								},
@@ -356,7 +356,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						Resources: defaultResources,
 						ReadinessProbe: &corev1.Probe{
 							SuccessThreshold: 1,
-							Handler: corev1.Handler{
+							ProbeHandler: corev1.ProbeHandler{
 								TCPSocket: &corev1.TCPSocketAction{
 									Host: "127.0.0.2",
 								},
@@ -373,7 +373,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						ReadinessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
+							ProbeHandler: corev1.ProbeHandler{
 								Exec: &corev1.ExecAction{
 									Command: []string{"echo", "hi"},
 								},
@@ -393,7 +393,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						Resources: defaultResources,
 						ReadinessProbe: &corev1.Probe{
 							SuccessThreshold: 1,
-							Handler: corev1.Handler{
+							ProbeHandler: corev1.ProbeHandler{
 								Exec: &corev1.ExecAction{
 									Command: []string{"echo", "hi"},
 								},
@@ -425,7 +425,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name: config.DefaultUserContainerName,
 						ReadinessProbe: &corev1.Probe{
 							FailureThreshold: 3, // Added as k8s default
-							Handler:          defaultProbe.Handler,
+							ProbeHandler:     defaultProbe.ProbeHandler,
 							PeriodSeconds:    10,
 							SuccessThreshold: 1,
 							TimeoutSeconds:   1, // Added as k8s default
