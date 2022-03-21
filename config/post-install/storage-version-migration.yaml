@@ -22,7 +22,6 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: storage-version-migration-job
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
 spec:
   ttlSecondsAfterFinished: 600
   backoffLimit: 10

@@ -20,7 +20,6 @@ metadata:
   # (which should be identical, but isn't guaranteed to be installed alongside serving).
   name: knative-serving-aggregated-addressable-resolver
   labels:
-    serving.knative.dev/release: devel
     app.kubernetes.io/version: devel
     app.kubernetes.io/name: knative-serving
 aggregationRule:
@@ -33,7 +32,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: knative-serving-addressable-resolver
   labels:
-    serving.knative.dev/release: devel
     app.kubernetes.io/version: devel
     app.kubernetes.io/name: knative-serving
     # Labeled to facilitate aggregated cluster roles that act on Addressables.

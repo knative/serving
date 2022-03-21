@@ -20,7 +20,6 @@ metadata:
     app.kubernetes.io/component: domain-mapping
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
 webhooks:
 - admissionReviewVersions: ["v1", "v1beta1"]
   clientConfig:

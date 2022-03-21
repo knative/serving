@@ -21,7 +21,6 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
   annotations:
     knative.dev/example-checksum: "f4b71f57"
 data:

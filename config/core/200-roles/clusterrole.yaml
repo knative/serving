@@ -18,7 +18,6 @@ metadata:
   name: knative-serving-core
   labels:
     serving.knative.dev/controller: "true"
-    serving.knative.dev/release: devel
     app.kubernetes.io/version: devel
     app.kubernetes.io/name: knative-serving
 rules:
