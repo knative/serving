@@ -447,6 +447,15 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	default:
 		return nil, fmt.Errorf("httpProtocol %s in config-network ConfigMap is not supported", data[HTTPProtocolKey])
 	}
+
+	if nc.ActivatorCA != "" && nc.ActivatorSAN == "" {
+		return nil, fmt.Errorf("%q must be set when %q was set", ActivatorSANKey, ActivatorCAKey)
+	}
+
+	if nc.ActivatorCA == "" && nc.ActivatorSAN != "" {
+		return nil, fmt.Errorf("%q must be set when %q was set", ActivatorCAKey, ActivatorSANKey)
+	}
+
 	return nc, nil
 }
 

@@ -23,7 +23,7 @@ metadata:
     app.kubernetes.io/version: devel
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "ddc3250f"
+    knative.dev/example-checksum: "7c86cb6a"
 data:
   _example: |
     ################################
@@ -183,7 +183,7 @@ data:
     activator-ca: ""
 
     # The SAN (Subject Alt Name) used to validate the activator TLS certificate.
-    # It is available only when "activator-ca" is specified.
+    # It must be set when "activator-ca" is specified.
     # Use an empty value to disable the feature (default).
     #
     # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
