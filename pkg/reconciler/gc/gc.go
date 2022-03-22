@@ -74,23 +74,30 @@ func collect(
 	count := len(revs)
 	// If we need `min` to remain, this is the max count of rev can delete.
 	maxIdx := len(revs) - min
-	nonStaleRevs := make([]*v1.Revision, 0, count)
 	staleCount := 0
 	for i := 0; i < count; i++ {
 		rev := revs[i]
 		if !isRevisionStale(cfg, rev, logger) {
-			nonStaleRevs = append(nonStaleRevs, rev)
 			continue
 		}
 		logger.Info("Deleting stale revision: ", rev.ObjectMeta.Name)
 		if err := client.ServingV1().Revisions(rev.Namespace).Delete(ctx, rev.Name, metav1.DeleteOptions{}); err != nil {
 			logger.Errorw("Failed to GC revision: "+rev.Name, zap.Error(err))
 		}
+		// Move non-stale items, make sure these items with index not smaller than staleCount are non-stale items.
+		// This situation should not appear in most cases, so performance here is not a big concern.
+		if i > staleCount {
+			for j := i; j > staleCount; j-- {
+				revs[j] = revs[j-1]
+			}
+		}
 		staleCount++
 		if staleCount >= maxIdx {
 			return nil // Reaches max revs to delete
 		}
+
 	}
+	nonStaleRevs := revs[staleCount:]
 
 	if max == gc.Disabled || len(nonStaleRevs) <= max {
 		return nil
