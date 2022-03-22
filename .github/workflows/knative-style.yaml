@@ -24,6 +24,6 @@ on:
 jobs:
 
   style:
-    uses: knative/actions/workflows/knative-style.yaml@main
+    uses: knative/actions/workflows/style.yaml@main
     secrets:
       token: ${{ github.token }}

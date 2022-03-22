@@ -24,4 +24,4 @@ on:
 jobs:
 
   build:
-    uses: knative/actions/workflows/knative-go-build.yaml@main
+    uses: knative/actions/workflows/go-build.yaml@main

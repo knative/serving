@@ -25,4 +25,4 @@ on:
 jobs:
 
   test:
-    uses: knative/actions/workflows/knative-go-test.yaml@main
+    uses: knative/actions/workflows/go-test.yaml@main

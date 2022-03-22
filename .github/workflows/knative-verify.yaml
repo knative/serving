@@ -24,4 +24,4 @@ on:
 jobs:
 
   verify:
-    uses: knative/actions/workflows/knative-verify.yaml@main
+    uses: knative/actions/workflows/verify-codegen.yaml@main

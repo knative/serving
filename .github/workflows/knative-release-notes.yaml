@@ -33,7 +33,7 @@ on:
 
 jobs:
   release-notes:
-    uses: knative/actions/workflows/knative-release-notes.yaml@main
+    uses: knative/actions/workflows/release-notes.yaml@main
     with:
       branch: ${{ github.event.inputs.branch }}
       start-rev: ${{ github.event.inputs.start-rev }}
