@@ -1,4 +1,4 @@
-# Generated with "kubectl kustomize https://github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.4.0"
+# Generated with "kubectl kustomize https://github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.4.2"
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -20,7 +20,7 @@ spec:
   scope: Cluster
   versions:
     - additionalPrinterColumns:
-        - jsonPath: .spec.controller
+        - jsonPath: .spec.controllerName
           name: Controller
           type: string
         - jsonPath: .metadata.creationTimestamp
@@ -858,7 +858,7 @@ spec:
                                         description: "Hostname is the hostname to be used in the value of the `Location` header in the response. When empty, the hostname of the request is used. \n Support: Core"
                                         maxLength: 253
                                         minLength: 1
-                                        pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                         type: string
                                       port:
                                         description: "Port is the port to be used in the value of the `Location` header in the response. When empty, port (if specified) of the request is used. \n Support: Extended"
@@ -1073,7 +1073,7 @@ spec:
                                   description: "Hostname is the hostname to be used in the value of the `Location` header in the response. When empty, the hostname of the request is used. \n Support: Core"
                                   maxLength: 253
                                   minLength: 1
-                                  pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                   type: string
                                 port:
                                   description: "Port is the port to be used in the value of the `Location` header in the response. When empty, port (if specified) of the request is used. \n Support: Extended"
@@ -1407,6 +1407,7 @@ spec:
                     required:
                       - group
                       - kind
+                      - namespace
                     type: object
                   maxItems: 16
                   minItems: 1
@@ -2264,7 +2265,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: knative-gateway-api-admin
   labels:
-    serving.knative.dev/release: "v20220316-164c01e4"
+    serving.knative.dev/release: "v20220322-05cd9a71"
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
@@ -2276,7 +2277,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: knative-gateway-api-core
   labels:
-    serving.knative.dev/release: "v20220316-164c01e4"
+    serving.knative.dev/release: "v20220322-05cd9a71"
     serving.knative.dev/controller: "true"
 rules:
   - apiGroups: ["gateway.networking.k8s.io"]
@@ -2304,7 +2305,7 @@ metadata:
   name: config-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20220316-164c01e4"
+    serving.knative.dev/release: "v20220322-05cd9a71"
 data:
   _example: |
     ################################
@@ -2358,9 +2359,9 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
-    app.kubernetes.io/version: "20220316-164c01e4"
+    app.kubernetes.io/version: "20220322-05cd9a71"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220316-164c01e4"
+    serving.knative.dev/release: "v20220322-05cd9a71"
 spec:
   replicas: 1
   selector:
@@ -2386,7 +2387,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:42121860c7d3e3d5acdc27e109f3cac5b3b63be4ab3b60250710c5294ceab3c8
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:a145c56321e0b2abe790eb037b84a1baeab614396c038d5c39de1940b339f001
           resources:
             requests:
               cpu: 100m
