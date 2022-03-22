@@ -26,4 +26,4 @@ on:
 
 jobs:
   analyze:
-    uses: knative/actions/.github/workflows/knative-security.yaml@main
+    uses: knative/actions/workflows/knative-security.yaml@main

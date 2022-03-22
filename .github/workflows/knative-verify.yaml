@@ -24,4 +24,4 @@ on:
 jobs:
 
   verify:
-    uses: knative/actions/.github/workflows/knative-verify.yaml@main
+    uses: knative/actions/workflows/knative-verify.yaml@main

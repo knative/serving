@@ -35,7 +35,7 @@ on:
 
 jobs:
   releasability:
-    uses: knative/actions/.github/workflows/knative-releasability.yaml@main
+    uses: knative/actions/workflows/knative-releasability.yaml@main
     with:
       releaseFamily: ${{ github.event.inputs.releaseFamily }}
       moduleReleaseFamily: ${{ github.event.inputs.moduleReleaseFamily }}
