@@ -2,11 +2,13 @@
 #@ load("helpers.lib.yaml", "subset")
 
 #@overlay/match by=subset(namespace="contour-internal", kind="Job"), expects=1
+#@overlay/match-child-defaults missing_ok=True
 ---
 spec:
   ttlSecondsAfterFinished: 60
 
 #@overlay/match by=subset(namespace="contour-external", kind="Job"), expects=1
+#@overlay/match-child-defaults missing_ok=True
 ---
 spec:
   ttlSecondsAfterFinished: 60
