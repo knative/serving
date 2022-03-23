@@ -218,7 +218,7 @@ const (
 	PanicThresholdPercentageMax = 1000.0
 
 	// ProgressDeadlineSeconds is the label key for the per revision progress deadline to set for the deployment
-	ProgressDeadlineAnnotationKey = GroupName + "/progressDeadline"
+	ProgressDeadlineAnnotationKey = GroupName + "/progress-deadline"
 )
 
 var (
@@ -254,7 +254,6 @@ var (
 	}
 	ProgressDeadlineAnnotation = kmap.KeyPriority{
 		ProgressDeadlineAnnotationKey,
-		GroupName + "/progressDeadline",
 	}
 	ScaleDownDelayAnnotation = kmap.KeyPriority{
 		ScaleDownDelayAnnotationKey,

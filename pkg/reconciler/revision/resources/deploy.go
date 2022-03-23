@@ -263,7 +263,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 	}
 
 	replicaCount := cfg.Autoscaler.InitialScale
-	ann, found := rev.Annotations[autoscaling.InitialScaleAnnotationKey]
+	_, ann, found := autoscaling.InitialScaleAnnotation.Get(rev.Annotations)
 	if found {
 		// Ignore errors and no error checking because already validated in webhook.
 		rc, _ := strconv.ParseInt(ann, 10, 32)
@@ -271,7 +271,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 	}
 
 	progressDeadline := int32(cfg.Deployment.ProgressDeadline.Seconds())
-	pdAnn, pdFound := rev.Annotations[autoscaling.ProgressDeadlineAnnotationKey]
+	_, pdAnn, pdFound := autoscaling.ProgressDeadlineAnnotation.Get(rev.Annotations)
 	if pdFound {
 		// Ignore errors and no error checking because already validated in webhook.
 		pd, _ := time.ParseDuration(pdAnn)
