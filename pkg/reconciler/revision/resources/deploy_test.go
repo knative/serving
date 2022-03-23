@@ -1236,7 +1236,7 @@ func TestMakeDeployment(t *testing.T) {
 				map[string]string{sidecarIstioInjectAnnotation: "false"})
 		}),
 	}, {
-		name: "with ProgressDeadline override",
+		name: "with progress-deadline override",
 		dc: deployment.Config{
 			ProgressDeadline: 42 * time.Second,
 		},
@@ -1253,9 +1253,9 @@ func TestMakeDeployment(t *testing.T) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
 		}),
 	}, {
-		name: "with ProgressDeadline annotation",
+		name: "with progress-deadline annotation",
 		rev: revision("bar", "foo",
-			WithRevisionAnn("autoscaling.knative.dev/progressDeadline", "42s"),
+			WithRevisionAnn("autoscaling.knative.dev/progress-deadline", "42s"),
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
 				Image:          "ubuntu",
@@ -1275,7 +1275,7 @@ func TestMakeDeployment(t *testing.T) {
 			ProgressDeadline: 503 * time.Second,
 		},
 		rev: revision("bar", "foo",
-			WithRevisionAnn("autoscaling.knative.dev/progressDeadline", "42s"),
+			WithRevisionAnn("autoscaling.knative.dev/progress-deadline", "42s"),
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
 				Image:          "ubuntu",
