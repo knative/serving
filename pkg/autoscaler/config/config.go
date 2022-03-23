@@ -49,7 +49,7 @@ func defaultConfig() *autoscalerconfig.Config {
 		RPSTargetDefault:  200,
 		MaxScaleUpRate:    1000,
 		MaxScaleDownRate:  2,
-		// TODO(#11926): Consider changing to -1 to default to activator always in path unless overriden
+		// TODO(#11926): Consider changing to -1 to default to activator always in path unless overridden
 		TargetBurstCapacity:           210,
 		PanicWindowPercentage:         10,
 		ActivatorCapacity:             100,
