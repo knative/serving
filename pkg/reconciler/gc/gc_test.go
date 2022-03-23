@@ -404,6 +404,119 @@ func TestCollectSettings(t *testing.T) {
 	}
 }
 
+func TestGCInOrder(t *testing.T) {
+	now := time.Now()
+	old1 := now.Add(-11 * time.Minute)
+	old2 := now.Add(-12 * time.Minute)
+	old3 := now.Add(-13 * time.Minute)
+	old4 := now.Add(-14 * time.Minute)
+	old5 := now.Add(-15 * time.Minute)
+	fc := clock.NewFakePassiveClock(now)
+
+	cfg := cfg("gc-order-test", "foo", 5557,
+		WithLatestCreated("5557"),
+		WithLatestReady("5557"),
+		WithConfigObservedGen)
+
+	revs := []*v1.Revision{
+		rev("gc-order-test", "foo", 5553, MarkRevisionReady,
+			WithRevName("5553"),
+			WithRoutingState(v1.RoutingStateReserve, fc),
+			WithRoutingStateModified(old5)),
+		rev("gc-order-test", "foo", 5554, MarkRevisionReady,
+			WithRevName("5554"),
+			WithRoutingState(v1.RoutingStateReserve, fc),
+			WithRoutingStateModified(old4)),
+		rev("gc-order-test", "foo", 5555, MarkRevisionReady,
+			WithRevName("5555"),
+			WithRoutingState(v1.RoutingStateReserve, fc),
+			WithRoutingStateModified(old3)),
+		rev("gc-order-test", "foo", 5556, MarkRevisionReady,
+			WithRevName("5556"),
+			WithRoutingState(v1.RoutingStateReserve, fc),
+			WithRoutingStateModified(old2)),
+		rev("gc-order-test", "foo", 5557, MarkRevisionReady,
+			WithRevName("5557"),
+			WithRoutingState(v1.RoutingStateActive, fc),
+			WithRoutingStateModified(old1)),
+	}
+
+	table := []struct {
+		name        string
+		gc          gc.Config
+		wantDeletes []clientgotesting.DeleteActionImpl
+	}{{
+		name: "retain one item",
+		gc: gc.Config{
+			RetainSinceCreateTime:     time.Duration(gc.Disabled),
+			RetainSinceLastActiveTime: time.Duration(gc.Disabled),
+			MinNonActiveRevisions:     1,
+			MaxNonActiveRevisions:     1,
+		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{
+			{
+				ActionImpl: clientgotesting.ActionImpl{
+					Namespace: "foo",
+					Verb:      "delete",
+					Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
+				},
+				Name: "5553",
+			},
+			{
+				ActionImpl: clientgotesting.ActionImpl{
+					Namespace: "foo",
+					Verb:      "delete",
+					Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
+				},
+				Name: "5554",
+			},
+			{
+				ActionImpl: clientgotesting.ActionImpl{
+					Namespace: "foo",
+					Verb:      "delete",
+					Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
+				},
+				Name: "5555",
+			},
+		},
+	}, {
+		name: "retain two items",
+		gc: gc.Config{
+			RetainSinceCreateTime:     time.Duration(gc.Disabled),
+			RetainSinceLastActiveTime: time.Duration(gc.Disabled),
+			MinNonActiveRevisions:     2,
+			MaxNonActiveRevisions:     2,
+		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{
+			{
+				ActionImpl: clientgotesting.ActionImpl{
+					Namespace: "foo",
+					Verb:      "delete",
+					Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
+				},
+				Name: "5553",
+			},
+			{
+				ActionImpl: clientgotesting.ActionImpl{
+					Namespace: "foo",
+					Verb:      "delete",
+					Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
+				},
+				Name: "5554",
+			},
+		},
+	}}
+
+	for _, test := range table {
+		t.Run(test.name, func(t *testing.T) {
+			cfgMap := &config.Config{
+				RevisionGC: &test.gc,
+			}
+			runTest(t, cfgMap, revs, cfg, test.wantDeletes)
+		})
+	}
+}
+
 func runTest(
 	t *testing.T,
 	cfgMap *config.Config,

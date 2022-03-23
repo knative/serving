@@ -84,33 +84,36 @@ func collect(
 		if err := client.ServingV1().Revisions(rev.Namespace).Delete(ctx, rev.Name, metav1.DeleteOptions{}); err != nil {
 			logger.Errorw("Failed to GC revision: "+rev.Name, zap.Error(err))
 		}
-		// Move non-stale items, make sure these items with index not smaller than staleCount are non-stale items.
-		// This situation should not appear in most cases, so performance here is not a big concern.
-		if i > staleCount {
-			for j := i; j > staleCount; j-- {
-				revs[j] = revs[j-1]
-			}
-		}
+		revs[i] = nil
 		staleCount++
 		if staleCount >= maxIdx {
 			return nil // Reaches max revs to delete
 		}
 
 	}
-	nonStaleRevs := revs[staleCount:]
 
-	if max == gc.Disabled || len(nonStaleRevs) <= max {
+	nonStaleCount := count - staleCount
+	if max == gc.Disabled || nonStaleCount <= max {
 		return nil
 	}
+	needsDeleteCount := nonStaleCount - max
 
 	// Stale revisions has been deleted, delete extra revisions past max.
 	logger.Infof("Maximum number of revisions (%d) reached, deleting oldest non-active (%d) revisions",
-		max, len(nonStaleRevs)-max)
-	for _, rev := range nonStaleRevs[:len(nonStaleRevs)-max] {
+		max, needsDeleteCount)
+	deletedCount := 0
+	for _, rev := range revs {
+		if deletedCount == needsDeleteCount {
+			break
+		}
+		if rev == nil {
+			continue
+		}
 		logger.Info("Deleting non-active revision: ", rev.ObjectMeta.Name)
 		if err := client.ServingV1().Revisions(rev.Namespace).Delete(ctx, rev.Name, metav1.DeleteOptions{}); err != nil {
 			logger.Errorw("Failed to GC revision: "+rev.Name, zap.Error(err))
 		}
+		deletedCount++
 	}
 	return nil
 }
