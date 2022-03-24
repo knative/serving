@@ -50,7 +50,7 @@ func defaultConfig() *autoscalerconfig.Config {
 		MaxScaleUpRate:    1000,
 		MaxScaleDownRate:  2,
 		// TODO(#11926): Consider changing to -1 to default to activator always in path unless overridden
-		TargetBurstCapacity:           210,
+		TargetBurstCapacity:           211,
 		PanicWindowPercentage:         10,
 		ActivatorCapacity:             100,
 		PanicThresholdPercentage:      200,
