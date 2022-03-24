@@ -45,11 +45,12 @@ func defaultConfig() *autoscalerconfig.Config {
 		ContainerConcurrencyTargetFraction: defaultTargetUtilization,
 		ContainerConcurrencyTargetDefault:  100,
 		// TODO(#1956): Tune target usage based on empirical data.
-		TargetUtilization:             defaultTargetUtilization,
-		RPSTargetDefault:              200,
-		MaxScaleUpRate:                1000,
-		MaxScaleDownRate:              2,
-		TargetBurstCapacity:           200,
+		TargetUtilization: defaultTargetUtilization,
+		RPSTargetDefault:  200,
+		MaxScaleUpRate:    1000,
+		MaxScaleDownRate:  2,
+		// TODO(#11926): Consider changing to -1 to default to activator always in path unless overridden
+		TargetBurstCapacity:           211,
 		PanicWindowPercentage:         10,
 		ActivatorCapacity:             100,
 		PanicThresholdPercentage:      200,

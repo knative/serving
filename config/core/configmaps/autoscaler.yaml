@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "16af78ce"
+    knative.dev/example-checksum: "47c2487f"
 data:
   _example: |
     ################################
@@ -97,7 +97,7 @@ data:
     # -1 denotes unlimited target-burst-capacity and activator will always
     # be in the request path.
     # Other negative values are invalid.
-    target-burst-capacity: "200"
+    target-burst-capacity: "211"
 
     # When operating in a stable mode, the autoscaler operates on the
     # average concurrency over the stable window.

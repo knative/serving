@@ -112,6 +112,7 @@ func defaultConfigMapData() map[string]string {
 		"scale-to-zero-grace-period":              gracePeriod.String(),
 		"tick-interval":                           "2s",
 		"min-scale":                               "0",
+		"target-burst-capacity":                   "200",
 	}
 }
 
