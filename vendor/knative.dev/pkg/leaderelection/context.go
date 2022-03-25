@@ -80,6 +80,12 @@ type Elector interface {
 	Run(context.Context)
 }
 
+// ElectorWithInitialBuckets is an optional interface for electors to
+// supply an initial set of buckets
+type ElectorWithInitialBuckets interface {
+	InitialBuckets() []reconciler.Bucket
+}
+
 // BuildElector builds a leaderelection.LeaderElector for the named LeaderAware
 // reconciler using a builder added to the context via WithStandardLeaderElectorBuilder.
 func BuildElector(ctx context.Context, la reconciler.LeaderAware, queueName string, enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
@@ -255,9 +261,20 @@ type unopposedElector struct {
 	enq func(reconciler.Bucket, types.NamespacedName)
 }
 
+var (
+	_ Elector                   = (*unopposedElector)(nil)
+	_ ElectorWithInitialBuckets = (*unopposedElector)(nil)
+)
+
 // Run implements Elector
 func (ue *unopposedElector) Run(ctx context.Context) {
 	ue.la.Promote(ue.bkt, ue.enq)
+}
+
+func (ue *unopposedElector) InitialBuckets() []reconciler.Bucket {
+	return []reconciler.Bucket{
+		reconciler.UniversalBucket(),
+	}
 }
 
 type runAll struct {
