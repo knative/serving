@@ -966,6 +966,87 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "Valid progress-deadline",
+		ctx:  autoscalerConfigCtx(true, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.ProgressDeadlineAnnotationKey: "1m3s",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "progress-deadline too precise",
+		ctx:  autoscalerConfigCtx(true, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.ProgressDeadlineAnnotationKey: "1m3s34ms",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "progress-deadline=1m3s34ms is not at second precision",
+			Paths:   []string{serving.ProgressDeadlineAnnotationKey},
+		}).ViaField("metadata.annotations"),
+	}, {
+		name: "invalid progress-deadline duration",
+		ctx:  autoscalerConfigCtx(true, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.ProgressDeadlineAnnotationKey: "not-a-duration",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "invalid value: not-a-duration",
+			Paths:   []string{serving.ProgressDeadlineAnnotationKey},
+		}).ViaField("metadata.annotations"),
+	}, {
+		name: "negative progress-deadline",
+		ctx:  autoscalerConfigCtx(true, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.ProgressDeadlineAnnotationKey: "-1m3s",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "progress-deadline=-1m3s must be positive",
+			Paths:   []string{serving.ProgressDeadlineAnnotationKey},
+		}).ViaField("metadata.annotations"),
 	}}
 
 	for _, test := range tests {
