@@ -30,6 +30,7 @@ import (
 	apistest "knative.dev/pkg/apis/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
@@ -795,21 +796,21 @@ func TestProgressDelayAnnotation(t *testing.T) {
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
-			autoscaling.ProgressDeadlineAnnotationKey: "120s",
+			serving.ProgressDeadlineAnnotationKey: "120s",
 		}),
 		wantDelay: 120 * time.Second,
 		wantOK:    true,
 	}, {
 		name: "complex",
 		pa: pa(map[string]string{
-			autoscaling.ProgressDeadlineAnnotationKey: "2m33s",
+			serving.ProgressDeadlineAnnotationKey: "2m33s",
 		}),
 		wantDelay: 153 * time.Second,
 		wantOK:    true,
 	}, {
 		name: "invalid",
 		pa: pa(map[string]string{
-			autoscaling.ProgressDeadlineAnnotationKey: "365d",
+			serving.ProgressDeadlineAnnotationKey: "365d",
 		}),
 		wantDelay: 0,
 		wantOK:    false,

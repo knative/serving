@@ -1266,8 +1266,8 @@ func TestMakeDeployment(t *testing.T) {
 			}}), withoutLabels),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
-			deploy.Annotations = map[string]string{autoscaling.ProgressDeadlineAnnotationKey: "42s"}
-			deploy.Spec.Template.Annotations = map[string]string{autoscaling.ProgressDeadlineAnnotationKey: "42s"}
+			deploy.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
+			deploy.Spec.Template.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
 		}),
 	}, {
 		name: "with ProgressDeadline annotation and configmap override",
@@ -1286,8 +1286,8 @@ func TestMakeDeployment(t *testing.T) {
 			}}), withoutLabels),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
-			deploy.Annotations = map[string]string{autoscaling.ProgressDeadlineAnnotationKey: "42s"}
-			deploy.Spec.Template.Annotations = map[string]string{autoscaling.ProgressDeadlineAnnotationKey: "42s"}
+			deploy.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
+			deploy.Spec.Template.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
 		}),
 	}, {
 		name: "cluster initial scale",

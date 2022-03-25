@@ -448,6 +448,42 @@ func TestAnnotationUpdate(t *testing.T) {
 	}
 }
 
+func TestValidateProgressDeadlineAnnotation(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{{
+		name: "empty",
+	}, {
+		name:  "valid",
+		value: "1m3s",
+	}, {
+		name:  "invalid duration",
+		value: "jerry-was-a-racecar-driver",
+		want:  "invalid value: jerry-was-a-racecar-driver: " + ProgressDeadlineAnnotationKey,
+	}, {
+		name:  "too precise",
+		value: "1m9s82ms",
+		want:  "progress-deadline=1m9s82ms is not at second precision: " + ProgressDeadlineAnnotationKey,
+	}, {
+		name:  "negative",
+		value: "-2s",
+		want:  "progress-deadline=-2s must be positive: " + ProgressDeadlineAnnotationKey,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateProgressDeadlineAnnotation(map[string]string{
+				ProgressDeadlineAnnotationKey: tc.value,
+			})
+			if got, want := err.Error(), tc.want; got != want {
+				t.Errorf("APIErr mismatch, diff(-want,+got):\n%s", cmp.Diff(want, got))
+			}
+		})
+	}
+}
+
 func TestValidateRolloutDurationAnnotation(t *testing.T) {
 	tests := []struct {
 		name  string

@@ -60,8 +60,7 @@ func ValidateAnnotations(ctx context.Context, config *autoscalerconfig.Config, a
 		Also(validateScaleDownDelay(anns)).
 		Also(validateMetric(anns)).
 		Also(validateAlgorithm(anns)).
-		Also(validateInitialScale(config, anns)).
-		Also(validateProgressDeadline(anns))
+		Also(validateInitialScale(config, anns))
 }
 
 func validateClass(m map[string]string) *apis.FieldError {
@@ -171,18 +170,6 @@ func validateWindow(m map[string]string) *apis.FieldError {
 			return apis.ErrOutOfBoundsValue(v, WindowMin, WindowMax, WindowAnnotationKey)
 		case d.Truncate(time.Second) != d:
 			return apis.ErrGeneric("must be specified with at most second precision", WindowAnnotationKey)
-		}
-	}
-	return nil
-}
-
-func validateProgressDeadline(m map[string]string) *apis.FieldError {
-	if _, v, ok := ProgressDeadlineAnnotation.Get(m); ok {
-		switch d, err := time.ParseDuration(v); {
-		case err != nil:
-			return apis.ErrInvalidValue(v, ProgressDeadlineAnnotationKey)
-		case d.Truncate(time.Second) != d:
-			return apis.ErrGeneric("must be specified with at most second precision", ProgressDeadlineAnnotationKey)
 		}
 	}
 	return nil

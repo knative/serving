@@ -331,7 +331,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			progressDeadline := "5s"
-			k.Annotations[autoscaling.ProgressDeadlineAnnotationKey] = progressDeadline
+			k.Annotations[serving.ProgressDeadlineAnnotationKey] = progressDeadline
 			customActivationTimeout, _ := time.ParseDuration(progressDeadline)
 			paMarkActivating(k, time.Now().Add(-(customActivationTimeout + +activationTimeoutBuffer + time.Second)))
 		},

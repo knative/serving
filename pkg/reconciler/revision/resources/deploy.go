@@ -25,6 +25,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
@@ -271,7 +272,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 	}
 
 	progressDeadline := int32(cfg.Deployment.ProgressDeadline.Seconds())
-	_, pdAnn, pdFound := autoscaling.ProgressDeadlineAnnotation.Get(rev.Annotations)
+	_, pdAnn, pdFound := serving.ProgressDeadlineAnnotation.Get(rev.Annotations)
 	if pdFound {
 		// Ignore errors and no error checking because already validated in webhook.
 		pd, _ := time.ParseDuration(pdAnn)

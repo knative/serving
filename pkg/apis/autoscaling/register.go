@@ -216,9 +216,6 @@ const (
 	// PanicThresholdPercentageMax is the counterpart to the PanicThresholdPercentageMin
 	// but bounding from above.
 	PanicThresholdPercentageMax = 1000.0
-
-	// ProgressDeadlineSeconds is the label key for the per revision progress deadline to set for the deployment
-	ProgressDeadlineAnnotationKey = "serving.knative.dev/progress-deadline"
 )
 
 var (
@@ -251,9 +248,6 @@ var (
 	PanicWindowPercentageAnnotation = kmap.KeyPriority{
 		PanicWindowPercentageAnnotationKey,
 		GroupName + "/panicWindowPercentage",
-	}
-	ProgressDeadlineAnnotation = kmap.KeyPriority{
-		ProgressDeadlineAnnotationKey,
 	}
 	ScaleDownDelayAnnotation = kmap.KeyPriority{
 		ScaleDownDelayAnnotationKey,

@@ -31,8 +31,8 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 	// spec validation.
 	if !apis.IsInStatusUpdate(ctx) {
 		errs = errs.Also(serving.ValidateObjectMetadata(ctx, s.GetObjectMeta(), false))
-		errs = errs.Also(serving.ValidateRolloutDurationAnnotation(
-			s.GetAnnotations()).ViaField("annotations"))
+		errs = errs.Also(serving.ValidateRolloutDurationAnnotation(s.GetAnnotations()).ViaField("annotations"))
+		errs = errs.Also(serving.ValidateProgressDeadlineAnnotation(s.GetAnnotations()).ViaField("annotations"))
 		errs = errs.ViaField("metadata")
 
 		ctx = apis.WithinParent(ctx, s.ObjectMeta)

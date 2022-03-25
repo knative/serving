@@ -47,6 +47,34 @@ func ValidateObjectMetadata(ctx context.Context, meta metav1.Object, allowAutosc
 	return errs
 }
 
+// ValidateProgressDeadlineAnnotation validates the rollout duration annotation.
+// This annotation can be set on either service or route objects.
+func ValidateProgressDeadlineAnnotation(annos map[string]string) (errs *apis.FieldError) {
+	if k, v, _ := ProgressDeadlineAnnotation.Get(annos); v != "" {
+		// Parse as duration.
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return errs.Also(apis.ErrInvalidValue(v, k))
+		}
+		// Validate that it has second precision.
+		if d.Round(time.Second) != d {
+			return errs.Also(&apis.FieldError{
+				// Even if tempting %v won't work here, since it might output the value spelled differently.
+				Message: fmt.Sprintf("progress-deadline=%s is not at second precision", v),
+				Paths:   []string{k},
+			})
+		}
+		// And positive.
+		if d < 0 {
+			return errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("progress-deadline=%s must be positive", v),
+				Paths:   []string{k},
+			})
+		}
+	}
+	return errs
+}
+
 // ValidateRolloutDurationAnnotation validates the rollout duration annotation.
 // This annotation can be set on either service or route objects.
 func ValidateRolloutDurationAnnotation(annos map[string]string) (errs *apis.FieldError) {

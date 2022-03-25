@@ -122,6 +122,9 @@ const (
 	// that will result to the Route/KService getting a cluster local
 	// domain suffix.
 	VisibilityClusterLocal = "cluster-local"
+
+	// ProgressDeadlineAnnotationKey is the label key for the per revision progress deadline to set for the deployment
+	ProgressDeadlineAnnotationKey = GroupName + "/progress-deadline"
 )
 
 var (
@@ -158,5 +161,8 @@ var (
 	QueueSidecarResourcePercentageAnnotation = kmap.KeyPriority{
 		QueueSidecarResourcePercentageAnnotationKey,
 		"queue.sidecar." + GroupName + "/resourcePercentage",
+	}
+	ProgressDeadlineAnnotation = kmap.KeyPriority{
+		ProgressDeadlineAnnotationKey,
 	}
 )
