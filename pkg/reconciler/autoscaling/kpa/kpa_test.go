@@ -1402,7 +1402,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	// Wait for the Reconcile to complete.
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
+	if err := ctl.Reconciler.Reconcile(ctx, testNamespace+"/"+testRevision); err != nil {
 		t.Error("Reconcile() =", err)
 	}
 
@@ -1429,7 +1429,7 @@ func TestUpdate(t *testing.T) {
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Update(ctx, kpa, metav1.UpdateOptions{})
 	fakepainformer.Get(ctx).Informer().GetIndexer().Update(kpa)
 
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
+	if err := ctl.Reconciler.Reconcile(ctx, testNamespace+"/"+testRevision); err != nil {
 		t.Error("Reconcile() =", err)
 	}
 
@@ -1475,7 +1475,7 @@ func TestControllerCreateError(t *testing.T) {
 		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	got := ctl.Reconciler.Reconcile(ctx, key)
 	if !errors.Is(got, want) {
 		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
 	}
@@ -1518,7 +1518,7 @@ func TestControllerUpdateError(t *testing.T) {
 		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	got := ctl.Reconciler.Reconcile(ctx, key)
 	if !errors.Is(got, want) {
 		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
 	}
@@ -1560,7 +1560,7 @@ func TestControllerGetError(t *testing.T) {
 		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	got := ctl.Reconciler.Reconcile(ctx, key)
 	if !errors.Is(got, want) {
 		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
 	}
@@ -1593,7 +1593,7 @@ func TestScaleFailure(t *testing.T) {
 		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err == nil {
+	if err := ctl.Reconciler.Reconcile(ctx, testNamespace+"/"+testRevision); err == nil {
 		t.Error("Reconcile() = nil, wanted error")
 	}
 }

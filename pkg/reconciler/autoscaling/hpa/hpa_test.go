@@ -113,7 +113,7 @@ func TestControllerCanReconcile(t *testing.T) {
 		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
-	err = ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+	err = ctl.Reconciler.Reconcile(ctx, testNamespace+"/"+testRevision)
 	if err != nil {
 		t.Error("Reconcile() =", err)
 	}

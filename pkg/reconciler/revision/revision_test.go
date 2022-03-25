@@ -170,7 +170,7 @@ func createRevision(
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
-	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err == nil {
+	if err := controller.Reconciler.Reconcile(ctx, KeyOrDie(rev)); err == nil {
 		rev, _, _ = addResourcesToInformers(t, ctx, rev)
 	}
 	return rev
@@ -186,7 +186,7 @@ func updateRevision(
 	fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace).Update(ctx, rev, metav1.UpdateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Update(rev)
 
-	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err == nil {
+	if err := controller.Reconciler.Reconcile(ctx, KeyOrDie(rev)); err == nil {
 		addResourcesToInformers(t, ctx, rev)
 	}
 }
@@ -449,7 +449,7 @@ func TestStatusUnknownWhenDigestsNotResolvedYet(t *testing.T) {
 
 	fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
-	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err != nil {
+	if err := controller.Reconciler.Reconcile(ctx, KeyOrDie(rev)); err != nil {
 		t.Fatal("Reconcile failed:", err)
 	}
 
