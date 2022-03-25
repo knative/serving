@@ -218,7 +218,7 @@ const (
 	PanicThresholdPercentageMax = 1000.0
 
 	// ProgressDeadlineSeconds is the label key for the per revision progress deadline to set for the deployment
-	ProgressDeadlineAnnotationKey = GroupName + "/progress-deadline"
+	ProgressDeadlineAnnotationKey = "serving.knative.dev/progress-deadline"
 )
 
 var (

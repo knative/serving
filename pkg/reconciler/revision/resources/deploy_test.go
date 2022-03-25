@@ -1255,7 +1255,7 @@ func TestMakeDeployment(t *testing.T) {
 	}, {
 		name: "with progress-deadline annotation",
 		rev: revision("bar", "foo",
-			WithRevisionAnn("autoscaling.knative.dev/progress-deadline", "42s"),
+			WithRevisionAnn("serving.knative.dev/progress-deadline", "42s"),
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
 				Image:          "ubuntu",
@@ -1275,7 +1275,7 @@ func TestMakeDeployment(t *testing.T) {
 			ProgressDeadline: 503 * time.Second,
 		},
 		rev: revision("bar", "foo",
-			WithRevisionAnn("autoscaling.knative.dev/progress-deadline", "42s"),
+			WithRevisionAnn("serving.knative.dev/progress-deadline", "42s"),
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
 				Image:          "ubuntu",
