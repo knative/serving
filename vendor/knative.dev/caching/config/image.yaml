@@ -29,8 +29,6 @@ spec:
     categories:
     - knative-internal
     - caching
-    shortNames:
-    - img
   scope: Namespaced
   versions:
   - name: v1alpha1
