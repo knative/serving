@@ -468,6 +468,13 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 		if err != nil {
 			return err
 		}
+		if ib, ok := le.(kle.ElectorWithInitialBuckets); ok {
+			for _, b := range ib.InitialBuckets() {
+				// No need to provide an enq function since the controller
+				// is not processing items
+				la.Promote(b, nil)
+			}
+		}
 		sg.Add(1)
 		go func() {
 			defer sg.Done()
