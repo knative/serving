@@ -1336,8 +1336,10 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 			ctx, kpa.Name, metav1.GetOptions{})
-		if err != nil {
-			return true, err
+		if err != nil && apierrors.IsNotFound(err) {
+			return false, nil
+		} else if err != nil {
+			return false, err
 		}
 		return newKPA.IsReady() && newKPA.Status.GetDesiredScale() == 1, nil
 	}); err != nil {
