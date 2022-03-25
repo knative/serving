@@ -31,6 +31,7 @@ import (
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -94,12 +95,49 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		pa.Status.MarkSKSNotReady("SKS Services are not ready yet")
 	} else {
 		pa.Status.MarkSKSReady()
-		pa.Status.MarkScaleTargetInitialized()
+		// If a min-scale value has been set, we don't want to mark the scale target
+		// as initialized until the current replicas are >= the min-scale value.
+		if !pa.Status.IsScaleTargetInitialized() {
+			ms := activeThreshold(ctx, pa)
+			if hpa.Status.CurrentReplicas >= int32(ms) {
+				pa.Status.MarkScaleTargetInitialized()
+			}
+		}
 	}
+
 	// HPA is always _active_.
 	pa.Status.MarkActive()
 
 	pa.Status.DesiredScale = ptr.Int32(hpa.Status.DesiredReplicas)
 	pa.Status.ActualScale = ptr.Int32(hpa.Status.CurrentReplicas)
 	return nil
+}
+
+// activeThreshold returns the scale required for the pa to be marked Active
+func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) int {
+	asConfig := config.FromContext(ctx).Autoscaler
+	min, _ := pa.ScaleBounds(asConfig)
+	if !pa.Status.IsScaleTargetInitialized() {
+		initialScale := getInitialScale(asConfig, pa)
+		return int(intMax(min, initialScale))
+	}
+	return int(intMax(min, 1))
+}
+
+// getInitialScale returns the calculated initial scale based on the autoscaler
+// ConfigMap and PA initial scale annotation value.
+func getInitialScale(asConfig *autoscalerconfig.Config, pa *autoscalingv1alpha1.PodAutoscaler) int32 {
+	initialScale := asConfig.InitialScale
+	revisionInitialScale, ok := pa.InitialScale()
+	if !ok || (revisionInitialScale == 0 && !asConfig.AllowZeroInitialScale) {
+		return initialScale
+	}
+	return revisionInitialScale
+}
+
+func intMax(a, b int32) int32 {
+	if a < b {
+		return b
+	}
+	return a
 }
