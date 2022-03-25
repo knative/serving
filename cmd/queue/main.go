@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"net"
 	"net/http"
 	"os"
@@ -100,6 +102,10 @@ type config struct {
 	// Concurrency State Endpoint configuration
 	ConcurrencyStateEndpoint  string `split_words:"true"` // optional
 	ConcurrencyStateTokenPath string `split_words:"true"` // optional
+
+	// vHive configuration
+	GuestAddr string `split_words:"true" required:"true"`
+	GuestPort string `split_words:"true" required:"true"`
 }
 
 func init() {
@@ -153,6 +159,21 @@ func main() {
 	}()
 
 	// Setup probe to run for checking user-application healthiness.
+	servingProbe := &corev1.Probe{
+		SuccessThreshold: 1,
+		Handler: corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Host: env.GuestAddr,
+				Port: intstr.FromString(env.GuestPort),
+			},
+		},
+	}
+
+	env.ServingReadinessProbe, err = readiness.EncodeProbe(servingProbe)
+	if err != nil {
+		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
+	}
+
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
 		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection).ProbeContainer
@@ -226,7 +247,7 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *network.RequestStats, logger *zap.SugaredLogger,
 	ce *queue.ConcurrencyEndpoint) (server *http.Server, drain func()) {
 
-	target := net.JoinHostPort("127.0.0.1", env.UserPort)
+	target := net.JoinHostPort(env.GuestAddr, env.GuestPort)
 
 	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders)
 	httpProxy.Transport = buildTransport(env, logger)
