@@ -52,6 +52,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/reconciler"
@@ -199,7 +200,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(ctx, KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(ctx, t, route)
 
@@ -268,7 +269,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	}
 
 	fakeingressinformer.Get(ctx).Informer().GetIndexer().Update(ci)
-	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(ctx, KeyOrDie(route))
 
 	// Look for the events. Events are delivered asynchronously so we need to use
 	// hooks here. Each hook tests for a specific event.
@@ -332,7 +333,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer.
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(ctx, KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -450,7 +451,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(ctx, KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -582,7 +583,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(ctx, KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -788,7 +789,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(ctx, KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -997,7 +998,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 	fakeservingclient.Get(ctx).ServingV1().Routes(testNamespace).Create(ctx, route, metav1.CreateOptions{})
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
-	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(ctx, KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -1325,7 +1326,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			// Create a route.
 			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 			routeClient.Create(ctx, route, metav1.CreateOptions{})
-			if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route)); err != nil {
+			if err := ctl.Reconciler.Reconcile(ctx, KeyOrDie(route)); err != nil {
 				t.Fatal("Reconcile() =", err)
 			}
 			addRouteToInformers(ctx, t, route)
@@ -1375,7 +1376,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 
 				// Now that we know the exact version the reconciler is going to see in the
 				// informers, let's reconcile.
-				if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route)); err != nil {
+				if err := ctl.Reconciler.Reconcile(ctx, KeyOrDie(route)); err != nil {
 					t.Fatal("Reconcile() =", err)
 				}
 
@@ -1625,7 +1626,8 @@ func TestAutoTLSEnabled(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := config.ToContext(context.Background(), &config.Config{
+			ctx := logtesting.TestContextWithLogger(t)
+			ctx = config.ToContext(ctx, &config.Config{
 				Network: &network.Config{
 					AutoTLS: test.configAutoTLSEnabled,
 				},

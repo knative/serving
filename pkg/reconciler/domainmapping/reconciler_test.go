@@ -17,11 +17,11 @@ limitations under the License.
 package domainmapping
 
 import (
-	"context"
 	"testing"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
+	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 )
 
@@ -71,7 +71,8 @@ func TestAutoTLSEnabled(t *testing.T) {
 		wantAutoTLSEnabled:   true,
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := config.ToContext(context.Background(), &config.Config{
+			ctx := logtesting.TestContextWithLogger(t)
+			ctx = config.ToContext(ctx, &config.Config{
 				Network: &network.Config{
 					AutoTLS: tc.configAutoTLSEnabled,
 				},
