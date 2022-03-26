@@ -29,8 +29,7 @@ import (
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta(), false).Also(
 		r.validateLabels().ViaField("labels"))
-	errs = errs.Also(serving.ValidateRolloutDurationAnnotation(
-		r.GetAnnotations()).ViaField("annotations"))
+	errs = errs.Also(serving.ValidateRolloutDurationAnnotation(r.GetAnnotations()).ViaField("annotations"))
 	errs = errs.ViaField("metadata")
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 

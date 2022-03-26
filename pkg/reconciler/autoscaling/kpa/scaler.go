@@ -185,7 +185,12 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 		return 1, true
 	}
 	cfgD := cfgs.Deployment
-	activationTimeout := cfgD.ProgressDeadline + activationTimeoutBuffer
+	var activationTimeout time.Duration
+	if progressDeadline, ok := pa.ProgressDeadline(); ok {
+		activationTimeout = progressDeadline + activationTimeoutBuffer
+	} else {
+		activationTimeout = cfgD.ProgressDeadline + activationTimeoutBuffer
+	}
 
 	now := time.Now()
 	logger := logging.FromContext(ctx)

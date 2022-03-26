@@ -324,6 +324,18 @@ func TestScaler(t *testing.T) {
 			paMarkActivating(k, time.Now().Add(-(activationTimeout + time.Second)))
 		},
 	}, {
+		label:         "scale to zero while activating after revision deadline exceeded",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			progressDeadline := "5s"
+			k.Annotations[serving.ProgressDeadlineAnnotationKey] = progressDeadline
+			customActivationTimeout, _ := time.ParseDuration(progressDeadline)
+			paMarkActivating(k, time.Now().Add(-(customActivationTimeout + +activationTimeoutBuffer + time.Second)))
+		},
+	}, {
 		label:         "scale down to minScale before grace period",
 		startReplicas: 10,
 		scaleTo:       0,

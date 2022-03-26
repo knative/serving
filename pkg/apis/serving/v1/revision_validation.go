@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/validation"
 	"knative.dev/pkg/apis"
@@ -68,6 +69,7 @@ func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError 
 	// it follows the requirements on the name.
 	errs = errs.Also(validateRevisionName(ctx, rts.Name, rts.GenerateName))
 	errs = errs.Also(validateQueueSidecarAnnotation(rts.Annotations).ViaField("metadata.annotations"))
+	errs = errs.Also(validateProgressDeadlineAnnotation(rts.Annotations).ViaField("metadata.annotations"))
 	return errs
 }
 
@@ -192,6 +194,33 @@ func validateQueueSidecarAnnotation(m map[string]string) *apis.FieldError {
 	}
 	if value < 0.1 || value > 100 {
 		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, apis.CurrentField).ViaKey(k)
+	}
+	return nil
+}
+
+// ValidateProgressDeadlineAnnotation validates the revision progress deadline annotation.
+func validateProgressDeadlineAnnotation(annos map[string]string) *apis.FieldError {
+	if k, v, _ := serving.ProgressDeadlineAnnotation.Get(annos); v != "" {
+		// Parse as duration.
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return apis.ErrInvalidValue(v, k)
+		}
+		// Validate that it has second precision.
+		if d.Round(time.Second) != d {
+			return &apis.FieldError{
+				// Even if tempting %v won't work here, since it might output the value spelled differently.
+				Message: fmt.Sprintf("progress-deadline=%s is not at second precision", v),
+				Paths:   []string{k},
+			}
+		}
+		// And positive.
+		if d < 0 {
+			return &apis.FieldError{
+				Message: fmt.Sprintf("progress-deadline=%s must be positive", v),
+				Paths:   []string{k},
+			}
+		}
 	}
 	return nil
 }

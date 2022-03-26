@@ -19,11 +19,13 @@ package resources
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
@@ -262,11 +264,19 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 	}
 
 	replicaCount := cfg.Autoscaler.InitialScale
-	ann, found := rev.Annotations[autoscaling.InitialScaleAnnotationKey]
+	_, ann, found := autoscaling.InitialScaleAnnotation.Get(rev.Annotations)
 	if found {
 		// Ignore errors and no error checking because already validated in webhook.
 		rc, _ := strconv.ParseInt(ann, 10, 32)
 		replicaCount = int32(rc)
+	}
+
+	progressDeadline := int32(cfg.Deployment.ProgressDeadline.Seconds())
+	_, pdAnn, pdFound := serving.ProgressDeadlineAnnotation.Get(rev.Annotations)
+	if pdFound {
+		// Ignore errors and no error checking because already validated in webhook.
+		pd, _ := time.ParseDuration(pdAnn)
+		progressDeadline = int32(pd.Seconds())
 	}
 
 	labels := makeLabels(rev)
@@ -285,7 +295,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                ptr.Int32(replicaCount),
 			Selector:                makeSelector(rev),
-			ProgressDeadlineSeconds: ptr.Int32(int32(cfg.Deployment.ProgressDeadline.Seconds())),
+			ProgressDeadlineSeconds: ptr.Int32(progressDeadline),
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{

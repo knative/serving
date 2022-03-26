@@ -27,6 +27,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmap"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
@@ -158,6 +159,12 @@ func (pa *PodAutoscaler) PanicWindowPercentage() (percentage float64, ok bool) {
 func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool) {
 	// The value is validated in the webhook.
 	return pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotation)
+}
+
+// ProgressDeadline returns the progress deadline annotation value, or false if not present.
+func (pa *PodAutoscaler) ProgressDeadline() (time.Duration, bool) {
+	// the value is validated in the webhook
+	return pa.annotationDuration(serving.ProgressDeadlineAnnotation)
 }
 
 // InitialScale returns the initial scale on the revision if present, or false if not present.
