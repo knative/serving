@@ -121,16 +121,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 		return err
 	}
 
-	// Set HTTPOption via config-network.
-	var httpOption netv1alpha1.HTTPOption
-	switch config.FromContext(ctx).Network.HTTPProtocol {
-	case networkingpkg.HTTPEnabled:
-		httpOption = netv1alpha1.HTTPOptionEnabled
-	case networkingpkg.HTTPRedirected:
-		httpOption = netv1alpha1.HTTPOptionRedirected
-	// This will be deprecated soon
-	case networkingpkg.HTTPDisabled:
-		httpOption = ""
+	httpOption, err := httpOption(ctx, dm.GetAnnotations())
+	if err != nil {
+		return err
 	}
 
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
@@ -320,6 +313,34 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping)
 
 	dm.Status.MarkReferenceResolved()
 	return resolved.Host, parts[0], nil
+}
+
+func httpOption(ctx context.Context, annotations map[string]string) (netv1alpha1.HTTPOption, error) {
+	// Set HTTPOption via domainmapping annotations.
+	if len(annotations) != 0 && networking.GetHTTPProtocol(annotations) != "" {
+		protocol := strings.ToLower(networking.GetHTTPProtocol(annotations))
+		switch networkingpkg.HTTPProtocol(protocol) {
+		case networkingpkg.HTTPEnabled:
+			return netv1alpha1.HTTPOptionEnabled, nil
+		case networkingpkg.HTTPRedirected:
+			return netv1alpha1.HTTPOptionRedirected, nil
+		default:
+			return "", fmt.Errorf("incorrect http-protocol annotation: " + protocol)
+		}
+	}
+
+	// Set HTTPOption via config-network.
+	switch config.FromContext(ctx).Network.HTTPProtocol {
+	case networkingpkg.HTTPEnabled:
+		return netv1alpha1.HTTPOptionEnabled, nil
+	case networkingpkg.HTTPRedirected:
+		return netv1alpha1.HTTPOptionRedirected, nil
+	// This will be deprecated soon
+	case networkingpkg.HTTPDisabled:
+		return "", nil
+	default:
+		return "", nil
+	}
 }
 
 func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
