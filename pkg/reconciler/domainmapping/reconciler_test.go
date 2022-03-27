@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	network "knative.dev/networking/pkg"
-	networkingpkg "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -96,51 +95,51 @@ func TestAutoTLSEnabled(t *testing.T) {
 func TestHTTPOption(t *testing.T) {
 	for _, tc := range []struct {
 		name                   string
-		configHTTPProtocol     networkingpkg.HTTPProtocol
-		annotationHTTPProtocol networkingpkg.HTTPProtocol
+		configHTTPProtocol     network.HTTPProtocol
+		annotationHTTPProtocol network.HTTPProtocol
 		wantHTTPOption         netv1alpha1.HTTPOption
 		wantError              error
 	}{{
 		name:                   "HTTPProtocol enabled by config, enabled by annotation",
-		configHTTPProtocol:     networkingpkg.HTTPEnabled,
-		annotationHTTPProtocol: networkingpkg.HTTPEnabled,
+		configHTTPProtocol:     network.HTTPEnabled,
+		annotationHTTPProtocol: network.HTTPEnabled,
 		wantHTTPOption:         netv1alpha1.HTTPOptionEnabled,
 	}, {
 		name:                   "HTTPProtocol enabled by config, redirected by annotation",
-		configHTTPProtocol:     networkingpkg.HTTPEnabled,
-		annotationHTTPProtocol: networkingpkg.HTTPRedirected,
+		configHTTPProtocol:     network.HTTPEnabled,
+		annotationHTTPProtocol: network.HTTPRedirected,
 		wantHTTPOption:         netv1alpha1.HTTPOptionRedirected,
 	}, {
 		name:                   "HTTPProtocol enabled by config, invalid by annotation",
-		configHTTPProtocol:     networkingpkg.HTTPEnabled,
+		configHTTPProtocol:     network.HTTPEnabled,
 		annotationHTTPProtocol: "foo",
 		wantError:              errors.New("incorrect http-protocol annotation: foo"),
 	}, {
 		name:                   "HTTPProtocol redirected by config, enabled by annotation",
-		configHTTPProtocol:     networkingpkg.HTTPRedirected,
-		annotationHTTPProtocol: networkingpkg.HTTPEnabled,
+		configHTTPProtocol:     network.HTTPRedirected,
+		annotationHTTPProtocol: network.HTTPEnabled,
 		wantHTTPOption:         netv1alpha1.HTTPOptionEnabled,
 	}, {
 		name:                   "HTTPProtocol redirected by config, redirected by annotation",
-		configHTTPProtocol:     networkingpkg.HTTPRedirected,
-		annotationHTTPProtocol: networkingpkg.HTTPRedirected,
+		configHTTPProtocol:     network.HTTPRedirected,
+		annotationHTTPProtocol: network.HTTPRedirected,
 		wantHTTPOption:         netv1alpha1.HTTPOptionRedirected,
 	}, {
 		name:                   "HTTPProtocol redirected by config, invalid by annotation",
-		configHTTPProtocol:     networkingpkg.HTTPRedirected,
+		configHTTPProtocol:     network.HTTPRedirected,
 		annotationHTTPProtocol: "foo",
 		wantError:              errors.New("incorrect http-protocol annotation: foo"),
 	}, {
 		name:               "HTTPProtocol enabled by config, nil annotations",
-		configHTTPProtocol: networkingpkg.HTTPEnabled,
+		configHTTPProtocol: network.HTTPEnabled,
 		wantHTTPOption:     netv1alpha1.HTTPOptionEnabled,
 	}, {
 		name:               "HTTPProtocol redirected by config, nil annotations",
-		configHTTPProtocol: networkingpkg.HTTPRedirected,
+		configHTTPProtocol: network.HTTPRedirected,
 		wantHTTPOption:     netv1alpha1.HTTPOptionRedirected,
 	}, {
 		name:               "HTTPProtocol disabled by config, nil annotations",
-		configHTTPProtocol: networkingpkg.HTTPDisabled,
+		configHTTPProtocol: network.HTTPDisabled,
 		wantHTTPOption:     "",
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
