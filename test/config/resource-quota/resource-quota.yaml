@@ -1,9 +1,4 @@
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: rq-test
----
-apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: rq-e2e-test
