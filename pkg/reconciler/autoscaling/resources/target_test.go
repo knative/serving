@@ -263,8 +263,8 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTarget: 300,
 		wantTotal:  300,
 	}, {
-		name:       "RPS: default CC + 80% TargetUtilization + 75% CC, CC will be ignore",
-		pa:         pa(WithMetricAnnotation(autoscaling.RPS)),
+		name: "RPS: default CC + 80% TargetUtilization + 75% CC, CC will be ignore",
+		pa:   pa(WithMetricAnnotation(autoscaling.RPS)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.TargetUtilization = 0.8
 			c.ContainerConcurrencyTargetFraction = 0.75
