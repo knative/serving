@@ -150,14 +150,14 @@ func TestHTTPOption(t *testing.T) {
 				},
 			})
 
-			dm := domainMapping("test-ns", "test-route")
+			var annotations map[string]string
 			if tc.annotationHTTPProtocol != "" {
-				dm.Annotations = map[string]string{
+				annotations = map[string]string{
 					networking.HTTPProtocolAnnotationKey: string(tc.annotationHTTPProtocol),
 				}
 			}
 
-			got, err := httpOption(ctx, dm.GetAnnotations())
+			got, err := httpOption(ctx, annotations)
 			if tc.wantError != nil && fmt.Sprintf("%s", err) != fmt.Sprintf("%s", tc.wantError) {
 				t.Errorf("err = %s, want %v", err, tc.wantError)
 			}
