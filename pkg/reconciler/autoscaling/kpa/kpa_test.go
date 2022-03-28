@@ -61,6 +61,7 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
+	netpkg "knative.dev/networking/pkg"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
@@ -125,15 +126,29 @@ func initialScaleZeroASConfig() *autoscalerconfig.Config {
 	return ac
 }
 
+func activatorCertsNetConfig() *netpkg.Config {
+	nc, _ := netpkg.NewConfigFromMap(map[string]string{
+		netpkg.ActivatorCAKey:  "knative-ca",
+		netpkg.ActivatorSANKey: "knative-san",
+	})
+	return nc
+}
+
 func defaultConfig() *config.Config {
 	ac, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
 	deploymentConfig, _ := deployment.NewConfigFromMap(map[string]string{
 		deployment.QueueSidecarImageKey: "bob",
 		deployment.ProgressDeadlineKey:  progressDeadline.String(),
 	})
+	networkConfig, _ := netpkg.NewConfigFromMap(map[string]string{
+		netpkg.ActivatorCAKey:  "",
+		netpkg.ActivatorSANKey: "",
+	})
+
 	return &config.Config{
 		Autoscaler: ac,
 		Deployment: deploymentConfig,
+		Network:    networkConfig,
 	}
 }
 
@@ -152,6 +167,12 @@ func newConfigWatcher() configmap.Watcher {
 		Data: map[string]string{
 			deployment.QueueSidecarImageKey: "covid is here",
 		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
+			Name:      netpkg.ConfigName,
+		},
+		Data: map[string]string{},
 	})
 }
 
@@ -293,6 +314,7 @@ func TestReconcile(t *testing.T) {
 
 	type deciderKey struct{}
 	type asConfigKey struct{}
+	type netConfigKey struct{}
 
 	retryAttempted := false
 
@@ -1120,6 +1142,38 @@ func TestReconcile(t *testing.T) {
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 			),
 		}},
+	}, {
+		Name: "we have enough burst capacity, but keep proxy mode as activator CA is enabled",
+		Key:  key,
+		Ctx: context.WithValue(context.WithValue(context.Background(), netConfigKey{}, activatorCertsNetConfig()), deciderKey{},
+			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
+				1 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
+				WithPAMetricsService(privateSvc), withScales(1, defaultScale),
+				WithPAStatusService(testRevision), WithObservedGeneration(1)),
+			defaultProxySKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+			defaultReady},
+		// No update from ProxySKS.
+	}, {
+		Name: "we have enough burst capacity, but switch to keep proxy mode as activator CA is turned on",
+		Key:  key,
+		Ctx: context.WithValue(context.WithValue(context.Background(), netConfigKey{}, activatorCertsNetConfig()), deciderKey{},
+			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
+				1 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
+				WithPAMetricsService(privateSvc), withScales(1, defaultScale),
+				WithPAStatusService(testRevision), WithObservedGeneration(1)),
+			defaultSKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+			defaultReady},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: defaultProxySKS,
+		}},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -1144,6 +1198,9 @@ func TestReconcile(t *testing.T) {
 		testConfigs := defaultConfig()
 		if asConfig := ctx.Value(asConfigKey{}); asConfig != nil {
 			testConfigs.Autoscaler = asConfig.(*autoscalerconfig.Config)
+		}
+		if netConfig := ctx.Value(netConfigKey{}); netConfig != nil {
+			testConfigs.Network = netConfig.(*netpkg.Config)
 		}
 		psf := podscalable.Get(ctx)
 		scaler := newScaler(ctx, psf, func(interface{}, time.Duration) {})
@@ -1218,6 +1275,13 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 		Data: map[string]string{
 			deployment.QueueSidecarImageKey: "i'm on a bike",
 		},
+	})
+	watcher.OnChange(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      netpkg.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
 	})
 
 	grp := errgroup.Group{}
