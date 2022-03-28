@@ -121,6 +121,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 		return err
 	}
 
+	// HTTPOption can be set via annotations or in the config map.
 	httpOption, err := httpOption(ctx, dm.GetAnnotations())
 	if err != nil {
 		return err
