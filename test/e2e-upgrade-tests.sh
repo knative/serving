@@ -31,11 +31,18 @@
 # shellcheck disable=SC1090
 source "$(dirname "${BASH_SOURCE[0]}")/e2e-common.sh"
 
+# Overrides
+function stage_test_resources() {
+  # Nothing to install before tests.
+  true
+}
+
 # Script entry point.
 
 # Skip installing istio as an add-on.
 # Skip installing a pvc as it is not used in upgrade tests
-PVC=0 initialize "$@" --skip-istio-addon  --min-nodes=4 --max-nodes=4 --cluster-version=1.22 \
+# Skip installing a resource quota as it is not used in upgrade tests
+PVC=0 QUOTA=0 initialize "$@" --skip-istio-addon  --min-nodes=4 --max-nodes=4 --cluster-version=1.22 \
   --install-latest-release
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.

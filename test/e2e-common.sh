@@ -57,6 +57,7 @@ readonly REPLICAS=3
 readonly BUCKETS=10
 
 export PVC=${PVC:-1}
+export QUOTA=${QUOTA:-1}
 
 # Receives the latest serving version and searches for the same version with major and minor and searches for the latest patch
 function latest_net_istio_version() {
@@ -301,7 +302,9 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/pvc/pvc.yaml")
   fi
 
-  YTT_FILES+=("${REPO_ROOT_DIR}/test/config/resource-quota/resource-quota.yaml")
+  if (( QUOTA )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/resource-quota/resource-quota.yaml")
+  fi
 
   local ytt_result=$(mktemp)
   local ytt_post_install_result=$(mktemp)
