@@ -10,6 +10,7 @@ require (
 	github.com/google/go-containerregistry v0.8.1-0.20220414143355-892d7a808387
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20220414154538-570ba6c88a50
 	github.com/google/gofuzz v1.2.0
+	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0

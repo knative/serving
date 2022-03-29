@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-# Copyright 2022 The Knative Authors
+# Copyright 2019 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,52 +14,109 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script runs the end-to-end tests against Knative Serving built from source.
-# It is started by prow for each PR. For convenience, it can also be executed manually.
+# performance-tests.sh is added to manage all clusters that run the performance
+# benchmarks in serving repo, it is ONLY intended to be run by Prow, users
+# should NOT run it manually.
 
-# If you already have a Kubernetes cluster setup and kubectl pointing
-# to it, call this script with the --run-tests arguments and it will use
-# the cluster and run the tests.
+# Setup env vars to override the default settings
+export BENCHMARK_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance/benchmarks"
 
-# Calling this script without arguments will create a new cluster in
-# project $PROJECT_ID, start knative in it, run the tests and delete the
-# cluster.
+source vendor/knative.dev/hack/performance-tests.sh
+source $(dirname $0)/../e2e-networking-library.sh
 
-source $(dirname $0)/../e2e-common.sh
+# Env vars required for installing Istio.
+# Install Istio no-mesh.
+export MESH=0
+export KNATIVE_DEFAULT_NAMESPACE="knative-serving"
+export SYSTEM_NAMESPACE="knative-serving"
+export ISTIO_VERSION="stable"
+export UNINSTALL_LIST=()
+export TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
 
-# Skip installing istio as an add-on.
-# Temporarily increasing the cluster size for serving tests to rule out
-# resource/eviction as causes of flakiness.
-initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --perf --cluster-version=1.22 "$@"
+function update_knative() {
+  # Mako needs to escape '.' in tags. Use '_' instead.
+  local istio_version_escaped=${ISTIO_VERSION//./_}
 
-header "Running tests"
+  echo ">> Update istio"
+  # Some istio pods occasionally get overloaded and die, delete all deployments
+  # and services from istio before reinstalling it, to get them freshly recreated
+  kubectl delete deployments --all -n istio-system
+  kubectl delete services --all -n istio-system
 
-function run_kperf() {
-  run_go_tool knative.dev/kperf/cmd/kperf kperf "$@"
+  # Create the ${SYSTEM_NAMESPACE} is it does not exist.
+  kubectl get ns "${SYSTEM_NAMESPACE}" || kubectl create namespace "${SYSTEM_NAMESPACE}"
+  install_istio "./third_party/istio-latest/net-istio.yaml" || abort "Failed to install Istio"
+
+  # Overprovision the Istio gateways and pilot.
+  kubectl patch hpa -n istio-system istio-ingressgateway \
+    --patch '{"spec": {"minReplicas": 15, "maxReplicas": 15}}'
+  kubectl patch deploy -n istio-system cluster-local-gateway \
+    --patch '{"spec": {"replicas": 15}}'
+
+  echo ">> Updating serving"
+  # Retry installation for at most three times as there can sometime be a race condition when applying serving CRDs
+  local n=0
+  until [ $n -ge 3 ]
+  do
+    ko apply -Rf config/core/ && break
+    n=$[$n+1]
+  done
+  if [ $n == 3 ]; then
+    abort "Failed to patch serving"
+  fi
+
+  # Update the activator hpa minReplicas to 10
+  kubectl patch hpa -n knative-serving activator \
+    --patch '{"spec": {"minReplicas": 10}}'
+
+  # Update the scale-to-zero grace period to 10s
+  kubectl patch configmap/config-autoscaler \
+    -n knative-serving \
+    --type merge \
+    -p '{"data":{"scale-to-zero-grace-period":"10s"}}'
+
+  # Ensure gradual rollout is enabled.
+  kubectl patch configmap/config-network\
+    -n knative-serving \
+    --type merge \
+    -p '{"data":{"rolloutDuration":"240"}}'
+
+  echo ">> Setting up 'prod' config-mako"
+  cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-mako
+data:
+  # This should only be used by our performance automation.
+  environment: prod
+  repository: serving
+  additionalTags: "istio=$istio_version_escaped"
+  slackConfig: |
+    benchmarkChannels:
+      "Serving dataplane probe":
+      - name: networking
+        identity: CA9RHBGJX
+      "Serving deployment probe":
+      - name: serving-api
+        identity: CA4DNJ9A4
+      "Serving load testing":
+      - name: autoscaling
+        identity: C94SPR60H
+EOF
 }
 
-mkdir -p "${ARTIFACTS}/kperf"
+function update_benchmark() {
+  echo ">> Deleting all the yamls for benchmark $1"
+  ko delete -f ${BENCHMARK_ROOT_PATH}/$1/continuous --ignore-not-found=true
+  echo ">> Deleting all Knative serving services"
+  kubectl delete ksvc --all
 
-header "Running performance tests"
-export TIMEOUT=30m
+  echo ">> Upload the test images"
+  # Upload helloworld test image as it's used by the scale-from-zero benchmark.
+  ko resolve -RBf test/test_images/helloworld > /dev/null
+  echo ">> Applying all the yamls for benchmark $1"
+  ko apply -f ${BENCHMARK_ROOT_PATH}/$1/continuous || abort "failed to apply benchmarks yaml $1"
+}
 
-# create services
-run_kperf service generate --number 100 --batch 30 --concurrency 10 --interval 15 --namespace kperf --svc-prefix ktest --wait --timeout 30s --max-scale 3 --min-scale 0 || fail_test "kperf service generate failed"
-
-# wait for scale to zero
-counter=100
-until counter=0
-do
-   sleep 1
-   counter="kubectl get pods -n kperf | awk '{print $1}' | grep domain | wc -l"
-done
-
-#scale and measure
-run_kperf service scale --namespace kperf  --svc-prefix ktest --range 0,99  --verbose --output "${ARTIFACTS}/kperf" || fail_test "kperf service scale failed"
-
-run_kperf service clean --namespace kperf --svc-prefix ktest || fail_test "kperf service clean failed"
-
-# Remove the kail log file if the test flow passes.
-# This is for preventing too many large log files to be uploaded to GCS in CI.
-rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
-success
+main $@
