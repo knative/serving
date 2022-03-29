@@ -39,6 +39,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -1490,16 +1491,17 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			route := Route(testNamespace, "test-route",
 				WithRouteLabel(map[string]string{"app": "prod"}), WithRouteGeneration(1))
 
-			created, err := servingClient.ServingV1().Routes(route.Namespace).Create(ctx, route, metav1.CreateOptions{})
+			_, err = servingClient.ServingV1().Routes(route.Namespace).Create(ctx, route, metav1.CreateOptions{})
 			if err != nil {
 				t.Fatal("Failed to create route", err)
 			}
-			routeInformer.Informer().GetIndexer().Add(created)
 
 			rl := routeInformer.Lister()
 			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 				r, err := rl.Routes(route.Namespace).Get(route.Name)
-				if err != nil {
+				if err != nil && errors.IsNotFound(err) {
+					return false, nil
+				} else if err != nil {
 					return false, err
 				}
 				// Once we see an observed generation, we know the route got initially reconciled.
