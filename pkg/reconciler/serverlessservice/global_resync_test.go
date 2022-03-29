@@ -67,17 +67,14 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	// Create activator endpoints.
 	aEps := activatorEndpoints(WithSubsets)
 	kubeClnt.CoreV1().Endpoints(aEps.Namespace).Create(ctx, aEps, metav1.CreateOptions{})
-	epsInformer.Informer().GetIndexer().Add(aEps)
 
 	// Private endpoints are supposed to exist, since we're using selector mode for the service.
 	privEps := endpointspriv(ns1, sks1)
 	kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(ctx, privEps, metav1.CreateOptions{})
-	epsInformer.Informer().GetIndexer().Add(privEps)
 
 	// This is passive, so no endpoints.
 	privEps = endpointspriv(ns2, sks2, withOtherSubsets)
 	kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(ctx, privEps, metav1.CreateOptions{})
-	epsInformer.Informer().GetIndexer().Add(privEps)
 
 	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {

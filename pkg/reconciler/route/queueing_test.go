@@ -35,8 +35,6 @@ import (
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
-	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/route/config"
 
@@ -120,13 +118,9 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Unexpected error creating revision:", err)
 	}
-	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
-
 	if _, err := servingClient.ServingV1().Routes(route.Namespace).Create(ctx, route, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Unexpected error creating route:", err)
 	}
-	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
-
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Fatal(err)
 	}

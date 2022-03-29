@@ -1308,18 +1308,13 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 
 	pod := makeReadyPods(1, testNamespace, testRevision)[0].(*corev1.Pod)
 	fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(ctx, pod, metav1.CreateOptions{})
-	fakefilteredpodsinformer.Get(ctx, serving.RevisionUID).Informer().GetIndexer().Add(pod)
 
 	newDeployment(ctx, t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	kpa := revisionresources.MakePA(rev)
-	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
-		WithSKSReady)
+	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name), WithSKSReady)
 	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(ctx, sks, metav1.CreateOptions{})
-	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
-
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(ctx, kpa, metav1.CreateOptions{})
-	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	// Start controller after creating initial resources so it observes a steady state.
 	eg.Go(func() error { return ctl.RunContext(ctx, 1) })
