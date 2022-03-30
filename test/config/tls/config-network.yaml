@@ -24,3 +24,6 @@ data:
   activator-ca: "serving-ca"
   activator-san: "knative"
   activator-cert-secret: "server-certs"
+  queue-proxy-ca: "serving-ca"
+  queue-proxy-san: "knative"
+  queue-proxy-cert-secret: "server-certs"

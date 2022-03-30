@@ -366,7 +366,6 @@ function install() {
     kubectl apply -n ${SYSTEM_NAMESPACE} -f ${REPO_ROOT_DIR}/test/config/tls/config-network.yaml
     kubectl delete pod -n ${SYSTEM_NAMESPACE} -l app=activator
   fi
-
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has

@@ -75,7 +75,7 @@ var (
 	defaultQueueContainer = &corev1.Container{
 		Name:      QueueContainerName,
 		Resources: createQueueResources(&deploymentConfig, make(map[string]string), &corev1.Container{}),
-		Ports:     append(queueNonServingPorts, queueHTTPPort),
+		Ports:     append(queueNonServingPorts, queueHTTPPort, queueHTTPSPort),
 		ReadinessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -103,6 +103,9 @@ var (
 		}, {
 			Name:  "QUEUE_SERVING_PORT",
 			Value: "8012",
+		}, {
+			Name:  "QUEUE_SERVING_TLS_PORT",
+			Value: "8112",
 		}, {
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: "0",

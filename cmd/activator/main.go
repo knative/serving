@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"log"
@@ -153,6 +154,32 @@ func main() {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
 
+	// Enable TLS client when queue-proxy-ca is specified.
+	// At this moment activator with TLS does not disable HTTP.
+	// See also https://github.com/knative/serving/issues/12808.
+	if networkConfig.QueueProxyCA != "" && networkConfig.QueueProxySAN != "" {
+		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, networkConfig.QueueProxyCA, metav1.GetOptions{})
+		if err != nil {
+			logger.Fatalw("failed to get secret", zap.Error(err))
+		}
+		pool, err := x509.SystemCertPool()
+		if err != nil {
+			pool = x509.NewCertPool()
+		}
+
+		if ok := pool.AppendCertsFromPEM(caSecret.Data["ca.crt"]); !ok {
+			logger.Fatalw("failed to append ca cert to the RootCAs")
+		}
+
+		tlsConf := &tls.Config{
+			RootCAs:            pool,
+			InsecureSkipVerify: false,
+			ServerName:         networkConfig.QueueProxySAN,
+			MinVersion:         tls.VersionTLS12,
+		}
+		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, tlsConf)
+	}
+
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
 	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
@@ -186,9 +213,12 @@ func main() {
 	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh)
 	go concurrencyReporter.Run(ctx.Done())
 
+	// Enable TLS against queue-proxy when the CA and SA are specified.
+	tlsEnabled := networkConfig.QueueProxyCA != "" && networkConfig.QueueProxySAN != ""
+
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger)
+	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled)
 	ah = concurrencyReporter.Handler(ah)
 	ah = activatorhandler.NewTracingHandler(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",

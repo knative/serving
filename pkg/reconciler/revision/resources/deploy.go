@@ -70,6 +70,12 @@ var (
 		},
 	}
 
+	certVolumeMount = corev1.VolumeMount{
+		MountPath: queue.CertDirectory,
+		Name:      "server-certs",
+		ReadOnly:  true,
+	}
+
 	varTokenVolumeMount = corev1.VolumeMount{
 		Name:      varTokenVolume.Name,
 		MountPath: concurrencyStateTokenVolumeMountPath,
@@ -88,6 +94,17 @@ var (
 		},
 	}
 )
+
+func certVolume(secret string) corev1.Volume {
+	return corev1.Volume{
+		Name: "server-certs",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secret,
+			},
+		},
+	}
+}
 
 func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	if p == nil {
@@ -120,6 +137,11 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	if cfg.Deployment.ConcurrencyStateEndpoint != "" {
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varTokenVolumeMount)
 		extraVolumes = append(extraVolumes, varTokenVolume)
+	}
+
+	if cfg.Network.QueueProxyCertSecret != "" {
+		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, certVolumeMount)
+		extraVolumes = append(extraVolumes, certVolume(cfg.Network.QueueProxyCertSecret))
 	}
 
 	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)
