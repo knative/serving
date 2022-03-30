@@ -64,18 +64,12 @@ func makePublicServicePorts(sks *v1alpha1.ServerlessService) []corev1.ServicePor
 		Protocol:   corev1.ProtocolTCP,
 		Port:       int32(pkgnet.ServicePort(sks.Spec.ProtocolType)),
 		TargetPort: targetPort(sks),
+	}, {
+		Name:       pkgnet.ServicePortNameHTTPS,
+		Protocol:   corev1.ProtocolTCP,
+		Port:       pkgnet.ServiceHTTPSPort,
+		TargetPort: intstr.FromInt(networking.BackendHTTPSPort),
 	}}
-
-	// TODO: Use annotation or sks.spec whether add HTTPS port or not.
-	if true {
-		p := corev1.ServicePort{
-			Name:       pkgnet.ServicePortNameHTTPS,
-			Protocol:   corev1.ProtocolTCP,
-			Port:       pkgnet.ServiceHTTPSPort,
-			TargetPort: intstr.FromInt(networking.BackendHTTPSPort),
-		}
-		ports = append(ports, p)
-	}
 	return ports
 }
 
@@ -160,7 +154,6 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),
 			}, {
-				// TODO: Add https port only when tls mode is enabled?
 				Name:       pkgnet.ServicePortNameHTTPS,
 				Protocol:   corev1.ProtocolTCP,
 				Port:       pkgnet.ServiceHTTPSPort,

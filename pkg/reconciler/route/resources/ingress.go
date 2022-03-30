@@ -135,9 +135,9 @@ func makeIngressSpec(
 	rules := make([]netv1alpha1.IngressRule, 0, len(names))
 
 	featuresConfig := config.FromContextOrDefaults(ctx).Features
-	// Use ConfigMap to enable internalTLS.
+	networkConfig := config.FromContextOrDefaults(ctx).Network
 	internalTLS := false
-	if true {
+	if activatorCA := networkConfig.ActivatorCA; activatorCA != "" {
 		internalTLS = true
 	}
 
