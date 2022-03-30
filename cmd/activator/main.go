@@ -245,8 +245,8 @@ func main() {
 		}(name, server)
 	}
 
-	// TODO: Use configmap to enable tls mode.
-	if true {
+	// Enable TLS server when activator server certs are mounted.
+	if fileExists(certPath) && fileExists(keyPath) {
 		tlsServers := map[string]*http.Server{
 			"https": pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah),
 		}
@@ -280,6 +280,11 @@ func main() {
 		server.Shutdown(context.Background())
 	}
 	logger.Info("Servers shutdown.")
+}
+
+func fileExists(filename string) bool {
+	_, err := os.Stat(filename)
+	return err == nil
 }
 
 func newHealthCheck(sigCtx context.Context, logger *zap.SugaredLogger, statSink *websocket.ManagedConnection) func() error {
