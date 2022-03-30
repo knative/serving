@@ -132,8 +132,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	//			already scaled to 0).
 	// 2. The excess burst capacity is negative.
 	if len(config.FromContext(ctx).Network.ActivatorCA) > 0 {
-		// When activator CA is enabled, foce activator always in path.
-		// See: https://github.com/knative/serving/issues/11906
+		// When activator CA is enabled, force activator always in path.
+		// TODO: This is a temporary state and to be fixed.
+		// See also issues/11906 and issues/12797.
 		mode = nv1alpha1.SKSOperationModeProxy
 	} else if want == 0 || decider.Status.ExcessBurstCapacity < 0 || want == scaleUnknown && pa.Status.IsInactive() {
 		mode = nv1alpha1.SKSOperationModeProxy
