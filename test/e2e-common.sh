@@ -34,6 +34,7 @@ export RUN_HTTP01_AUTO_TLS_TESTS=0
 export HTTPS=0
 export SHORT=0
 export ENABLE_HA=0
+export ENABLE_TLS=0
 export MESH=0
 export PERF=0
 export KIND=${KIND:-0}
@@ -357,6 +358,14 @@ function install() {
     # kubectl -n ${SYSTEM_NAMESPACE} delete leases --all
     wait_for_leader_controller || return 1
   fi
+
+  if (( ENABLE_TLS )); then
+    echo "Patch to activator to serve TLS"
+    kubectl patch deploy -n ${SYSTEM_NAMESPACE} activator --patch "$(cat ${REPO_ROOT_DIR}/test/config/tls/volume-patch.yaml)"
+    kubectl patch service -n ${SYSTEM_NAMESPACE} activator-service --patch "$(cat ${REPO_ROOT_DIR}/test/config/tls/service-patch.yaml)"
+    kubectl apply -n ${SYSTEM_NAMESPACE} -f ${REPO_ROOT_DIR}/test/config/tls/config-network.yaml
+  fi
+
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has

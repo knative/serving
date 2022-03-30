@@ -1,0 +1,5 @@
+spec:
+  ports:
+  - name: https
+    port: 443
+    targetPort: 8112

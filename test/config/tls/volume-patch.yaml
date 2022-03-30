@@ -1,0 +1,13 @@
+spec:
+  template:
+    spec:
+      volumes:
+      - name: server-certs
+        secret:
+          secretName: server-certs
+      containers:
+      - name: activator
+        volumeMounts:
+        - name: server-certs
+          mountPath: /var/lib/knative/certs
+          readOnly: true

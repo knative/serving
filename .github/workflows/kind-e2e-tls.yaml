@@ -159,11 +159,10 @@ jobs:
         KIND=1
         INGRESS_CLASS="${{ matrix.kingress }}.ingress.networking.knative.dev"
         CLUSTER_DOMAIN="${{ matrix.cluster-suffix }}"
+        ENABLE_TLS=1
 
         knative_setup
         test_setup
-
-        kubectl apply -f ./test/config/tls
 
         echo "INGRESS_CLASS=$INGRESS_CLASS" >> $GITHUB_ENV
         echo "CLUSTER_DOMAIN=$CLUSTER_DOMAIN" >> $GITHUB_ENV
