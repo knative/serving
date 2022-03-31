@@ -153,9 +153,6 @@ jobs:
       run: |
         source ./test/e2e-common.sh
 
-        # Generate TLS cert
-        bash ./test/generate-cert.sh
-
         KIND=1
         INGRESS_CLASS="${{ matrix.kingress }}.ingress.networking.knative.dev"
         CLUSTER_DOMAIN="${{ matrix.cluster-suffix }}"

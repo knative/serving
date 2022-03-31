@@ -108,23 +108,18 @@ func filterSubsetPorts(targetPort int32, subsets []corev1.EndpointSubset) []core
 	}
 	ret := make([]corev1.EndpointSubset, len(subsets))
 	for i, sss := range subsets {
+		org := sss.DeepCopy()
 		sst := sss.DeepCopy()
-		ssts := sss.DeepCopy()
 		// Find the port we care about and remove all others.
-		for j, p := range sst.Ports {
+		for j, p := range org.Ports {
 			if p.Port == targetPort {
-				sst.Ports = sst.Ports[j : j+1]
+				sst.Ports = org.Ports[j : j+1]
+			}
+			if p.Port == networking.BackendHTTPSPort {
+				sst.Ports = append(sst.Ports, org.Ports[j:j+1]...)
 			}
 		}
 
-		// TODO: Use annotation or configmap to add HTTPS port.
-		if true {
-			for j, p := range ssts.Ports {
-				if p.Port == networking.BackendHTTPSPort {
-					sst.Ports = append(sst.Ports, ssts.Ports[j:j+1]...)
-				}
-			}
-		}
 		ret[i] = *sst
 	}
 	return ret
