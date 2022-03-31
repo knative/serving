@@ -1,4 +1,4 @@
-name: KinD e2e tests - tls
+name: KinD e2e tests -tls
 
 on:
   pull_request:
@@ -18,7 +18,7 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         cluster:
-        - v1.21.1/kourier
+        - v1.23.0/kourier
 
         test-suite:
         - ./test/conformance/runtime
@@ -29,10 +29,10 @@ jobs:
           # Map between K8s and KinD versions.
           # This is attempting to make it a bit clearer what's being tested.
           # See: https://github.com/kubernetes-sigs/kind/releases
-        - cluster: v1.21.1/kourier
-          k8s-version: v1.21.1
+        - cluster: v1.23.0/kourier
+          k8s-version: v1.23.0
           kind-version: v0.11.1
-          kind-image-sha: sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6
+          kind-image-sha: sha256:49824ab1727c04e56a21a5d8372a402fcd32ea51ac96a2706a12af38934f81ac
           kingress: kourier
           test-flags: "--enable-alpha --enable-beta"
           cluster-suffix: c${{ github.run_id }}.local
@@ -124,6 +124,21 @@ jobs:
           extraMounts:
           - containerPath: /var/lib/etcd
             hostPath: /tmp/etcd
+        - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+        EOF
+
+    - name: Add Workers to KinD Cluster (Istio, Gateway API)
+      working-directory: ./src/knative.dev/serving
+      if: matrix.kingress == 'istio' || matrix.kingress == 'gateway-api'
+      run: |
+        set -x
+
+        cat >> kind.yaml <<EOF
+        - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+        - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
         - role: worker
           image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
         EOF

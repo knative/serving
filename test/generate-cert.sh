@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-knative-serving}"
 TEST_NAMESPACE=serving-tests
 out_dir="$(mktemp -d /tmp/certs-XXX)"
 san="knative"

@@ -108,19 +108,20 @@ func filterSubsetPorts(targetPort int32, subsets []corev1.EndpointSubset) []core
 	}
 	ret := make([]corev1.EndpointSubset, len(subsets))
 	for i, sss := range subsets {
-		org := sss.DeepCopy()
-		sst := sss.DeepCopy()
+		sst := sss
+		sst.Ports = nil
 		// Find the port we care about and remove all others.
-		for j, p := range org.Ports {
+		for j, p := range sss.Ports {
 			if p.Port == targetPort {
-				sst.Ports = org.Ports[j : j+1]
+				sst.Ports = sss.Ports[j : j+1]
 			}
 			if p.Port == networking.BackendHTTPSPort {
-				sst.Ports = append(sst.Ports, org.Ports[j:j+1]...)
+				port := sss.Ports[j : j+1]
+				sst.Ports = append(sst.Ports, port...)
 			}
 		}
 
-		ret[i] = *sst
+		ret[i] = sst
 	}
 	return ret
 }

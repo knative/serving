@@ -246,7 +246,7 @@ func main() {
 	}
 
 	// Enable TLS server when activator server certs are mounted.
-	if fileExists(certPath) && fileExists(keyPath) {
+	if exists(logger, certPath) && exists(logger, keyPath) {
 		tlsServers := map[string]*http.Server{
 			"https": pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah),
 		}
@@ -282,8 +282,11 @@ func main() {
 	logger.Info("Servers shutdown.")
 }
 
-func fileExists(filename string) bool {
+func exists(logger *zap.SugaredLogger, filename string) bool {
 	_, err := os.Stat(filename)
+	if err != nil && !os.IsNotExist(err) {
+		logger.Fatalw(fmt.Sprintf("Failed to verify the file path %q", filename), zap.Error(err))
+	}
 	return err == nil
 }
 
