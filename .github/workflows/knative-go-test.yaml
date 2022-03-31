@@ -18,64 +18,9 @@
 name: Test
 
 on:
-
-  push:
-    branches: [ 'main', 'master' ]
-
   pull_request:
     branches: [ 'main', 'master', 'release-*' ]
 
 jobs:
-
   test:
-    name: Unit Tests
-    strategy:
-      matrix:
-        go-version: [1.17.x]
-        platform: [ubuntu-latest]
-
-    runs-on: ${{ matrix.platform }}
-
-    steps:
-
-      - name: Set up Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ matrix.go-version }}
-        id: go
-
-      - name: Check out code
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
-      - name: Merge upstream
-        if: github.event_name == 'pull_request'
-        run: |
-          if ! git config user.name > /dev/null; then
-            git config user.name "John Doe"
-          fi
-          if ! git config user.email > /dev/null; then
-            git config user.email "johndoe@localhost"
-          fi
-          git remote add upstream https://github.com/${{ github.repository }}.git
-          git fetch upstream ${{ github.base_ref }}
-          git pull --no-rebase --no-commit upstream ${{ github.base_ref }}
-        shell: bash
-
-      - name: Check for .codecov.yaml
-        id: codecov-enabled
-        uses: andstor/file-existence-action@v1
-        with:
-          files: .codecov.yaml
-
-      - if: steps.codecov-enabled.outputs.files_exists == 'true'
-        name: Produce Go Coverage
-        run: echo 'COVER_OPTS=-coverprofile=coverage.txt -covermode=atomic' >> $GITHUB_ENV
-
-      - name: Test
-        run: go test -race $COVER_OPTS ./...
-
-      - if: steps.codecov-enabled.outputs.files_exists == 'true'
-        name: Codecov
-        uses: codecov/codecov-action@v1
+    uses: knative/actions/.github/workflows/go-test.yaml@main

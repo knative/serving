@@ -22,44 +22,5 @@ on:
     branches: [ 'main', 'master', 'release-*' ]
 
 jobs:
-
   build:
-    name: Build
-    strategy:
-      matrix:
-        go-version: [1.17.x]
-        platform: [ubuntu-latest]
-
-    runs-on: ${{ matrix.platform }}
-
-    steps:
-
-      - name: Set up Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ matrix.go-version }}
-        id: go
-
-      - name: Check out code
-        uses: actions/checkout@v2
-
-      - id: go_mod
-        uses: andstor/file-existence-action@v1
-        with:
-          files: go.mod
-
-      - name: Build
-        if: ${{ steps.go_mod.outputs.files_exists == 'true' }}
-        run: |
-          tags="$(grep -I  -r '// +build' . | \
-                grep -v '^./vendor/' | \
-                grep -v '^./hack/' | \
-                grep -v '^./third_party' | \
-                cut -f3 -d' ' | \
-                tr ',' '\n' | \
-                sort | uniq | \
-                grep -v '^!' | \
-                tr '\n' ' ')"
-
-          echo "Building with tags: ${tags}"
-          go test -vet=off -tags "${tags}" -exec echo ./...
+    uses: knative/actions/.github/workflows/go-build.yaml@main

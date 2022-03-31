@@ -22,28 +22,6 @@ on:
   - cron: '0 1 * * *'
 
 jobs:
+
   stale:
-    runs-on: 'ubuntu-latest'
-    steps:
-    - uses: 'actions/stale@v3'
-      with:
-        repo-token: '${{ secrets.GITHUB_TOKEN }}' # No need to setup
-
-        stale-issue-message: |-
-          This issue is stale because it has been open for 90 days with no
-          activity. It will automatically close after 30 more days of
-          inactivity. Reopen the issue with `/reopen`. Mark the issue as
-          fresh by adding the comment `/remove-lifecycle stale`.
-        stale-issue-label: 'lifecycle/stale'
-        exempt-issue-labels: 'lifecycle/frozen,triage/accepted'
-
-        stale-pr-message: |-
-          This Pull Request is stale because it has been open for 90 days with
-          no activity. It will automatically close after 30 more days of
-          inactivity. Reopen with `/reopen`. Mark as fresh by adding the
-          comment `/remove-lifecycle stale`.
-        stale-pr-label: 'lifecycle/stale'
-        exempt-pr-labels: 'lifecycle/frozen'
-
-        days-before-stale: 90
-        days-before-close: 30
+    uses: knative/actions/.github/workflows/stale.yaml@main

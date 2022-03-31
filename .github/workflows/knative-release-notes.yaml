@@ -26,79 +26,15 @@ on:
         default: 'main'
       start-rev:
         description: 'Start Tag (defaults to merge-base(branch, prev-branch))'
+        required: false
       end-rev:
         description: 'End Tag (defaults to HEAD of the target branch)'
+        required: false
 
 jobs:
   release-notes:
-    name: Release Notes
-    runs-on: 'ubuntu-latest'
-
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    steps:
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.17.x
-
-      - name: Install Dependencies
-        # https://github.com/kubernetes/release/tree/master/cmd/release-notes
-        run: go install k8s.io/release/cmd/release-notes@latest
-
-      - name: Check out code
-        uses: actions/checkout@v2
-        with:
-          # fetch-depth of 0 indicates all history for all branches and tags.
-          fetch-depth: 0
-
-      - name: Generate Notes
-        run: |
-          set -x
-          # The release-notes tool access ENV vars as options
-          # https://github.com/kubernetes/release/tree/master/cmd/release-notes#options
-
-          export ORG=$(echo '${{ github.repository }}' | awk -F '/' '{print $1}')
-          export REPO=$(echo '${{ github.repository }}' | awk -F '/' '{print $2}')
-          export BRANCH="${{ github.event.inputs.branch }}"
-
-          export START_REV=${{ github.event.inputs.start-rev }}
-          export END_REV=${{ github.event.inputs.end-rev }}
-
-          if [[ -z "$END_REV" ]]; then
-            END_REV="origin/$BRANCH"
-          fi
-
-          # If start rev isn't set find the merge base of
-          # the target branch and the previous branch
-          if [[ -z "$START_REV" ]]; then
-            BRANCHES=$(mktemp)
-            # List of branches sorted by semver descending
-            git branch -r -l "origin/release-[0-9]*\.[0-9]*" | sed 's/ //g' | sort -Vr > "$BRANCHES"
-
-            if [[ "$BRANCH" == "main" ]]; then
-              LAST_BRANCH="$(head -n1 "$BRANCHES")"
-            else
-              # use grep magic to find the next branch
-              # '-A 1' - prints the line after the match which we can parse
-              LAST_BRANCH="$(grep -A 1 "$BRANCH" "$BRANCHES" | tail -n1)"
-            fi
-
-            export START_SHA=$(git merge-base $LAST_BRANCH origin/$BRANCH)
-          fi
-
-          release-notes \
-           --required-author="" \
-           --output=release-notes.md \
-           --repo-path="$PWD" \
-
-      - name: Display Notes
-        run: |
-          cat release-notes.md
-
-      - name: Archive Release Notes
-        uses: actions/upload-artifact@v2
-        with:
-          name: release-notes.md
-          path: release-notes.md
+    uses: knative/actions/.github/workflows/release-notes.yaml@main
+    with:
+      branch: ${{ github.event.inputs.branch }}
+      start-rev: ${{ github.event.inputs.start-rev }}
+      end-rev: ${{ github.event.inputs.end-rev }}
