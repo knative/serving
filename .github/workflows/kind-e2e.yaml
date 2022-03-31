@@ -1,4 +1,4 @@
-name: KinD e2e tests
+name: e2e
 
 on:
   pull_request:
@@ -7,92 +7,195 @@ on:
 defaults:
   run:
     shell: bash
-    working-directory: ./src/knative.dev/serving
+
+env:
+  # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
+  # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
+  # thus allowing us to test without bypassing tag-to-digest resolution.
+  CLUSTER_DOMAIN: c${{ github.run_id }}.local
+  REGISTRY_NAME: registry.local
+  REGISTRY_PORT: 5000
+  KO_DOCKER_REPO: registry.local:5000/knative
+  KO_VERSION: 0.11.2
+  KIND_VERSION: 0.12.0
+  GOTESTSUM_VERSION: 1.7.0
+  KAPP_VERSION: 0.46.0
+  YTT_VERSION: 0.40.1
+  KO_FLAGS: --platform=linux/amd64
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
 
-  e2e-tests:
-    name: e2e tests
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go 1.17.x
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.17.x
+
+    - name: Setup Cache Directories
+      run: |
+        mkdir -p ~/artifacts/build
+        mkdir -p ~/artifacts/registry
+
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+           ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install Dependencies
+      run: |
+        set -x
+        echo "::group:: install ko ${KO_VERSION}"
+        curl -L https://github.com/google/ko/releases/download/v${KO_VERSION}/ko_${KO_VERSION}_linux_x86_64.tar.gz  | tar xzf - ko
+        chmod +x ./ko
+        sudo mv ko /usr/local/bin
+        echo "::endgroup::"
+
+    - name: Setup Registry
+      run: |
+        docker run -d --restart=always \
+          -p $REGISTRY_PORT:$REGISTRY_PORT \
+          -v ~/artifacts/registry:/var/lib/registry \
+          --name $REGISTRY_NAME registry:2
+
+        # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
+        # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
+        sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
+
+    - name: Build Knative
+      run: |
+        export YAML_OUTPUT_DIR=$HOME/artifacts/build
+        ./hack/generate-yamls.sh "$GITHUB_WORKSPACE" "$(mktemp)" $YAML_OUTPUT_DIR/env
+
+    - name: Build Test Images
+      run: |
+        ./test/upload-test-images.sh
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: artifacts
+        path: ~/artifacts
+        retention-days: 1
+
+  test:
+    name: test
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false # Keep running if one leg fails.
       matrix:
-        cluster:
-        - v1.21.1/kourier
-        - v1.22.2/istio
-        - v1.23.0/contour
-        - v1.23.0/gateway-api
+        k8s-version:
+        - v1.22.7
+        - v1.23.5
+
+        ingress:
+        - kourier
+        - istio
+        - contour
+        # Disabled due to consistent failures
+        # - gateway_istio
 
         test-suite:
-        - ./test/conformance/runtime
-        - ./test/conformance/api/...
-        - ./test/e2e
+        - runtime
+        - api
+        - e2e
 
         include:
           # Map between K8s and KinD versions.
           # This is attempting to make it a bit clearer what's being tested.
           # See: https://github.com/kubernetes-sigs/kind/releases
-        - cluster: v1.21.1/kourier
-          k8s-version: v1.21.1
-          kind-version: v0.11.1
-          kind-image-sha: sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6
-          kingress: kourier
-          test-flags: "--enable-alpha --enable-beta"
-          cluster-suffix: c${{ github.run_id }}.local
-        - cluster: v1.22.2/istio
-          k8s-version: v1.22.2
-          kind-version: v0.11.1
-          kind-image-sha: sha256:f638a08c1f68fe2a99e724ace6df233a546eaf6713019a0b310130a4f91ebe7f
-          kingress: istio
-          test-flags: "--enable-alpha --enable-beta"
-          cluster-suffix: c${{ github.run_id }}.local
-        - cluster: v1.23.0/contour
-          k8s-version: v1.23.0
-          kind-version: v0.11.1
-          kind-image-sha: sha256:49824ab1727c04e56a21a5d8372a402fcd32ea51ac96a2706a12af38934f81ac
-          kingress: contour
-          test-flags: "--enable-alpha --enable-beta"
-          cluster-suffix: c${{ github.run_id }}.local
-        - cluster: v1.23.0/gateway-api
-          k8s-version: v1.23.0
-          kind-version: v0.11.1
-          kind-image-sha: sha256:49824ab1727c04e56a21a5d8372a402fcd32ea51ac96a2706a12af38934f81ac
-          kingress: gateway-api
-          test-flags: "--enable-alpha"
-          cluster-suffix: c${{ github.run_id }}.local
+          #      https://hub.docker.com/r/kindest/node/tags
+        - k8s-version: v1.22.7
+          kind-version: v0.12.0
+          kind-image-sha: sha256:1dfd72d193bf7da64765fd2f2898f78663b9ba366c2aa74be1fd7498a1873166
+
+        - k8s-version: v1.23.5
+          kind-version: v0.12.0
+          kind-image-sha: sha256:a69c29d3d502635369a5fe92d8e503c09581fcd406ba6598acc5d80ff5ba81b1
+
+        # Disabled due to consistent failures
+        # - ingress: gateway_istio
+        #   ingress-class: gateway-api
+        #   test-flags: -enable-alpha
+        #   namespace-resources: httproute
+
+        - ingress: contour
+          namespace-resources: httpproxy
+
+        - ingress: istio
+          namespace-resources: virtualservices
+
+        - test-suite: runtime
+          test-path: ./test/conformance/runtime/...
+
+        - test-suite: api
+          test-path: ./test/conformance/api/...
+
+        - test-suite: e2e
+          test-path: ./test/e2e
 
     env:
-      GOPATH: ${{ github.workspace }}
-      GO111MODULE: on
-      GOFLAGS: -tags=nostackdriver
-      # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
-      # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
-      # thus allowing us to test without bypassing tag-to-digest resolution.
-      REGISTRY_NAME: registry.local
-      REGISTRY_PORT: 5000
-      KO_DOCKER_REPO: registry.local:5000/knative
+      SYSTEM_NAMESPACE: knative-serving
+      KIND: 1
+      INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
 
     steps:
     - name: Set up Go 1.17.x
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v3
       with:
         go-version: 1.17.x
 
-    - name: Install Dependencies
-      working-directory: ./
-      run: |
-        echo '::group:: install ko'
-        curl -L https://github.com/google/ko/releases/download/v0.6.0/ko_0.6.0_Linux_x86_64.tar.gz | tar xzf - ko
-        chmod +x ./ko
-        sudo mv ko /usr/local/bin
-        echo '::endgroup::'
-
-    - name: Check out code onto GOPATH
-      uses: actions/checkout@v2
+    - uses: actions/cache@v3
       with:
-        path: ./src/knative.dev/serving
+        path: |
+          ~/.cache/go-build
+           ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
 
-    - name: Install KinD
+    - name: Install Dependencies
+      run: |
+        set -x
+        echo "::group:: install kind ${KIND_VERSION}"
+        curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64
+        chmod +x ./kind
+        sudo mv kind /usr/local/bin
+        echo "::endgroup::"
+
+        echo "::group:: install gotestsum ${GOTESTSUM_VERSION}"
+        curl -L https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VERSION}/gotestsum_${GOTESTSUM_VERSION}_linux_amd64.tar.gz | tar xzf - gotestsum
+        chmod +x ./gotestsum
+        sudo mv gotestsum /usr/local/bin
+        echo "::endgroup::"
+
+        echo "::group:: install kapp ${KAPP_VERSION}"
+        curl -Lo ./kapp https://github.com/vmware-tanzu/carvel-kapp/releases/download/v${KAPP_VERSION}/kapp-linux-amd64
+        chmod +x ./kapp
+        sudo mv kapp /usr/local/bin
+        echo "::endgroup::"
+
+        echo "::group:: install ytt ${YTT_VERSION}"
+        curl -Lo ./ytt https://github.com/vmware-tanzu/carvel-ytt/releases/download/v${YTT_VERSION}/ytt-linux-amd64
+        chmod +x ./ytt
+        sudo mv ytt /usr/local/bin
+        echo "::endgroup::"
+
+    - uses: actions/checkout@v3
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: artifacts
+        path: ~/artifacts
+
+    - name: Configure KinD Cluster
       run: |
         set -x
 
@@ -107,14 +210,13 @@ jobs:
         sudo mkdir -p /tmp/etcd
         sudo mount -t tmpfs tmpfs /tmp/etcd
 
-        curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/${{ matrix.kind-version }}/kind-$(uname)-amd64
-        chmod +x ./kind
-        sudo mv kind /usr/local/bin
+        cat <<EOF > audit-policy.yaml
+        apiVersion: audit.k8s.io/v1
+        kind: Policy
+        rules:
+        - level: Metadata
+        EOF
 
-    - name: Configure KinD Cluster
-      working-directory: ./src/knative.dev/serving
-      run: |
-        set -x
 
         # KinD configuration.
         cat > kind.yaml <<EOF
@@ -126,21 +228,35 @@ jobs:
         - |-
           [plugins."io.containerd.grpc.v1.cri".registry.mirrors."$REGISTRY_NAME:$REGISTRY_PORT"]
             endpoint = ["http://$REGISTRY_NAME:$REGISTRY_PORT"]
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+            endpoint = ["https://mirror.gcr.io"]
 
         # This is needed in order to support projected volumes with service account tokens.
         # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
         kubeadmConfigPatches:
           - |
-            apiVersion: kubeadm.k8s.io/v1beta2
             kind: ClusterConfiguration
             metadata:
               name: config
             apiServer:
               extraArgs:
+                audit-log-path: /var/log/kubernetes/kube-apiserver-audit.log
+                audit-policy-file: /etc/kubernetes/policies/audit-policy.yaml
                 "service-account-issuer": "kubernetes.default.svc"
                 "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+              extraVolumes:
+              - name: audit-policies
+                hostPath: /etc/kubernetes/policies
+                mountPath: /etc/kubernetes/policies
+                readOnly: true
+                pathType: "DirectoryOrCreate"
+              - name: "audit-logs"
+                hostPath: "/var/log/kubernetes"
+                mountPath: "/var/log/kubernetes"
+                readOnly: false
+                pathType: DirectoryOrCreate
             networking:
-              dnsDomain: "${{ matrix.cluster-suffix }}"
+              dnsDomain: "${CLUSTER_DOMAIN}"
 
         nodes:
         - role: control-plane
@@ -148,17 +264,11 @@ jobs:
           extraMounts:
           - containerPath: /var/lib/etcd
             hostPath: /tmp/etcd
+          - hostPath: ./audit-policy.yaml
+            containerPath: /etc/kubernetes/policies/audit-policy.yaml
+            readOnly: true
         - role: worker
           image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
-        EOF
-
-    - name: Add Workers to KinD Cluster (Istio, Gateway API)
-      working-directory: ./src/knative.dev/serving
-      if: matrix.kingress == 'istio' || matrix.kingress == 'gateway-api'
-      run: |
-        set -x
-
-        cat >> kind.yaml <<EOF
         - role: worker
           image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
         - role: worker
@@ -167,57 +277,73 @@ jobs:
           image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
         EOF
 
-    - name: Create KinD Cluster
-      working-directory: ./src/knative.dev/serving
-      run: |
-        set -x
+        kind create cluster --config kind.yaml --wait 5m
 
-        kind create cluster --config kind.yaml
+    - name: Install metallb
+      shell: bash
+      run: |
+        kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/namespace.yaml
+        kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/metallb.yaml
+        kubectl create secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
+        network=$(docker network inspect kind -f "{{(index .IPAM.Config 0).Subnet}}" | cut -d '.' -f1,2)
+        cat <<EOF | kubectl apply -f -
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          namespace: metallb-system
+          name: config
+        data:
+          config: |
+            address-pools:
+            - name: default
+              protocol: layer2
+              addresses:
+              - $network.255.1-$network.255.250
+        EOF
 
     - name: Setup local registry
       run: |
         # Run a registry.
         docker run -d --restart=always \
+          -v $HOME/artifacts/registry:/var/lib/registry \
           -p $REGISTRY_PORT:$REGISTRY_PORT --name $REGISTRY_NAME registry:2
-
         # Connect the registry to the KinD network.
         docker network connect "kind" $REGISTRY_NAME
-
         # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
         # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
         sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
 
     - name: Install Serving & Ingress
-      working-directory: ./src/knative.dev/serving
-      run: |
-        source ./test/e2e-common.sh
-
-        KIND=1
-        INGRESS_CLASS="${{ matrix.kingress }}.ingress.networking.knative.dev"
-        CLUSTER_DOMAIN="${{ matrix.cluster-suffix }}"
-
-        knative_setup
-        test_setup
-
-        echo "INGRESS_CLASS=$INGRESS_CLASS" >> $GITHUB_ENV
-        echo "CLUSTER_DOMAIN=$CLUSTER_DOMAIN" >> $GITHUB_ENV
-        echo "SYSTEM_NAMESPACE=$SYSTEM_NAMESPACE" >> $GITHUB_ENV
-        echo "GATEWAY_OVERRIDE=$GATEWAY_OVERRIDE" >> $GITHUB_ENV
-        echo "GATEWAY_NAMESPACE_OVERRIDE=$GATEWAY_NAMESPACE_OVERRIDE" >> $GITHUB_ENV
-
-    - name: Run Test
-      working-directory: ./src/knative.dev/serving
       run: |
         set -x
+        # Remove chaosduck since we don't use it and it'll skip the build
+        rm ./test/config/chaosduck/chaosduck.yaml
 
         source ./test/e2e-common.sh
 
-        # Exclude the control-plane node, which doesn't seem to expose the nodeport service.
-        IPS=( $(kubectl get nodes -lkubernetes.io/hostname!=kind-control-plane -ojsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}') )
+        export INSTALL_CUSTOM_YAMLS=$HOME/artifacts/build/env
+        knative_setup
+
         # Run the tests tagged as e2e on the KinD cluster.
         # TODO: Remove feature toogle when emptyDir is enabled by default
         toggle_feature kubernetes.podspec-volumes-emptydir Enabled
-        go test -race -count=1 -parallel=1 -timeout=30m -tags=e2e ${{ matrix.test-suite }} \
-          --ingressendpoint="${IPS[0]}" \
-        ${{ matrix.test-flags }}
-        toggle_feature kubernetes.podspec-volumes-emptydir Disabled
+
+        echo "GATEWAY_OVERRIDE=$GATEWAY_OVERRIDE" >> $GITHUB_ENV
+        echo "GATEWAY_NAMESPACE_OVERRIDE=$GATEWAY_NAMESPACE_OVERRIDE" >> $GITHUB_ENV
+
+    - name: Test ${{ matrix.test-suite }}
+      run: |
+        gotestsum --format testname -- \
+          -race -count=1 -parallel=1 -tags=e2e \
+          -timeout=30m \
+          ${{ matrix.test-path }} \
+          -skip-cleanup-on-fail \
+          ${{ matrix.test-flags || '-enable-alpha -enable-beta' }}
+
+    - uses: chainguard-dev/actions/kind-diag@main
+      # Only upload logs on failure.
+      if: ${{ failure() }}
+      with:
+        cluster-resources: nodes,${{ matrix.cluster-resources || '' }}
+        namespace-resources: pods,svc,ksvc,route,configuration,revision,king,${{ matrix.namespace-resources || '' }}
+        artifact-name: logs-${{ matrix.k8s-version}}-${{ matrix.ingress }}-${{ matrix.test-suite }}

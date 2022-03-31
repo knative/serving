@@ -29,9 +29,6 @@ function stage_gateway_api_resources() {
   curl -sL https://istio.io/downloadIstioctl | ISTIO_VERSION=1.12.2 sh -
 
   local params="--set values.global.proxy.clusterDomain=${CLUSTER_DOMAIN}"
-  if (( KIND )); then
-    params="${params} --set values.gateways.istio-ingressgateway.type=NodePort"
-  fi
 
   cat <<EOF > "${gateway_dir}/istio.yaml"
 apiVersion: v1

@@ -1,8 +1,0 @@
-#@ load("@ytt:overlay", "overlay")
-#@ load("helpers.lib.yaml", "subset")
-
-#@overlay/match by=subset(kind="Service"), expects="1+"
----
-spec:
-  #@overlay/match by=lambda key,l,_: key == "type" and l == "LoadBalancer", when=1
-  type: NodePort
