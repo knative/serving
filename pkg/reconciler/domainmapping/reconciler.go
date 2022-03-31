@@ -330,16 +330,21 @@ func httpOption(ctx context.Context, annotations map[string]string) (netv1alpha1
 		}
 	}
 
+	// Get logger from context
+	logger := logging.FromContext(ctx)
+
 	// Set HTTPOption via config-network.
-	switch config.FromContext(ctx).Network.HTTPProtocol {
+	switch httpProtocol := config.FromContext(ctx).Network.HTTPProtocol; httpProtocol {
 	case networkingpkg.HTTPEnabled:
 		return netv1alpha1.HTTPOptionEnabled, nil
 	case networkingpkg.HTTPRedirected:
 		return netv1alpha1.HTTPOptionRedirected, nil
 	// This will be deprecated soon
 	case networkingpkg.HTTPDisabled:
+		logger.Warnf("http-protocol %s in config-network ConfigMap will be deprecated soon", httpProtocol)
 		return "", nil
 	default:
+		logger.Warnf("http-protocol %s in config-network ConfigMap is not supported", httpProtocol)
 		return "", nil
 	}
 }
