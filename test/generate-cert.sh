@@ -14,12 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SERVING_SYSTEM_NAMESPACE=knative-serving
 TEST_NAMESPACE=serving-tests
 out_dir="$(mktemp -d /tmp/certs-XXX)"
 san="knative"
-
-kubectl create ns $SERVING_SYSTEM_NAMESPACE
 
 # Generate Root key and cert.
 openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 -subj '/O=Example/CN=Example' -keyout "${out_dir}"/root.key -out "${out_dir}"/root.crt
@@ -31,10 +28,10 @@ openssl req -out "${out_dir}"/tls.csr -newkey rsa:2048 -nodes -keyout "${out_dir
 openssl x509 -req -extfile <(printf "subjectAltName=DNS:$san") -days 365 -in "${out_dir}"/tls.csr -CA "${out_dir}"/root.crt -CAkey "${out_dir}"/root.key -CAcreateserial -out "${out_dir}"/tls.crt
 
 # Create secret
-kubectl create -n ${SERVING_SYSTEM_NAMESPACE} secret generic serving-ca \
+kubectl create -n ${SYSTEM_NAMESPACE} secret generic serving-ca \
     --from-file=ca.crt="${out_dir}"/root.crt --dry-run=client -o yaml | kubectl apply -f -
 
-kubectl create -n ${SERVING_SYSTEM_NAMESPACE} secret tls server-certs \
+kubectl create -n ${SYSTEM_NAMESPACE} secret tls server-certs \
     --key="${out_dir}"/tls.key \
     --cert="${out_dir}"/tls.crt --dry-run=client -o yaml | kubectl apply -f -
 

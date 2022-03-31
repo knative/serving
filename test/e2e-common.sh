@@ -51,8 +51,7 @@ export TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXX
 readonly E2E_YAML_DIR="${TMP_DIR}/e2e-yaml"
 
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
-#export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
-export SYSTEM_NAMESPACE="knative-serving"
+export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
 
 # Keep this in sync with test/ha/ha.go
 readonly REPLICAS=3
