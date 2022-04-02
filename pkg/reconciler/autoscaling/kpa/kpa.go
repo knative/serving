@@ -124,6 +124,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	}
 
 	mode := nv1alpha1.SKSOperationModeServe
+	switch {
+	// When activator CA is enabled, force activator always in path.
+	// TODO: This is a temporary state and to be fixed.
+	// See also issues/11906 and issues/12797.
+	case len(config.FromContext(ctx).Network.ActivatorCA) > 0:
+		mode = nv1alpha1.SKSOperationModeProxy
 	// We put activator in the serving path in the following cases:
 	// 1. The revision is scaled to 0:
 	//   a. want == 0
@@ -131,7 +137,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	//			this revision, e.g. after a restart) but PA status is inactive (it was
 	//			already scaled to 0).
 	// 2. The excess burst capacity is negative.
-	if want == 0 || decider.Status.ExcessBurstCapacity < 0 || want == scaleUnknown && pa.Status.IsInactive() {
+	case want == 0 || decider.Status.ExcessBurstCapacity < 0 || want == scaleUnknown && pa.Status.IsInactive():
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 

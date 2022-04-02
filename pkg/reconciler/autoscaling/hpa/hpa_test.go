@@ -45,6 +45,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ktesting "k8s.io/client-go/testing"
 
+	netpkg "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/configmap"
@@ -93,6 +94,13 @@ func TestControllerCanReconcile(t *testing.T) {
 			Data: map[string]string{
 				deployment.QueueSidecarImageKey: "motorbike-sidecar",
 			},
+		},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      netpkg.ConfigName,
+			},
+			Data: map[string]string{},
 		}))
 
 	waitInformers, err := RunAndSyncInformers(ctx, infs...)
