@@ -136,10 +136,6 @@ func makeIngressSpec(
 
 	featuresConfig := config.FromContextOrDefaults(ctx).Features
 	networkConfig := config.FromContextOrDefaults(ctx).Network
-	internalTLS := false
-	if activatorCA := networkConfig.ActivatorCA; activatorCA != "" {
-		internalTLS = true
-	}
 
 	for _, name := range names {
 		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
@@ -153,7 +149,7 @@ func makeIngressSpec(
 				return netv1alpha1.IngressSpec{}, err
 			}
 			rule := makeIngressRule(domains, r.Namespace,
-				visibility, tc.Targets[name], ro.RolloutsByTag(name), internalTLS)
+				visibility, tc.Targets[name], ro.RolloutsByTag(name), networkConfig.ActivatorCA)
 			if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string, 1)
@@ -175,7 +171,7 @@ func makeIngressSpec(
 					// Since names are sorted `DefaultTarget == ""` is the first one,
 					// so just pass the subslice.
 					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(r.Namespace, tc, ro, internalTLS, names[1:]), rule.HTTP.Paths...)
+						makeTagBasedRoutingIngressPaths(r.Namespace, tc, ro, networkConfig.ActivatorCA, names[1:]), rule.HTTP.Paths...)
 				} else {
 					// If a request is routed by a tag-attached hostname instead of the tag header,
 					// the request may not have the tag header "Knative-Serving-Tag",
@@ -269,24 +265,24 @@ func makeIngressRule(domains []string, ns string,
 	visibility netv1alpha1.IngressVisibility,
 	targets traffic.RevisionTargets,
 	roCfgs []*traffic.ConfigurationRollout,
-	internalTLS bool) netv1alpha1.IngressRule {
+	activatorCA string) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{
-				*makeBaseIngressPath(ns, targets, roCfgs, internalTLS),
+				*makeBaseIngressPath(ns, targets, roCfgs, activatorCA),
 			},
 		},
 	}
 }
 
 // `names` must not include `""` — the DefaultTarget.
-func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.Rollout, internalTLS bool, names []string) []netv1alpha1.HTTPIngressPath {
+func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.Rollout, activatorCA string, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
-		path := makeBaseIngressPath(ns, tc.Targets[name], ro.RolloutsByTag(name), internalTLS)
+		path := makeBaseIngressPath(ns, tc.Targets[name], ro.RolloutsByTag(name), activatorCA)
 		path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
 		paths = append(paths, *path)
 	}
@@ -306,7 +302,7 @@ func rolloutConfig(cfgName string, ros []*traffic.ConfigurationRollout) *traffic
 }
 
 func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
-	roCfgs []*traffic.ConfigurationRollout, internalTLS bool) *netv1alpha1.HTTPIngressPath {
+	roCfgs []*traffic.ConfigurationRollout, activatorCA string) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
@@ -319,7 +315,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 			cfg = rolloutConfig(t.ConfigurationName, roCfgs)
 		}
 		servicePort := intstr.FromInt(networking.ServicePort(t.Protocol))
-		if internalTLS {
+		if len(activatorCA) != 0 {
 			servicePort = intstr.FromInt(networking.ServiceHTTPSPort)
 		}
 		if cfg == nil || len(cfg.Revisions) < 2 {
