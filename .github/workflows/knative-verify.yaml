@@ -19,7 +19,7 @@ name: Verify
 
 on:
   pull_request:
-    branches: [ 'main', 'master', 'release-*' ]
+    branches: [ 'main', 'release-*' ]
 
 jobs:
   verify:
