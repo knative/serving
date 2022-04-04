@@ -388,7 +388,7 @@ func TestFilterSubsetPorts(t *testing.T) {
 			}},
 		}},
 	}, {
-		name: "target pors and https port, keep middle and https",
+		name: "four ports including https ports, keep target and https port",
 		port: 2006,
 		subsets: []corev1.EndpointSubset{{
 			Ports: []corev1.EndpointPort{{
@@ -405,7 +405,7 @@ func TestFilterSubsetPorts(t *testing.T) {
 				Protocol: "TCP",
 			}, {
 				Name:     "https",
-				Port:     8112,
+				Port:     networking.BackendHTTPSPort,
 				Protocol: "TCP",
 			}},
 		}},
@@ -418,7 +418,7 @@ func TestFilterSubsetPorts(t *testing.T) {
 				},
 				{
 					Name:     "https",
-					Port:     8112,
+					Port:     networking.BackendHTTPSPort,
 					Protocol: "TCP",
 				},
 			},

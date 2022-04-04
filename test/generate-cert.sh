@@ -35,8 +35,3 @@ kubectl create -n ${SYSTEM_NAMESPACE} secret generic serving-ca \
 kubectl create -n ${SYSTEM_NAMESPACE} secret tls server-certs \
     --key="${out_dir}"/tls.key \
     --cert="${out_dir}"/tls.crt --dry-run=client -o yaml | kubectl apply -f -
-
-#kubectl create ns ${TEST_NAMESPACE}
-#kubectl create -n ${TEST_NAMESPACE} secret tls server-certs \
-#    --key="${out_dir}"/tls.key \
-#    --cert="${out_dir}"/tls.crt --dry-run=client -o yaml | kubectl apply -f -

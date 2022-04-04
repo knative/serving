@@ -246,6 +246,8 @@ func main() {
 	}
 
 	// Enable TLS server when activator server certs are mounted.
+	// At this moment activator with TLS does not disable HTTP.
+	// See also https://github.com/knative/serving/issues/12808.
 	if exists(logger, certPath) && exists(logger, keyPath) {
 		tlsServers := map[string]*http.Server{
 			"https": pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah),

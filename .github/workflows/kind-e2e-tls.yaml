@@ -1,4 +1,4 @@
-name: KinD e2e tests -tls
+name: KinD e2e tests - tls
 
 on:
   pull_request:

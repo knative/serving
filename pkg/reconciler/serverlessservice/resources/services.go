@@ -65,6 +65,9 @@ func makePublicServicePorts(sks *v1alpha1.ServerlessService) []corev1.ServicePor
 		Port:       int32(pkgnet.ServicePort(sks.Spec.ProtocolType)),
 		TargetPort: targetPort(sks),
 	}, {
+		// The HTTPS port is used when activator-ca is enabled.
+		// Although it is not used by default, we put it here as it should be harmless
+		// and makes the code simple.
 		Name:       pkgnet.ServicePortNameHTTPS,
 		Protocol:   corev1.ProtocolTCP,
 		Port:       pkgnet.ServiceHTTPSPort,

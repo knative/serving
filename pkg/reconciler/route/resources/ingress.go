@@ -320,7 +320,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 		}
 		servicePort := intstr.FromInt(networking.ServicePort(t.Protocol))
 		if internalTLS {
-			servicePort = intstr.FromInt(443)
+			servicePort = intstr.FromInt(networking.ServiceHTTPSPort)
 		}
 		if cfg == nil || len(cfg.Revisions) < 2 {
 			// No rollout in progress.
