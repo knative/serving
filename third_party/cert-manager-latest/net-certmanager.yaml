@@ -19,9 +19,8 @@ metadata:
   name: knative-serving-certmanager
   labels:
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20220322-7392dd3e"
+    app.kubernetes.io/version: "20220404-2831f936"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220322-7392dd3e"
     serving.knative.dev/controller: "true"
     networking.knative.dev/certificate-provider: cert-manager
 rules:
@@ -53,9 +52,8 @@ metadata:
   name: config.webhook.net-certmanager.networking.internal.knative.dev
   labels:
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20220322-7392dd3e"
+    app.kubernetes.io/version: "20220404-2831f936"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220322-7392dd3e"
     networking.knative.dev/certificate-provider: cert-manager
 webhooks:
   - admissionReviewVersions:
@@ -95,9 +93,8 @@ metadata:
   namespace: knative-serving
   labels:
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20220322-7392dd3e"
+    app.kubernetes.io/version: "20220404-2831f936"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220322-7392dd3e"
     networking.knative.dev/certificate-provider: cert-manager
 
 ---
@@ -122,9 +119,8 @@ metadata:
   namespace: knative-serving
   labels:
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20220322-7392dd3e"
+    app.kubernetes.io/version: "20220404-2831f936"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220322-7392dd3e"
     networking.knative.dev/certificate-provider: cert-manager
 data:
   _example: |
@@ -172,9 +168,8 @@ metadata:
   namespace: knative-serving
   labels:
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20220322-7392dd3e"
+    app.kubernetes.io/version: "20220404-2831f936"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220322-7392dd3e"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   selector:
@@ -187,16 +182,15 @@ spec:
       labels:
         app: net-certmanager-controller
         app.kubernetes.io/component: net-certmanager
-        app.kubernetes.io/version: "20220322-7392dd3e"
+        app.kubernetes.io/version: "20220404-2831f936"
         app.kubernetes.io/name: knative-serving
-        serving.knative.dev/release: "v20220322-7392dd3e"
     spec:
       serviceAccountName: controller
       containers:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:665549168473f9f6474726efcd854bf6ce50cc63259cbf00c5fe7870b1185440
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:c7fd3fe23205ec14f1e0efc7bbb422dfc6ceacb53020cec261ab951d521b83a7
           resources:
             requests:
               cpu: 30m
@@ -235,9 +229,8 @@ metadata:
   labels:
     app: net-certmanager-controller
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20220322-7392dd3e"
+    app.kubernetes.io/version: "20220404-2831f936"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220322-7392dd3e"
     networking.knative.dev/certificate-provider: cert-manager
   name: net-certmanager-controller
   namespace: knative-serving
@@ -275,9 +268,8 @@ metadata:
   namespace: knative-serving
   labels:
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20220322-7392dd3e"
+    app.kubernetes.io/version: "20220404-2831f936"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220322-7392dd3e"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   selector:
@@ -291,17 +283,16 @@ spec:
       labels:
         app: net-certmanager-webhook
         app.kubernetes.io/component: net-certmanager
-        app.kubernetes.io/version: "20220322-7392dd3e"
+        app.kubernetes.io/version: "20220404-2831f936"
         app.kubernetes.io/name: knative-serving
         role: net-certmanager-webhook
-        serving.knative.dev/release: "v20220322-7392dd3e"
     spec:
       serviceAccountName: controller
       containers:
         - name: webhook
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:413b34ed2ddd8bf5ab30d38ac8bb923495df1ca9f65234239567ea7b9f535100
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:3092caaf2e3d7a1ac1e6b73e86363722e6cf64af70c23e6a3998d7c930855467
           resources:
             requests:
               cpu: 20m
@@ -361,9 +352,8 @@ metadata:
   labels:
     role: net-certmanager-webhook
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20220322-7392dd3e"
+    app.kubernetes.io/version: "20220404-2831f936"
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: "v20220322-7392dd3e"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   ports:
