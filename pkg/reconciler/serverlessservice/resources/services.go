@@ -119,8 +119,7 @@ func filterSubsetPorts(targetPort int32, subsets []corev1.EndpointSubset) []core
 		}
 		for j, p := range sss.Ports {
 			if p.Port == networking.BackendHTTPSPort {
-				port := sss.Ports[j : j+1]
-				sst.Ports = append(sst.Ports, port...)
+				sst.Ports = append(sst.Ports, sss.Ports[j:j+1]...)
 				break
 			}
 		}
