@@ -19,7 +19,7 @@ metadata:
   labels:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
+    app.kubernetes.io/component: networking
     knative.dev/crd-install: "true"
 spec:
   group: networking.internal.knative.dev
