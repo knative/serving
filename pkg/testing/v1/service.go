@@ -494,3 +494,9 @@ func WithPodSecurityContext(secCtx corev1.PodSecurityContext) ServiceOption {
 		s.Spec.Template.Spec.SecurityContext = &secCtx
 	}
 }
+
+func WithNamespace(namespace string) ServiceOption {
+	return func(svc *v1.Service) {
+		svc.ObjectMeta.Namespace = namespace
+	}
+}
