@@ -249,18 +249,13 @@ func main() {
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
 	if exists(logger, certPath) && exists(logger, keyPath) {
-		tlsServers := map[string]*http.Server{
-			"https": pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah),
-		}
-
-		for name, server := range tlsServers {
-			go func(name string, s *http.Server) {
-				// Don't forward ErrServerClosed as that indicates we're already shutting down.
-				if err := s.ListenAndServeTLS(certPath, keyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
-					errCh <- fmt.Errorf("%s server failed: %w", name, err)
-				}
-			}(name, server)
-		}
+		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
+		go func(name string, s *http.Server) {
+			// Don't forward ErrServerClosed as that indicates we're already shutting down.
+			if err := s.ListenAndServeTLS(certPath, keyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errCh <- fmt.Errorf("%s server failed: %w", name, err)
+			}
+		}(name, server)
 	}
 
 	// Wait for the signal to drain.
