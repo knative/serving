@@ -18,8 +18,8 @@ metadata:
   name: serverlessservices.networking.internal.knative.dev
   labels:
     app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/component: networking
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
     knative.dev/crd-install: "true"
 spec:
   group: networking.internal.knative.dev
