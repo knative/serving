@@ -1380,6 +1380,16 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(ctx, sks, metav1.CreateOptions{})
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(ctx, kpa, metav1.CreateOptions{})
 
+	wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		_, err := fakepainformer.Get(ctx).Lister().PodAutoscalers(testNamespace).Get(kpa.Name)
+		if err != nil && apierrors.IsNotFound(err) {
+			return false, nil
+		} else if err != nil {
+			return false, err
+		}
+		return true, nil
+	})
+
 	// Start controller after creating initial resources so it observes a steady state.
 	eg.Go(func() error { return ctl.RunContext(ctx, 1) })
 
