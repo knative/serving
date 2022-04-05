@@ -47,6 +47,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
 	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
@@ -122,7 +123,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	}
 
 	// HTTPOption can be set via annotations or in the config map.
-	httpOption, err := httpOption(ctx, dm.GetAnnotations())
+	httpOption, err := servingreconciler.GetHTTPOption(ctx, config.FromContext(ctx).Network, dm.GetAnnotations())
 	if err != nil {
 		return err
 	}
@@ -314,39 +315,6 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping)
 
 	dm.Status.MarkReferenceResolved()
 	return resolved.Host, parts[0], nil
-}
-
-func httpOption(ctx context.Context, annotations map[string]string) (netv1alpha1.HTTPOption, error) {
-	// Set HTTPOption via domainmapping annotations.
-	if len(annotations) != 0 && networking.GetHTTPProtocol(annotations) != "" {
-		protocol := strings.ToLower(networking.GetHTTPProtocol(annotations))
-		switch networkingpkg.HTTPProtocol(protocol) {
-		case networkingpkg.HTTPEnabled:
-			return netv1alpha1.HTTPOptionEnabled, nil
-		case networkingpkg.HTTPRedirected:
-			return netv1alpha1.HTTPOptionRedirected, nil
-		default:
-			return "", fmt.Errorf("incorrect http-protocol annotation: " + protocol)
-		}
-	}
-
-	// Get logger from context
-	logger := logging.FromContext(ctx)
-
-	// Set HTTPOption via config-network.
-	switch httpProtocol := config.FromContext(ctx).Network.HTTPProtocol; httpProtocol {
-	case networkingpkg.HTTPEnabled:
-		return netv1alpha1.HTTPOptionEnabled, nil
-	case networkingpkg.HTTPRedirected:
-		return netv1alpha1.HTTPOptionRedirected, nil
-	// This will be deprecated soon
-	case networkingpkg.HTTPDisabled:
-		logger.Warnf("http-protocol %s in config-network ConfigMap will be deprecated soon", httpProtocol)
-		return "", nil
-	default:
-		logger.Warnf("http-protocol %s in config-network ConfigMap is not supported", httpProtocol)
-		return "", nil
-	}
 }
 
 func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
