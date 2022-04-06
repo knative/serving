@@ -14,12 +14,15 @@ on:
       releaseFamily:
         description: 'Release? (vX.Y)'
         required: false
+        default: 'v1.4'
       moduleReleaseFamily:
         description: 'Module Release? (vX.Y)'
         required: false
+        default: 'v0.31'
       slackChannel:
         description: 'Slack Channel? (release-#)'
         required: false
+        default: 'release-1dot4'
 
 jobs:
   releasability:
