@@ -23,3 +23,4 @@ metadata:
 data:
   activator-ca: "serving-ca"
   activator-san: "knative"
+  activator-server-cert: "server-certs"

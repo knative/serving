@@ -363,9 +363,8 @@ function install() {
     bash ${REPO_ROOT_DIR}/test/generate-cert.sh
 
     echo "Patch to activator to serve TLS"
-    kubectl patch deploy -n ${SYSTEM_NAMESPACE} activator --patch "$(cat ${REPO_ROOT_DIR}/test/config/tls/volume-patch.yaml)"
-    kubectl patch service -n ${SYSTEM_NAMESPACE} activator-service --patch "$(cat ${REPO_ROOT_DIR}/test/config/tls/service-patch.yaml)"
     kubectl apply -n ${SYSTEM_NAMESPACE} -f ${REPO_ROOT_DIR}/test/config/tls/config-network.yaml
+    kubectl delete pod -n ${SYSTEM_NAMESPACE} -l app=activator
   fi
 
 }

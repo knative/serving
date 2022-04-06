@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -68,10 +69,6 @@ const (
 
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort = ":8080"
-
-	certDirectory = "/var/lib/knative/certs"
-	certPath      = certDirectory + "/tls.crt"
-	keyPath       = certDirectory + "/tls.key"
 )
 
 type config struct {
@@ -245,14 +242,24 @@ func main() {
 		}(name, server)
 	}
 
-	// Enable TLS server when activator server certs are mounted.
+	// Enable TLS server when activator-server-cert is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if exists(logger, certPath) && exists(logger, keyPath) {
+	if networkConfig.ActivatorServerCert != "" {
+		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, networkConfig.ActivatorServerCert, metav1.GetOptions{})
+		if err != nil {
+			logger.Fatalw("failed to get secret", zap.Error(err))
+		}
+		cert, err := tls.X509KeyPair(secret.Data["tls.crt"], secret.Data["tls.key"])
+		if err != nil {
+			logger.Fatalw("failed to load certs", zap.Error(err))
+		}
+
 		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
 		go func(name string, s *http.Server) {
+			s.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
-			if err := s.ListenAndServeTLS(certPath, keyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := s.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed: %w", name, err)
 			}
 		}(name, server)
@@ -277,14 +284,6 @@ func main() {
 		server.Shutdown(context.Background())
 	}
 	logger.Info("Servers shutdown.")
-}
-
-func exists(logger *zap.SugaredLogger, filename string) bool {
-	_, err := os.Stat(filename)
-	if err != nil && !os.IsNotExist(err) {
-		logger.Fatalw(fmt.Sprintf("Failed to verify the file path %q", filename), zap.Error(err))
-	}
-	return err == nil
 }
 
 func newHealthCheck(sigCtx context.Context, logger *zap.SugaredLogger, statSink *websocket.ManagedConnection) func() error {

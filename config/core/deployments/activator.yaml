@@ -151,4 +151,7 @@ spec:
   - name: http2
     port: 81
     targetPort: 8013
+  - name: https
+    port: 443
+    targetPort: 8112
   type: ClusterIP
