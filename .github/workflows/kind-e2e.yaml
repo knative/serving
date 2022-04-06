@@ -210,14 +210,6 @@ jobs:
         sudo mkdir -p /tmp/etcd
         sudo mount -t tmpfs tmpfs /tmp/etcd
 
-        cat <<EOF > audit-policy.yaml
-        apiVersion: audit.k8s.io/v1
-        kind: Policy
-        rules:
-        - level: Metadata
-        EOF
-
-
         # KinD configuration.
         cat > kind.yaml <<EOF
         apiVersion: kind.x-k8s.io/v1alpha4
@@ -240,21 +232,8 @@ jobs:
               name: config
             apiServer:
               extraArgs:
-                audit-log-path: /var/log/kubernetes/kube-apiserver-audit.log
-                audit-policy-file: /etc/kubernetes/policies/audit-policy.yaml
                 "service-account-issuer": "kubernetes.default.svc"
                 "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
-              extraVolumes:
-              - name: audit-policies
-                hostPath: /etc/kubernetes/policies
-                mountPath: /etc/kubernetes/policies
-                readOnly: true
-                pathType: "DirectoryOrCreate"
-              - name: "audit-logs"
-                hostPath: "/var/log/kubernetes"
-                mountPath: "/var/log/kubernetes"
-                readOnly: false
-                pathType: DirectoryOrCreate
             networking:
               dnsDomain: "${CLUSTER_DOMAIN}"
 
@@ -264,9 +243,6 @@ jobs:
           extraMounts:
           - containerPath: /var/lib/etcd
             hostPath: /tmp/etcd
-          - hostPath: ./audit-policy.yaml
-            containerPath: /etc/kubernetes/policies/audit-policy.yaml
-            readOnly: true
         - role: worker
           image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
         - role: worker
