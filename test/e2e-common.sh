@@ -36,8 +36,8 @@ export SHORT=0
 export ENABLE_HA=0
 export MESH=0
 export PERF=0
-export KIND=0
-export CLUSTER_DOMAIN=cluster.local
+export KIND=${KIND:-0}
+export CLUSTER_DOMAIN=${CLUSTER_DOMAIN:-cluster.local}
 
 # List of custom YAMLs to install, if specified (space-separated).
 export INSTALL_CUSTOM_YAMLS=""
