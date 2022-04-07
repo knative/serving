@@ -314,9 +314,11 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 		if t.LatestRevision != nil && *t.LatestRevision {
 			cfg = rolloutConfig(t.ConfigurationName, roCfgs)
 		}
-		servicePort := intstr.FromInt(networking.ServicePort(t.Protocol))
+		var servicePort intstr.IntOrString
 		if len(activatorCA) != 0 {
 			servicePort = intstr.FromInt(networking.ServiceHTTPSPort)
+		} else {
+			servicePort = intstr.FromInt(networking.ServicePort(t.Protocol))
 		}
 		if cfg == nil || len(cfg.Revisions) < 2 {
 			// No rollout in progress.

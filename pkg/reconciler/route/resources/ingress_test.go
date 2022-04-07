@@ -1121,7 +1121,7 @@ func TestMakeIngressWithActivatorCA(t *testing.T) {
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
 						ServiceName:      "v2",
-						ServicePort:      intstr.FromInt(443),
+						ServicePort:      intstr.FromInt(networking.ServiceHTTPSPort),
 					},
 					Percent: 100,
 					AppendHeaders: map[string]string{
@@ -1142,7 +1142,7 @@ func TestMakeIngressWithActivatorCA(t *testing.T) {
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
 						ServiceName:      "v2",
-						ServicePort:      intstr.FromInt(443),
+						ServicePort:      intstr.FromInt(networking.ServiceHTTPSPort),
 					},
 					Percent: 100,
 					AppendHeaders: map[string]string{
@@ -1165,7 +1165,7 @@ func TestMakeIngressWithActivatorCA(t *testing.T) {
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
 						ServiceName:      "v1",
-						ServicePort:      intstr.FromInt(443),
+						ServicePort:      intstr.FromInt(networking.ServiceHTTPSPort),
 					},
 					Percent: 100,
 					AppendHeaders: map[string]string{
@@ -1186,7 +1186,7 @@ func TestMakeIngressWithActivatorCA(t *testing.T) {
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
 						ServiceName:      "v1",
-						ServicePort:      intstr.FromInt(443),
+						ServicePort:      intstr.FromInt(networking.ServiceHTTPSPort),
 					},
 					Percent: 100,
 					AppendHeaders: map[string]string{
