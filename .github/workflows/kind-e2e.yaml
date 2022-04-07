@@ -142,7 +142,6 @@ jobs:
           test-path: ./test/e2e
 
     env:
-      SYSTEM_NAMESPACE: knative-serving
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
 
@@ -286,7 +285,7 @@ jobs:
         # Connect the registry to the KinD network.
         docker network connect "kind" $REGISTRY_NAME
         # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
-        # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
+        # local registry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
         sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
 
     - name: Install Serving & Ingress
