@@ -72,6 +72,7 @@ aliases:
   - ikvmw
   - itsmurugappan
   - julz
+  - knative-automation
   - knative-prow-releaser-robot
   - knative-prow-robot
   - knative-prow-updater-robot
@@ -88,6 +89,7 @@ aliases:
   - ikvmw
   - nader-ziada
   knative-robots:
+  - knative-automation
   - knative-prow-releaser-robot
   - knative-prow-robot
   - knative-prow-updater-robot
