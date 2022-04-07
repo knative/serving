@@ -71,7 +71,6 @@ rotation, feel free to send a PR to remove yourself.
 - [nader-ziada](https://github.com/nader-ziada)
 - [nak3](https://github.com/nak3)
 - [shinigambit](https://github.com/shinigambit)
-- [yanweiguo](https://github.com/yanweiguo)
 - [ZhiminXiang](https://github.com/ZhiminXiang)
 
 # Schedule
