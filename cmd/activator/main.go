@@ -255,6 +255,8 @@ func main() {
 			logger.Fatalw("failed to load certs", zap.Error(err))
 		}
 
+		// TODO: Implement the secret (certificate) rotation like knative.dev/pkg/webhook/certificates/.
+		// Also, the current activator must be restarted when updating the secret.
 		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
 		go func(name string, s *http.Server) {
 			s.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
