@@ -19,9 +19,7 @@ package resources
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/zap"
@@ -39,6 +37,7 @@ import (
 	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingnetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
@@ -192,7 +191,7 @@ func makeIngressSpec(
 		}
 	}
 
-	httpProtocol, err := getHTTPProtocol(ctx, r.Annotations)
+	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, r.GetAnnotations())
 	if err != nil {
 		return netv1alpha1.IngressSpec{}, err
 	}
@@ -200,34 +199,8 @@ func makeIngressSpec(
 	return netv1alpha1.IngressSpec{
 		Rules:      rules,
 		TLS:        tls,
-		HTTPOption: httpProtocol,
+		HTTPOption: httpOption,
 	}, nil
-}
-
-func getHTTPProtocol(ctx context.Context, annotations map[string]string) (netv1alpha1.HTTPOption, error) {
-	if len(annotations) != 0 && networking.GetHTTPProtocol(annotations) != "" {
-		protocol := strings.ToLower(networking.GetHTTPProtocol(annotations))
-		switch network.HTTPProtocol(protocol) {
-		case network.HTTPEnabled:
-			return netv1alpha1.HTTPOptionEnabled, nil
-		case network.HTTPRedirected:
-			return netv1alpha1.HTTPOptionRedirected, nil
-		default:
-			return "", fmt.Errorf("incorrect http-protocol annotation:" + protocol)
-		}
-	}
-
-	switch config.FromContext(ctx).Network.HTTPProtocol {
-	case network.HTTPEnabled:
-		return netv1alpha1.HTTPOptionEnabled, nil
-	case network.HTTPRedirected:
-		return netv1alpha1.HTTPOptionRedirected, nil
-	// This will be deprecated soon
-	case network.HTTPDisabled:
-		return "", nil
-	default:
-		return "", nil
-	}
 }
 
 func getChallengeHosts(challenges []netv1alpha1.HTTP01Challenge) map[string]netv1alpha1.HTTP01Challenge {

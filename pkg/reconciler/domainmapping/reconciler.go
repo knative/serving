@@ -47,6 +47,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
+	servingnetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
 	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
@@ -121,16 +122,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 		return err
 	}
 
-	// Set HTTPOption via config-network.
-	var httpOption netv1alpha1.HTTPOption
-	switch config.FromContext(ctx).Network.HTTPProtocol {
-	case networkingpkg.HTTPEnabled:
-		httpOption = netv1alpha1.HTTPOptionEnabled
-	case networkingpkg.HTTPRedirected:
-		httpOption = netv1alpha1.HTTPOptionRedirected
-	// This will be deprecated soon
-	case networkingpkg.HTTPDisabled:
-		httpOption = ""
+	// HTTPOption can be set via annotations or in the config map.
+	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, dm.GetAnnotations())
+	if err != nil {
+		return err
 	}
 
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
