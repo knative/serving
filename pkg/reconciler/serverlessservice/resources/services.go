@@ -120,6 +120,7 @@ func filterSubsetPorts(targetPort int32, subsets []corev1.EndpointSubset) []core
 				break
 			}
 		}
+		// Add HTTPS port if exists.
 		for j, p := range sss.Ports {
 			if p.Port == networking.BackendHTTPSPort {
 				sst.Ports = append(sst.Ports, sss.Ports[j:j+1]...)
