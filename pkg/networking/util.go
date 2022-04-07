@@ -1,4 +1,4 @@
-package reconciler
+package networking
 
 import (
 	"context"
@@ -11,8 +11,9 @@ import (
 	"knative.dev/pkg/logging"
 )
 
+// GetHTTPOption get http-protocol from resource annotations if not, get it from configmap config-network
 func GetHTTPOption(ctx context.Context, networkConfig *networkingpkg.Config, annotations map[string]string) (netv1alpha1.HTTPOption, error) {
-	// Get HTTPOption via domainmapping annotations.
+	// Get HTTPOption via annotations.
 	if len(annotations) != 0 && networking.GetHTTPProtocol(annotations) != "" {
 		protocol := strings.ToLower(networking.GetHTTPProtocol(annotations))
 		switch networkingpkg.HTTPProtocol(protocol) {
@@ -28,7 +29,7 @@ func GetHTTPOption(ctx context.Context, networkConfig *networkingpkg.Config, ann
 	// Get logger from context
 	logger := logging.FromContext(ctx)
 
-	// Set HTTPOption via config-network.
+	// Get HTTPOption via config-network.
 	switch httpProtocol := networkConfig.HTTPProtocol; httpProtocol {
 	case networkingpkg.HTTPEnabled:
 		return netv1alpha1.HTTPOptionEnabled, nil

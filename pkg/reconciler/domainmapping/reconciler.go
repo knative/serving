@@ -47,7 +47,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
-	servingreconciler "knative.dev/serving/pkg/reconciler"
+	servingnetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
 	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
@@ -123,7 +123,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	}
 
 	// HTTPOption can be set via annotations or in the config map.
-	httpOption, err := servingreconciler.GetHTTPOption(ctx, config.FromContext(ctx).Network, dm.GetAnnotations())
+	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, dm.GetAnnotations())
 	if err != nil {
 		return err
 	}

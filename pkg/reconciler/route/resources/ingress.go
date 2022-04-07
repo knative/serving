@@ -37,7 +37,7 @@ import (
 	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	servingreconciler "knative.dev/serving/pkg/reconciler"
+	servingnetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
@@ -191,7 +191,7 @@ func makeIngressSpec(
 		}
 	}
 
-	httpOption, err := servingreconciler.GetHTTPOption(ctx, config.FromContext(ctx).Network, r.GetAnnotations())
+	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, r.GetAnnotations())
 	if err != nil {
 		return netv1alpha1.IngressSpec{}, err
 	}
