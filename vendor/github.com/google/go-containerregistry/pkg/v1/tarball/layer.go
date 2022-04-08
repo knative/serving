@@ -17,7 +17,6 @@ package tarball
 import (
 	"bytes"
 	"compress/gzip"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -40,7 +39,6 @@ type layer struct {
 	compression        int
 	annotations        map[string]string
 	estgzopts          []estargz.Option
-	mediaType          types.MediaType
 }
 
 // Descriptor implements partial.withDescriptor.
@@ -53,7 +51,7 @@ func (l *layer) Descriptor() (*v1.Descriptor, error) {
 		Size:        l.size,
 		Digest:      digest,
 		Annotations: l.annotations,
-		MediaType:   l.mediaType,
+		MediaType:   types.DockerLayer,
 	}, nil
 }
 
@@ -84,7 +82,7 @@ func (l *layer) Size() (int64, error) {
 
 // MediaType implements v1.Layer
 func (l *layer) MediaType() (types.MediaType, error) {
-	return l.mediaType, nil
+	return types.DockerLayer, nil
 }
 
 // LayerOption applies options to layer
@@ -95,13 +93,6 @@ type LayerOption func(*layer)
 func WithCompressionLevel(level int) LayerOption {
 	return func(l *layer) {
 		l.compression = level
-	}
-}
-
-// WithMediaType is a functional option for overriding the layer's media type.
-func WithMediaType(mt types.MediaType) LayerOption {
-	return func(l *layer) {
-		l.mediaType = mt
 	}
 }
 
@@ -213,7 +204,6 @@ func LayerFromOpener(opener Opener, opts ...LayerOption) (v1.Layer, error) {
 	layer := &layer{
 		compression: gzip.BestSpeed,
 		annotations: make(map[string]string, 1),
-		mediaType:   types.DockerLayer,
 	}
 
 	if estgz := os.Getenv("GGCR_EXPERIMENT_ESTARGZ"); estgz == "1" {
@@ -259,19 +249,15 @@ func LayerFromOpener(opener Opener, opts ...LayerOption) (v1.Layer, error) {
 }
 
 // LayerFromReader returns a v1.Layer given a io.Reader.
-//
-// The reader's contents are read and buffered to a temp file in the process.
-//
-// Deprecated: Use LayerFromOpener or stream.NewLayer instead, if possible.
 func LayerFromReader(reader io.Reader, opts ...LayerOption) (v1.Layer, error) {
-	tmp, err := ioutil.TempFile("", "")
+	// Buffering due to Opener requiring multiple calls.
+	a, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, fmt.Errorf("creating temp file to buffer reader: %w", err)
+		return nil, err
 	}
-	if _, err := io.Copy(tmp, reader); err != nil {
-		return nil, fmt.Errorf("writing temp file to buffer reader: %w", err)
-	}
-	return LayerFromFile(tmp.Name(), opts...)
+	return LayerFromOpener(func() (io.ReadCloser, error) {
+		return ioutil.NopCloser(bytes.NewReader(a)), nil
+	}, opts...)
 }
 
 func computeDigest(opener Opener) (v1.Hash, int64, error) {

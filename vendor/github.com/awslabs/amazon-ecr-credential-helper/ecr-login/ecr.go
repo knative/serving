@@ -16,6 +16,7 @@ package ecr
 import (
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/sirupsen/logrus"
 
@@ -26,7 +27,44 @@ import (
 var notImplemented = errors.New("not implemented")
 
 type ECRHelper struct {
-	ClientFactory api.ClientFactory
+	clientFactory api.ClientFactory
+	logger        *logrus.Logger
+}
+
+type Option func(*ECRHelper)
+
+// WithClientFactory sets the ClientFactory used to make API requests.
+func WithClientFactory(clientFactory api.ClientFactory) Option {
+	return func(e *ECRHelper) {
+		e.clientFactory = clientFactory
+	}
+}
+
+// WithLogger sets a new logger instance that writes to the given writer,
+// instead of the default writer which writes to stderr.
+//
+// This can be useful if callers want to redirect logging emitted by this tool
+// to another location.
+func WithLogger(w io.Writer) Option {
+	return func(e *ECRHelper) {
+		logger := logrus.New()
+		logger.Out = w
+		e.logger = logger
+	}
+}
+
+// NewECRHelper returns a new ECRHelper with the given options to override
+// default behavior.
+func NewECRHelper(opts ...Option) *ECRHelper {
+	e := &ECRHelper{
+		clientFactory: api.DefaultClientFactory{},
+		logger:        logrus.StandardLogger(),
+	}
+	for _, o := range opts {
+		o(e)
+	}
+
+	return e
 }
 
 // ensure ECRHelper adheres to the credentials.Helper interface
@@ -45,7 +83,7 @@ func (ECRHelper) Delete(serverURL string) error {
 func (self ECRHelper) Get(serverURL string) (string, string, error) {
 	registry, err := api.ExtractRegistry(serverURL)
 	if err != nil {
-		logrus.
+		self.logger.
 			WithError(err).
 			WithField("serverURL", serverURL).
 			Error("Error parsing the serverURL")
@@ -54,30 +92,30 @@ func (self ECRHelper) Get(serverURL string) (string, string, error) {
 
 	var client api.Client
 	if registry.FIPS {
-		client, err = self.ClientFactory.NewClientWithFipsEndpoint(registry.Region)
+		client, err = self.clientFactory.NewClientWithFipsEndpoint(registry.Region)
 		if err != nil {
-			logrus.WithError(err).Error("Error resolving FIPS endpoint")
+			self.logger.WithError(err).Error("Error resolving FIPS endpoint")
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
 	} else {
-		client = self.ClientFactory.NewClientFromRegion(registry.Region)
+		client = self.clientFactory.NewClientFromRegion(registry.Region)
 	}
 
 	auth, err := client.GetCredentials(serverURL)
 	if err != nil {
-		logrus.WithError(err).Error("Error retrieving credentials")
+		self.logger.WithError(err).Error("Error retrieving credentials")
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 	return auth.Username, auth.Password, nil
 }
 
 func (self ECRHelper) List() (map[string]string, error) {
-	logrus.Debug("Listing credentials")
-	client := self.ClientFactory.NewClientWithDefaults()
+	self.logger.Debug("Listing credentials")
+	client := self.clientFactory.NewClientWithDefaults()
 
 	auths, err := client.ListCredentials()
 	if err != nil {
-		logrus.WithError(err).Error("Error listing credentials")
+		self.logger.WithError(err).Error("Error listing credentials")
 		return nil, fmt.Errorf("ecr: could not list credentials: %v", err)
 	}
 

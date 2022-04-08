@@ -101,8 +101,10 @@ func (dk *defaultKeychain) Resolve(target Resource) (Authenticator, error) {
 		}
 	} else {
 		f, err := os.Open(filepath.Join(os.Getenv("XDG_RUNTIME_DIR"), "containers/auth.json"))
-		if err != nil {
+		if os.IsNotExist(err) {
 			return Anonymous, nil
+		} else if err != nil {
+			return nil, err
 		}
 		defer f.Close()
 		cf, err = config.LoadFromReader(f)
@@ -114,27 +116,20 @@ func (dk *defaultKeychain) Resolve(target Resource) (Authenticator, error) {
 	// See:
 	// https://github.com/google/ko/issues/90
 	// https://github.com/moby/moby/blob/fc01c2b481097a6057bec3cd1ab2d7b4488c50c4/registry/config.go#L397-L404
-	var cfg, empty types.AuthConfig
-	for _, key := range []string{
-		target.String(),
-		target.RegistryStr(),
-	} {
-		if key == name.DefaultRegistry {
-			key = DefaultAuthKey
-		}
-
-		cfg, err = cf.GetAuthConfig(key)
-		if err != nil {
-			return nil, err
-		}
-		if cfg != empty {
-			break
-		}
+	key := target.RegistryStr()
+	if key == name.DefaultRegistry {
+		key = DefaultAuthKey
 	}
+
+	cfg, err := cf.GetAuthConfig(key)
+	if err != nil {
+		return nil, err
+	}
+
+	empty := types.AuthConfig{}
 	if cfg == empty {
 		return Anonymous, nil
 	}
-
 	return FromConfig(AuthConfig{
 		Username:      cfg.Username,
 		Password:      cfg.Password,
@@ -161,14 +156,9 @@ func NewKeychainFromHelper(h Helper) Keychain { return wrapper{h} }
 type wrapper struct{ h Helper }
 
 func (w wrapper) Resolve(r Resource) (Authenticator, error) {
-	u, p, err := w.h.Get(r.RegistryStr())
+	u, p, err := w.h.Get(r.String())
 	if err != nil {
 		return Anonymous, nil
-	}
-	// If the secret being stored is an identity token, the Username should be set to <token>
-	// ref: https://docs.docker.com/engine/reference/commandline/login/#credential-helper-protocol
-	if u == "<token>" {
-		return FromConfig(AuthConfig{Username: u, IdentityToken: p}), nil
 	}
 	return FromConfig(AuthConfig{Username: u, Password: p}), nil
 }
