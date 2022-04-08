@@ -15,11 +15,11 @@
 package google
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/logs"
 )
 
 // Keychain exports an instance of the google Keychain.
@@ -28,6 +28,7 @@ var Keychain authn.Keychain = &googleKeychain{}
 type googleKeychain struct {
 	once sync.Once
 	auth authn.Authenticator
+	err  error
 }
 
 // Resolve implements authn.Keychain a la docker-credential-gcr.
@@ -54,37 +55,27 @@ type googleKeychain struct {
 func (gk *googleKeychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
 	// Only authenticate GCR and AR so it works with authn.NewMultiKeychain to fallback.
 	host := target.RegistryStr()
-	if host != "gcr.io" &&
-		!strings.HasSuffix(host, ".gcr.io") &&
-		!strings.HasSuffix(host, ".pkg.dev") &&
-		!strings.HasSuffix(host, ".google.com") {
+	if host != "gcr.io" && !strings.HasSuffix(host, ".gcr.io") && !strings.HasSuffix(host, ".pkg.dev") && !strings.HasSuffix(host, ".google.com") {
 		return authn.Anonymous, nil
 	}
 
 	gk.once.Do(func() {
-		gk.auth = resolve()
+		gk.auth, gk.err = resolve()
 	})
 
-	return gk.auth, nil
+	return gk.auth, gk.err
 }
 
-func resolve() authn.Authenticator {
+func resolve() (authn.Authenticator, error) {
 	auth, envErr := NewEnvAuthenticator()
-	if envErr == nil && auth != authn.Anonymous {
-		return auth
+	if envErr == nil {
+		return auth, nil
 	}
 
 	auth, gErr := NewGcloudAuthenticator()
-	if gErr == nil && auth != authn.Anonymous {
-		return auth
+	if gErr == nil {
+		return auth, nil
 	}
 
-	logs.Debug.Println("Failed to get any Google credentials, falling back to Anonymous")
-	if envErr != nil {
-		logs.Debug.Printf("Google env error: %v", envErr)
-	}
-	if gErr != nil {
-		logs.Debug.Printf("gcloud error: %v", gErr)
-	}
-	return authn.Anonymous
+	return nil, fmt.Errorf("failed to create token source from env: %v or gcloud: %v", envErr, gErr) //nolint: errorlint
 }
