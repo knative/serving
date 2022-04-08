@@ -42,3 +42,10 @@ require (
 	knative.dev/pkg v0.0.0-20220222214439-083dd97300e1
 	sigs.k8s.io/yaml v1.3.0
 )
+
+replace (
+	k8s.io/api => k8s.io/api v0.22.5
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.22.5
+	k8s.io/apimachinery => k8s.io/apimachinery v0.22.5
+	k8s.io/client-go => k8s.io/client-go v0.22.5
+)
