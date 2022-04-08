@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	network "knative.dev/networking/pkg"
-	networkingpkg "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -78,7 +77,7 @@ func TestGetHTTPOption(t *testing.T) {
 				}
 			}
 
-			got, err := GetHTTPOption(ctx, &networkingpkg.Config{HTTPProtocol: tc.configHTTPProtocol}, annotations)
+			got, err := GetHTTPOption(ctx, &network.Config{HTTPProtocol: tc.configHTTPProtocol}, annotations)
 			if tc.wantError != nil && fmt.Sprintf("%s", err) != fmt.Sprintf("%s", tc.wantError) {
 				t.Errorf("err = %s, want %v", err, tc.wantError)
 			}
