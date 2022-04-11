@@ -134,6 +134,7 @@ jobs:
           namespace-resources: virtualservices
 
         - ingress: kourier-tls
+          ingress-class: kourier
           enable-tls: 1
 
         - test-suite: runtime
