@@ -245,8 +245,8 @@ func main() {
 	// Enable TLS server when activator-server-cert is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if networkConfig.ActivatorServerCert != "" {
-		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, networkConfig.ActivatorServerCert, metav1.GetOptions{})
+	if networkConfig.ActivatorCertSecret != "" {
+		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, networkConfig.ActivatorCertSecret, metav1.GetOptions{})
 		if err != nil {
 			logger.Fatalw("failed to get secret", zap.Error(err))
 		}
