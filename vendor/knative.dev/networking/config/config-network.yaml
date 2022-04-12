@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: networking
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "7c86cb6a"
+    knative.dev/example-checksum: "d0b91f80"
 data:
   _example: |
     ################################
@@ -188,3 +188,35 @@ data:
     # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
     #       for now. Use with caution.
     activator-san: ""
+
+    # The server certificates to serve the TLS traffic from ingress to activator.
+    # It is specified by the secret name, which has the "tls.crt" and "tls.key" data field.
+    # Use an empty value to disable the feature (default).
+    #
+    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
+    #       for now. Use with caution.
+    activator-cert-secret: ""
+
+    # The CA public certificate used to sign the queue-proxy TLS certificate.
+    # It is specified by the secret name, which has the "ca.crt" data field.
+    # Use an empty value to disable the feature (default).
+    #
+    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
+    #       for now. Use with caution.
+    queue-proxy-ca: ""
+
+    # The SAN (Subject Alt Name) used to validate the activator TLS certificate.
+    # It must be set when "queue-proxy-ca" is specified.
+    # Use an empty value to disable the feature (default).
+    #
+    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
+    #       for now. Use with caution.
+    queue-proxy-san: ""
+
+    # The server certificates to serve the TLS traffic from activator to queue-proxy.
+    # It is specified by the secret name, which has the "tls.crt" and "tls.key" data field.
+    # Use an empty value to disable the feature (default).
+    #
+    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
+    #       for now. Use with caution.
+    queue-proxy-cert-secret: ""

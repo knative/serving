@@ -1043,7 +1043,7 @@ k8s.io/utils/internal/third_party/forked/golang/net
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20220411131818-6ad8cd321297
+# knative.dev/caching v0.0.0-20220412015107-318083f279be
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1068,7 +1068,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20220412000408-f96f8e279f5e
+# knative.dev/networking v0.0.0-20220412073408-56c4a3e1329c
 ## explicit
 knative.dev/networking/config
 knative.dev/networking/pkg
