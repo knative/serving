@@ -196,6 +196,21 @@ const (
 
 	// ActivatorSANKey is the config for the SAN used to validate the activator TLS certificate.
 	ActivatorSANKey = "activator-san"
+
+	// ActivatorCertKey is the config for the secret name, which stores certificates
+	// to serve the TLS traffic from ingress to activator.
+	ActivatorCertKey = "activator-cert-secret"
+
+	// QueueProxyCAKey is the config for the secret name, which stores CA public certificate used
+	// to sign the queue-proxy TLS certificate.
+	QueueProxyCAKey = "queue-proxy-ca"
+
+	// QueueProxySANKey is the config for the SAN used to validate the queue-proxy TLS certificate.
+	QueueProxySANKey = "queue-proxy-san"
+
+	// QueueProxyCertKey is the config for the secret name, which stores certificates
+	// to serve the TLS traffic from activator to queue-proxy.
+	QueueProxyCertKey = "queue-proxy-cert-secret"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -302,6 +317,20 @@ type Config struct {
 	// ActivatorSAN defines the SAN (Subject Alt Name) used to validate the activator TLS certificate.
 	// It is used only when ActivatorCA is specified.
 	ActivatorSAN string
+
+	// ActivatorCertSecret defines the secret name of the server certificates to serve the TLS traffic from ingress to activator.
+	ActivatorCertSecret string
+
+	// QueueProxyCA defines the secret name of the CA public certificate used to sign the queue-proxy TLS certificate.
+	// The traffic to queue-proxy is not encrypted if QueueProxyCA is empty.
+	QueueProxyCA string
+
+	// QueueProxySAN defines the SAN (Subject Alt Name) used to validate the queue-proxy TLS certificate.
+	// It is used only when QueueProxyCA is specified.
+	QueueProxySAN string
+
+	// QueueProxyCertSecret defines the secret name of the server certificates to serve the TLS traffic from activator to queue-proxy.
+	QueueProxyCertSecret string
 }
 
 // HTTPProtocol indicates a type of HTTP endpoint behavior
@@ -359,6 +388,10 @@ func defaultConfig() *Config {
 		MeshCompatibilityMode:         MeshCompatibilityModeAuto,
 		ActivatorCA:                   "",
 		ActivatorSAN:                  "",
+		ActivatorCertSecret:           "",
+		QueueProxyCA:                  "",
+		QueueProxySAN:                 "",
+		QueueProxyCertSecret:          "",
 	}
 }
 
@@ -392,6 +425,10 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsString(DefaultExternalSchemeKey, &nc.DefaultExternalScheme),
 		cm.AsString(ActivatorCAKey, &nc.ActivatorCA),
 		cm.AsString(ActivatorSANKey, &nc.ActivatorSAN),
+		cm.AsString(ActivatorCertKey, &nc.ActivatorCertSecret),
+		cm.AsString(QueueProxyCAKey, &nc.QueueProxyCA),
+		cm.AsString(QueueProxySANKey, &nc.QueueProxySAN),
+		cm.AsString(QueueProxyCertKey, &nc.QueueProxyCertSecret),
 		asMode(MeshCompatibilityModeKey, &nc.MeshCompatibilityMode),
 		asLabelSelector(NamespaceWildcardCertSelectorKey, &nc.NamespaceWildcardCertSelector),
 	); err != nil {
@@ -454,6 +491,14 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 
 	if nc.ActivatorCA == "" && nc.ActivatorSAN != "" {
 		return nil, fmt.Errorf("%q must be set when %q was set", ActivatorCAKey, ActivatorSANKey)
+	}
+
+	if nc.QueueProxyCA != "" && nc.QueueProxySAN == "" {
+		return nil, fmt.Errorf("%q must be set when %q was set", QueueProxySANKey, QueueProxyCAKey)
+	}
+
+	if nc.QueueProxyCA == "" && nc.QueueProxySAN != "" {
+		return nil, fmt.Errorf("%q must be set when %q was set", QueueProxyCAKey, QueueProxySANKey)
 	}
 
 	return nc, nil
