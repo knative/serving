@@ -112,6 +112,11 @@ func svc(t networking.ServiceType, mods ...func(*corev1.Service)) *corev1.Servic
 				Protocol:   corev1.ProtocolTCP,
 				Port:       pkgnet.ServiceHTTPPort,
 				TargetPort: intstr.FromInt(networking.BackendHTTPPort),
+			}, {
+				Name:       pkgnet.ServicePortNameHTTPS,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       pkgnet.ServiceHTTPSPort,
+				TargetPort: intstr.FromInt(networking.BackendHTTPSPort),
 			}},
 		},
 	}
@@ -181,6 +186,11 @@ func TestMakePublicService(t *testing.T) {
 				Protocol:   corev1.ProtocolTCP,
 				Port:       pkgnet.ServiceHTTP2Port,
 				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+			}, {
+				Name:       pkgnet.ServicePortNameHTTPS,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       pkgnet.ServiceHTTPSPort,
+				TargetPort: intstr.FromInt(networking.BackendHTTPSPort),
 			}}
 			s.Annotations = map[string]string{"cherub": "rock"}
 			s.OwnerReferences[0].UID = "1988"
@@ -196,6 +206,11 @@ func TestMakePublicService(t *testing.T) {
 				Protocol:   corev1.ProtocolTCP,
 				Port:       pkgnet.ServiceHTTP2Port,
 				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+			}, {
+				Name:       pkgnet.ServicePortNameHTTPS,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       pkgnet.ServiceHTTPSPort,
+				TargetPort: intstr.FromInt(networking.BackendHTTPSPort),
 			}}
 		}),
 	}, {
@@ -211,6 +226,11 @@ func TestMakePublicService(t *testing.T) {
 				Protocol:   corev1.ProtocolTCP,
 				Port:       pkgnet.ServiceHTTP2Port,
 				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+			}, {
+				Name:       pkgnet.ServicePortNameHTTPS,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       pkgnet.ServiceHTTPSPort,
+				TargetPort: intstr.FromInt(networking.BackendHTTPSPort),
 			}}
 			s.Labels["infinite"] = "sadness"
 		}),
@@ -367,6 +387,42 @@ func TestFilterSubsetPorts(t *testing.T) {
 				Protocol: "TCP",
 			}},
 		}},
+	}, {
+		name: "four ports including https ports, keep target and https port",
+		port: 2006,
+		subsets: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     2009,
+				Protocol: "TCP",
+			}, {
+				Name:     "http",
+				Port:     2006,
+				Protocol: "TCP",
+			}, {
+				Name:     "http",
+				Port:     2019,
+				Protocol: "TCP",
+			}, {
+				Name:     "https",
+				Port:     networking.BackendHTTPSPort,
+				Protocol: "TCP",
+			}},
+		}},
+		want: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{
+				{
+					Name:     "http",
+					Port:     2006,
+					Protocol: "TCP",
+				},
+				{
+					Name:     "https",
+					Port:     networking.BackendHTTPSPort,
+					Protocol: "TCP",
+				},
+			},
+		}},
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -419,7 +475,7 @@ func TestMakePrivateService(t *testing.T) {
 				Port:       pkgnet.ServiceHTTPPort,
 				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
 			}
-			s.Spec.Ports[4] = corev1.ServicePort{
+			s.Spec.Ports[5] = corev1.ServicePort{
 				Name:       pkgnet.ServicePortNameH2C + "-istio",
 				Protocol:   corev1.ProtocolTCP,
 				Port:       networking.BackendHTTP2Port,

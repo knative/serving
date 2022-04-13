@@ -97,6 +97,7 @@ jobs:
 
         ingress:
         - kourier
+        - kourier-tls
         - istio
         - contour
         # Disabled due to consistent failures
@@ -132,6 +133,10 @@ jobs:
         - ingress: istio
           namespace-resources: virtualservices
 
+        - ingress: kourier-tls
+          ingress-class: kourier
+          enable-tls: 1
+
         - test-suite: runtime
           test-path: ./test/conformance/runtime/...
 
@@ -144,6 +149,7 @@ jobs:
     env:
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
+      ENABLE_TLS: ${{ matrix.enable-tls || 0 }}
 
     steps:
     - name: Set up Go 1.17.x

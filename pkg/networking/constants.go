@@ -26,6 +26,9 @@ const (
 	// BackendHTTP2Port is the backend, i.e. `targetPort` that we setup for HTTP/2 services.
 	BackendHTTP2Port = 8013
 
+	// BackendHTTPSPort is the backend. i.e. `targetPort` that we setup for HTTPS services.
+	BackendHTTPSPort = 8112
+
 	// QueueAdminPort specifies the port number for
 	// health check and lifecycle hooks for queue-proxy.
 	QueueAdminPort = 8022

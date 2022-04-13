@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -236,6 +237,31 @@ func main() {
 		go func(name string, s *http.Server) {
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errCh <- fmt.Errorf("%s server failed: %w", name, err)
+			}
+		}(name, server)
+	}
+
+	// Enable TLS server when activator-server-cert is specified.
+	// At this moment activator with TLS does not disable HTTP.
+	// See also https://github.com/knative/serving/issues/12808.
+	if networkConfig.ActivatorCertSecret != "" {
+		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, networkConfig.ActivatorCertSecret, metav1.GetOptions{})
+		if err != nil {
+			logger.Fatalw("failed to get secret", zap.Error(err))
+		}
+		cert, err := tls.X509KeyPair(secret.Data["tls.crt"], secret.Data["tls.key"])
+		if err != nil {
+			logger.Fatalw("failed to load certs", zap.Error(err))
+		}
+
+		// TODO: Implement the secret (certificate) rotation like knative.dev/pkg/webhook/certificates/.
+		// Also, the current activator must be restarted when updating the secret.
+		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
+		go func(name string, s *http.Server) {
+			s.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+			// Don't forward ErrServerClosed as that indicates we're already shutting down.
+			if err := s.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed: %w", name, err)
 			}
 		}(name, server)
