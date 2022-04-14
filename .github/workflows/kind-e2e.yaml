@@ -96,12 +96,12 @@ jobs:
         - v1.23.5
 
         ingress:
-        - kourier
-        - kourier-tls
-        - istio
-        - contour
+        # - kourier
+        # - kourier-tls
+        # - istio
+        # - contour
         # Disabled due to consistent failures
-        # - gateway_istio
+        - gateway_istio
 
         test-suite:
         - runtime
@@ -122,29 +122,29 @@ jobs:
           kind-image-sha: sha256:a69c29d3d502635369a5fe92d8e503c09581fcd406ba6598acc5d80ff5ba81b1
 
         # Disabled due to consistent failures
-        # - ingress: gateway_istio
-        #   ingress-class: gateway-api
-        #   test-flags: -enable-alpha
-        #   namespace-resources: httproute
+        - ingress: gateway_istio
+          ingress-class: gateway-api
+          test-flags: -enable-alpha
+          namespace-resources: httproute
 
-        - ingress: contour
-          namespace-resources: httpproxy
+        # - ingress: contour
+        #   namespace-resources: httpproxy
 
-        - ingress: istio
-          namespace-resources: virtualservices
+        # - ingress: istio
+        #   namespace-resources: virtualservices
 
-        - ingress: kourier-tls
-          ingress-class: kourier
-          enable-tls: 1
+        # - ingress: kourier-tls
+        #   ingress-class: kourier
+        #   enable-tls: 1
 
-        - test-suite: runtime
-          test-path: ./test/conformance/runtime/...
+        # - test-suite: runtime
+        #   test-path: ./test/conformance/runtime/...
 
-        - test-suite: api
-          test-path: ./test/conformance/api/...
+        # - test-suite: api
+        #   test-path: ./test/conformance/api/...
 
-        - test-suite: e2e
-          test-path: ./test/e2e
+        # - test-suite: e2e
+        #   test-path: ./test/e2e
 
     env:
       KIND: 1
