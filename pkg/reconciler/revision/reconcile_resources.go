@@ -101,7 +101,13 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 				if status.Name == rev.Spec.GetContainer().Name {
 					if t := status.LastTerminationState.Terminated; t != nil {
 						logger.Infof("marking exiting with: %d/%s", t.ExitCode, t.Message)
-						rev.Status.MarkContainerHealthyFalse(v1.ExitCodeReason(t.ExitCode), v1.RevisionContainerExitingMessage(t.Message))
+						if t.ExitCode == 0 && t.Message == "" {
+							// In cases where there is no error message, we should still provide some exit message in the status
+							rev.Status.MarkContainerHealthyFalse(v1.ExitCodeReason(t.ExitCode),
+								v1.RevisionContainerExitingMessage("container exited with no error"))
+						} else {
+							rev.Status.MarkContainerHealthyFalse(v1.ExitCodeReason(t.ExitCode), v1.RevisionContainerExitingMessage(t.Message))
+						}
 					} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
 						logger.Infof("marking resources unavailable with: %s: %s", w.Reason, w.Message)
 						rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
