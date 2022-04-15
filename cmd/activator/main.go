@@ -160,7 +160,7 @@ func main() {
 	if networkConfig.QueueProxyCA != "" && networkConfig.QueueProxySAN != "" {
 		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, networkConfig.QueueProxyCA, metav1.GetOptions{})
 		if err != nil {
-			logger.Fatalw("failed to get secret", zap.Error(err))
+			logger.Fatalw("Failed to get secret", zap.Error(err))
 		}
 		pool, err := x509.SystemCertPool()
 		if err != nil {
@@ -168,7 +168,7 @@ func main() {
 		}
 
 		if ok := pool.AppendCertsFromPEM(caSecret.Data["ca.crt"]); !ok {
-			logger.Fatalw("failed to append ca cert to the RootCAs")
+			logger.Fatalw("Failed to append ca cert to the RootCAs")
 		}
 
 		tlsConf := &tls.Config{
