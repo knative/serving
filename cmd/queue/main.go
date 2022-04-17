@@ -174,20 +174,31 @@ func main() {
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
 	mainServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint, false)
-	servers := map[string]*http.Server{
+	httpServers := map[string]*http.Server{
 		"main":    mainServer,
 		"metrics": buildMetricsServer(promStatReporter, protoStatReporter),
+		"admin":   buildAdminServer(logger, drain),
 	}
 	if env.EnableProfiling {
-		servers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
+		httpServers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
 	}
-	// Use TLS for the admin port as well when TLS is available.
-	if !tlsEnabled {
-		servers["admin"] = buildAdminServer(logger, drain)
+
+	// Enable TLS server when activator server certs are mounted.
+	// At this moment activator with TLS does not disable HTTP.
+	// See also https://github.com/knative/serving/issues/12808.
+	var tlsServers map[string]*http.Server
+	if tlsEnabled {
+		mainTLSServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
+		tlsServers = map[string]*http.Server{
+			"tlsMain":  mainTLSServer,
+			"tlsAdmin": buildAdminServer(logger, drain),
+		}
+		// Drop admin http server as we Use TLS for the admin server.
+		delete(httpServers, "admin")
 	}
 
 	errCh := make(chan error)
-	for name, server := range servers {
+	for name, server := range httpServers {
 		go func(name string, s *http.Server) {
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -195,24 +206,13 @@ func main() {
 			}
 		}(name, server)
 	}
-
-	// Enable TLS server when activator server certs are mounted.
-	// At this moment activator with TLS does not disable HTTP.
-	// See also https://github.com/knative/serving/issues/12808.
-	if tlsEnabled {
-		mainTLSServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
-		tlsServers := map[string]*http.Server{
-			"tlsMain":  mainTLSServer,
-			"tlsAdmin": buildAdminServer(logger, drain),
-		}
-		for name, server := range tlsServers {
-			go func(name string, s *http.Server) {
-				// Don't forward ErrServerClosed as that indicates we're already shutting down.
-				if err := s.ListenAndServeTLS(certPath, keyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
-					errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
-				}
-			}(name, server)
-		}
+	for name, server := range tlsServers {
+		go func(name string, s *http.Server) {
+			// Don't forward ErrServerClosed as that indicates we're already shutting down.
+			if err := s.ListenAndServeTLS(certPath, keyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
+			}
+		}(name, server)
 	}
 
 	// Blocks until we actually receive a TERM signal or one of the servers
@@ -233,9 +233,9 @@ func main() {
 		drain()
 
 		// Removing the main server from the shutdown logic as we've already shut it down.
-		delete(servers, "main")
+		delete(httpServers, "main")
 
-		for serverName, srv := range servers {
+		for serverName, srv := range httpServers {
 			logger.Info("Shutting down server: ", serverName)
 			if err := srv.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown server", zap.String("server", serverName), zap.Error(err))
