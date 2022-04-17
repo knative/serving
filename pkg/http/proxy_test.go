@@ -91,7 +91,7 @@ func TestNewHeaderPruningProxy(t *testing.T) {
 			proxy := NewHeaderPruningReverseProxy(serverURL.Host, test.host, []string{
 				"header-to-remove-1",
 				"header-to-remove-2",
-			}, "http")
+			}, false /* use HTTPS */)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, test.url, nil)
@@ -182,7 +182,7 @@ func TestNewHeaderPruningProxyHTTPS(t *testing.T) {
 			proxy := NewHeaderPruningReverseProxy(serverURL.Host, test.host, []string{
 				"header-to-remove-1",
 				"header-to-remove-2",
-			}, "https")
+			}, true /* use HTTPS */)
 
 			resp := httptest.NewRecorder()
 

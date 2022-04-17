@@ -154,14 +154,18 @@ func main() {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
 
+	// Enable TLS against queue-proxy when the CA and SA are specified.
+	tlsEnabled := networkConfig.QueueProxyCA != "" && networkConfig.QueueProxySAN != ""
+
 	// Enable TLS client when queue-proxy-ca is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if networkConfig.QueueProxyCA != "" && networkConfig.QueueProxySAN != "" {
+	if tlsEnabled {
 		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, networkConfig.QueueProxyCA, metav1.GetOptions{})
 		if err != nil {
 			logger.Fatalw("Failed to get secret", zap.Error(err))
 		}
+
 		pool, err := x509.SystemCertPool()
 		if err != nil {
 			pool = x509.NewCertPool()
@@ -212,9 +216,6 @@ func main() {
 	// Create and run our concurrency reporter
 	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh)
 	go concurrencyReporter.Run(ctx.Done())
-
-	// Enable TLS against queue-proxy when the CA and SA are specified.
-	tlsEnabled := networkConfig.QueueProxyCA != "" && networkConfig.QueueProxySAN != ""
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first

@@ -181,7 +181,7 @@ func main() {
 	if env.EnableProfiling {
 		servers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
 	}
-	// Create the admin server for non-TLS when TLS is not enabled otherwise the port is conflicted.
+	// Use TLS for the admin port as well when TLS is available.
 	if !tlsEnabled {
 		servers["admin"] = buildAdminServer(logger, drain)
 	}
@@ -266,10 +266,11 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 
 func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *network.RequestStats, logger *zap.SugaredLogger,
 	ce *queue.ConcurrencyEndpoint, enableTLS bool) (server *http.Server, drain func()) {
+	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 
-	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders, "http" /* use http to the target*/)
+	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders, false /* use HTTP */)
 	httpProxy.Transport = buildTransport(env, logger)
 	httpProxy.ErrorHandler = pkghandler.Error(logger)
 	httpProxy.BufferPool = network.NewBufferPool()
@@ -379,7 +380,7 @@ func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
 }
 
 func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config, enableTLS bool) bool {
-	// Metrics needs to be registered on either TLS server or non-TLS server. Give it away to the TLS server.
+	// Keep it on HTTP because Metrics needs to be registered on either TLS server or non-TLS server.
 	if enableTLS {
 		return false
 	}
