@@ -194,6 +194,7 @@ func main() {
 			"tlsAdmin": buildAdminServer(logger, drain),
 		}
 		// Drop admin http server as we Use TLS for the admin server.
+		// TODO: The drain created with mainServer above is lost. Unify the two drain.
 		delete(httpServers, "admin")
 	}
 
@@ -276,6 +277,7 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	httpProxy.BufferPool = network.NewBufferPool()
 	httpProxy.FlushInterval = network.FlushInterval
 
+	// TODO: During HTTP and HTTPS transition, counting concurrency could not be accurate. Count accurately.
 	breaker := buildBreaker(logger, env)
 	metricsSupported := supportsMetrics(ctx, logger, env, enableTLS)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
