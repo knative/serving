@@ -26,4 +26,7 @@ const (
 	// Main usage is to delay the termination of user-container until all
 	// accepted requests have been processed.
 	RequestQueueDrainPath = "/wait-for-drain"
+
+	// CertDirectory is the name of the directory path where certificates are stored.
+	CertDirectory = "/var/lib/knative/certs"
 )

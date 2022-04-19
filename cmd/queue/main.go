@@ -62,11 +62,18 @@ const (
 	// This is to give networking a little bit more time to remove the pod
 	// from its configuration and propagate that to all loadbalancers and nodes.
 	drainSleepDuration = 30 * time.Second
+
+	// certPath is the path for the server certificate mounted by queue-proxy.
+	certPath = queue.CertDirectory + "/tls.crt"
+
+	// keyPath is the path for the server certificate key mounted by queue-proxy.
+	keyPath = queue.CertDirectory + "/tls.key"
 )
 
 type config struct {
 	ContainerConcurrency     int    `split_words:"true" required:"true"`
 	QueueServingPort         string `split_words:"true" required:"true"`
+	QueueServingTLSPort      string `split_words:"true" required:"true"`
 	UserPort                 string `split_words:"true" required:"true"`
 	RevisionTimeoutSeconds   int    `split_words:"true" required:"true"`
 	MaxDurationSeconds       int    `split_words:"true"` // optional
@@ -162,21 +169,48 @@ func main() {
 	if env.ConcurrencyStateEndpoint != "" {
 		concurrencyendpoint = queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, env.ConcurrencyStateTokenPath)
 	}
-	mainServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint)
-	servers := map[string]*http.Server{
+
+	// Enable TLS when certificate is mounted.
+	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
+
+	mainServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint, false)
+	httpServers := map[string]*http.Server{
 		"main":    mainServer,
-		"admin":   buildAdminServer(logger, drain),
 		"metrics": buildMetricsServer(promStatReporter, protoStatReporter),
+		"admin":   buildAdminServer(logger, drain),
 	}
 	if env.EnableProfiling {
-		servers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
+		httpServers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
+	}
+
+	// Enable TLS server when activator server certs are mounted.
+	// At this moment activator with TLS does not disable HTTP.
+	// See also https://github.com/knative/serving/issues/12808.
+	var tlsServers map[string]*http.Server
+	if tlsEnabled {
+		mainTLSServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
+		tlsServers = map[string]*http.Server{
+			"tlsMain":  mainTLSServer,
+			"tlsAdmin": buildAdminServer(logger, drain),
+		}
+		// Drop admin http server as we Use TLS for the admin server.
+		// TODO: The drain created with mainServer above is lost. Unify the two drain.
+		delete(httpServers, "admin")
 	}
 
 	errCh := make(chan error)
-	for name, server := range servers {
+	for name, server := range httpServers {
 		go func(name string, s *http.Server) {
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
+			}
+		}(name, server)
+	}
+	for name, server := range tlsServers {
+		go func(name string, s *http.Server) {
+			// Don't forward ErrServerClosed as that indicates we're already shutting down.
+			if err := s.ListenAndServeTLS(certPath, keyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
 			}
 		}(name, server)
@@ -200,9 +234,9 @@ func main() {
 		drain()
 
 		// Removing the main server from the shutdown logic as we've already shut it down.
-		delete(servers, "main")
+		delete(httpServers, "main")
 
-		for serverName, srv := range servers {
+		for serverName, srv := range httpServers {
 			logger.Info("Shutting down server: ", serverName)
 			if err := srv.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown server", zap.String("server", serverName), zap.Error(err))
@@ -210,6 +244,14 @@ func main() {
 		}
 		logger.Info("Shutdown complete, exiting...")
 	}
+}
+
+func exists(logger *zap.SugaredLogger, filename string) bool {
+	_, err := os.Stat(filename)
+	if err != nil && !os.IsNotExist(err) {
+		logger.Fatalw(fmt.Sprintf("Failed to verify the file path %q", filename), zap.Error(err))
+	}
+	return err == nil
 }
 
 func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 bool) *readiness.Probe {
@@ -224,18 +266,20 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 }
 
 func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *network.RequestStats, logger *zap.SugaredLogger,
-	ce *queue.ConcurrencyEndpoint) (server *http.Server, drain func()) {
+	ce *queue.ConcurrencyEndpoint, enableTLS bool) (server *http.Server, drain func()) {
+	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 
-	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders)
+	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders, false /* use HTTP */)
 	httpProxy.Transport = buildTransport(env, logger)
 	httpProxy.ErrorHandler = pkghandler.Error(logger)
 	httpProxy.BufferPool = network.NewBufferPool()
 	httpProxy.FlushInterval = network.FlushInterval
 
+	// TODO: During HTTP and HTTPS transition, counting concurrency could not be accurate. Count accurately.
 	breaker := buildBreaker(logger, env)
-	metricsSupported := supportsMetrics(ctx, logger, env)
+	metricsSupported := supportsMetrics(ctx, logger, env, enableTLS)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
 	concurrencyStateEnabled := env.ConcurrencyStateEndpoint != ""
 	firstByteTimeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
@@ -287,6 +331,10 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 		composedHandler = requestLogHandler(logger, composedHandler, env)
 	}
 
+	if enableTLS {
+		return pkgnet.NewServer(":"+env.QueueServingTLSPort, composedHandler), drainer.Drain
+	}
+
 	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler), drainer.Drain
 }
 
@@ -333,12 +381,15 @@ func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
 	return queue.NewBreaker(params)
 }
 
-func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config) bool {
+func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config, enableTLS bool) bool {
+	// Keep it on HTTP because Metrics needs to be registered on either TLS server or non-TLS server.
+	if enableTLS {
+		return false
+	}
 	// Setup request metrics reporting for end-user metrics.
 	if env.ServingRequestMetricsBackend == "" {
 		return false
 	}
-
 	if err := setupMetricsExporter(ctx, logger, env.ServingRequestMetricsBackend, env.MetricsCollectorAddress); err != nil {
 		logger.Errorw("Error setting up request metrics exporter. Request metrics will be unavailable.", zap.Error(err))
 		return false

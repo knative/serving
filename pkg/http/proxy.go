@@ -33,10 +33,14 @@ const NoHostOverride = ""
 // If hostOverride is not an empty string, the outgoing request's Host header will be
 // replaced with that explicit value and the passthrough loadbalancing header will be
 // set to enable pod-addressability.
-func NewHeaderPruningReverseProxy(target, hostOverride string, headersToRemove []string) *httputil.ReverseProxy {
+func NewHeaderPruningReverseProxy(target, hostOverride string, headersToRemove []string, useHTTPS bool) *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
-			req.URL.Scheme = "http"
+			if useHTTPS {
+				req.URL.Scheme = "https"
+			} else {
+				req.URL.Scheme = "http"
+			}
 			req.URL.Host = target
 
 			if hostOverride != NoHostOverride {

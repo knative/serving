@@ -21,6 +21,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httputil"
+	"strconv"
+	"strings"
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
@@ -35,6 +37,7 @@ import (
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 )
@@ -53,10 +56,11 @@ type activationHandler struct {
 	throttler        Throttler
 	bufferPool       httputil.BufferPool
 	logger           *zap.SugaredLogger
+	tls              bool
 }
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(_ context.Context, t Throttler, transport http.RoundTripper, usePassthroughLb bool, logger *zap.SugaredLogger) http.Handler {
+func New(_ context.Context, t Throttler, transport http.RoundTripper, usePassthroughLb bool, logger *zap.SugaredLogger, tlsEnabled bool) http.Handler {
 	return &activationHandler{
 		transport: transport,
 		tracingTransport: &ochttp.Transport{
@@ -67,6 +71,7 @@ func New(_ context.Context, t Throttler, transport http.RoundTripper, usePassthr
 		throttler:        t,
 		bufferPool:       network.NewBufferPool(),
 		logger:           logger,
+		tls:              tlsEnabled,
 	}
 }
 
@@ -116,7 +121,14 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	if usePassthroughLb {
 		hostOverride = names.PrivateService(revID.Name) + "." + revID.Namespace
 	}
-	proxy := pkghttp.NewHeaderPruningReverseProxy(target, hostOverride, activator.RevisionHeaders)
+
+	var proxy *httputil.ReverseProxy
+	if a.tls {
+		proxy = pkghttp.NewHeaderPruningReverseProxy(useSecurePort(target), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
+	} else {
+		proxy = pkghttp.NewHeaderPruningReverseProxy(target, hostOverride, activator.RevisionHeaders, false /* use HTTPS */)
+	}
+
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
 	if tracingEnabled {
@@ -128,4 +140,12 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	}
 
 	proxy.ServeHTTP(w, r)
+}
+
+// useSecurePort replaces the default port with HTTPS port (8112).
+// TODO: endpointsToDests() should support HTTPS instead of this overwrite but it needs metadata request to be encrypted.
+// This code should be removed when https://github.com/knative/serving/issues/12821 was solved.
+func useSecurePort(target string) string {
+	target = strings.Split(target, ":")[0]
+	return target + ":" + strconv.Itoa(networking.BackendHTTPSPort)
 }

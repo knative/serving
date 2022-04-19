@@ -16,6 +16,7 @@
 
 SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-knative-serving}"
 TEST_NAMESPACE=serving-tests
+TEST_NAMESPACE_ALT=serving-tests-alt
 out_dir="$(mktemp -d /tmp/certs-XXX)"
 san="knative"
 
@@ -33,5 +34,14 @@ kubectl create -n ${SYSTEM_NAMESPACE} secret generic serving-ca \
     --from-file=ca.crt="${out_dir}"/root.crt --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl create -n ${SYSTEM_NAMESPACE} secret tls server-certs \
+    --key="${out_dir}"/tls.key \
+    --cert="${out_dir}"/tls.crt --dry-run=client -o yaml | kubectl apply -f -
+
+# Create secrets for test namespaces
+kubectl create -n ${TEST_NAMESPACE} secret tls server-certs \
+    --key="${out_dir}"/tls.key \
+    --cert="${out_dir}"/tls.crt --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl create -n ${TEST_NAMESPACE_ALT} secret tls server-certs \
     --key="${out_dir}"/tls.key \
     --cert="${out_dir}"/tls.crt --dry-run=client -o yaml | kubectl apply -f -

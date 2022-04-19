@@ -124,7 +124,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Image = "alpine"
-			c.Ports = append(queueNonServingPorts, queueHTTP2Port)
+			c.Ports = append(queueNonServingPorts, queueHTTP2Port, queueHTTPSPort)
 			c.ReadinessProbe.ProbeHandler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
 			c.Env = env(map[string]string{
 				"USER_PORT":          "1955",
@@ -147,7 +147,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Image = "alpine"
-			c.Ports = append(queueNonServingPorts, queueHTTP2Port)
+			c.Ports = append(queueNonServingPorts, queueHTTP2Port, queueHTTPSPort)
 			c.ReadinessProbe.ProbeHandler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
 			c.Env = env(map[string]string{
 				"USER_PORT":          "1955",
@@ -269,7 +269,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			c.Env = env(map[string]string{
 				"ENABLE_PROFILING": "true",
 			})
-			c.Ports = append(queueNonServingPorts, profilingPort, queueHTTPPort)
+			c.Ports = append(queueNonServingPorts, profilingPort, queueHTTPPort, queueHTTPSPort)
 		}),
 	}, {
 		name: "custom TimeoutSeconds",
@@ -885,6 +885,7 @@ var defaultEnv = map[string]string{
 	"METRICS_DOMAIN":                   metrics.Domain(),
 	"METRICS_COLLECTOR_ADDRESS":        "",
 	"QUEUE_SERVING_PORT":               "8012",
+	"QUEUE_SERVING_TLS_PORT":           "8112",
 	"REVISION_TIMEOUT_SECONDS":         "45",
 	"SERVING_CONFIGURATION":            "",
 	"SERVING_ENABLE_PROBE_REQUEST_LOG": "false",
