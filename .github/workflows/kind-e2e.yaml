@@ -52,7 +52,7 @@ jobs:
     - name: Setup ko
       uses: imjasonh/setup-ko@v0.4
       with:
-        version: v0.8.0
+        version: v${KO_VERSION}
 
     - name: Setup Registry
       run: |
