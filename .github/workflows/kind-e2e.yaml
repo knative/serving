@@ -49,14 +49,10 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - name: Install Dependencies
-      run: |
-        set -x
-        echo "::group:: install ko ${KO_VERSION}"
-        curl -L https://github.com/google/ko/releases/download/v${KO_VERSION}/ko_${KO_VERSION}_linux_x86_64.tar.gz  | tar xzf - ko
-        chmod +x ./ko
-        sudo mv ko /usr/local/bin
-        echo "::endgroup::"
+    - name: Setup ko
+      uses: imjasonh/setup-ko@v0.4
+      with:
+        version: v0.8.0
 
     - name: Setup Registry
       run: |
