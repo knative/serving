@@ -16,7 +16,6 @@ env:
   REGISTRY_NAME: registry.local
   REGISTRY_PORT: 5000
   KO_DOCKER_REPO: registry.local:5000/knative
-  KO_VERSION: 0.11.2
   KIND_VERSION: 0.12.0
   GOTESTSUM_VERSION: 1.7.0
   KAPP_VERSION: 0.46.0
@@ -49,14 +48,10 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - name: Install Dependencies
-      run: |
-        set -x
-        echo "::group:: install ko ${KO_VERSION}"
-        curl -L https://github.com/google/ko/releases/download/v${KO_VERSION}/ko_${KO_VERSION}_linux_x86_64.tar.gz  | tar xzf - ko
-        chmod +x ./ko
-        sudo mv ko /usr/local/bin
-        echo "::endgroup::"
+    - name: Setup ko
+      uses: imjasonh/setup-ko@v0.4
+      with:
+        version: latest-release
 
     - name: Setup Registry
       run: |
