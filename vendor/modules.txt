@@ -235,6 +235,7 @@ github.com/gogo/protobuf/sortkeys
 ## explicit; go 1.15
 github.com/golang-jwt/jwt/v4
 # github.com/golang/glog v1.0.0
+## explicit; go 1.11
 github.com/golang/glog
 # github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 ## explicit
@@ -289,15 +290,17 @@ github.com/google/go-containerregistry/pkg/authn/k8schain
 ## explicit; go 1.17
 github.com/google/go-containerregistry/pkg/authn/kubernetes
 # github.com/google/go-github/v27 v27.0.6
+## explicit
 github.com/google/go-github/v27/github
 # github.com/google/go-querystring v1.0.0
+## explicit
 github.com/google/go-querystring/query
 # github.com/google/gofuzz v1.2.0
 ## explicit; go 1.12
 github.com/google/gofuzz
 github.com/google/gofuzz/bytesource
 # github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
-## explicit
+## explicit; go 1.12
 github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto
 github.com/google/mako/clients/proto/analyzers/utest_analyzer_go_proto
 github.com/google/mako/clients/proto/analyzers/window_deviation_go_proto
@@ -488,6 +491,13 @@ go.uber.org/zap/zapcore
 go.uber.org/zap/zaptest
 # golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 ## explicit; go 1.17
+golang.org/x/crypto/cast5
+golang.org/x/crypto/openpgp
+golang.org/x/crypto/openpgp/armor
+golang.org/x/crypto/openpgp/elgamal
+golang.org/x/crypto/openpgp/errors
+golang.org/x/crypto/openpgp/packet
+golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pkcs12
 golang.org/x/crypto/pkcs12/internal/rc2
 # golang.org/x/mod v0.5.1
@@ -1311,6 +1321,7 @@ knative.dev/pkg/test/mako/alerter
 knative.dev/pkg/test/mako/alerter/github
 knative.dev/pkg/test/mako/alerter/slack
 knative.dev/pkg/test/mako/config
+knative.dev/pkg/test/mako/stub-sidecar
 knative.dev/pkg/test/migrate
 knative.dev/pkg/test/monitoring
 knative.dev/pkg/test/slackutil
@@ -1318,6 +1329,7 @@ knative.dev/pkg/test/spoof
 knative.dev/pkg/test/upgrade
 knative.dev/pkg/test/vegeta/pacers
 knative.dev/pkg/test/zipkin
+knative.dev/pkg/third_party/mako/proto/quickstore_go_proto
 knative.dev/pkg/tracing
 knative.dev/pkg/tracing/config
 knative.dev/pkg/tracing/propagation

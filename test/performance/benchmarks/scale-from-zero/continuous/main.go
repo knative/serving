@@ -269,7 +269,6 @@ func testScaleFromZero(clients *test.Clients, count int) {
 
 func main() {
 	env := environment.ClientConfig{}
-	env.InitFlags(flag.CommandLine)
 	flag.Parse()
 
 	cfg, err := env.GetRESTConfig()

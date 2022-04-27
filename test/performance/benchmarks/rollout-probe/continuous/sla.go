@@ -102,6 +102,16 @@ var (
 			// We use the same threshold analyzer, since we want Throttler/Breaker to exert minimal latency impact.
 			analyzers: []*tpb.ThresholdAnalyzerInput{newActivator95PercentileLatency("ac")},
 		},
+		"activator-with-cc-lin": {
+			target: vegeta.Target{
+				Method: http.MethodGet,
+				URL:    "http://activator-with-cc-lin.default.svc.cluster.local?sleep=100",
+			},
+			stat:  "ac",
+			estat: "ace",
+			// We use the same threshold analyzer, since we want Throttler/Breaker to exert minimal latency impact.
+			analyzers: []*tpb.ThresholdAnalyzerInput{newActivator95PercentileLatency("ac")},
+		},
 	}
 )
 

@@ -22,3 +22,27 @@ provides a set of tools for metrics data storage, charting, statistical
 aggregation and performance regression analysis. To use it to create a benchmark
 for Knative and run it continuously, please refer to
 [Benchmarks.md](https://github.com/knative/serving/blob/main/test/performance/Benchmarks.md).
+
+### Run without Mako
+
+To run a benchmark once, and use the result from `mako-stub` for plotting:
+
+1. Start the benchmarking job:
+
+   `ko apply -f test/performance/benchmarks/deployment-probe/continuous/benchmark-direct.yaml`
+
+1. Wait until all the pods with the selector equal to the job name are completed.
+
+1. Retrieve results from mako-stub using the script in where `pod_name` is the name of the pod from the previous step.
+
+  `read_results.sh "$pod_name" "$pod_namespace" ${mako_port:-10001} ${timeout:-120} ${retries:-100} ${retries_interval:-10} "$output_file"`
+
+   This will download a CSV with all raw results. Alternatively you can remove
+   the port argument `-p` in `mako-stub` container to dump the output to
+   container log directly.
+
+**Note:** Running `performance-tests-mako.sh` creates a cluster and runs all the benchmarks in sequence. Results are downloaded in a temp folder
+
+### Kperf
+
+Running `performance-tests.sh` runs performance tests using [kperf](https://github.com/knative-sandbox/kperf)
