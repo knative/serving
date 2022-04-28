@@ -88,7 +88,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-persistent-volume-claim", &nc.PodSpecPersistentVolumeClaim),
 		asFlag("kubernetes.podspec-persistent-volume-write", &nc.PodSpecPersistentVolumeWrite),
 		asFlag("kubernetes.podspec-dnspolicy", &nc.PodSpecDNSPolicy),
-		asFlag("kubernetes.podspec-dnsconfing", &nc.PodSpecDNSConfig),
+		asFlag("kubernetes.podspec-dnsconfig", &nc.PodSpecDNSConfig),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
 		asFlag("autodetect-http2", &nc.AutoDetectHTTP2)); err != nil {
 		return nil, err
