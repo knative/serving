@@ -119,8 +119,7 @@ function parse_flags() {
       return 1
       ;;
     --enable-ha)
-      echo "DEBUG: setting enable-ha flag"
-      readonly ENABLE_HA=1
+      if [ "$ENABLE_HA" -ne 1 ]; then readonly ENABLE_HA=1; fi
       return 1
       ;;
     --kind)
