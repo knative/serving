@@ -1733,6 +1733,8 @@ knative.dev/caching v0.0.0-20220418170627-01e41320089a h1:bpuqOfSgxjI/tZSpAA6L0F
 knative.dev/caching v0.0.0-20220418170627-01e41320089a/go.mod h1:BFtnxIjI27VMV52u4vHhplij9j5PbQRXFlDMv7EMjbM=
 knative.dev/caching v0.0.0-20220427013924-6f81e2603c9f h1:q4v1s69VKib1fuZSG7jEA3K5rILmJmXyFIkL9Zbw8qA=
 knative.dev/caching v0.0.0-20220427013924-6f81e2603c9f/go.mod h1:v7alC8ZeElvhSVxJe7xQf55vQhsozWq+0ikJS8LGmHs=
+knative.dev/caching v0.0.0-20220427141252-86445783a1d2 h1:i5AYDpQcum30er8rSYgrxc9QLV/Pk6FLh4MilZdEcfc=
+knative.dev/caching v0.0.0-20220427141252-86445783a1d2/go.mod h1:xB2YcKDXCql3OpoaaePkk1nDgpZ1WLpBM2w3Fu8KBHc=
 knative.dev/hack v0.0.0-20220328133751-f06773764ce3/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
 knative.dev/hack v0.0.0-20220411131823-6ffd8417de7c h1:aXsFXeky/GccNQxwf72CS4NR3EoqTqsCVNKQnblfwr0=
 knative.dev/hack v0.0.0-20220411131823-6ffd8417de7c/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
@@ -1755,6 +1757,8 @@ knative.dev/pkg v0.0.0-20220425215754-45c37c266b74 h1:ATp/dWCcWc5Tzf88Ubb/NmQMNX
 knative.dev/pkg v0.0.0-20220425215754-45c37c266b74/go.mod h1:j2MeD8s+JoCu1vegX80GbRXV/xd20Jm1NznxBYtVXiM=
 knative.dev/pkg v0.0.0-20220427013826-1f681e126af6 h1:+vhoviqx3A15aN24zh3CgnVS9Aj6uCF6NDw27hKfgJo=
 knative.dev/pkg v0.0.0-20220427013826-1f681e126af6/go.mod h1:j2MeD8s+JoCu1vegX80GbRXV/xd20Jm1NznxBYtVXiM=
+knative.dev/pkg v0.0.0-20220427171752-2d552be030f6 h1:Qj5aQiYQFOFXAWp1+pw8k/o++PMuzEeLVpAYt70gxIU=
+knative.dev/pkg v0.0.0-20220427171752-2d552be030f6/go.mod h1:NXK3p/UMCbFybBM9xQGii3TuMN/WKHByXcYsTwZ6Y6U=
 mvdan.cc/gofumpt v0.1.1/go.mod h1:yXG1r1WqZVKWbVRtBWKWX9+CxGYfA51nSomhM0woR48=
 mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed/go.mod h1:Xkxe497xwlCKkIaQYRfC7CSLworTXY9RMqwhhCm+8Nc=
 mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b/go.mod h1:2odslEg/xrtNQqCYg2/jCoyKnw3vv5biOc3JnIcYfL4=
