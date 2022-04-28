@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "e1c6e542"
+    knative.dev/example-checksum: "433d7e74"
 data:
   _example: |-
     ################################
@@ -87,6 +87,18 @@ data:
     # WARNING: Cannot safely be disabled once enabled.
     # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-runtime-class
     kubernetes.podspec-runtimeclassname: "disabled"
+
+    # Indicates whether Kubernetes DNSPolicy support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-dnspolicy
+    kubernetes.podspec-dnspolicy: "disabled"
+
+    # Indicates whether Kubernetes DNSConfig support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-dnsconfig
+    kubernetes.podspec-dnsconfig: "disabled"
 
     # This feature allows end-users to set a subset of fields on the Pod's SecurityContext
     #
