@@ -607,7 +607,7 @@ func TestReconcile(t *testing.T) {
 				WithObservedGeneration(1)),
 		}},
 		WantCreates: []runtime.Object{
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(minActivators), sksNoConds),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(minActivators), WithProxyMode, sksNoConds),
 		},
 	}, {
 		Name: "sks is out of whack",
@@ -642,7 +642,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantCreates: []runtime.Object{
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(minActivators), sksNoConds),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithNumActivators(minActivators), sksNoConds),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -653,7 +653,7 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, withScales(1, defaultScale), WithPAMetricsService(privateSvc), WithTraffic, WithObservedGeneration(1)),
-			sks(testNamespace, testRevision, WithDeployRef("bar")),
+			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef("bar")),
 			metric(testNamespace, testRevision),
 			defaultDeployment,
 		},
@@ -662,7 +662,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(minActivators)),
+			Object: sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithNumActivators(minActivators)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
@@ -1059,7 +1059,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName)),
 			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService, WithPubService),
+			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithPrivateService, WithPubService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
@@ -1083,7 +1083,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName)),
 			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
+			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithPrivateService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
@@ -1101,13 +1101,12 @@ func TestReconcile(t *testing.T) {
 		Name: "initial scale zero: stay at zero",
 		Key:  key,
 		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey{}, initialScaleZeroASConfig()), deciderKey{},
-			decider(testNamespace, testRevision, -1, /* desiredScale */
-				0 /* ebc */)),
+			decider(testNamespace, testRevision, -1 /* desiredScale */, 0 /* ebc */)),
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markScaleTargetInitialized, withScales(0, scaleUnknown),
 				WithReachabilityReachable, WithPAMetricsService(privateSvc), WithPASKSNotReady(""),
 			),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
+			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithPrivateService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)

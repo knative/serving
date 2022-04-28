@@ -98,7 +98,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	if sks == nil || sks.Status.PrivateServiceName == "" {
 		// Before we can reconcile decider and get real number of activators
 		// we start with default of 2.
-		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, minActivators); err != nil {
+		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeProxy, minActivators); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
 		pa.Status.MarkSKSNotReady(noPrivateServiceName) // In both cases this is true.
@@ -123,22 +123,26 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		return fmt.Errorf("error scaling target: %w", err)
 	}
 
-	mode := nv1alpha1.SKSOperationModeServe
+	mode := nv1alpha1.SKSOperationModeProxy
+
 	switch {
 	// When activator CA is enabled, force activator always in path.
 	// TODO: This is a temporary state and to be fixed.
 	// See also issues/11906 and issues/12797.
 	case len(config.FromContext(ctx).Network.ActivatorCA) > 0:
 		mode = nv1alpha1.SKSOperationModeProxy
-	// We put activator in the serving path in the following cases:
-	// 1. The revision is scaled to 0:
-	//   a. want == 0
-	//   b. want == -1 && PA is inactive (Autoscaler has no previous knowledge of
-	//			this revision, e.g. after a restart) but PA status is inactive (it was
-	//			already scaled to 0).
-	// 2. The excess burst capacity is negative.
-	case want == 0 || decider.Status.ExcessBurstCapacity < 0 || want == scaleUnknown && pa.Status.IsInactive():
+
+	// If the want == -1 and PA is inactive that implies the autoscaler
+	// has no knowledge of the revision (due to restart) but it was previously
+	// scaled down (inactive). In this instance we want to remain in Proxy Mode
+	case want == scaleUnknown && pa.Status.IsInactive():
 		mode = nv1alpha1.SKSOperationModeProxy
+
+	// We remove the activator from the serving path when
+	// we want the revision's scale to be greater than 0
+	// and we have excess burst capacity (>=0)
+	case want > 0 && decider.Status.ExcessBurstCapacity >= 0:
+		mode = nv1alpha1.SKSOperationModeServe
 	}
 
 	// Compare the desired and observed resources to determine our situation.
