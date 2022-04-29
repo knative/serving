@@ -155,6 +155,20 @@ func withPodSpecInitContainersEnabled() configOption {
 		cfg.Features.PodSpecInitContainers = config.Enabled
 		return cfg
 	}
+
+}
+func withPodSpecDNSPolicyEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecDNSPolicy = config.Enabled
+		return cfg
+	}
+}
+
+func withPodSpecDNSConfigEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecDNSConfig = config.Enabled
+		return cfg
+	}
 }
 
 func TestPodSpecValidation(t *testing.T) {
@@ -1062,6 +1076,28 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 			Paths:   []string{"topologySpreadConstraints"},
 		},
 		cfgOpts: []configOption{withPodSpecTopologySpreadConstraintsEnabled()},
+	}, {
+		name: "DNSPolicy",
+		featureSpec: corev1.PodSpec{
+			DNSPolicy: corev1.DNSDefault,
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"dnsPolicy"},
+		},
+		cfgOpts: []configOption{withPodSpecDNSPolicyEnabled()},
+	}, {
+		name: "DNSConfig",
+		featureSpec: corev1.PodSpec{
+			DNSConfig: &corev1.PodDNSConfig{
+				Nameservers: []string{"1.2.3.4"},
+			},
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"dnsConfig"},
+		},
+		cfgOpts: []configOption{withPodSpecDNSConfigEnabled()},
 	}, {
 		name: "HostAliases",
 		featureSpec: corev1.PodSpec{

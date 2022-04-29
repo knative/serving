@@ -70,6 +70,8 @@ func TestFeaturesConfiguration(t *testing.T) {
 			PodSpecTolerations:               Enabled,
 			PodSpecPriorityClassName:         Enabled,
 			PodSpecSchedulerName:             Enabled,
+			PodSpecDNSPolicy:                 Enabled,
+			PodSpecDNSConfig:                 Enabled,
 			TagHeaderBasedRouting:            Enabled,
 		}),
 		data: map[string]string{
@@ -84,6 +86,8 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-tolerations":               "Enabled",
 			"kubernetes.podspec-priorityclassname":         "Enabled",
 			"kubernetes.podspec-schedulername":             "Enabled",
+			"kubernetes.podspec-dnspolicy":                 "Enabled",
+			"kubernetes.podspec-dnsconfig":                 "Enabled",
 			"tag-header-based-routing":                     "Enabled",
 		},
 	}, {
@@ -490,6 +494,60 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"kubernetes.podspec-schedulername": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-dnspolicy Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecDNSPolicy: Allowed,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-dnspolicy": "Allowed",
+		},
+	}, {
+		name:    "kubernetes.podspec-dnspolicy Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecDNSPolicy: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-dnspolicy": "Enabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-dnspolicy Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecDNSPolicy: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-dnspolicy": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-dnsconfig Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecDNSConfig: Allowed,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-dnsconfig": "Allowed",
+		},
+	}, {
+		name:    "kubernetes.podspec-dnsconfig Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecDNSConfig: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-dnsconfig": "Enabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-dnsconfig Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecDNSConfig: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-dnsconfig": "Disabled",
 		},
 	}}
 
