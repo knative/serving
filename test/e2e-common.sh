@@ -120,7 +120,7 @@ function parse_flags() {
       ;;
     --enable-ha)
       readonly ENABLE_HA=1
-      return 0
+      return 1
       ;;
     --kind)
       readonly KIND=1

@@ -152,7 +152,10 @@ function initialize() {
         # Skip parsed flag (and possibly argument) and continue
         # Also save it to it's passed through to the test script
         for ((i=1;i<=skip;i++)); do
-          e2e_script_command+=("$1")
+          case ${1} in
+           --enable-ha) : ;;
+           *) e2e_script_command+=("$1") ;;
+          esac
           shift
         done
         continue
