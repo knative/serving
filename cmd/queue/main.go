@@ -71,15 +71,16 @@ const (
 )
 
 type config struct {
-	ContainerConcurrency     int    `split_words:"true" required:"true"`
-	QueueServingPort         string `split_words:"true" required:"true"`
-	QueueServingTLSPort      string `split_words:"true" required:"true"`
-	UserPort                 string `split_words:"true" required:"true"`
-	RevisionTimeoutSeconds   int    `split_words:"true" required:"true"`
-	MaxDurationSeconds       int    `split_words:"true"` // optional
-	ServingReadinessProbe    string `split_words:"true"` // optional
-	EnableProfiling          bool   `split_words:"true"` // optional
-	EnableHTTP2AutoDetection bool   `split_words:"true"` // optional
+	ContainerConcurrency                          int    `split_words:"true" required:"true"`
+	QueueServingPort                              string `split_words:"true" required:"true"`
+	QueueServingTLSPort                           string `split_words:"true" required:"true"`
+	UserPort                                      string `split_words:"true" required:"true"`
+	RevisionTimeoutSeconds                        int    `split_words:"true" required:"true"`
+	MaxDurationSeconds                            int    `split_words:"true"` // optional
+	ServingReadinessProbe                         string `split_words:"true"` // optional
+	EnableProfiling                               bool   `split_words:"true"` // optional
+	EnableHTTP2AutoDetection                      bool   `split_words:"true"` // optional
+	ExplicitlyReportUserContainerResponseInHeader bool   `split_words:"true"` // optional
 
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
@@ -276,6 +277,14 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	httpProxy.ErrorHandler = pkghandler.Error(logger)
 	httpProxy.BufferPool = network.NewBufferPool()
 	httpProxy.FlushInterval = network.FlushInterval
+	if env.ExplicitlyReportUserContainerResponseInHeader {
+		httpProxy.ModifyResponse = func(response *http.Response) error {
+			if response.StatusCode != 200 {
+				response.Header.Add("user_container_response_code", string(response.StatusCode))
+			}
+			return nil
+		}
+	}
 
 	// TODO: During HTTP and HTTPS transition, counting concurrency could not be accurate. Count accurately.
 	breaker := buildBreaker(logger, env)
