@@ -142,7 +142,7 @@ function initialize() {
   local e2e_script_command=( "${E2E_SCRIPT}" "--run-tests" )
 
   for i in "$@"; do
-       if [[ $i == "--parse-flags" ]]; then parse_script_flags=1; fi
+       if [[ $i == "--run-tests" ]]; then parse_script_flags=1; fi
   done
   
   cd "${REPO_ROOT_DIR}"
@@ -190,10 +190,6 @@ function initialize() {
     fi
   fi
 
-  if (( parse_script_flags )); then
-      e2e_script_command+=("--parse-flags")
-  fi
-  
   readonly IS_BOSKOS
   readonly SKIP_TEARDOWNS
 
