@@ -153,11 +153,13 @@ function initialize() {
     if function_exists parse_flags; then
       parse_flags "$@"
       local skip=$?
-      if [[ ${skip} -ne 0 ]] && (( parse_script_flags )); then
+      if [[ ${skip} -ne 0 ]]; then
         # Skip parsed flag (and possibly argument) and continue
         # Also save it to it's passed through to the test script
-        for ((i=1;i<=skip;i++)); do
-          e2e_script_command+=("$1")
+          for ((i=1;i<=skip;i++)); do
+            if (( parse_script_flags )); then
+              e2e_script_command+=("$1")
+            fi 
           shift
         done
         continue
