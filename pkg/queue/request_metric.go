@@ -133,7 +133,7 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
 			responseTimeInMsecM.M(float64(latency.Milliseconds())))
 		if h.reportLatencyInHeader {
-			rr.Header().Add("queue_proxy_request_latency", string(latency))
+			rr.Header().Add("queue_proxy_request_latency_ms", string(latency.Milliseconds()))
 		}
 	}()
 
@@ -203,7 +203,7 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		pkgmetrics.RecordBatch(ctx, appRequestCountM.M(1),
 			appResponseTimeInMsecM.M(float64(latency.Milliseconds())))
 		if h.reportLatencyInHeader {
-			rr.Header().Add("queue_proxy_app_request_latency", string(latency))
+			rr.Header().Add("queue_proxy_app_request_latency_ms", string(latency.Milliseconds()))
 		}
 	}()
 	h.next.ServeHTTP(rr, r)
