@@ -49,7 +49,7 @@ import (
 
 var (
 	template  = flag.String("template", "", "The service template to load from kodata/")
-	duration  = flag.Duration("duration", 25*time.Minute, "The duration of the benchmark to run.")
+	duration  = flag.Duration("duration", 5*time.Minute, "The duration of the benchmark to run.")
 	frequency = flag.Duration("frequency", 5*time.Second, "The frequency at which to create services.")
 )
 

@@ -37,9 +37,6 @@ readonly E2E_YAML_DIR="${TMP_DIR}/e2e-yaml"
 # resource/eviction as causes of flakiness.
 initialize --skip-istio-addon --min-nodes=10 --max-nodes=10 --perf --cluster-version=1.22 "$@"
 
-knative_setup
-test_setup
-
 mkdir -p "${ARTIFACTS}/mako"
 echo Results downloaded to "${ARTIFACTS}/mako"
 
@@ -85,7 +82,7 @@ kubectl create configmap config-mako --from-file=test/performance/benchmarks/dep
 ko apply -f test/performance/benchmarks/deployment-probe/continuous/benchmark-direct.yaml
 
 echo "waiting for test to complete"
-for i in {1..1500}; do
+for i in {1..600}; do
       echo -n "#"
       sleep 1
 done

@@ -17,11 +17,9 @@ interface. Custom pacer implementations used in Knative tests are under
 
 ## Benchmarking
 
-Knative uses [mako](https://github.com/google/mako) for benchmarking. It
-provides a set of tools for metrics data storage, charting, statistical
-aggregation and performance regression analysis. To use it to create a benchmark
-for Knative and run it continuously, please refer to
-[Benchmarks.md](https://github.com/knative/serving/blob/main/test/performance/Benchmarks.md).
+The benchmarks were originally built to use [mako](https://github.com/google/mako), but currently
+running without connecting to the Mako backend, and collecting the data using
+a Mako sidecar stub.
 
 ### Run without Mako
 
