@@ -150,10 +150,10 @@ function initialize() {
     local parameter=$1
     # TODO(chizhg): remove parse_flags logic if no repos are using it.
     # Try parsing flag as a custom one.
-    if function_exists parse_flags && (( parse_script_flags )); then
+    if function_exists parse_flags; then
       parse_flags "$@"
       local skip=$?
-      if [[ ${skip} -ne 0 ]]; then
+      if [[ ${skip} -ne 0 ]] && (( parse_script_flags )); then
         # Skip parsed flag (and possibly argument) and continue
         # Also save it to it's passed through to the test script
         for ((i=1;i<=skip;i++)); do
