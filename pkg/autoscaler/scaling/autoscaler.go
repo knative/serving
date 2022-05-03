@@ -284,7 +284,7 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 			excessBurstCapacityM.M(excessBCF),
 			desiredPodCountM.M(int64(desiredPodCount)),
 			stableRPSM.M(observedStableValue),
-			panicRPSM.M(observedStableValue),
+			panicRPSM.M(observedPanicValue),
 			targetRPSM.M(spec.TargetValue),
 		)
 	default:
