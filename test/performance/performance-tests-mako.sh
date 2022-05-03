@@ -73,23 +73,23 @@ header "Results from ${PODNAME_DPA}"
 test/performance/read_results.sh ${PODNAME_DPA} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-activator.csv"
 
 ############################################################################################
-header "Deployment probe performance test"
-kubectl delete job  deployment-probe --ignore-not-found=true
-kubectl delete configmap config-mako --ignore-not-found=true
+# header "Deployment probe performance test"
+# kubectl delete job  deployment-probe --ignore-not-found=true
+# kubectl delete configmap config-mako --ignore-not-found=true
 
-kubectl create configmap config-mako --from-file=test/performance/benchmarks/deployment-probe/dev.config
+# kubectl create configmap config-mako --from-file=test/performance/benchmarks/deployment-probe/dev.config
 
-ko apply -f test/performance/benchmarks/deployment-probe/continuous/benchmark-direct.yaml
+# ko apply -f test/performance/benchmarks/deployment-probe/continuous/benchmark-direct.yaml
 
-echo "waiting for test to complete"
-for i in {1..600}; do
-      echo -n "#"
-      sleep 1
-done
+# echo "waiting for test to complete"
+# for i in {1..600}; do
+#       echo -n "#"
+#       sleep 1
+# done
 
-PODNAME_DP=`kubectl get pods --selector=job-name=deployment-probe --template '{{range .items}}{{.metadata.name}}{{end}}'`
-header "Results from ${PODNAME_DP}"
-test/performance/read_results.sh ${PODNAME_DP} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-deployment-probe.csv"
+# PODNAME_DP=`kubectl get pods --selector=job-name=deployment-probe --template '{{range .items}}{{.metadata.name}}{{end}}'`
+# header "Results from ${PODNAME_DP}"
+# test/performance/read_results.sh ${PODNAME_DP} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-deployment-probe.csv"
 
 ###############################################################################################
 header "Load test"
@@ -174,86 +174,86 @@ for i in {1..60}; do
 done
 
 ###############################################################################################
-header "Rollout probe performance test"
-kubectl delete configmap config-mako --ignore-not-found=true
-
-kubectl create configmap config-mako --from-file=test/performance/benchmarks/rollout-probe/dev.config
-
-ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-setup.yaml
-
+#header "Rollout probe performance test"
+#kubectl delete configmap config-mako --ignore-not-found=true
+#
+#kubectl create configmap config-mako --from-file=test/performance/benchmarks/rollout-probe/dev.config
+#
+#ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-setup.yaml
+#
+################################################################################################
+#header "Rollout probe performance test with activator"
+#kubectl delete job rollout-probe-activator-with-cc --ignore-not-found=true
+#
+#ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-activator-direct.yaml
+#
+#echo "waiting for test to complete"
+#for i in {1..600}; do
+#      echo -n "#"
+#      sleep 1
+#done
+#
+#PODNAME_RPACC=`kubectl get pods --selector=job-name=rollout-probe-activator-with-cc --template '{{range .items}}{{.metadata.name}}{{end}}'`
+#header "Results from ${PODNAME_RPACC}"
+#test/performance/read_results.sh ${PODNAME_RPACC} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-rollout-probe-activator-with-cc.csv"
+#clean up for the next test
+#kubectl delete job rollout-probe-activator-with-cc --ignore-not-found=true
+#kubectl delete ksvc activator-with-cc --ignore-not-found=true
+#echo "waiting for cleanup to complete"
+#for i in {1..60}; do
+#      echo -n "#"
+#      sleep 1
+#done
+#
 ###############################################################################################
-header "Rollout probe performance test with activator"
-kubectl delete job rollout-probe-activator-with-cc --ignore-not-found=true
-
-ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-activator-direct.yaml
-
-echo "waiting for test to complete"
-for i in {1..600}; do
-      echo -n "#"
-      sleep 1
-done
-
-PODNAME_RPACC=`kubectl get pods --selector=job-name=rollout-probe-activator-with-cc --template '{{range .items}}{{.metadata.name}}{{end}}'`
-header "Results from ${PODNAME_RPACC}"
-test/performance/read_results.sh ${PODNAME_RPACC} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-rollout-probe-activator-with-cc.csv"
-clean up for the next test
-kubectl delete job rollout-probe-activator-with-cc --ignore-not-found=true
-kubectl delete ksvc activator-with-cc --ignore-not-found=true
-echo "waiting for cleanup to complete"
-for i in {1..60}; do
-      echo -n "#"
-      sleep 1
-done
-
-###############################################################################################
-header "Rollout probe performance test with activator lin"
-kubectl delete job rollout-probe-activator-with-cc-lin --ignore-not-found=true
-
-ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-activator-lin-direct.yaml
-
-echo "waiting for test to complete"
-for i in {1..600}; do
-        echo -n "#"
-        sleep 1
-done
-
-PODNAME_RPALIN=`kubectl get pods --selector=job-name=rollout-probe-activator-with-cc-lin --template '{{range .items}}{{.metadata.name}}{{end}}'`
-header "Results from ${PODNAME_RPALIN}"
-test/performance/read_results.sh ${PODNAME_RPALIN} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-rollout-probe-activator-with-cc-lin.csv"
-
-# clean up for the next test
-kubectl delete job rollout-probe-activator-with-cc-lin --ignore-not-found=true
-kubectl delete ksvc activator-with-cc-lin --ignore-not-found=true
-echo "waiting for cleanup to complete"
-for i in {1..60}; do
-        echo -n "#"
-        sleep 1
-done
-
-###############################################################################################
-header "Rollout probe performance test with queue"
-kubectl delete job rollout-probe-queue-with-cc --ignore-not-found=true
-
-ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-queue-direct.yaml
-
-echo "waiting for test to complete"
-for i in {1..600}; do
-        echo -n "#"
-        sleep 1
-done
-
-PODNAME_RPQ=`kubectl get pods --selector=job-name=rollout-probe-queue-with-cc --template '{{range .items}}{{.metadata.name}}{{end}}'`
-header "Results from ${PODNAME_RPQ}"
-test/performance/read_results.sh ${PODNAME_RPQ} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-rollout-probe-queue-with-cc.csv"
-
-# clean up for the next test
-kubectl delete job rollout-probe-queue-with-cc --ignore-not-found=true
-kubectl delete ksvc queue-proxy-with-cc --ignore-not-found=true
-echo "waiting for cleanup to complete"
-for i in {1..60}; do
-        echo -n "#"
-        sleep 1
-done
+#header "Rollout probe performance test with activator lin"
+#kubectl delete job rollout-probe-activator-with-cc-lin --ignore-not-found=true
+#
+#ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-activator-lin-direct.yaml
+#
+#echo "waiting for test to complete"
+#for i in {1..600}; do
+#        echo -n "#"
+#        sleep 1
+#done
+#
+#PODNAME_RPALIN=`kubectl get pods --selector=job-name=rollout-probe-activator-with-cc-lin --template '{{range .items}}{{.metadata.name}}{{end}}'`
+#header "Results from ${PODNAME_RPALIN}"
+#test/performance/read_results.sh ${PODNAME_RPALIN} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-rollout-probe-activator-with-cc-lin.csv"
+#
+## clean up for the next test
+#kubectl delete job rollout-probe-activator-with-cc-lin --ignore-not-found=true
+#kubectl delete ksvc activator-with-cc-lin --ignore-not-found=true
+#echo "waiting for cleanup to complete"
+#for i in {1..60}; do
+#        echo -n "#"
+#        sleep 1
+#done
+#
+################################################################################################
+#header "Rollout probe performance test with queue"
+#kubectl delete job rollout-probe-queue-with-cc --ignore-not-found=true
+#
+#ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-queue-direct.yaml
+#
+#echo "waiting for test to complete"
+#for i in {1..600}; do
+#        echo -n "#"
+#        sleep 1
+#done
+#
+#PODNAME_RPQ=`kubectl get pods --selector=job-name=rollout-probe-queue-with-cc --template '{{range .items}}{{.metadata.name}}{{end}}'`
+#header "Results from ${PODNAME_RPQ}"
+#test/performance/read_results.sh ${PODNAME_RPQ} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-rollout-probe-queue-with-cc.csv"
+#
+## clean up for the next test
+#kubectl delete job rollout-probe-queue-with-cc --ignore-not-found=true
+#kubectl delete ksvc queue-proxy-with-cc --ignore-not-found=true
+#echo "waiting for cleanup to complete"
+#for i in {1..60}; do
+#        echo -n "#"
+#        sleep 1
+#done
 
 ###############################################################################################
 header "Scale from Zero performance test"
