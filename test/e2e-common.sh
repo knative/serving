@@ -81,6 +81,7 @@ LATEST_NET_ISTIO_RELEASE_VERSION=$(latest_net_istio_version "$LATEST_SERVING_REL
 function parse_flags() {
   case "$1" in
     --istio-version)
+      echo "DEBUG: setting istio-version flag to $2"          
       [[ $2 =~ ^(stable|latest|head)$ ]] || abort "version format must be 'stable', 'latest', or 'head'"
       readonly ISTIO_VERSION=$2
       readonly INGRESS_CLASS="istio.ingress.networking.knative.dev"
@@ -111,6 +112,7 @@ function parse_flags() {
       return 1
       ;;
     --no-mesh)
+      echo "DEBUG: setting no-mesh flag"
       readonly MESH=0
       return 1
       ;;
