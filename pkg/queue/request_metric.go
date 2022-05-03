@@ -62,19 +62,21 @@ var (
 )
 
 type requestMetricsHandler struct {
-	next     http.Handler
-	statsCtx context.Context
+	next                  http.Handler
+	statsCtx              context.Context
+	reportLatencyInHeader bool
 }
 
 type appRequestMetricsHandler struct {
-	next     http.Handler
-	statsCtx context.Context
-	breaker  *Breaker
+	next                  http.Handler
+	statsCtx              context.Context
+	breaker               *Breaker
+	reportLatencyInHeader bool
 }
 
 // NewRequestMetricsHandler creates an http.Handler that emits request metrics.
 func NewRequestMetricsHandler(next http.Handler,
-	ns, service, config, rev, pod string) (http.Handler, error) {
+	ns, service, config, rev, pod string, reportLatencyInHeader bool) (http.Handler, error) {
 	keys := []tag.Key{metrics.PodKey, metrics.ContainerKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey, metrics.RouteTagKey}
 	if err := pkgmetrics.RegisterResourceView(
 		&view.View{
@@ -99,8 +101,9 @@ func NewRequestMetricsHandler(next http.Handler,
 	}
 
 	return &requestMetricsHandler{
-		next:     next,
-		statsCtx: ctx,
+		next:                  next,
+		statsCtx:              ctx,
+		reportLatencyInHeader: reportLatencyInHeader,
 	}, nil
 }
 
@@ -129,6 +132,9 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			rr.ResponseCode, routeTag)
 		pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
 			responseTimeInMsecM.M(float64(latency.Milliseconds())))
+		if h.reportLatencyInHeader {
+			rr.Header().Add("request_latency", string(latency))
+		}
 	}()
 
 	h.next.ServeHTTP(rr, r)
@@ -136,7 +142,7 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 // NewAppRequestMetricsHandler creates an http.Handler that emits request metrics.
 func NewAppRequestMetricsHandler(next http.Handler, b *Breaker,
-	ns, service, config, rev, pod string) (http.Handler, error) {
+	ns, service, config, rev, pod string, reportLatencyInHeader bool) (http.Handler, error) {
 	keys := []tag.Key{metrics.PodKey, metrics.ContainerKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey}
 	if err := pkgmetrics.RegisterResourceView(&view.View{
 		Description: "The number of requests that are routed to user-container",
@@ -163,9 +169,10 @@ func NewAppRequestMetricsHandler(next http.Handler, b *Breaker,
 	}
 
 	return &appRequestMetricsHandler{
-		next:     next,
-		statsCtx: ctx,
-		breaker:  b,
+		next:                  next,
+		statsCtx:              ctx,
+		breaker:               b,
+		reportLatencyInHeader: reportLatencyInHeader,
 	}, nil
 }
 
@@ -195,6 +202,9 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		ctx := metrics.AugmentWithResponse(h.statsCtx, rr.ResponseCode)
 		pkgmetrics.RecordBatch(ctx, appRequestCountM.M(1),
 			appResponseTimeInMsecM.M(float64(latency.Milliseconds())))
+		if h.reportLatencyInHeader {
+			rr.Header().Add("app_request_latency", string(latency))
+		}
 	}()
 	h.next.ServeHTTP(rr, r)
 }
