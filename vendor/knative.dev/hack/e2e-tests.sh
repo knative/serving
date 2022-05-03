@@ -137,15 +137,20 @@ CLOUD_PROVIDER="gke"
 function initialize() {
   local run_tests=0
   local custom_flags=()
+  local parse_script_flags=0
   E2E_SCRIPT="$(get_canonical_path "$0")"
   local e2e_script_command=( "${E2E_SCRIPT}" "--run-tests" )
 
+  for i in "$@"; do
+       if [[ $i == "--parse-flags" ]]; then parse_script_flags=1; fi
+  done
+  
   cd "${REPO_ROOT_DIR}"
   while [[ $# -ne 0 ]]; do
     local parameter=$1
     # TODO(chizhg): remove parse_flags logic if no repos are using it.
     # Try parsing flag as a custom one.
-    if function_exists parse_flags; then
+    if function_exists parse_flags && (( parse_script_flags )); then
       parse_flags "$@"
       local skip=$?
       if [[ ${skip} -ne 0 ]]; then
@@ -186,6 +191,10 @@ function initialize() {
     fi
   fi
 
+  if (( parse_script_flags )); then
+      e2e_script_command+=("--parse-flags")
+  fi
+  
   readonly IS_BOSKOS
   readonly SKIP_TEARDOWNS
 
