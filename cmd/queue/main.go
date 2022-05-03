@@ -97,6 +97,7 @@ type config struct {
 	ServingService               string `split_words:"true"` // optional
 	ServingRequestMetricsBackend string `split_words:"true"` // optional
 	MetricsCollectorAddress      string `split_words:"true"` // optional
+	ReportLatencyInHeader        bool   `split_words:"true"` // optional
 
 	// Tracing configuration
 	TracingConfigDebug          bool                      `split_words:"true"` // optional
@@ -440,7 +441,7 @@ func requestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, e
 
 func requestMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env config) http.Handler {
 	h, err := queue.NewRequestMetricsHandler(currentHandler, env.ServingNamespace,
-		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
+		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod, env.ReportLatencyInHeader)
 	if err != nil {
 		logger.Errorw("Error setting up request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
@@ -450,7 +451,7 @@ func requestMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handle
 
 func requestAppMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, breaker *queue.Breaker, env config) http.Handler {
 	h, err := queue.NewAppRequestMetricsHandler(currentHandler, breaker, env.ServingNamespace,
-		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
+		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod, env.ReportLatencyInHeader)
 	if err != nil {
 		logger.Errorw("Error setting up app request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
