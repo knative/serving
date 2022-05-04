@@ -215,7 +215,7 @@ func TestAutoscalerMetricsWithRPS(t *testing.T) {
 	expectScale(t, a, time.Now().Add(61*time.Second), ScaleResult{10, ebc, true})
 	wantMetrics := []metricstest.Metric{
 		metricstest.FloatMetric(stableRPSM.Name(), 100, nil).WithResource(wantResource),
-		metricstest.FloatMetric(panicRPSM.Name(), 100, nil).WithResource(wantResource),
+		metricstest.FloatMetric(panicRPSM.Name(), 99, nil).WithResource(wantResource),
 		metricstest.IntMetric(desiredPodCountM.Name(), 10, nil).WithResource(wantResource),
 		metricstest.FloatMetric(targetRPSM.Name(), spec.TargetValue, nil).WithResource(wantResource),
 		metricstest.FloatMetric(excessBurstCapacityM.Name(), float64(ebc), nil).WithResource(wantResource),
