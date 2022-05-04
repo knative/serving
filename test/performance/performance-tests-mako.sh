@@ -14,8 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script runs the end-to-end tests against Knative Serving built from source.
-# It is started by prow for each PR. For convenience, it can also be executed manually.
+# This script runs the performance tests using mako sidecar stub against Knative
+# Serving built from source. It can be optionally started for each PR.
+# For convenience, it can also be executed manually.
 
 # If you already have a Kubernetes cluster setup and kubectl pointing
 # to it, call this script with the --run-tests arguments and it will use
@@ -55,6 +56,7 @@ for i in {1..600}; do
         echo -n "#"
         sleep 1
 done
+echo ""
 
 PODNAME_DPD=`kubectl get pods --selector=job-name=dataplane-probe-deployment --template '{{range .items}}{{.metadata.name}}{{end}}'`
 header "Results from ${PODNAME_DPD}"
@@ -87,6 +89,7 @@ test/performance/read_results.sh ${PODNAME_DPA} "default" 10001 120 100 10 "${AR
 #       echo -n "#"
 #       sleep 1
 # done
+# echo ""
 
 # PODNAME_DP=`kubectl get pods --selector=job-name=deployment-probe --template '{{range .items}}{{.metadata.name}}{{end}}'`
 # header "Results from ${PODNAME_DP}"
@@ -112,6 +115,7 @@ for i in {1..600}; do
         echo -n "#"
         sleep 1
 done
+echo ""
 
 PODNAME_LTZ=`kubectl get pods --selector=job-name=load-test-zero --template '{{range .items}}{{.metadata.name}}{{end}}'`
 header "Results from ${PODNAME_LTZ}"
@@ -126,6 +130,7 @@ for i in {1..60}; do
         echo -n "#"
         sleep 1
 done
+echo ""
 
 ###############################################################################################
 header "Load test always"
@@ -138,13 +143,14 @@ for i in {1..600}; do
      echo -n "#"
      sleep 1
 done
+echo ""
 
 PODNAME_LTA=`kubectl get pods --selector=job-name=load-test-always --template '{{range .items}}{{.metadata.name}}{{end}}'`
 header "Results from ${PODNAME_LTA}"
 # read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
 test/performance/read_results.sh ${PODNAME_LTA} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-load-test-always.csv"
 
-lean up for the next test
+# clean up for the next test
 kubectl delete job load-test-always --ignore-not-found=true
 kubectl delete ksvc load-test-always --ignore-not-found=true
 echo "waiting for cleanup to complete"
@@ -152,6 +158,8 @@ for i in {1..60}; do
       echo -n "#"
       sleep 1
 done
+echo ""
+
 #############################################################################################
 header "Load test 200"
 kubectl delete job load-test-200 --ignore-not-found=true
@@ -163,13 +171,14 @@ for i in {1..600}; do
       echo -n "#"
       sleep 1
 done
+echo ""
 
 PODNAME_LT2=`kubectl get pods --selector=job-name=load-test-200 --template '{{range .items}}{{.metadata.name}}{{end}}'`
 header "Results from ${PODNAME_LT2}"
 # read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
 test/performance/read_results.sh ${PODNAME_LT2} "default" 10001 120 100 10 "${ARTIFACTS}/mako/load-test-200.csv"
 
-clean up for the next test
+# clean up for the next test
 kubectl delete job load-test-200 --ignore-not-found=true
 kubectl delete ksvc load-test-200  --ignore-not-found=true
 echo "waiting for cleanup to complete"
@@ -177,6 +186,7 @@ for i in {1..60}; do
       echo -n "#"
       sleep 1
 done
+echo ""
 
 ###############################################################################################
 #header "Rollout probe performance test"
@@ -197,11 +207,12 @@ done
 #      echo -n "#"
 #      sleep 1
 #done
+# echo ""
 #
 #PODNAME_RPACC=`kubectl get pods --selector=job-name=rollout-probe-activator-with-cc --template '{{range .items}}{{.metadata.name}}{{end}}'`
 #header "Results from ${PODNAME_RPACC}"
 #test/performance/read_results.sh ${PODNAME_RPACC} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-rollout-probe-activator-with-cc.csv"
-#clean up for the next test
+# #clean up for the next test
 #kubectl delete job rollout-probe-activator-with-cc --ignore-not-found=true
 #kubectl delete ksvc activator-with-cc --ignore-not-found=true
 #echo "waiting for cleanup to complete"
@@ -209,6 +220,7 @@ done
 #      echo -n "#"
 #      sleep 1
 #done
+# echo ""
 #
 ###############################################################################################
 #header "Rollout probe performance test with activator lin"
@@ -221,6 +233,7 @@ done
 #        echo -n "#"
 #        sleep 1
 #done
+# echo ""
 #
 #PODNAME_RPALIN=`kubectl get pods --selector=job-name=rollout-probe-activator-with-cc-lin --template '{{range .items}}{{.metadata.name}}{{end}}'`
 #header "Results from ${PODNAME_RPALIN}"
@@ -235,6 +248,7 @@ done
 #        echo -n "#"
 #        sleep 1
 #done
+# echo ""
 #
 ################################################################################################
 #header "Rollout probe performance test with queue"
@@ -247,6 +261,7 @@ done
 #        echo -n "#"
 #        sleep 1
 #done
+# echo ""
 #
 #PODNAME_RPQ=`kubectl get pods --selector=job-name=rollout-probe-queue-with-cc --template '{{range .items}}{{.metadata.name}}{{end}}'`
 #header "Results from ${PODNAME_RPQ}"
@@ -261,6 +276,7 @@ done
 #        echo -n "#"
 #        sleep 1
 #done
+#echo ""
 
 ###############################################################################################
 header "Scale from Zero performance test"
@@ -276,6 +292,7 @@ for i in {1..120}; do
       echo -n "#"
       sleep 1
 done
+echo ""
 
 PODNAME1=`kubectl get pods --selector=job-name=scale-from-zero-1 --template '{{range .items}}{{.metadata.name}}{{end}}'`
 header "Results from ${PODNAME1}"
