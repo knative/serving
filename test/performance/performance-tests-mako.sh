@@ -58,6 +58,7 @@ done
 
 PODNAME_DPD=`kubectl get pods --selector=job-name=dataplane-probe-deployment --template '{{range .items}}{{.metadata.name}}{{end}}'`
 header "Results from ${PODNAME_DPD}"
+# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
 test/performance/read_results.sh ${PODNAME_DPD} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-deployment.csv"
 
 PODNAME_DPI=`kubectl get pods --selector=job-name=dataplane-probe-istio --template '{{range .items}}{{.metadata.name}}{{end}}'`
@@ -89,6 +90,7 @@ test/performance/read_results.sh ${PODNAME_DPA} "default" 10001 120 100 10 "${AR
 
 # PODNAME_DP=`kubectl get pods --selector=job-name=deployment-probe --template '{{range .items}}{{.metadata.name}}{{end}}'`
 # header "Results from ${PODNAME_DP}"
+# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
 # test/performance/read_results.sh ${PODNAME_DP} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-deployment-probe.csv"
 
 ###############################################################################################
@@ -113,6 +115,7 @@ done
 
 PODNAME_LTZ=`kubectl get pods --selector=job-name=load-test-zero --template '{{range .items}}{{.metadata.name}}{{end}}'`
 header "Results from ${PODNAME_LTZ}"
+# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
 test/performance/read_results.sh ${PODNAME_LTZ} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-load-test-zero.csv"
 
 # clean up for the next test
@@ -138,6 +141,7 @@ done
 
 PODNAME_LTA=`kubectl get pods --selector=job-name=load-test-always --template '{{range .items}}{{.metadata.name}}{{end}}'`
 header "Results from ${PODNAME_LTA}"
+# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
 test/performance/read_results.sh ${PODNAME_LTA} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-load-test-always.csv"
 
 lean up for the next test
@@ -162,6 +166,7 @@ done
 
 PODNAME_LT2=`kubectl get pods --selector=job-name=load-test-200 --template '{{range .items}}{{.metadata.name}}{{end}}'`
 header "Results from ${PODNAME_LT2}"
+# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
 test/performance/read_results.sh ${PODNAME_LT2} "default" 10001 120 100 10 "${ARTIFACTS}/mako/load-test-200.csv"
 
 clean up for the next test
@@ -219,6 +224,7 @@ done
 #
 #PODNAME_RPALIN=`kubectl get pods --selector=job-name=rollout-probe-activator-with-cc-lin --template '{{range .items}}{{.metadata.name}}{{end}}'`
 #header "Results from ${PODNAME_RPALIN}"
+# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
 #test/performance/read_results.sh ${PODNAME_RPALIN} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-rollout-probe-activator-with-cc-lin.csv"
 #
 ## clean up for the next test
@@ -244,6 +250,7 @@ done
 #
 #PODNAME_RPQ=`kubectl get pods --selector=job-name=rollout-probe-queue-with-cc --template '{{range .items}}{{.metadata.name}}{{end}}'`
 #header "Results from ${PODNAME_RPQ}"
+# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
 #test/performance/read_results.sh ${PODNAME_RPQ} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-rollout-probe-queue-with-cc.csv"
 #
 ## clean up for the next test
@@ -272,6 +279,7 @@ done
 
 PODNAME1=`kubectl get pods --selector=job-name=scale-from-zero-1 --template '{{range .items}}{{.metadata.name}}{{end}}'`
 header "Results from ${PODNAME1}"
+# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
 test/performance/read_results.sh ${PODNAME1} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-scale-from-zero-1.csv"
 
 PODNAME5=`kubectl get pods --selector=job-name=scale-from-zero-5 --template '{{range .items}}{{.metadata.name}}{{end}}'`

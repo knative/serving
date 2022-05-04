@@ -15,7 +15,7 @@ different rate, you can write your own pacer by implementing
 interface. Custom pacer implementations used in Knative tests are under
 [pacers](https://github.com/knative/pkg/tree/main/test/vegeta/pacers).
 
-## Benchmarking
+## Benchmarking using Mako
 
 The benchmarks were originally built to use [mako](https://github.com/google/mako), but currently
 running without connecting to the Mako backend, and collecting the data using
@@ -41,6 +41,6 @@ To run a benchmark once, and use the result from `mako-stub` for plotting:
 
 **Note:** Running `performance-tests-mako.sh` creates a cluster and runs all the benchmarks in sequence. Results are downloaded in a temp folder
 
-### Kperf
+### Benchmarking using Kperf
 
 Running `performance-tests.sh` runs performance tests using [kperf](https://github.com/knative-sandbox/kperf)

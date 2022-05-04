@@ -1,4 +1,4 @@
-# Copyright 2019 The Knative Authors
+# Copyright 2022 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -157,7 +157,7 @@ spec:
     - port: 80
       targetPort: 8080
   selector:
-    app: blah
+    app: app1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -167,17 +167,17 @@ spec:
   replicas: 5
   selector:
     matchLabels:
-      app: blah
+      app: app1
   template:
     metadata:
       labels:
-        app: blah
+        app: app1
     spec:
       containers:
       - name: user-container
         image: ko://knative.dev/serving/test/test_images/autoscale
         ports:
-        - name: blah
+        - name: app1
           containerPort: 8080
 ---
 apiVersion: v1
