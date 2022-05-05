@@ -113,7 +113,7 @@ func dialBackOffHelper(ctx context.Context, network, address string, bo wait.Bac
 		return c, nil
 	}
 	elapsed := time.Since(start)
-	return nil, fmt.Errorf("%w after %.2fs", ErrTimeoutDialing, elapsed.Seconds())
+	return nil, fmt.Errorf("%w %s after %.2fs", ErrTimeoutDialing, address, elapsed.Seconds())
 }
 
 func newHTTPTransport(disableKeepAlives, disableCompression bool, maxIdle, maxIdlePerHost int) http.RoundTripper {
