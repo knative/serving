@@ -70,13 +70,13 @@ aliases:
   - evankanderson
   - gab-satchi
   - itsmurugappan
-  - julz
   - knative-automation
   - knative-prow-releaser-robot
   - knative-prow-robot
   - knative-prow-updater-robot
   - knative-test-reporter-robot
   - lance
+  - n3wscott
   - pmorie
   - rhuss
   - smoser-ibm
@@ -199,7 +199,7 @@ aliases:
   technical-oversight-committee:
   - dprotaso
   - evankanderson
-  - julz
+  - n3wscott
   - rhuss
   trademark-committee:
   - evankanderson
