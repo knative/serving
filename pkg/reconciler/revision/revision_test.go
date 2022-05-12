@@ -517,7 +517,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 	if ierr := wait.PollImmediate(50*time.Millisecond, 6*time.Second, func() (bool, error) {
 		_, err = paL.Get(rev.Name)
 		if apierrs.IsNotFound(err) {
-			return false, err
+			return false, nil
 		}
 		return err == nil, err
 	}); ierr != nil {
