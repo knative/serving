@@ -28,11 +28,6 @@
 
 source $(dirname $0)/../e2e-common.sh
 
-export INGRESS_CLASS="istio.ingress.networking.knative.dev"
-export TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)}"
-export REPO_ROOT_DIR=$(pwd)
-readonly E2E_YAML_DIR="${TMP_DIR}/e2e-yaml"
-
 # Skip installing istio as an add-on.
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
