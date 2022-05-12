@@ -36,6 +36,11 @@ initialize --skip-istio-addon --min-nodes=10 --max-nodes=10 --perf --cluster-ver
 mkdir -p "${ARTIFACTS}/mako"
 echo Results downloaded to "${ARTIFACTS}/mako"
 
+# install netstat
+if (( IS_PROW )); then
+      apt-get update && apt-get install -y net-tools
+fi
+
 ###############################################################################################
 header "Dataplane probe performance test"
 kubectl delete job  dataplane-probe-deployment dataplane-probe-istio dataplane-probe-queue dataplane-probe-activator --ignore-not-found=true
