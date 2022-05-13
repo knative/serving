@@ -634,13 +634,14 @@ func SecurityContextMask(ctx context.Context, in *corev1.SecurityContext) *corev
 	out.ReadOnlyRootFilesystem = in.ReadOnlyRootFilesystem
 	out.RunAsUser = in.RunAsUser
 	out.RunAsGroup = in.RunAsGroup
+	out.Privileged = in.Privileged
+
 	// RunAsNonRoot when unset behaves the same way as false
 	// We do want the ability for folks to set this value to true
 	out.RunAsNonRoot = in.RunAsNonRoot
 
 	// Disallowed
 	// This list is unnecessary, but added here for clarity
-	out.Privileged = nil
 	out.SELinuxOptions = nil
 	out.AllowPrivilegeEscalation = nil
 	out.ProcMount = nil

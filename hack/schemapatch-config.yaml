@@ -151,7 +151,9 @@ k8s.io/api/core/v1.ResourceRequirementsMask:
     - Limits
     - Requests
 k8s.io/api/core/v1.PodSecurityContext:
+  preserveUnknownFields: true # for feature flagged fields
   allowedFields:
+    - Privileged
     - RunAsUser
     - RunAsGroup
     - RunAsNonRoot
@@ -160,11 +162,13 @@ k8s.io/api/core/v1.PodSecurityContext:
 k8s.io/api/core/v1.SecurityContext:
   preserveUnknownFields: true # for feature flagged fields
   allowedFields:
+    - Privileged
     - RunAsUser
     - ReadOnlyRootFilesystem
     - Capabilities
 k8s.io/api/core/v1.Capabilities:
   allowedFields:
+    - Add
     - Drop
   preserveUnknownFields: true # for feature flagged fields
 k8s.io/api/core/v1.ObjectReference:

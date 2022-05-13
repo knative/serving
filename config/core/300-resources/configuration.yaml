@@ -413,6 +413,12 @@ spec:
                                     description: The capabilities to add/drop when running containers. Defaults to the default set of capabilities granted by the container runtime. Note that this field cannot be set when spec.os.name is windows.
                                     type: object
                                     properties:
+                                      add:
+                                        description: Added capabilities
+                                        type: array
+                                        items:
+                                          description: Capability represent POSIX capabilities type
+                                          type: string
                                       drop:
                                         description: Removed capabilities
                                         type: array
@@ -420,6 +426,9 @@ spec:
                                           description: Capability represent POSIX capabilities type
                                           type: string
                                     x-kubernetes-preserve-unknown-fields: true
+                                  privileged:
+                                    description: Run container in privileged mode. Processes in privileged containers are essentially equivalent to root on the host. Defaults to false. Note that this field cannot be set when spec.os.name is windows.
+                                    type: boolean
                                   readOnlyRootFilesystem:
                                     description: Whether this container has a read-only root filesystem. Default is false. Note that this field cannot be set when spec.os.name is windows.
                                     type: boolean

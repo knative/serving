@@ -339,7 +339,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 
 	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(ctx, &ps))
 
-	errs = errs.Also(ValidatePodSecurityContext(ctx, ps.SecurityContext).ViaField("securityContext"))
+	// errs = errs.Also(ValidatePodSecurityContext(ctx, ps.SecurityContext).ViaField("securityContext"))
 
 	volumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(append(ps.InitContainers, ps.Containers...)))
 	errs = errs.Also(err.ViaField("volumes"))
