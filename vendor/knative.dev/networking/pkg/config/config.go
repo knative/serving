@@ -139,6 +139,9 @@ const (
 	// QueueProxyCertKey is the config for the secret name, which stores certificates
 	// to serve the TLS traffic from activator to queue-proxy.
 	QueueProxyCertKey = "queue-proxy-cert-secret"
+
+	// SecretInformerLabelKey is used to specify a label selector for informers listing ingress secrets.
+	SecretInformerLabelKey = "certificate.networking.knative.dev"
 )
 
 // HTTPProtocol indicates a type of HTTP endpoint behavior
