@@ -302,7 +302,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:1ad450d2f89b8228abc469d7008f616da678daffabc535461f6e1eea6b51c600
+          image: docker.io/skonto/controller-7b82f356e674cfa4acc296344eb87e89@sha256:4c8ec90ee304f1b7d20b4d6637ead518789343e61d0ce2a5f95a87ccfbc7f37b
           resources:
             requests:
               cpu: 30m
