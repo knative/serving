@@ -321,6 +321,6 @@ jobs:
       # Only upload logs on failure.
       if: ${{ failure() }}
       with:
-        cluster-resources: nodes,${{ matrix.cluster-resources || '' }}
+        cluster-resources: nodes,namespaces,crds,${{ matrix.cluster-resources || '' }}
         namespace-resources: pods,svc,ksvc,route,configuration,revision,king,${{ matrix.namespace-resources || '' }}
         artifact-name: logs-${{ matrix.k8s-version}}-${{ matrix.ingress }}-${{ matrix.test-suite }}
