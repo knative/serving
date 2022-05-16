@@ -1,4 +1,4 @@
-# Generated with "kubectl kustomize https://github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.4.2"
+# Generated with "kubectl kustomize https://github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.4.3"
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -2268,7 +2268,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220509-f683b6cd"
+    app.kubernetes.io/version: "20220516-ce04a850"
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
@@ -2284,7 +2284,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220509-f683b6cd"
+    app.kubernetes.io/version: "20220516-ce04a850"
 rules:
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["httproutes", "gateways"]
@@ -2314,7 +2314,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220509-f683b6cd"
+    app.kubernetes.io/version: "20220516-ce04a850"
 data:
   _example: |
     ################################
@@ -2368,7 +2368,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
-    app.kubernetes.io/version: "20220509-f683b6cd"
+    app.kubernetes.io/version: "20220516-ce04a850"
     app.kubernetes.io/name: knative-serving
 spec:
   replicas: 1
@@ -2387,7 +2387,7 @@ spec:
             - podAffinityTerm:
                 labelSelector:
                   matchLabels:
-                    app: controller
+                    app: net-gateway-api-controller
                 topologyKey: kubernetes.io/hostname
               weight: 100
       serviceAccountName: controller
@@ -2395,7 +2395,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:800f4736cfb48c101e53432285ae553df0be4cdf275da3df08de5aa7549e9843
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:b8ea73083561b832e0d6e63ae6c89fdc76c38bebca40be6fa516ea47b634393b
           resources:
             requests:
               cpu: 100m
