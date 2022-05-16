@@ -322,6 +322,8 @@ spec:
             # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
             - name: METRICS_DOMAIN
               value: knative.dev/net-istio
+            - name: ENABLE_SECRET_INFORMER_FILTERING_BY_CERT_UID
+              value: "true"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

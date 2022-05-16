@@ -41,7 +41,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/apis/networking"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -85,7 +85,7 @@ func TestBYOCertificate(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: test.AppendRandomString("byocert-secret"),
 			Labels: map[string]string{
-				network.SecretInformerLabelKey: "byocert-secret",
+				networking.CertificateUIDLabelKey: "byocert-secret",
 			},
 		},
 		Type: corev1.SecretTypeTLS,
