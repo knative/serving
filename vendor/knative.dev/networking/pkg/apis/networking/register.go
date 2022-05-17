@@ -22,6 +22,9 @@ const (
 	// GroupName is the name for the networking API group.
 	GroupName = "networking.internal.knative.dev"
 
+	// CertifcateUIDLabelKey is used to specify a label selector for informers listing ingress secrets.
+	CertificateUIDLabelKey = GroupName + "/certificate-uid"
+
 	// IngressLabelKey is the label key attached to underlying network programming
 	// resources to indicate which Ingress triggered their creation.
 	IngressLabelKey = GroupName + "/ingress"

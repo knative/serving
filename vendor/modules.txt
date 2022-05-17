@@ -1165,11 +1165,13 @@ k8s.io/utils/buffer
 k8s.io/utils/clock
 k8s.io/utils/clock/testing
 k8s.io/utils/integer
+k8s.io/utils/internal/third_party/forked/golang/golang-lru
 k8s.io/utils/internal/third_party/forked/golang/net
+k8s.io/utils/lru
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20220504134959-dd8e0ef37355
+# knative.dev/caching v0.0.0-20220512013937-2d18d7a2cfe3
 ## explicit; go 1.15
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1190,12 +1192,12 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20220503220458-46c77f157e20
+# knative.dev/hack v0.0.0-20220512014059-f4972b4daff9
 ## explicit; go 1.14
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20220504043559-8d5dcbeeea2a
-## explicit; go 1.16
+# knative.dev/networking v0.0.0-20220517044757-f1ee84baecdf
+## explicit; go 1.17
 knative.dev/networking/config
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -1222,9 +1224,17 @@ knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/server
 knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake
 knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
+knative.dev/networking/pkg/config
+knative.dev/networking/pkg/http
+knative.dev/networking/pkg/http/header
+knative.dev/networking/pkg/http/probe
+knative.dev/networking/pkg/http/proxy
+knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
+knative.dev/networking/pkg/k8s
+knative.dev/networking/pkg/labels
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20220504135159-0719b405eca5
+# knative.dev/pkg v0.0.0-20220512013937-2d8305b2e59a
 ## explicit; go 1.17
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate

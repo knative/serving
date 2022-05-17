@@ -23,8 +23,8 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	net "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/network"
 )
 
@@ -61,8 +61,8 @@ func InsertProbe(ing *v1alpha1.Ingress) (string, error) {
 			if elt.Headers == nil {
 				elt.Headers = make(map[string]v1alpha1.HeaderMatch, 1)
 			}
-			elt.Headers[net.HashHeaderName] = v1alpha1.HeaderMatch{Exact: net.HashHeaderValue}
-			elt.AppendHeaders[net.HashHeaderName] = hash
+			elt.Headers[header.HashKey] = v1alpha1.HeaderMatch{Exact: header.HashValueOverride}
+			elt.AppendHeaders[header.HashKey] = hash
 			probePaths = append(probePaths, *elt)
 		}
 		rule.HTTP.Paths = append(probePaths, rule.HTTP.Paths...)
