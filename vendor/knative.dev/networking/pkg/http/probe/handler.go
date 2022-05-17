@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2022 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,39 +14,38 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pkg
+package probe
 
 import (
 	"fmt"
 	"net/http"
-)
 
-// ProbeHeaderValue is the value used in 'K-Network-Probe'
-var ProbeHeaderValue = "probe"
+	"knative.dev/networking/pkg/http/header"
+)
 
 type handler struct {
 	next http.Handler
 }
 
-// NewProbeHandler wraps a HTTP handler handling probing requests around the provided HTTP handler
-func NewProbeHandler(next http.Handler) http.Handler {
+// NewHandler wraps a HTTP handler handling probing requests around the provided HTTP handler
+func NewHandler(next http.Handler) http.Handler {
 	return &handler{next: next}
 }
 
 // ServeHTTP handles probing requests
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if ph := r.Header.Get(ProbeHeaderName); ph != ProbeHeaderValue {
-		r.Header.Del(HashHeaderName)
+	if ph := r.Header.Get(header.ProbeKey); ph != header.ProbeValue {
+		r.Header.Del(header.HashKey)
 		h.next.ServeHTTP(w, r)
 		return
 	}
 
-	hh := r.Header.Get(HashHeaderName)
+	hh := r.Header.Get(header.HashKey)
 	if hh == "" {
-		http.Error(w, fmt.Sprintf("a probe request must contain a non-empty %q header", HashHeaderName), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("a probe request must contain a non-empty %q header", header.HashKey), http.StatusBadRequest)
 		return
 	}
 
-	w.Header().Set(HashHeaderName, hh)
+	w.Header().Set(header.HashKey, hh)
 	w.WriteHeader(http.StatusOK)
 }

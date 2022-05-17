@@ -1,11 +1,11 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2022 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,102 +14,41 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pkg
+package config
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	"strings"
 	"text/template"
 
-	lru "github.com/hashicorp/golang-lru"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/lru"
 	cm "knative.dev/pkg/configmap"
 	"sigs.k8s.io/yaml"
 )
 
+var (
+	templateCache *lru.Cache
+
+	// Verify the default templates are valid.
+	_ = template.Must(template.New("domain-template").Parse(DefaultDomainTemplate))
+	_ = template.Must(template.New("tag-template").Parse(DefaultTagTemplate))
+)
+
+func init() {
+	// The only failure is due to negative size.
+	// Store ~10 latest templates per template type.
+	templateCache = lru.New(10 * 2)
+}
+
 const (
-	// ProbePath is the name of a path that activator, autoscaler and
-	// prober(used by KIngress generally) use for health check.
-	ProbePath = "/healthz"
-
-	// ProbeHeaderName is the name of a header that can be added to
-	// requests to probe the knative networking layer.  Requests
-	// with this header will not be passed to the user container or
-	// included in request metrics.
-	ProbeHeaderName = "K-Network-Probe"
-
-	// ProxyHeaderName is the name of an internal header that activator
-	// uses to mark requests going through it.
-	ProxyHeaderName = "K-Proxy-Request"
-
-	// HashHeaderName is the name of an internal header that Ingress controller
-	// uses to find out which version of the networking config is deployed.
-	HashHeaderName = "K-Network-Hash"
-
-	// HashHeaderValue is the value that must appear in the HashHeaderName
-	// header in order for our network hash to be injected.
-	HashHeaderValue = "override"
-
-	// OriginalHostHeader is used to avoid Istio host based routing rules
-	// in Activator.
-	// The header contains the original Host value that can be rewritten
-	// at the Queue proxy level back to be a host header.
-	OriginalHostHeader = "K-Original-Host"
-
 	// ConfigName is the name of the configmap containing all
 	// customizations for networking features.
-	ConfigName = "config-network"
-
-	// DefaultIngressClassKey is the name of the configuration entry
-	// that specifies the default Ingress.
-	DefaultIngressClassKey = "ingress-class"
-
-	// DefaultCertificateClassKey is the name of the configuration entry
-	// that specifies the default Certificate.
-	DefaultCertificateClassKey = "certificate-class"
-
-	// IstioIngressClassName value for specifying knative's Istio
-	// Ingress reconciler.
-	IstioIngressClassName = "istio.ingress.networking.knative.dev"
-
-	// CertManagerCertificateClassName value for specifying Knative's Cert-Manager
-	// Certificate reconciler.
-	CertManagerCertificateClassName = "cert-manager.certificate.networking.knative.dev"
-
-	// DomainTemplateKey is the name of the configuration entry that
-	// specifies the golang template string to use to construct the
-	// Knative service's DNS name.
-	DomainTemplateKey = "domain-template"
-
-	// TagTemplateKey is the name of the configuration entry that
-	// specifies the golang template string to use to construct the
-	// hostname for a Route's tag.
-	TagTemplateKey = "tag-template"
-
-	// RolloutDurationKey is the name of the configuration entry
-	// that specifies the default duration of the configuration rollout.
-	RolloutDurationKey = "rollout-duration"
-
-	// NamespaceWildcardCertSelectorKey is the name of the configuration
-	// entry that specifies a LabelSelector to control which namespaces
-	// have a wildcard certificate provisioned for them.
-	NamespaceWildcardCertSelectorKey = "namespace-wildcard-cert-selector"
-
-	// KubeProbeUAPrefix is the user agent prefix of the probe.
-	// Since K8s 1.8, prober requests have
-	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
-	KubeProbeUAPrefix = "kube-probe/"
-
-	// KubeletProbeHeaderName is the name of the header supplied by kubelet
-	// probes.  Istio with mTLS rewrites probes, but their probes pass a
-	// different user-agent.  So we augment the probes with this header.
-	KubeletProbeHeaderName = "K-Kubelet-Probe"
+	ConfigMapName = "config-network"
 
 	// DefaultDomainTemplate is the default golang template to use when
 	// constructing the Knative Route's Domain(host)
@@ -119,6 +58,18 @@ const (
 	// constructing the Knative Route's tag names.
 	DefaultTagTemplate = "{{.Tag}}-{{.Name}}"
 
+	// IstioIngressClassName value for specifying knative's Istio
+	// Ingress reconciler.
+	IstioIngressClassName = "istio.ingress.networking.knative.dev"
+
+	// CertManagerCertificateClassName value for specifying Knative's Cert-Manager
+	// Certificate reconciler.
+	CertManagerCertificateClassName = "cert-manager.certificate.networking.knative.dev"
+)
+
+// Config Keys
+const (
+
 	// AutocreateClusterDomainClaimsKey is the key for the
 	// AutocreateClusterDomainClaims property.
 	AutocreateClusterDomainClaimsKey = "autocreate-cluster-domain-claims"
@@ -127,68 +78,45 @@ const (
 	// that specifies enabling auto-TLS or not.
 	AutoTLSKey = "auto-tls"
 
-	// HTTPProtocolKey is the name of the configuration entry that
-	// specifies the HTTP endpoint behavior of Knative ingress.
-	HTTPProtocolKey = "http-protocol"
+	// DefaultCertificateClassKey is the name of the configuration entry
+	// that specifies the default Certificate.
+	DefaultCertificateClassKey = "certificate-class"
 
-	// UserAgentKey is the constant for header "User-Agent".
-	UserAgentKey = "User-Agent"
+	// DefaultExternalSchemeKey is the config for defining the scheme of external URLs.
+	DefaultExternalSchemeKey = "default-external-scheme"
 
-	// ActivatorUserAgent is the user-agent header value set in probe requests sent
-	// from activator.
-	ActivatorUserAgent = "Knative-Activator-Probe"
+	// DefaultIngressClassKey is the name of the configuration entry
+	// that specifies the default Ingress.
+	DefaultIngressClassKey = "ingress-class"
 
-	// QueueProxyUserAgent is the user-agent header value set in probe requests sent
-	// from queue-proxy.
-	QueueProxyUserAgent = "Knative-Queue-Proxy-Probe"
-
-	// IngressReadinessUserAgent is the user-agent header value
-	// set in probe requests for Ingress status.
-	IngressReadinessUserAgent = "Knative-Ingress-Probe"
-
-	// AutoscalingUserAgent is the user-agent header value set in probe
-	// requests sent by autoscaling implementations.
-	AutoscalingUserAgent = "Knative-Autoscaling-Probe"
-
-	// TagHeaderName is the name of the header entry which has a tag name as value.
-	// The tag name specifies which route was expected to be chosen by Ingress.
-	TagHeaderName = "Knative-Serving-Tag"
-
-	// DefaultRouteHeaderName is the name of the header entry
-	// identifying whether a request is routed via the default route or not.
-	// It has one of the string value "true" or "false".
-	DefaultRouteHeaderName = "Knative-Serving-Default-Route"
-
-	// ProtoAcceptContent is the content type to be used when autoscaler scrapes metrics from the QP
-	ProtoAcceptContent = "application/protobuf"
-
-	// FlushInterval controls the time when we flush the connection in the
-	// reverse proxies (Activator, QP).
-	// As of go1.16, a FlushInterval of 0 (the default) still flushes immediately
-	// when Content-Length is -1, which means the default works properly for
-	// streaming/websockets, without flushing more often than necessary for
-	// non-streaming requests.
-	FlushInterval = 0
-
-	// VisibilityLabelKey is the label to indicate visibility of Route
-	// and KServices.  It can be an annotation too but since users are
-	// already using labels for domain, it probably best to keep this
-	// consistent.
-	VisibilityLabelKey = "networking.knative.dev/visibility"
-
-	// PassthroughLoadbalancingHeaderName is the name of the header that directs
-	// load balancers to not load balance the respective request but to
-	// send it to the request's target directly.
-	PassthroughLoadbalancingHeaderName = "K-Passthrough-Lb"
+	// DomainTemplateKey is the name of the configuration entry that
+	// specifies the golang template string to use to construct the
+	// Knative service's DNS name.
+	DomainTemplateKey = "domain-template"
 
 	// EnableMeshPodAddressabilityKey is the config for enabling pod addressability in mesh.
 	EnableMeshPodAddressabilityKey = "enable-mesh-pod-addressability"
 
+	// HTTPProtocolKey is the name of the configuration entry that
+	// specifies the HTTP endpoint behavior of Knative ingress.
+	HTTPProtocolKey = "http-protocol"
+
 	// MeshCompatibilityModeKey is the config for selecting the mesh compatibility mode.
 	MeshCompatibilityModeKey = "mesh-compatibility-mode"
 
-	// DefaultExternalSchemeKey is the config for defining the scheme of external URLs.
-	DefaultExternalSchemeKey = "default-external-scheme"
+	// NamespaceWildcardCertSelectorKey is the name of the configuration
+	// entry that specifies a LabelSelector to control which namespaces
+	// have a wildcard certificate provisioned for them.
+	NamespaceWildcardCertSelectorKey = "namespace-wildcard-cert-selector"
+
+	// RolloutDurationKey is the name of the configuration entry
+	// that specifies the default duration of the configuration rollout.
+	RolloutDurationKey = "rollout-duration"
+
+	// TagTemplateKey is the name of the configuration entry that
+	// specifies the golang template string to use to construct the
+	// hostname for a Route's tag.
+	TagTemplateKey = "tag-template"
 
 	// ActivatorCAKey is the config for the secret name, which stores CA public certificate used
 	// to sign the activator TLS certificate.
@@ -213,6 +141,47 @@ const (
 	QueueProxyCertKey = "queue-proxy-cert-secret"
 )
 
+// HTTPProtocol indicates a type of HTTP endpoint behavior
+// that Knative ingress could take.
+type HTTPProtocol string
+
+const (
+	// HTTPEnabled represents HTTP protocol is enabled in Knative ingress.
+	HTTPEnabled HTTPProtocol = "enabled"
+
+	// HTTPDisabled represents HTTP protocol is disabled in Knative ingress.
+	HTTPDisabled HTTPProtocol = "disabled"
+
+	// HTTPRedirected represents HTTP connection is redirected to HTTPS in Knative ingress.
+	HTTPRedirected HTTPProtocol = "redirected"
+)
+
+// MeshCompatibilityMode is one of enabled (always use ClusterIP), disabled
+// (always use Pod IP), or auto (try PodIP, and fall back to ClusterIP if mesh
+// is detected).
+type MeshCompatibilityMode string
+
+const (
+	// MeshCompatibilityModeEnabled instructs consumers of network plugins, such as
+	// Knative Serving, to use ClusterIP when connecting to pods. This is
+	// required when mesh is enabled (unless EnableMeshPodAddressability is set),
+	// but is less efficient.
+	MeshCompatibilityModeEnabled MeshCompatibilityMode = "enabled"
+
+	// MeshCompatibilityModeDisabled instructs consumers of network plugins, such as
+	// Knative Serving, to connect to individual Pod IPs. This is most efficient,
+	// but will only work with mesh enabled when EnableMeshPodAddressability is
+	// used.
+	MeshCompatibilityModeDisabled MeshCompatibilityMode = "disabled"
+
+	// MeshCompatibilityModeAuto instructs consumers of network plugins, such as
+	// Knative Serving, to heuristically determine whether to connect using the
+	// Cluster IP, or to ocnnect to individual Pod IPs. This is most efficient,
+	// determine whether mesh is enabled, and fall back from Direct Pod IP
+	// communication to Cluster IP as needed.
+	MeshCompatibilityModeAuto MeshCompatibilityMode = "auto"
+)
+
 // DomainTemplateValues are the available properties people can choose from
 // in their Route's "DomainTemplate" golang template sting.
 // We could add more over time - e.g. RevisionName if we thought that
@@ -230,20 +199,6 @@ type DomainTemplateValues struct {
 type TagTemplateValues struct {
 	Name string
 	Tag  string
-}
-
-var (
-	templateCache *lru.Cache
-
-	// Verify the default templates are valid.
-	_ = template.Must(template.New("domain-template").Parse(DefaultDomainTemplate))
-	_ = template.Must(template.New("tag-template").Parse(DefaultTagTemplate))
-)
-
-func init() {
-	// The only failure is due to negative size.
-	// Store ~10 latest templates per template type.
-	templateCache, _ = lru.New(10 * 2)
 }
 
 // Config contains the networking configuration defined in the
@@ -333,47 +288,6 @@ type Config struct {
 	QueueProxyCertSecret string
 }
 
-// HTTPProtocol indicates a type of HTTP endpoint behavior
-// that Knative ingress could take.
-type HTTPProtocol string
-
-const (
-	// HTTPEnabled represents HTTP protocol is enabled in Knative ingress.
-	HTTPEnabled HTTPProtocol = "enabled"
-
-	// HTTPDisabled represents HTTP protocol is disabled in Knative ingress.
-	HTTPDisabled HTTPProtocol = "disabled"
-
-	// HTTPRedirected represents HTTP connection is redirected to HTTPS in Knative ingress.
-	HTTPRedirected HTTPProtocol = "redirected"
-)
-
-// MeshCompatibilityMode is one of enabled (always use ClusterIP), disabled
-// (always use Pod IP), or auto (try PodIP, and fall back to ClusterIP if mesh
-// is detected).
-type MeshCompatibilityMode string
-
-const (
-	// MeshCompatibilityModeEnabled instructs consumers of network plugins, such as
-	// Knative Serving, to use ClusterIP when connecting to pods. This is
-	// required when mesh is enabled (unless EnableMeshPodAddressability is set),
-	// but is less efficient.
-	MeshCompatibilityModeEnabled MeshCompatibilityMode = "enabled"
-
-	// MeshCompatibilityModeDisabled instructs consumers of network plugins, such as
-	// Knative Serving, to connect to individual Pod IPs. This is most efficient,
-	// but will only work with mesh enabled when EnableMeshPodAddressability is
-	// used.
-	MeshCompatibilityModeDisabled MeshCompatibilityMode = "disabled"
-
-	// MeshCompatibilityModeAuto instructs consumers of network plugins, such as
-	// Knative Serving, to heuristically determine whether to connect using the
-	// Cluster IP, or to ocnnect to individual Pod IPs. This is most efficient,
-	// determine whether mesh is enabled, and fall back from Direct Pod IP
-	// communication to Cluster IP as needed.
-	MeshCompatibilityModeAuto MeshCompatibilityMode = "auto"
-)
-
 func defaultConfig() *Config {
 	return &Config{
 		DefaultIngressClass:           IstioIngressClassName,
@@ -393,11 +307,6 @@ func defaultConfig() *Config {
 		QueueProxySAN:                 "",
 		QueueProxyCertSecret:          "",
 	}
-}
-
-// NewConfigFromConfigMap creates a Config from the supplied ConfigMap
-func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
-	return NewConfigFromMap(configMap.Data)
 }
 
 // NewConfigFromMap creates a Config from the supplied data.
@@ -571,82 +480,20 @@ func checkTagTemplate(t *template.Template) error {
 	return t.Execute(ioutil.Discard, data)
 }
 
-// IsKubeletProbe returns true if the request is a Kubernetes probe.
-func IsKubeletProbe(r *http.Request) bool {
-	return strings.HasPrefix(r.Header.Get("User-Agent"), KubeProbeUAPrefix) ||
-		r.Header.Get(KubeletProbeHeaderName) != ""
-}
-
-// KnativeProbeHeader returns the value for key ProbeHeaderName in request headers.
-func KnativeProbeHeader(r *http.Request) string {
-	return r.Header.Get(ProbeHeaderName)
-}
-
-// KnativeProxyHeader returns the value for key ProxyHeaderName in request headers.
-func KnativeProxyHeader(r *http.Request) string {
-	return r.Header.Get(ProxyHeaderName)
-}
-
-// IsProbe returns true if the request is a Kubernetes probe or a Knative probe,
-// i.e. non-empty ProbeHeaderName header.
-func IsProbe(r *http.Request) bool {
-	return IsKubeletProbe(r) || KnativeProbeHeader(r) != ""
-}
-
-// RewriteHostIn removes the `Host` header from the inbound (server) request
-// and replaces it with our custom header.
-// This is done to avoid Istio Host based routing, see #3870.
-// Queue-Proxy will execute the reverse process.
-func RewriteHostIn(r *http.Request) {
-	h := r.Host
-	r.Host = ""
-	r.Header.Del("Host")
-	// Don't overwrite an existing OriginalHostHeader.
-	if r.Header.Get(OriginalHostHeader) == "" {
-		r.Header.Set(OriginalHostHeader, h)
-	}
-}
-
-// RewriteHostOut undoes the `RewriteHostIn` action.
-// RewriteHostOut checks if network.OriginalHostHeader was set and if it was,
-// then uses that as the r.Host (which takes priority over Request.Header["Host"]).
-// If the request did not have the OriginalHostHeader header set, the request is untouched.
-func RewriteHostOut(r *http.Request) {
-	if ohh := r.Header.Get(OriginalHostHeader); ohh != "" {
-		r.Host = ohh
-		r.Header.Del("Host")
-		r.Header.Del(OriginalHostHeader)
-	}
-}
-
-// NameForPortNumber finds the name for a given port as defined by a Service.
-func NameForPortNumber(svc *corev1.Service, portNumber int32) (string, error) {
-	for _, port := range svc.Spec.Ports {
-		if port.Port == portNumber {
-			return port.Name, nil
+// asLabelSelector returns a LabelSelector extracted from a given configmap key.
+func asLabelSelector(key string, target **metav1.LabelSelector) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			if len(raw) > 0 {
+				var selector *metav1.LabelSelector
+				if err := yaml.Unmarshal([]byte(raw), &selector); err != nil {
+					return err
+				}
+				*target = selector
+			}
 		}
+		return nil
 	}
-	return "", fmt.Errorf("no port with number %d found", portNumber)
-}
-
-// PortNumberForName resolves a given name to a portNumber as defined by an EndpointSubset.
-func PortNumberForName(sub corev1.EndpointSubset, portName string) (int32, error) {
-	for _, subPort := range sub.Ports {
-		if subPort.Name == portName {
-			return subPort.Port, nil
-		}
-	}
-	return 0, fmt.Errorf("no port for name %q found", portName)
-}
-
-// IsPotentialMeshErrorResponse returns whether the HTTP response is compatible
-// with having been caused by attempting direct connection when mesh was
-// enabled. For example if we get a HTTP 404 status code it's safe to assume
-// mesh is not enabled even if a probe was otherwise unsuccessful. This is
-// useful to avoid falling back to ClusterIP when we see errors which are
-// unrelated to mesh being enabled.
-func IsPotentialMeshErrorResponse(resp *http.Response) bool {
-	return resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusBadGateway
 }
 
 // asMode parses the value at key as a MeshCompatibilityMode into the target, if it exists.
@@ -658,22 +505,6 @@ func asMode(key string, target *MeshCompatibilityMode) cm.ParseFunc {
 					*target = flag
 					return nil
 				}
-			}
-		}
-		return nil
-	}
-}
-
-// asLabelSelector returns a LabelSelector extracted from a given configmap key.
-func asLabelSelector(key string, target **metav1.LabelSelector) cm.ParseFunc {
-	return func(data map[string]string) error {
-		if raw, ok := data[key]; ok {
-			if len(raw) > 0 {
-				var selector *metav1.LabelSelector
-				if err := yaml.Unmarshal([]byte(raw), &selector); err != nil {
-					return err
-				}
-				*target = selector
 			}
 		}
 		return nil
