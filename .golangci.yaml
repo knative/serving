@@ -28,6 +28,10 @@ linters:
     - errcheck
 
 linters-settings:
+  staticcheck:
+    checks:
+      - all
+      - '-SA1019' # disable deprecation rule TODO: remove once the new networking api is used
   depguard:
     include-go-root: true
     packages:
