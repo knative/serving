@@ -215,7 +215,7 @@ const (
 	// required when mesh is enabled (unless EnableMeshPodAddressability is set),
 	// but is less efficient.
 	//
-	// Deprecated: Use knative.dev/pkg/config/MeshCompatibilityModeEnabled
+	// Deprecated: Use knative.dev/networking/pkg/config/MeshCompatibilityModeEnabled
 	MeshCompatibilityModeEnabled MeshCompatibilityMode = config.MeshCompatibilityModeEnabled
 
 	// MeshCompatibilityModeDisabled instructs consumers of network plugins, such as
@@ -223,7 +223,7 @@ const (
 	// but will only work with mesh enabled when EnableMeshPodAddressability is
 	// used.
 	//
-	// Deprecated: Use knative.dev/pkg/config/MeshCompatibilityModeDisabled
+	// Deprecated: Use knative.dev/networking/pkg/config/MeshCompatibilityModeDisabled
 	MeshCompatibilityModeDisabled MeshCompatibilityMode = config.MeshCompatibilityModeDisabled
 
 	// MeshCompatibilityModeAuto instructs consumers of network plugins, such as
@@ -232,7 +232,7 @@ const (
 	// determine whether mesh is enabled, and fall back from Direct Pod IP
 	// communication to Cluster IP as needed.
 	//
-	// Deprecated: Use knative.dev/pkg/config/MeshCompatibilityModeAuto
+	// Deprecated: Use knative.dev/networking/pkg/config/MeshCompatibilityModeAuto
 	MeshCompatibilityModeAuto MeshCompatibilityMode = config.MeshCompatibilityModeAuto
 )
 
@@ -243,5 +243,5 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 
 // NewConfigFromMap creates a Config from the supplied data.
 //
-// Deprecated: Use knative.dev/pkg/config/NewConfigFromMap
+// Deprecated: Use knative.dev/networking/pkg/config/NewConfigFromMap
 var NewConfigFromMap = config.NewConfigFromMap
