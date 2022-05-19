@@ -37,7 +37,7 @@ const (
 	// streaming/websockets, without flushing more often than necessary for
 	// non-streaming requests.
 	//
-	// Deprecated: use knative.dev/networking/pkg/http.ReverseProxyFlushInterval
+	// Deprecated: use knative.dev/networking/pkg/http/proxy.FlushInterval
 	FlushInterval = proxy.FlushInterval
 )
 
