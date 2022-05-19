@@ -39,80 +39,80 @@ spec:
     spec:
       serviceAccountName: controller
       containers:
-      - name: activator
-        # This is the Go import path for the binary that is containerized
-        # and substituted here.
-        image: ko://knative.dev/serving/cmd/activator
+        - name: activator
+          # This is the Go import path for the binary that is containerized
+          # and substituted here.
+          image: ko://knative.dev/serving/cmd/activator
 
-        # The numbers are based on performance test results from
-        # https://github.com/knative/serving/issues/1625#issuecomment-511930023
-        resources:
-          requests:
-            cpu: 300m
-            memory: 60Mi
-          limits:
-            cpu: 1000m
-            memory: 600Mi
+          # The numbers are based on performance test results from
+          # https://github.com/knative/serving/issues/1625#issuecomment-511930023
+          resources:
+            requests:
+              cpu: 300m
+              memory: 60Mi
+            limits:
+              cpu: 1000m
+              memory: 600Mi
 
-        env:
-        # Run Activator with GC collection when newly generated memory is 500%.
-        - name: GOGC
-          value: "500"
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: POD_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
-        - name: SYSTEM_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CONFIG_LOGGING_NAME
-          value: config-logging
-        - name: CONFIG_OBSERVABILITY_NAME
-          value: config-observability
-        # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
-        - name: METRICS_DOMAIN
-          value: knative.dev/internal/serving
+          env:
+            # Run Activator with GC collection when newly generated memory is 500%.
+            - name: GOGC
+              value: "500"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CONFIG_LOGGING_NAME
+              value: config-logging
+            - name: CONFIG_OBSERVABILITY_NAME
+              value: config-observability
+            # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
+            - name: METRICS_DOMAIN
+              value: knative.dev/internal/serving
 
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          capabilities:
-            drop:
-            - all
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
 
-        ports:
-        - name: metrics
-          containerPort: 9090
-        - name: profiling
-          containerPort: 8008
-        - name: http1
-          containerPort: 8012
-        - name: h2c
-          containerPort: 8013
+          ports:
+            - name: metrics
+              containerPort: 9090
+            - name: profiling
+              containerPort: 8008
+            - name: http1
+              containerPort: 8012
+            - name: h2c
+              containerPort: 8013
 
-        readinessProbe:
-          httpGet:
-            port: 8012
-            httpHeaders:
-            - name: k-kubelet-probe
-              value: "activator"
-          periodSeconds: 5
-          failureThreshold: 5
-        livenessProbe:
-          httpGet:
-            port: 8012
-            httpHeaders:
-            - name: k-kubelet-probe
-              value: "activator"
-          periodSeconds: 10
-          failureThreshold: 12
-          initialDelaySeconds: 15
+          readinessProbe:
+            httpGet:
+              port: 8012
+              httpHeaders:
+                - name: k-kubelet-probe
+                  value: "activator"
+            periodSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              port: 8012
+              httpHeaders:
+                - name: k-kubelet-probe
+                  value: "activator"
+            periodSeconds: 10
+            failureThreshold: 12
+            initialDelaySeconds: 15
 
       # The activator (often) sits on the dataplane, and may proxy long (e.g.
       # streaming, websockets) requests.  We give a long grace period for the
@@ -121,7 +121,7 @@ spec:
       # should be at least as large as the upper bound on the Revision's
       # timeoutSeconds property to avoid servicing events disrupting
       # connections.
-      terminationGracePeriodSeconds: 600
+      terminationGracePeriodSeconds: 60
 
 ---
 apiVersion: v1
@@ -138,20 +138,20 @@ spec:
   selector:
     app: activator
   ports:
-  # Define metrics and profiling for them to be accessible within service meshes.
-  - name: http-metrics
-    port: 9090
-    targetPort: 9090
-  - name: http-profiling
-    port: 8008
-    targetPort: 8008
-  - name: http
-    port: 80
-    targetPort: 8012
-  - name: http2
-    port: 81
-    targetPort: 8013
-  - name: https
-    port: 443
-    targetPort: 8112
+    # Define metrics and profiling for them to be accessible within service meshes.
+    - name: http-metrics
+      port: 9090
+      targetPort: 9090
+    - name: http-profiling
+      port: 8008
+      targetPort: 8008
+    - name: http
+      port: 80
+      targetPort: 8012
+    - name: http2
+      port: 81
+      targetPort: 8013
+    - name: https
+      port: 443
+      targetPort: 8112
   type: ClusterIP
