@@ -2,11 +2,9 @@
 
 approvers:
 - productivity-writers
-- serving-writers
 
 reviewers:
 - productivity-reviewers
-- serving-writers
 
 labels:
 - area/test-and-release
