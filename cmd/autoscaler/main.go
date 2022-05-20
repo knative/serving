@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/rest"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 
+	netcfg "knative.dev/networking/pkg/config"
 	filteredpodinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered"
 	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	configmap "knative.dev/pkg/configmap/informer"
@@ -43,7 +44,6 @@ import (
 	"knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
-	netcfg "knative.dev/pkg/networking/pkg/config"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
