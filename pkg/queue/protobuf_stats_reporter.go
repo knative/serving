@@ -24,7 +24,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/http/header"
+	"knative.dev/networking/pkg/http/stats"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
@@ -61,7 +62,7 @@ func NewProtobufStatsReporter(pod string, reportingPeriod time.Duration) *Protob
 }
 
 // Report captures request metrics.
-func (r *ProtobufStatsReporter) Report(stats network.RequestStatsReport) {
+func (r *ProtobufStatsReporter) Report(stats stats.RequestStatsReport) {
 	r.stat.Store(metrics.Stat{
 		PodName:       r.podName,
 		ProcessUptime: time.Since(r.startTime).Seconds(),
@@ -83,6 +84,6 @@ func (r *ProtobufStatsReporter) ServeHTTP(w http.ResponseWriter, _ *http.Request
 		return
 	}
 
-	w.Header().Set(contentTypeHeader, network.ProtoAcceptContent)
+	w.Header().Set(contentTypeHeader, header.ProtobufMIMEType)
 	w.Write(buffer)
 }

@@ -21,7 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	network "knative.dev/networking/pkg"
+	network "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 )
 

@@ -40,7 +40,7 @@ import (
 	"knative.dev/pkg/leaderelection"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/config"
 	configmap "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -127,11 +127,11 @@ func main() {
 		profilingHandler.UpdateFromConfigMap)
 
 	podLister := filteredpodinformer.Get(ctx, serving.RevisionUID).Lister()
-	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, network.ConfigName, metav1.GetOptions{})
+	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, config.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		logger.Fatalw("Failed to fetch network config", zap.Error(err))
 	}
-	networkConfig, err := network.NewConfigFromConfigMap(networkCM)
+	networkConfig, err := config.NewConfigFromMap(networkCM.Data)
 	if err != nil {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
@@ -240,7 +240,7 @@ func uniScalerFactoryFunc(podLister corev1listers.PodLister,
 	}
 }
 
-func statsScraperFactoryFunc(podLister corev1listers.PodLister, usePassthroughLb bool, meshMode network.MeshCompatibilityMode) asmetrics.StatsScraperFactory {
+func statsScraperFactoryFunc(podLister corev1listers.PodLister, usePassthroughLb bool, meshMode config.MeshCompatibilityMode) asmetrics.StatsScraperFactory {
 	return func(metric *autoscalingv1alpha1.Metric, logger *zap.SugaredLogger) (asmetrics.StatsScraper, error) {
 		if metric.Spec.ScrapeTarget == "" {
 			return nil, nil

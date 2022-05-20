@@ -33,7 +33,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/http/header"
+	"knative.dev/networking/pkg/http/proxy"
+	httpstats "knative.dev/networking/pkg/http/stats"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
@@ -150,7 +152,7 @@ func main() {
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()
 
-	stats := network.NewRequestStats(time.Now())
+	stats := httpstats.NewRequestStats(time.Now())
 	go func() {
 		for now := range reportTicker.C {
 			stat := stats.Report(now)
@@ -265,7 +267,7 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *network.RequestStats, logger *zap.SugaredLogger,
+func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *httpstats.RequestStats, logger *zap.SugaredLogger,
 	ce *queue.ConcurrencyEndpoint, enableTLS bool) (server *http.Server, drain func()) {
 	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
@@ -274,8 +276,8 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders, false /* use HTTP */)
 	httpProxy.Transport = buildTransport(env, logger)
 	httpProxy.ErrorHandler = pkghandler.Error(logger)
-	httpProxy.BufferPool = network.NewBufferPool()
-	httpProxy.FlushInterval = network.FlushInterval
+	httpProxy.BufferPool = proxy.NewBufferPool()
+	httpProxy.FlushInterval = proxy.FlushInterval
 
 	// TODO: During HTTP and HTTPS transition, counting concurrency could not be accurate. Count accurately.
 	breaker := buildBreaker(logger, env)
@@ -319,7 +321,7 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	drainer := &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
-		HealthCheckUAPrefixes: []string{network.ActivatorUserAgent},
+		HealthCheckUAPrefixes: []string{header.ActivatorUserAgent},
 		Inner:                 composedHandler,
 		HealthCheck:           health.ProbeHandler(probeContainer, tracingEnabled),
 	}

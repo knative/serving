@@ -25,7 +25,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	network "knative.dev/networking/pkg"
 	"knative.dev/serving/test"
 )
 
@@ -80,8 +79,6 @@ func main() {
 		r.Host = targetHost
 		proxy.ServeHTTP(w, r)
 	})
-	// Handle forwarding requests which uses "K-Network-Hash" header.
-	handler = network.NewProbeHandler(handler).ServeHTTP
 
 	address := ":" + port
 	log.Print("Listening on address: ", address)

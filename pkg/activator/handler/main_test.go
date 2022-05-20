@@ -23,7 +23,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/http/probe"
 	"knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
 	rtesting "knative.dev/pkg/reconciler/testing"
@@ -76,7 +76,7 @@ func BenchmarkHandlerChain(b *testing.B) {
 	ah = NewMetricHandler(activatorPodName, ah)
 	ah = NewContextHandler(ctx, ah, configStore)
 	ah = &ProbeHandler{NextHandler: ah}
-	ah = network.NewProbeHandler(ah)
+	ah = probe.NewHandler(ah)
 	ah = &HealthHandler{HealthCheck: func() error { return nil }, NextHandler: ah, Logger: logger}
 
 	request := func() *http.Request {

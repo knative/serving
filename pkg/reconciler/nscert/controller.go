@@ -30,7 +30,7 @@ import (
 	"knative.dev/pkg/logging"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 
-	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
 )
 
@@ -55,7 +55,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		})
 
 		configsToResync := []interface{}{
-			&network.Config{},
+			&netcfg.Config{},
 			&routecfg.Domain{},
 		}
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {

@@ -20,6 +20,7 @@ import (
 	"context"
 
 	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
@@ -32,7 +33,7 @@ type cfgKey struct{}
 type Config struct {
 	Autoscaler *autoscalerconfig.Config
 	Deployment *deployment.Config
-	Network    *network.Config
+	Network    *netcfg.Config
 }
 
 // FromContext fetch config from context.
@@ -67,7 +68,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			configmap.Constructors{
 				asconfig.ConfigName:   asconfig.NewConfigFromConfigMap,
 				deployment.ConfigName: deployment.NewConfigFromConfigMap,
-				network.ConfigName:    network.NewConfigFromConfigMap,
+				netcfg.ConfigMapName:  network.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -85,6 +86,6 @@ func (s *Store) Load() *Config {
 	return &Config{
 		Autoscaler: s.UntypedLoad(asconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
 		Deployment: s.UntypedLoad(deployment.ConfigName).(*deployment.Config).DeepCopy(),
-		Network:    s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
+		Network:    s.UntypedLoad(netcfg.ConfigMapName).(*netcfg.Config).DeepCopy(),
 	}
 }

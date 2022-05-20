@@ -19,8 +19,8 @@ package domainmapping
 import (
 	"testing"
 
-	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
+	netapi "knative.dev/networking/pkg/apis/networking"
+	netcfg "knative.dev/networking/pkg/config"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 )
@@ -73,13 +73,13 @@ func TestAutoTLSEnabled(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := logtesting.TestContextWithLogger(t)
 			ctx = config.ToContext(ctx, &config.Config{
-				Network: &network.Config{
+				Network: &netcfg.Config{
 					AutoTLS: tc.configAutoTLSEnabled,
 				},
 			})
 			if tc.tlsDisabledAnnotation != "" {
 				dm.Annotations = map[string]string{
-					networking.DisableAutoTLSAnnotationKey: tc.tlsDisabledAnnotation,
+					netapi.DisableAutoTLSAnnotationKey: tc.tlsDisabledAnnotation,
 				}
 			}
 			if got := autoTLSEnabled(ctx, dm); got != tc.wantAutoTLSEnabled {

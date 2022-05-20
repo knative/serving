@@ -20,6 +20,7 @@ import (
 	"context"
 
 	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 	cfgmap "knative.dev/serving/pkg/apis/config"
@@ -33,7 +34,7 @@ type cfgKey struct{}
 type Config struct {
 	Domain   *Domain
 	GC       *gc.Config
-	Network  *network.Config
+	Network  *netcfg.Config
 	Features *cfgmap.Features
 }
 
@@ -88,7 +89,7 @@ func NewStore(ctx context.Context, onAfterStore ...func(name string, value inter
 			configmap.Constructors{
 				DomainConfigName:          NewDomainFromConfigMap,
 				gc.ConfigName:             gc.NewConfigFromConfigMapFunc(ctx),
-				network.ConfigName:        network.NewConfigFromConfigMap,
+				netcfg.ConfigMapName:      network.NewConfigFromConfigMap,
 				cfgmap.FeaturesConfigName: cfgmap.NewFeaturesConfigFromConfigMap,
 			},
 			onAfterStore...,
@@ -108,7 +109,7 @@ func (s *Store) Load() *Config {
 	config := &Config{
 		Domain:   s.UntypedLoad(DomainConfigName).(*Domain).DeepCopy(),
 		GC:       s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
-		Network:  s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
+		Network:  s.UntypedLoad(netcfg.ConfigMapName).(*netcfg.Config).DeepCopy(),
 		Features: nil,
 	}
 

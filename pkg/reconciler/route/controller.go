@@ -33,7 +33,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/client-go/tools/cache"
-	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -81,7 +81,7 @@ func newController(
 	}
 	impl := routereconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		configsToResync := []interface{}{
-			&network.Config{},
+			&netcfg.Config{},
 			&config.Domain{},
 		}
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {

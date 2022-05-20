@@ -38,8 +38,10 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/networking/pkg/apis/networking"
+	"knative.dev/networking/pkg/config"
+	nethttp "knative.dev/networking/pkg/http"
+	"knative.dev/networking/pkg/http/header"
 	"knative.dev/networking/pkg/prober"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -119,7 +121,7 @@ type revisionWatcher struct {
 
 	// meshMode configures whether we always directly probe pods,
 	// always use cluster IP, or attempt to autodetect
-	meshMode network.MeshCompatibilityMode
+	meshMode config.MeshCompatibilityMode
 
 	// enableProbeOptimisation causes the activator to treat a container as ready
 	// as soon as it gets a ready response from the Queue Proxy readiness
@@ -133,7 +135,7 @@ type revisionWatcher struct {
 func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol pkgnet.ProtocolType,
 	updateCh chan<- revisionDestsUpdate, destsCh chan dests,
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
-	usePassthroughLb bool, meshMode network.MeshCompatibilityMode,
+	usePassthroughLb bool, meshMode config.MeshCompatibilityMode,
 	enableProbeOptimisation bool,
 	logger *zap.SugaredLogger) *revisionWatcher {
 	ctx, cancel := context.WithCancel(ctx)
@@ -162,20 +164,20 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (pass bool, n
 	httpDest := url.URL{
 		Scheme: "http",
 		Host:   dest,
-		Path:   network.ProbePath,
+		Path:   nethttp.HealthCheckPath,
 	}
 
 	// We don't want to unnecessarily fall back to ClusterIP if we see a failure
 	// that could not have been caused by the mesh being enabled.
 	var checkMesh prober.Verifier = func(resp *http.Response, _ []byte) (bool, error) {
-		notMesh = !network.IsPotentialMeshErrorResponse(resp)
+		notMesh = !nethttp.IsPotentialMeshErrorResponse(resp)
 		return true, nil
 	}
 
 	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests pass.
 	options := []interface{}{
-		prober.WithHeader(network.ProbeHeaderName, queue.Name),
-		prober.WithHeader(network.UserAgentKey, network.ActivatorUserAgent),
+		prober.WithHeader(header.ProbeKey, queue.Name),
+		prober.WithHeader(header.UserAgentKey, header.ActivatorUserAgent),
 		// Order is important since first failing verification short-circuits the rest: checkMesh must be first.
 		checkMesh,
 		prober.ExpectsStatusCodes([]int{http.StatusOK}),
@@ -191,7 +193,7 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (pass bool, n
 		// actually lands on the correct pod, which breaks our state keeping.
 		options = append(options,
 			prober.WithHost(names.PrivateService(rw.rev.Name)+"."+rw.rev.Namespace),
-			prober.WithHeader(network.PassthroughLoadbalancingHeaderName, "true"))
+			prober.WithHeader(header.PassthroughLoadbalancingKey, "true"))
 	}
 
 	match, err := prober.Do(ctx, rw.transport, httpDest.String(), options...)
@@ -234,7 +236,7 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 	}
 
 	healthy := rw.healthyPods.Union(nil)
-	if rw.meshMode != network.MeshCompatibilityModeAuto {
+	if rw.meshMode != config.MeshCompatibilityModeAuto {
 		// If Kubernetes marked the pod ready before we managed to probe it, and we're
 		// not also using the probe to sniff whether mesh is enabled, we can just
 		// trust Kubernetes and mark "Ready" pods healthy without probing.
@@ -318,7 +320,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 
 	// If we have discovered (or have been told via meshMode) that this revision
 	// cannot be probed directly do not spend time trying.
-	if rw.podsAddressable && rw.meshMode != network.MeshCompatibilityModeEnabled {
+	if rw.podsAddressable && rw.meshMode != config.MeshCompatibilityModeEnabled {
 		// reprobe set contains the targets that moved from ready to non-ready set.
 		// so they have to be re-probed.
 		reprobe := curDests.becameNonReady(prevDests)
@@ -369,7 +371,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		return
 	}
 
-	if rw.meshMode == network.MeshCompatibilityModeDisabled {
+	if rw.meshMode == config.MeshCompatibilityModeDisabled {
 		// If mesh is disabled we always want to use direct pod addressing, and
 		// will not fall back to clusterIP.
 		return
@@ -455,20 +457,20 @@ type revisionBackendsManager struct {
 	updateCh         chan revisionDestsUpdate
 	transport        http.RoundTripper
 	usePassthroughLb bool
-	meshMode         network.MeshCompatibilityMode
+	meshMode         config.MeshCompatibilityMode
 	logger           *zap.SugaredLogger
 	probeFrequency   time.Duration
 }
 
 // NewRevisionBackendsManager returns a new RevisionBackendsManager with default
 // probe time out.
-func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool, meshMode network.MeshCompatibilityMode) *revisionBackendsManager {
+func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool, meshMode config.MeshCompatibilityMode) *revisionBackendsManager {
 	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, usePassthroughLb, meshMode, defaultProbeFrequency)
 }
 
 // newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
 func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
-	usePassthroughLb bool, meshMode network.MeshCompatibilityMode, probeFreq time.Duration) *revisionBackendsManager {
+	usePassthroughLb bool, meshMode config.MeshCompatibilityMode, probeFreq time.Duration) *revisionBackendsManager {
 	rbm := &revisionBackendsManager{
 		ctx:              ctx,
 		revisionLister:   revisioninformer.Get(ctx).Lister(),

@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"go.opencensus.io/resource"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/serving/pkg/metrics"
@@ -71,7 +71,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
 
 	// A probe request should not be recorded.
-	req.Header.Set(network.ProbeHeaderName, "activator")
+	req.Header.Set(header.ProbeKey, "activator")
 	handler.ServeHTTP(resp, req)
 	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
@@ -87,7 +87,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, targetURI, bytes.NewBufferString("test"))
-	req.Header.Set(network.TagHeaderName, "test-tag")
+	req.Header.Set(header.RouteTagKey, "test-tag")
 
 	handler.ServeHTTP(resp, req)
 
@@ -113,24 +113,24 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	// Testing for default route
 	reset()
 	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
-	req.Header.Del(network.TagHeaderName)
-	req.Header.Set(network.DefaultRouteHeaderName, "true")
+	req.Header.Del(header.RouteTagKey)
+	req.Header.Set(header.DefaultRouteKey, "true")
 	handler.ServeHTTP(resp, req)
 	wantTags["route_tag"] = defaultTagName
 	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 
 	reset()
 	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
-	req.Header.Set(network.TagHeaderName, "test-tag")
-	req.Header.Set(network.DefaultRouteHeaderName, "true")
+	req.Header.Set(header.RouteTagKey, "test-tag")
+	req.Header.Set(header.DefaultRouteKey, "true")
 	handler.ServeHTTP(resp, req)
 	wantTags["route_tag"] = undefinedTagName
 	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 
 	reset()
 	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
-	req.Header.Set(network.TagHeaderName, "test-tag")
-	req.Header.Set(network.DefaultRouteHeaderName, "false")
+	req.Header.Set(header.RouteTagKey, "test-tag")
+	req.Header.Set(header.DefaultRouteKey, "false")
 	handler.ServeHTTP(resp, req)
 	wantTags["route_tag"] = "test-tag"
 	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
@@ -283,7 +283,7 @@ func TestAppRequestMetricsHandler(t *testing.T) {
 	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("app_request_latencies", 1, wantTags).WithResource(wantResource))
 
 	// A probe request should not be recorded.
-	req.Header.Set(network.ProbeHeaderName, "activator")
+	req.Header.Set(header.ProbeKey, "activator")
 	handler.ServeHTTP(resp, req)
 	metricstest.AssertMetric(t, metricstest.IntMetric("app_request_count", 1, wantTags).WithResource(wantResource))
 	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("app_request_latencies", 1, wantTags).WithResource(wantResource))

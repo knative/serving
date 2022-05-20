@@ -39,6 +39,8 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/networking/pkg/client/clientset/versioned"
+	netcfg "knative.dev/networking/pkg/config"
+	"knative.dev/networking/pkg/http/probe"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
@@ -80,7 +82,7 @@ func lookupConfigMap(ctx context.Context, kubeClient kubernetes.Interface, name 
 }
 
 func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, client *versioned.Clientset) (*corev1.LoadBalancerIngress, error) {
-	netCM, err := lookupConfigMap(ctx, kubeclient, network.ConfigName)
+	netCM, err := lookupConfigMap(ctx, kubeclient, netcfg.ConfigMapName)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +189,7 @@ func main() {
 	}
 
 	// Start an HTTP Server
-	h := network.NewProbeHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	h := probe.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	server := http.Server{Addr: ":8080", Handler: h}

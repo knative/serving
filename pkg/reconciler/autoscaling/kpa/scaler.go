@@ -26,9 +26,10 @@ import (
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
 
-	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	nethttp "knative.dev/networking/pkg/http"
+	"knative.dev/networking/pkg/http/header"
 	"knative.dev/networking/pkg/prober"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/activator"
@@ -67,8 +68,8 @@ const (
 )
 
 var probeOptions = []interface{}{
-	prober.WithHeader(network.UserAgentKey, network.AutoscalingUserAgent),
-	prober.WithHeader(network.ProbeHeaderName, activator.Name),
+	prober.WithHeader(header.UserAgentKey, header.AutoscalingUserAgent),
+	prober.WithHeader(header.ProbeKey, activator.Name),
 	prober.ExpectsBody(activator.Name),
 	prober.ExpectsStatusCodes([]int{http.StatusOK}),
 }
@@ -125,7 +126,7 @@ func paToProbeTarget(pa *autoscalingv1alpha1.PodAutoscaler) string {
 	svc := pkgnet.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
 	port := networking.ServicePort(pa.Spec.ProtocolType)
 
-	return fmt.Sprintf("http://%s:%d/%s", svc, port, network.ProbePath)
+	return fmt.Sprintf("http://%s:%d/%s", svc, port, nethttp.HealthCheckPath)
 }
 
 // activatorProbe returns true if via probe it determines that the

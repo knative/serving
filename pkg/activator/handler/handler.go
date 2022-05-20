@@ -29,7 +29,8 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/http/header"
+	netproxy "knative.dev/networking/pkg/http/proxy"
 	"knative.dev/pkg/logging/logkey"
 	pkghandler "knative.dev/pkg/network/handlers"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -69,7 +70,7 @@ func New(_ context.Context, t Throttler, transport http.RoundTripper, usePassthr
 		},
 		usePassthroughLb: usePassthroughLb,
 		throttler:        t,
-		bufferPool:       network.NewBufferPool(),
+		bufferPool:       netproxy.NewBufferPool(),
 		logger:           logger,
 		tls:              tlsEnabled,
 	}
@@ -113,8 +114,8 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.ResponseWriter,
 	r *http.Request, target string, tracingEnabled bool, usePassthroughLb bool) {
-	network.RewriteHostIn(r)
-	r.Header.Set(network.ProxyHeaderName, activator.Name)
+	header.RewriteHostIn(r)
+	r.Header.Set(header.ProxyKey, activator.Name)
 
 	// Set up the reverse proxy.
 	hostOverride := pkghttp.NoHostOverride
@@ -134,7 +135,7 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	if tracingEnabled {
 		proxy.Transport = a.tracingTransport
 	}
-	proxy.FlushInterval = network.FlushInterval
+	proxy.FlushInterval = netproxy.FlushInterval
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
 		pkghandler.Error(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)
 	}

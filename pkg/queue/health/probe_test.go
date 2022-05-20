@@ -30,7 +30,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/http/header"
 )
 
 func TestTCPProbe(t *testing.T) {
@@ -68,7 +68,7 @@ func TestHTTPProbeSuccess(t *testing.T) {
 		if v := r.Header.Get(expectedHeader.Name); v != "" {
 			gotHeader = corev1.HTTPHeader{Name: expectedHeader.Name, Value: v}
 		}
-		if v := r.Header.Get(network.UserAgentKey); strings.HasPrefix(v, network.KubeProbeUAPrefix) {
+		if v := r.Header.Get(header.UserAgentKey); strings.HasPrefix(v, header.KubeProbeUAPrefix) {
 			gotKubeletHeader = true
 		}
 		gotPath = r.URL.Path

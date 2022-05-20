@@ -40,6 +40,7 @@ func main() {
 	testfilePath := filepath.Join(base, "testfile")
 	if !shouldSkipDataWrite {
 		log.Printf("Writing test content to %s.", testfilePath)
+		// #nosec G306
 		if err := os.WriteFile(testfilePath, []byte(test.EmptyDirText), 0644); err != nil {
 			panic(err)
 		}

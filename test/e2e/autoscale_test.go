@@ -28,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	netpkg "knative.dev/networking/pkg"
+	netconfig "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/networking"
@@ -134,11 +134,11 @@ func TestTargetBurstCapacity(t *testing.T) {
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
 	cm, err := ctx.clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
-		Get(context.Background(), netpkg.ConfigName, metav1.GetOptions{})
+		Get(context.Background(), netconfig.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Fail to get ConfigMap config-network:", err)
 	}
-	if cm.Data[netpkg.ActivatorCAKey] != "" {
+	if cm.Data[netconfig.ActivatorCAKey] != "" {
 		// TODO: Remove this when https://github.com/knative/serving/issues/12797 was done.
 		t.Skip("Skipping TestTargetBurstCapacity as activator-ca is specified. See issue/12797.")
 	}

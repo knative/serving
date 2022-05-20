@@ -23,28 +23,23 @@ import (
 	"net/http"
 	"os"
 
-	networkingpkg "knative.dev/networking/pkg"
 	"knative.dev/pkg/network"
 )
 
-func httpWrapper() http.Handler {
-	return networkingpkg.NewProbeHandler(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.ProtoMajor == 2 {
-				log.Print("hellohttp2 received an http2 request.")
-				fmt.Fprintln(w, "Hello, New World! How about donuts and coffee?")
-			} else {
-				log.Print("hellohttp2 received an HTTP 1.1 request.")
-				w.WriteHeader(http.StatusUpgradeRequired)
-			}
-		}),
-	)
+func handler(w http.ResponseWriter, r *http.Request) {
+	if r.ProtoMajor == 2 {
+		log.Print("hellohttp2 received an http2 request.")
+		fmt.Fprintln(w, "Hello, New World! How about donuts and coffee?")
+	} else {
+		log.Print("hellohttp2 received an HTTP 1.1 request.")
+		w.WriteHeader(http.StatusUpgradeRequired)
+	}
 }
 
 func main() {
 	flag.Parse()
 	log.Print("hellohttp2 app started.")
 
-	s := network.NewServer(":"+os.Getenv("PORT"), httpWrapper())
+	s := network.NewServer(":"+os.Getenv("PORT"), http.HandlerFunc(handler))
 	log.Fatal(s.ListenAndServe())
 }

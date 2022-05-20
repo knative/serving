@@ -24,8 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
@@ -61,7 +60,7 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, tagName str
 			ExternalName:    domainName,
 			SessionAffinity: corev1.ServiceAffinityNone,
 			Ports: []corev1.ServicePort{{
-				Name:       networking.ServicePortNameH2C,
+				Name:       netapi.ServicePortNameH2C,
 				Port:       int32(80),
 				TargetPort: intstr.FromInt(80),
 			}},
@@ -102,7 +101,7 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
 			ObjectMeta: makeServiceObjectMeta(hostname, route),
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name:       networking.ServicePortNameH2C,
+					Name:       netapi.ServicePortNameH2C,
 					Port:       int32(80),
 					TargetPort: intstr.FromInt(80),
 				}},
@@ -129,7 +128,7 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
 					IP: balancer.IP,
 				}},
 				Ports: []corev1.EndpointPort{{
-					Name: networking.ServicePortNameH2C,
+					Name: netapi.ServicePortNameH2C,
 					Port: int32(80),
 				}},
 			}},
@@ -149,8 +148,8 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
 		// mesh.
 		pair.Service.Spec.Type = corev1.ServiceTypeClusterIP
 		pair.Service.Spec.Ports = []corev1.ServicePort{{
-			Name: networking.ServicePortNameHTTP1,
-			Port: networking.ServiceHTTPPort,
+			Name: netapi.ServicePortNameHTTP1,
+			Port: netapi.ServiceHTTPPort,
 		}}
 	default:
 		return nil, errLoadBalancerNotFound
@@ -173,7 +172,7 @@ func makeServiceObjectMeta(hostname string, route *v1.Route) metav1.ObjectMeta {
 		Labels: kmeta.UnionMaps(kmeta.FilterMap(route.GetLabels(), func(key string) bool {
 			// Do not propagate the visibility label from Route as users may want to set the label
 			// in the specific k8s svc for subroute. see https://github.com/knative/serving/pull/4560.
-			return key == network.VisibilityLabelKey
+			return key == netapi.VisibilityLabelKey
 		}), svcLabels),
 		Annotations: route.GetAnnotations(),
 	}

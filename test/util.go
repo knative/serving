@@ -43,7 +43,7 @@ const (
 	HelloVolumePath = "/hello/world"
 
 	caSecretNamespace = "cert-manager"
-	caSecretName      = "ca-key-pair"
+	caSecretName      = "ca-key-pair" // #nosec G101
 )
 
 // util.go provides shared utilities methods across knative serving test
@@ -86,7 +86,7 @@ func TLSClientConfig(ctx context.Context, logf logging.FormatLogger, clients *Cl
 	if !rootCAs.AppendCertsFromPEM(PemDataFromSecret(ctx, logf, clients, caSecretNamespace, caSecretName)) {
 		logf("Failed to add the certificate to the root CA")
 	}
-	return &tls.Config{RootCAs: rootCAs}
+	return &tls.Config{RootCAs: rootCAs} // #nosec G402
 }
 
 // PemDataFromSecret gets pem data from secret.

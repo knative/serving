@@ -22,7 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/yaml"
 
-	netpkg "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving"
@@ -99,7 +99,7 @@ func (c *Domain) LookupDomainForLabels(labels map[string]string) string {
 	specificity := -1
 	// If we see VisibilityLabelKey sets with VisibilityClusterLocal, that
 	// will take precedence and the route will get a Cluster's Domain Name.
-	if labels[netpkg.VisibilityLabelKey] == serving.VisibilityClusterLocal {
+	if labels[networking.VisibilityLabelKey] == serving.VisibilityClusterLocal {
 		return "svc." + network.GetClusterDomainName()
 	}
 	for k, selector := range c.Domains {

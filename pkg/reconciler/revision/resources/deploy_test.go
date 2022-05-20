@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
@@ -81,7 +81,7 @@ var (
 				HTTPGet: &corev1.HTTPGetAction{
 					Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
 					HTTPHeaders: []corev1.HTTPHeader{{
-						Name:  network.ProbeHeaderName,
+						Name:  netheader.ProbeKey,
 						Value: queue.Name,
 					}},
 				},
@@ -806,7 +806,7 @@ func TestMakePodSpec(t *testing.T) {
 							Path: "/",
 							Port: intstr.FromInt(v1.DefaultUserPort),
 							HTTPHeaders: []corev1.HTTPHeader{{
-								Name:  network.KubeletProbeHeaderName,
+								Name:  netheader.KubeletProbeKey,
 								Value: queue.Name,
 							}},
 						},

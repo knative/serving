@@ -22,7 +22,7 @@ package e2e
 import (
 	"testing"
 
-	netpkg "knative.dev/networking/pkg"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
@@ -148,7 +148,7 @@ func TestRouteVisibilityChanges(t *testing.T) {
 			}
 
 			v1test.PatchService(st, clients, svc, func(s *v1.Service) {
-				s.SetLabels(map[string]string{netpkg.VisibilityLabelKey: "cluster-local"})
+				s.SetLabels(map[string]string{netapi.VisibilityLabelKey: "cluster-local"})
 			})
 
 			st.Logf("Waiting for Service %q ObservedGeneration to match Generation, and status transition to Ready == True", names.Service)
