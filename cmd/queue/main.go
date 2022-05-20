@@ -33,8 +33,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"knative.dev/networking/pkg/http/header"
-	"knative.dev/networking/pkg/http/proxy"
+	netheader "knative.dev/networking/pkg/http/header"
+	netproxy "knative.dev/networking/pkg/http/proxy"
 	httpstats "knative.dev/networking/pkg/http/stats"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
@@ -276,8 +276,8 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders, false /* use HTTP */)
 	httpProxy.Transport = buildTransport(env, logger)
 	httpProxy.ErrorHandler = pkghandler.Error(logger)
-	httpProxy.BufferPool = proxy.NewBufferPool()
-	httpProxy.FlushInterval = proxy.FlushInterval
+	httpProxy.BufferPool = netproxy.NewBufferPool()
+	httpProxy.FlushInterval = netproxy.FlushInterval
 
 	// TODO: During HTTP and HTTPS transition, counting concurrency could not be accurate. Count accurately.
 	breaker := buildBreaker(logger, env)
@@ -321,7 +321,7 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	drainer := &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
-		HealthCheckUAPrefixes: []string{header.ActivatorUserAgent},
+		HealthCheckUAPrefixes: []string{netheader.ActivatorUserAgent},
 		Inner:                 composedHandler,
 		HealthCheck:           health.ProbeHandler(probeContainer, tracingEnabled),
 	}

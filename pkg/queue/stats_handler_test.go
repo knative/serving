@@ -21,7 +21,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"knative.dev/networking/pkg/http/header"
+	netheader "knative.dev/networking/pkg/http/header"
 )
 
 func TestStatsHandler(t *testing.T) {
@@ -51,13 +51,13 @@ func TestStatsHandler(t *testing.T) {
 	}, {
 		name: "protobuf in second Accept header still serves prometheus",
 		headers: http.Header{
-			"Accept": []string{"", header.ProtobufMIMEType},
+			"Accept": []string{"", netheader.ProtobufMIMEType},
 		},
 		expect: "prometheus",
 	}, {
 		name: "protobuf accept header",
 		headers: http.Header{
-			"Accept": []string{header.ProtobufMIMEType},
+			"Accept": []string{netheader.ProtobufMIMEType},
 		},
 		expect: "protobuf",
 	}, {

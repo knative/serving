@@ -23,7 +23,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"knative.dev/networking/pkg/http/header"
+	netheader "knative.dev/networking/pkg/http/header"
 	ktesting "knative.dev/pkg/logging/testing"
 )
 
@@ -37,17 +37,17 @@ func TestHealthHandler(t *testing.T) {
 		check          func() error
 	}{{
 		name:           "forward non-kubelet request",
-		headers:        http.Header{header.UserAgentKey: []string{"chromium/734.6.5"}},
+		headers:        http.Header{netheader.UserAgentKey: []string{"chromium/734.6.5"}},
 		passed:         true,
 		expectedStatus: http.StatusOK,
 	}, {
 		name:           "kubelet probe success",
-		headers:        http.Header{header.UserAgentKey: []string{"kube-probe/something"}},
+		headers:        http.Header{netheader.UserAgentKey: []string{"kube-probe/something"}},
 		expectedStatus: http.StatusOK,
 		check:          func() error { return nil },
 	}, {
 		name:           "kubelet probe failure",
-		headers:        http.Header{header.UserAgentKey: []string{"kube-probe/something"}},
+		headers:        http.Header{netheader.UserAgentKey: []string{"kube-probe/something"}},
 		expectedStatus: http.StatusInternalServerError,
 		check:          func() error { return errors.New("not ready") },
 	}}
@@ -89,15 +89,15 @@ func BenchmarkHealthHandler(b *testing.B) {
 		check   func() error
 	}{{
 		label:   "forward non-kubelet request",
-		headers: http.Header{header.UserAgentKey: []string{"chromium/734.6.5"}},
+		headers: http.Header{netheader.UserAgentKey: []string{"chromium/734.6.5"}},
 		check:   func() error { return nil },
 	}, {
 		label:   "kubelet probe success",
-		headers: http.Header{header.UserAgentKey: []string{"kube-probe/something"}},
+		headers: http.Header{netheader.UserAgentKey: []string{"kube-probe/something"}},
 		check:   func() error { return nil },
 	}, {
 		label:   "kubelet probe failure",
-		headers: http.Header{header.UserAgentKey: []string{"kube-probe/something"}},
+		headers: http.Header{netheader.UserAgentKey: []string{"kube-probe/something"}},
 		check:   func() error { return errors.New("not ready") },
 	}}
 

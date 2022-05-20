@@ -29,7 +29,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 
-	"knative.dev/networking/pkg/http/header"
+	netheader "knative.dev/networking/pkg/http/header"
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	"knative.dev/pkg/logging/logkey"
 	pkghandler "knative.dev/pkg/network/handlers"
@@ -114,8 +114,8 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.ResponseWriter,
 	r *http.Request, target string, tracingEnabled bool, usePassthroughLb bool) {
-	header.RewriteHostIn(r)
-	r.Header.Set(header.ProxyKey, activator.Name)
+	netheader.RewriteHostIn(r)
+	r.Header.Set(netheader.ProxyKey, activator.Name)
 
 	// Set up the reverse proxy.
 	hostOverride := pkghttp.NoHostOverride

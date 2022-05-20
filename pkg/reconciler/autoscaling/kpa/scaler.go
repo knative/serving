@@ -26,11 +26,11 @@ import (
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
 
-	"knative.dev/networking/pkg/apis/networking"
-	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netapis "knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	nethttp "knative.dev/networking/pkg/http"
-	"knative.dev/networking/pkg/http/header"
-	"knative.dev/networking/pkg/prober"
+	netheader "knative.dev/networking/pkg/http/header"
+	netprober "knative.dev/networking/pkg/prober"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/activator"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -68,10 +68,10 @@ const (
 )
 
 var probeOptions = []interface{}{
-	prober.WithHeader(header.UserAgentKey, header.AutoscalingUserAgent),
-	prober.WithHeader(header.ProbeKey, activator.Name),
-	prober.ExpectsBody(activator.Name),
-	prober.ExpectsStatusCodes([]int{http.StatusOK}),
+	netprober.WithHeader(netheader.UserAgentKey, netheader.AutoscalingUserAgent),
+	netprober.WithHeader(netheader.ProbeKey, activator.Name),
+	netprober.ExpectsBody(activator.Name),
+	netprober.ExpectsStatusCodes([]int{http.StatusOK}),
 }
 
 // for mocking in tests
@@ -111,7 +111,7 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 
 		// Production setup uses the default probe implementation.
 		activatorProbe: activatorProbe,
-		probeManager: prober.New(func(arg interface{}, success bool, err error) {
+		probeManager: netprober.New(func(arg interface{}, success bool, err error) {
 			logger.Infof("Async prober is done for %v: success?: %v error: %v", arg, success, err)
 			// Re-enqueue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
 			enqueueCB(arg, reenqeuePeriod)
@@ -124,7 +124,7 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 // Resolves the pa to the probing endpoint Eg. http://hostname:port/healthz
 func paToProbeTarget(pa *autoscalingv1alpha1.PodAutoscaler) string {
 	svc := pkgnet.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
-	port := networking.ServicePort(pa.Spec.ProtocolType)
+	port := netapis.ServicePort(pa.Spec.ProtocolType)
 
 	return fmt.Sprintf("http://%s:%d/%s", svc, port, nethttp.HealthCheckPath)
 }
@@ -136,7 +136,7 @@ func activatorProbe(pa *autoscalingv1alpha1.PodAutoscaler, transport http.RoundT
 	if pa.Status.ServiceName == "" {
 		return false, nil
 	}
-	return prober.Do(context.Background(), transport, paToProbeTarget(pa), probeOptions...)
+	return netprober.Do(context.Background(), transport, paToProbeTarget(pa), probeOptions...)
 }
 
 func lastPodRetention(pa *autoscalingv1alpha1.PodAutoscaler, cfg *autoscalerconfig.Config) time.Duration {
@@ -166,7 +166,7 @@ func durationMax(d1, d2 time.Duration) time.Duration {
 }
 
 func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler,
-	sks *nv1a1.ServerlessService, desiredScale int32) (int32, bool) {
+	sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, bool) {
 	if desiredScale != 0 {
 		return desiredScale, true
 	}
@@ -213,7 +213,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 			// If SKS is in proxy mode, then there is high probability
 			// of SKS not changing its spec/status and thus not triggering
 			// a new reconciliation of PA.
-			if sks.Spec.Mode == nv1a1.SKSOperationModeProxy {
+			if sks.Spec.Mode == netv1alpha1.SKSOperationModeProxy {
 				logger.Debug("SKS is already in proxy mode, auto-re-enqueue PA")
 				// Long enough to ensure current iteration is finished.
 				ks.enqueueCB(pa, 3*time.Second)
@@ -322,7 +322,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 }
 
 // scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *nv1a1.ServerlessService, desiredScale int32) (int32, error) {
+func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
 

@@ -27,7 +27,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"knative.dev/networking/pkg/http/header"
+	netheader "knative.dev/networking/pkg/http/header"
 )
 
 func TestNewHeaderPruningProxy(t *testing.T) {
@@ -65,23 +65,23 @@ func TestNewHeaderPruningProxy(t *testing.T) {
 		name: "explicit user agent header not removed",
 		url:  "http://example.com/",
 		header: http.Header{
-			header.UserAgentKey: []string{"gold"},
+			netheader.UserAgentKey: []string{"gold"},
 		},
 		expectHeaders: http.Header{
-			"Host":              []string{"example.com"},
-			header.UserAgentKey: []string{"gold"},
+			"Host":                 []string{"example.com"},
+			netheader.UserAgentKey: []string{"gold"},
 		},
 	}, {
 		name: "overrides host header",
 		url:  "http://example.com/",
 		host: "foo.bar",
 		header: http.Header{
-			header.UserAgentKey: []string{"gold"},
+			netheader.UserAgentKey: []string{"gold"},
 		},
 		expectHeaders: http.Header{
-			"Host":                             []string{"foo.bar"},
-			header.PassthroughLoadbalancingKey: []string{"true"},
-			header.UserAgentKey:                []string{"gold"},
+			"Host":                                []string{"foo.bar"},
+			netheader.PassthroughLoadbalancingKey: []string{"true"},
+			netheader.UserAgentKey:                []string{"gold"},
 		},
 	}}
 
@@ -156,23 +156,23 @@ func TestNewHeaderPruningProxyHTTPS(t *testing.T) {
 		name: "explicit user agent header not removed",
 		url:  "https://example.com/",
 		header: http.Header{
-			header.UserAgentKey: []string{"gold"},
+			netheader.UserAgentKey: []string{"gold"},
 		},
 		expectHeaders: http.Header{
-			"Host":              []string{"example.com"},
-			header.UserAgentKey: []string{"gold"},
+			"Host":                 []string{"example.com"},
+			netheader.UserAgentKey: []string{"gold"},
 		},
 	}, {
 		name: "overrides host header",
 		url:  "https://example.com/",
 		host: "foo.bar",
 		header: http.Header{
-			header.UserAgentKey: []string{"gold"},
+			netheader.UserAgentKey: []string{"gold"},
 		},
 		expectHeaders: http.Header{
-			"Host":                             []string{"foo.bar"},
-			header.PassthroughLoadbalancingKey: []string{"true"},
-			header.UserAgentKey:                []string{"gold"},
+			"Host":                                []string{"foo.bar"},
+			netheader.PassthroughLoadbalancingKey: []string{"true"},
+			netheader.UserAgentKey:                []string{"gold"},
 		},
 	}}
 
