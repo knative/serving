@@ -35,7 +35,7 @@ import (
 
 	netheader "knative.dev/networking/pkg/http/header"
 	netproxy "knative.dev/networking/pkg/http/proxy"
-	httpstats "knative.dev/networking/pkg/http/stats"
+	netstats "knative.dev/networking/pkg/http/stats"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
@@ -152,7 +152,7 @@ func main() {
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()
 
-	stats := httpstats.NewRequestStats(time.Now())
+	stats := netstats.NewRequestStats(time.Now())
 	go func() {
 		for now := range reportTicker.C {
 			stat := stats.Report(now)
@@ -267,7 +267,7 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *httpstats.RequestStats, logger *zap.SugaredLogger,
+func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
 	ce *queue.ConcurrencyEndpoint, enableTLS bool) (server *http.Server, drain func()) {
 	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
