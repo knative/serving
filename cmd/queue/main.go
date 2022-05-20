@@ -140,14 +140,6 @@ func main() {
 	// Report stats on Go memory usage every 30 seconds.
 	metrics.MemStatsOrDie(ctx)
 
-	// Setup reporters and processes to handle stat reporting.
-	promStatReporter, err := queue.NewPrometheusStatsReporter(
-		env.ServingNamespace, env.ServingConfiguration, env.ServingRevision,
-		env.ServingPod, reportingPeriod)
-	if err != nil {
-		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
-	}
-
 	protoStatReporter := queue.NewProtobufStatsReporter(env.ServingPod, reportingPeriod)
 
 	reportTicker := time.NewTicker(reportingPeriod)
@@ -157,7 +149,6 @@ func main() {
 	go func() {
 		for now := range reportTicker.C {
 			stat := stats.Report(now)
-			promStatReporter.Report(stat)
 			protoStatReporter.Report(stat)
 		}
 	}()
@@ -181,7 +172,7 @@ func main() {
 	mainServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint, false)
 	httpServers := map[string]*http.Server{
 		"main":    mainServer,
-		"metrics": buildMetricsServer(promStatReporter, protoStatReporter),
+		"metrics": buildMetricsServer(protoStatReporter),
 		"admin":   buildAdminServer(logger, drain),
 	}
 	if env.EnableProfiling {
@@ -418,9 +409,9 @@ func buildAdminServer(logger *zap.SugaredLogger, drain func()) *http.Server {
 	}
 }
 
-func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter, protobufStatReporter *queue.ProtobufStatsReporter) *http.Server {
+func buildMetricsServer(protobufStatReporter *queue.ProtobufStatsReporter) *http.Server {
 	metricsMux := http.NewServeMux()
-	metricsMux.Handle("/metrics", queue.NewStatsHandler(promStatReporter, protobufStatReporter))
+	metricsMux.Handle("/metrics", queue.NewStatsHandler(protobufStatReporter))
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
 		Handler: metricsMux,
