@@ -42,7 +42,7 @@ import (
 
 	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/networking/pkg/http/probe"
+	netprobe "knative.dev/networking/pkg/http/probe"
 	"knative.dev/pkg/configmap"
 	configmapinformer "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
@@ -238,7 +238,7 @@ func main() {
 
 	// Network probe handlers.
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
-	ah = probe.NewHandler(ah)
+	ah = netprobe.NewHandler(ah)
 
 	// Set up our health check based on the health of stat sink and environmental factors.
 	sigCtx := signals.NewContext()
