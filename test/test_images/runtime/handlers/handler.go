@@ -22,15 +22,14 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	network "knative.dev/networking/pkg"
+	nethttp "knative.dev/networking/pkg/http"
+	netheader "knative.dev/networking/pkg/http/header"
 )
 
 // InitHandlers initializes all handlers.
 func InitHandlers(mux *http.ServeMux) {
 	mux.HandleFunc("/", withHeaders(withRequestLog(runtimeHandler)))
-
-	h := network.NewProbeHandler(withRequestLog(withKubeletProbeHeaderCheck))
-	mux.HandleFunc(network.ProbePath, h.ServeHTTP)
+	mux.HandleFunc(nethttp.HealthCheckPath, withRequestLog(withKubeletProbeHeaderCheck))
 }
 
 // withRequestLog logs each request before handling it.
@@ -49,7 +48,7 @@ func withRequestLog(next http.HandlerFunc) http.HandlerFunc {
 
 // withKubeletProbeHeaderCheck checks each health request has Kubelet probe header
 func withKubeletProbeHeaderCheck(w http.ResponseWriter, r *http.Request) {
-	if !network.IsKubeletProbe(r) {
+	if !netheader.IsKubeletProbe(r) {
 		w.WriteHeader(http.StatusBadRequest)
 	} else {
 		w.WriteHeader(http.StatusOK)

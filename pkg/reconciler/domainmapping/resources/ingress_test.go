@@ -24,9 +24,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
@@ -65,8 +65,8 @@ func TestMakeIngress(t *testing.T) {
 				Name:      "mapping.com",
 				Namespace: "the-namespace",
 				Annotations: map[string]string{
-					networking.IngressClassAnnotationKey: "the-ingress-class",
-					"some.annotation":                    "some.value",
+					netapi.IngressClassAnnotationKey: "the-ingress-class",
+					"some.annotation":                "some.value",
 				},
 			},
 			Spec: netv1alpha1.IngressSpec{
@@ -80,7 +80,7 @@ func TestMakeIngress(t *testing.T) {
 							Splits: []netv1alpha1.IngressBackendSplit{{
 								Percent: 100,
 								AppendHeaders: map[string]string{
-									network.OriginalHostHeader: "mapping.com",
+									netheader.OriginalHostKey: "mapping.com",
 								},
 								IngressBackend: netv1alpha1.IngressBackend{
 									ServiceName:      "the-target-svc",
@@ -121,8 +121,8 @@ func TestMakeIngress(t *testing.T) {
 				Name:      "mapping.com",
 				Namespace: "the-namespace",
 				Annotations: map[string]string{
-					networking.IngressClassAnnotationKey: "the-ingress-class",
-					"some.annotation":                    "some.value",
+					netapi.IngressClassAnnotationKey: "the-ingress-class",
+					"some.annotation":                "some.value",
 				},
 			},
 			Spec: netv1alpha1.IngressSpec{
@@ -136,7 +136,7 @@ func TestMakeIngress(t *testing.T) {
 							Splits: []netv1alpha1.IngressBackendSplit{{
 								Percent: 100,
 								AppendHeaders: map[string]string{
-									network.OriginalHostHeader: "mapping.com",
+									netheader.OriginalHostKey: "mapping.com",
 								},
 								IngressBackend: netv1alpha1.IngressBackend{
 									ServiceName:      "the-target-svc",
@@ -187,8 +187,8 @@ func TestMakeIngress(t *testing.T) {
 				Name:      "mapping.com",
 				Namespace: "the-namespace",
 				Annotations: map[string]string{
-					networking.IngressClassAnnotationKey: "the-ingress-class",
-					"some.annotation":                    "some.value",
+					netapi.IngressClassAnnotationKey: "the-ingress-class",
+					"some.annotation":                "some.value",
 				},
 			},
 			Spec: netv1alpha1.IngressSpec{
@@ -212,7 +212,7 @@ func TestMakeIngress(t *testing.T) {
 							Splits: []netv1alpha1.IngressBackendSplit{{
 								Percent: 100,
 								AppendHeaders: map[string]string{
-									network.OriginalHostHeader: "mapping.com",
+									netheader.OriginalHostKey: "mapping.com",
 								},
 								IngressBackend: netv1alpha1.IngressBackend{
 									ServiceName:      "the-target-svc",

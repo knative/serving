@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
 	pkgtest "knative.dev/pkg/test"
@@ -109,7 +109,7 @@ func TestRequestLogs(t *testing.T) {
 		// A request was sent to / in CheckEndpointState.
 		if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
 			return log.HTTPRequest.RequestURL == "/" &&
-				log.HTTPRequest.UserAgent != network.QueueProxyUserAgent
+				log.HTTPRequest.UserAgent != netheader.QueueProxyUserAgent
 		}); err != nil {
 			t.Fatal("Got error waiting for normal request logs:", err)
 		}
@@ -122,7 +122,7 @@ func TestRequestLogs(t *testing.T) {
 		// Health check requests are sent to / with a specific userAgent value periodically.
 		if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
 			return log.HTTPRequest.RequestURL == "/" &&
-				strings.HasPrefix(log.HTTPRequest.UserAgent, network.KubeProbeUAPrefix)
+				strings.HasPrefix(log.HTTPRequest.UserAgent, netheader.KubeProbeUAPrefix)
 		}); err != nil {
 			t.Fatal("Got error waiting for health check log:", err)
 		}

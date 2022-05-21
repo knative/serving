@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -42,7 +43,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	// TODO: change to proper casing after 0.27 cuts
 	deploymentConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.DeprecatedQueueSidecarImageKey)
-	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
+	networkConfig := ConfigMapFromTestFile(t, netcfg.ConfigMapName)
 	observabilityConfig, observabilityConfigExample := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
 	loggingConfig, loggingConfigExample := ConfigMapsFromTestFile(t, logging.ConfigMapName())
 	tracingConfig, tracingConfigExample := ConfigMapsFromTestFile(t, pkgtracing.ConfigName)
@@ -159,7 +160,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 	watcher := configmap.NewStaticWatcher(
 		// TODO: switch to newer key casing after 0.27
 		ConfigMapFromTestFile(t, deployment.ConfigName, deployment.DeprecatedQueueSidecarImageKey),
-		ConfigMapFromTestFile(t, network.ConfigName),
+		ConfigMapFromTestFile(t, netcfg.ConfigMapName),
 		ConfigMapFromTestFile(t, metrics.ConfigMapName()),
 		ConfigMapFromTestFile(t, logging.ConfigMapName()),
 		ConfigMapFromTestFile(t, pkgtracing.ConfigName),

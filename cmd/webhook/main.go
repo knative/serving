@@ -42,6 +42,7 @@ import (
 
 	// config validation constructors
 	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -140,7 +141,7 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 			tracingconfig.ConfigName:       tracingconfig.NewTracingConfigFromConfigMap,
 			autoscalerconfig.ConfigName:    autoscalerconfig.NewConfigFromConfigMap,
 			gc.ConfigName:                  gc.NewConfigFromConfigMapFunc(ctx),
-			network.ConfigName:             network.NewConfigFromConfigMap,
+			netcfg.ConfigMapName:           network.NewConfigFromConfigMap,
 			deployment.ConfigName:          deployment.NewConfigFromConfigMap,
 			apisconfig.FeaturesConfigName:  apisconfig.NewFeaturesConfigFromConfigMap,
 			metrics.ConfigMapName():        metrics.NewObservabilityConfigFromConfigMap,

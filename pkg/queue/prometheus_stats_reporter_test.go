@@ -25,7 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/prometheus/client_golang/prometheus"
 
-	network "knative.dev/networking/pkg"
+	netstats "knative.dev/networking/pkg/http/stats"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	dto "github.com/prometheus/client_model/go"
@@ -43,12 +43,12 @@ var ignoreStatFields = cmpopts.IgnoreFields(metrics.Stat{}, "ProcessUptime")
 var testCases = []struct {
 	name            string
 	reportingPeriod time.Duration
-	report          network.RequestStatsReport
+	report          netstats.RequestStatsReport
 	want            metrics.Stat
 }{{
 	name:            "no proxy requests",
 	reportingPeriod: 1 * time.Second,
-	report: network.RequestStatsReport{
+	report: netstats.RequestStatsReport{
 		AverageConcurrency: 3,
 		RequestCount:       39,
 	},
@@ -59,7 +59,7 @@ var testCases = []struct {
 }, {
 	name:            "reportingPeriod=10s",
 	reportingPeriod: 10 * time.Second,
-	report: network.RequestStatsReport{
+	report: netstats.RequestStatsReport{
 		AverageConcurrency:        3,
 		AverageProxiedConcurrency: 2,
 		ProxiedRequestCount:       15,
@@ -75,7 +75,7 @@ var testCases = []struct {
 	name:            "reportingPeriod=2s",
 	reportingPeriod: 2 * time.Second,
 
-	report: network.RequestStatsReport{
+	report: netstats.RequestStatsReport{
 		AverageConcurrency:        3,
 		AverageProxiedConcurrency: 2,
 		ProxiedRequestCount:       15,
@@ -91,7 +91,7 @@ var testCases = []struct {
 	name:            "reportingPeriod=1s",
 	reportingPeriod: 1 * time.Second,
 
-	report: network.RequestStatsReport{
+	report: netstats.RequestStatsReport{
 		AverageConcurrency:        3,
 		AverageProxiedConcurrency: 2,
 		ProxiedRequestCount:       15,

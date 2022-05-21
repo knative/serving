@@ -27,9 +27,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netheader "knative.dev/networking/pkg/http/header"
 	ingress "knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
@@ -161,7 +161,7 @@ func makeIngressSpec(
 					// If the header has "true" and there is a "Knative-Serving-Tag" header,
 					// then the request is having the undefined tag header,
 					// which will be observed in queue-proxy.
-					rule.HTTP.Paths[0].AppendHeaders[network.DefaultRouteHeaderName] = "true"
+					rule.HTTP.Paths[0].AppendHeaders[netheader.DefaultRouteKey] = "true"
 
 					// Add ingress paths for a request with the tag header.
 					// If a request has one of the `names` (tag name), specified as the
@@ -180,7 +180,7 @@ func makeIngressSpec(
 					//
 					// To prevent such inconsistency,
 					// the tag header is appended with the tag corresponding to the tag-attached hostname
-					rule.HTTP.Paths[0].AppendHeaders[network.TagHeaderName] = name
+					rule.HTTP.Paths[0].AppendHeaders[netheader.RouteTagKey] = name
 				}
 			}
 			// If this is a public rule, we need to configure ACME challenge paths.
@@ -283,7 +283,7 @@ func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.
 
 	for _, name := range names {
 		path := makeBaseIngressPath(ns, tc.Targets[name], ro.RolloutsByTag(name), activatorCA)
-		path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
+		path.Headers = map[string]netv1alpha1.HeaderMatch{netheader.RouteTagKey: {Exact: name}}
 		paths = append(paths, *path)
 	}
 

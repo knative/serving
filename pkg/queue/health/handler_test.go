@@ -24,7 +24,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"knative.dev/pkg/network"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/serving/pkg/queue"
 )
 
@@ -71,7 +71,7 @@ func TestProbeHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 
 			if !tc.notAProbe {
-				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
+				req.Header.Set(netheader.ProbeKey, tc.requestHeader)
 			}
 
 			h := ProbeHandler(tc.prober, true /*tracingEnabled*/)

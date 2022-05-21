@@ -49,7 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -98,7 +98,7 @@ func newTestController(t *testing.T, configs []*corev1.ConfigMap, opts ...reconc
 	for _, cm := range append([]*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      network.ConfigName,
+			Name:      netcfg.ConfigMapName,
 		},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{

@@ -41,6 +41,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
+	netprobe "knative.dev/networking/pkg/http/probe"
 	"knative.dev/pkg/configmap"
 	configmapinformer "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
@@ -145,7 +147,7 @@ func main() {
 
 	// Fetch networking configuration to determine whether EnableMeshPodAddressability
 	// is enabled or not.
-	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, network.ConfigName, metav1.GetOptions{})
+	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, netcfg.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		logger.Fatalw("Failed to fetch network config", zap.Error(err))
 	}
@@ -236,7 +238,7 @@ func main() {
 
 	// Network probe handlers.
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
-	ah = network.NewProbeHandler(ah)
+	ah = netprobe.NewHandler(ah)
 
 	// Set up our health check based on the health of stat sink and environmental factors.
 	sigCtx := signals.NewContext()

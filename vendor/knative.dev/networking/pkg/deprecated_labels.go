@@ -16,7 +16,7 @@ limitations under the License.
 
 package pkg
 
-import "knative.dev/networking/pkg/labels"
+import "knative.dev/networking/pkg/apis/networking"
 
 const (
 	// VisibilityLabelKey is the label to indicate visibility of Route
@@ -24,6 +24,6 @@ const (
 	// already using labels for domain, it probably best to keep this
 	// consistent.
 	//
-	// Deprecated: use knative.dev/networking/pkg/labels.VisibilityLabelKey
-	VisibilityLabelKey = labels.VisibilityLabelKey
+	// Deprecated: use knative.dev/networking/pkg/apis/networking.VisibilityLabelKey
+	VisibilityLabelKey = networking.VisibilityLabelKey
 )

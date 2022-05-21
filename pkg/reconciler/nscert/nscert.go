@@ -31,11 +31,11 @@ import (
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/sets"
-	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	clientset "knative.dev/networking/pkg/client/clientset/versioned"
 	listers "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
 	namespacereconciler "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace"
 	"knative.dev/pkg/controller"
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -159,7 +159,7 @@ func (c *reconciler) deleteNamespaceCerts(ctx context.Context, ns *corev1.Namesp
 }
 
 func wildcardDomain(tmpl, domain, namespace string) (string, error) {
-	data := network.DomainTemplateValues{
+	data := netcfg.DomainTemplateValues{
 		Name:      "*",
 		Domain:    domain,
 		Namespace: namespace,

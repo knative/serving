@@ -21,21 +21,6 @@ import (
 	"errors"
 	"testing"
 
-	// Inject our fake informers
-	networkingclient "knative.dev/networking/pkg/client/injection/client"
-	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta2/horizontalpodautoscaler/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
-	servingclient "knative.dev/serving/pkg/client/injection/client"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
-	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
-	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
-
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -45,9 +30,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ktesting "k8s.io/client-go/testing"
 
-	netpkg "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	networkingclient "knative.dev/networking/pkg/client/injection/client"
+	netcfg "knative.dev/networking/pkg/config"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -58,6 +46,11 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
+	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
+	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	"knative.dev/serving/pkg/deployment"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -65,7 +58,13 @@ import (
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 
+	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta2/horizontalpodautoscaler/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	_ "knative.dev/pkg/metrics/testing"
+	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
+
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing"
@@ -98,7 +97,7 @@ func TestControllerCanReconcile(t *testing.T) {
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      netpkg.ConfigName,
+				Name:      netcfg.ConfigMapName,
 			},
 			Data: map[string]string{},
 		}))

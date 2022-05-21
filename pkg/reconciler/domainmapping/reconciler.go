@@ -32,11 +32,11 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	networkingpkg "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
@@ -100,7 +100,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	dm.Status.Address = &duckv1.Addressable{URL: url}
 
 	// IngressClass can be set via annotations or in the config map.
-	ingressClass := networking.GetIngressClass(dm.Annotations)
+	ingressClass := netapi.GetIngressClass(dm.Annotations)
 	if ingressClass == "" {
 		ingressClass = config.FromContext(ctx).Network.DefaultIngressClass
 	}
@@ -176,14 +176,14 @@ func autoTLSEnabled(ctx context.Context, dm *v1alpha1.DomainMapping) bool {
 	if !config.FromContext(ctx).Network.AutoTLS {
 		return false
 	}
-	annotationValue := networking.GetDisableAutoTLS(dm.Annotations)
+	annotationValue := netapi.GetDisableAutoTLS(dm.Annotations)
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
 	if annotationValue != "" && err != nil {
 		logger := logging.FromContext(ctx)
 		// Validation should've caught an invalid value here.
 		// If we have one anyway, assume not disabled and log a warning.
 		logger.Warnf("DM.Annotations[%s] = %q is invalid",
-			networking.DisableAutoTLSAnnotationKey, annotationValue)
+			netapi.DisableAutoTLSAnnotationKey, annotationValue)
 	}
 
 	return !disabledByAnnotation
@@ -231,7 +231,7 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]net
 		dm.Status.MarkCertificateReady(cert.Name)
 		return []netv1alpha1.IngressTLS{routeresources.MakeIngressTLS(cert, desiredCert.Spec.DNSNames)}, nil, nil
 	}
-	if config.FromContext(ctx).Network.HTTPProtocol == networkingpkg.HTTPEnabled {
+	if config.FromContext(ctx).Network.HTTPProtocol == netcfg.HTTPEnabled {
 		// When httpProtocol is enabled, downgrade http scheme.
 		dm.Status.URL.Scheme = "http"
 		dm.Status.MarkHTTPDowngrade(cert.Name)

@@ -22,7 +22,7 @@ import (
 
 	"go.opencensus.io/trace"
 
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/serving/pkg/queue"
 )
 
@@ -32,7 +32,7 @@ const badProbeTemplate = "unexpected probe header value: "
 // This handler assumes the Knative Probe Header will be passed.
 func ProbeHandler(prober func() bool, tracingEnabled bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ph := network.KnativeProbeHeader(r)
+		ph := netheader.GetKnativeProbeValue(r)
 
 		var probeSpan *trace.Span
 		if tracingEnabled {

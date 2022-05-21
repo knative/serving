@@ -31,7 +31,7 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
@@ -176,8 +176,8 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 
 	select {
 	case httpReq := <-interceptCh:
-		if got := httpReq.Header.Get(network.ProxyHeaderName); got != activator.Name {
-			t.Errorf("Header %q = %q, want: %q", network.ProxyHeaderName, got, activator.Name)
+		if got := httpReq.Header.Get(netheader.ProxyKey); got != activator.Name {
+			t.Errorf("Header %q = %q, want: %q", netheader.ProxyKey, got, activator.Name)
 		}
 	case <-time.After(1 * time.Second):
 		t.Error("Timed out waiting for a request to be intercepted")
@@ -213,7 +213,7 @@ func TestActivationHandlerPassthroughLb(t *testing.T) {
 		if got, want := httpReq.Host, "real-name-private.real-namespace"; got != want {
 			t.Errorf("Host = %q, want: %q", got, want)
 		}
-		if got, want := httpReq.Header.Get(network.PassthroughLoadbalancingHeaderName), "true"; got != want {
+		if got, want := httpReq.Header.Get(netheader.PassthroughLoadbalancingKey), "true"; got != want {
 			t.Errorf("Header %q = %q, want: %q", "Host", got, want)
 		}
 	case <-time.After(1 * time.Second):

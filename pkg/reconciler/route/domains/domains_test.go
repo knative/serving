@@ -26,7 +26,8 @@ import (
 	"knative.dev/pkg/apis"
 	pkgnet "knative.dev/pkg/network"
 
-	network "knative.dev/networking/pkg"
+	netapi "knative.dev/networking/pkg/apis/networking"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -42,9 +43,9 @@ func testConfig() *config.Config {
 				},
 			},
 		},
-		Network: &network.Config{
+		Network: &netcfg.Config{
 			DefaultIngressClass: "ingress-class-foo",
-			DomainTemplate:      network.DefaultDomainTemplate,
+			DomainTemplate:      netcfg.DefaultDomainTemplate,
 		},
 	}
 }
@@ -138,9 +139,9 @@ func TestDomainNameFromTemplate(t *testing.T) {
 			ctx = config.ToContext(ctx, cfg)
 
 			if tt.local {
-				meta.Labels[network.VisibilityLabelKey] = serving.VisibilityClusterLocal
+				meta.Labels[netapi.VisibilityLabelKey] = serving.VisibilityClusterLocal
 			} else {
-				delete(meta.Labels, network.VisibilityLabelKey)
+				delete(meta.Labels, netapi.VisibilityLabelKey)
 			}
 
 			got, err := DomainNameFromTemplate(ctx, meta, tt.args.name)

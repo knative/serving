@@ -20,11 +20,11 @@ import (
 	"context"
 
 	"k8s.io/client-go/tools/cache"
-	network "knative.dev/networking/pkg"
 	netclient "knative.dev/networking/pkg/client/injection/client"
 	certificateinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	domainclaiminformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/clusterdomainclaim"
 	ingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -52,7 +52,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 
 	impl := kindreconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options {
 		configsToResync := []interface{}{
-			&network.Config{},
+			&netcfg.Config{},
 		}
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 			impl.GlobalResync(domainmappingInformer.Informer())

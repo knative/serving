@@ -26,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/networking/pkg/apis/networking"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
@@ -244,7 +244,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt(int(servingPort.ContainerPort)),
 				HTTPHeaders: []corev1.HTTPHeader{{
-					Name:  network.ProbeHeaderName,
+					Name:  netheader.ProbeKey,
 					Value: queue.Name,
 				}},
 			},
@@ -381,7 +381,7 @@ func applyReadinessProbeDefaultsForExec(p *corev1.Probe, port int32) {
 		}
 
 		p.HTTPGet.HTTPHeaders = append(p.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
-			Name:  network.KubeletProbeHeaderName,
+			Name:  netheader.KubeletProbeKey,
 			Value: queue.Name,
 		})
 	case p.TCPSocket != nil:

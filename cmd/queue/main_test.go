@@ -26,7 +26,8 @@ import (
 
 	"go.opencensus.io/plugin/ochttp"
 
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
+	netstats "knative.dev/networking/pkg/http/stats"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -145,11 +146,11 @@ func TestQueueTraceSpans(t *testing.T) {
 					Propagation: tracecontextb3.TraceContextB3Egress,
 				}
 
-				h := queue.ProxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
+				h := queue.ProxyHandler(breaker, netstats.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
 				h := health.ProbeHandler(tc.prober, true /*tracingEnabled*/)
-				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
+				req.Header.Set(netheader.ProbeKey, tc.requestHeader)
 				h(writer, req)
 			}
 
