@@ -162,8 +162,10 @@ func main() {
 	}()
 
 	// Setup probe to run for checking user-application healthiness.
+	// Do not set up probe if concurrency state endpoint is set, as
+	// paused containers don't play well with k8s readiness probes.
 	probe := func() bool { return true }
-	if env.ServingReadinessProbe != "" {
+	if env.ServingReadinessProbe != "" && env.ConcurrencyStateEndpoint == "" {
 		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection).ProbeContainer
 	}
 
