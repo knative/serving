@@ -200,6 +200,8 @@ func main() {
 		delete(httpServers, "admin")
 	}
 
+	logger.Info("Starting queue-proxy")
+
 	errCh := make(chan error)
 	for name, server := range httpServers {
 		go func(name string, s *http.Server) {
