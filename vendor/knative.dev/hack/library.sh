@@ -105,7 +105,7 @@ function make_banner() {
   echo -e "${border}\n${msg}\n${border}"
   # TODO(adrcunha): Remove once logs have timestamps on Prow
   # For details, see https://github.com/kubernetes/test-infra/issues/10100
-  echo -e "$1$1$1$1 $(TZ='America/Los_Angeles' date)\n${border}"
+  echo -e "$1$1$1$1 $(TZ='UTC' date)\n${border}"
 }
 
 # Simple header for logging purposes.
