@@ -74,15 +74,15 @@ const (
 )
 
 type config struct {
-	ContainerConcurrency     int    `split_words:"true" required:"true"`
-	QueueServingPort         string `split_words:"true" required:"true"`
-	QueueServingTLSPort      string `split_words:"true" required:"true"`
-	UserPort                 string `split_words:"true" required:"true"`
-	RevisionTimeoutSeconds   int    `split_words:"true" required:"true"`
-	MaxDurationSeconds       int    `split_words:"true"` // optional
-	ServingReadinessProbe    string `split_words:"true"` // optional
-	EnableProfiling          bool   `split_words:"true"` // optional
-	EnableHTTP2AutoDetection bool   `split_words:"true"` // optional
+	ContainerConcurrency                int    `split_words:"true" required:"true"`
+	QueueServingPort                    string `split_words:"true" required:"true"`
+	QueueServingTLSPort                 string `split_words:"true" required:"true"`
+	UserPort                            string `split_words:"true" required:"true"`
+	RevisionTimeoutSeconds              int    `split_words:"true" required:"true"`
+	RevisionResponseStartTimeoutSeconds int    `split_words:"true"` // optional
+	ServingReadinessProbe               string `split_words:"true"` // optional
+	EnableProfiling                     bool   `split_words:"true"` // optional
+	EnableHTTP2AutoDetection            bool   `split_words:"true"` // optional
 
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
@@ -336,11 +336,13 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 	metricsSupported := supportsMetrics(ctx, logger, env, enableTLS)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
 	concurrencyStateEnabled := env.ConcurrencyStateEndpoint != ""
-	firstByteTimeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
+	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
+	var responseStartTimeout time.Duration
+	if env.RevisionResponseStartTimeoutSeconds != 0 {
+		responseStartTimeout = time.Duration(env.RevisionResponseStartTimeoutSeconds) * time.Second
+	}
 	// hardcoded to always disable idle timeout for now, will expose this later
 	var idleTimeout time.Duration
-
-	maxDurationTimeout := time.Duration(env.MaxDurationSeconds) * time.Second
 
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
@@ -361,7 +363,7 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 	}
 	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", firstByteTimeout, idleTimeout, maxDurationTimeout)
+	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", timeout, responseStartTimeout, idleTimeout)
 
 	if metricsSupported {
 		composedHandler = requestMetricsHandler(logger, composedHandler, env)

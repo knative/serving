@@ -44,6 +44,9 @@ const (
 	// DefaultMaxRevisionTimeoutSeconds will be set if MaxRevisionTimeoutSeconds is not specified.
 	DefaultMaxRevisionTimeoutSeconds = 10 * 60
 
+	// DefaultRevisionRequestStartTimeoutSeconds will be set if RevisionRequestStartTimeoutSeconds is not specified.
+	DefaultRevisionRequestStartTimeoutSeconds = 1 * 60
+
 	// DefaultInitContainerName is the default name we give to the init containers
 	// specified by the user, if `name:` is omitted.
 	DefaultInitContainerName = "init-container"
@@ -71,14 +74,15 @@ var (
 
 func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
-		RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
-		MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
-		InitContainerNameTemplate:     DefaultInitContainerNameTemplate,
-		UserContainerNameTemplate:     DefaultUserContainerNameTemplate,
-		ContainerConcurrency:          DefaultContainerConcurrency,
-		ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
-		AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
-		EnableServiceLinks:            ptr.Bool(false),
+		RevisionTimeoutSeconds:             DefaultRevisionTimeoutSeconds,
+		MaxRevisionTimeoutSeconds:          DefaultMaxRevisionTimeoutSeconds,
+		RevisionRequestStartTimeoutSeconds: DefaultRevisionRequestStartTimeoutSeconds,
+		InitContainerNameTemplate:          DefaultInitContainerNameTemplate,
+		UserContainerNameTemplate:          DefaultUserContainerNameTemplate,
+		ContainerConcurrency:               DefaultContainerConcurrency,
+		ContainerConcurrencyMaxLimit:       DefaultMaxRevisionContainerConcurrency,
+		AllowContainerConcurrencyZero:      DefaultAllowContainerConcurrencyZero,
+		EnableServiceLinks:                 ptr.Bool(false),
 	}
 }
 
@@ -111,6 +115,8 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 
 		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
 		cm.AsInt64("max-revision-timeout-seconds", &nc.MaxRevisionTimeoutSeconds),
+		cm.AsInt64("revision-request-start-timeout-seconds", &nc.RevisionRequestStartTimeoutSeconds),
+
 		cm.AsInt64("container-concurrency", &nc.ContainerConcurrency),
 		cm.AsInt64("container-concurrency-max-limit", &nc.ContainerConcurrencyMaxLimit),
 
@@ -156,6 +162,10 @@ type Defaults struct {
 	// This is the timeout set for ingress.
 	// RevisionTimeoutSeconds must be less than this value.
 	MaxRevisionTimeoutSeconds int64
+
+	// This is  the default number of seconds a request will be allowed to
+	// stay open while waiting to receive any bytes from the user's application
+	RevisionRequestStartTimeoutSeconds int64
 
 	InitContainerNameTemplate *ObjectMetaTemplate
 

@@ -920,6 +920,20 @@ layer will wait for a request delivered to a container to begin replying
 (send network traffic). If unspecified, a system default will be provided.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>responseStartTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResponseStartTimeoutSeconds is the maximum duration in seconds that the request
+routing layer will wait for a request delivered to a container to begin
+sending any network traffic.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -1382,6 +1396,20 @@ layer will wait for a request delivered to a container to begin replying
 (send network traffic). If unspecified, a system default will be provided.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>responseStartTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResponseStartTimeoutSeconds is the maximum duration in seconds that the request
+routing layer will wait for a request delivered to a container to begin
+sending any network traffic.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="serving.knative.dev/v1.RevisionStatus">RevisionStatus
@@ -1580,6 +1608,20 @@ int64
 <p>TimeoutSeconds is the maximum duration in seconds that the request routing
 layer will wait for a request delivered to a container to begin replying
 (send network traffic). If unspecified, a system default will be provided.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>responseStartTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResponseStartTimeoutSeconds is the maximum duration in seconds that the request
+routing layer will wait for a request delivered to a container to begin
+sending any network traffic.</p>
 </td>
 </tr>
 </table>

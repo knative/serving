@@ -113,6 +113,9 @@ var (
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: "45",
 		}, {
+			Name:  "REVISION_RESPONSE_START_TIMEOUT_SECONDS",
+			Value: "0",
+		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},

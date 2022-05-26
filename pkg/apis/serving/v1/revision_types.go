@@ -88,6 +88,12 @@ type RevisionSpec struct {
 	// (send network traffic). If unspecified, a system default will be provided.
 	// +optional
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
+
+	// ResponseStartTimeoutSeconds is the maximum duration in seconds that the request
+	// routing layer will wait for a request delivered to a container to begin
+	// sending any network traffic.
+	// +optional
+	ResponseStartTimeoutSeconds *int64 `json:"responseStartTimeoutSeconds,omitempty"`
 }
 
 const (

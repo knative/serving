@@ -182,6 +182,13 @@ func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
 	}
 }
 
+// WithRevisionResponseStartTimeoutSeconds sets revision first byte timeout
+func WithRevisionResponseStartTimeoutSeconds(revisionResponseStartTimeoutSeconds int64) ServiceOption {
+	return func(service *v1.Service) {
+		service.Spec.Template.Spec.ResponseStartTimeoutSeconds = ptr.Int64(revisionResponseStartTimeoutSeconds)
+	}
+}
+
 // WithServiceAccountName sets revision service account name
 func WithServiceAccountName(serviceAccountName string) ServiceOption {
 	return func(service *v1.Service) {

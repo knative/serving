@@ -550,6 +550,10 @@ spec:
                           description: This is accessible behind a feature flag - kubernetes.podspec-priorityclassname
                           type: string
                           x-kubernetes-preserve-unknown-fields: true
+                        responseStartTimeoutSeconds:
+                          description: ResponseStartTimeoutSeconds is the maximum duration in seconds that the request routing layer will wait for a request delivered to a container to begin sending any network traffic.
+                          type: integer
+                          format: int64
                         runtimeClassName:
                           description: This is accessible behind a feature flag - kubernetes.podspec-runtimeclassname
                           type: string

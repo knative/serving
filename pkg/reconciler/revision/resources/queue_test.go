@@ -286,6 +286,19 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
+		name: "custom ResponseStartTimeoutSeconds",
+		rev: revision("bar", "foo",
+			withContainers(containers),
+			func(revision *v1.Revision) {
+				revision.Spec.ResponseStartTimeoutSeconds = ptr.Int64(77)
+			},
+		),
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"REVISION_RESPONSE_START_TIMEOUT_SECONDS": "77",
+			})
+		}),
+	}, {
 		name: "default resource config",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
@@ -878,32 +891,33 @@ func TestTCPProbeGeneration(t *testing.T) {
 }
 
 var defaultEnv = map[string]string{
-	"CONCURRENCY_STATE_ENDPOINT":       "",
-	"CONCURRENCY_STATE_TOKEN_PATH":     "/var/run/secrets/tokens/state-token",
-	"CONTAINER_CONCURRENCY":            "0",
-	"ENABLE_HTTP2_AUTO_DETECTION":      "false",
-	"ENABLE_PROFILING":                 "false",
-	"METRICS_DOMAIN":                   metrics.Domain(),
-	"METRICS_COLLECTOR_ADDRESS":        "",
-	"QUEUE_SERVING_PORT":               "8012",
-	"QUEUE_SERVING_TLS_PORT":           "8112",
-	"REVISION_TIMEOUT_SECONDS":         "45",
-	"SERVING_CONFIGURATION":            "",
-	"SERVING_ENABLE_PROBE_REQUEST_LOG": "false",
-	"SERVING_ENABLE_REQUEST_LOG":       "false",
-	"SERVING_LOGGING_CONFIG":           "",
-	"SERVING_LOGGING_LEVEL":            "",
-	"SERVING_NAMESPACE":                "foo",
-	"SERVING_REQUEST_LOG_TEMPLATE":     "",
-	"SERVING_REQUEST_METRICS_BACKEND":  "",
-	"SERVING_REVISION":                 "bar",
-	"SERVING_SERVICE":                  "",
-	"SYSTEM_NAMESPACE":                 system.Namespace(),
-	"TRACING_CONFIG_BACKEND":           "",
-	"TRACING_CONFIG_DEBUG":             "false",
-	"TRACING_CONFIG_SAMPLE_RATE":       "0",
-	"TRACING_CONFIG_ZIPKIN_ENDPOINT":   "",
-	"USER_PORT":                        strconv.Itoa(v1.DefaultUserPort),
+	"CONCURRENCY_STATE_ENDPOINT":              "",
+	"CONCURRENCY_STATE_TOKEN_PATH":            "/var/run/secrets/tokens/state-token",
+	"CONTAINER_CONCURRENCY":                   "0",
+	"ENABLE_HTTP2_AUTO_DETECTION":             "false",
+	"ENABLE_PROFILING":                        "false",
+	"METRICS_DOMAIN":                          metrics.Domain(),
+	"METRICS_COLLECTOR_ADDRESS":               "",
+	"QUEUE_SERVING_PORT":                      "8012",
+	"QUEUE_SERVING_TLS_PORT":                  "8112",
+	"REVISION_TIMEOUT_SECONDS":                "45",
+	"REVISION_RESPONSE_START_TIMEOUT_SECONDS": "0",
+	"SERVING_CONFIGURATION":                   "",
+	"SERVING_ENABLE_PROBE_REQUEST_LOG":        "false",
+	"SERVING_ENABLE_REQUEST_LOG":              "false",
+	"SERVING_LOGGING_CONFIG":                  "",
+	"SERVING_LOGGING_LEVEL":                   "",
+	"SERVING_NAMESPACE":                       "foo",
+	"SERVING_REQUEST_LOG_TEMPLATE":            "",
+	"SERVING_REQUEST_METRICS_BACKEND":         "",
+	"SERVING_REVISION":                        "bar",
+	"SERVING_SERVICE":                         "",
+	"SYSTEM_NAMESPACE":                        system.Namespace(),
+	"TRACING_CONFIG_BACKEND":                  "",
+	"TRACING_CONFIG_DEBUG":                    "false",
+	"TRACING_CONFIG_SAMPLE_RATE":              "0",
+	"TRACING_CONFIG_ZIPKIN_ENDPOINT":          "",
+	"USER_PORT":                               strconv.Itoa(v1.DefaultUserPort),
 }
 
 func probeJSON(container *corev1.Container) string {
