@@ -153,7 +153,7 @@ func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 	}
 
 	if lc.TargetUtilization <= 0 || lc.TargetUtilization > 1 {
-		return nil, fmt.Errorf("target-utilization = %f is outside of valid range of (0, 100]", lc.TargetUtilization)
+		return nil, fmt.Errorf("target-utilization = %f is outside of valid range of (0, 100]", lc.TargetUtilization * 100)
 	}
 
 	if x := lc.ContainerConcurrencyTargetFraction * lc.ContainerConcurrencyTargetDefault; lc.ContainerConcurrencyTargetFraction != 0 && x < autoscaling.TargetMin {
