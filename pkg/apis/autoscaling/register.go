@@ -43,13 +43,13 @@ const (
 
 	// MinScaleAnnotationKey is the annotation to specify the minimum number of Pods
 	// the PodAutoscaler should provision. For example,
-	//   autoscaling.knative.dev/min-scale: "1"
-	MinScaleAnnotationKey = GroupName + "/min-scale"
+	//   autoscaling.knative.dev/scale-min: "1"
+	MinScaleAnnotationKey = GroupName + "/scale-min"
 
 	// MaxScaleAnnotationKey is the annotation to specify the maximum number of Pods
 	// the PodAutoscaler should provision. For example,
-	//   autoscaling.knative.dev/max-scale: "10"
-	MaxScaleAnnotationKey = GroupName + "/max-scale"
+	//   autoscaling.knative.dev/scale-max: "10"
+	MaxScaleAnnotationKey = GroupName + "/scale-max"
 
 	// InitialScaleAnnotationKey is the annotation to specify the initial scale of
 	// a revision when a service is initially deployed. This number can be set to 0 iff
@@ -228,7 +228,7 @@ var (
 	}
 	MaxScaleAnnotation = kmap.KeyPriority{
 		MaxScaleAnnotationKey,
-		GroupName + "/maxScale",
+		GroupName + "/scaleMax",
 	}
 	MetricAnnotation = kmap.KeyPriority{
 		MetricAnnotationKey,
@@ -239,7 +239,7 @@ var (
 	}
 	MinScaleAnnotation = kmap.KeyPriority{
 		MinScaleAnnotationKey,
-		GroupName + "/minScale",
+		GroupName + "/scaleMin",
 	}
 	PanicThresholdPercentageAnnotation = kmap.KeyPriority{
 		PanicThresholdPercentageAnnotationKey,
