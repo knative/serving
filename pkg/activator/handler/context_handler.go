@@ -62,7 +62,7 @@ func (h *contextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// name and namespace from the Host header.
 	if name == "" || namespace == "" {
 		parts := strings.SplitN(r.Host, ".", 4)
-		if len(parts) == 4 && parts[2] == "svc" && parts[3] == network.GetClusterDomainName() {
+		if len(parts) == 4 && parts[2] == "svc" && strings.TrimSuffix(parts[3], ":80") == network.GetClusterDomainName() {
 			name, namespace = parts[0], parts[1]
 		}
 	}
