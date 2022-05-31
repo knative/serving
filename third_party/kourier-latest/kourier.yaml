@@ -299,7 +299,7 @@ spec:
         app: net-kourier-controller
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:9209fa7b69c3d536f940768c5f6c8975a6214db5b814b807bc3d23bb6b27dc96
+        - image: gcr.io/gcp-compute-engine-223401/kourier-b74c3918b7eee585f87df62ccd297dc8:latest
           name: controller
           env:
             - name: CERTS_SECRET_NAMESPACE

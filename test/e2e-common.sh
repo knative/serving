@@ -359,12 +359,23 @@ function install() {
   fi
 
   if (( ENABLE_TLS )); then
-    echo "Generate certificates"
-    bash ${REPO_ROOT_DIR}/test/generate-cert.sh
+    # NOTE: cert-manager is always deployed by ytt.
+
+    echo "Deploy CA and CA issuer"
+    kubectl apply -n cert-manager -f ${REPO_ROOT_DIR}/test/config/autotls/certmanager/caissuer/secret.yaml
+    kubectl apply -f ${REPO_ROOT_DIR}/test/config/autotls/certmanager/caissuer/issuer.yaml
+
+    echo "Deploy Certificates into serving system and user(test) namespaces"
+    kubectl apply -n ${SYSTEM_NAMESPACE} -f ${REPO_ROOT_DIR}/test/config/tls/cert.yaml
+    kubectl apply -n serving-tests -f ${REPO_ROOT_DIR}/test/config/tls/cert.yaml
+    kubectl apply -n serving-tests-alt -f ${REPO_ROOT_DIR}/test/config/tls/cert.yaml
+
+    kubectl wait --timeout=120s --for=condition=Ready certificate  -n ${SYSTEM_NAMESPACE} --all
 
     echo "Patch to activator to serve TLS"
     kubectl apply -n ${SYSTEM_NAMESPACE} -f ${REPO_ROOT_DIR}/test/config/tls/config-network.yaml
     kubectl delete pod -n ${SYSTEM_NAMESPACE} -l app=activator
+    kubectl wait --timeout=60s --for=condition=Available deployment  -n ${SYSTEM_NAMESPACE} activator
   fi
 }
 

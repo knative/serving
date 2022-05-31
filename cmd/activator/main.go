@@ -163,7 +163,10 @@ func main() {
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
-		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, networkConfig.QueueProxyCA, metav1.GetOptions{})
+		// TODO: Allow to configure the namespace.
+		certManagerNamespace := "cert-manager"
+
+		caSecret, err := kubeClient.CoreV1().Secrets(certManagerNamespace).Get(ctx, networkConfig.QueueProxyCA, metav1.GetOptions{})
 		if err != nil {
 			logger.Fatalw("Failed to get secret", zap.Error(err))
 		}
@@ -173,7 +176,7 @@ func main() {
 			pool = x509.NewCertPool()
 		}
 
-		if ok := pool.AppendCertsFromPEM(caSecret.Data["ca.crt"]); !ok {
+		if ok := pool.AppendCertsFromPEM(caSecret.Data["tls.crt"]); !ok {
 			logger.Fatalw("Failed to append ca cert to the RootCAs")
 		}
 
