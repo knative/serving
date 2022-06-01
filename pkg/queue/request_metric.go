@@ -19,6 +19,7 @@ package queue
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"time"
 
 	"go.opencensus.io/stats"
@@ -108,7 +109,7 @@ func NewRequestMetricsHandler(next http.Handler,
 }
 
 func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
+	dw := pkghttp.NewDelayedWriter(w)
 	startTime := time.Now()
 
 	defer func() {
@@ -129,15 +130,16 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			panic(err)
 		}
 		ctx := metrics.AugmentWithResponseAndRouteTag(h.statsCtx,
-			rr.ResponseCode, routeTag)
+			dw.ResponseCode, routeTag)
 		pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
 			responseTimeInMsecM.M(float64(latency.Milliseconds())))
 		if h.reportLatencyInHeader {
-			rr.Header().Add("queue_proxy_request_latency_ms", string(latency.Milliseconds()))
+			dw.Header().Add("queue_proxy_request_latency_ms", strconv.Itoa(int(latency.Milliseconds())))
 		}
+		dw.RealFlush()
 	}()
 
-	h.next.ServeHTTP(rr, r)
+	h.next.ServeHTTP(dw, r)
 }
 
 // NewAppRequestMetricsHandler creates an http.Handler that emits request metrics.
@@ -177,7 +179,7 @@ func NewAppRequestMetricsHandler(next http.Handler, b *Breaker,
 }
 
 func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
+	dw := pkghttp.NewDelayedWriter(w)
 	startTime := time.Now()
 
 	if h.breaker != nil {
@@ -199,14 +201,15 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 			panic(err)
 		}
 
-		ctx := metrics.AugmentWithResponse(h.statsCtx, rr.ResponseCode)
+		ctx := metrics.AugmentWithResponse(h.statsCtx, dw.ResponseCode)
 		pkgmetrics.RecordBatch(ctx, appRequestCountM.M(1),
 			appResponseTimeInMsecM.M(float64(latency.Milliseconds())))
 		if h.reportLatencyInHeader {
-			rr.Header().Add("queue_proxy_app_request_latency_ms", string(latency.Milliseconds()))
+			dw.Header().Add("queue_proxy_app_request_latency_ms", strconv.Itoa(int(latency.Milliseconds())))
 		}
+		dw.RealFlush()
 	}()
-	h.next.ServeHTTP(rr, r)
+	h.next.ServeHTTP(dw, r)
 }
 
 const (
