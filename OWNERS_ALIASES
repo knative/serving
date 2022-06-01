@@ -94,11 +94,9 @@ aliases:
   - vagababov
   - yanweiguo
   networking-wg-leads:
-  - ZhiminXiang
   - nak3
   networking-writers:
   - JRBANCEL
-  - ZhiminXiang
   - nak3
   - vagababov
   operations-reviewers:
