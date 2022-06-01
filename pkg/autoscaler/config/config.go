@@ -21,6 +21,7 @@ import (
 	"time"
 
 	cm "knative.dev/pkg/configmap"
+
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
@@ -149,11 +150,11 @@ func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 	}
 
 	if lc.ContainerConcurrencyTargetFraction < 0 || lc.ContainerConcurrencyTargetFraction > 1 {
-		return nil, fmt.Errorf("container-concurrency-target-percentage = %f is outside of valid range of [0, 100]", lc.ContainerConcurrencyTargetFraction * 100)
+		return nil, fmt.Errorf("container-concurrency-target-percentage = %f is outside of valid range of [0, 100]", lc.ContainerConcurrencyTargetFraction*100)
 	}
 
 	if lc.TargetUtilization <= 0 || lc.TargetUtilization > 1 {
-		return nil, fmt.Errorf("target-utilization = %f is outside of valid range of (0, 100]", lc.TargetUtilization * 100)
+		return nil, fmt.Errorf("target-utilization = %f is outside of valid range of (0, 100]", lc.TargetUtilization*100)
 	}
 
 	if x := lc.ContainerConcurrencyTargetFraction * lc.ContainerConcurrencyTargetDefault; lc.ContainerConcurrencyTargetFraction != 0 && x < autoscaling.TargetMin {
