@@ -17,15 +17,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package scale
 
 import (
+	"flag"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
-	. "knative.dev/serving/test/e2e"
+	"knative.dev/serving/test"
+	"knative.dev/serving/test/watch"
 )
+
+var csvOutputDir = flag.String("readiness-csv-output", "", "Output dir for readiness csv file")
 
 type nopLatencies struct {
 	t *testing.T
@@ -57,11 +62,21 @@ func TestScaleToN(t *testing.T) {
 	tests := []int{10, 200}
 
 	for _, size := range tests {
-		t.Run(fmt.Sprint("scale-", size), func(t *testing.T) {
+		clients := test.Setup(t)
+		t.Log("start capture")
+		stop := watch.StartCapture(t, clients)
+		testName := fmt.Sprint("scale-", size)
+
+		t.Run(testName, func(t *testing.T) {
 			if testing.Short() && size > shortModeMaxScale {
 				t.Skip("Skipping test in short mode")
 			}
 			ScaleToWithin(t, size, workerTimeout, &nopLatencies{t})
 		})
+
+		path := filepath.Join(*csvOutputDir, "readiness-timings", testName, time.Now().UTC().Format(time.RFC3339))
+		filter := fmt.Sprintf("%s/scale-to-n-%s", test.ServingFlags.TestNamespace, testName)
+		t.Log("writing readiness csv at", path)
+		watch.OutputReadinessCSV(stop(), path, filter)
 	}
 }

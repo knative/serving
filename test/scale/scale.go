@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package scale
 
 import (
 	"context"
@@ -92,7 +92,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 		t.Run(fmt.Sprintf("%03d-of-%03d", i, scale), func(t *testing.T) {
 			t.Parallel()
 
-			clients := Setup(t)
+			clients := test.Setup(t)
 			pm := test.NewProberManager(t.Logf, clients, minProbes, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 
 			names := test.ResourceNames{
