@@ -1,4 +1,4 @@
-# Generated when HEAD was e8925addbce316124b1925a8530bba2f569e6039
+# Generated when HEAD was bb13bd62b35246c746a81cba83d7e7dd81d697db
 #
 # Copyright 2019 The Knative Authors
 #
@@ -22,7 +22,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     serving.knative.dev/controller: "true"
     networking.knative.dev/ingress-provider: istio
 rules:
@@ -54,7 +54,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -93,7 +93,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -114,7 +114,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
     experimental.istio.io/disable-gateway-port-translation: "true"
 spec:
@@ -149,7 +149,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
 data:
   # TODO(nghia): Extract the .svc.cluster.local suffix into its own config.
@@ -208,7 +208,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -226,7 +226,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -244,7 +244,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -277,7 +277,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -295,14 +295,14 @@ spec:
         app: net-istio-controller
         app.kubernetes.io/component: net-istio
         app.kubernetes.io/name: knative-serving
-        app.kubernetes.io/version: "20220601-e8925add"
+        app.kubernetes.io/version: "20220603-bb13bd62"
     spec:
       serviceAccountName: controller
       containers:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:5a4ebb68ceffbc76617997a83398854732950ef1a9f922f25598105a507691ed
+          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:9b13a9e45a88a9accb79cbfdc45fdadef613bcbd0db792217b49e2f020f05516
           resources:
             requests:
               cpu: 30m
@@ -363,7 +363,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -379,14 +379,14 @@ spec:
         role: net-istio-webhook
         app.kubernetes.io/component: net-istio
         app.kubernetes.io/name: knative-serving
-        app.kubernetes.io/version: "20220601-e8925add"
+        app.kubernetes.io/version: "20220603-bb13bd62"
     spec:
       serviceAccountName: controller
       containers:
         - name: webhook
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/webhook@sha256:f9be23a89a79dbd100f342798385d9a4783021ba22bd0173519f388d5ee0b55f
+          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/webhook@sha256:486767a5a00e1efbcdd6eac7303664c5f3eb91278c8a251a6bc9171cdf091cf6
           resources:
             requests:
               cpu: 20m
@@ -441,7 +441,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
 
 ---
@@ -468,7 +468,7 @@ metadata:
     role: net-istio-webhook
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
 spec:
   ports:
@@ -507,7 +507,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
 webhooks:
   - admissionReviewVersions:
@@ -546,7 +546,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220601-e8925add"
+    app.kubernetes.io/version: "20220603-bb13bd62"
     networking.knative.dev/ingress-provider: istio
 webhooks:
   - admissionReviewVersions:
