@@ -40,6 +40,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/control-protocol/pkg/certificates"
 	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
 	netprobe "knative.dev/networking/pkg/http/probe"
@@ -173,7 +174,7 @@ func main() {
 			pool = x509.NewCertPool()
 		}
 
-		if ok := pool.AppendCertsFromPEM(caSecret.Data["ca.crt"]); !ok {
+		if ok := pool.AppendCertsFromPEM(caSecret.Data[certificates.SecretCaCertKey]); !ok {
 			logger.Fatalw("Failed to append ca cert to the RootCAs")
 		}
 
@@ -283,7 +284,7 @@ func main() {
 		if err != nil {
 			logger.Fatalw("failed to get secret", zap.Error(err))
 		}
-		cert, err := tls.X509KeyPair(secret.Data["tls.crt"], secret.Data["tls.key"])
+		cert, err := tls.X509KeyPair(secret.Data[certificates.SecretCertKey], secret.Data[certificates.SecretPKKey])
 		if err != nil {
 			logger.Fatalw("failed to load certs", zap.Error(err))
 		}

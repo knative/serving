@@ -18,6 +18,7 @@ package main
 
 import (
 	// The set of controllers this controller process runs.
+	certificate "knative.dev/control-protocol/pkg/certificates/reconciler"
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/gc"
 	"knative.dev/serving/pkg/reconciler/labeler"
@@ -41,6 +42,7 @@ var ctors = []injection.ControllerConstructor{
 	service.NewController,
 	gc.NewController,
 	nscert.NewController,
+	certificate.NewControllerFactory("serving"),
 }
 
 func main() {
