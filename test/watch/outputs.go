@@ -29,8 +29,26 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func OutputReadinessCSV(h GVRHistory, directory string, objectPrefix string) {
-	if err := os.MkdirAll(directory, 0700); err != nil {
+type CSVWriter struct {
+	Directory              string
+	ObjectNamePrefixFilter string
+	AdditionalColumnTitles func() []string
+	AdditionalRowFields    func(*unstructured.Unstructured) []string
+}
+
+func (o *CSVWriter) WriteHistory(h GVRHistory) {
+	if o.AdditionalColumnTitles == nil {
+		o.AdditionalColumnTitles = func() []string {
+			return nil
+		}
+	}
+	if o.AdditionalRowFields == nil {
+		o.AdditionalRowFields = func(*unstructured.Unstructured) []string {
+			return nil
+		}
+	}
+
+	if err := os.MkdirAll(o.Directory, 0700); err != nil {
 		panic(err)
 	}
 
@@ -38,7 +56,7 @@ func OutputReadinessCSV(h GVRHistory, directory string, objectPrefix string) {
 		var entries [][]string
 
 		for name, events := range itemHistory {
-			if !strings.HasPrefix(name, objectPrefix) {
+			if !strings.HasPrefix(name, o.ObjectNamePrefixFilter) {
 				continue
 			}
 
@@ -56,14 +74,16 @@ func OutputReadinessCSV(h GVRHistory, directory string, objectPrefix string) {
 			if err != nil {
 				panic(fmt.Sprint("error parsing ready time ", err))
 			}
-
-			entries = append(entries, []string{
+			row := []string{
 				obj.GetName(),
 				obj.GetNamespace(),
 				creationTimeString,
 				readyTimeString,
 				strconv.FormatInt(int64(readyTime.Sub(creationTime).Seconds()), 10),
-			})
+			}
+
+			row = append(row, o.AdditionalRowFields(obj)...)
+			entries = append(entries, row)
 		}
 
 		// Sort by creationTime
@@ -71,7 +91,7 @@ func OutputReadinessCSV(h GVRHistory, directory string, objectPrefix string) {
 			return entries[i][2] < entries[j][2]
 		})
 
-		filepath := filepath.Join(directory,
+		filepath := filepath.Join(o.Directory,
 			fmt.Sprintf("%s.%s.%s", gvr.Group, gvr.Version, gvr.Resource))
 
 		f, err := os.Create(filepath)
@@ -80,13 +100,13 @@ func OutputReadinessCSV(h GVRHistory, directory string, objectPrefix string) {
 		}
 
 		w := csv.NewWriter(f)
-		w.Write([]string{
+		w.Write(append([]string{
 			"name",
 			"namespace",
 			"createdTime",
 			"readyTime",
 			"timeToReadySeconds",
-		})
+		}, o.AdditionalColumnTitles()...))
 		err = w.WriteAll(entries)
 		f.Close()
 

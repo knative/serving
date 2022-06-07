@@ -105,7 +105,11 @@ kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.ya
 # Note that we use a very high -parallel because each ksvc is run as its own
 # sub-test. If this is not larger than the maximum scale tested then the test
 # simply cannot pass.
-go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} -readiness-csv-output=${ARTIFACTS} || failed=1
+go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} -readiness-csv-output=${ARTIFACTS}/readiness-timings || failed=1
+
+pushd ${ARTIFACTS}/readiness-timings
+find . -type f -not -name "*.png" -exec gnuplot -e "filename='{}'" -p ${REPO_ROOT_DIR}/test/scale/readiness.gnuplot \;
+popd
 
 # Run HPA tests
 go_test_e2e -timeout=30m -tags=hpa ./test/e2e ${TEST_OPTIONS} || failed=1

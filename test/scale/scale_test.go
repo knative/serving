@@ -23,8 +23,11 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/watch"
@@ -52,6 +55,10 @@ const (
 	workerTimeout = 3 * time.Minute
 )
 
+var (
+	NameExtractorRegexp = regexp.MustCompile(`\d+-of-\d+`)
+)
+
 // While redundant, we run two versions of this by default:
 // 1. TestScaleToN/size-10: a developer smoke test that's useful when changing this to assess whether
 //   things have gone horribly wrong.  This should take about 12-20 seconds total.
@@ -74,9 +81,19 @@ func TestScaleToN(t *testing.T) {
 			ScaleToWithin(t, size, workerTimeout, &nopLatencies{t})
 		})
 
-		path := filepath.Join(*csvOutputDir, "readiness-timings", testName, time.Now().UTC().Format(time.RFC3339))
+		path := filepath.Join(*csvOutputDir, testName)
 		filter := fmt.Sprintf("%s/scale-to-n-%s", test.ServingFlags.TestNamespace, testName)
 		t.Log("writing readiness csv at", path)
-		watch.OutputReadinessCSV(stop(), path, filter)
+		csvOutput := watch.CSVWriter{
+			Directory:              path,
+			ObjectNamePrefixFilter: filter,
+			AdditionalColumnTitles: func() []string {
+				return []string{"shortName"}
+			},
+			AdditionalRowFields: func(u *unstructured.Unstructured) []string {
+				return []string{NameExtractorRegexp.FindString(u.GetName())}
+			},
+		}
+		csvOutput.WriteHistory(stop())
 	}
 }
