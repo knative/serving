@@ -56,7 +56,6 @@ aliases:
   - csantanapr
   - dprotaso
   - evankanderson
-  - gab-satchi
   - itsmurugappan
   - knative-automation
   - knative-prow-releaser-robot
@@ -66,14 +65,15 @@ aliases:
   - lance
   - n3wscott
   - pmorie
+  - psschwei
   - rhuss
   - smoser-ibm
   - spencerdillard
   - thisisnotapril
   - vaikas
   knative-release-leads:
-  - dprotaso
-  - gab-satchi
+  - evankanderson
+  - psschwei
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
