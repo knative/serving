@@ -31,6 +31,8 @@ import (
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+
+	"knative.dev/serving/pkg/networking"
 )
 
 var ctors = []injection.ControllerConstructor{
@@ -42,7 +44,7 @@ var ctors = []injection.ControllerConstructor{
 	service.NewController,
 	gc.NewController,
 	nscert.NewController,
-	certificate.NewControllerFactory("serving"),
+	certificate.NewControllerFactory(networking.ServingCertName),
 }
 
 func main() {

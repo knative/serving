@@ -51,6 +51,10 @@ const (
 	// ServiceTypeKey is the label key attached to a service specifying the type of service.
 	// e.g. Public, Private.
 	ServiceTypeKey = networking.GroupName + "/serviceType"
+
+	// ServingCertName is used by the secret name for internal TLS as "namespace-${ServingCertName}".
+	// Also the secret name has the label with "${ServingCertName}: data-plane"
+	ServingCertName = "serving-certs"
 )
 
 // ServiceType is the enumeration type for the Kubernetes services

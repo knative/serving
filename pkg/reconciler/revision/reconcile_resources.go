@@ -34,6 +34,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 )
@@ -201,8 +202,7 @@ func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
 
 func (c *Reconciler) reconcileSecret(ctx context.Context, rev *v1.Revision) error {
 	ns := rev.Namespace
-	// TODO: const
-	secretName := ns + "-serving"
+	secretName := ns + "-" + networking.ServingCertName
 	logger := logging.FromContext(ctx)
 	logger.Info("Reconciling Secret: ", secretName)
 
@@ -212,11 +212,11 @@ func (c *Reconciler) reconcileSecret(ctx context.Context, rev *v1.Revision) erro
 		if err != nil {
 			return fmt.Errorf("failed to get Namespace %q: %w", secretName, err)
 		}
-		logger.Info("Created Secret: ", secretName)
 		secret, err = c.createSecret(ctx, namespace)
 		if err != nil {
 			return fmt.Errorf("failed to create Secret %q: %w", secretName, err)
 		}
+		logger.Info("Created Secret: ", secretName)
 	} else if err != nil {
 		return fmt.Errorf("failed to get secret %q: %w", secretName, err)
 	}
