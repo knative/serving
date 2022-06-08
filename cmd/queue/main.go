@@ -67,10 +67,10 @@ const (
 	drainSleepDuration = 30 * time.Second
 
 	// certPath is the path for the server certificate mounted by queue-proxy.
-	certPath = queue.CertDirectory + certificates.SecretCertKey
+	certPath = queue.CertDirectory + "/" + certificates.SecretCertKey
 
 	// keyPath is the path for the server certificate key mounted by queue-proxy.
-	keyPath = queue.CertDirectory + certificates.SecretPKKey
+	keyPath = queue.CertDirectory + "/" + certificates.SecretPKKey
 )
 
 type config struct {
