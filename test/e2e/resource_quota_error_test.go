@@ -38,7 +38,7 @@ import (
 func TestResourceQuotaError(t *testing.T) {
 	t.Parallel()
 
-	clients := test.Setup(t, "rq-test")
+	clients := test.Setup(t, test.Options{Namespace: "rq-test"})
 	const (
 		errorReason    = "RevisionFailed"
 		errorMsgScale  = "Initial scale was never achieved"
