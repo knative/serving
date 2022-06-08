@@ -299,7 +299,7 @@ spec:
         app: net-kourier-controller
     spec:
       containers:
-        - image: gcr.io/gcp-compute-engine-223401/kourier-b74c3918b7eee585f87df62ccd297dc8@sha256:5bd5fb08ebf83c27f4f0a05ba893f0bd0bc29d9327c996e7de6c79ce378142a3
+        - image: gcr.io/gcp-compute-engine-223401/kourier-b74c3918b7eee585f87df62ccd297dc8@sha256:bf80c24b17f79f306a39853a7e9a96b532fec7e752346edcb4e45bdda71d6c4e
           name: controller
           env:
             - name: CERTS_SECRET_NAMESPACE

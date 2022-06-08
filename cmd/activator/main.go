@@ -157,14 +157,14 @@ func main() {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
 
-	// Enable TLS against queue-proxy when the CA and SA are specified.
-	tlsEnabled := networkConfig.QueueProxyCA != "" && networkConfig.QueueProxySAN != ""
+	// Enable TLS against queue-proxy when internal-encryption is enabled.
+	tlsEnabled := networkConfig.InternalEncryption
 
 	// Enable TLS client when queue-proxy-ca is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
-		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, networkConfig.QueueProxyCA, metav1.GetOptions{})
+		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
 		if err != nil {
 			logger.Fatalw("Failed to get secret", zap.Error(err))
 		}
@@ -181,7 +181,7 @@ func main() {
 		tlsConf := &tls.Config{
 			RootCAs:            pool,
 			InsecureSkipVerify: false,
-			ServerName:         networkConfig.QueueProxySAN,
+			ServerName:         certificates.FakeDnsName,
 			MinVersion:         tls.VersionTLS12,
 		}
 		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, tlsConf)
@@ -276,11 +276,11 @@ func main() {
 		}(name, server)
 	}
 
-	// Enable TLS server when activator-server-cert is specified.
+	// Enable TLS server when internal-encryption is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if networkConfig.ActivatorCertSecret != "" {
-		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, networkConfig.ActivatorCertSecret, metav1.GetOptions{})
+	if networkConfig.InternalEncryption {
+		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
 		if err != nil {
 			logger.Fatalw("failed to get secret", zap.Error(err))
 		}
