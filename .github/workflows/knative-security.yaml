@@ -12,6 +12,11 @@ on:
   pull_request:
     branches: [ 'main', 'release-*' ]
 
+permissions:
+  contents: read
+
 jobs:
   analyze:
+    permissions:
+      contents: none
     uses: knative/actions/.github/workflows/security.yaml@main

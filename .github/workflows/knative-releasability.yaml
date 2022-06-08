@@ -21,8 +21,13 @@ on:
         description: 'Slack Channel? (release-#)'
         required: false
 
+permissions:
+  contents: read
+
 jobs:
   releasability:
+    permissions:
+      contents: none
     uses: knative/actions/.github/workflows/releasability.yaml@main
     with:
       releaseFamily: ${{ github.event.inputs.releaseFamily || 'v1.5' }}

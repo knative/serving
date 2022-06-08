@@ -9,7 +9,12 @@ on:
   pull_request:
     branches: [ 'main', 'release-*' ]
 
+permissions:
+  contents: read
+
 jobs:
 
   style:
+    permissions:
+      contents: none
     uses: knative/actions/.github/workflows/style.yaml@main

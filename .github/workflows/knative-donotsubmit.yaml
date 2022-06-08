@@ -21,9 +21,16 @@ on:
   pull_request:
     branches: [ 'main', 'master', 'release-*' ]
 
+permissions:
+  contents: read
+
 jobs:
 
   donotsubmit:
+    permissions:
+      checks: write  # for reviewdog to create check
+      contents: read  # for actions/checkout to fetch code
+      pull-requests: write  # for reviewdog to add comment to the PR
     name: Do Not Submit
     runs-on: ubuntu-latest
 

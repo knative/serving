@@ -12,6 +12,11 @@ on:
   pull_request:
     branches: [ 'main', 'release-*' ]
 
+permissions:
+  contents: read
+
 jobs:
   test:
+    permissions:
+      contents: none
     uses: knative/actions/.github/workflows/go-test.yaml@main

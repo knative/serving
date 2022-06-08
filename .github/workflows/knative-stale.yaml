@@ -8,7 +8,12 @@ on:
   schedule:
   - cron: '0 1 * * *'
 
+permissions:
+  contents: read
+
 jobs:
 
   stale:
+    permissions:
+      contents: none
     uses: knative/actions/.github/workflows/stale.yaml@main

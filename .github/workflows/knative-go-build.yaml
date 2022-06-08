@@ -9,6 +9,11 @@ on:
   pull_request:
     branches: [ 'main', 'release-*' ]
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    permissions:
+      contents: none
     uses: knative/actions/.github/workflows/go-build.yaml@main
