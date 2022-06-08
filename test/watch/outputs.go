@@ -118,7 +118,11 @@ func (o *CSVWriter) WriteHistory(h GVRHistory) {
 
 func getReadyTime(events []Event) (string, *unstructured.Unstructured, bool) {
 	for _, event := range events {
-		readyTime, ok := isReady(event.Object)
+		conditionType := "Ready"
+		if strings.EqualFold(event.Object.GetKind(), "deployment") {
+			conditionType = "Active"
+		}
+		readyTime, ok := isConditionTrue(event.Object, conditionType)
 		if ok {
 			return readyTime, event.Object, ok
 		}
@@ -126,11 +130,10 @@ func getReadyTime(events []Event) (string, *unstructured.Unstructured, bool) {
 	return "", nil, false
 }
 
-func isReady(u *unstructured.Unstructured) (string, bool) {
+func isConditionTrue(u *unstructured.Unstructured, conditionType string) (string, bool) {
 	cs, ok, err := unstructured.NestedFieldNoCopy(u.Object, "status", "conditions")
 	if !ok || err != nil {
 		return "", false
-		// panic(fmt.Sprintf("Unable to read conditions ok (%t) err (%v)", err))
 	}
 	conditions := cs.([]interface{})
 
@@ -149,11 +152,9 @@ func isReady(u *unstructured.Unstructured) (string, bool) {
 		if !ok || err != nil {
 			panic(fmt.Sprintf("Unable to read lastTransitionTime ok (%t) err (%v)", ok, err))
 		}
-		if tipe == "Ready" && status == "True" {
+		if tipe == conditionType && status == "True" {
 			return lastTransitionTime, true
 		}
 	}
 	return "", false
 }
-
-// func readiness

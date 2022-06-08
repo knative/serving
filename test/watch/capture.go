@@ -22,6 +22,8 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/atomic"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -66,6 +68,9 @@ func StartCapture(t *testing.T, clients *test.Clients) func() GVRHistory {
 
 		autoscalingv1alpha1.SchemeGroupVersion.WithResource("metrics"),
 		autoscalingv1alpha1.SchemeGroupVersion.WithResource("podautoscalers"),
+
+		appsv1.SchemeGroupVersion.WithResource("deployments"),
+		corev1.SchemeGroupVersion.WithResource("pods"),
 	}
 
 	watcher := resourceWatcher{
