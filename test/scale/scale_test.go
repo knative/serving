@@ -69,7 +69,7 @@ func TestScaleToN(t *testing.T) {
 	tests := []int{10, 200}
 
 	for _, size := range tests {
-		clients := test.Setup(t)
+		clients := test.Setup(t, test.Options{DisableLogStream: true})
 		t.Log("start capture")
 		stop := watch.StartCapture(t, clients)
 		testName := fmt.Sprint("scale-", size)
