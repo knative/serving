@@ -18,10 +18,10 @@ package watch
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"go.uber.org/atomic"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,8 +48,8 @@ type (
 
 type resourceWatcher struct {
 	t       *testing.T
-	stopped *atomic.Bool
 	watches []watch.Interface
+	done    []chan struct{}
 	history GVRHistory
 }
 
@@ -75,7 +75,6 @@ func StartCapture(t *testing.T, clients *test.Clients) func() GVRHistory {
 
 	watcher := resourceWatcher{
 		t:       t,
-		stopped: atomic.NewBool(false),
 		history: make(GVRHistory),
 	}
 
@@ -90,16 +89,21 @@ func StartCapture(t *testing.T, clients *test.Clients) func() GVRHistory {
 	}
 
 	return func() GVRHistory {
-		watcher.stopped.Store(true)
 		for _, w := range watcher.watches {
 			w.Stop()
+		}
+		for _, done := range watcher.done {
+			<-done
 		}
 		return watcher.history
 	}
 }
 
 func (r *resourceWatcher) StartCapture(gvr schema.GroupVersionResource, w watch.Interface) {
+	done := make(chan struct{})
+
 	r.watches = append(r.watches, w)
+	r.done = append(r.done, done)
 
 	events, ok := r.history[gvr]
 	if !ok {
@@ -108,10 +112,8 @@ func (r *resourceWatcher) StartCapture(gvr schema.GroupVersionResource, w watch.
 	}
 
 	go func() {
+		defer close(done)
 		for e := range w.ResultChan() {
-			if r.stopped.Load() {
-				return
-			}
 			switch e.Type {
 			case watch.Bookmark:
 				r.t.Log(spew.Sprintf("Watch boookmark %#+v", e.Object))
@@ -124,6 +126,10 @@ func (r *resourceWatcher) StartCapture(gvr schema.GroupVersionResource, w watch.
 					return
 				}
 				status := statusErr.ErrStatus
+
+				if strings.Contains(status.Message, "response body closed") {
+					continue
+				}
 				r.t.Log(spew.Sprintf("Received an error %#+v", status))
 
 			case watch.Added, watch.Deleted, watch.Modified:
