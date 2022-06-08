@@ -1200,7 +1200,7 @@ knative.dev/control-protocol/pkg/certificates/reconciler
 ## explicit; go 1.14
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20220610013825-3103f3a72792
+# knative.dev/networking v0.0.0-20220614203516-07c9d7614c61
 ## explicit; go 1.17
 knative.dev/networking/config
 knative.dev/networking/pkg
