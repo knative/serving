@@ -120,7 +120,7 @@ func getReadyTime(events []Event) (string, *unstructured.Unstructured, bool) {
 	for _, event := range events {
 		conditionType := "Ready"
 		if strings.EqualFold(event.Object.GetKind(), "deployment") {
-			conditionType = "Active"
+			conditionType = "Available"
 		}
 		readyTime, ok := isConditionTrue(event.Object, conditionType)
 		if ok {
