@@ -53,6 +53,7 @@ aliases:
   - odacremolbap
   - pierDipi
   knative-admin:
+  - chizhg
   - csantanapr
   - dprotaso
   - evankanderson
@@ -62,6 +63,7 @@ aliases:
   - knative-prow-robot
   - knative-prow-updater-robot
   - knative-test-reporter-robot
+  - kvmware
   - lance
   - n3wscott
   - pmorie
