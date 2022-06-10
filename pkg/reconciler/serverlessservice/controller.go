@@ -71,8 +71,11 @@ func NewController(
 
 	// Watch all the endpoints that we have attached our label to.
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: pkgreconciler.LabelExistsFilterFunc(networking.SKSLabelKey),
-		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("" /*any namespace*/, networking.SKSLabelKey)),
+		FilterFunc: pkgreconciler.ChainFilterFuncs(
+			pkgreconciler.LabelExistsFilterFunc(networking.SKSLabelKey),
+			pkgreconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), false),
+		),
+		Handler: controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("" /*any namespace*/, networking.SKSLabelKey)),
 	})
 
 	// Watch all the services that we have created.
