@@ -27,6 +27,7 @@ aliases:
   - pmbanugo
   - snneji
   docs-wg-leads:
+  - abrennan89
   - csantanapr
   - snneji
   docs-writers:
@@ -72,6 +73,7 @@ aliases:
   - smoser-ibm
   - spencerdillard
   - thisisnotapril
+  - upodroid
   - vaikas
   - zroubalik
   knative-release-leads:
@@ -146,6 +148,7 @@ aliases:
   productivity-wg-leads:
   - chizhg
   - kvmware
+  - upodroid
   productivity-writers:
   - cardil
   - chaodaiG
@@ -199,8 +202,10 @@ aliases:
   - smoser-ibm
   - spencerdillard
   ux-wg-leads:
+  - abrennan89
   - csantanapr
   - snneji
   ux-writers:
+  - abrennan89
   - csantanapr
   - snneji
