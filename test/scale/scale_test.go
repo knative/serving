@@ -81,8 +81,8 @@ func TestScaleToN(t *testing.T) {
 			ScaleToWithin(t, size, workerTimeout, &nopLatencies{t})
 		})
 
-		path := filepath.Join(*csvOutputDir, testName)
 		filter := fmt.Sprintf("%s/scale-to-n-%s", test.ServingFlags.TestNamespace, testName)
+		path := filepath.Join(*csvOutputDir, testName)
 		t.Log("writing readiness csv at", path)
 		csvOutput := watch.CSVWriter{
 			Directory:              path,
@@ -94,6 +94,14 @@ func TestScaleToN(t *testing.T) {
 				return []string{NameExtractorRegexp.FindString(u.GetName())}
 			},
 		}
-		csvOutput.WriteHistory(stop())
+		history := stop()
+		csvOutput.WriteHistory(history)
+
+		t.Log("exporting jaeger traces with prefix", filter)
+		jaeger := watch.JaegerTraces{
+			ObjectNamePrefixFilter: filter,
+		}
+		jaeger.WriteHistory(history)
+		t.Log("done")
 	}
 }

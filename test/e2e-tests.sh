@@ -101,6 +101,30 @@ immediate_gc
 go_test_e2e -timeout=2m ./test/e2e/gc ${TEST_OPTIONS} || failed=1
 kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml
 
+mkdir -p ${ARTIFACTS}/jaeger-store
+
+docker run -d --name jaeger \
+  -e COLLECTOR_ZIPKIN_HOST_PORT=:9411 \
+  -e COLLECTOR_OTLP_ENABLED=true \
+  -p 6831:6831/udp \
+  -p 6832:6832/udp \
+  -p 5778:5778 \
+  -p 16686:16686 \
+  -p 4317:4317 \
+  -p 4318:4318 \
+  -p 14250:14250 \
+  -p 14268:14268 \
+  -p 14269:14269 \
+  -p 9411:9411 \
+  \
+  -e SPAN_STORAGE_TYPE=badger \
+  -e BADGER_EPHEMERAL=false \
+  -e BADGER_DIRECTORY_VALUE=/badger/data \
+  -e BADGER_DIRECTORY_KEY=/badger/key \
+  -v ${ARTIFACTS}/jaeger-store:/badger \
+  \
+  jaegertracing/all-in-one:1.35
+
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
 # sub-test. If this is not larger than the maximum scale tested then the test
@@ -111,33 +135,32 @@ pushd ${ARTIFACTS}/readiness-timings
 find . -type f -not -name "*.png" -exec gnuplot -e "filename='{}'" -p ${REPO_ROOT_DIR}/test/scale/readiness.gnuplot \;
 popd
 
-# Run HPA tests
-go_test_e2e -timeout=30m -tags=hpa ./test/e2e ${TEST_OPTIONS} || failed=1
+docker stop jaeger
 
-# Run initContainers tests with alpha enabled avoiding any issues with the testing options guard above
-# InitContainers test uses emptyDir.
-toggle_feature kubernetes.podspec-init-containers Enabled
-go_test_e2e -timeout=2m ./test/e2e/initcontainers ${TEST_OPTIONS} || failed=1
-toggle_feature kubernetes.podspec-init-containers Disabled
+## Run initContainers tests with alpha enabled avoiding any issues with the testing options guard above
+## InitContainers test uses emptyDir.
+# toggle_feature kubernetes.podspec-init-containers Enabled
+# go_test_e2e -timeout=2m ./test/e2e/initcontainers ${TEST_OPTIONS} || failed=1
+# toggle_feature kubernetes.podspec-init-containers Disabled
 
-# RUN PVC tests with default storage class.
-toggle_feature kubernetes.podspec-persistent-volume-claim Enabled
-toggle_feature kubernetes.podspec-persistent-volume-write Enabled
-toggle_feature kubernetes.podspec-securitycontext Enabled
-go_test_e2e -timeout=5m ./test/e2e/pvc ${TEST_OPTIONS} || failed=1
-toggle_feature kubernetes.podspec-securitycontext Disabled
-toggle_feature kubernetes.podspec-persistent-volume-write Disabled
-toggle_feature kubernetes.podspec-persistent-volume-claim Disabled
+# # RUN PVC tests with default storage class.
+# toggle_feature kubernetes.podspec-persistent-volume-claim Enabled
+# toggle_feature kubernetes.podspec-persistent-volume-write Enabled
+# toggle_feature kubernetes.podspec-securitycontext Enabled
+# go_test_e2e -timeout=5m ./test/e2e/pvc ${TEST_OPTIONS} || failed=1
+# toggle_feature kubernetes.podspec-securitycontext Disabled
+# toggle_feature kubernetes.podspec-persistent-volume-write Disabled
+# toggle_feature kubernetes.podspec-persistent-volume-claim Disabled
 
-# Run HA tests separately as they're stopping core Knative Serving pods.
-# Define short -spoofinterval to ensure frequent probing while stopping pods.
-toggle_feature autocreateClusterDomainClaims true config-network || fail_test
-go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
-  ${TEST_OPTIONS} \
-  -replicas="${REPLICAS:-1}" \
-  -buckets="${BUCKETS:-1}" \
-  -spoofinterval="10ms" || failed=1
-toggle_feature autocreateClusterDomainClaims false config-network || fail_test
+# # Run HA tests separately as they're stopping core Knative Serving pods.
+# # Define short -spoofinterval to ensure frequent probing while stopping pods.
+# toggle_feature autocreateClusterDomainClaims true config-network || fail_test
+# go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
+#   ${TEST_OPTIONS} \
+#   -replicas="${REPLICAS:-1}" \
+#   -buckets="${BUCKETS:-1}" \
+#   -spoofinterval="10ms" || failed=1
+# toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
 if (( HTTPS )); then
   kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
