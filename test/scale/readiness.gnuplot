@@ -1,8 +1,9 @@
 set datafile separator comma
 set key autotitle columnhead
 
-set terminal pngcairo enhanced size 1600,800 font 'Helvetica,10'
-set output filename.'.png'
+# set terminal pngcairo enhanced size 1600,800 font 'Helvetica,10'
+set term svg mouse dynamic standalone enhanced size 1600,800 font 'Helvetica,10'
+set output filename.'.svg'
 
 # filename is a var that must be supplied with a -e "filename='value'"
 set title filename." readiness timing" font 'Helvetica,15'
@@ -14,5 +15,8 @@ set grid ytics linestyle 100
 set xtics rotate nomirror
 set margin 5
 
-plot filename using 5:xticlabels(6) with points pointtype 2 notitle
+LabelText(String,Size) = sprintf("name: %s\ntime: %d", stringcolumn(String), column(Size))
+
+plot filename using 5:xticlabels(6) with points pointtype 2 notitle, \
+  '' using 0:5:(LabelText(6,5)) with labels hypertext point pointtype 2 lc rgb "purple" notitle
 
