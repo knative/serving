@@ -158,8 +158,10 @@ func TestProbeRuntime(t *testing.T) {
 
 // This test validates the behaviour of readiness probes *after* initial
 // startup. When a pod goes unready after startup and there are no other pods
-// in the revision we hang, potentially forever, which may or may not be what a
-// user wants.
+// in the revision, then there are two possible behaviors:
+//  1. When the Activator is present we hang, potentially forever, which may or
+//    may not be what a user wants.
+//  2. When the Activator is not present, we see a 5xx.
 // The goal of this test is largely to describe the current behaviour, so that
 // we can confidently change it.
 // See https://github.com/knative/serving/issues/10765.
@@ -204,9 +206,14 @@ func TestProbeRuntimeAfterStartup(t *testing.T) {
 				} else if resp.StatusCode == http.StatusOK {
 					// We'll continue to get 200s for a while until readiness propagates.
 					return false, nil
+				} else if resp.StatusCode == http.StatusServiceUnavailable {
+					// When the activator isn't on the request path, we expect
+					// the service to serve 503s when all the endpoints become
+					// unavailable.
+					return true, nil
 				}
 
-				return false, errors.New("Received non-200 status code (expected to eventually time out)")
+				return false, fmt.Errorf("Received non-200, non-503 status code: %d, wanted request to time out.\nBody: %s", resp.StatusCode, string(resp.Body))
 			}); err != nil {
 				t.Fatal("Expected to eventually see request timeout due to all pods becoming unready, but got:", err)
 			}
