@@ -33,10 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
-	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/conformance/api/shared"
 	v1test "knative.dev/serving/test/v1"
 )
 
@@ -145,11 +143,6 @@ func TestProbeRuntime(t *testing.T) {
 					spoof.WithHeader(test.ServingFlags.RequestHeader()),
 				); err != nil {
 					t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
-				}
-
-				// Check if scaling down works even if access from liveness probe exists.
-				if err := shared.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
-					t.Fatal("Could not scale to zero:", err)
 				}
 			})
 		}
