@@ -33,6 +33,10 @@ source $(dirname $0)/../e2e-common.sh
 # resource/eviction as causes of flakiness.
 initialize --skip-istio-addon --min-nodes=10 --max-nodes=10 --perf --cluster-version=1.22 "$@"
 
+# Run tests serially in the mesh and https scenarios.
+parallelism=""
+use_https=""
+
 mkdir -p "${ARTIFACTS}/mako"
 echo Results downloaded to "${ARTIFACTS}/mako"
 
@@ -280,12 +284,25 @@ echo ""
 
 ###############################################################################################
 header "Scale from Zero performance test"
+
+mkdir -p "${ARTIFACTS}/scale-from-zero-ytt"
+
+run_ytt \
+      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/scale-from-zero/continuous/scale-from-zero-direct.yaml" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/perf-scale-from-zero/overlay-scale-from-zero-image.yaml" \
+      --data-value dockerrepo="${KO_DOCKER_REPO}" \
+      --output-files "${ARTIFACTS}/scale-from-zero-ytt"
+
 kubectl delete job scale-from-zero-1 scale-from-zero-5 scale-from-zero-25 --ignore-not-found=true
 kubectl delete configmap config-mako --ignore-not-found=true
 
+echo ">> Upload the test images"
+# Upload helloworld test image as it's used by the scale-from-zero benchmark.
+ko resolve -RBf test/test_images/helloworld > /dev/null
+
 kubectl create configmap config-mako --from-file=test/performance/benchmarks/scale-from-zero/dev.config
 
-ko apply -f test/performance/benchmarks/scale-from-zero/continuous/scale-from-zero-direct.yaml
+ko apply -f "${ARTIFACTS}/scale-from-zero-ytt/scale-from-zero-direct.yaml"
 
 echo "waiting for test to complete"
 for i in {1..120}; do
