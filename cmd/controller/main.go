@@ -31,7 +31,6 @@ import (
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
-
 	"knative.dev/serving/pkg/networking"
 )
 
