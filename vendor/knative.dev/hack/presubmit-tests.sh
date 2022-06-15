@@ -23,7 +23,7 @@ source $(dirname "${BASH_SOURCE[0]}")/library.sh
 readonly PRESUBMIT_TEST_FAIL_FAST=${PRESUBMIT_TEST_FAIL_FAST:-0}
 
 # Extensions or file patterns that don't require presubmit tests.
-readonly NO_PRESUBMIT_FILES=(\.png \.gitignore \.gitattributes ^OWNERS ^OWNERS_ALIASES ^AUTHORS)
+readonly NO_PRESUBMIT_FILES=(\.png \.gitignore \.gitattributes ^OWNERS ^OWNERS_ALIASES ^AUTHORS \.github/.*)
 
 # Flag if this is a presubmit run or not.
 (( IS_PROW )) && [[ ${JOB_TYPE} == "presubmit" ]] && IS_PRESUBMIT=1 || IS_PRESUBMIT=0
@@ -266,8 +266,6 @@ function main() {
     git version
     echo ">> ko version"
     [[ -f /ko_version ]] && cat /ko_version || echo "unknown"
-    echo ">> bazel version"
-    [[ -f /bazel_version ]] && cat /bazel_version || echo "unknown"
     if [[ "${DOCKER_IN_DOCKER_ENABLED}" == "true" ]]; then
       echo ">> docker version"
       docker version
@@ -281,6 +279,8 @@ function main() {
       echo ">> maven version"
       mvn --version
     fi
+    echo ">> prow-tests image version"
+    [[ -f /commit_hash ]] && echo "Prow test image was built from $(cat /commit_hash) commit which is viewable at https://github.com/knative/test-infra/tree/$(cat /commit_hash) " || echo "unknown"
   fi
 
   [[ -z ${1:-} ]] && set -- "--all-tests"
