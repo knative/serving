@@ -73,9 +73,6 @@ function setup_test_cluster() {
   is_protected_cluster "${k8s_cluster}" && \
     abort "kubeconfig context set to ${k8s_cluster}, which is forbidden"
 
-  # Acquire cluster admin role for the current user.
-  acquire_cluster_admin_role "${k8s_cluster}"
-
   # Setup KO_DOCKER_REPO if it is a GKE cluster. Incorporate an element of
   # randomness to ensure that each run properly publishes images. Don't
   # owerwrite KO_DOCKER_REPO if already set.

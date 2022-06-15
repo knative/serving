@@ -122,10 +122,10 @@ function git_push() {
    git push "${repo_url}" ${git_args} )
 }
 
-# Return the master version of a release.
+# Return the major+minor version of a release.
 # For example, "v0.2.1" returns "0.2"
 # Parameters: $1 - release version label.
-function master_version() {
+function major_minor_version() {
   local release="${1//v/}"
   local tokens=(${release//\./ })
   echo "${tokens[0]}.${tokens[1]}"
@@ -141,8 +141,7 @@ function hash_from_tag() {
 # Setup the repository upstream, if not set.
 function setup_upstream() {
   # hub and checkout need the upstream URL to be set
-  # TODO(adrcunha): Use "git remote get-url" once available on Prow.
-  local upstream="$(git config --get remote.upstream.url)"
+  local upstream="$(git remote get-url upstream)"
   echo "Remote upstream URL is '${upstream}'"
   if [[ -z "${upstream}" ]]; then
     echo "Setting remote upstream URL to '${REPO_UPSTREAM}'"
@@ -223,7 +222,7 @@ function prepare_dot_release() {
   if [[ -z "${RELEASE_BRANCH}" ]]; then
     echo "Last release is ${last_version}"
     # Determine branch
-    major_minor_version="$(master_version "${last_version}")"
+    major_minor_version="$(major_minor_version "${last_version}")"
     RELEASE_BRANCH="release-${major_minor_version}"
     echo "Last release branch is ${RELEASE_BRANCH}"
   else
@@ -428,7 +427,7 @@ function parse_flags() {
     # TODO(adrcunha): "dot" releases from release branches require releasing nightlies
     # for such branches, which we don't do yet.
     [[ "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.0$ ]] || abort "version format must be 'X.Y.0'"
-    RELEASE_BRANCH="release-$(master_version "${RELEASE_VERSION}")"
+    RELEASE_BRANCH="release-$(major_minor_version "${RELEASE_VERSION}")"
     prepare_from_nightly_release
     setup_upstream
   fi
