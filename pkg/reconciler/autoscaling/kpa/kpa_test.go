@@ -132,14 +132,10 @@ func defaultConfig() *config.Config {
 		deployment.QueueSidecarImageKey: "bob",
 		deployment.ProgressDeadlineKey:  progressDeadline.String(),
 	})
-	networkConfig, _ := netcfg.NewConfigFromMap(map[string]string{
-		netcfg.InternalEncryptionKey: "false",
-	})
 
 	return &config.Config{
 		Autoscaler: ac,
 		Deployment: deploymentConfig,
-		Network:    networkConfig,
 	}
 }
 
