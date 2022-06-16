@@ -212,8 +212,7 @@ func (c *Reconciler) reconcileSecret(ctx context.Context, rev *v1.Revision) erro
 		if err != nil {
 			return fmt.Errorf("failed to get Namespace %q: %w", secretName, err)
 		}
-		secret, err = c.createSecret(ctx, namespace)
-		if err != nil {
+		if secret, err = c.createSecret(ctx, namespace); err != nil {
 			return fmt.Errorf("failed to create Secret %q: %w", secretName, err)
 		}
 		logger.Info("Created Secret: ", secretName)
