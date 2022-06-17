@@ -92,6 +92,41 @@ func TestReconcile(t *testing.T) {
 			activatorEndpoints(WithSubsets),
 		},
 	}, {
+		Name: "force proxy mode, no endpoints",
+		Key:  "force/proxy",
+		Objects: []runtime.Object{
+			SKS("force", "proxy", markHappy, WithPubService, WithPrivateService, WithDeployRef("bar")),
+			deploy("force", "bar"),
+			svcpub("force", "proxy"),
+			svcpriv("force", "proxy"),
+			endpointspub("force", "proxy", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+			endpointspriv("force", "proxy" /* revision has no endpoints, force proxy mode */),
+			activatorEndpoints(WithSubsets),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("force", "proxy", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("force", "proxy", markHappy, WithPubService, WithPrivateService, WithDeployRef("bar"),
+				// Changes from above.
+				markNoEndpoints),
+		}},
+	}, {
+		Name: "force serve mode, no endpoints",
+		Key:  "force/serve",
+		Objects: []runtime.Object{
+			SKS("force", "serve", withProxyMode, markHappy, WithPubService, WithPrivateService, WithDeployRef("bar")),
+			deploy("force", "bar"),
+			svcpub("force", "serve"),
+			svcpriv("force", "serve"),
+			endpointspub("force", "serve", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+			endpointspriv("force", "serve", withOtherSubsets),
+			activatorEndpoints( /* activator has no endpoints, force serve mode */ ),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("force", "serve", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+		}},
+	}, {
 		// This is the case for once we are scaled to zero.
 		// It also exercises the retry logic.
 		Name: "steady switch to proxy mode, with retry",
