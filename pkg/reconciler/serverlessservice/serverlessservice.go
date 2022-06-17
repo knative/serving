@@ -230,8 +230,8 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	// if len(private_service_endpoints) == 0:
 	//    // Override the mode to Proxy if the service has no endpoints
 	//    mode = Proxy
-	// if len(activator_endpoints) < sks.Spec.NumActivators:
-	//    // Override the mode to Serve if the shared activator has insufficient
+	// if len(activator_endpoints) == 0:
+	//    // Override the mode to Serve if the shared activator has no
 	//    // endpoints.
 	//    mode = Serve
 	//
@@ -249,7 +249,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		foundServingEndpoints = true
 	}
 	if sharedReady == 0 {
-		logger.Info("Forcing SKS into Serve mode, insufficient activator endpoints.")
+		logger.Info("Forcing SKS into Serve mode, no activator endpoints.")
 		mode = netv1alpha1.SKSOperationModeServe
 	}
 	switch mode {
