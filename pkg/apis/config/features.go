@@ -111,6 +111,7 @@ type Features struct {
 	PodSpecHostAliases               Flag
 	PodSpecNodeSelector              Flag
 	PodSpecRuntimeClassName          Flag
+	PodSpecRestartPolicy			 Flag
 	PodSpecSecurityContext           Flag
 	PodSpecPriorityClassName         Flag
 	PodSpecSchedulerName             Flag
