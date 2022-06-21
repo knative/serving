@@ -563,14 +563,14 @@ func TestScaleBounds(t *testing.T) {
 		wantMin: 1,
 		wantMax: 10,
 		config: autoscalerconfig.Config{
-			MaxScale: 10,
+			ScaleMax: 10,
 		},
 	}, {
 		name:    "max and config",
 		max:     "5",
 		wantMax: 5,
 		config: autoscalerconfig.Config{
-			MaxScale: 10,
+			ScaleMax: 10,
 		},
 	}, {
 		name:    "only max",
@@ -600,7 +600,7 @@ func TestScaleBounds(t *testing.T) {
 	}, {
 		name: "min-scale set but unreachable",
 		config: autoscalerconfig.Config{
-			MinScale: 2,
+			ScaleMin: 2,
 		},
 		reachability: ReachabilityUnreachable,
 		wantMin:      0,
@@ -610,10 +610,10 @@ func TestScaleBounds(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			pa := pa(map[string]string{})
 			if tc.min != "" {
-				pa.Annotations[autoscaling.MinScaleAnnotationKey] = tc.min
+				pa.Annotations[autoscaling.ScaleMinAnnotationKey] = tc.min
 			}
 			if tc.max != "" {
-				pa.Annotations[autoscaling.MaxScaleAnnotationKey] = tc.max
+				pa.Annotations[autoscaling.ScaleMaxAnnotationKey] = tc.max
 			}
 			pa.Spec.Reachability = tc.reachability
 

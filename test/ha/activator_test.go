@@ -76,7 +76,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	// Create first service that we will continually probe during activator restart.
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.MinScaleAnnotationKey:  "1",  // Make sure we don't scale to zero during the test.
+			autoscaling.ScaleMinAnnotationKey:  "1",  // Make sure we don't scale to zero during the test.
 			autoscaling.TargetBurstCapacityKey: "-1", // Make sure all requests go through the activator.
 		}),
 	)

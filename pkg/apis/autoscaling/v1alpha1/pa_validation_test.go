@@ -176,7 +176,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					autoscaling.MinScaleAnnotationKey: "2",
+					autoscaling.ScaleMinAnnotationKey: "2",
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -195,7 +195,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					autoscaling.MinScaleAnnotationKey: "FOO",
+					autoscaling.ScaleMinAnnotationKey: "FOO",
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -207,7 +207,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				ProtocolType: net.ProtocolHTTP1,
 			},
 		},
-		want: apis.ErrInvalidValue("FOO", autoscaling.MinScaleAnnotationKey).ViaField("metadata", "annotations"),
+		want: apis.ErrInvalidValue("FOO", autoscaling.ScaleMinAnnotationKey).ViaField("metadata", "annotations"),
 	}, {
 		name: "empty spec",
 		r: &PodAutoscaler{

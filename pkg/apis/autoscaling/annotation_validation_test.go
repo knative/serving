@@ -47,88 +47,88 @@ func TestValidateAnnotations(t *testing.T) {
 		annotations: map[string]string{ClassAnnotationKey: "some.other.domain"},
 	}, {
 		name:        "minScale is 0",
-		annotations: map[string]string{MinScaleAnnotationKey: "0"},
+		annotations: map[string]string{ScaleMinAnnotationKey: "0"},
 	}, {
 		name:        "maxScale is 0",
-		annotations: map[string]string{MaxScaleAnnotationKey: "0"},
+		annotations: map[string]string{ScaleMaxAnnotationKey: "0"},
 	}, {
 		name:        "minScale is -1",
-		annotations: map[string]string{MinScaleAnnotationKey: "-1"},
-		expectErr:   "expected 0 <= -1 <= 2147483647: " + MinScaleAnnotationKey,
+		annotations: map[string]string{ScaleMinAnnotationKey: "-1"},
+		expectErr:   "expected 0 <= -1 <= 2147483647: " + ScaleMinAnnotationKey,
 	}, {
 		name:        "maxScale is huuuuuuuge",
-		annotations: map[string]string{MaxScaleAnnotationKey: "2147483648"},
-		expectErr:   "expected 0 <= 2147483648 <= 2147483647: " + MaxScaleAnnotationKey,
+		annotations: map[string]string{ScaleMaxAnnotationKey: "2147483648"},
+		expectErr:   "expected 0 <= 2147483648 <= 2147483647: " + ScaleMaxAnnotationKey,
 	}, {
 		name:        "maxScale is -1",
-		annotations: map[string]string{MaxScaleAnnotationKey: "-1"},
-		expectErr:   "expected 0 <= -1 <= 2147483647: " + MaxScaleAnnotationKey,
+		annotations: map[string]string{ScaleMaxAnnotationKey: "-1"},
+		expectErr:   "expected 0 <= -1 <= 2147483647: " + ScaleMaxAnnotationKey,
 	}, {
 		name:        "minScale is foo",
-		annotations: map[string]string{MinScaleAnnotationKey: "foo"},
-		expectErr:   "invalid value: foo: " + MinScaleAnnotationKey,
+		annotations: map[string]string{ScaleMinAnnotationKey: "foo"},
+		expectErr:   "invalid value: foo: " + ScaleMinAnnotationKey,
 	}, {
 		name:        "maxScale is bar",
-		annotations: map[string]string{MaxScaleAnnotationKey: "bar"},
-		expectErr:   "invalid value: bar: " + MaxScaleAnnotationKey,
+		annotations: map[string]string{ScaleMaxAnnotationKey: "bar"},
+		expectErr:   "invalid value: bar: " + ScaleMaxAnnotationKey,
 	}, {
 		name:        "max/minScale is bar",
-		annotations: map[string]string{MaxScaleAnnotationKey: "bar", MinScaleAnnotationKey: "bar"},
-		expectErr:   "invalid value: bar: " + MaxScaleAnnotationKey + ", " + MinScaleAnnotationKey,
+		annotations: map[string]string{ScaleMaxAnnotationKey: "bar", ScaleMinAnnotationKey: "bar"},
+		expectErr:   "invalid value: bar: " + ScaleMaxAnnotationKey + ", " + ScaleMinAnnotationKey,
 	}, {
 		name:        "minScale is 5",
-		annotations: map[string]string{MinScaleAnnotationKey: "5"},
+		annotations: map[string]string{ScaleMinAnnotationKey: "5"},
 	}, {
 		name:        "maxScale is 2",
-		annotations: map[string]string{MaxScaleAnnotationKey: "2"},
+		annotations: map[string]string{ScaleMaxAnnotationKey: "2"},
 	}, {
 		name:        "minScale is 2, maxScale is 5",
-		annotations: map[string]string{MinScaleAnnotationKey: "2", MaxScaleAnnotationKey: "5"},
+		annotations: map[string]string{ScaleMinAnnotationKey: "2", ScaleMaxAnnotationKey: "5"},
 	}, {
 		name:        "minScale is 5, maxScale is 2",
-		annotations: map[string]string{MinScaleAnnotationKey: "5", MaxScaleAnnotationKey: "2"},
-		expectErr:   "max-scale=2 is less than min-scale=5: " + MaxScaleAnnotationKey + ", " + MinScaleAnnotationKey,
+		annotations: map[string]string{ScaleMinAnnotationKey: "5", ScaleMaxAnnotationKey: "2"},
+		expectErr:   "max-scale=2 is less than min-scale=5: " + ScaleMaxAnnotationKey + ", " + ScaleMinAnnotationKey,
 	}, {
 		name: "minScale is 0, maxScale is 0",
 		annotations: map[string]string{
-			MinScaleAnnotationKey: "0",
-			MaxScaleAnnotationKey: "0",
+			ScaleMinAnnotationKey: "0",
+			ScaleMaxAnnotationKey: "0",
 		},
 	}, {
 		name: "maxScale is greater than MaxScaleLimit when in create",
 		configMutator: func(config *autoscalerconfig.Config) {
 			config.MaxScaleLimit = 10
 		},
-		annotations: map[string]string{MaxScaleAnnotationKey: "11"},
-		expectErr:   "expected 1 <= 11 <= 10: " + MaxScaleAnnotationKey,
+		annotations: map[string]string{ScaleMaxAnnotationKey: "11"},
+		expectErr:   "expected 1 <= 11 <= 10: " + ScaleMaxAnnotationKey,
 	}, {
 		name: "maxScale is greater than MaxScaleLimit when in create and default MaxScale is set",
 		configMutator: func(config *autoscalerconfig.Config) {
 			config.MaxScaleLimit = 10
-			config.MaxScale = 11
+			config.ScaleMax = 11
 		},
-		annotations: map[string]string{MaxScaleAnnotationKey: "20"},
-		expectErr:   "expected 1 <= 20 <= 10: " + MaxScaleAnnotationKey,
+		annotations: map[string]string{ScaleMaxAnnotationKey: "20"},
+		expectErr:   "expected 1 <= 20 <= 10: " + ScaleMaxAnnotationKey,
 	}, {
 		name: "maxScale is explicitly set to 0 when MaxScaleLimit and default MaxScale are set",
 		configMutator: func(config *autoscalerconfig.Config) {
 			config.MaxScaleLimit = 10
-			config.MaxScale = 1
+			config.ScaleMax = 1
 		},
-		annotations: map[string]string{MaxScaleAnnotationKey: "0"},
-		expectErr:   "max-scale=0 (unlimited), must be less than 10: " + MaxScaleAnnotationKey,
+		annotations: map[string]string{ScaleMaxAnnotationKey: "0"},
+		expectErr:   "max-scale=0 (unlimited), must be less than 10: " + ScaleMaxAnnotationKey,
 	}, {
 		name: "maxScale is not set when both MaxScaleLimit and default MaxScale are set",
 		configMutator: func(config *autoscalerconfig.Config) {
 			config.MaxScaleLimit = 10
-			config.MaxScale = 11
+			config.ScaleMax = 11
 		},
 	}, {
 		name: "maxScale is less than MaxScaleLimit",
 		configMutator: func(config *autoscalerconfig.Config) {
 			config.MaxScaleLimit = 10
 		},
-		annotations: map[string]string{MaxScaleAnnotationKey: "9"},
+		annotations: map[string]string{ScaleMaxAnnotationKey: "9"},
 	}, {
 		name: "valid algorithm on KPA",
 		annotations: map[string]string{
@@ -302,17 +302,17 @@ func TestValidateAnnotations(t *testing.T) {
 		annotations: map[string]string{
 			PanicThresholdPercentageAnnotationKey: "fifty",
 			PanicWindowPercentageAnnotationKey:    "-11",
-			MinScaleAnnotationKey:                 "-4",
-			MaxScaleAnnotationKey:                 "never",
+			ScaleMinAnnotationKey:                 "-4",
+			ScaleMaxAnnotationKey:                 "never",
 		},
-		expectErr: "expected 0 <= -4 <= 2147483647: " + MinScaleAnnotationKey + "\nexpected 1 <= -11 <= 100: " + PanicWindowPercentageAnnotationKey + "\ninvalid value: fifty: " + PanicThresholdPercentageAnnotationKey + "\ninvalid value: never: " + MaxScaleAnnotationKey,
+		expectErr: "expected 0 <= -4 <= 2147483647: " + ScaleMinAnnotationKey + "\nexpected 1 <= -11 <= 100: " + PanicWindowPercentageAnnotationKey + "\ninvalid value: fifty: " + PanicThresholdPercentageAnnotationKey + "\ninvalid value: never: " + ScaleMaxAnnotationKey,
 	}, {
 		name: "all together now, succeed",
 		annotations: map[string]string{
 			PanicThresholdPercentageAnnotationKey: "125",
 			PanicWindowPercentageAnnotationKey:    "75",
-			MinScaleAnnotationKey:                 "5",
-			MaxScaleAnnotationKey:                 "8",
+			ScaleMinAnnotationKey:                 "5",
+			ScaleMaxAnnotationKey:                 "8",
 			WindowAnnotationKey:                   "1984s",
 		},
 	}, {

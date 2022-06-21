@@ -176,18 +176,18 @@ func validateWindow(m map[string]string) *apis.FieldError {
 }
 
 func validateMinMaxScale(config *autoscalerconfig.Config, m map[string]string) *apis.FieldError {
-	min, errs := getIntGE0(m, MinScaleAnnotation)
-	max, err := getIntGE0(m, MaxScaleAnnotation)
+	min, errs := getIntGE0(m, ScaleMinAnnotation)
+	max, err := getIntGE0(m, ScaleMaxAnnotation)
 	errs = errs.Also(err)
 
 	if max != 0 && max < min {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("max-scale=%d is less than min-scale=%d", max, min),
-			Paths:   []string{MaxScaleAnnotationKey, MinScaleAnnotationKey},
+			Paths:   []string{ScaleMaxAnnotationKey, ScaleMinAnnotationKey},
 		})
 	}
 
-	if k, _, ok := MaxScaleAnnotation.Get(m); ok {
+	if k, _, ok := ScaleMaxAnnotation.Get(m); ok {
 		errs = errs.Also(validateMaxScaleWithinLimit(k, max, config.MaxScaleLimit))
 	}
 

@@ -61,8 +61,8 @@ func defaultConfig() *autoscalerconfig.Config {
 		PodAutoscalerClass:            autoscaling.KPA,
 		AllowZeroInitialScale:         false,
 		InitialScale:                  1,
-		MinScale:                      0,
-		MaxScale:                      0,
+		ScaleMin:                      0,
+		ScaleMax:                      0,
 		MaxScaleLimit:                 0,
 	}
 }
@@ -88,9 +88,13 @@ func NewConfigFromMap(data map[string]string) (*autoscalerconfig.Config, error) 
 		cm.AsFloat64("panic-threshold-percentage", &lc.PanicThresholdPercentage),
 
 		cm.AsInt32("initial-scale", &lc.InitialScale),
-		cm.AsInt32("min-scale", &lc.MinScale),
-		cm.AsInt32("max-scale", &lc.MaxScale),
-		cm.AsInt32("max-scale-limit", &lc.MaxScaleLimit),
+		// Deprecated 'min-scale' in favor of 'scale-min'
+		cm.AsInt32("min-scale", &lc.ScaleMin),
+		cm.AsInt32("scale-min", &lc.ScaleMin),
+		// Deprecated 'max-scale' in favor of 'scale-max'
+		cm.AsInt32("max-scale", &lc.ScaleMax),
+		cm.AsInt32("scale-max", &lc.ScaleMax),
+		cm.AsInt32("scale-max-limit", &lc.MaxScaleLimit),
 
 		cm.AsDuration("stable-window", &lc.StableWindow),
 		cm.AsDuration("scale-down-delay", &lc.ScaleDownDelay),
@@ -179,27 +183,27 @@ func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 		return nil, fmt.Errorf("initial-scale = %v, must be at least 0 (or at least 1 when allow-zero-initial-scale is false)", lc.InitialScale)
 	}
 
-	if lc.MinScale < 0 {
-		return nil, fmt.Errorf("min-scale = %v, must be at least 0", lc.MinScale)
+	if lc.ScaleMin < 0 {
+		return nil, fmt.Errorf("min-scale = %v, must be at least 0", lc.ScaleMin)
 	}
 
-	var minMaxScale int32
+	var minScaleMax int32
 	if lc.MaxScaleLimit > 0 {
-		// Default maxScale must be set if maxScaleLimit is set.
-		minMaxScale = 1
+		// Default ScaleMax must be set if MaxScaleLimit is set.
+		minScaleMax = 1
 	}
 
-	if lc.MaxScale < minMaxScale || (lc.MaxScaleLimit > 0 && lc.MaxScale > lc.MaxScaleLimit) {
+	if lc.ScaleMax < minScaleMax || (lc.MaxScaleLimit > 0 && lc.ScaleMax > lc.MaxScaleLimit) {
 		return nil, fmt.Errorf("max-scale = %d, must be in [%d, max-scale-limit(%d)] range",
-			lc.MaxScale, minMaxScale, lc.MaxScaleLimit)
+			lc.ScaleMax, minScaleMax, lc.MaxScaleLimit)
 	}
 
 	if lc.MaxScaleLimit < 0 {
 		return nil, fmt.Errorf("max-scale-limit = %v, must be at least 0", lc.MaxScaleLimit)
 	}
 
-	if lc.MinScale > lc.MaxScale && lc.MaxScale > 0 {
-		return nil, fmt.Errorf("min-scale (%d) must be less than max-scale (%d)", lc.MinScale, lc.MaxScale)
+	if lc.ScaleMin > lc.ScaleMax && lc.ScaleMax > 0 {
+		return nil, fmt.Errorf("min-scale (%d) must be less than max-scale (%d)", lc.ScaleMin, lc.ScaleMax)
 	}
 
 	return lc, nil

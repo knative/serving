@@ -88,14 +88,14 @@ func (pa *PodAutoscaler) annotationFloat64(k kmap.KeyPriority) (float64, bool) {
 func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (int32, int32) {
 	var min int32
 	if pa.Spec.Reachability != ReachabilityUnreachable {
-		min = asConfig.MinScale
-		if paMin, ok := pa.annotationInt32(autoscaling.MinScaleAnnotation); ok {
+		min = asConfig.ScaleMin
+		if paMin, ok := pa.annotationInt32(autoscaling.ScaleMinAnnotation); ok {
 			min = paMin
 		}
 	}
 
-	max := asConfig.MaxScale
-	if paMax, ok := pa.annotationInt32(autoscaling.MaxScaleAnnotation); ok {
+	max := asConfig.ScaleMax
+	if paMax, ok := pa.annotationInt32(autoscaling.ScaleMaxAnnotation); ok {
 		max = paMax
 	}
 

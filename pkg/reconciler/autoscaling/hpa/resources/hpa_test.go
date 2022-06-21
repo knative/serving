@@ -53,11 +53,11 @@ func TestMakeHPA(t *testing.T) {
 	}, {
 		name: "with lower bound",
 		pa:   pa(WithLowerScaleBound(5)),
-		want: hpa(withMinReplicas(5), withAnnotationValue(autoscaling.MinScaleAnnotationKey, "5")),
+		want: hpa(withMinReplicas(5), withAnnotationValue(autoscaling.ScaleMinAnnotationKey, "5")),
 	}, {
 		name: "with upper bound",
 		pa:   pa(WithUpperScaleBound(5)),
-		want: hpa(withMaxReplicas(5), withAnnotationValue(autoscaling.MaxScaleAnnotationKey, "5")),
+		want: hpa(withMaxReplicas(5), withAnnotationValue(autoscaling.ScaleMaxAnnotationKey, "5")),
 	}, {
 		name: "with an actual cpu target",
 		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(autoscaling.CPU)),

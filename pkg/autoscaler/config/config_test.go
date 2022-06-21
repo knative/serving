@@ -139,8 +139,8 @@ func TestNewConfig(t *testing.T) {
 		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.EnableScaleToZero = false
-			c.MinScale = 1
-			c.MaxScale = 2
+			c.ScaleMin = 1
+			c.ScaleMax = 2
 			return c
 		}(),
 	}, {
@@ -155,8 +155,8 @@ func TestNewConfig(t *testing.T) {
 			c := defaultConfig()
 			c.EnableScaleToZero = false
 			c.ScaleToZeroGracePeriod = 33 * time.Second
-			c.MinScale = 1
-			c.MaxScale = 2
+			c.ScaleMin = 1
+			c.ScaleMax = 2
 			return c
 		}(),
 	}, {
@@ -335,7 +335,7 @@ func TestNewConfig(t *testing.T) {
 		},
 		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
-			c.MaxScale = 10
+			c.ScaleMax = 10
 			return c
 		}(),
 	}, {
@@ -372,7 +372,7 @@ func TestNewConfig(t *testing.T) {
 		},
 		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
-			c.MinScale = 4
+			c.ScaleMin = 4
 			return c
 		}(),
 	}, {
@@ -383,7 +383,7 @@ func TestNewConfig(t *testing.T) {
 		},
 		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
-			c.MaxScale = 10
+			c.ScaleMax = 10
 			c.MaxScaleLimit = 11
 			return c
 		}(),

@@ -41,15 +41,25 @@ const (
 	// HPA is Kubernetes Horizontal Pod Autoscaler
 	HPA = "hpa.autoscaling.knative.dev"
 
-	// MinScaleAnnotationKey is the annotation to specify the minimum number of Pods
+	// DeprecatedMinScaleAnnotationKey is the annotation to specify the minimum number of Pods
+	// the PodAutoscaler should provision. For example,
+	//   autoscaling.knative.dev/min-scale: "1"
+	DeprecatedMinScaleAnnotationKey = GroupName + "/min-scale"
+
+	// ScaleMinAnnotationKey is the annotation to specify the minimum number of Pods
 	// the PodAutoscaler should provision. For example,
 	//   autoscaling.knative.dev/scale-min: "1"
-	MinScaleAnnotationKey = GroupName + "/scale-min"
+	ScaleMinAnnotationKey = GroupName + "/scale-min"
 
-	// MaxScaleAnnotationKey is the annotation to specify the maximum number of Pods
+	// DeprecatedMaxScaleAnnotationKey is the annotation to specify the maximum number of Pods
+	// the PodAutoscaler should provision. For example,
+	//   autoscaling.knative.dev/max-scale: "10"
+	DeprecatedMaxScaleAnnotationKey = GroupName + "/max-scale"
+
+	// ScaleMaxAnnotationKey is the annotation to specify the maximum number of Pods
 	// the PodAutoscaler should provision. For example,
 	//   autoscaling.knative.dev/scale-max: "10"
-	MaxScaleAnnotationKey = GroupName + "/scale-max"
+	ScaleMaxAnnotationKey = GroupName + "/scale-max"
 
 	// InitialScaleAnnotationKey is the annotation to specify the initial scale of
 	// a revision when a service is initially deployed. This number can be set to 0 iff
@@ -226,8 +236,9 @@ var (
 		InitialScaleAnnotationKey,
 		GroupName + "/initialScale",
 	}
-	MaxScaleAnnotation = kmap.KeyPriority{
-		MaxScaleAnnotationKey,
+	ScaleMaxAnnotation = kmap.KeyPriority{
+		ScaleMaxAnnotationKey,
+		DeprecatedMaxScaleAnnotationKey,
 		GroupName + "/scaleMax",
 	}
 	MetricAnnotation = kmap.KeyPriority{
@@ -237,8 +248,9 @@ var (
 		MetricAggregationAlgorithmKey,
 		GroupName + "/metricAggregationAlgorithm",
 	}
-	MinScaleAnnotation = kmap.KeyPriority{
-		MinScaleAnnotationKey,
+	ScaleMinAnnotation = kmap.KeyPriority{
+		ScaleMinAnnotationKey,
+		DeprecatedMinScaleAnnotationKey,
 		GroupName + "/scaleMin",
 	}
 	PanicThresholdPercentageAnnotation = kmap.KeyPriority{

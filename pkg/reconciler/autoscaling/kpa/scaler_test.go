@@ -653,10 +653,10 @@ func newRevision(ctx context.Context, t *testing.T, servingClient clientset.Inte
 	t.Helper()
 	annotations := map[string]string{}
 	if minScale > 0 {
-		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(minScale))
+		annotations[autoscaling.ScaleMinAnnotationKey] = strconv.Itoa(int(minScale))
 	}
 	if maxScale > 0 {
-		annotations[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(int(maxScale))
+		annotations[autoscaling.ScaleMaxAnnotationKey] = strconv.Itoa(int(maxScale))
 	}
 	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{

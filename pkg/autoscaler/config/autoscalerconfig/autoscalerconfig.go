@@ -50,13 +50,17 @@ type Config struct {
 	// services. This can be set to 0 iff AllowZeroInitialScale is true.
 	InitialScale int32
 
-	// MinScale is the default min scale for any revision created without an
-	// autoscaling.knative.dev/minScale annotation
-	MinScale int32
+	// ScaleMin is the default min scale for any revision created without an
+	// autoscaling.knative.dev/scale-min or
+	// autoscaling.knative.dev/minScale (deprecated) or
+	// autoscaling.knative.dev/min-scale (deprecated) annotation
+	ScaleMin int32
 
-	// MaxScale is the default max scale for any revision created without an
-	// autoscaling.knative.dev/maxScale annotation
-	MaxScale int32
+	// ScaleMax is the default max scale for any revision created without an
+	// autoscaling.knative.dev/scale-max or
+	// autoscaling.knative.dev/maxScale (deprecated) or
+	// autoscaling.knative.dev/max-scale (deprecated) annotation
+	ScaleMax int32
 
 	// MaxScaleLimit is the maximum allowed MaxScale and `autoscaling.knative.dev/maxScale`
 	// annotation value for a revision.

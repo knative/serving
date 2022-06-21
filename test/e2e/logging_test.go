@@ -79,8 +79,8 @@ func TestRequestLogs(t *testing.T) {
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names, []rtesting.ServiceOption{
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.MinScaleAnnotationKey: "1",
-			autoscaling.MaxScaleAnnotationKey: "1",
+			autoscaling.ScaleMinAnnotationKey: "1",
+			autoscaling.ScaleMaxAnnotationKey: "1",
 		})}...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %q: %v", names.Service, err)

@@ -220,12 +220,12 @@ func WithMetricOwnersRemoved(m *autoscalingv1alpha1.Metric) {
 
 // WithUpperScaleBound sets maxScale to the given number.
 func WithUpperScaleBound(i int) PodAutoscalerOption {
-	return withAnnotationValue(autoscaling.MaxScaleAnnotationKey, strconv.Itoa(i))
+	return withAnnotationValue(autoscaling.ScaleMaxAnnotationKey, strconv.Itoa(i))
 }
 
 // WithLowerScaleBound sets minScale to the given number.
 func WithLowerScaleBound(i int) PodAutoscalerOption {
-	return withAnnotationValue(autoscaling.MinScaleAnnotationKey, strconv.Itoa(i))
+	return withAnnotationValue(autoscaling.ScaleMinAnnotationKey, strconv.Itoa(i))
 }
 
 // K8sServiceOption enables further configuration of the Kubernetes Service.

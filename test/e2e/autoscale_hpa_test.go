@@ -93,7 +93,7 @@ func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
 				autoscaling.ClassAnnotationKey:    autoscaling.HPA,
 				autoscaling.MetricAnnotationKey:   metric,
 				autoscaling.TargetAnnotationKey:   strconv.Itoa(target),
-				autoscaling.MaxScaleAnnotationKey: fmt.Sprintf("%d", int(maxPods)),
+				autoscaling.ScaleMaxAnnotationKey: fmt.Sprintf("%d", int(maxPods)),
 				autoscaling.WindowAnnotationKey:   "20s",
 			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{

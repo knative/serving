@@ -873,8 +873,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					autoscaling.MinScaleAnnotationKey: "5",
-					autoscaling.MaxScaleAnnotationKey: "covid-19",
+					autoscaling.ScaleMinAnnotationKey: "5",
+					autoscaling.ScaleMaxAnnotationKey: "covid-19",
 				},
 			},
 			Spec: RevisionSpec{
@@ -885,7 +885,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("covid-19", autoscaling.MaxScaleAnnotationKey).
+		want: apis.ErrInvalidValue("covid-19", autoscaling.ScaleMaxAnnotationKey).
 			ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "Queue sidecar resource percentage annotation more than 100",

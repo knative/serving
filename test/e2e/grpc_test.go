@@ -453,7 +453,7 @@ func TestGRPCLoadBalancing(t *testing.T) {
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
 			autoscaling.TargetAnnotationKey:            strconv.Itoa(grpcContainerConcurrency),
-			autoscaling.MinScaleAnnotationKey:          strconv.Itoa(grpcMinScale),
+			autoscaling.ScaleMinAnnotationKey:          strconv.Itoa(grpcMinScale),
 			autoscaling.TargetBurstCapacityKey:         "-1",
 		}),
 		rtesting.WithEnv(corev1.EnvVar{

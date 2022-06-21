@@ -62,7 +62,7 @@ func TestActivatorOverload(t *testing.T) {
 		func(service *v1.Service) {
 			service.Spec.Template.Spec.ContainerConcurrency = ptr.Int64(1)
 			service.Spec.Template.Annotations = map[string]string{
-				autoscaling.MaxScaleAnnotationKey:  "10",
+				autoscaling.ScaleMaxAnnotationKey:  "10",
 				autoscaling.TargetBurstCapacityKey: "-1",
 			}
 		})

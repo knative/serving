@@ -176,7 +176,7 @@ func withMinScale(minScale int) func(cfg *v1.Configuration) {
 		if cfg.Spec.Template.Annotations == nil {
 			cfg.Spec.Template.Annotations = make(map[string]string, 1)
 		}
-		cfg.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(minScale)
+		cfg.Spec.Template.Annotations[autoscaling.ScaleMinAnnotationKey] = strconv.Itoa(minScale)
 	}
 }
 

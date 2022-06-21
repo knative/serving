@@ -142,7 +142,7 @@ LOOP:
 			// Make sure we start with a single instance.
 
 			// At the end of the benchmark, restore to the previous value.
-			if prev := svc.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]; prev != "" {
+			if prev := svc.Spec.Template.Annotations[autoscaling.ScaleMinAnnotationKey]; prev != "" {
 				restoreFn = func() {
 					restore, err := sc.ServingV1().Services(namespace).Get(context.Background(), *target, metav1.GetOptions{})
 					if err != nil {
@@ -150,7 +150,7 @@ LOOP:
 						return
 					}
 					restore = restore.DeepCopy()
-					restore.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey] = prev
+					restore.Spec.Template.Annotations[autoscaling.ScaleMinAnnotationKey] = prev
 					_, err = sc.ServingV1().Services(namespace).Update(
 						context.Background(), restore, metav1.UpdateOptions{})
 					log.Printf("Restoring the service to initial minScale = %s, err: %#v", prev, err)
@@ -159,7 +159,7 @@ LOOP:
 						metav1.DeleteOptions{})
 				}
 			}
-			svc.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey] = "1"
+			svc.Spec.Template.Annotations[autoscaling.ScaleMinAnnotationKey] = "1"
 			_, err = sc.ServingV1().Services(namespace).Update(context.Background(), svc, metav1.UpdateOptions{})
 			if err != nil {
 				fatalf("Error updating ksvc %s: %v", *target, err)

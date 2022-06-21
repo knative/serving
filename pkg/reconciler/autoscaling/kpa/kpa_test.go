@@ -121,7 +121,7 @@ func initialScaleZeroASConfig() *autoscalerconfig.Config {
 	ac, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
 	ac.AllowZeroInitialScale = true
 	ac.InitialScale = 0
-	ac.MinScale = 0
+	ac.ScaleMin = 0
 	ac.EnableScaleToZero = true
 	return ac
 }
@@ -1814,7 +1814,7 @@ func withMinScale(minScale int) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations = kmeta.UnionMaps(
 			pa.Annotations,
-			map[string]string{autoscaling.MinScaleAnnotationKey: strconv.Itoa(minScale)},
+			map[string]string{autoscaling.ScaleMinAnnotationKey: strconv.Itoa(minScale)},
 		)
 	}
 }
