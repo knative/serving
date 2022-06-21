@@ -98,12 +98,15 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 		// being stuck with this error.
 		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
 		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing, err.Error())
-		return true, err
+		return false, err
 	}
 
 	if len(statuses) > 0 || len(initContainerStatuses) > 0 {
 		rev.Status.ContainerStatuses = statuses
 		rev.Status.InitContainerStatuses = initContainerStatuses
+		controller.GetEventRecorder(ctx).Event(
+			rev, corev1.EventTypeNormal, "RevisionDigestsResolved",
+			"Revision image digests have been resolved")
 		return true, nil
 	}
 
