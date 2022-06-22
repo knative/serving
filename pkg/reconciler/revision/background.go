@@ -56,6 +56,7 @@ type resolveResult struct {
 	registriesToSkip   sets.String
 	completionCallback func()
 	workItems          []workItem
+	startTime          time.Time
 
 	// these fields can be written concurrently, so should only be accessed while
 	// holding the backgroundResolver mutex.
@@ -143,7 +144,7 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 // If this method returns `nil, nil` this implies a resolve was triggered or is
 // already in progress, so the reconciler should exit and wait for the revision
 // to be re-enqueued when the result is ready.
-func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) (initContainerStatuses []v1.ContainerStatus, statuses []v1.ContainerStatus, error error) {
+func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) (initContainerStatuses []v1.ContainerStatus, statuses []v1.ContainerStatus, startTime time.Time, error error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -156,18 +157,18 @@ func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision
 	if !inFlight {
 		logger.Debugf("Adding Resolve request to queue (depth: %d)", r.queue.Len())
 		r.addWorkItems(rev, name, opt, registriesToSkip, timeout)
-		return nil, nil, nil
+		return nil, nil, time.Time{}, nil
 	}
 
 	if !result.ready() {
 		logger.Debug("Resolve request in flight, returning nil, nil")
-		return nil, nil, nil
+		return nil, nil, time.Time{}, nil
 	}
 
 	ret := r.results[name]
 	if ret.err != nil {
 		logger.Debugf("Resolve returned the resolved error: %v", ret.err)
-		return nil, nil, ret.err
+		return nil, nil, time.Time{}, ret.err
 	}
 
 	initContainerStatuses = make([]v1.ContainerStatus, len(rev.Spec.InitContainers))
@@ -189,7 +190,7 @@ func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision
 	}
 
 	logger.Debugf("Resolve returned %d resolved images for revision", len(statuses)+len(initContainerStatuses))
-	return initContainerStatuses, statuses, nil
+	return initContainerStatuses, statuses, result.startTime, nil
 }
 
 // addWorkItems adds a digest resolve item to the queue for each container in the revision.
@@ -200,6 +201,7 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 		opt:                opt,
 		registriesToSkip:   registriesToSkip,
 		imagesResolved:     make(map[string]string),
+		startTime:          time.Now().UTC(),
 		imagesToBeResolved: sets.String{},
 		workItems:          make([]workItem, 0, totalNumOfContainers),
 		completionCallback: func() {

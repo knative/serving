@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -45,7 +46,7 @@ import (
 )
 
 type resolver interface {
-	Resolve(*zap.SugaredLogger, *v1.Revision, k8schain.Options, sets.String, time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, error)
+	Resolve(*zap.SugaredLogger, *v1.Revision, k8schain.Options, sets.String, time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, time.Time, error)
 	Clear(types.NamespacedName)
 	Forget(types.NamespacedName)
 }
@@ -92,7 +93,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 	}
 
 	logger := logging.FromContext(ctx)
-	initContainerStatuses, statuses, err := c.resolver.Resolve(logger, rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, cfgs.Deployment.DigestResolutionTimeout)
+	initContainerStatuses, statuses, startTime, err := c.resolver.Resolve(logger, rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, cfgs.Deployment.DigestResolutionTimeout)
 	if err != nil {
 		// Clear the resolver so we can retry the digest resolution rather than
 		// being stuck with this error.
@@ -102,11 +103,12 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 	}
 
 	if len(statuses) > 0 || len(initContainerStatuses) > 0 {
+		duration := time.Now().UTC().Sub(startTime).String()
 		rev.Status.ContainerStatuses = statuses
 		rev.Status.InitContainerStatuses = initContainerStatuses
 		controller.GetEventRecorder(ctx).Event(
 			rev, corev1.EventTypeNormal, "RevisionDigestsResolved",
-			"Revision image digests have been resolved")
+			fmt.Sprint("Revision image digests have been resolved ", duration))
 		return true, nil
 	}
 

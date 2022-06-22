@@ -229,7 +229,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(_ *zap.SugaredLogger, rev *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, error) {
+func (r *nopResolver) Resolve(_ *zap.SugaredLogger, rev *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, time.Time, error) {
 	status := []v1.ContainerStatus{{
 		Name: rev.Spec.Containers[0].Name,
 	}}
@@ -240,9 +240,9 @@ func (r *nopResolver) Resolve(_ *zap.SugaredLogger, rev *v1.Revision, _ k8schain
 				Name: rev.Spec.InitContainers[i].Name,
 			})
 		}
-		return initStatus, status, nil
+		return initStatus, status, time.Time{}, nil
 	}
-	return nil, status, nil
+	return nil, status, time.Time{}, nil
 }
 
 func (r *nopResolver) Clear(types.NamespacedName)  {}
@@ -340,8 +340,8 @@ func testDefaultsCM() *corev1.ConfigMap {
 
 type notResolvedYetResolver struct{}
 
-func (r *notResolvedYetResolver) Resolve(_ *zap.SugaredLogger, _ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, error) {
-	return nil, nil, nil
+func (r *notResolvedYetResolver) Resolve(_ *zap.SugaredLogger, _ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, time.Time, error) {
+	return nil, nil, time.Time{}, nil
 }
 
 func (r *notResolvedYetResolver) Clear(types.NamespacedName)  {}
@@ -352,8 +352,8 @@ type errorResolver struct {
 	cleared bool
 }
 
-func (r *errorResolver) Resolve(_ *zap.SugaredLogger, _ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, error) {
-	return nil, nil, r.err
+func (r *errorResolver) Resolve(_ *zap.SugaredLogger, _ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, time.Time, error) {
+	return nil, nil, time.Time{}, r.err
 }
 
 func (r *errorResolver) Clear(types.NamespacedName) {
