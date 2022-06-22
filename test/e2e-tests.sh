@@ -25,6 +25,8 @@
 # project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster.
 
+export ENABLE_GKE_TELEMETRY=true
+
 source $(dirname $0)/e2e-common.sh
 
 # Script entry point.
