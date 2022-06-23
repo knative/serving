@@ -198,6 +198,15 @@ func (tw *timeoutWriter) Flush() {
 // http.Hijacker interface, which is required for net/http/httputil/reverseproxy
 // to handle connection upgrade/switching protocol.  Otherwise returns an error.
 func (tw *timeoutWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	tw.mu.Lock()
+	if tw.timedOut {
+		tw.mu.Unlock()
+		return nil, nil, http.ErrHandlerTimeout
+	}
+
+	tw.lastWriteTime = tw.clock.Now()
+	tw.mu.Unlock()
+
 	return websocket.HijackIfPossible(tw.w)
 }
 
