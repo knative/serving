@@ -97,16 +97,16 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
+	if testing.Short() {
+		// TODO sort out kind issues causing flakiness
+		t.Skip("#13049: Skipped because of excessive flakiness on kind")
+	}
+
 	for _, algo := range []string{
 		autoscaling.MetricAggregationAlgorithmLinear,
 		autoscaling.MetricAggregationAlgorithmWeightedExponential,
 	} {
 		algo := algo
-		if testing.Short() && algo == autoscaling.MetricAggregationAlgorithmWeightedExponential {
-			// TODO sort out kind issues causing flakiness
-			t.Skip("#13049: Skipped because of excessive flakiness on kind")
-		}
-
 		t.Run("aggregation-"+algo, func(t *testing.T) {
 			// When traffic increases, a knative app should scale up and sustain the scale
 			// as long as the traffic sustains, despite whether it is switching modes between
