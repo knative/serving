@@ -299,7 +299,7 @@ spec:
         app: net-kourier-controller
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:f809fb2f7fea5c4e201035cd07be0dafd16dff79bc3cf8c3aa9ef1b6e4dc7007
+        - image: docker.io/skonto/kourier-b74c3918b7eee585f87df62ccd297dc8@sha256:309e49587ad6fd4b9ddf631c95435364938c21a7e085b95eae643c5ac08079bd
           name: controller
           env:
             - name: CERTS_SECRET_NAMESPACE
@@ -314,6 +314,8 @@ spec:
               value: "knative.dev/samples"
             - name: KOURIER_GATEWAY_NAMESPACE
               value: "kourier-system"
+            - name: ENABLE_SECRET_INFORMER_FILTERING_BY_CERT_UID
+              value: "true"
           ports:
             - name: http2-xds
               containerPort: 18000
