@@ -55,7 +55,8 @@ func (c *Reconciler) createSecret(ctx context.Context, ns *corev1.Namespace) (*c
 			Namespace:       ns.Name,
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(ns, corev1.SchemeGroupVersion.WithKind("Namespace"))},
 			Labels: map[string]string{
-				networking.ServingCertName + "-ctrl": "data-plane",
+				networking.ServingCertName + "-ctrl":              "data-plane",
+				"networking.internal.knative.dev/certificate-uid": networking.ServingCertName,
 			},
 		},
 	}
