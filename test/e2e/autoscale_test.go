@@ -97,6 +97,11 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
+	if testing.Short() {
+		// TODO sort out kind issues causing flakiness
+		t.Skip("#13049: Skipped because of excessive flakiness on kind")
+	}
+
 	for _, algo := range []string{
 		autoscaling.MetricAggregationAlgorithmLinear,
 		autoscaling.MetricAggregationAlgorithmWeightedExponential,
