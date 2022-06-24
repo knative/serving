@@ -54,7 +54,7 @@ func Setup(t *testing.T) *test.Clients {
 // SetupAlternativeNamespace creates the client objects needed in e2e tests
 // under the alternative namespace.
 func SetupAlternativeNamespace(t *testing.T) *test.Clients {
-	return test.Setup(t, test.ServingFlags.AltTestNamespace)
+	return test.Setup(t, test.Options{Namespace: test.ServingFlags.AltTestNamespace})
 }
 
 // autoscalerCM returns the current autoscaler config map deployed to the
