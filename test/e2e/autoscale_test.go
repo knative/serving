@@ -21,6 +21,7 @@ package e2e
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/networking"
@@ -136,6 +138,16 @@ func TestTargetBurstCapacity(t *testing.T) {
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
 		}))
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
+
+	cm, err := ctx.clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
+		Get(context.Background(), netcfg.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Fail to get ConfigMap config-network:", err)
+	}
+	if strings.EqualFold(cm.Data[netcfg.InternalEncryptionKey], "true") {
+		// TODO: Remove this when https://github.com/knative/serving/issues/12797 was done.
+		t.Skip("Skipping TestTargetBurstCapacity as activator-ca is specified. See issue/12797.")
+	}
 
 	cfg, err := autoscalerCM(ctx.clients)
 	if err != nil {

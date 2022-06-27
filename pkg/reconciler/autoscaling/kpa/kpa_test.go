@@ -126,16 +126,27 @@ func initialScaleZeroASConfig() *autoscalerconfig.Config {
 	return ac
 }
 
+func activatorCertsNetConfig() *netcfg.Config {
+	nc, _ := netcfg.NewConfigFromMap(map[string]string{
+		netcfg.InternalEncryptionKey: "true",
+	})
+	return nc
+}
+
 func defaultConfig() *config.Config {
 	ac, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
 	deploymentConfig, _ := deployment.NewConfigFromMap(map[string]string{
 		deployment.QueueSidecarImageKey: "bob",
 		deployment.ProgressDeadlineKey:  progressDeadline.String(),
 	})
+	networkConfig, _ := netcfg.NewConfigFromMap(map[string]string{
+		netcfg.InternalEncryptionKey: "false",
+	})
 
 	return &config.Config{
 		Autoscaler: ac,
 		Deployment: deploymentConfig,
+		Network:    networkConfig,
 	}
 }
 
@@ -1127,6 +1138,38 @@ func TestReconcile(t *testing.T) {
 				withScales(2, 2), WithReachabilityReachable, WithPAStatusService(testRevision),
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 			),
+		}},
+	}, {
+		Name: "we have enough burst capacity, but keep proxy mode as activator CA is enabled",
+		Key:  key,
+		Ctx: context.WithValue(context.WithValue(context.Background(), netConfigKey{}, activatorCertsNetConfig()), deciderKey{},
+			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
+				1 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
+				WithPAMetricsService(privateSvc), withScales(1, defaultScale),
+				WithPAStatusService(testRevision), WithObservedGeneration(1)),
+			defaultProxySKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+			defaultReady},
+		// No update from ProxySKS.
+	}, {
+		Name: "we have enough burst capacity, but switch to keep proxy mode as activator CA is turned on",
+		Key:  key,
+		Ctx: context.WithValue(context.WithValue(context.Background(), netConfigKey{}, activatorCertsNetConfig()), deciderKey{},
+			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
+				1 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
+				WithPAMetricsService(privateSvc), withScales(1, defaultScale),
+				WithPAStatusService(testRevision), WithObservedGeneration(1)),
+			defaultSKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+			defaultReady},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: defaultProxySKS,
 		}},
 	}}
 
