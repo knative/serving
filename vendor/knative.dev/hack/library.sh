@@ -544,26 +544,19 @@ function start_latest_eventing_sugar_controller() {
 }
 
 # Run a go tool, installing it first if necessary.
-# Parameters: $1 - tool package/dir for go get/install.
+# Parameters: $1 - tool package/dir for go install.
 #             $2 - tool to run.
 #             $3..$n - parameters passed to the tool.
 function run_go_tool() {
+  local package=$1
   local tool=$2
   local install_failed=0
+  # If no `@version` is provided, default to adding `@latest`
+  if [[ "$package" != *@* ]]; then
+    package=$package@latest
+  fi
   if [[ -z "$(which ${tool})" ]]; then
-    local action=get
-    [[ $1 =~ ^[\./].* ]] && action=install
-    # Avoid running `go get` from root dir of the repository, as it can change go.sum and go.mod files.
-    # See discussions in https://github.com/golang/go/issues/27643.
-    if [[ ${action} == "get" && $(pwd) == "${REPO_ROOT_DIR}" ]]; then
-      local temp_dir="$(mktemp -d)"
-      # Swallow the output as we are returning the stdout in the end.
-      pushd "${temp_dir}" > /dev/null 2>&1
-      GOFLAGS="" go ${action} "$1" || install_failed=1
-      popd > /dev/null 2>&1
-    else
-      GOFLAGS="" go ${action} "$1" || install_failed=1
-    fi
+    GOFLAGS="" go install "$package" || install_failed=1
   fi
   (( install_failed )) && return ${install_failed}
   shift 2
