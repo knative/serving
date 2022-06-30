@@ -45,6 +45,11 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
+	"knative.dev/serving/test/performance"
+)
+
+const (
+	benchmarkName = "Development - Serving deployment probe"
 )
 
 var (
@@ -95,6 +100,7 @@ func handle(q *quickstore.Quickstore, svc kmeta.Accessor, status duckv1.Status,
 			metric: elapsed.Seconds(),
 		})
 		log.Print("Ready: ", svc.GetName())
+		performance.AddInfluxPoint(benchmarkName, map[string]interface{}{metric: float64(elapsed.Seconds())})
 	} else if cc.Status == corev1.ConditionFalse {
 		q.AddError(mako.XTime(created), cc.Message)
 		log.Printf("Not Ready: %s; %s: %s", svc.GetName(), cc.Reason, cc.Message)
