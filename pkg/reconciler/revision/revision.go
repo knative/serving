@@ -138,6 +138,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 		logger.Debug("Revision meta: " + spew.Sdump(rev.ObjectMeta))
 	}
 
+	// Deploy certificate when internal-encryption is enabled.
+	if config.FromContext(ctx).Network.InternalEncryption {
+		if err := c.reconcileSecret(ctx, rev); err != nil {
+			return err
+		}
+	}
+
 	for _, phase := range []func(context.Context, *v1.Revision) error{
 		c.reconcileDeployment,
 		c.reconcileImageCache,

@@ -21,6 +21,7 @@ package e2e
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -143,7 +144,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	if err != nil {
 		t.Fatal("Fail to get ConfigMap config-network:", err)
 	}
-	if cm.Data[netcfg.ActivatorCAKey] != "" {
+	if strings.EqualFold(cm.Data[netcfg.InternalEncryptionKey], "true") {
 		// TODO: Remove this when https://github.com/knative/serving/issues/12797 was done.
 		t.Skip("Skipping TestTargetBurstCapacity as activator-ca is specified. See issue/12797.")
 	}

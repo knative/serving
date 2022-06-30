@@ -149,7 +149,7 @@ func makeIngressSpec(
 				return netv1alpha1.IngressSpec{}, err
 			}
 			rule := makeIngressRule(domains, r.Namespace,
-				visibility, tc.Targets[name], ro.RolloutsByTag(name), networkConfig.ActivatorCA)
+				visibility, tc.Targets[name], ro.RolloutsByTag(name), networkConfig.InternalEncryption)
 			if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string, 1)
@@ -171,7 +171,7 @@ func makeIngressSpec(
 					// Since names are sorted `DefaultTarget == ""` is the first one,
 					// so just pass the subslice.
 					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(r.Namespace, tc, ro, networkConfig.ActivatorCA, names[1:]), rule.HTTP.Paths...)
+						makeTagBasedRoutingIngressPaths(r.Namespace, tc, ro, networkConfig.InternalEncryption, names[1:]), rule.HTTP.Paths...)
 				} else {
 					// If a request is routed by a tag-attached hostname instead of the tag header,
 					// the request may not have the tag header "Knative-Serving-Tag",
@@ -265,24 +265,24 @@ func makeIngressRule(domains []string, ns string,
 	visibility netv1alpha1.IngressVisibility,
 	targets traffic.RevisionTargets,
 	roCfgs []*traffic.ConfigurationRollout,
-	activatorCA string) netv1alpha1.IngressRule {
+	encryption bool) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{
-				*makeBaseIngressPath(ns, targets, roCfgs, activatorCA),
+				*makeBaseIngressPath(ns, targets, roCfgs, encryption),
 			},
 		},
 	}
 }
 
 // `names` must not include `""` — the DefaultTarget.
-func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.Rollout, activatorCA string, names []string) []netv1alpha1.HTTPIngressPath {
+func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.Rollout, encryption bool, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
-		path := makeBaseIngressPath(ns, tc.Targets[name], ro.RolloutsByTag(name), activatorCA)
+		path := makeBaseIngressPath(ns, tc.Targets[name], ro.RolloutsByTag(name), encryption)
 		path.Headers = map[string]netv1alpha1.HeaderMatch{netheader.RouteTagKey: {Exact: name}}
 		paths = append(paths, *path)
 	}
@@ -302,7 +302,7 @@ func rolloutConfig(cfgName string, ros []*traffic.ConfigurationRollout) *traffic
 }
 
 func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
-	roCfgs []*traffic.ConfigurationRollout, activatorCA string) *netv1alpha1.HTTPIngressPath {
+	roCfgs []*traffic.ConfigurationRollout, encryption bool) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
@@ -315,7 +315,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 			cfg = rolloutConfig(t.ConfigurationName, roCfgs)
 		}
 		var servicePort intstr.IntOrString
-		if len(activatorCA) != 0 {
+		if encryption {
 			servicePort = intstr.FromInt(networking.ServiceHTTPSPort)
 		} else {
 			servicePort = intstr.FromInt(networking.ServicePort(t.Protocol))

@@ -359,12 +359,15 @@ function install() {
   fi
 
   if (( ENABLE_TLS )); then
-    echo "Generate certificates"
-    bash ${REPO_ROOT_DIR}/test/generate-cert.sh
+    echo "Patch to config-network to enable internal encryption"
+    kubectl patch configmap/config-network \
+      -n ${SYSTEM_NAMESPACE} \
+      --type merge \
+      -p '{"data":{"internal-encryption":"true"}}'
 
-    echo "Patch to activator to serve TLS"
-    kubectl apply -n ${SYSTEM_NAMESPACE} -f ${REPO_ROOT_DIR}/test/config/tls/config-network.yaml
+    echo "Restart activator to mount the certificates"
     kubectl delete pod -n ${SYSTEM_NAMESPACE} -l app=activator
+    kubectl wait --timeout=60s --for=condition=Available deployment  -n ${SYSTEM_NAMESPACE} activator
   fi
 }
 

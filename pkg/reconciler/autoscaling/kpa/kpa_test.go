@@ -128,8 +128,7 @@ func initialScaleZeroASConfig() *autoscalerconfig.Config {
 
 func activatorCertsNetConfig() *netcfg.Config {
 	nc, _ := netcfg.NewConfigFromMap(map[string]string{
-		netcfg.ActivatorCAKey:  "knative-ca",
-		netcfg.ActivatorSANKey: "knative-san",
+		netcfg.InternalEncryptionKey: "true",
 	})
 	return nc
 }
@@ -141,8 +140,7 @@ func defaultConfig() *config.Config {
 		deployment.ProgressDeadlineKey:  progressDeadline.String(),
 	})
 	networkConfig, _ := netcfg.NewConfigFromMap(map[string]string{
-		netcfg.ActivatorCAKey:  "",
-		netcfg.ActivatorSANKey: "",
+		netcfg.InternalEncryptionKey: "false",
 	})
 
 	return &config.Config{

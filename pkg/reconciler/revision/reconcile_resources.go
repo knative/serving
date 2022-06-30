@@ -28,11 +28,13 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/control-protocol/pkg/certificates"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 )
@@ -196,4 +198,35 @@ func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
 		}
 	}
 	return false
+}
+
+func (c *Reconciler) reconcileSecret(ctx context.Context, rev *v1.Revision) error {
+	ns := rev.Namespace
+	secretName := ns + "-" + networking.ServingCertName
+	logger := logging.FromContext(ctx)
+	logger.Info("Reconciling Secret: ", secretName)
+
+	secret, err := c.kubeclient.CoreV1().Secrets(ns).Get(ctx, secretName, metav1.GetOptions{})
+	if apierrs.IsNotFound(err) {
+		namespace, err := c.kubeclient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get Namespace %q: %w", secretName, err)
+		}
+		if secret, err = c.createSecret(ctx, namespace); err != nil {
+			return fmt.Errorf("failed to create Secret %q: %w", secretName, err)
+		}
+		logger.Info("Created Secret: ", secretName)
+	} else if err != nil {
+		return fmt.Errorf("failed to get secret %q: %w", secretName, err)
+	}
+
+	// Verify if secret has been added the data.
+	if _, ok := secret.Data[certificates.SecretCertKey]; !ok {
+		return fmt.Errorf("public cert in the secret is not ready yet")
+	}
+	if _, ok := secret.Data[certificates.SecretPKKey]; !ok {
+		return fmt.Errorf("private key in the secret is not ready yet")
+	}
+
+	return nil
 }

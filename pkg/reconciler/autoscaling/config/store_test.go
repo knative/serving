@@ -67,8 +67,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 	config := store.Load()
 	config.Autoscaler.MaxScaleUpRate = 100.0
 	config.Deployment.ProgressDeadline = 3 * time.Minute
-	config.Network.ActivatorCA = "activator-ca"
-	config.Network.ActivatorSAN = "activator-san"
+	config.Network.InternalEncryption = true
 	newConfig := store.Load()
 
 	if newConfig.Autoscaler.MaxScaleUpRate == 100.0 {
@@ -77,7 +76,8 @@ func TestStoreImmutableConfig(t *testing.T) {
 	if newConfig.Deployment.ProgressDeadline == 3*time.Minute {
 		t.Error("Deployment config is not immuable")
 	}
-	if newConfig.Network.ActivatorCA == "activator-ca" || newConfig.Network.ActivatorSAN == "activator-san" {
+
+	if newConfig.Network.InternalEncryption {
 		t.Error("Network config is not immuable")
 	}
 }

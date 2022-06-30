@@ -1192,11 +1192,15 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
+# knative.dev/control-protocol v0.0.0-20220610133426-4a1c8e84039f
+## explicit; go 1.17
+knative.dev/control-protocol/pkg/certificates
+knative.dev/control-protocol/pkg/certificates/reconciler
 # knative.dev/hack v0.0.0-20220610014127-dc6c287516dc
 ## explicit; go 1.14
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20220610013825-3103f3a72792
+# knative.dev/networking v0.0.0-20220614203516-07c9d7614c61
 ## explicit; go 1.17
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1267,6 +1271,7 @@ knative.dev/pkg/client/injection/kube/informers/core/v1/pod
 knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake
 knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered
 knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake
+knative.dev/pkg/client/injection/kube/informers/core/v1/secret
 knative.dev/pkg/client/injection/kube/informers/core/v1/service
 knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake
 knative.dev/pkg/client/injection/kube/informers/factory
@@ -1274,6 +1279,7 @@ knative.dev/pkg/client/injection/kube/informers/factory/fake
 knative.dev/pkg/client/injection/kube/informers/factory/filtered
 knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake
 knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace
+knative.dev/pkg/client/injection/kube/reconciler/core/v1/secret
 knative.dev/pkg/codegen/cmd/injection-gen
 knative.dev/pkg/codegen/cmd/injection-gen/args
 knative.dev/pkg/codegen/cmd/injection-gen/generators

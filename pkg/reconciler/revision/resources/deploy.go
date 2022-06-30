@@ -139,9 +139,9 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		extraVolumes = append(extraVolumes, varTokenVolume)
 	}
 
-	if cfg.Network.QueueProxyCertSecret != "" {
+	if cfg.Network.InternalEncryption {
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, certVolumeMount)
-		extraVolumes = append(extraVolumes, certVolume(cfg.Network.QueueProxyCertSecret))
+		extraVolumes = append(extraVolumes, certVolume(rev.Namespace+"-"+networking.ServingCertName))
 	}
 
 	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)
