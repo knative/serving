@@ -234,13 +234,15 @@ function prepare_dot_release() {
   # Use the original tag (ie. potentially with a knative- prefix) when determining the last version commit sha
   local github_tag="$(hub_tool release | grep "${last_version}")"
   local last_release_commit="$(git rev-list -n 1 "${github_tag}")"
+  local last_release_commit_filtered="$(git rev-list --invert-grep --grep "\[skip-dot-release\]" -n 1 "${github_tag}")"
   local release_branch_commit="$(git rev-list -n 1 upstream/"${RELEASE_BRANCH}")"
+  local release_branch_commit_filtered="$(git rev-list --invert-grep --grep "\[skip-dot-release\]" -n 1 upstream/"${RELEASE_BRANCH}")"
   [[ -n "${last_release_commit}" ]] || abort "cannot get last release commit"
   [[ -n "${release_branch_commit}" ]] || abort "cannot get release branch last commit"
-  echo "Version ${last_version} is at commit ${last_release_commit}"
-  echo "Branch ${RELEASE_BRANCH} is at commit ${release_branch_commit}"
-  if [[ "${last_release_commit}" == "${release_branch_commit}" ]]; then
-    echo "*** Branch ${RELEASE_BRANCH} has no new cherry-picks since release ${last_version}"
+  echo "Version ${last_version} is at commit ${last_release_commit}. Comparing using ${last_release_commit_filtered}. If it is different is because commits with the [skip-dot-release] flag in their commit body are not being considered."
+  echo "Branch ${RELEASE_BRANCH} is at commit ${release_branch_commit}. Comparing using ${release_branch_commit_filtered}. If it is different is because commits with the [skip-dot-release] flag in their commit body are not being considered."
+  if [[ "${last_release_commit_filtered}" == "${release_branch_commit_filtered}" ]]; then
+    echo "*** Branch ${RELEASE_BRANCH} has no new cherry-picks (ignoring commits with [skip-dot-release]) since release ${last_version}."
     echo "*** No dot release will be generated, as no changes exist"
     exit 0
   fi
