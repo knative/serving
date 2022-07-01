@@ -56,7 +56,6 @@ aliases:
   func-reviewers: []
   func-writers: []
   knative-admin:
-  - chizhg
   - csantanapr
   - dprotaso
   - dsimansk
@@ -148,13 +147,11 @@ aliases:
   - mgencur
   - shinigambit
   productivity-wg-leads:
-  - chizhg
   - kvmware
   - upodroid
   productivity-writers:
   - cardil
   - chaodaiG
-  - chizhg
   - coryrc
   - kvmware
   - psschwei
