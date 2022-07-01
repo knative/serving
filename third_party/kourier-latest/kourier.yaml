@@ -299,7 +299,7 @@ spec:
         app: net-kourier-controller
     spec:
       containers:
-        - image: docker.io/skonto/kourier-b74c3918b7eee585f87df62ccd297dc8@sha256:309e49587ad6fd4b9ddf631c95435364938c21a7e085b95eae643c5ac08079bd
+        - image: docker.io/skonto/kourier-b74c3918b7eee585f87df62ccd297dc8@sha256:96351953fec01bc06bf8f228d45c5313d7469be2445f13c79f6f77d5948b8527
           name: controller
           env:
             - name: CERTS_SECRET_NAMESPACE
