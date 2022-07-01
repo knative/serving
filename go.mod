@@ -27,17 +27,17 @@ require (
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
 	google.golang.org/api v0.70.0
 	google.golang.org/grpc v1.44.0
-	k8s.io/api v0.23.5
-	k8s.io/apiextensions-apiserver v0.23.4
-	k8s.io/apimachinery v0.23.5
-	k8s.io/client-go v0.23.5
-	k8s.io/code-generator v0.23.5
+	k8s.io/api v0.23.8
+	k8s.io/apiextensions-apiserver v0.23.8
+	k8s.io/apimachinery v0.23.8
+	k8s.io/client-go v0.23.8
+	k8s.io/code-generator v0.23.8
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf
-	knative.dev/caching v0.0.0-20220610113725-9c092893371a
-	knative.dev/control-protocol v0.0.0-20220610133426-4a1c8e84039f
-	knative.dev/hack v0.0.0-20220610014127-dc6c287516dc
-	knative.dev/networking v0.0.0-20220614203516-07c9d7614c61
-	knative.dev/pkg v0.0.0-20220610014025-7d607d643ee2
+	knative.dev/caching v0.0.0-20220630112631-1e9ad3797a6b
+	knative.dev/control-protocol v0.0.0-20220630224731-f59219dc9427
+	knative.dev/hack v0.0.0-20220629134730-e7d63651ce8f
+	knative.dev/networking v0.0.0-20220629132206-10dbbe0d4b15
+	knative.dev/pkg v0.0.0-20220630222531-5569169b0cce
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -144,7 +144,7 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/gengo v0.0.0-20220307231824-4627b89bbf1b // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.60.1-0.20220317184644-43cc75f9ae89 // indirect
