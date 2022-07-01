@@ -144,7 +144,7 @@ jobs:
           test-path: ./test/conformance/api/...
 
         - test-suite: e2e
-          test-path: ./test/e2e
+          test-path: ./test/e2e/...
 
     env:
       KIND: 1
@@ -321,8 +321,8 @@ jobs:
           -short \
           ${{ matrix.test-path }} \
           -skip-cleanup-on-fail \
-          ${{ matrix.test-flags || '-enable-alpha -enable-beta' }}
-
+          ${{ matrix.test-flags || '-enable-alpha -enable-beta' }} \
+          --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
     - uses: chainguard-dev/actions/kind-diag@main
       # Only upload logs on failure.
       if: ${{ failure() }}
