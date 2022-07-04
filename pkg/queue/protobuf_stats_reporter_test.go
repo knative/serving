@@ -31,10 +31,7 @@ import (
 )
 
 const (
-	namespace = "default"
-	config    = "helloworld-go"
-	revision  = "helloworld-go-00001"
-	pod       = "helloworld-go-00001-deployment-8ff587cc9-7g9gc"
+	pod = "helloworld-go-00001-deployment-8ff587cc9-7g9gc"
 )
 
 var ignoreStatFields = cmpopts.IgnoreFields(metrics.Stat{}, "ProcessUptime")

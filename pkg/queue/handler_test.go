@@ -34,8 +34,7 @@ import (
 )
 
 const (
-	wantHost        = "a-better-host.com"
-	reportingPeriod = time.Second
+	wantHost = "a-better-host.com"
 )
 
 func TestHandlerBreakerQueueFull(t *testing.T) {
