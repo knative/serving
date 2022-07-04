@@ -1192,7 +1192,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/control-protocol v0.0.0-20220701014037-ef4c10a9bc76
+# knative.dev/control-protocol v0.0.0-20220701134242-1af6f36efa52
 ## explicit; go 1.17
 knative.dev/control-protocol/pkg/certificates
 knative.dev/control-protocol/pkg/certificates/reconciler
@@ -1200,7 +1200,7 @@ knative.dev/control-protocol/pkg/certificates/reconciler
 ## explicit; go 1.14
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20220701023942-c3aef9ce275a
+# knative.dev/networking v0.0.0-20220704131645-5bf508e34be2
 ## explicit; go 1.17
 knative.dev/networking/config
 knative.dev/networking/pkg

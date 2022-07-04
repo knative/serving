@@ -24,26 +24,40 @@ metadata:
 spec:
   group: networking.internal.knative.dev
   versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-    subresources:
-      status: {}
-    schema:
-      openAPIV3Schema:
-        type: object
-        # this is a work around so we don't need to flush out the
-        # schema for each version at this time
-        #
-        # see issue: https://github.com/knative/serving/issues/912
-        x-kubernetes-preserve-unknown-fields: true
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          description: ClusterDomainClaim is a cluster-wide reservation for a particular domain name.
+          type: object
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec is the desired state of the ClusterDomainClaim. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+              type: object
+              required:
+                - namespace
+              properties:
+                namespace:
+                  description: Namespace is the namespace which is allowed to create a DomainMapping using this ClusterDomainClaim's name.
+                  type: string
   names:
     kind: ClusterDomainClaim
     plural: clusterdomainclaims
     singular: clusterdomainclaim
     categories:
-    - knative-internal
-    - networking
+      - knative-internal
+      - networking
     shortNames:
-    - cdc
+      - cdc
   scope: Cluster
