@@ -1171,7 +1171,7 @@ k8s.io/utils/lru
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20220701115742-4a0a1e0b73d1
+# knative.dev/caching v0.0.0-20220704131745-bd32ea76811a
 ## explicit; go 1.15
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching

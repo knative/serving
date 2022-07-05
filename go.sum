@@ -2245,8 +2245,8 @@ k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b/go.mod h1:jPW/WVKK9YHAvNhRxK0md/
 k8s.io/utils v0.0.0-20211116205334-6203023598ed/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 h1:HNSDgDCrr/6Ly3WEGKZftiE7IY19Vz2GdbOCyI4qqhc=
 k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
-knative.dev/caching v0.0.0-20220701115742-4a0a1e0b73d1 h1:mo/DOSGeH1KCc+ioH3XHqSdjUbrPXhXrA4gflqJ3ioY=
-knative.dev/caching v0.0.0-20220701115742-4a0a1e0b73d1/go.mod h1:bjPpCueI5UO+RcT22b1XSOlfm1pAhy/rMNxBww9hCmw=
+knative.dev/caching v0.0.0-20220704131745-bd32ea76811a h1:ToPwJEYr88Epb3aaGrAY9MVDDpDI+R72LBZp9RealnI=
+knative.dev/caching v0.0.0-20220704131745-bd32ea76811a/go.mod h1:bjPpCueI5UO+RcT22b1XSOlfm1pAhy/rMNxBww9hCmw=
 knative.dev/control-protocol v0.0.0-20220701134242-1af6f36efa52 h1:KyKnfAPkqbWNLZoVKhV4J9vZHcwlkj2509/ZYyMwNgg=
 knative.dev/control-protocol v0.0.0-20220701134242-1af6f36efa52/go.mod h1:KtXwCThHHQrAP6Y8JbfBGoJuZriJG4VYJSqYF19Azcg=
 knative.dev/hack v0.0.0-20220629134730-e7d63651ce8f/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
