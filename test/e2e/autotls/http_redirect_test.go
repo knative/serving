@@ -32,9 +32,6 @@ import (
 )
 
 func TestHttpRedirect(t *testing.T) {
-	if !test.ServingFlags.EnableAlphaFeatures {
-		t.Skip("Alpha features not enabled")
-	}
 	t.Parallel()
 
 	ctx := context.Background()
