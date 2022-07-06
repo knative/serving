@@ -3,7 +3,7 @@
 There are three main components to the autoscaling system: autoscaler, activator and queue-proxy.
 
 ## Queue-proxy
-Whenever a user deployes an application, it is injected with a queue-proxy sidecar container. This queue-proxy does the following:
+Whenever a user deploys an application, it is injected with a queue-proxy sidecar container. This queue-proxy does the following:
  - Any request coming to the application user-container will go to the queue-proxy and then be routed to the user-container
  - Any readiness and liveness probes defined by the user will be replaced with queue-proxy probes externally to the pod while the user-containers probe endpoints will only be accessed by the proxy.
  - Makes sure that no more than the ‘defined container concurrency’ requests reach the application's instance at once by queueing other requests. For example if a revision defines a concurrency limit of 5, the queue-proxy makes sure that no more than 5 requests reach the application's instance at once. If there are more requests being sent to it than that, it will queue them locally.
