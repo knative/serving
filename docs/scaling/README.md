@@ -6,8 +6,8 @@ There are three main components to the autoscaling system: autoscaler, activator
 Whenever a Serverless Service is deployed by the user, the queue-proxy sidecar container is injected with it. This queue proxy does the following:
  - Any request coming to the application user-container will go to the queue-proxy and then be routed to the user-container
  - The readiness and liveness probes defined by the user will be replaced with queue-proxy probes externally to the pod while the user-containers probe endpoints will only be accessed by the proxy.
- - Makes sure that no more than the ‘defined container concurrency’ requests reach the application's instance at once by queueing other requests locally
- - Collects metrics about the requests load the application user container and exposes that on a separate port
+ - Makes sure that no more than the ‘defined container concurrency’ requests reach the application's instance at once by queueing other requests, for example if a revision defines a concurrency limit of 5, the queue-proxy makes sure that no more than 5 requests reach the application's instance at once. If there are more requests being sent to it than that, it will queue them locally.
+ - Collects metrics about the requests load the application user container and report the `average concurrency` and `requests per second` on a separate port.
 
 ## Activator
 The activator is mainly involved around scale to/from zero and in capacity aware load balancing. When a revision is scaled to zero instances, the activator will be put into the data path instead of revision's instances. If requests hit this revision, the activator buffers these requests, pokes the autoscaler with metrics and holds the requests until instances of the application appear.
@@ -20,7 +20,7 @@ Depending on the value used for this configuration parameters, the activator can
  - If `target-burst-capacity=-1`, the Activator is always in the request path, regardless of the revision size.
  - If `target-burst-capacity=another integer`, the Activator will be in the path when the revision is scaling up from zero.
 
-The type of load balancing depends of the specification of the Service.
+When the application is ready to recieve the requests buffered in the activator, it effectively acts as a loadbalancer and distributes the load across all the pods as they become available in a way that doesn't overload them with regards to their concurrency settings. The type of load balancing depends of the specification of the Service.
 
 #### load balancing types
 based on the container concurrency configuration of the revision, the algorithm for load balancing may differ:
@@ -43,3 +43,5 @@ about the calculations:
  - If too many requests appear in the short time, the Autoscaler panics, which means it decides the required scale based on a shorter window. In normal scenarios, the Autoscaler decides on a trailing average of the past 60 seconds, but in panic mode it's on the last 6 seconds only. This makes the decisions more sensitive to bursty traffic.
 
 In addition to that, the autoscaler adjusts the value for a maximum scale up/down rate and the min- and max-instances settings on the revision. It also computes how much burst capacity is left in the current deployment and thus determines whether or not the activator can be taken off of the data-path or not.
+
+Details about the API and data flow when scaling up/down are [here](SYSTEM.md)
