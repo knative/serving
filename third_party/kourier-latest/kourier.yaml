@@ -235,6 +235,9 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: [ "" ]
+    resources: [ "namespaces" ]
+    verbs: [ "get", "list", "watch" ]
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
@@ -299,7 +302,7 @@ spec:
         app: net-kourier-controller
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:594bf15f6acb82194918bd17dc3f09cb569ea4e007ebcc8a4f62e21145b5e445
+        - image: docker.io/villardl/kourier-b74c3918b7eee585f87df62ccd297dc8:latest
           name: controller
           env:
             - name: CERTS_SECRET_NAMESPACE
