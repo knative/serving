@@ -105,6 +105,7 @@ spec:
                       properties:
                         affinity:
                           description: This is accessible behind a feature flag - kubernetes.podspec-affinity
+                          type: object
                           x-kubernetes-preserve-unknown-fields: true
                         automountServiceAccountToken:
                           description: AutomountServiceAccountToken indicates whether a service account token should be automatically mounted.
@@ -167,10 +168,14 @@ spec:
                                           x-kubernetes-map-type: atomic
                                         fieldRef:
                                           description: This is accessible behind a feature flag - kubernetes.podspec-fieldref
+                                          type: object
                                           x-kubernetes-preserve-unknown-fields: true
+                                          x-kubernetes-map-type: atomic
                                         resourceFieldRef:
                                           description: This is accessible behind a feature flag - kubernetes.podspec-fieldref
+                                          type: object
                                           x-kubernetes-preserve-unknown-fields: true
+                                          x-kubernetes-map-type: atomic
                                         secretKeyRef:
                                           description: Selects a key of a secret in the pod's namespace
                                           type: object
@@ -503,6 +508,7 @@ spec:
                                 type: string
                         dnsConfig:
                           description: This is accessible behind a feature flag - kubernetes.podspec-dnsconfig
+                          type: object
                           x-kubernetes-preserve-unknown-fields: true
                         dnsPolicy:
                           description: This is accessible behind a feature flag - kubernetes.podspec-dnspolicy
@@ -513,7 +519,10 @@ spec:
                         hostAliases:
                           description: This is accessible behind a feature flag - kubernetes.podspec-hostaliases
                           type: array
-                          x-kubernetes-preserve-unknown-fields: true
+                          items:
+                            description: This is accessible behind a feature flag - kubernetes.podspec-hostaliases
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
                         imagePullSecrets:
                           description: 'ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod'
                           type: array
@@ -526,9 +535,12 @@ spec:
                                 type: string
                             x-kubernetes-map-type: atomic
                         initContainers:
-                          description: This is accessible behind a feature flag - kubernetes.podspec-init-containers
+                          description: 'List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/'
                           type: array
-                          x-kubernetes-preserve-unknown-fields: true
+                          items:
+                            description: This is accessible behind a feature flag - kubernetes.podspec-init-containers
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
                         nodeSelector:
                           description: This is accessible behind a feature flag - kubernetes.podspec-nodeselector
                           type: object
@@ -548,6 +560,7 @@ spec:
                           x-kubernetes-preserve-unknown-fields: true
                         securityContext:
                           description: This is accessible behind a feature flag - kubernetes.podspec-securitycontext
+                          type: object
                           x-kubernetes-preserve-unknown-fields: true
                         serviceAccountName:
                           description: 'ServiceAccountName is the name of the ServiceAccount to use to run this pod. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
@@ -559,11 +572,17 @@ spec:
                         tolerations:
                           description: This is accessible behind a feature flag - kubernetes.podspec-tolerations
                           type: array
-                          x-kubernetes-preserve-unknown-fields: true
+                          items:
+                            description: This is accessible behind a feature flag - kubernetes.podspec-tolerations
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
                         topologySpreadConstraints:
                           description: This is accessible behind a feature flag - kubernetes.podspec-topologyspreadconstraints
                           type: array
-                          x-kubernetes-preserve-unknown-fields: true
+                          items:
+                            description: This is accessible behind a feature flag - kubernetes.podspec-topologyspreadconstraints
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
                           x-kubernetes-list-map-keys:
                             - topologyKey
                             - whenUnsatisfiable
@@ -622,8 +641,6 @@ spec:
                               persistentVolumeClaim:
                                 description: This is accessible behind a feature flag - kubernetes.podspec-persistent-volume-claim
                                 type: object
-                                required:
-                                  - claimName
                                 x-kubernetes-preserve-unknown-fields: true
                               projected:
                                 description: Items for all in one resources secrets, configmaps, and downward API
