@@ -583,10 +583,6 @@ spec:
                             description: This is accessible behind a feature flag - kubernetes.podspec-topologyspreadconstraints
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
-                          x-kubernetes-list-map-keys:
-                            - topologyKey
-                            - whenUnsatisfiable
-                          x-kubernetes-list-type: map
                         volumes:
                           description: 'List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes'
                           type: array
