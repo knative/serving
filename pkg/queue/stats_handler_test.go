@@ -25,15 +25,11 @@ import (
 )
 
 func TestStatsHandler(t *testing.T) {
-	prom := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("served-by", "prometheus")
-	})
-
 	proto := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("served-by", "protobuf")
 	})
 
-	reporter := NewStatsHandler(prom, proto)
+	reporter := NewStatsHandler(proto)
 
 	tests := []struct {
 		name    string
@@ -41,19 +37,13 @@ func TestStatsHandler(t *testing.T) {
 		expect  string
 	}{{
 		name:   "no headers",
-		expect: "prometheus",
+		expect: "protobuf",
 	}, {
 		name: "some other accept header",
 		headers: http.Header{
 			"Accept": []string{"something-else"},
 		},
-		expect: "prometheus",
-	}, {
-		name: "protobuf in second Accept header still serves prometheus",
-		headers: http.Header{
-			"Accept": []string{"", netheader.ProtobufMIMEType},
-		},
-		expect: "prometheus",
+		expect: "protobuf",
 	}, {
 		name: "protobuf accept header",
 		headers: http.Header{

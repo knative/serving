@@ -352,13 +352,6 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	stats := netstats.NewRequestStats(time.Now())
 
-	promStatReporter, err := NewPrometheusStatsReporter(
-		"ns", "testksvc", "testksvc",
-		"pod", reportingPeriod)
-	if err != nil {
-		b.Fatal("Failed to create stats reporter:", err)
-	}
-
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(netheader.OriginalHostKey, wantHost)
 
@@ -387,11 +380,6 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 	for _, tc := range tests {
 		reportTicker := time.NewTicker(tc.reportPeriod)
 
-		go func() {
-			for now := range reportTicker.C {
-				promStatReporter.Report(stats.Report(now))
-			}
-		}()
 		pause := func(*zap.SugaredLogger) {}
 		resume := func(*zap.SugaredLogger) {}
 

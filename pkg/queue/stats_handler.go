@@ -18,20 +18,15 @@ package queue
 
 import (
 	"net/http"
-	"strings"
-
-	netheader "knative.dev/networking/pkg/http/header"
 )
 
 type statsHandler struct {
-	prom  http.Handler
 	proto http.Handler
 }
 
 // NewStatsHandler returns a new StatHandler.
-func NewStatsHandler(prom, proto http.Handler) http.Handler {
+func NewStatsHandler(proto http.Handler) http.Handler {
 	return &statsHandler{
-		prom:  prom,
 		proto: proto,
 	}
 }
@@ -39,9 +34,5 @@ func NewStatsHandler(prom, proto http.Handler) http.Handler {
 // ServeHTTP serves the stats over HTTP. Either protobuf or prometheus stats
 // are served, depending on the Accept header.
 func (reporter *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if strings.Contains(r.Header.Get("Accept"), netheader.ProtobufMIMEType) {
-		reporter.proto.ServeHTTP(w, r)
-	} else {
-		reporter.prom.ServeHTTP(w, r)
-	}
+	reporter.proto.ServeHTTP(w, r)
 }

@@ -24,9 +24,82 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
+	netstats "knative.dev/networking/pkg/http/stats"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
+
+const (
+	pod = "helloworld-go-00001-deployment-8ff587cc9-7g9gc"
+)
+
+var ignoreStatFields = cmpopts.IgnoreFields(metrics.Stat{}, "ProcessUptime")
+
+var testCases = []struct {
+	name            string
+	reportingPeriod time.Duration
+	report          netstats.RequestStatsReport
+	want            metrics.Stat
+}{{
+	name:            "no proxy requests",
+	reportingPeriod: 1 * time.Second,
+	report: netstats.RequestStatsReport{
+		AverageConcurrency: 3,
+		RequestCount:       39,
+	},
+	want: metrics.Stat{
+		AverageConcurrentRequests: 3,
+		RequestCount:              39,
+	},
+}, {
+	name:            "reportingPeriod=10s",
+	reportingPeriod: 10 * time.Second,
+	report: netstats.RequestStatsReport{
+		AverageConcurrency:        3,
+		AverageProxiedConcurrency: 2,
+		ProxiedRequestCount:       15,
+		RequestCount:              39,
+	},
+	want: metrics.Stat{
+		AverageConcurrentRequests:        3,
+		AverageProxiedConcurrentRequests: 2,
+		ProxiedRequestCount:              1.5,
+		RequestCount:                     3.9,
+	},
+}, {
+	name:            "reportingPeriod=2s",
+	reportingPeriod: 2 * time.Second,
+
+	report: netstats.RequestStatsReport{
+		AverageConcurrency:        3,
+		AverageProxiedConcurrency: 2,
+		ProxiedRequestCount:       15,
+		RequestCount:              39,
+	},
+	want: metrics.Stat{
+		AverageConcurrentRequests:        3,
+		AverageProxiedConcurrentRequests: 2,
+		ProxiedRequestCount:              7.5,
+		RequestCount:                     19.5,
+	},
+}, {
+	name:            "reportingPeriod=1s",
+	reportingPeriod: 1 * time.Second,
+
+	report: netstats.RequestStatsReport{
+		AverageConcurrency:        3,
+		AverageProxiedConcurrency: 2,
+		ProxiedRequestCount:       15,
+		RequestCount:              39,
+	},
+	want: metrics.Stat{
+		AverageConcurrentRequests:        3,
+		AverageProxiedConcurrentRequests: 2,
+		ProxiedRequestCount:              15,
+		RequestCount:                     39,
+	},
+}}
 
 func TestProtobufStatsReporterReport(t *testing.T) {
 	for _, test := range testCases {

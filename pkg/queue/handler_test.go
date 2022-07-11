@@ -34,8 +34,7 @@ import (
 )
 
 const (
-	wantHost        = "a-better-host.com"
-	reportingPeriod = time.Second
+	wantHost = "a-better-host.com"
 )
 
 func TestHandlerBreakerQueueFull(t *testing.T) {
@@ -235,13 +234,6 @@ func BenchmarkProxyHandler(b *testing.B) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	stats := netstats.NewRequestStats(time.Now())
 
-	promStatReporter, err := NewPrometheusStatsReporter(
-		"ns", "testksvc", "testksvc",
-		"pod", reportingPeriod)
-	if err != nil {
-		b.Fatal("Failed to create stats reporter:", err)
-	}
-
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(netheader.OriginalHostKey, wantHost)
 
@@ -269,12 +261,6 @@ func BenchmarkProxyHandler(b *testing.B) {
 
 	for _, tc := range tests {
 		reportTicker := time.NewTicker(tc.reportPeriod)
-
-		go func() {
-			for now := range reportTicker.C {
-				promStatReporter.Report(stats.Report(now))
-			}
-		}()
 
 		h := ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler)
 		b.Run("sequential-"+tc.label, func(b *testing.B) {
