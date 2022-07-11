@@ -95,8 +95,9 @@ func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
 		store.ToContext,
 
-		// Whether to disallow unknown fields.
-		true,
+		// Whether to disallow unknown fields. We set this to 'false' since
+		// our CRDs have schemas
+		false,
 	)
 }
 
@@ -119,8 +120,9 @@ func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
 		store.ToContext,
 
-		// Whether to disallow unknown fields.
-		true,
+		// Whether to disallow unknown fields. We set this to 'false' since
+		// our CRDs have schemas
+		false,
 
 		// Extra validating callbacks to be applied to resources.
 		callbacks,
