@@ -33,21 +33,12 @@ func VolumeMask(ctx context.Context, in *corev1.Volume) *corev1.Volume {
 	if in == nil {
 		return nil
 	}
-	cfg := config.FromContextOrDefaults(ctx)
 
 	out := new(corev1.Volume)
 
 	// Allowed fields
 	out.Name = in.Name
 	out.VolumeSource = in.VolumeSource
-
-	if cfg.Features.PodSpecVolumesEmptyDir != config.Disabled {
-		out.EmptyDir = in.EmptyDir
-	}
-
-	if cfg.Features.PodSpecPersistentVolumeClaim != config.Disabled {
-		out.PersistentVolumeClaim = in.PersistentVolumeClaim
-	}
 
 	return out
 }
