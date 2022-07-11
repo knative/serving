@@ -84,19 +84,35 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 		options         func(s *v1.Service)
 		assertIfNoError func(t *testing.T, s *v1.Service)
 	}{{
-		name: "TestLifecycle",
+		name: "TestPoststartHook",
 		options: func(s *v1.Service) {
 			lifecycleHandler := &corev1.ExecAction{
 				Command: []string{"/bin/sh", "-c", "echo Hello from the post start handler > /usr/share/message"},
 			}
 			s.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{
 				PostStart: &corev1.LifecycleHandler{Exec: lifecycleHandler},
-				PreStop:   &corev1.LifecycleHandler{Exec: lifecycleHandler},
 			}
 		},
 		assertIfNoError: func(t *testing.T, svc *v1.Service) {
-			if svc.Spec.Template.Spec.Containers[0].Lifecycle != nil {
-				t.Error("Expected Lifecycle to be pruned")
+			lifecycle := svc.Spec.Template.Spec.Containers[0].Lifecycle
+			if lifecycle != nil && lifecycle.PostStart != nil {
+				t.Error("Expected Lifecycle.PostStart to be pruned")
+			}
+		},
+	}, {
+		name: "TestPrestopHook",
+		options: func(s *v1.Service) {
+			lifecycleHandler := &corev1.ExecAction{
+				Command: []string{"/bin/sh", "-c", "echo Hello from the post start handler > /usr/share/message"},
+			}
+			s.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{
+				PreStop: &corev1.LifecycleHandler{Exec: lifecycleHandler},
+			}
+		},
+		assertIfNoError: func(t *testing.T, svc *v1.Service) {
+			lifecycle := svc.Spec.Template.Spec.Containers[0].Lifecycle
+			if lifecycle != nil && lifecycle.PreStop != nil {
+				t.Error("Expected Lifecycle.Prestop to be pruned")
 			}
 		},
 	}, {
