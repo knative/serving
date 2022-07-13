@@ -116,7 +116,7 @@ func init() {
 	maxprocs.Set()
 }
 
-func main() {
+func MainWithPlugs(extensions ...queue.QPExtension) {
 	ctx := signals.NewContext()
 
 	// Parse the environment.
@@ -136,6 +136,12 @@ func main() {
 			Name:      env.ServingRevision,
 		}.String()),
 		zap.String(logkey.Pod, env.ServingPod))
+
+	// initialize QPExtensions
+	for _, ext := range extensions {
+		ext.Init(logger, ctx)
+		defer ext.Shutdown()
+	}
 
 	// Report stats on Go memory usage every 30 seconds.
 	metrics.MemStatsOrDie(ctx)
@@ -169,7 +175,7 @@ func main() {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint, false)
+	mainServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint, extensions, false)
 	httpServers := map[string]*http.Server{
 		"main":    mainServer,
 		"metrics": buildMetricsServer(protoStatReporter),
@@ -184,7 +190,7 @@ func main() {
 	// See also https://github.com/knative/serving/issues/12808.
 	var tlsServers map[string]*http.Server
 	if tlsEnabled {
-		mainTLSServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
+		mainTLSServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint, extensions, true /* enable TLS */)
 		tlsServers = map[string]*http.Server{
 			"tlsMain":  mainTLSServer,
 			"tlsAdmin": buildAdminServer(logger, drain),
@@ -264,13 +270,13 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 }
 
 func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
-	ce *queue.ConcurrencyEndpoint, enableTLS bool) (server *http.Server, drain func()) {
+	ce *queue.ConcurrencyEndpoint, extensions []queue.QPExtension, enableTLS bool) (server *http.Server, drain func()) {
 	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 
 	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders, false /* use HTTP */)
-	httpProxy.Transport = buildTransport(env, logger)
+	httpProxy.Transport = buildTransport(env, logger, extensions)
 	httpProxy.ErrorHandler = pkghandler.Error(logger)
 	httpProxy.BufferPool = netproxy.NewBufferPool()
 	httpProxy.FlushInterval = netproxy.FlushInterval
@@ -336,7 +342,7 @@ func buildServer(ctx context.Context, env config, probeContainer func() bool, st
 	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler), drainer.Drain
 }
 
-func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
+func buildTransport(env config, logger *zap.SugaredLogger, extensions []queue.QPExtension) http.RoundTripper {
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
 	if env.ContainerConcurrency > 0 {
 		maxIdleConns = env.ContainerConcurrency
@@ -344,22 +350,26 @@ func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
 	// set max-idle and max-idle-per-host to same value since we're always proxying to the same host.
 	transport := pkgnet.NewProxyAutoTransport(maxIdleConns /* max-idle */, maxIdleConns /* max-idle-per-host */)
 
-	if env.TracingConfigBackend == tracingconfig.None {
-		return transport
+	if env.TracingConfigBackend != tracingconfig.None {
+		oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(env.ServingPod, env.ServingPodIP, logger))
+		oct.ApplyConfig(&tracingconfig.Config{
+			Backend:        env.TracingConfigBackend,
+			Debug:          env.TracingConfigDebug,
+			ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
+			SampleRate:     env.TracingConfigSampleRate,
+		})
+
+		transport = &ochttp.Transport{
+			Base:        transport,
+			Propagation: tracecontextb3.TraceContextB3Egress,
+		}
 	}
 
-	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(env.ServingPod, env.ServingPodIP, logger))
-	oct.ApplyConfig(&tracingconfig.Config{
-		Backend:        env.TracingConfigBackend,
-		Debug:          env.TracingConfigDebug,
-		ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
-		SampleRate:     env.TracingConfigSampleRate,
-	})
-
-	return &ochttp.Transport{
-		Base:        transport,
-		Propagation: tracecontextb3.TraceContextB3Egress,
+	// Adding QPExtensions RoundTrippers
+	for _, ext := range extensions {
+		transport = ext.Transport(transport)
 	}
+	return transport
 }
 
 func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
