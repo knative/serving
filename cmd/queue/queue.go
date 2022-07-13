@@ -16,8 +16,7 @@ limitations under the License.
 
 // Extendiability option for queue
 //
-// Replace this with to extend queue
-// Profive MainWithPlugs with a list of extensions offering the interface QPExtension
+// Provide MainWithPlugs with a list of extensions offering the interface QPExtension
 //
 // Example:
 //		package main
@@ -28,7 +27,7 @@ limitations under the License.
 //		)
 //
 //		func main() {
-//			MainWithPlugs(ext1.QPExtension1, ext2.QPExtension2)
+//		  MainWithPlugs(ext1.QPExtension1, ext2.QPExtension2)
 //		}
 
 package main

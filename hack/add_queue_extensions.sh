@@ -1,13 +1,27 @@
 #!/bin/bash
 
-RTPLUGS_PKG="" 
+# Copyright 2022 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+RTPLUGS_PKG=""
 RTPLUGS_NAMES=""
 
-# RTPLUGS_PKG should include a comma seperated list of go packages
+# RTPLUGS_PKG should include a comma separated list of go packages
 # Each package should implement a plug of github.com/IBM/go-security-plugs/rtplugs
-# All packages will be staticaly loaded to queue proxry 
+# All packages will be staticaly loaded to queue proxry
 #
-# Package names that will be defined in the podSpec runtimePlugins and those 
+# Package names that will be defined in the podSpec runtimePlugins and those
 # defined in the config-defaults configmap runtime-plugins parameter will be activated
 
 
@@ -15,17 +29,17 @@ RTPLUGS_NAMES=""
 
 # Comment out packages that you do not wish to load
 
-# Add the testing workload security guard plug - harmless, yet better not use in production 
+# Add the testing workload security guard plug - harmless, yet better not use in production
 RTPLUGS_PKG="github.com/IBM/go-security-plugs/plugs/testgate"
 RTPLUGS_NAMES="testgate"
 
-# Add the sample workload security guard plug - do not use in production 
+# Add the sample workload security guard plug - do not use in production
 #RTPLUGS_PKG="${RTPLUGS_PKG},github.com/IBM/go-security-plugs/plugs/rtgate"
 
 # Add workload security guard plug (under development) - use at your own risk
 # RTPLUGS_PKG="${RTPLUGS_PKG},github.com/IBM/workload-security-guard/wsgate"
 
-# Add here additinal packages that you wish to load in this template    
+# Add here additinal packages that you wish to load in this template
 # RTPLUGS_PKG="${RTPLUGS_PKG}github.com/HomerSimpson/BestSecurityEver/shutdown"
 
 
@@ -67,5 +81,5 @@ EOT
 
 
 cd ../..
-go mod tidy 
+go mod tidy
 go mod vendor
