@@ -48,6 +48,7 @@ type ServingEnvironmentFlags struct {
 	TLSTestNamespace         string // Namespace for Serving TLS tests
 	ExceedingMemoryLimitSize int    // Memory size used to trigger a non-200 response when the service is set with 300MB memory limit.
 	RequestHeaders           string // Extra HTTP request headers sent to the testing deployed KServices.
+	IngressClass             string // Ingress class used for serving.
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -99,6 +100,8 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 		"Set this flag to add extra HTTP request headers sent to the testing deployed KServices. "+
 			"Format: -request-headers=key1,value1,key2,value2")
 
+	flag.StringVar(&f.IngressClass, "ingress-class", "",
+		"Set the ingress class in use to this flag in order to skip non-compatible test")
 	return &f
 }
 
