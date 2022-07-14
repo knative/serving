@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package qmain
 
 import (
 	"context"
@@ -116,7 +116,7 @@ func init() {
 	maxprocs.Set()
 }
 
-func main() {
+func Main() {
 	ctx := signals.NewContext()
 
 	// Parse the environment.
