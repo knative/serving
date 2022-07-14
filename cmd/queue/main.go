@@ -139,7 +139,7 @@ func MainWithPlugs(extensions ...queue.QPExtension) {
 
 	// initialize QPExtensions
 	for _, ext := range extensions {
-		ext.Init(logger, ctx)
+		ext.Init(ctx, logger)
 		defer ext.Shutdown()
 	}
 

@@ -27,7 +27,7 @@ import (
 // implementations. Extending this interface will allow adding more
 // QP extendiability.
 type QPExtension interface {
-	Init(logger *zap.SugaredLogger, ctx context.Context)
+	Init(ctx context.Context, logger *zap.SugaredLogger)
 	Shutdown()
 
 	// If extension does not require to be added to Transport
