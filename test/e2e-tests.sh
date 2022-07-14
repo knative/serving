@@ -69,7 +69,7 @@ if [[ -z "${INGRESS_CLASS}" \
   beta="--enable-beta"
 fi
 
-TEST_OPTIONS="${TEST_OPTIONS:-${alpha} ${beta} --resolvabledomain=$(use_resolvable_domain) ${use_https}}"
+TEST_OPTIONS="${TEST_OPTIONS:-${alpha} ${beta} --resolvabledomain=$(use_resolvable_domain) ${use_https} --ingress-class=${INGRESS_CLASS}}"
 if (( SHORT )); then
   TEST_OPTIONS+=" -short"
 fi
