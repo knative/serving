@@ -16,8 +16,8 @@ limitations under the License.
 
 package main
 
-import "knative.dev/serving/pkg/queue/qmain"
+import "knative.dev/serving/pkg/queue/sharedmain"
 
 func main() {
-	qmain.Main()
+	sharedmain.Main()
 }
