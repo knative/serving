@@ -183,6 +183,10 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	if spec.Reachable {
 		maxScaleDown = math.Floor(readyPodsCount / spec.MaxScaleDownRate)
 	}
+	// If MinNonZeroReplicas was set, we want to be able to scale to zero
+	if readyPodsCount == float64(a.deciderSpec.MinNonZeroReplicas) {
+		maxScaleDown = 0.
+	}
 
 	dspc := math.Ceil(observedStableValue / spec.TargetValue)
 	dppc := math.Ceil(observedPanicValue / spec.TargetValue)
@@ -197,6 +201,16 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	// We want to keep desired pod count in the  [maxScaleDown, maxScaleUp] range.
 	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
 	desiredPanicPodCount := int32(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
+
+	//	If minNonZeroReplicas > 1, then adjust the desired pod counts
+	if a.deciderSpec.MinNonZeroReplicas > 1 {
+		if desiredStablePodCount > 0 && a.deciderSpec.MinNonZeroReplicas > desiredStablePodCount {
+			desiredStablePodCount = a.deciderSpec.MinNonZeroReplicas
+		}
+		if desiredPanicPodCount > 0 && a.deciderSpec.MinNonZeroReplicas > desiredPanicPodCount {
+			desiredPanicPodCount = a.deciderSpec.MinNonZeroReplicas
+		}
+	}
 
 	isOverPanicThreshold := dppc/readyPodsCount >= spec.PanicThreshold
 

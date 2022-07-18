@@ -216,6 +216,12 @@ const (
 	// PanicThresholdPercentageMax is the counterpart to the PanicThresholdPercentageMin
 	// but bounding from above.
 	PanicThresholdPercentageMax = 1000.0
+
+	// MinNonZeroReplicas is the minimum, non-zero value that a service should scale to.
+	// For example, if MinNonZeroReplicas = 2, when a service scaled from zero it would
+	// scale up two replicas in this case. In essence, this allows one to set both a
+	// min-scale value while also preserving the ability to scale to zero.
+	MinNonZeroReplicasKey = GroupName + "/min-non-zero-replicas"
 )
 
 var (
@@ -236,6 +242,9 @@ var (
 	MetricAggregationAlgorithmAnnotation = kmap.KeyPriority{
 		MetricAggregationAlgorithmKey,
 		GroupName + "/metricAggregationAlgorithm",
+	}
+	MinNonZeroRepicas = kmap.KeyPriority{
+		MinNonZeroReplicasKey,
 	}
 	MinScaleAnnotation = kmap.KeyPriority{
 		MinScaleAnnotationKey,

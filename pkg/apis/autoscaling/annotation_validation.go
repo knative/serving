@@ -191,6 +191,27 @@ func validateMinMaxScale(config *autoscalerconfig.Config, m map[string]string) *
 		errs = errs.Also(validateMaxScaleWithinLimit(k, max, config.MaxScaleLimit))
 	}
 
+	// if MinNonZeroReplicas is also set, validate that min <= nz min <= max
+	if k, v, ok := MinNonZeroRepicas.Get(m); ok {
+		if nzMin, err := strconv.ParseInt(v, 10, 32); err != nil {
+			errs = errs.Also(apis.ErrInvalidValue(v, k))
+		} else if min > int32(nzMin) {
+			errs = errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("min-scale=%d is greater than min-non-zero-replicas=%d", min, nzMin),
+				Paths:   []string{MinNonZeroReplicasKey},
+			})
+		} else if max < int32(nzMin) && max != 0 {
+			errs = errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("max-scale=%d is less than min-non-zero-replicas=%d", max, nzMin),
+				Paths:   []string{MinNonZeroReplicasKey},
+			})
+		} else if nzMin < 2 {
+			errs = errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("min-non-zero-replicas=%d must be greater than 1", nzMin),
+				Paths:   []string{MinNonZeroReplicasKey},
+			})
+		}
+	}
 	return errs
 }
 

@@ -321,6 +321,16 @@ func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
 	expectScale(t, a, time.Now(), ScaleResult{0, expectedEBC(10, 75, 0, 1), true})
 }
 
+func TestAutoscalerMinNonZeroReplicas(t *testing.T) {
+	metrics := &metricClient{StableConcurrency: 0, PanicConcurrency: 0}
+	a := newTestAutoscalerNoPC(10, 75, metrics)
+	a.deciderSpec.MinNonZeroReplicas = int32(2)
+	expectScale(t, a, time.Now(), ScaleResult{0, expectedEBC(10, 75, 0, 1), true})
+
+	metrics.StableConcurrency = 1.0
+	expectScale(t, a, time.Now(), ScaleResult{2, expectedEBC(10, 75, 0, 1), true})
+}
+
 // QPS is increasing exponentially. Each scaling event bring concurrency
 // back to the target level (1.0) but then traffic continues to increase.
 // At 1296 QPS traffic stabilizes.

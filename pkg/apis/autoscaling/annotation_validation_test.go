@@ -130,6 +130,17 @@ func TestValidateAnnotations(t *testing.T) {
 		},
 		annotations: map[string]string{MaxScaleAnnotationKey: "9"},
 	}, {
+		name:        "min-scale, min-non-zero-replicas, max-scale all set appropriately",
+		annotations: map[string]string{MinScaleAnnotationKey: "1", MinNonZeroReplicasKey: "2", MaxScaleAnnotationKey: "3"},
+	}, {
+		name:        "min-scale is greater than min-non-zero-replicas",
+		annotations: map[string]string{MinScaleAnnotationKey: "3", MinNonZeroReplicasKey: "2"},
+		expectErr:   "min-scale=3 is greater than min-non-zero-replicas=2: " + MinNonZeroReplicasKey,
+	}, {
+		name:        "max-scale is less than min-non-zero-replicas",
+		annotations: map[string]string{MaxScaleAnnotationKey: "1", MinNonZeroReplicasKey: "2"},
+		expectErr:   "max-scale=1 is less than min-non-zero-replicas=2: " + MinNonZeroReplicasKey,
+	}, {
 		name: "valid algorithm on KPA",
 		annotations: map[string]string{
 			MetricAggregationAlgorithmKey: MetricAggregationAlgorithmLinear,

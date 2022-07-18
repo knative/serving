@@ -76,6 +76,12 @@ type DeciderSpec struct {
 	InitialScale int32
 	// Reachable describes whether the revision is referenced by any route.
 	Reachable bool
+	//	MinNonZeroReplicas is the minimum, non-zero value that a service should scale to.
+	// For example, if MinNonZeroReplicas = 2, when a service scaled from zero it would
+	// scale up two replicas in this case. In essence, this allows one to set both a
+	// min-scale value while also preserving the ability to scale to zero.
+	// MinNonZeroReplicas must be >= 2.
+	MinNonZeroReplicas int32
 }
 
 // DeciderStatus is the current scale recommendation.

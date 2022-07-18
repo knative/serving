@@ -477,6 +477,17 @@ func TestScaler(t *testing.T) {
 		configMutator: func(c *config.Config) {
 			c.Autoscaler.AllowZeroInitialScale = true
 		},
+	}, {
+		label:         "override initial scale with min-non-zero-replicas",
+		startReplicas: 0,
+		scaleTo:       3,
+		wantReplicas:  3,
+		wantScaling:   true,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now())
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+			k.Annotations[autoscaling.MinNonZeroReplicasKey] = "3"
+		},
 	}}
 
 	for _, test := range tests {
