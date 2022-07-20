@@ -131,7 +131,7 @@ func init() {
 }
 
 func Main(opts ...Option) error {
-	d := &Defaults{
+	d := Defaults{
 		Ctx: signals.NewContext(),
 	}
 
@@ -143,7 +143,7 @@ func Main(opts ...Option) error {
 
 	d.Env = env.Env
 
-	// Setup the logger.
+	// Setup the Logger.
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	defer flush(logger)
 
@@ -159,13 +159,13 @@ func Main(opts ...Option) error {
 
 	// allow extensions to read d and return modified context and transport
 	for _, opts := range opts {
-		opts(d)
+		opts(&d)
 	}
-	ctx := d.Ctx
+
 	transport := d.Transport
 
 	// Report stats on Go memory usage every 30 seconds.
-	metrics.MemStatsOrDie(ctx)
+	metrics.MemStatsOrDie(d.Ctx)
 
 	protoStatReporter := queue.NewProtobufStatsReporter(env.ServingPod, reportingPeriod)
 
@@ -196,7 +196,7 @@ func Main(opts ...Option) error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainServer, drain := buildServer(ctx, env, transport, probe, stats, logger, concurrencyendpoint, false)
+	mainServer, drain := buildServer(d.Ctx, env, transport, probe, stats, logger, concurrencyendpoint, false)
 	httpServers := map[string]*http.Server{
 		"main":    mainServer,
 		"metrics": buildMetricsServer(protoStatReporter),
@@ -211,7 +211,7 @@ func Main(opts ...Option) error {
 	// See also https://github.com/knative/serving/issues/12808.
 	var tlsServers map[string]*http.Server
 	if tlsEnabled {
-		mainTLSServer, drain := buildServer(ctx, env, transport, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
+		mainTLSServer, drain := buildServer(d.Ctx, env, transport, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
 		tlsServers = map[string]*http.Server{
 			"tlsMain":  mainTLSServer,
 			"tlsAdmin": buildAdminServer(logger, drain),
@@ -248,7 +248,7 @@ func Main(opts ...Option) error {
 	case err := <-errCh:
 		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
 		return err
-	case <-ctx.Done():
+	case <-d.Ctx.Done():
 		if env.ConcurrencyStateEndpoint != "" {
 			concurrencyendpoint.Terminating(logger)
 		}
