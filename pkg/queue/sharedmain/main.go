@@ -162,8 +162,6 @@ func Main(opts ...Option) error {
 		opts(&d)
 	}
 
-	transport := d.Transport
-
 	// Report stats on Go memory usage every 30 seconds.
 	metrics.MemStatsOrDie(d.Ctx)
 
@@ -196,7 +194,7 @@ func Main(opts ...Option) error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainServer, drain := buildServer(d.Ctx, env, transport, probe, stats, logger, concurrencyendpoint, false)
+	mainServer, drain := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 	httpServers := map[string]*http.Server{
 		"main":    mainServer,
 		"metrics": buildMetricsServer(protoStatReporter),
@@ -211,7 +209,7 @@ func Main(opts ...Option) error {
 	// See also https://github.com/knative/serving/issues/12808.
 	var tlsServers map[string]*http.Server
 	if tlsEnabled {
-		mainTLSServer, drain := buildServer(d.Ctx, env, transport, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
+		mainTLSServer, drain := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
 		tlsServers = map[string]*http.Server{
 			"tlsMain":  mainTLSServer,
 			"tlsAdmin": buildAdminServer(logger, drain),
