@@ -73,7 +73,7 @@ const (
 	keyPath = queue.CertDirectory + "/" + certificates.SecretPKKey
 )
 
-type privateEnv struct {
+type config struct {
 	ContainerConcurrency     int    `split_words:"true" required:"true"`
 	QueueServingPort         string `split_words:"true" required:"true"`
 	QueueServingTLSPort      string `split_words:"true" required:"true"`
@@ -136,7 +136,7 @@ func Main(opts ...Option) error {
 	}
 
 	// Parse the environment.
-	var env privateEnv
+	var env config
 	if err := envconfig.Process("", &env); err != nil {
 		return err
 	}
@@ -289,7 +289,7 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(ctx context.Context, env privateEnv, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
+func buildServer(ctx context.Context, env config, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
 	ce *queue.ConcurrencyEndpoint, enableTLS bool) (server *http.Server, drain func()) {
 	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
@@ -362,7 +362,7 @@ func buildServer(ctx context.Context, env privateEnv, transport http.RoundTrippe
 	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler), drainer.Drain
 }
 
-func buildTransport(env privateEnv, logger *zap.SugaredLogger) http.RoundTripper {
+func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
 	if env.ContainerConcurrency > 0 {
 		maxIdleConns = env.ContainerConcurrency
@@ -388,7 +388,7 @@ func buildTransport(env privateEnv, logger *zap.SugaredLogger) http.RoundTripper
 	}
 }
 
-func buildBreaker(logger *zap.SugaredLogger, env privateEnv) *queue.Breaker {
+func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
 	if env.ContainerConcurrency < 1 {
 		return nil
 	}
@@ -405,7 +405,7 @@ func buildBreaker(logger *zap.SugaredLogger, env privateEnv) *queue.Breaker {
 	return queue.NewBreaker(params)
 }
 
-func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env privateEnv, enableTLS bool) bool {
+func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config, enableTLS bool) bool {
 	// Keep it on HTTP because Metrics needs to be registered on either TLS server or non-TLS server.
 	if enableTLS {
 		return false
@@ -444,7 +444,7 @@ func buildMetricsServer(protobufStatReporter *queue.ProtobufStatsReporter) *http
 	}
 }
 
-func requestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env privateEnv) http.Handler {
+func requestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env config) http.Handler {
 	revInfo := &pkghttp.RequestLogRevision{
 		Name:          env.ServingRevision,
 		Namespace:     env.ServingNamespace,
@@ -462,7 +462,7 @@ func requestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, e
 	return handler
 }
 
-func requestMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env privateEnv) http.Handler {
+func requestMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env config) http.Handler {
 	h, err := queue.NewRequestMetricsHandler(currentHandler, env.ServingNamespace,
 		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
 	if err != nil {
@@ -472,7 +472,7 @@ func requestMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handle
 	return h
 }
 
-func requestAppMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, breaker *queue.Breaker, env privateEnv) http.Handler {
+func requestAppMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, breaker *queue.Breaker, env config) http.Handler {
 	h, err := queue.NewAppRequestMetricsHandler(currentHandler, breaker, env.ServingNamespace,
 		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
 	if err != nil {
