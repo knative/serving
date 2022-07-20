@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "9ef9f1e4"
+    knative.dev/example-checksum: "802886ca"
 data:
   _example: |
     ################################
@@ -58,6 +58,11 @@ data:
     # seconds a request will be allowed to stay open while waiting to
     # receive any bytes from the user's application, if none is specified.
     revision-request-start-timeout-seconds: "60"
+
+    # revision-idle-timeout-seconds contains the default number of
+    # seconds a request will be allowed to stay open while not receiving any
+    # bytes from the user's application, if none is specified.
+    revision-idle-timeout-seconds: "0"  # infinite
 
     # revision-cpu-request contains the cpu allocation to assign
     # to revisions by default.  If omitted, no value is specified

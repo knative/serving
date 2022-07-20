@@ -76,6 +76,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			RevisionTimeoutSeconds:             123,
 			MaxRevisionTimeoutSeconds:          456,
 			RevisionRequestStartTimeoutSeconds: 60,
+			RevisionIdleTimeoutSeconds:         123,
 			ContainerConcurrencyMaxLimit:       1984,
 			RevisionCPURequest:                 &oneTwoThree,
 			UserContainerNameTemplate:          mustParseTemplate("{{.Name}}"),
@@ -86,6 +87,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			"revision-timeout-seconds":               "123",
 			"max-revision-timeout-seconds":           "456",
 			"revision-request-start-timeout-seconds": "60",
+			"revision-idle-timeout-seconds":          "123",
 			"revision-cpu-request":                   "123m",
 			"container-concurrency-max-limit":        "1984",
 			"container-name-template":                "{{.Name}}",
@@ -142,6 +144,12 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantErr: true,
 		data: map[string]string{
 			"max-revision-timeout-seconds": "asdf",
+		},
+	}, {
+		name:    "bad revision idle timeout",
+		wantErr: true,
+		data: map[string]string{
+			"revision-idle-timeout-seconds": "asdf",
 		},
 	}, {
 		name:    "bad name template",

@@ -80,6 +80,7 @@ type config struct {
 	UserPort                            string `split_words:"true" required:"true"`
 	RevisionTimeoutSeconds              int    `split_words:"true" required:"true"`
 	RevisionResponseStartTimeoutSeconds int    `split_words:"true"` // optional
+	RevisionIdleTimeoutSeconds          int    `split_words:"true"` // optional
 	ServingReadinessProbe               string `split_words:"true"` // optional
 	EnableProfiling                     bool   `split_words:"true"` // optional
 	EnableHTTP2AutoDetection            bool   `split_words:"true"` // optional
@@ -341,9 +342,10 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 	if env.RevisionResponseStartTimeoutSeconds != 0 {
 		responseStartTimeout = time.Duration(env.RevisionResponseStartTimeoutSeconds) * time.Second
 	}
-	// hardcoded to always disable idle timeout for now, will expose this later
 	var idleTimeout time.Duration
-
+	if env.RevisionIdleTimeoutSeconds != 0 {
+		idleTimeout = time.Duration(env.RevisionIdleTimeoutSeconds) * time.Second
+	}
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy

@@ -189,6 +189,13 @@ func WithRevisionResponseStartTimeoutSeconds(revisionResponseStartTimeoutSeconds
 	}
 }
 
+// WithRevisionIdleTimeoutSeconds sets revision idle timeout
+func WithRevisionIdleTimeoutSeconds(revisionIdleTimeoutSeconds int64) ServiceOption {
+	return func(service *v1.Service) {
+		service.Spec.Template.Spec.IdleTimeoutSeconds = ptr.Int64(revisionIdleTimeoutSeconds)
+	}
+}
+
 // WithServiceAccountName sets revision service account name
 func WithServiceAccountName(serviceAccountName string) ServiceOption {
 	return func(service *v1.Service) {

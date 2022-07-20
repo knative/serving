@@ -47,6 +47,9 @@ const (
 	// DefaultRevisionRequestStartTimeoutSeconds will be set if RevisionRequestStartTimeoutSeconds is not specified.
 	DefaultRevisionRequestStartTimeoutSeconds = 1 * 60
 
+	// DefaultRevisionIdleTimeoutSeconds will be set if idleTimeoutSeconds not specified.
+	DefaultRevisionIdleTimeoutSeconds = 0
+
 	// DefaultInitContainerName is the default name we give to the init containers
 	// specified by the user, if `name:` is omitted.
 	DefaultInitContainerName = "init-container"
@@ -77,6 +80,7 @@ func defaultDefaultsConfig() *Defaults {
 		RevisionTimeoutSeconds:             DefaultRevisionTimeoutSeconds,
 		MaxRevisionTimeoutSeconds:          DefaultMaxRevisionTimeoutSeconds,
 		RevisionRequestStartTimeoutSeconds: DefaultRevisionRequestStartTimeoutSeconds,
+		RevisionIdleTimeoutSeconds:         DefaultRevisionIdleTimeoutSeconds,
 		InitContainerNameTemplate:          DefaultInitContainerNameTemplate,
 		UserContainerNameTemplate:          DefaultUserContainerNameTemplate,
 		ContainerConcurrency:               DefaultContainerConcurrency,
@@ -116,6 +120,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
 		cm.AsInt64("max-revision-timeout-seconds", &nc.MaxRevisionTimeoutSeconds),
 		cm.AsInt64("revision-request-start-timeout-seconds", &nc.RevisionRequestStartTimeoutSeconds),
+		cm.AsInt64("revision-idle-timeout-seconds", &nc.RevisionIdleTimeoutSeconds),
 
 		cm.AsInt64("container-concurrency", &nc.ContainerConcurrency),
 		cm.AsInt64("container-concurrency-max-limit", &nc.ContainerConcurrencyMaxLimit),
@@ -166,6 +171,10 @@ type Defaults struct {
 	// This is  the default number of seconds a request will be allowed to
 	// stay open while waiting to receive any bytes from the user's application
 	RevisionRequestStartTimeoutSeconds int64
+
+	// RevisionIdleTimeoutSeconds is the maximum duration in seconds a request
+	// will be allowed to stay open while not receiving any bytes from the user's application.
+	RevisionIdleTimeoutSeconds int64
 
 	InitContainerNameTemplate *ObjectMetaTemplate
 
