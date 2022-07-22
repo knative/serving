@@ -28,7 +28,6 @@ const Unknown = "unknown"
 var (
 	shaRegexp = regexp.MustCompile(`^[a-f0-9]{40,64}$`)
 	rev       string
-	err       error
 	once      sync.Once
 
 	readBuildInfo = debug.ReadBuildInfo
