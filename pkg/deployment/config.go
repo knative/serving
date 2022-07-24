@@ -68,8 +68,8 @@ const (
 	// concurrencyStateEndpointKey is the key to configure the endpoint Queue Proxy will call when traffic drops to / increases from zero.
 	concurrencyStateEndpointKey = "concurrency-state-endpoint"
 
-	// queeuExtensionKey is the prefix for default keys used to set qpextention.knative.dev/* annnotations
-	queueExtensionKey = "queue-extention"
+	// queeuExtensionKey is the prefix for default keys used to set qpextension.knative.dev/* annnotations
+	queueExtensionKey = "queue-extension"
 )
 
 var (
@@ -189,6 +189,6 @@ type Config struct {
 	// ConcurrencyStateEndpoint is the endpoint Queue Proxy will call when traffic drops to / increases from zero.
 	ConcurrencyStateEndpoint string
 
-	// QPExtensionAnnotations are the defualt qpextention.knative.dev annotations
+	// QPExtensionAnnotations are the defualt qpextension.knative.dev/* annotations
 	QPExtensionAnnotations map[string]string
 }

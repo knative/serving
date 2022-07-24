@@ -77,12 +77,12 @@ data:
     # If omitted, no value is specified and the system default is used.
     queue-sidecar-ephemeral-storage-limit: "1024Mi"
 
-    # Sets defualt qpextention.knative.dev/* annotations for use by queue proxy extensions
-    # queue-extention-<ExtensionName>-activate: "enable" will be activate the extension
-    # queue-extention-<ExtensionName>-config-<Key>: "<Val>" will add extension config Key: Val
-    queue-extention-testgate-activate: "enable"
-    queue-extention-testgate-config-sender: "Joe"
-    queue-extention-testgate-config-response: "CU"
+    # Sets defualt qpextension.knative.dev/* annotations for use by queue proxy extensions
+    # queue-extension-<ExtensionName>-activate: "enable" will be activate the extension
+    # queue-extension-<ExtensionName>-config-<Key>: "<Val>" will add extension config Key: Val
+    queue-extension-testgate-activate: "enable"
+    queue-extension-testgate-config-sender: "Joe"
+    queue-extension-testgate-config-response: "CU"
 
     # The freezer service endpoint that queue-proxy calls when its traffic drops to zero or
     # scales up from zero.

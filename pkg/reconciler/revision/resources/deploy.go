@@ -329,9 +329,9 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 
 	templateAnns := make(map[string]string)
 
-	// Set default qpextention.knative.dev annotations
+	// Set default qpextension.knative.dev annotations
 	for k, v := range cfg.Deployment.QPExtensionAnnotations {
-		templateAnns["qpextention.knative.dev/"+k] = v
+		templateAnns["qpextension.knative.dev/"+k] = v
 	}
 
 	// Add revision annotations
