@@ -26,9 +26,9 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"knative.dev/pkg/pool"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
@@ -71,7 +71,8 @@ func sendRequests(ctx context.Context, client *spoof.SpoofingClient, url *url.UR
 	responses := make([]string, num)
 
 	// Launch "num" requests, recording the responses we get in "responses".
-	g, gCtx := pool.NewWithContext(ctx, 8, num)
+	g, gCtx := errgroup.WithContext(ctx)
+	g.SetLimit(8)
 	for i := 0; i < num; i++ {
 		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
 		result := &responses[i]

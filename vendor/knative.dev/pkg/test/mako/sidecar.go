@@ -91,8 +91,8 @@ func EscapeTag(tag string) string {
 func SetupHelper(ctx context.Context, benchmarkKey *string, benchmarkName *string, extraTags ...string) (*Client, error) {
 	tags := append(config.MustGetTags(), extraTags...)
 	// Get the commit of the benchmarks
-	commitID, err := changeset.Get()
-	if err != nil {
+	commitID := changeset.Get()
+	if commitID == changeset.Unknown {
 		log.Println("Cannot find commit ID")
 	}
 
