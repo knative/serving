@@ -81,6 +81,26 @@ var (
 		MountPath: concurrencyStateTokenVolumeMountPath,
 	}
 
+	annotationVolume = corev1.Volume{
+		Name: "pod-annotations",
+		VolumeSource: corev1.VolumeSource{
+			DownwardAPI: &corev1.DownwardAPIVolumeSource{
+				Items: []corev1.DownwardAPIVolumeFile{{
+					Path: "annotations",
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.annotations",
+					},
+				}},
+			},
+		},
+	}
+
+	annotationVolumeMount = corev1.VolumeMount{
+		Name:      "pod-annotations",
+		MountPath: "/podinfo",
+		ReadOnly:  true,
+	}
+
 	// This PreStop hook is actually calling an endpoint on the queue-proxy
 	// because of the way PreStop hooks are called by kubelet. We use this
 	// to block the user-container from exiting before the queue-proxy is ready
@@ -133,6 +153,9 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	}
 
 	var extraVolumes []corev1.Volume
+	queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, annotationVolumeMount)
+	extraVolumes = append(extraVolumes, annotationVolume)
+
 	// If concurrencyStateEndpoint is enabled, add the serviceAccountToken to QP via a projected volume
 	if cfg.Deployment.ConcurrencyStateEndpoint != "" {
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varTokenVolumeMount)
@@ -304,6 +327,18 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 	labels := makeLabels(rev)
 	anns := makeAnnotations(rev)
 
+	templateAnns := make(map[string]string)
+
+	// Set default qpextention.knative.dev annotations
+	for k, v := range cfg.Deployment.QPExtensionAnnotations {
+		templateAnns["qpextention.knative.dev/"+k] = v
+	}
+
+	// Add revision annotations
+	for k, v := range anns {
+		templateAnns[k] = v
+	}
+
 	// Slowly but steadily roll the deployment out, to have the least possible impact.
 	maxUnavailable := intstr.FromInt(0)
 	return &appsv1.Deployment{
@@ -327,7 +362,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      labels,
-					Annotations: anns,
+					Annotations: templateAnns,
 				},
 				Spec: *podSpec,
 			},
