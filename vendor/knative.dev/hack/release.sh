@@ -18,7 +18,6 @@
 # See README.md for instructions on how to use it.
 
 source $(dirname "${BASH_SOURCE[0]}")/library.sh
-set -x
 
 # Organization name in GitHub; defaults to Knative.
 readonly ORG_NAME="${ORG_NAME:-knative}"
@@ -108,7 +107,7 @@ export GITHUB_TOKEN=""
 # Convenience function to run the hub tool.
 # Parameters: $1..$n - arguments to hub.
 function hub_tool() {
-  run_go_tool github.com/github/hub hub $@
+  gorun github.com/github/hub@v2.14.2 "$@"
 }
 
 # Shortcut to "git push" that handles authentication.

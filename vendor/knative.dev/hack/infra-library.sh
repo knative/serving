@@ -17,7 +17,7 @@
 # This is a collection of functions for infra related setups, mainly
 # cluster provisioning. It doesn't do anything when called from command line.
 
-source $(dirname "${BASH_SOURCE[0]}")/library.sh
+source "$(dirname "${BASH_SOURCE[0]:-$0}")/library.sh"
 
 # Dumps the k8s api server metrics. Spins up a proxy, waits a little bit and
 # dumps the metrics to ${ARTIFACTS}/k8s.metrics.txt
