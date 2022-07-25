@@ -169,6 +169,7 @@ func Main(opts ...Option) error {
 	// Parse the environment.
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
 
