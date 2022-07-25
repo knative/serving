@@ -73,7 +73,7 @@ const (
 	keyPath = queue.CertDirectory + "/" + certificates.SecretPKKey
 )
 
-type privateEnv struct {
+type config struct {
 	ContainerConcurrency     int    `split_words:"true" required:"true"`
 	QueueServingPort         string `split_words:"true" required:"true"`
 	QueueServingTLSPort      string `split_words:"true" required:"true"`
@@ -108,20 +108,51 @@ type privateEnv struct {
 	Env
 }
 
+// Env exposes parsed QP environment variables for use by Options (QP Extensions)
 type Env struct {
-	ServingNamespace     string `split_words:"true" required:"true"`
-	ServingRevision      string `split_words:"true" required:"true"`
+	// ServingNamespace is the namespace in which the service is defined
+	ServingNamespace string `split_words:"true" required:"true"`
+
+	// ServingService is the name of the service served by this pod
+	ServingService string `split_words:"true"` // optional
+
+	// ServingConfiguration is the name of service configuration served by this pod
 	ServingConfiguration string `split_words:"true" required:"true"`
-	ServingPodIP         string `split_words:"true" required:"true"`
-	ServingPod           string `split_words:"true" required:"true"`
-	ServingService       string `split_words:"true"` // optional
+
+	// ServingRevision is the name of service revision served by this pod
+	ServingRevision string `split_words:"true" required:"true"`
+
+	// ServingPod is the pod name
+	ServingPod string `split_words:"true" required:"true"`
+
+	// ServingPodIP is the pod ip address
+	ServingPodIP string `split_words:"true" required:"true"`
 }
 
+// Defaults provides Options (QP Extensions) with the default bahaviour of QP
+// Some attributes of Defaults may be modified by Options
+// Modifying Defaults mutates the behavior of QP
 type Defaults struct {
-	Ctx       context.Context
-	Logger    *zap.SugaredLogger
+	// Logger enables Options to use the QP pre-configured logger
+	// It is expected that Options will use the provided Logger when logging
+	// Options should not modify the provided Default Logger
+	Logger *zap.SugaredLogger
+
+	// Env exposes parsed QP environment variables for use by Options
+	// Options should not modify the provided environment parameters
+	Env Env
+
+	// Ctx provides Options with the QP context
+	// An Option may derive a new context from Ctx. If a new context is derived,
+	// the derived context should replace the value of Ctx.
+	// The new Ctx will then be used by other Options (called next) and by QP.
+	Ctx context.Context
+
+	// Transport provides Options with the QP RoundTripper
+	// An Option may wrap the provided Transport to add a Roundtripper.
+	// If Transport is wrapped, the new RoundTripper should replace the value of Transport.
+	// The new Transport will then be used by other Options (called next) and by QP.
 	Transport http.RoundTripper
-	Env       Env
 }
 
 type Option func(*Defaults)
@@ -131,19 +162,19 @@ func init() {
 }
 
 func Main(opts ...Option) error {
-	d := &Defaults{
+	d := Defaults{
 		Ctx: signals.NewContext(),
 	}
 
 	// Parse the environment.
-	var env privateEnv
+	var env config
 	if err := envconfig.Process("", &env); err != nil {
 		return err
 	}
 
 	d.Env = env.Env
 
-	// Setup the logger.
+	// Setup the Logger.
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	defer flush(logger)
 
@@ -159,13 +190,11 @@ func Main(opts ...Option) error {
 
 	// allow extensions to read d and return modified context and transport
 	for _, opts := range opts {
-		opts(d)
+		opts(&d)
 	}
-	ctx := d.Ctx
-	transport := d.Transport
 
 	// Report stats on Go memory usage every 30 seconds.
-	metrics.MemStatsOrDie(ctx)
+	metrics.MemStatsOrDie(d.Ctx)
 
 	protoStatReporter := queue.NewProtobufStatsReporter(env.ServingPod, reportingPeriod)
 
@@ -196,7 +225,7 @@ func Main(opts ...Option) error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainServer, drain := buildServer(ctx, env, transport, probe, stats, logger, concurrencyendpoint, false)
+	mainServer, drain := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 	httpServers := map[string]*http.Server{
 		"main":    mainServer,
 		"metrics": buildMetricsServer(protoStatReporter),
@@ -211,7 +240,7 @@ func Main(opts ...Option) error {
 	// See also https://github.com/knative/serving/issues/12808.
 	var tlsServers map[string]*http.Server
 	if tlsEnabled {
-		mainTLSServer, drain := buildServer(ctx, env, transport, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
+		mainTLSServer, drain := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
 		tlsServers = map[string]*http.Server{
 			"tlsMain":  mainTLSServer,
 			"tlsAdmin": buildAdminServer(logger, drain),
@@ -248,7 +277,7 @@ func Main(opts ...Option) error {
 	case err := <-errCh:
 		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
 		return err
-	case <-ctx.Done():
+	case <-d.Ctx.Done():
 		if env.ConcurrencyStateEndpoint != "" {
 			concurrencyendpoint.Terminating(logger)
 		}
@@ -289,7 +318,7 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(ctx context.Context, env privateEnv, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
+func buildServer(ctx context.Context, env config, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
 	ce *queue.ConcurrencyEndpoint, enableTLS bool) (server *http.Server, drain func()) {
 	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
@@ -362,7 +391,7 @@ func buildServer(ctx context.Context, env privateEnv, transport http.RoundTrippe
 	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler), drainer.Drain
 }
 
-func buildTransport(env privateEnv, logger *zap.SugaredLogger) http.RoundTripper {
+func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
 	if env.ContainerConcurrency > 0 {
 		maxIdleConns = env.ContainerConcurrency
@@ -388,7 +417,7 @@ func buildTransport(env privateEnv, logger *zap.SugaredLogger) http.RoundTripper
 	}
 }
 
-func buildBreaker(logger *zap.SugaredLogger, env privateEnv) *queue.Breaker {
+func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
 	if env.ContainerConcurrency < 1 {
 		return nil
 	}
@@ -405,7 +434,7 @@ func buildBreaker(logger *zap.SugaredLogger, env privateEnv) *queue.Breaker {
 	return queue.NewBreaker(params)
 }
 
-func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env privateEnv, enableTLS bool) bool {
+func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config, enableTLS bool) bool {
 	// Keep it on HTTP because Metrics needs to be registered on either TLS server or non-TLS server.
 	if enableTLS {
 		return false
@@ -444,7 +473,7 @@ func buildMetricsServer(protobufStatReporter *queue.ProtobufStatsReporter) *http
 	}
 }
 
-func requestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env privateEnv) http.Handler {
+func requestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env config) http.Handler {
 	revInfo := &pkghttp.RequestLogRevision{
 		Name:          env.ServingRevision,
 		Namespace:     env.ServingNamespace,
@@ -462,7 +491,7 @@ func requestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, e
 	return handler
 }
 
-func requestMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env privateEnv) http.Handler {
+func requestMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env config) http.Handler {
 	h, err := queue.NewRequestMetricsHandler(currentHandler, env.ServingNamespace,
 		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
 	if err != nil {
@@ -472,7 +501,7 @@ func requestMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handle
 	return h
 }
 
-func requestAppMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, breaker *queue.Breaker, env privateEnv) http.Handler {
+func requestAppMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, breaker *queue.Breaker, env config) http.Handler {
 	h, err := queue.NewAppRequestMetricsHandler(currentHandler, breaker, env.ServingNamespace,
 		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
 	if err != nil {
