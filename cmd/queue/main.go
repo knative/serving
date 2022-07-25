@@ -16,8 +16,14 @@ limitations under the License.
 
 package main
 
-import "knative.dev/serving/pkg/queue/sharedmain"
+import (
+	"os"
+
+	"knative.dev/serving/pkg/queue/sharedmain"
+)
 
 func main() {
-	sharedmain.Main()
+	if sharedmain.Main() != nil {
+		os.Exit(1)
+	}
 }

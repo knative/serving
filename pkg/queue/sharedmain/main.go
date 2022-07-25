@@ -92,12 +92,6 @@ type config struct {
 	ServingEnableProbeRequestLog bool   `split_words:"true"` // optional
 
 	// Metrics configuration
-	ServingNamespace             string `split_words:"true" required:"true"`
-	ServingRevision              string `split_words:"true" required:"true"`
-	ServingConfiguration         string `split_words:"true" required:"true"`
-	ServingPodIP                 string `split_words:"true" required:"true"`
-	ServingPod                   string `split_words:"true" required:"true"`
-	ServingService               string `split_words:"true"` // optional
 	ServingRequestMetricsBackend string `split_words:"true"` // optional
 	MetricsCollectorAddress      string `split_words:"true"` // optional
 
@@ -110,23 +104,78 @@ type config struct {
 	// Concurrency State Endpoint configuration
 	ConcurrencyStateEndpoint  string `split_words:"true"` // optional
 	ConcurrencyStateTokenPath string `split_words:"true"` // optional
+
+	Env
 }
+
+// Env exposes parsed QP environment variables for use by Options (QP Extensions)
+type Env struct {
+	// ServingNamespace is the namespace in which the service is defined
+	ServingNamespace string `split_words:"true" required:"true"`
+
+	// ServingService is the name of the service served by this pod
+	ServingService string `split_words:"true"` // optional
+
+	// ServingConfiguration is the name of service configuration served by this pod
+	ServingConfiguration string `split_words:"true" required:"true"`
+
+	// ServingRevision is the name of service revision served by this pod
+	ServingRevision string `split_words:"true" required:"true"`
+
+	// ServingPod is the pod name
+	ServingPod string `split_words:"true" required:"true"`
+
+	// ServingPodIP is the pod ip address
+	ServingPodIP string `split_words:"true" required:"true"`
+}
+
+// Defaults provides Options (QP Extensions) with the default bahaviour of QP
+// Some attributes of Defaults may be modified by Options
+// Modifying Defaults mutates the behavior of QP
+type Defaults struct {
+	// Logger enables Options to use the QP pre-configured logger
+	// It is expected that Options will use the provided Logger when logging
+	// Options should not modify the provided Default Logger
+	Logger *zap.SugaredLogger
+
+	// Env exposes parsed QP environment variables for use by Options
+	// Options should not modify the provided environment parameters
+	Env Env
+
+	// Ctx provides Options with the QP context
+	// An Option may derive a new context from Ctx. If a new context is derived,
+	// the derived context should replace the value of Ctx.
+	// The new Ctx will then be used by other Options (called next) and by QP.
+	Ctx context.Context
+
+	// Transport provides Options with the QP RoundTripper
+	// An Option may wrap the provided Transport to add a Roundtripper.
+	// If Transport is wrapped, the new RoundTripper should replace the value of Transport.
+	// The new Transport will then be used by other Options (called next) and by QP.
+	Transport http.RoundTripper
+}
+
+type Option func(*Defaults)
 
 func init() {
 	maxprocs.Set()
 }
 
-func Main() {
-	ctx := signals.NewContext()
+func Main(opts ...Option) error {
+	d := Defaults{
+		Ctx: signals.NewContext(),
+	}
 
 	// Parse the environment.
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 
-	// Setup the logger.
+	d.Env = env.Env
+
+	// Setup the Logger.
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	defer flush(logger)
 
@@ -137,8 +186,16 @@ func Main() {
 		}.String()),
 		zap.String(logkey.Pod, env.ServingPod))
 
+	d.Logger = logger
+	d.Transport = buildTransport(env, logger)
+
+	// allow extensions to read d and return modified context and transport
+	for _, opts := range opts {
+		opts(&d)
+	}
+
 	// Report stats on Go memory usage every 30 seconds.
-	metrics.MemStatsOrDie(ctx)
+	metrics.MemStatsOrDie(d.Ctx)
 
 	protoStatReporter := queue.NewProtobufStatsReporter(env.ServingPod, reportingPeriod)
 
@@ -169,7 +226,7 @@ func Main() {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint, false)
+	mainServer, drain := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 	httpServers := map[string]*http.Server{
 		"main":    mainServer,
 		"metrics": buildMetricsServer(protoStatReporter),
@@ -184,7 +241,7 @@ func Main() {
 	// See also https://github.com/knative/serving/issues/12808.
 	var tlsServers map[string]*http.Server
 	if tlsEnabled {
-		mainTLSServer, drain := buildServer(ctx, env, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
+		mainTLSServer, drain := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
 		tlsServers = map[string]*http.Server{
 			"tlsMain":  mainTLSServer,
 			"tlsAdmin": buildAdminServer(logger, drain),
@@ -220,10 +277,8 @@ func Main() {
 	select {
 	case err := <-errCh:
 		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
-		// This extra flush is needed because defers are not handled via os.Exit calls.
-		flush(logger)
-		os.Exit(1)
-	case <-ctx.Done():
+		return err
+	case <-d.Ctx.Done():
 		if env.ConcurrencyStateEndpoint != "" {
 			concurrencyendpoint.Terminating(logger)
 		}
@@ -242,6 +297,7 @@ func Main() {
 		}
 		logger.Info("Shutdown complete, exiting...")
 	}
+	return nil
 }
 
 func exists(logger *zap.SugaredLogger, filename string) bool {
@@ -263,14 +319,14 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(ctx context.Context, env config, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
+func buildServer(ctx context.Context, env config, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
 	ce *queue.ConcurrencyEndpoint, enableTLS bool) (server *http.Server, drain func()) {
 	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 
 	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders, false /* use HTTP */)
-	httpProxy.Transport = buildTransport(env, logger)
+	httpProxy.Transport = transport
 	httpProxy.ErrorHandler = pkghandler.Error(logger)
 	httpProxy.BufferPool = netproxy.NewBufferPool()
 	httpProxy.FlushInterval = netproxy.FlushInterval
