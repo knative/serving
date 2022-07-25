@@ -108,20 +108,51 @@ type config struct {
 	Env
 }
 
+// Env exposes parsed QP environment variables for use by Options (QP Extensions)
 type Env struct {
-	ServingNamespace     string `split_words:"true" required:"true"`
-	ServingRevision      string `split_words:"true" required:"true"`
+	// ServingNamespace is the namespace in which the service is defined
+	ServingNamespace string `split_words:"true" required:"true"`
+
+	// ServingService is the name of the service served by this pod
+	ServingService string `split_words:"true"` // optional
+
+	// ServingConfiguration is the name of service configuration served by this pod
 	ServingConfiguration string `split_words:"true" required:"true"`
-	ServingPodIP         string `split_words:"true" required:"true"`
-	ServingPod           string `split_words:"true" required:"true"`
-	ServingService       string `split_words:"true"` // optional
+
+	// ServingRevision is the name of service revision served by this pod
+	ServingRevision string `split_words:"true" required:"true"`
+
+	// ServingPod is the pod name
+	ServingPod string `split_words:"true" required:"true"`
+
+	// ServingPodIP is the pod ip address
+	ServingPodIP string `split_words:"true" required:"true"`
 }
 
+// Defaults provides Options (QP Extensions) with the default bahaviour of QP
+// Some attributes of Defaults may be modified by Options
+// Modifying Defaults mutates the behavior of QP
 type Defaults struct {
-	Ctx       context.Context
-	Logger    *zap.SugaredLogger
+	// Logger enables Options to use the QP pre-configured logger
+	// It is expected that Options will use the provided Logger when logging
+	// Options should not modify the provided Default Logger
+	Logger *zap.SugaredLogger
+
+	// Env exposes parsed QP environment variables for use by Options
+	// Options should not modify the provided environment parameters
+	Env Env
+
+	// Ctx provides Options with the QP context
+	// An Option may derive a new context from Ctx. If a new context is derived,
+	// the derived context should replace the value of Ctx.
+	// The new Ctx will then be used by other Options (called next) and by QP.
+	Ctx context.Context
+
+	// Transport provides Options with the QP RoundTripper
+	// An Option may wrap the provided Transport to add a Roundtripper.
+	// If Transport is wrapped, the new RoundTripper should replace the value of Transport.
+	// The new Transport will then be used by other Options (called next) and by QP.
 	Transport http.RoundTripper
-	Env       Env
 }
 
 type Option func(*Defaults)
