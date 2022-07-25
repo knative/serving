@@ -329,18 +329,6 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 	labels := makeLabels(rev)
 	anns := makeAnnotations(rev)
 
-	templateAnns := make(map[string]string)
-
-	// Set default qpextension.knative.dev annotations
-	for k, v := range cfg.Deployment.QPExtensionAnnotations {
-		templateAnns["qpextension.knative.dev/"+k] = v
-	}
-
-	// Add revision annotations
-	for k, v := range anns {
-		templateAnns[k] = v
-	}
-
 	// Slowly but steadily roll the deployment out, to have the least possible impact.
 	maxUnavailable := intstr.FromInt(0)
 	return &appsv1.Deployment{
@@ -364,7 +352,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      labels,
-					Annotations: templateAnns,
+					Annotations: anns,
 				},
 				Spec: *podSpec,
 			},
