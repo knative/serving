@@ -89,6 +89,7 @@ var (
 			PeriodSeconds: 0,
 		},
 		SecurityContext: queueSecurityContext,
+		VolumeMounts:    []corev1.VolumeMount{varAnnotationVolumeMount},
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: "foo", // matches namespace
@@ -190,6 +191,7 @@ var (
 	defaultPodSpec = &corev1.PodSpec{
 		TerminationGracePeriodSeconds: refInt64(45),
 		EnableServiceLinks:            ptr.Bool(false),
+		Volumes:                       []corev1.Volume{varAnnotationVolume},
 	}
 
 	maxUnavailable    = intstr.FromInt(0)
@@ -348,6 +350,11 @@ func withLivenessProbe(handler corev1.ProbeHandler) containerOption {
 	}
 }
 
+func withAppendedVolumeMounts(volumeMounts ...corev1.VolumeMount) containerOption {
+	return func(c *corev1.Container) {
+		c.VolumeMounts = append(c.VolumeMounts, volumeMounts...)
+	}
+}
 func withPrependedVolumeMounts(volumeMounts ...corev1.VolumeMount) containerOption {
 	return func(c *corev1.Container) {
 		c.VolumeMounts = append(volumeMounts, c.VolumeMounts...)
@@ -368,6 +375,12 @@ func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSp
 func withAppendedVolumes(volumes ...corev1.Volume) podSpecOption {
 	return func(ps *corev1.PodSpec) {
 		ps.Volumes = append(ps.Volumes, volumes...)
+	}
+}
+
+func withPrependedVolumes(volumes ...corev1.Volume) podSpecOption {
+	return func(ps *corev1.PodSpec) {
+		ps.Volumes = append(volumes, ps.Volumes...)
 	}
 }
 
@@ -555,7 +568,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("USER_PORT", "8888"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
 				),
-			}, withAppendedVolumes(corev1.Volume{
+			}, withPrependedVolumes(corev1.Volume{
 				Name: "asdf",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
@@ -1137,13 +1150,13 @@ func TestMakePodSpec(t *testing.T) {
 					c.Image = "ubuntu@sha256:deadbeef"
 				}),
 				queueContainer(func(container *corev1.Container) {
-					container.VolumeMounts = []corev1.VolumeMount{{
-						Name:      varTokenVolume.Name,
-						MountPath: "/var/run/secrets/tokens",
-					}}
 				},
 					withEnvVar("CONCURRENCY_STATE_ENDPOINT", `freeze-proxy`),
 					withEnvVar("CONCURRENCY_STATE_TOKEN_PATH", `/var/run/secrets/tokens/state-token`),
+					withAppendedVolumeMounts(corev1.VolumeMount{
+						Name:      varTokenVolume.Name,
+						MountPath: "/var/run/secrets/tokens",
+					}),
 				),
 			},
 			withAppendedVolumes(varTokenVolume),

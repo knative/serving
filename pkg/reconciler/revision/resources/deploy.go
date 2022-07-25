@@ -39,6 +39,8 @@ import (
 )
 
 //nolint:gosec // Filepath, not hardcoded credentials
+const annotationsPodInfoDirPath = "/podinfo"
+const annotationsPodInfoFilename = "annotations"
 const concurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
 const concurrencyStateTokenName = "state-token"
 
@@ -81,12 +83,12 @@ var (
 		MountPath: concurrencyStateTokenVolumeMountPath,
 	}
 
-	annotationVolume = corev1.Volume{
+	varAnnotationVolume = corev1.Volume{
 		Name: "pod-annotations",
 		VolumeSource: corev1.VolumeSource{
 			DownwardAPI: &corev1.DownwardAPIVolumeSource{
 				Items: []corev1.DownwardAPIVolumeFile{{
-					Path: "annotations",
+					Path: annotationsPodInfoFilename,
 					FieldRef: &corev1.ObjectFieldSelector{
 						FieldPath: "metadata.annotations",
 					},
@@ -95,9 +97,9 @@ var (
 		},
 	}
 
-	annotationVolumeMount = corev1.VolumeMount{
-		Name:      "pod-annotations",
-		MountPath: "/podinfo",
+	varAnnotationVolumeMount = corev1.VolumeMount{
+		Name:      varAnnotationVolume.Name,
+		MountPath: annotationsPodInfoDirPath,
 		ReadOnly:  true,
 	}
 
@@ -153,8 +155,8 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	}
 
 	var extraVolumes []corev1.Volume
-	queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, annotationVolumeMount)
-	extraVolumes = append(extraVolumes, annotationVolume)
+	queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varAnnotationVolumeMount)
+	extraVolumes = append(extraVolumes, varAnnotationVolume)
 
 	// If concurrencyStateEndpoint is enabled, add the serviceAccountToken to QP via a projected volume
 	if cfg.Deployment.ConcurrencyStateEndpoint != "" {

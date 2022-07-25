@@ -69,6 +69,7 @@ func TestControllerConfigurationFromFile(t *testing.T) {
 		got.QueueSidecarCPULimit = nil
 		got.QueueSidecarMemoryRequest, got.QueueSidecarMemoryLimit = nil, nil
 		got.QueueSidecarEphemeralStorageRequest, got.QueueSidecarEphemeralStorageLimit = nil, nil
+		got.QPExtensionAnnotations = nil
 		if !cmp.Equal(got, want) {
 			t.Error("Example stanza does not match default, diff(-want,+got):", cmp.Diff(want, got))
 		}
