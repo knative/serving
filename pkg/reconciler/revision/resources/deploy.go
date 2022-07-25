@@ -39,10 +39,10 @@ import (
 )
 
 //nolint:gosec // Filepath, not hardcoded credentials
-const annotationsPodInfoDirPath = "/podinfo"
-const annotationsPodInfoFilename = "annotations"
 const concurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
 const concurrencyStateTokenName = "state-token"
+const annotationsPodInfoDirPath = "/podinfo"
+const annotationsPodInfoFilename = "annotations"
 
 var (
 	varLogVolume = corev1.Volume{
