@@ -65,13 +65,6 @@ func (in *Config) DeepCopyInto(out *Config) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
-	if in.QPExtensionAnnotations != nil {
-		in, out := &in.QPExtensionAnnotations, &out.QPExtensionAnnotations
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
 	return
 }
 

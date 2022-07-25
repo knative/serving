@@ -67,9 +67,6 @@ const (
 
 	// concurrencyStateEndpointKey is the key to configure the endpoint Queue Proxy will call when traffic drops to / increases from zero.
 	concurrencyStateEndpointKey = "concurrency-state-endpoint"
-
-	// queeuExtensionKey is the prefix for default keys used to set qpextension.knative.dev/* annnotations
-	queueExtensionKey = "queue-extension"
 )
 
 var (
@@ -120,8 +117,6 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsQuantity(queueSidecarEphemeralStorageLimitKey, &nc.QueueSidecarEphemeralStorageLimit),
 
 		cm.AsString(concurrencyStateEndpointKey, &nc.ConcurrencyStateEndpoint),
-
-		cm.CollectMapEntriesWithPrefix(queueExtensionKey, &nc.QPExtensionAnnotations),
 	); err != nil {
 		return nil, err
 	}
@@ -188,7 +183,4 @@ type Config struct {
 
 	// ConcurrencyStateEndpoint is the endpoint Queue Proxy will call when traffic drops to / increases from zero.
 	ConcurrencyStateEndpoint string
-
-	// QPExtensionAnnotations are the defualt qpextension.knative.dev/* annotations
-	QPExtensionAnnotations map[string]string
 }
