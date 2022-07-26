@@ -525,7 +525,7 @@ golang.org/x/oauth2/google/internal/externalaccount
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
+# golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
@@ -1177,7 +1177,7 @@ k8s.io/utils/lru
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20220721132919-9d082ff35e00
+# knative.dev/caching v0.0.0-20220725105524-783e3361b29b
 ## explicit; go 1.15
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1202,11 +1202,11 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 ## explicit; go 1.17
 knative.dev/control-protocol/pkg/certificates
 knative.dev/control-protocol/pkg/certificates/reconciler
-# knative.dev/hack v0.0.0-20220721014222-a6450400b5f1
-## explicit; go 1.14
+# knative.dev/hack v0.0.0-20220725145124-782bbaabb8a1
+## explicit; go 1.17
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20220722153221-1f4c9ce38742
+# knative.dev/networking v0.0.0-20220723000421-cddb0ff95789
 ## explicit; go 1.17
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1243,7 +1243,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20220722152821-3764d73bf97e
+# knative.dev/pkg v0.0.0-20220722175921-6c9c1c6098d5
 ## explicit; go 1.18
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
