@@ -321,10 +321,10 @@ func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
 	expectScale(t, a, time.Now(), ScaleResult{0, expectedEBC(10, 75, 0, 1), true})
 }
 
-func TestAutoscalerMinNonZeroReplicas(t *testing.T) {
+func TestAutoscaleMinActivateScale(t *testing.T) {
 	metrics := &metricClient{StableConcurrency: 0, PanicConcurrency: 0}
 	a := newTestAutoscalerNoPC(10, 75, metrics)
-	a.deciderSpec.MinNonZeroReplicas = int32(2)
+	a.deciderSpec.MinActivateScale = int32(2)
 	expectScale(t, a, time.Now(), ScaleResult{0, expectedEBC(10, 75, 0, 1), true})
 
 	metrics.StableConcurrency = 1.0

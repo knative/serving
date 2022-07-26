@@ -162,14 +162,14 @@ func TestMakeDecider(t *testing.T) {
 				d.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
 			}),
 	}, {
-		name: "with min-non-zero-replicas",
+		name: "with min-activate-scale",
 		pa: pa(func(pa *autoscalingv1alpha1.PodAutoscaler) {
-			pa.Annotations[autoscaling.MinNonZeroReplicasKey] = "3"
+			pa.Annotations[autoscaling.MinActivateScaleKey] = "3"
 		}),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
 			func(d *scaling.Decider) {
-				d.Spec.MinNonZeroReplicas = 3
-				d.Annotations[autoscaling.MinNonZeroReplicasKey] = "3"
+				d.Spec.MinActivateScale = 3
+				d.Annotations[autoscaling.MinActivateScaleKey] = "3"
 			}),
 	}}
 
