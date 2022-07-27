@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "ae887f02"
+    knative.dev/example-checksum: "32c0548a"
 data:
   _example: |-
     ################################
@@ -186,4 +186,4 @@ data:
     #   However, clients may enable the behavior on an individual Service by attaching
     #   the following metadata annotation: "features.knative.dev/podspec-podinfo":"enabled".
     # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-podinfo
-    kubernetes.podspec-podinfo: "allowed"
+    kubernetes.podspec-podinfo: "disabled"
