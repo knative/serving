@@ -16,6 +16,7 @@ limitations under the License.
 
 package queue
 
+//nolint:gosec // Volume Mount Points and Filenames
 const (
 	// Name is the name of the component.
 	Name = "queue"
@@ -33,10 +34,10 @@ const (
 	// PodInfoVolumeMountPath is the name of the directory path where podinfo are stored.
 	PodInfoVolumeMountPath = "/podinfo"
 
-	// tokenVolumeMountPath is the name of the directory path where tokens are stored.
+	// TokenVolumeMountPath is the name of the directory path where tokens are stored.
 	TokenVolumeMountPath = "/var/run/secrets/tokens"
 
-	// tokenVolumeMountPath is the name of the directory path where tokens are stored.
+	// LogVolumeMountPath is the name of the directory path where tokens are stored.
 	LogVolumeMountPath = "/var/log"
 
 	// ConcurrencyStateTokenFilename is the file name of the concurency state in TokenVolumeMountPath.
