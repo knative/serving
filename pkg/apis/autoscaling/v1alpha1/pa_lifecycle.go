@@ -102,10 +102,10 @@ func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (int32, 
 	return min, max
 }
 
-// MinActivateScale returns the min-non-zero-replicas annotation value or falise
+// ActiveMinScale returns the min-non-zero-replicas annotation value or falise
 // if not present or invalid.
-func (pa *PodAutoscaler) MinActivateScale() (int32, bool) {
-	return pa.annotationInt32(autoscaling.MinActivateScale)
+func (pa *PodAutoscaler) ActiveMinScale() (int32, bool) {
+	return pa.annotationInt32(autoscaling.ActiveMinScale)
 }
 
 // Target returns the target annotation value or false if not present, or invalid.

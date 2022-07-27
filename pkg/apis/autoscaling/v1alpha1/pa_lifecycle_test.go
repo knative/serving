@@ -1002,12 +1002,12 @@ func TestMinNonZeroReplicasAnnotation(t *testing.T) {
 		wantOK:      false,
 	}, {
 		name:        "present",
-		annotations: map[string]string{autoscaling.MinActivateScaleKey: "5"},
+		annotations: map[string]string{autoscaling.ActiveMinScaleKey: "5"},
 		wantValue:   5,
 		wantOK:      true,
 	}, {
 		name:        "invalid",
-		annotations: map[string]string{autoscaling.MinActivateScaleKey: "5s"},
+		annotations: map[string]string{autoscaling.ActiveMinScaleKey: "5s"},
 		wantValue:   0,
 		wantOK:      false,
 	}}
@@ -1015,9 +1015,9 @@ func TestMinNonZeroReplicasAnnotation(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			autoscaler := pa(tc.annotations)
-			gotValue, gotOK := autoscaler.MinActivateScale()
+			gotValue, gotOK := autoscaler.ActiveMinScale()
 			if gotValue != tc.wantValue {
-				t.Errorf("min-non-zero-replicas = %v, want: %v", gotValue, tc.wantValue)
+				t.Errorf("got = %v, want: %v", gotValue, tc.wantValue)
 			}
 			if gotOK != tc.wantOK {
 				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)

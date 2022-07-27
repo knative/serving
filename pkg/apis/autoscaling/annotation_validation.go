@@ -191,23 +191,23 @@ func validateMinMaxScale(config *autoscalerconfig.Config, m map[string]string) *
 		errs = errs.Also(validateMaxScaleWithinLimit(k, max, config.MaxScaleLimit))
 	}
 
-	// if MinNonZeroReplicas is also set, validate that min <= nz min <= max
-	if k, v, ok := MinActivateScale.Get(m); ok {
+	// if ActiveMinScale is also set, validate that min <= nz min <= max
+	if k, v, ok := ActiveMinScale.Get(m); ok {
 		if nzMin, err := strconv.ParseInt(v, 10, 32); err != nil {
 			errs = errs.Also(apis.ErrInvalidValue(v, k))
 		} else if min > int32(nzMin) {
 			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("min-scale=%d is greater than min-activate-scale=%d", min, nzMin),
+				Message: fmt.Sprintf("min-scale=%d is greater than active-min-scale=%d", min, nzMin),
 				Paths:   []string{k},
 			})
 		} else if max < int32(nzMin) && max != 0 {
 			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("max-scale=%d is less than min-activate-scale=%d", max, nzMin),
+				Message: fmt.Sprintf("max-scale=%d is less than active-min-scale=%d", max, nzMin),
 				Paths:   []string{k},
 			})
 		} else if nzMin < 2 {
 			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("min-activate-scale=%d must be greater than 1", nzMin),
+				Message: fmt.Sprintf("active-min-scale=%d must be greater than 1", nzMin),
 				Paths:   []string{k},
 			})
 		}

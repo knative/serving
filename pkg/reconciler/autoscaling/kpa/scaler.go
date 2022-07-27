@@ -333,7 +333,6 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 
 	min, max := pa.ScaleBounds(asConfig)
 	initialScale := kparesources.GetInitialScale(asConfig, pa)
-
 	// Log reachability as quoted string, since default value is "".
 	logger.Debugf("MinScale = %d, MaxScale = %d, InitialScale = %d, DesiredScale = %d Reachable = %q",
 		min, max, initialScale, desiredScale, pa.Spec.Reachability)
