@@ -989,6 +989,43 @@ func TestPanicThresholdPercentage(t *testing.T) {
 	}
 }
 
+func TestMinNonZeroReplicasAnnotation(t *testing.T) {
+	cases := []struct {
+		name        string
+		annotations map[string]string
+		wantValue   int32
+		wantOK      bool
+	}{{
+		name:        "not present",
+		annotations: map[string]string{},
+		wantValue:   0,
+		wantOK:      false,
+	}, {
+		name:        "present",
+		annotations: map[string]string{autoscaling.ActiveMinScaleKey: "5"},
+		wantValue:   5,
+		wantOK:      true,
+	}, {
+		name:        "invalid",
+		annotations: map[string]string{autoscaling.ActiveMinScaleKey: "5s"},
+		wantValue:   0,
+		wantOK:      false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			autoscaler := pa(tc.annotations)
+			gotValue, gotOK := autoscaler.ActiveMinScale()
+			if gotValue != tc.wantValue {
+				t.Errorf("got = %v, want: %v", gotValue, tc.wantValue)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+			}
+		})
+	}
+}
+
 func pa(annotations map[string]string) *PodAutoscaler {
 	return &PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
