@@ -1284,13 +1284,14 @@ func TestMakePodSpec(t *testing.T) {
 				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
 					c.Image = "ubuntu@sha256:deadbeef"
 				}),
-				queueContainer(
-					withEnvVar("CONCURRENCY_STATE_ENDPOINT", `freeze-proxy`),
-					withEnvVar("CONCURRENCY_STATE_TOKEN_PATH", `/var/run/secrets/tokens/state-token`),
-					withAppendedVolumeMounts(corev1.VolumeMount{
+				queueContainer(func(container *corev1.Container) {
+					container.VolumeMounts = []corev1.VolumeMount{{
 						Name:      varTokenVolume.Name,
 						MountPath: "/var/run/secrets/tokens",
-					}),
+					}}
+				},
+					withEnvVar("CONCURRENCY_STATE_ENDPOINT", `freeze-proxy`),
+					withEnvVar("CONCURRENCY_STATE_TOKEN_PATH", `/var/run/secrets/tokens/state-token`),
 				),
 			},
 			withAppendedVolumes(varTokenVolume),

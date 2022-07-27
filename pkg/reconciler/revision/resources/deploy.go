@@ -41,15 +41,12 @@ import (
 	apiconfig "knative.dev/serving/pkg/apis/config"
 )
 
-// VolumeNames
-
 const certVolumeName = "server-certs"
 
 // LogVolumeMountPath is the name of the log directory path
 const LogVolumeMountPath = "/var/log"
 
 var (
-	// Volumes
 	varLogVolume = corev1.Volume{
 		Name: "knative-var-log",
 		VolumeSource: corev1.VolumeSource{
@@ -57,7 +54,6 @@ var (
 		},
 	}
 
-	// Volume Mounts
 	varLogVolumeMount = corev1.VolumeMount{
 		Name:        varLogVolume.Name,
 		MountPath:   "/var/log",
@@ -79,6 +75,18 @@ var (
 		},
 	}
 
+	varCertVolumeMount = corev1.VolumeMount{
+		MountPath: queue.CertVolumeMountPath,
+		Name:      certVolumeName,
+		ReadOnly:  true,
+	}
+
+	//nolint:gosec // VolumeMount, not hardcoded credentials
+	varTokenVolumeMount = corev1.VolumeMount{
+		Name:      varTokenVolume.Name,
+		MountPath: queue.TokenVolumeMountPath,
+	}
+
 	varPodInfoVolume = corev1.Volume{
 		Name: "pod-info",
 		VolumeSource: corev1.VolumeSource{
@@ -91,18 +99,6 @@ var (
 				}},
 			},
 		},
-	}
-
-	varCertVolumeMount = corev1.VolumeMount{
-		MountPath: queue.CertVolumeMountPath,
-		Name:      certVolumeName,
-		ReadOnly:  true,
-	}
-
-	//nolint:gosec // VolumeMount, not hardcoded credentials
-	varTokenVolumeMount = corev1.VolumeMount{
-		Name:      varTokenVolume.Name,
-		MountPath: queue.TokenVolumeMountPath,
 	}
 
 	varPodInfoVolumeMount = corev1.VolumeMount{
