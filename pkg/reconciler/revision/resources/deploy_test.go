@@ -354,11 +354,6 @@ func withLivenessProbe(handler corev1.ProbeHandler) containerOption {
 	}
 }
 
-func withAppendedVolumeMounts(volumeMounts ...corev1.VolumeMount) containerOption {
-	return func(c *corev1.Container) {
-		c.VolumeMounts = append(c.VolumeMounts, volumeMounts...)
-	}
-}
 func withPrependedVolumeMounts(volumeMounts ...corev1.VolumeMount) containerOption {
 	return func(c *corev1.Container) {
 		c.VolumeMounts = append(volumeMounts, c.VolumeMounts...)
