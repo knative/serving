@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "433d7e74"
+    knative.dev/example-checksum: "1a5c970a"
 data:
   _example: |-
     ################################
@@ -176,3 +176,14 @@ data:
     # 1. Enabled: enabling write access for persistent volumes
     # 2. Disabled: disabling write access for persistent volumes
     kubernetes.podspec-persistent-volume-write: "disabled"
+
+    # Controls if the queue proxy podInfo is enabled or not
+    # Should be enabled when using queue proxy Options (Extensions).
+    #
+    # 1. "enabled": enable podInfo volume
+    # 2. "disabled": disable podInfo volume
+    # 3. "allowed": disable podInfo volume by default.
+    #   However, clients may enable the behavior on an individual Service by attaching
+    #   the following metadata annotation: "features.knative.dev/mount-podinfo":"enabled".
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-podinfo
+    kubernetes.mount-podinfo: "disabled"

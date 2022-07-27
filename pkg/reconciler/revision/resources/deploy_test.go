@@ -314,6 +314,12 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
+func withPodInfoVolumeMount() containerOption {
+	return func(container *corev1.Container) {
+		container.VolumeMounts = append(container.VolumeMounts, varPodInfoVolumeMount)
+	}
+}
+
 func withTCPReadinessProbe(port int) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
@@ -371,6 +377,12 @@ func withAppendedVolumes(volumes ...corev1.Volume) podSpecOption {
 	}
 }
 
+func withPrependedVolumes(volumes ...corev1.Volume) podSpecOption {
+	return func(ps *corev1.PodSpec) {
+		ps.Volumes = append(volumes, ps.Volumes...)
+	}
+}
+
 func appsv1deployment(opts ...deploymentOption) *appsv1.Deployment {
 	deploy := defaultDeployment.DeepCopy()
 	for _, option := range opts {
@@ -389,6 +401,12 @@ func revision(name, ns string, opts ...RevisionOption) *v1.Revision {
 	return revision
 }
 
+// WithRevisionAnnotations adds the supplied annotations to the revision
+func WithRevisionAnnotations(annotations map[string]string) RevisionOption {
+	return func(revision *v1.Revision) {
+		revision.Annotations = kmeta.UnionMaps(revision.Annotations, annotations)
+	}
+}
 func withContainerConcurrency(cc int64) RevisionOption {
 	return func(revision *v1.Revision) {
 		revision.Spec.ContainerConcurrency = &cc
@@ -480,6 +498,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc       metrics.ObservabilityConfig
 		defaults *apicfg.Defaults
 		dc       deployment.Config
+		fc       apicfg.Features
 		want     *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -555,7 +574,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("USER_PORT", "8888"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
 				),
-			}, withAppendedVolumes(corev1.Volume{
+			}, withPrependedVolumes(corev1.Volume{
 				Name: "asdf",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
@@ -665,6 +684,130 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("SERVING_REQUEST_METRICS_BACKEND", "opencensus"),
 				),
 			}),
+	}, {
+		name: "podInfoFeature Enabled",
+		fc: apicfg.Features{
+			MountPodInfo: apicfg.Enabled,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(
+					withPodInfoVolumeMount(),
+				),
+			},
+			withAppendedVolumes(varPodInfoVolume),
+		),
+	}, {
+		name: "podInfoFeature Disabled with annotation features.knative.dev/mount-podinfo=enabled",
+		fc: apicfg.Features{
+			MountPodInfo: apicfg.Disabled,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+			WithRevisionAnnotations(map[string]string{"features.knative.dev/mount-podinfo": "enabled"}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			},
+		),
+	}, {
+		name: "podInfoFeature Allowed with annotation features.knative.dev/mount-podinfo=enabled",
+		fc: apicfg.Features{
+			MountPodInfo: apicfg.Allowed,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+			WithRevisionAnnotations(map[string]string{"features.knative.dev/mount-podinfo": "enabled"}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(
+					withPodInfoVolumeMount(),
+				),
+			},
+			withAppendedVolumes(varPodInfoVolume),
+		),
+	}, {
+		name: "podInfoFeature Allowed with annotation features.knative.dev/mount-podinfo=disabled",
+		fc: apicfg.Features{
+			MountPodInfo: apicfg.Allowed,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+			WithRevisionAnnotations(map[string]string{"features.knative.dev/mount-podinfo": "disabled"}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			},
+		),
+	}, {
+		name: "podInfoFeature Allowed no annotation",
+		fc: apicfg.Features{
+			MountPodInfo: apicfg.Allowed,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			},
+		),
 	}, {
 		name: "concurrency=121 no owner digest resolved",
 		rev: revision("bar", "foo",
@@ -1155,6 +1298,7 @@ func TestMakePodSpec(t *testing.T) {
 			cfg := revConfig()
 			cfg.Observability = &test.oc
 			cfg.Deployment = &test.dc
+			cfg.Features = &test.fc
 			if test.defaults != nil {
 				cfg.Defaults = test.defaults
 			}

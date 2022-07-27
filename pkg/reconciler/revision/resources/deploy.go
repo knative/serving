@@ -19,6 +19,7 @@ package resources
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	netheader "knative.dev/networking/pkg/http/header"
@@ -36,6 +37,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	apiconfig "knative.dev/serving/pkg/apis/config"
 )
 
 //nolint:gosec // Filepath, not hardcoded credentials
@@ -79,6 +82,26 @@ var (
 	varTokenVolumeMount = corev1.VolumeMount{
 		Name:      varTokenVolume.Name,
 		MountPath: concurrencyStateTokenVolumeMountPath,
+	}
+
+	varPodInfoVolume = corev1.Volume{
+		Name: "pod-info",
+		VolumeSource: corev1.VolumeSource{
+			DownwardAPI: &corev1.DownwardAPIVolumeSource{
+				Items: []corev1.DownwardAPIVolumeFile{{
+					Path: queue.PodInfoAnnotationsFilename,
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.annotations",
+					},
+				}},
+			},
+		},
+	}
+
+	varPodInfoVolumeMount = corev1.VolumeMount{
+		Name:      varPodInfoVolume.Name,
+		MountPath: queue.PodInfoVolumeMountPath,
+		ReadOnly:  true,
 	}
 
 	// This PreStop hook is actually calling an endpoint on the queue-proxy
@@ -133,6 +156,17 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	}
 
 	var extraVolumes []corev1.Volume
+
+	podInfoFeature, podInfoExists := rev.Annotations[apiconfig.PodInfoFeatureKey]
+
+	if cfg.Features.MountPodInfo == apiconfig.Enabled ||
+		(cfg.Features.MountPodInfo == apiconfig.Allowed &&
+			podInfoExists &&
+			strings.EqualFold(podInfoFeature, string(apiconfig.Enabled))) {
+		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varPodInfoVolumeMount)
+		extraVolumes = append(extraVolumes, varPodInfoVolume)
+	}
+
 	// If concurrencyStateEndpoint is enabled, add the serviceAccountToken to QP via a projected volume
 	if cfg.Deployment.ConcurrencyStateEndpoint != "" {
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varTokenVolumeMount)
