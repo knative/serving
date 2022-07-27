@@ -66,9 +66,9 @@ func MakeDecider(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig
 		scaleDownDelay = sdd
 	}
 
-	var activeMinScale int32
-	if mnzr, ok := pa.ActiveMinScale(); ok {
-		activeMinScale = mnzr
+	var activationScale int32
+	if mnzr, ok := pa.ActivationScale(); ok {
+		activationScale = mnzr
 	}
 
 	return &scaling.Decider{
@@ -86,7 +86,7 @@ func MakeDecider(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig
 			ScaleDownDelay:      scaleDownDelay,
 			InitialScale:        GetInitialScale(config, pa),
 			Reachable:           pa.Spec.Reachability != autoscalingv1alpha1.ReachabilityUnreachable,
-			ActiveMinScale:      activeMinScale,
+			ActivationScale:     activationScale,
 		},
 	}
 }

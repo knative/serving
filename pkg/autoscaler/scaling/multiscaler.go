@@ -76,12 +76,12 @@ type DeciderSpec struct {
 	InitialScale int32
 	// Reachable describes whether the revision is referenced by any route.
 	Reachable bool
-	// ActiveMinScale is the minimum, non-zero value that a service should scale to.
-	// For example, if ActiveMinScale = 2, when a service scaled from zero it would
+	// ActivationScale is the minimum, non-zero value that a service should scale to.
+	// For example, if ActivationScale = 2, when a service scaled from zero it would
 	// scale up two replicas in this case. In essence, this allows one to set both a
 	// min-scale value while also preserving the ability to scale to zero.
-	// ActiveMinScale must be >= 2.
-	ActiveMinScale int32
+	// ActivationScale must be >= 2.
+	ActivationScale int32
 }
 
 // DeciderStatus is the current scale recommendation.
