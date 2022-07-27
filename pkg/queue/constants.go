@@ -32,13 +32,10 @@ const (
 	CertVolumeMountPath = "/var/lib/knative/certs"
 
 	// PodInfoVolumeMountPath is the name of the directory path where podinfo are stored.
-	PodInfoVolumeMountPath = "/podinfo"
+	PodInfoVolumeMountPath = "/etc/podinfo"
 
 	// TokenVolumeMountPath is the name of the directory path where tokens are stored.
 	TokenVolumeMountPath = "/var/run/secrets/tokens"
-
-	// LogVolumeMountPath is the name of the directory path where tokens are stored.
-	LogVolumeMountPath = "/var/log"
 
 	// ConcurrencyStateTokenFilename is the file name of the concurency state in TokenVolumeMountPath.
 	ConcurrencyStateTokenFilename = "state-token"

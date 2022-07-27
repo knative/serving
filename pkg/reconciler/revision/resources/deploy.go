@@ -19,6 +19,7 @@ package resources
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	netheader "knative.dev/networking/pkg/http/header"
@@ -41,28 +42,31 @@ import (
 )
 
 // VolumeNames
-//nolint:gosec // VolumeName, not hardcoded credentials
-const (
-	tokenVolumeName   = "knative-token-volume"
-	podInfoVolumeName = "pod-info"
-	certVolumeName    = "server-certs"
-	logVolumeName     = "knative-var-log"
 
-	PodInfoFeatureKey     = "features.knative.dev/podspec-podinfo"
-	PodInfoFeatureEnabled = "enabled"
-)
+const certVolumeName = "server-certs"
+
+// LogVolumeMountPath is the name of the log directory path
+const LogVolumeMountPath = "/var/log"
 
 var (
 	// Volumes
 	varLogVolume = corev1.Volume{
-		Name: logVolumeName,
+		Name: "knative-var-log",
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
 
+	// Volume Mounts
+	varLogVolumeMount = corev1.VolumeMount{
+		Name:        varLogVolume.Name,
+		MountPath:   "/var/log",
+		SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_",
+	}
+
+	//nolint:gosec // Volume, not hardcoded credentials
 	varTokenVolume = corev1.Volume{
-		Name: tokenVolumeName,
+		Name: "knative-token-volume",
 		VolumeSource: corev1.VolumeSource{
 			Projected: &corev1.ProjectedVolumeSource{
 				Sources: []corev1.VolumeProjection{{
@@ -76,7 +80,7 @@ var (
 	}
 
 	varPodInfoVolume = corev1.Volume{
-		Name: podInfoVolumeName,
+		Name: "pod-info",
 		VolumeSource: corev1.VolumeSource{
 			DownwardAPI: &corev1.DownwardAPIVolumeSource{
 				Items: []corev1.DownwardAPIVolumeFile{{
@@ -89,26 +93,13 @@ var (
 		},
 	}
 
-	varCertVolume = corev1.Volume{
-		Name: certVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{},
-		},
-	}
-
-	// Volume Mounts
-	varLogVolumeMount = corev1.VolumeMount{
-		Name:        varLogVolume.Name,
-		MountPath:   queue.LogVolumeMountPath,
-		SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_",
-	}
-
 	varCertVolumeMount = corev1.VolumeMount{
 		MountPath: queue.CertVolumeMountPath,
-		Name:      varCertVolume.Name,
+		Name:      certVolumeName,
 		ReadOnly:  true,
 	}
 
+	//nolint:gosec // VolumeMount, not hardcoded credentials
 	varTokenVolumeMount = corev1.VolumeMount{
 		Name:      varTokenVolume.Name,
 		MountPath: queue.TokenVolumeMountPath,
@@ -133,6 +124,17 @@ var (
 		},
 	}
 )
+
+func certVolume(secret string) corev1.Volume {
+	return corev1.Volume{
+		Name: certVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secret,
+			},
+		},
+	}
+}
 
 func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	if p == nil {
@@ -162,12 +164,12 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 
 	var extraVolumes []corev1.Volume
 
-	podInfoFeature, podInfoExists := rev.Annotations[PodInfoFeatureKey]
+	podInfoFeature, podInfoExists := rev.Annotations[apiconfig.PodInfoFeatureKey]
 
-	if cfg.Features.PodSpecPodInfo == apiconfig.Enabled ||
-		(cfg.Features.PodSpecPodInfo == apiconfig.Allowed &&
+	if cfg.Features.MountPodInfo == apiconfig.Enabled ||
+		(cfg.Features.MountPodInfo == apiconfig.Allowed &&
 			podInfoExists &&
-			podInfoFeature == PodInfoFeatureEnabled) {
+			strings.EqualFold(podInfoFeature, string(apiconfig.Enabled))) {
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varPodInfoVolumeMount)
 		extraVolumes = append(extraVolumes, varPodInfoVolume)
 	}
@@ -179,10 +181,8 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	}
 
 	if cfg.Network.InternalEncryption {
-		varCertVolume.VolumeSource.Secret.SecretName = rev.Namespace + "-" + networking.ServingCertName
-
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varCertVolumeMount)
-		extraVolumes = append(extraVolumes, varCertVolume)
+		extraVolumes = append(extraVolumes, certVolume(rev.Namespace+"-"+networking.ServingCertName))
 	}
 
 	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)

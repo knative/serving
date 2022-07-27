@@ -692,7 +692,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "podInfoFeature Enabled",
 		fc: apicfg.Features{
-			PodSpecPodInfo: apicfg.Enabled,
+			MountPodInfo: apicfg.Enabled,
 		},
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -716,9 +716,9 @@ func TestMakePodSpec(t *testing.T) {
 			withAppendedVolumes(varPodInfoVolume),
 		),
 	}, {
-		name: "podInfoFeature Disabled with annotation features.knative.dev/podspec-podinfo=enabled",
+		name: "podInfoFeature Disabled with annotation features.knative.dev/mount-podinfo=enabled",
 		fc: apicfg.Features{
-			PodSpecPodInfo: apicfg.Disabled,
+			MountPodInfo: apicfg.Disabled,
 		},
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -729,7 +729,7 @@ func TestMakePodSpec(t *testing.T) {
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			WithRevisionAnnotations(map[string]string{"features.knative.dev/podspec-podinfo": "enabled"}),
+			WithRevisionAnnotations(map[string]string{"features.knative.dev/mount-podinfo": "enabled"}),
 		),
 		want: podSpec(
 			[]corev1.Container{
@@ -740,9 +740,9 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 	}, {
-		name: "podInfoFeature Allowed with annotation features.knative.dev/podspec-podinfo=enabled",
+		name: "podInfoFeature Allowed with annotation features.knative.dev/mount-podinfo=enabled",
 		fc: apicfg.Features{
-			PodSpecPodInfo: apicfg.Allowed,
+			MountPodInfo: apicfg.Allowed,
 		},
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -753,7 +753,7 @@ func TestMakePodSpec(t *testing.T) {
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			WithRevisionAnnotations(map[string]string{"features.knative.dev/podspec-podinfo": "enabled"}),
+			WithRevisionAnnotations(map[string]string{"features.knative.dev/mount-podinfo": "enabled"}),
 		),
 		want: podSpec(
 			[]corev1.Container{
@@ -767,9 +767,9 @@ func TestMakePodSpec(t *testing.T) {
 			withAppendedVolumes(varPodInfoVolume),
 		),
 	}, {
-		name: "podInfoFeature Allowed with annotation features.knative.dev/podspec-podinfo=disabled",
+		name: "podInfoFeature Allowed with annotation features.knative.dev/mount-podinfo=disabled",
 		fc: apicfg.Features{
-			PodSpecPodInfo: apicfg.Allowed,
+			MountPodInfo: apicfg.Allowed,
 		},
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -780,7 +780,7 @@ func TestMakePodSpec(t *testing.T) {
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			WithRevisionAnnotations(map[string]string{"features.knative.dev/podspec-podinfo": "disabled"}),
+			WithRevisionAnnotations(map[string]string{"features.knative.dev/mount-podinfo": "disabled"}),
 		),
 		want: podSpec(
 			[]corev1.Container{
@@ -793,7 +793,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "podInfoFeature Allowed no annotation",
 		fc: apicfg.Features{
-			PodSpecPodInfo: apicfg.Allowed,
+			MountPodInfo: apicfg.Allowed,
 		},
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -1284,8 +1284,7 @@ func TestMakePodSpec(t *testing.T) {
 				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
 					c.Image = "ubuntu@sha256:deadbeef"
 				}),
-				queueContainer(func(container *corev1.Container) {
-				},
+				queueContainer(
 					withEnvVar("CONCURRENCY_STATE_ENDPOINT", `freeze-proxy`),
 					withEnvVar("CONCURRENCY_STATE_TOKEN_PATH", `/var/run/secrets/tokens/state-token`),
 					withAppendedVolumeMounts(corev1.VolumeMount{
