@@ -89,7 +89,6 @@ var (
 			PeriodSeconds: 0,
 		},
 		SecurityContext: queueSecurityContext,
-		VolumeMounts:    []corev1.VolumeMount{varAnnotationVolumeMount},
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: "foo", // matches namespace
@@ -191,7 +190,6 @@ var (
 	defaultPodSpec = &corev1.PodSpec{
 		TerminationGracePeriodSeconds: refInt64(45),
 		EnableServiceLinks:            ptr.Bool(false),
-		Volumes:                       []corev1.Volume{varAnnotationVolume},
 	}
 
 	maxUnavailable    = intstr.FromInt(0)
@@ -316,6 +314,12 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
+func withPodInfoVolumeMount() containerOption {
+	return func(container *corev1.Container) {
+		container.VolumeMounts = append(container.VolumeMounts, varPodInfoVolumeMount)
+	}
+}
+
 func withTCPReadinessProbe(port int) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
@@ -402,6 +406,12 @@ func revision(name, ns string, opts ...RevisionOption) *v1.Revision {
 	return revision
 }
 
+// WithServiceAnnotations adds the supplied annotations to the Service
+func WithRevisionAnnotations(annotations map[string]string) RevisionOption {
+	return func(revision *v1.Revision) {
+		revision.Annotations = kmeta.UnionMaps(revision.Annotations, annotations)
+	}
+}
 func withContainerConcurrency(cc int64) RevisionOption {
 	return func(revision *v1.Revision) {
 		revision.Spec.ContainerConcurrency = &cc
@@ -493,6 +503,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc       metrics.ObservabilityConfig
 		defaults *apicfg.Defaults
 		dc       deployment.Config
+		fc       apicfg.Features
 		want     *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -678,6 +689,130 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("SERVING_REQUEST_METRICS_BACKEND", "opencensus"),
 				),
 			}),
+	}, {
+		name: "podInfoFeature Enabled",
+		fc: apicfg.Features{
+			PodSpecPodInfo: apicfg.Enabled,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(
+					withPodInfoVolumeMount(),
+				),
+			},
+			withAppendedVolumes(varPodInfoVolume),
+		),
+	}, {
+		name: "podInfoFeature Disabled with annotation features.knative.dev/podspec-podinfo=enabled",
+		fc: apicfg.Features{
+			PodSpecPodInfo: apicfg.Disabled,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+			WithRevisionAnnotations(map[string]string{"features.knative.dev/podspec-podinfo": "enabled"}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			},
+		),
+	}, {
+		name: "podInfoFeature Allowed with annotation features.knative.dev/podspec-podinfo=enabled",
+		fc: apicfg.Features{
+			PodSpecPodInfo: apicfg.Allowed,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+			WithRevisionAnnotations(map[string]string{"features.knative.dev/podspec-podinfo": "enabled"}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(
+					withPodInfoVolumeMount(),
+				),
+			},
+			withAppendedVolumes(varPodInfoVolume),
+		),
+	}, {
+		name: "podInfoFeature Allowed with annotation features.knative.dev/podspec-podinfo=disabled",
+		fc: apicfg.Features{
+			PodSpecPodInfo: apicfg.Allowed,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+			WithRevisionAnnotations(map[string]string{"features.knative.dev/podspec-podinfo": "disabled"}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			},
+		),
+	}, {
+		name: "podInfoFeature Allowed no annotation",
+		fc: apicfg.Features{
+			PodSpecPodInfo: apicfg.Allowed,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			},
+		),
 	}, {
 		name: "concurrency=121 no owner digest resolved",
 		rev: revision("bar", "foo",
@@ -1168,6 +1303,7 @@ func TestMakePodSpec(t *testing.T) {
 			cfg := revConfig()
 			cfg.Observability = &test.oc
 			cfg.Deployment = &test.dc
+			cfg.Features = &test.fc
 			if test.defaults != nil {
 				cfg.Defaults = test.defaults
 			}

@@ -405,7 +405,6 @@ func TestMakeQueueContainer(t *testing.T) {
 
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
-			test.want.VolumeMounts = nil
 			if got, want := *got, test.want; !cmp.Equal(got, want, quantityComparer) {
 				t.Errorf("makeQueueContainer (-want, +got) =\n%s", cmp.Diff(want, got, quantityComparer))
 			}
@@ -539,7 +538,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			})
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
-			test.want.VolumeMounts = nil
 			if got, want := *got, test.want; !cmp.Equal(got, want, quantityComparer) {
 				t.Errorf("makeQueueContainer (-want, +got) =\n%s", cmp.Diff(want, got, quantityComparer))
 			}
@@ -610,7 +608,6 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		t.Fatal("makeQueueContainer returned error")
 	}
 	sortEnv(got.Env)
-	want.VolumeMounts = nil
 	if got, want := *got, want; !cmp.Equal(got, want, quantityComparer) {
 		t.Errorf("makeQueueContainer(-want, +got) =\n%s", cmp.Diff(want, got, quantityComparer))
 	}
@@ -687,7 +684,6 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		t.Fatal("makeQueueContainer returned error")
 	}
 	sortEnv(got.Env)
-	want.VolumeMounts = nil
 	if got, want := *got, want; !cmp.Equal(got, want, quantityComparer) {
 		t.Errorf("makeQueueContainer(-want, +got) =\n%s", cmp.Diff(want, got, quantityComparer))
 	}
@@ -874,7 +870,6 @@ func TestTCPProbeGeneration(t *testing.T) {
 			}
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
-			test.want.VolumeMounts = nil
 			if got, want := *got, test.want; !cmp.Equal(want, got, quantityComparer) {
 				t.Errorf("makeQueueContainer (-want, +got) =\n%s", cmp.Diff(want, got, quantityComparer))
 			}
