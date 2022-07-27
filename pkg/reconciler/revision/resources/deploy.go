@@ -163,10 +163,6 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	var extraVolumes []corev1.Volume
 
 	podInfoFeature, podInfoExists := rev.Annotations[PodInfoFeatureKey]
-	fmt.Printf("cfg.Features.PodSpecPodInfo %v\n", cfg.Features.PodSpecPodInfo)
-	fmt.Printf("rev.Annotations %v\n", rev.Annotations)
-	fmt.Printf("podInfoExists %v\n", podInfoExists)
-	fmt.Printf("podInfoFeature %v\n", podInfoFeature)
 
 	if cfg.Features.PodSpecPodInfo == apiconfig.Enabled ||
 		(cfg.Features.PodSpecPodInfo == apiconfig.Allowed &&
