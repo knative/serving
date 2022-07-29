@@ -21,18 +21,15 @@ package domainmapping
 
 import (
 	"context"
-	"net/url"
 	"strings"
 	"testing"
-
-	"knative.dev/pkg/test/spoof"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
+	e2e "knative.dev/serving/test/e2e"
 
 	v1test "knative.dev/serving/test/v1"
 )
@@ -67,11 +64,8 @@ func TestDomainMappingWebsocket(t *testing.T) {
 	}
 
 	host := ksvc.Service.Name + ".example.org"
-	resolvableCustomDomain := false
-
 	if test.ServingFlags.CustomDomain != "" {
 		host = ksvc.Service.Name + "." + test.ServingFlags.CustomDomain
-		resolvableCustomDomain = true
 	}
 
 	dm := v1alpha1.DomainMapping{
@@ -112,16 +106,9 @@ func TestDomainMappingWebsocket(t *testing.T) {
 	if waitErr != nil {
 		t.Fatalf("The DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
 	}
+	//e2e.Connect()
 
-	_, err = pkgTest.CheckEndpointState(ctx,
-		clients.KubeClient,
-		t.Logf,
-		&url.URL{Scheme: "ws", Host: host},
-		spoof.MatchesBody(wsServerTestImageName),
-		"DomainMappingWithWebsocket",
-		resolvableCustomDomain,
-	)
-	if err != nil {
-		t.Fatalf("Service response unavailable: %v", err)
+	if err := e2e.ValidateWebSocketConnection(t, clients, names); err != nil {
+		t.Error(err)
 	}
 }
