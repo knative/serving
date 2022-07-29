@@ -198,6 +198,16 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
 	desiredPanicPodCount := int32(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
 
+	//	If ActivationScale > 1, then adjust the desired pod counts
+	if a.deciderSpec.ActivationScale > 1 {
+		if dspc > 0 && a.deciderSpec.ActivationScale > desiredStablePodCount {
+			desiredStablePodCount = a.deciderSpec.ActivationScale
+		}
+		if dppc > 0 && a.deciderSpec.ActivationScale > desiredPanicPodCount {
+			desiredPanicPodCount = a.deciderSpec.ActivationScale
+		}
+	}
+
 	isOverPanicThreshold := dppc/readyPodsCount >= spec.PanicThreshold
 
 	if a.panicTime.IsZero() && isOverPanicThreshold {

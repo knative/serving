@@ -130,6 +130,17 @@ func TestValidateAnnotations(t *testing.T) {
 		},
 		annotations: map[string]string{MaxScaleAnnotationKey: "9"},
 	}, {
+		name:        "min-scale, activation-scale, max-scale all set appropriately",
+		annotations: map[string]string{MinScaleAnnotationKey: "1", ActivationScaleKey: "2", MaxScaleAnnotationKey: "3"},
+	}, {
+		name:        "min-scale is greater than activation-scale",
+		annotations: map[string]string{MinScaleAnnotationKey: "3", ActivationScaleKey: "2"},
+		expectErr:   "min-scale=3 is greater than activation-scale=2: " + ActivationScaleKey,
+	}, {
+		name:        "max-scale is less than activation-scale",
+		annotations: map[string]string{MaxScaleAnnotationKey: "1", ActivationScaleKey: "2"},
+		expectErr:   "max-scale=1 is less than activation-scale=2: " + ActivationScaleKey,
+	}, {
 		name: "valid algorithm on KPA",
 		annotations: map[string]string{
 			MetricAggregationAlgorithmKey: MetricAggregationAlgorithmLinear,

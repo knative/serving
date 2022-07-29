@@ -65,6 +65,7 @@ aliases:
   - knative-prow-robot
   - knative-prow-updater-robot
   - knative-test-reporter-robot
+  - kvmware
   - lance
   - n3wscott
   - pmorie
@@ -72,6 +73,7 @@ aliases:
   - smoser-ibm
   - spencerdillard
   - thisisnotapril
+  - upodroid
   - vaikas
   - zroubalik
   knative-release-leads:
@@ -137,6 +139,9 @@ aliases:
   - mattmoor
   - tcnghia
   - vagababov
+  productivity-leads:
+  - kvmware
+  - upodroid
   productivity-reviewers:
   - albertomilan
   - evankanderson
