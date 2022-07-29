@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/test"
 	e2e "knative.dev/serving/test/e2e"
 
@@ -68,14 +68,14 @@ func TestDomainMappingWebsocket(t *testing.T) {
 		host = ksvc.Service.Name + "." + test.ServingFlags.CustomDomain
 	}
 
-	dm := v1alpha1.DomainMapping{
+	dm := v1beta1.DomainMapping{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        host,
 			Namespace:   ksvc.Service.Namespace,
 			Annotations: map[string]string{"kourier.knative.dev/disable-http2": "true"},
 		},
-		Spec: v1alpha1.DomainMappingSpec{
+		Spec: v1beta1.DomainMappingSpec{
 			Ref: duckv1.KReference{
 				APIVersion: "serving.knative.dev/v1",
 				Name:       ksvc.Service.Name,
@@ -83,20 +83,20 @@ func TestDomainMappingWebsocket(t *testing.T) {
 				Kind:       "Service",
 			},
 		},
-		Status: v1alpha1.DomainMappingStatus{},
+		Status: v1beta1.DomainMappingStatus{},
 	}
 
-	_, err = clients.ServingAlphaClient.DomainMappings.Create(ctx, &dm, metav1.CreateOptions{})
+	_, err = clients.ServingBetaClient.DomainMappings.Create(ctx, &dm, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Problem creating DomainMapping %q: %v", host, err)
 	}
 	t.Cleanup(func() {
-		clients.ServingAlphaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{})
+		clients.ServingBetaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{})
 	})
 
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
-		dm, err := clients.ServingAlphaClient.DomainMappings.Get(ctx, dm.Name, metav1.GetOptions{})
+		dm, err := clients.ServingBetaClient.DomainMappings.Get(ctx, dm.Name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
