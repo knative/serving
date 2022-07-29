@@ -188,7 +188,7 @@ func validateMinMaxScale(config *autoscalerconfig.Config, m map[string]string) *
 	}
 
 	if k, _, ok := ScaleMaxAnnotation.Get(m); ok {
-		errs = errs.Also(validateMaxScaleWithinLimit(k, max, config.MaxScaleLimit))
+		errs = errs.Also(validateMaxScaleWithinLimit(k, max, config.ScaleMaxLimit))
 	}
 
 	// if ActivationScale is also set, validate that min <= nz min <= max

@@ -97,14 +97,14 @@ func TestValidateAnnotations(t *testing.T) {
 	}, {
 		name: "maxScale is greater than MaxScaleLimit when in create",
 		configMutator: func(config *autoscalerconfig.Config) {
-			config.MaxScaleLimit = 10
+			config.ScaleMaxLimit = 10
 		},
 		annotations: map[string]string{ScaleMaxAnnotationKey: "11"},
 		expectErr:   "expected 1 <= 11 <= 10: " + ScaleMaxAnnotationKey,
 	}, {
 		name: "maxScale is greater than MaxScaleLimit when in create and default MaxScale is set",
 		configMutator: func(config *autoscalerconfig.Config) {
-			config.MaxScaleLimit = 10
+			config.ScaleMaxLimit = 10
 			config.ScaleMax = 11
 		},
 		annotations: map[string]string{ScaleMaxAnnotationKey: "20"},
@@ -112,7 +112,7 @@ func TestValidateAnnotations(t *testing.T) {
 	}, {
 		name: "maxScale is explicitly set to 0 when MaxScaleLimit and default MaxScale are set",
 		configMutator: func(config *autoscalerconfig.Config) {
-			config.MaxScaleLimit = 10
+			config.ScaleMaxLimit = 10
 			config.ScaleMax = 1
 		},
 		annotations: map[string]string{ScaleMaxAnnotationKey: "0"},
@@ -120,25 +120,25 @@ func TestValidateAnnotations(t *testing.T) {
 	}, {
 		name: "maxScale is not set when both MaxScaleLimit and default MaxScale are set",
 		configMutator: func(config *autoscalerconfig.Config) {
-			config.MaxScaleLimit = 10
+			config.ScaleMaxLimit = 10
 			config.ScaleMax = 11
 		},
 	}, {
 		name: "maxScale is less than MaxScaleLimit",
 		configMutator: func(config *autoscalerconfig.Config) {
-			config.MaxScaleLimit = 10
+			config.ScaleMaxLimit = 10
 		},
 		annotations: map[string]string{ScaleMaxAnnotationKey: "9"},
 	}, {
 		name:        "min-scale, activation-scale, max-scale all set appropriately",
-		annotations: map[string]string{MinScaleAnnotationKey: "1", ActivationScaleKey: "2", MaxScaleAnnotationKey: "3"},
+		annotations: map[string]string{ScaleMinAnnotationKey: "1", ActivationScaleKey: "2", ScaleMaxAnnotationKey: "3"},
 	}, {
 		name:        "min-scale is greater than activation-scale",
-		annotations: map[string]string{MinScaleAnnotationKey: "3", ActivationScaleKey: "2"},
+		annotations: map[string]string{ScaleMinAnnotationKey: "3", ActivationScaleKey: "2"},
 		expectErr:   "min-scale=3 is greater than activation-scale=2: " + ActivationScaleKey,
 	}, {
 		name:        "max-scale is less than activation-scale",
-		annotations: map[string]string{MaxScaleAnnotationKey: "1", ActivationScaleKey: "2"},
+		annotations: map[string]string{ScaleMaxAnnotationKey: "1", ActivationScaleKey: "2"},
 		expectErr:   "max-scale=1 is less than activation-scale=2: " + ActivationScaleKey,
 	}, {
 		name: "valid algorithm on KPA",
@@ -385,6 +385,6 @@ func TestValidateAnnotations(t *testing.T) {
 func defaultConfig() *autoscalerconfig.Config {
 	return &autoscalerconfig.Config{
 		AllowZeroInitialScale: false,
-		MaxScaleLimit:         0,
+		ScaleMaxLimit:         0,
 	}
 }

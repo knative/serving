@@ -384,7 +384,7 @@ func TestNewConfig(t *testing.T) {
 		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
 			c.ScaleMax = 10
-			c.MaxScaleLimit = 11
+			c.ScaleMaxLimit = 11
 			return c
 		}(),
 	}}

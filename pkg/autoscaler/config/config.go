@@ -63,7 +63,7 @@ func defaultConfig() *autoscalerconfig.Config {
 		InitialScale:                  1,
 		ScaleMin:                      0,
 		ScaleMax:                      0,
-		MaxScaleLimit:                 0,
+		ScaleMaxLimit:                 0,
 	}
 }
 
@@ -94,7 +94,8 @@ func NewConfigFromMap(data map[string]string) (*autoscalerconfig.Config, error) 
 		// Deprecated 'max-scale' in favor of 'scale-max'
 		cm.AsInt32("max-scale", &lc.ScaleMax),
 		cm.AsInt32("scale-max", &lc.ScaleMax),
-		cm.AsInt32("scale-max-limit", &lc.MaxScaleLimit),
+		cm.AsInt32("max-scale-limit", &lc.ScaleMaxLimit),
+		cm.AsInt32("scale-max-limit", &lc.ScaleMaxLimit),
 
 		cm.AsDuration("stable-window", &lc.StableWindow),
 		cm.AsDuration("scale-down-delay", &lc.ScaleDownDelay),
@@ -188,18 +189,18 @@ func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 	}
 
 	var minScaleMax int32
-	if lc.MaxScaleLimit > 0 {
-		// Default ScaleMax must be set if MaxScaleLimit is set.
+	if lc.ScaleMaxLimit > 0 {
+		// Default ScaleMax must be set if ScaleMaxLimit is set.
 		minScaleMax = 1
 	}
 
-	if lc.ScaleMax < minScaleMax || (lc.MaxScaleLimit > 0 && lc.ScaleMax > lc.MaxScaleLimit) {
+	if lc.ScaleMax < minScaleMax || (lc.ScaleMaxLimit > 0 && lc.ScaleMax > lc.ScaleMaxLimit) {
 		return nil, fmt.Errorf("max-scale = %d, must be in [%d, max-scale-limit(%d)] range",
-			lc.ScaleMax, minScaleMax, lc.MaxScaleLimit)
+			lc.ScaleMax, minScaleMax, lc.ScaleMaxLimit)
 	}
 
-	if lc.MaxScaleLimit < 0 {
-		return nil, fmt.Errorf("max-scale-limit = %v, must be at least 0", lc.MaxScaleLimit)
+	if lc.ScaleMaxLimit < 0 {
+		return nil, fmt.Errorf("max-scale-limit = %v, must be at least 0", lc.ScaleMaxLimit)
 	}
 
 	if lc.ScaleMin > lc.ScaleMax && lc.ScaleMax > 0 {
