@@ -182,7 +182,7 @@ func validateMinMaxScale(config *autoscalerconfig.Config, m map[string]string) *
 
 	if max != 0 && max < min {
 		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprintf("max-scale=%d is less than min-scale=%d", max, min),
+			Message: fmt.Sprintf("scale-max=%d is less than scale-min=%d", max, min),
 			Paths:   []string{ScaleMaxAnnotationKey, ScaleMinAnnotationKey},
 		})
 	}
@@ -197,12 +197,12 @@ func validateMinMaxScale(config *autoscalerconfig.Config, m map[string]string) *
 			errs = errs.Also(apis.ErrInvalidValue(v, k))
 		} else if min > int32(nzMin) {
 			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("min-scale=%d is greater than activation-scale=%d", min, nzMin),
+				Message: fmt.Sprintf("scale-min=%d is greater than activation-scale=%d", min, nzMin),
 				Paths:   []string{k},
 			})
 		} else if max < int32(nzMin) && max != 0 {
 			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("max-scale=%d is less than activation-scale=%d", max, nzMin),
+				Message: fmt.Sprintf("scale-max=%d is less than activation-scale=%d", max, nzMin),
 				Paths:   []string{k},
 			})
 		} else if nzMin < 2 {
@@ -226,7 +226,7 @@ func validateMaxScaleWithinLimit(key string, maxScale, maxScaleLimit int32) (err
 
 	if maxScale == 0 {
 		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprint("max-scale=0 (unlimited), must be less than ", maxScaleLimit),
+			Message: fmt.Sprint("scale-max=0 (unlimited), must be less than ", maxScaleLimit),
 			Paths:   []string{key},
 		})
 	}

@@ -87,7 +87,7 @@ func TestValidateAnnotations(t *testing.T) {
 	}, {
 		name:        "minScale is 5, maxScale is 2",
 		annotations: map[string]string{ScaleMinAnnotationKey: "5", ScaleMaxAnnotationKey: "2"},
-		expectErr:   "max-scale=2 is less than min-scale=5: " + ScaleMaxAnnotationKey + ", " + ScaleMinAnnotationKey,
+		expectErr:   "scale-max=2 is less than scale-min=5: " + ScaleMaxAnnotationKey + ", " + ScaleMinAnnotationKey,
 	}, {
 		name: "minScale is 0, maxScale is 0",
 		annotations: map[string]string{
@@ -116,7 +116,7 @@ func TestValidateAnnotations(t *testing.T) {
 			config.ScaleMax = 1
 		},
 		annotations: map[string]string{ScaleMaxAnnotationKey: "0"},
-		expectErr:   "max-scale=0 (unlimited), must be less than 10: " + ScaleMaxAnnotationKey,
+		expectErr:   "scale-max=0 (unlimited), must be less than 10: " + ScaleMaxAnnotationKey,
 	}, {
 		name: "maxScale is not set when both MaxScaleLimit and default MaxScale are set",
 		configMutator: func(config *autoscalerconfig.Config) {
@@ -130,16 +130,16 @@ func TestValidateAnnotations(t *testing.T) {
 		},
 		annotations: map[string]string{ScaleMaxAnnotationKey: "9"},
 	}, {
-		name:        "min-scale, activation-scale, max-scale all set appropriately",
+		name:        "scale-min, activation-scale, scale-max all set appropriately",
 		annotations: map[string]string{ScaleMinAnnotationKey: "1", ActivationScaleKey: "2", ScaleMaxAnnotationKey: "3"},
 	}, {
-		name:        "min-scale is greater than activation-scale",
+		name:        "scale-min is greater than activation-scale",
 		annotations: map[string]string{ScaleMinAnnotationKey: "3", ActivationScaleKey: "2"},
-		expectErr:   "min-scale=3 is greater than activation-scale=2: " + ActivationScaleKey,
+		expectErr:   "scale-min=3 is greater than activation-scale=2: " + ActivationScaleKey,
 	}, {
-		name:        "max-scale is less than activation-scale",
+		name:        "scale-max is less than activation-scale",
 		annotations: map[string]string{ScaleMaxAnnotationKey: "1", ActivationScaleKey: "2"},
-		expectErr:   "max-scale=1 is less than activation-scale=2: " + ActivationScaleKey,
+		expectErr:   "scale-max=1 is less than activation-scale=2: " + ActivationScaleKey,
 	}, {
 		name: "valid algorithm on KPA",
 		annotations: map[string]string{
