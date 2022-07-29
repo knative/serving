@@ -989,7 +989,7 @@ func TestPanicThresholdPercentage(t *testing.T) {
 	}
 }
 
-func TestMinNonZeroReplicasAnnotation(t *testing.T) {
+func TestActivationScaleAnnotation(t *testing.T) {
 	cases := []struct {
 		name        string
 		annotations map[string]string
@@ -1002,12 +1002,12 @@ func TestMinNonZeroReplicasAnnotation(t *testing.T) {
 		wantOK:      false,
 	}, {
 		name:        "present",
-		annotations: map[string]string{autoscaling.ActiveMinScaleKey: "5"},
+		annotations: map[string]string{autoscaling.ActivationScaleKey: "5"},
 		wantValue:   5,
 		wantOK:      true,
 	}, {
 		name:        "invalid",
-		annotations: map[string]string{autoscaling.ActiveMinScaleKey: "5s"},
+		annotations: map[string]string{autoscaling.ActivationScaleKey: "5s"},
 		wantValue:   0,
 		wantOK:      false,
 	}}
@@ -1015,7 +1015,7 @@ func TestMinNonZeroReplicasAnnotation(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			autoscaler := pa(tc.annotations)
-			gotValue, gotOK := autoscaler.ActiveMinScale()
+			gotValue, gotOK := autoscaler.ActivationScale()
 			if gotValue != tc.wantValue {
 				t.Errorf("got = %v, want: %v", gotValue, tc.wantValue)
 			}
