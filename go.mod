@@ -14,8 +14,6 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/prometheus/client_golang v1.11.1
-	github.com/prometheus/client_model v0.2.0
 	github.com/tsenart/vegeta/v12 v12.8.4
 	go.opencensus.io v0.23.0
 	go.uber.org/atomic v1.9.0
@@ -23,20 +21,21 @@ require (
 	go.uber.org/zap v1.19.1
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
 	google.golang.org/api v0.70.0
 	google.golang.org/grpc v1.44.0
-	k8s.io/api v0.23.5
-	k8s.io/apiextensions-apiserver v0.23.4
-	k8s.io/apimachinery v0.23.5
-	k8s.io/client-go v0.23.5
-	k8s.io/code-generator v0.23.5
+	k8s.io/api v0.23.8
+	k8s.io/apiextensions-apiserver v0.23.8
+	k8s.io/apimachinery v0.23.8
+	k8s.io/client-go v0.23.8
+	k8s.io/code-generator v0.23.8
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf
-	knative.dev/caching v0.0.0-20220518013728-03ca91f08490
-	knative.dev/hack v0.0.0-20220518013938-b4d4d73a2995
-	knative.dev/networking v0.0.0-20220518142657-773e2bf8a922
-	knative.dev/pkg v0.0.0-20220518013728-f907b31046d3
+	knative.dev/caching v0.0.0-20220725105524-783e3361b29b
+	knative.dev/control-protocol v0.0.0-20220711013913-b5a214695a24
+	knative.dev/hack v0.0.0-20220725145124-782bbaabb8a1
+	knative.dev/networking v0.0.0-20220723000421-cddb0ff95789
+	knative.dev/pkg v0.0.0-20220722175921-6c9c1c6098d5
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -120,6 +119,8 @@ require (
 	github.com/opencontainers/image-spec v1.0.3-0.20220114050600-8b9d41f48198 // indirect
 	github.com/openzipkin/zipkin-go v0.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/prometheus/client_golang v1.11.1 // indirect
+	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/prometheus/statsd_exporter v0.21.0 // indirect
@@ -143,7 +144,7 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/gengo v0.0.0-20220307231824-4627b89bbf1b // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.60.1-0.20220317184644-43cc75f9ae89 // indirect

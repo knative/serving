@@ -61,8 +61,8 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
-	netpkg "knative.dev/networking/pkg"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -126,10 +126,9 @@ func initialScaleZeroASConfig() *autoscalerconfig.Config {
 	return ac
 }
 
-func activatorCertsNetConfig() *netpkg.Config {
-	nc, _ := netpkg.NewConfigFromMap(map[string]string{
-		netpkg.ActivatorCAKey:  "knative-ca",
-		netpkg.ActivatorSANKey: "knative-san",
+func activatorCertsNetConfig() *netcfg.Config {
+	nc, _ := netcfg.NewConfigFromMap(map[string]string{
+		netcfg.InternalEncryptionKey: "true",
 	})
 	return nc
 }
@@ -140,9 +139,8 @@ func defaultConfig() *config.Config {
 		deployment.QueueSidecarImageKey: "bob",
 		deployment.ProgressDeadlineKey:  progressDeadline.String(),
 	})
-	networkConfig, _ := netpkg.NewConfigFromMap(map[string]string{
-		netpkg.ActivatorCAKey:  "",
-		netpkg.ActivatorSANKey: "",
+	networkConfig, _ := netcfg.NewConfigFromMap(map[string]string{
+		netcfg.InternalEncryptionKey: "false",
 	})
 
 	return &config.Config{
@@ -170,7 +168,7 @@ func newConfigWatcher() configmap.Watcher {
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      netpkg.ConfigName,
+			Name:      netcfg.ConfigMapName,
 		},
 		Data: map[string]string{},
 	})
@@ -1199,7 +1197,7 @@ func TestReconcile(t *testing.T) {
 			testConfigs.Autoscaler = asConfig.(*autoscalerconfig.Config)
 		}
 		if netConfig := ctx.Value(netConfigKey{}); netConfig != nil {
-			testConfigs.Network = netConfig.(*netpkg.Config)
+			testConfigs.Network = netConfig.(*netcfg.Config)
 		}
 		psf := podscalable.Get(ctx)
 		scaler := newScaler(ctx, psf, func(interface{}, time.Duration) {})
@@ -1277,7 +1275,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	})
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      netpkg.ConfigName,
+			Name:      netcfg.ConfigMapName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},

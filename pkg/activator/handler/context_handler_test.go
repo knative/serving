@@ -72,6 +72,16 @@ func TestContextHandler(t *testing.T) {
 			t.Errorf("StatusCode = %d, want %d, body: %s", got, want, resp.Body.String())
 		}
 	})
+
+	t.Run("with host containing port", func(t *testing.T) {
+		resp := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "http://"+network.GetServiceHostname(revID.Name, revID.Namespace)+":80", bytes.NewBufferString(""))
+		handler.ServeHTTP(resp, req)
+
+		if got, want := resp.Code, http.StatusOK; got != want {
+			t.Errorf("StatusCode = %d, want %d, body: %s", got, want, resp.Body.String())
+		}
+	})
 }
 
 func TestContextHandlerError(t *testing.T) {

@@ -26,8 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	network "knative.dev/networking/pkg"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/apis"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving"
@@ -72,7 +73,7 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 	// These are the available properties they can choose from.
 	// We could add more over time - e.g. RevisionName if we thought that
 	// might be of interest to people.
-	data := network.DomainTemplateValues{
+	data := netcfg.DomainTemplateValues{
 		Name:        name,
 		Namespace:   r.Namespace,
 		Domain:      domain,
@@ -86,9 +87,9 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 	var templ *template.Template
 	// If the route is "cluster local" then don't use the user-defined
 	// domain template, use the default one
-	if rLabels[network.VisibilityLabelKey] == serving.VisibilityClusterLocal {
+	if rLabels[netapi.VisibilityLabelKey] == serving.VisibilityClusterLocal {
 		templ = template.Must(template.New("domain-template").Parse(
-			network.DefaultDomainTemplate))
+			netcfg.DefaultDomainTemplate))
 	} else {
 		templ = networkConfig.GetDomainTemplate()
 	}
@@ -114,7 +115,7 @@ func HostnameFromTemplate(ctx context.Context, name, tag string) (string, error)
 	// These are the available properties they can choose from.
 	// We could add more over time - e.g. RevisionName if we thought that
 	// might be of interest to people.
-	data := network.TagTemplateValues{
+	data := netcfg.TagTemplateValues{
 		Name: name,
 		Tag:  tag,
 	}

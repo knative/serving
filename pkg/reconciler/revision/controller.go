@@ -36,7 +36,7 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -86,7 +86,7 @@ func newControllerWithOptions(
 
 	impl := revisionreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		configsToResync := []interface{}{
-			&network.Config{},
+			&netcfg.Config{},
 			&metrics.ObservabilityConfig{},
 			&deployment.Config{},
 			&apisconfig.Defaults{},
@@ -110,12 +110,7 @@ func newControllerWithOptions(
 		transport = rt
 	}
 
-	userAgent := "knative (serving)"
-	if commitID, err := changeset.Get(); err == nil {
-		userAgent = fmt.Sprintf("knative/%s (serving)", commitID)
-	} else {
-		logger.Info("Fetch GitHub commit ID from kodata failed", zap.Error(err))
-	}
+	userAgent := fmt.Sprintf("knative/%s (serving)", changeset.Get())
 
 	digestResolveQueue := workqueue.NewNamedRateLimitingQueue(workqueue.NewMaxOfRateLimiter(
 		newItemExponentialFailureRateLimiter(1*time.Second, 1000*time.Second),

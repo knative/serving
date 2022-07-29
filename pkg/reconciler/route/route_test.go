@@ -48,9 +48,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
 
-	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -114,7 +115,7 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 		},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
+			Name:      netcfg.ConfigMapName,
 			Namespace: system.Namespace(),
 		},
 	}, {
@@ -1015,7 +1016,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
 					Headers: map[string]v1alpha1.HeaderMatch{
-						network.TagHeaderName: {
+						netheader.RouteTagKey: {
 							Exact: "bar",
 						},
 					},
@@ -1035,7 +1036,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 					},
 				}, {
 					Headers: map[string]v1alpha1.HeaderMatch{
-						network.TagHeaderName: {
+						netheader.RouteTagKey: {
 							Exact: "foo",
 						},
 					},
@@ -1055,7 +1056,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 					},
 				}, {
 					AppendHeaders: map[string]string{
-						network.DefaultRouteHeaderName: "true",
+						netheader.DefaultRouteKey: "true",
 					},
 					Splits: []v1alpha1.IngressBackendSplit{{
 						IngressBackend: v1alpha1.IngressBackend{
@@ -1088,7 +1089,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
 					Headers: map[string]v1alpha1.HeaderMatch{
-						network.TagHeaderName: {
+						netheader.RouteTagKey: {
 							Exact: "bar",
 						},
 					},
@@ -1108,7 +1109,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 					},
 				}, {
 					Headers: map[string]v1alpha1.HeaderMatch{
-						network.TagHeaderName: {
+						netheader.RouteTagKey: {
 							Exact: "foo",
 						},
 					},
@@ -1128,7 +1129,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 					},
 				}, {
 					AppendHeaders: map[string]string{
-						network.DefaultRouteHeaderName: "true",
+						netheader.DefaultRouteKey: "true",
 					},
 					Splits: []v1alpha1.IngressBackendSplit{{
 						IngressBackend: v1alpha1.IngressBackend{
@@ -1177,7 +1178,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 						},
 					}},
 					AppendHeaders: map[string]string{
-						network.TagHeaderName: "bar",
+						netheader.RouteTagKey: "bar",
 					},
 				}},
 			},
@@ -1201,7 +1202,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 						},
 					}},
 					AppendHeaders: map[string]string{
-						network.TagHeaderName: "bar",
+						netheader.RouteTagKey: "bar",
 					},
 				}},
 			},
@@ -1227,7 +1228,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 						},
 					}},
 					AppendHeaders: map[string]string{
-						network.TagHeaderName: "foo",
+						netheader.RouteTagKey: "foo",
 					},
 				}},
 			},
@@ -1249,7 +1250,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 						},
 					}},
 					AppendHeaders: map[string]string{
-						network.TagHeaderName: "foo",
+						netheader.RouteTagKey: "foo",
 					},
 				}},
 			},
@@ -1630,7 +1631,7 @@ func TestAutoTLSEnabled(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := logtesting.TestContextWithLogger(t)
 			ctx = config.ToContext(ctx, &config.Config{
-				Network: &network.Config{
+				Network: &netcfg.Config{
 					AutoTLS: test.configAutoTLSEnabled,
 				},
 			})

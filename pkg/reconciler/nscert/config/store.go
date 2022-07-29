@@ -20,6 +20,7 @@ import (
 	"context"
 
 	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 )
@@ -28,7 +29,7 @@ type cfgKey struct{}
 
 // Config of the nscert controller.
 type Config struct {
-	Network *network.Config
+	Network *netcfg.Config
 	Domain  *routecfg.Domain
 }
 
@@ -62,7 +63,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"namespace",
 			logger,
 			configmap.Constructors{
-				network.ConfigName:        network.NewConfigFromConfigMap,
+				netcfg.ConfigMapName:      network.NewConfigFromConfigMap,
 				routecfg.DomainConfigName: routecfg.NewDomainFromConfigMap,
 			},
 			onAfterStore...,
@@ -80,7 +81,7 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 // Load fetches config from Store.
 func (s *Store) Load() *Config {
 	return &Config{
-		Network: s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
+		Network: s.UntypedLoad(netcfg.ConfigMapName).(*netcfg.Config).DeepCopy(),
 		Domain:  s.UntypedLoad(routecfg.DomainConfigName).(*routecfg.Domain).DeepCopy(),
 	}
 }

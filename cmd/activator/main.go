@@ -40,7 +40,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/control-protocol/pkg/certificates"
 	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
+	netprobe "knative.dev/networking/pkg/http/probe"
 	"knative.dev/pkg/configmap"
 	configmapinformer "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
@@ -145,7 +148,7 @@ func main() {
 
 	// Fetch networking configuration to determine whether EnableMeshPodAddressability
 	// is enabled or not.
-	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, network.ConfigName, metav1.GetOptions{})
+	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, netcfg.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		logger.Fatalw("Failed to fetch network config", zap.Error(err))
 	}
@@ -154,14 +157,14 @@ func main() {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
 
-	// Enable TLS against queue-proxy when the CA and SA are specified.
-	tlsEnabled := networkConfig.QueueProxyCA != "" && networkConfig.QueueProxySAN != ""
+	// Enable TLS against queue-proxy when internal-encryption is enabled.
+	tlsEnabled := networkConfig.InternalEncryption
 
 	// Enable TLS client when queue-proxy-ca is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
-		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, networkConfig.QueueProxyCA, metav1.GetOptions{})
+		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
 		if err != nil {
 			logger.Fatalw("Failed to get secret", zap.Error(err))
 		}
@@ -171,14 +174,14 @@ func main() {
 			pool = x509.NewCertPool()
 		}
 
-		if ok := pool.AppendCertsFromPEM(caSecret.Data["ca.crt"]); !ok {
+		if ok := pool.AppendCertsFromPEM(caSecret.Data[certificates.SecretCaCertKey]); !ok {
 			logger.Fatalw("Failed to append ca cert to the RootCAs")
 		}
 
 		tlsConf := &tls.Config{
 			RootCAs:            pool,
 			InsecureSkipVerify: false,
-			ServerName:         networkConfig.QueueProxySAN,
+			ServerName:         certificates.FakeDnsName,
 			MinVersion:         tls.VersionTLS12,
 		}
 		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, tlsConf)
@@ -236,7 +239,7 @@ func main() {
 
 	// Network probe handlers.
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
-	ah = network.NewProbeHandler(ah)
+	ah = netprobe.NewHandler(ah)
 
 	// Set up our health check based on the health of stat sink and environmental factors.
 	sigCtx := signals.NewContext()
@@ -273,15 +276,15 @@ func main() {
 		}(name, server)
 	}
 
-	// Enable TLS server when activator-server-cert is specified.
+	// Enable TLS server when internal-encryption is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if networkConfig.ActivatorCertSecret != "" {
-		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, networkConfig.ActivatorCertSecret, metav1.GetOptions{})
+	if networkConfig.InternalEncryption {
+		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
 		if err != nil {
 			logger.Fatalw("failed to get secret", zap.Error(err))
 		}
-		cert, err := tls.X509KeyPair(secret.Data["tls.crt"], secret.Data["tls.key"])
+		cert, err := tls.X509KeyPair(secret.Data[certificates.SecretCertKey], secret.Data[certificates.SecretPKKey])
 		if err != nil {
 			logger.Fatalw("failed to load certs", zap.Error(err))
 		}

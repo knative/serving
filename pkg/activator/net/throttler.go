@@ -32,8 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
-	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/networking/pkg/apis/networking"
+	netcfg "knative.dev/networking/pkg/config"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
@@ -493,7 +493,7 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 }
 
 // Run starts the throttler and blocks until the context is done.
-func (t *Throttler) Run(ctx context.Context, probeTransport http.RoundTripper, usePassthroughLb bool, meshMode network.MeshCompatibilityMode) {
+func (t *Throttler) Run(ctx context.Context, probeTransport http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) {
 	rbm := newRevisionBackendsManager(ctx, probeTransport, usePassthroughLb, meshMode)
 	// Update channel is closed when ctx is done.
 	t.run(rbm.updates())

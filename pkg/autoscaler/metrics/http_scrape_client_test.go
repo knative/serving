@@ -26,7 +26,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 )
 
 const (
@@ -52,7 +52,7 @@ var (
 )
 
 func TestHTTPScrapeClientScrapeHappyCaseWithOptionals(t *testing.T) {
-	hClient := newTestHTTPClient(makeProtoResponse(http.StatusOK, stat, network.ProtoAcceptContent), nil)
+	hClient := newTestHTTPClient(makeProtoResponse(http.StatusOK, stat, netheader.ProtobufMIMEType), nil)
 	sClient := newHTTPScrapeClient(hClient)
 	req, err := http.NewRequest(http.MethodGet, testURL, nil)
 	if err != nil {

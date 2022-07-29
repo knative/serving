@@ -22,7 +22,7 @@ import (
 	"io"
 	"net/http"
 
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/serving/pkg/activator"
 )
 
@@ -34,7 +34,7 @@ type ProbeHandler struct {
 func (h *ProbeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// If this header is set the request was sent by a Knative component
 	// probing the network, respond with a 200 and our component name.
-	if val := r.Header.Get(network.ProbeHeaderName); val != "" {
+	if val := r.Header.Get(netheader.ProbeKey); val != "" {
 		if val != activator.Name {
 			http.Error(w, fmt.Sprintf("unexpected probe header value: %q", html.EscapeString(val)), http.StatusBadRequest)
 			return

@@ -30,7 +30,7 @@ import (
 	"go.opencensus.io/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	network "knative.dev/networking/pkg"
+	netstats "knative.dev/networking/pkg/http/stats"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
@@ -330,9 +330,9 @@ func TestStats(t *testing.T) {
 				time := time.Time{}.Add(time.Duration(op.time) * time.Millisecond)
 				switch op.op {
 				case requestOpStart:
-					statCache[op.id] = cr.handleRequestIn(network.ReqEvent{Key: op.key, Type: network.ReqIn, Time: time})
+					statCache[op.id] = cr.handleRequestIn(netstats.ReqEvent{Key: op.key, Type: netstats.ReqIn, Time: time})
 				case requestOpEnd:
-					cr.handleRequestOut(statCache[op.id], network.ReqEvent{Key: op.key, Type: network.ReqOut, Time: time})
+					cr.handleRequestOut(statCache[op.id], netstats.ReqEvent{Key: op.key, Type: netstats.ReqOut, Time: time})
 					delete(statCache, op.id)
 				case requestOpTick:
 					stats := cr.report(time)
@@ -390,9 +390,9 @@ func TestConcurrencyReporterRun(t *testing.T) {
 	}()
 
 	now := time.Time{}
-	cr.handleRequestIn(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
-	cr.handleRequestIn(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
-	cr.handleRequestIn(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
+	cr.handleRequestIn(netstats.ReqEvent{Key: rev1, Type: netstats.ReqIn, Time: now})
+	cr.handleRequestIn(netstats.ReqEvent{Key: rev1, Type: netstats.ReqIn, Time: now})
+	cr.handleRequestIn(netstats.ReqEvent{Key: rev1, Type: netstats.ReqIn, Time: now})
 
 	reportCh <- now.Add(1)
 
@@ -477,9 +477,9 @@ func TestConcurrencyReporterRace(t *testing.T) {
 	base := time.Now()
 
 	// 1. Request in: Creates the stat (first part of handleRequestIn)
-	eventIn := network.ReqEvent{
+	eventIn := netstats.ReqEvent{
 		Time: base,
-		Type: network.ReqIn,
+		Type: netstats.ReqIn,
 		Key:  rev1,
 	}
 	stats, _ := cr.getOrCreateStat(eventIn)
@@ -491,9 +491,9 @@ func TestConcurrencyReporterRace(t *testing.T) {
 	stats.stats.HandleEvent(eventIn)
 
 	// 4. Request out: Creates a new stat, now negative
-	cr.handleRequestOut(stats, network.ReqEvent{
+	cr.handleRequestOut(stats, netstats.ReqEvent{
 		Time: base.Add(2 * time.Second),
-		Type: network.ReqOut,
+		Type: netstats.ReqOut,
 		Key:  rev1,
 	})
 
@@ -512,14 +512,14 @@ func TestConcurrencyReporterRace(t *testing.T) {
 	}
 
 	// 6. It continues to work correctly.
-	stats = cr.handleRequestIn(network.ReqEvent{
+	stats = cr.handleRequestIn(netstats.ReqEvent{
 		Time: base.Add(2500 * time.Millisecond),
-		Type: network.ReqIn,
+		Type: netstats.ReqIn,
 		Key:  rev1,
 	})
-	cr.handleRequestOut(stats, network.ReqEvent{
+	cr.handleRequestOut(stats, netstats.ReqEvent{
 		Time: base.Add(3 * time.Second),
-		Type: network.ReqOut,
+		Type: netstats.ReqOut,
 		Key:  rev1,
 	})
 
@@ -549,10 +549,10 @@ func TestMetricsReported(t *testing.T) {
 	}()
 
 	now := time.Time{}
-	cr.handleRequestIn(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
-	cr.handleRequestIn(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
-	cr.handleRequestIn(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
-	cr.handleRequestIn(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
+	cr.handleRequestIn(netstats.ReqEvent{Key: rev1, Type: netstats.ReqIn, Time: now})
+	cr.handleRequestIn(netstats.ReqEvent{Key: rev1, Type: netstats.ReqIn, Time: now})
+	cr.handleRequestIn(netstats.ReqEvent{Key: rev1, Type: netstats.ReqIn, Time: now})
+	cr.handleRequestIn(netstats.ReqEvent{Key: rev1, Type: netstats.ReqIn, Time: now})
 
 	// Report
 	reportCh <- now.Add(1)
@@ -699,9 +699,9 @@ func BenchmarkConcurrencyReporterReport(b *testing.B) {
 				revisions.Informer().GetIndexer().Add(rev)
 
 				// Send a sample request for each revision to make sure it's reported.
-				cr.handleRequestIn(network.ReqEvent{
+				cr.handleRequestIn(netstats.ReqEvent{
 					Time: time.Now(),
-					Type: network.ReqIn,
+					Type: netstats.ReqIn,
 					Key:  key,
 				})
 			}

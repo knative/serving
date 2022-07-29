@@ -29,8 +29,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	network "knative.dev/networking/pkg"
 	net "knative.dev/networking/pkg/apis/networking"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -1694,10 +1694,10 @@ func testNetworkConfig() *config.Config {
 				},
 			},
 		},
-		Network: &network.Config{
+		Network: &netcfg.Config{
 			DefaultIngressClass:   "test-ingress-class",
-			DomainTemplate:        network.DefaultDomainTemplate,
-			TagTemplate:           network.DefaultTagTemplate,
+			DomainTemplate:        netcfg.DefaultDomainTemplate,
+			TagTemplate:           netcfg.DefaultTagTemplate,
 			DefaultExternalScheme: "http",
 		},
 	}

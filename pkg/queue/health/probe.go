@@ -25,7 +25,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 	pkgnet "knative.dev/pkg/network"
 )
 
@@ -119,7 +119,7 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 	req.Header.Add("Upgrade", "h2c")
 	req.Header.Add("HTTP2-Settings", "")
 
-	req.Header.Add(network.UserAgentKey, network.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
+	req.Header.Add(netheader.UserAgentKey, netheader.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
 
 	res, err := httpClient.Do(req)
 	if err != nil {
@@ -167,7 +167,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 		return fmt.Errorf("error constructing probe request %w", err)
 	}
 
-	req.Header.Add(network.UserAgentKey, network.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
+	req.Header.Add(netheader.UserAgentKey, netheader.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
 
 	for _, header := range config.HTTPHeaders {
 		req.Header.Add(header.Name, header.Value)

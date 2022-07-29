@@ -2,8 +2,7 @@
 
 approvers:
 - serving-observability-writers
-- api-core-wg-leads
-- autoscaling-wg-leads
+- serving-wg-leads
 - networking-wg-leads
 
 reviewers:

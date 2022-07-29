@@ -23,7 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	network "knative.dev/networking/pkg"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
@@ -485,7 +485,7 @@ func TestRouteLabelValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					network.VisibilityLabelKey: "my-visibility",
+					netapi.VisibilityLabelKey: "my-visibility",
 				},
 			},
 			Spec: validRouteSpec,

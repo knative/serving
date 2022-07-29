@@ -33,11 +33,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 
-	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
@@ -248,7 +248,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 			// When httpProtocol is enabled, downgrade http scheme.
 			// Explicitly not using the override settings here as to not to muck with
 			// AutoTLS semantics.
-			if config.FromContext(ctx).Network.HTTPProtocol == network.HTTPEnabled {
+			if config.FromContext(ctx).Network.HTTPProtocol == netcfg.HTTPEnabled {
 				if dnsNames.Has(host) {
 					r.Status.URL = &apis.URL{
 						Scheme: "http",

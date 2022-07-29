@@ -123,40 +123,6 @@ const (
 	//
 	// Deprecated: use knative.dev/networking/pkg/config.DefaultExternalSchemeKey
 	DefaultExternalSchemeKey = config.DefaultExternalSchemeKey
-
-	// ActivatorCAKey is the config for the secret name, which stores CA public certificate used
-	// to sign the activator TLS certificate.
-	//
-	// Deprecated: use knative.dev/networking/pkg/config.ActivatorCAKey
-	ActivatorCAKey = config.ActivatorCAKey
-
-	// ActivatorSANKey is the config for the SAN used to validate the activator TLS certificate.
-	//
-	// Deprecated: use knative.dev/networking/pkg/config.ActivatorSANKey
-	ActivatorSANKey = config.ActivatorSANKey
-
-	// ActivatorCertKey is the config for the secret name, which stores certificates
-	// to serve the TLS traffic from ingress to activator.
-	//
-	// Deprecated: use knative.dev/networking/pkg/config.ActivatorCertKey
-	ActivatorCertKey = config.ActivatorCertKey
-
-	// QueueProxyCAKey is the config for the secret name, which stores CA public certificate used
-	// to sign the queue-proxy TLS certificate.
-	//
-	// Deprecated: use knative.dev/networking/pkg/config.QueueProxyCAKey
-	QueueProxyCAKey = config.QueueProxyCAKey
-
-	// QueueProxySANKey is the config for the SAN used to validate the queue-proxy TLS certificate.
-	//
-	// Deprecated: use knative.dev/networking/pkg/config.QueueProxySANKey
-	QueueProxySANKey = config.QueueProxySANKey
-
-	// QueueProxyCertKey is the config for the secret name, which stores certificates
-	// to serve the TLS traffic from activator to queue-proxy.
-	//
-	// Deprecated: use knative.dev/networking/pkg/config.QueueProxyCertKey
-	QueueProxyCertKey = config.QueueProxyCertKey
 )
 
 // DomainTemplateValues are the available properties people can choose from

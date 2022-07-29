@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"knative.dev/pkg/pool"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
@@ -69,7 +69,9 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 	// Note the number of times we expect Done() to be called.
 	wg.Add(scale)
-	eg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */)
+
+	var g errgroup.Group
+	g.SetLimit(50 /* maximum in-flight creates */)
 
 	t.Cleanup(func() {
 		// Wait for the ksvcs to all become ready (or fail)
@@ -77,7 +79,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 		// Wait for all of the service creations to complete (possibly in failure),
 		// and signal the done channel.
-		if err := eg.Wait(); err != nil {
+		if err := g.Wait(); err != nil {
 			t.Error("Wait() =", err)
 		}
 
@@ -113,7 +115,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				test.TearDown(clients, &names)
 			})
 
-			eg.Go(func() error {
+			g.Go(func() error {
 				ctx, cancel := context.WithTimeout(context.Background(), duration)
 
 				// This go routine runs until the ksvc is ready, at which point we should note that

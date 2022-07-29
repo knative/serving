@@ -29,7 +29,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	network "knative.dev/networking/pkg"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
@@ -184,7 +184,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	test.EnsureTearDown(t, clients, &names)
 
 	withInternalVisibility := rtesting.WithServiceLabel(
-		network.VisibilityLabelKey, serving.VisibilityClusterLocal)
+		netapi.VisibilityLabelKey, serving.VisibilityClusterLocal)
 	resources, err := v1test.CreateServiceReady(t, clients, &names, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -230,7 +230,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	}
 
 	withInternalVisibility := rtesting.WithServiceLabel(
-		network.VisibilityLabelKey, serving.VisibilityClusterLocal)
+		netapi.VisibilityLabelKey, serving.VisibilityClusterLocal)
 
 	test.EnsureTearDown(t, clients, &testNames)
 

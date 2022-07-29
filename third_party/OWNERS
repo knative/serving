@@ -1,14 +1,11 @@
 # The OWNERS file is used by prow to automatically merge approved PRs.
 
 approvers:
-# Istio
 - networking-writers
-# Monitoring Configs
-- serving-observability-writers
-
 
 reviewers:
-# Istio
 - networking-reviewers
-# Monitoring Configs
-- serving-observability-writers
+
+
+labels:
+- area/networking

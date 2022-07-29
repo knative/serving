@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	logtesting "knative.dev/pkg/logging/testing"
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/gc"
@@ -35,7 +35,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	domainConfig := ConfigMapFromTestFile(t, DomainConfigName)
 	gcConfig := ConfigMapFromTestFile(t, gc.ConfigName)
-	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
+	networkConfig := ConfigMapFromTestFile(t, netcfg.ConfigMapName)
 	featureConfig := ConfigMapFromTestFile(t, cfgmap.FeaturesConfigName)
 
 	store.OnConfigChanged(domainConfig)
@@ -66,7 +66,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 func TestStoreLoadWithContextOrDefaults(t *testing.T) {
 	store := NewStore(logtesting.TestContextWithLogger(t))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, netcfg.ConfigMapName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, gc.ConfigName))
 
 	config := FromContextOrDefaults(store.ToContext(context.Background()))
@@ -82,7 +82,7 @@ func TestStoreLoadWithContextOrDefaults(t *testing.T) {
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestContextWithLogger(t))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, netcfg.ConfigMapName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, gc.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, cfgmap.FeaturesConfigName))
 

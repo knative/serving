@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"time"
 
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -117,7 +117,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 		// user agent, so we need to inject an extra header to be able to distinguish
 		// between probes and real requests.
 		p.HTTPGet.HTTPHeaders = append(p.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
-			Name:  network.KubeletProbeHeaderName,
+			Name:  netheader.KubeletProbeKey,
 			Value: queue.Name,
 		})
 	case p.TCPSocket != nil:
@@ -139,9 +139,9 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		extraVolumes = append(extraVolumes, varTokenVolume)
 	}
 
-	if cfg.Network.QueueProxyCertSecret != "" {
+	if cfg.Network.InternalEncryption {
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, certVolumeMount)
-		extraVolumes = append(extraVolumes, certVolume(cfg.Network.QueueProxyCertSecret))
+		extraVolumes = append(extraVolumes, certVolume(rev.Namespace+"-"+networking.ServingCertName))
 	}
 
 	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)

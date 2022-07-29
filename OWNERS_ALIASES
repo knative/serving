@@ -15,6 +15,7 @@ aliases:
   - maximilien
   - navidshaikh
   - rhuss
+  - vyasgun
   conformance-task-force-leads:
   - omerbensaadon
   - salaboy
@@ -27,6 +28,7 @@ aliases:
   - pmbanugo
   - snneji
   docs-wg-leads:
+  - abrennan89
   - csantanapr
   - snneji
   docs-writers:
@@ -40,7 +42,6 @@ aliases:
   - tommyreddad
   eventing-triage:
   - akashrv
-  - antoineco
   - lberk
   eventing-wg-leads:
   - lionelvillard
@@ -48,7 +49,6 @@ aliases:
   eventing-writers:
   - akashrv
   - aliok
-  - antoineco
   - lberk
   - lionelvillard
   - matzew
@@ -57,25 +57,28 @@ aliases:
   knative-admin:
   - csantanapr
   - dprotaso
+  - dsimansk
   - evankanderson
-  - gab-satchi
   - itsmurugappan
   - knative-automation
   - knative-prow-releaser-robot
   - knative-prow-robot
   - knative-prow-updater-robot
   - knative-test-reporter-robot
+  - kvmware
   - lance
   - n3wscott
   - pmorie
-  - rhuss
+  - psschwei
   - smoser-ibm
   - spencerdillard
   - thisisnotapril
+  - upodroid
   - vaikas
+  - zroubalik
   knative-release-leads:
-  - dprotaso
-  - gab-satchi
+  - evankanderson
+  - psschwei
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
@@ -94,11 +97,9 @@ aliases:
   - vagababov
   - yanweiguo
   networking-wg-leads:
-  - ZhiminXiang
   - nak3
   networking-writers:
   - JRBANCEL
-  - ZhiminXiang
   - nak3
   - vagababov
   operations-reviewers:
@@ -138,6 +139,9 @@ aliases:
   - mattmoor
   - tcnghia
   - vagababov
+  productivity-leads:
+  - kvmware
+  - upodroid
   productivity-reviewers:
   - albertomilan
   - evankanderson
@@ -145,12 +149,11 @@ aliases:
   - mgencur
   - shinigambit
   productivity-wg-leads:
-  - chizhg
   - kvmware
+  - upodroid
   productivity-writers:
   - cardil
   - chaodaiG
-  - chizhg
   - coryrc
   - kvmware
   - psschwei
@@ -191,16 +194,19 @@ aliases:
   - vaikas
   technical-oversight-committee:
   - dprotaso
+  - dsimansk
   - evankanderson
   - n3wscott
-  - rhuss
+  - zroubalik
   trademark-committee:
   - evankanderson
   - smoser-ibm
   - spencerdillard
   ux-wg-leads:
+  - abrennan89
   - csantanapr
   - snneji
   ux-writers:
+  - abrennan89
   - csantanapr
   - snneji

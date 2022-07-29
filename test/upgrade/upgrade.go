@@ -18,7 +18,6 @@ package upgrade
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"testing"
 
@@ -77,7 +76,7 @@ func assertServiceResourcesUpdated(t testing.TB, clients *test.Clients, names te
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
-		t.Fatal(fmt.Sprintf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err))
+		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err)
 	}
 }
 

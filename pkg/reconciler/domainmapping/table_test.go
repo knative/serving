@@ -28,10 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
-	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	networkingclient "knative.dev/networking/pkg/client/injection/client/fake"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
@@ -418,7 +418,7 @@ func TestReconcile(t *testing.T) {
 			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
 			domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"),
 				withAnnotations(map[string]string{
-					networking.IngressClassAnnotationKey: "overridden-ingress-class",
+					netapi.IngressClassAnnotationKey: "overridden-ingress-class",
 				}),
 			),
 		},
@@ -433,7 +433,7 @@ func TestReconcile(t *testing.T) {
 				withIngressNotConfigured,
 				withReferenceResolved,
 				withAnnotations(map[string]string{
-					networking.IngressClassAnnotationKey: "overridden-ingress-class",
+					netapi.IngressClassAnnotationKey: "overridden-ingress-class",
 				}),
 			),
 		}},
@@ -713,10 +713,10 @@ func TestReconcile(t *testing.T) {
 		}
 
 		cfg := &config.Config{
-			Network: &network.Config{
+			Network: &netcfg.Config{
 				DefaultIngressClass:           "the-ingress-class",
 				AutocreateClusterDomainClaims: true,
-				HTTPProtocol:                  network.HTTPEnabled,
+				HTTPProtocol:                  netcfg.HTTPEnabled,
 				DefaultExternalScheme:         "http",
 			},
 		}
@@ -849,10 +849,10 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
 			controller.Options{ConfigStore: &testConfigStore{
 				config: &config.Config{
-					Network: &network.Config{
+					Network: &netcfg.Config{
 						DefaultIngressClass:           "the-ingress-class",
 						AutocreateClusterDomainClaims: false,
-						HTTPProtocol:                  network.HTTPEnabled,
+						HTTPProtocol:                  netcfg.HTTPEnabled,
 						DefaultExternalScheme:         "http",
 					},
 				},
@@ -923,7 +923,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 							withURL("http", "becomes.ready.run"),
 							withAddress("http", "becomes.ready.run")))},
 					Annotations: map[string]string{
-						networking.CertificateClassAnnotationKey: "the-cert-class",
+						netapi.CertificateClassAnnotationKey: "the-cert-class",
 					},
 					Labels: map[string]string{
 						serving.DomainMappingUIDLabelKey: "becomes.ready.run",
@@ -981,7 +981,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 					Name:      "cert.not.owned.ru",
 					Namespace: "default",
 					Annotations: map[string]string{
-						networking.CertificateClassAnnotationKey: "the-cert-class",
+						netapi.CertificateClassAnnotationKey: "the-cert-class",
 					},
 				},
 			},
@@ -1069,7 +1069,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 							withAddress("http", "challenged.com"),
 						))},
 					Annotations: map[string]string{
-						networking.CertificateClassAnnotationKey: "the-cert-class",
+						netapi.CertificateClassAnnotationKey: "the-cert-class",
 					},
 					Labels: map[string]string{
 						serving.DomainMappingUIDLabelKey: "challenged.com",
@@ -1206,11 +1206,11 @@ func TestReconcileTLSEnabled(t *testing.T) {
 			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
 			controller.Options{ConfigStore: &testConfigStore{
 				config: &config.Config{
-					Network: &network.Config{
+					Network: &netcfg.Config{
 						DefaultIngressClass:     "the-ingress-class",
 						DefaultCertificateClass: "the-cert-class",
 						AutoTLS:                 true,
-						HTTPProtocol:            network.HTTPRedirected,
+						HTTPProtocol:            netcfg.HTTPRedirected,
 						DefaultExternalScheme:   "http",
 					},
 				},
@@ -1273,11 +1273,11 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
 			controller.Options{ConfigStore: &testConfigStore{
 				config: &config.Config{
-					Network: &network.Config{
+					Network: &netcfg.Config{
 						DefaultIngressClass:     "the-ingress-class",
 						DefaultCertificateClass: "the-cert-class",
 						AutoTLS:                 true,
-						HTTPProtocol:            network.HTTPEnabled,
+						HTTPProtocol:            netcfg.HTTPEnabled,
 						DefaultExternalScheme:   "http",
 					},
 				},

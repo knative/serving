@@ -20,6 +20,7 @@ import (
 	"context"
 
 	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 )
@@ -28,7 +29,7 @@ type cfgKey struct{}
 
 // Config holds the collection of configurations that we attach to contexts.
 type Config struct {
-	Network *network.Config
+	Network *netcfg.Config
 }
 
 // FromContext extracts a Config from the provided context.
@@ -55,7 +56,7 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 // Load creates a Config from the current config state of the Store.
 func (s *Store) Load() *Config {
 	return &Config{
-		Network: s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
+		Network: s.UntypedLoad(netcfg.ConfigMapName).(*netcfg.Config).DeepCopy(),
 	}
 }
 
@@ -66,7 +67,7 @@ func NewStore(ctx context.Context, onAfterStore ...func(name string, value inter
 			"domainmapping",
 			logging.FromContext(ctx),
 			configmap.Constructors{
-				network.ConfigName: network.NewConfigFromConfigMap,
+				netcfg.ConfigMapName: network.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
