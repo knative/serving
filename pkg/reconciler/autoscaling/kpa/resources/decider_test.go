@@ -161,6 +161,16 @@ func TestMakeDecider(t *testing.T) {
 				d.Spec.InitialScale = 2
 				d.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
 			}),
+	}, {
+		name: "with active-min-scale",
+		pa: pa(func(pa *autoscalingv1alpha1.PodAutoscaler) {
+			pa.Annotations[autoscaling.ActiveMinScaleKey] = "3"
+		}),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
+			func(d *scaling.Decider) {
+				d.Spec.ActiveMinScale = 3
+				d.Annotations[autoscaling.ActiveMinScaleKey] = "3"
+			}),
 	}}
 
 	for _, tc := range cases {

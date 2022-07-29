@@ -216,6 +216,12 @@ const (
 	// PanicThresholdPercentageMax is the counterpart to the PanicThresholdPercentageMin
 	// but bounding from above.
 	PanicThresholdPercentageMax = 1000.0
+
+	// ActiveMinScale is the minimum, non-zero value that a service should scale to.
+	// For example, if ActiveMinScale = 2, when a service scaled from zero it would
+	// scale up two replicas in this case. In essence, this allows one to set both a
+	// min-scale value while also preserving the ability to scale to zero.
+	ActiveMinScaleKey = GroupName + "/active-min-scale"
 )
 
 var (
@@ -236,6 +242,9 @@ var (
 	MetricAggregationAlgorithmAnnotation = kmap.KeyPriority{
 		MetricAggregationAlgorithmKey,
 		GroupName + "/metricAggregationAlgorithm",
+	}
+	ActiveMinScale = kmap.KeyPriority{
+		ActiveMinScaleKey,
 	}
 	MinScaleAnnotation = kmap.KeyPriority{
 		MinScaleAnnotationKey,
