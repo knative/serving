@@ -30,7 +30,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/test"
 	e2e "knative.dev/serving/test/e2e"
-
 	v1test "knative.dev/serving/test/v1"
 )
 
@@ -106,7 +105,6 @@ func TestDomainMappingWebsocket(t *testing.T) {
 	if waitErr != nil {
 		t.Fatalf("The DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
 	}
-	//e2e.Connect()
 
 	if err := e2e.ValidateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)

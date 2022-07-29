@@ -144,7 +144,7 @@ jobs:
           test-path: ./test/conformance/api/...
 
         - test-suite: e2e
-          test-path: ./test/e2e/...
+          test-path: ./test/e2e
 
     env:
       KIND: 1
