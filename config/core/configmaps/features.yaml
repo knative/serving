@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "1a5c970a"
+    knative.dev/example-checksum: "006efc89"
 data:
   _example: |-
     ################################
@@ -186,4 +186,4 @@ data:
     #   However, clients may enable the behavior on an individual Service by attaching
     #   the following metadata annotation: "features.knative.dev/mount-podinfo":"enabled".
     # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-podinfo
-    kubernetes.mount-podinfo: "disabled"
+    queueproxy.mount-podinfo: "disabled"
