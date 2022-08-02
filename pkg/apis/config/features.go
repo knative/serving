@@ -39,6 +39,15 @@ const (
 	Allowed Flag = "Allowed"
 )
 
+// service annotations under features.knative.dev/*
+const (
+	// QueueProxyPodInfoFeatureKey gates mouting of podinfo with the value 'enabled'
+	QueueProxyPodInfoFeatureKey = "features.knative.dev/queueproxy-podinfo"
+
+	// DryRunFeatureKey gates the podspec dryrun feature and runs with the value 'enabled'
+	DryRunFeatureKey = "features.knative.dev/podspec-dryrun"
+)
+
 func defaultFeaturesConfig() *Features {
 	return &Features{
 		MultiContainer:                   Enabled,
@@ -57,6 +66,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecVolumesEmptyDir:           Disabled,
 		PodSpecPersistentVolumeClaim:     Disabled,
 		PodSpecPersistentVolumeWrite:     Disabled,
+		QueueProxyMountPodInfo:           Disabled,
 		PodSpecInitContainers:            Disabled,
 		PodSpecDNSPolicy:                 Disabled,
 		PodSpecDNSConfig:                 Disabled,
@@ -90,6 +100,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-dnspolicy", &nc.PodSpecDNSPolicy),
 		asFlag("kubernetes.podspec-dnsconfig", &nc.PodSpecDNSConfig),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
+		asFlag("queueproxy.mount-podinfo", &nc.QueueProxyMountPodInfo),
 		asFlag("autodetect-http2", &nc.AutoDetectHTTP2)); err != nil {
 		return nil, err
 	}
@@ -120,6 +131,7 @@ type Features struct {
 	PodSpecInitContainers            Flag
 	PodSpecPersistentVolumeClaim     Flag
 	PodSpecPersistentVolumeWrite     Flag
+	QueueProxyMountPodInfo           Flag
 	PodSpecDNSPolicy                 Flag
 	PodSpecDNSConfig                 Flag
 	TagHeaderBasedRouting            Flag
