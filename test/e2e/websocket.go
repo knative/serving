@@ -18,10 +18,12 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,6 +39,8 @@ const (
 	connectRetryInterval = 1 * time.Second
 	connectTimeout       = 1 * time.Minute
 )
+
+const message = "Hello, websocket"
 
 // connect attempts to establish WebSocket connection with the Service.
 // It will retry until reaching `connectTimeout` duration.
@@ -93,4 +97,31 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 		return false, nil
 	})
 	return conn, waitErr
+}
+
+func ValidateWebSocketConnection(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
+	t.Helper()
+	// Establish the websocket connection.
+	conn, err := connect(t, clients, names.URL.Hostname())
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	// Send a message.
+	t.Logf("Sending message %q to server.", message)
+	if err = conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+		return err
+	}
+	t.Log("Message sent.")
+
+	// Read back the echoed message and compared with sent.
+	_, recv, err := conn.ReadMessage()
+	if err != nil {
+		return err
+	} else if strings.HasPrefix(string(recv), message) {
+		t.Logf("Received message %q from echo server.", recv)
+		return nil
+	}
+	return fmt.Errorf("expected to receive back the message: %q but received %q", message, string(recv))
 }
