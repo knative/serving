@@ -171,6 +171,20 @@ func TestDefaultsConfiguration(t *testing.T) {
 			"max-revision-timeout-seconds": "123",
 		},
 	}, {
+		name:    "revision request start timeout bigger than revision timeout",
+		wantErr: true,
+		data: map[string]string{
+			"revision-timeout-seconds":               "123",
+			"revision-request-start-timeout-seconds": "456",
+		},
+	}, {
+		name:    "revision idle timeout bigger than revision timeout",
+		wantErr: true,
+		data: map[string]string{
+			"revision-timeout-seconds":      "123",
+			"revision-idle-timeout-seconds": "456",
+		},
+	}, {
 		name:    "container-concurrency is bigger than default DefaultMaxRevisionContainerConcurrency",
 		wantErr: true,
 		data: map[string]string{

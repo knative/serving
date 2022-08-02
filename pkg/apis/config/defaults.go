@@ -45,7 +45,7 @@ const (
 	DefaultMaxRevisionTimeoutSeconds = 10 * 60
 
 	// DefaultRevisionRequestStartTimeoutSeconds will be set if RevisionRequestStartTimeoutSeconds is not specified.
-	DefaultRevisionRequestStartTimeoutSeconds = 1 * 60
+	DefaultRevisionRequestStartTimeoutSeconds = 60
 
 	// DefaultRevisionIdleTimeoutSeconds will be set if idleTimeoutSeconds not specified.
 	DefaultRevisionIdleTimeoutSeconds = 0
@@ -137,6 +137,12 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 
 	if nc.RevisionTimeoutSeconds > nc.MaxRevisionTimeoutSeconds {
 		return nil, fmt.Errorf("revision-timeout-seconds (%d) cannot be greater than max-revision-timeout-seconds (%d)", nc.RevisionTimeoutSeconds, nc.MaxRevisionTimeoutSeconds)
+	}
+	if nc.RevisionRequestStartTimeoutSeconds > 0 && nc.RevisionRequestStartTimeoutSeconds > nc.RevisionTimeoutSeconds {
+		return nil, fmt.Errorf("revision-request-start-timeout-seconds (%d) cannot be greater than revision-timeout-seconds (%d)", nc.RevisionRequestStartTimeoutSeconds, nc.RevisionTimeoutSeconds)
+	}
+	if nc.RevisionIdleTimeoutSeconds > 0 && nc.RevisionIdleTimeoutSeconds > nc.RevisionTimeoutSeconds {
+		return nil, fmt.Errorf("revision-idle-timeout-seconds (%d) cannot be greater than revision-timeout-seconds (%d)", nc.RevisionIdleTimeoutSeconds, nc.RevisionTimeoutSeconds)
 	}
 	if nc.ContainerConcurrencyMaxLimit < 1 {
 		return nil, apis.ErrOutOfBoundsValue(

@@ -227,8 +227,8 @@ func (tw *timeoutWriter) tryTimeoutAndWriteError(msg string) bool {
 }
 
 // tryResponseStartTimeoutAndWriteError writes an error to the responsewriter if
-// nothing has been written to the writer before. Returns whether
-// an error was written or not.
+// the response has not started responding before. Returns whether an error was
+// written or not.
 //
 // If this writes an error, all subsequent calls to Write will
 // result in http.ErrHandlerTimeout.
