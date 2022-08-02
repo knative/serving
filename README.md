@@ -8,7 +8,7 @@
 [![codecov](https://codecov.io/gh/knative/serving/branch/main/graph/badge.svg)](https://codecov.io/gh/knative/serving)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5913/badge)](https://bestpractices.coreinfrastructure.org/projects/5913)
 
-Knative Serving builds on Kubernetes to support deploying and serving of
+Knative Serving builds on Kubernetes to support deploying and serving of    
 applications and functions as serverless containers. Serving is easy to get
 started with and scales to support advanced scenarios.
 
