@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "1a5c970a"
+    knative.dev/example-checksum: "4d5feafc"
 data:
   _example: |-
     ################################
@@ -177,13 +177,19 @@ data:
     # 2. Disabled: disabling write access for persistent volumes
     kubernetes.podspec-persistent-volume-write: "disabled"
 
-    # Controls if the queue proxy podInfo is enabled or not
-    # Should be enabled when using queue proxy Options (Extensions).
+    # Controls if the queue proxy podInfo feature is enabled, allowed or disabled
     #
-    # 1. "enabled": enable podInfo volume
-    # 2. "disabled": disable podInfo volume
-    # 3. "allowed": disable podInfo volume by default.
-    #   However, clients may enable the behavior on an individual Service by attaching
-    #   the following metadata annotation: "features.knative.dev/mount-podinfo":"enabled".
-    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-podinfo
-    kubernetes.mount-podinfo: "disabled"
+    # This feature should be enabled/allowed when using queue proxy Options (Extensions)
+    # Enabling will mount a podInfo volume to the queue proxy container.
+    # The volume will contains an 'annotations' file (from the pod's annotation field).
+    # The annotations in this file include the Service annotations set by the client creating the service.
+    # If mounted, the annotations can be accessed by queue proxy extensions at /etc/podinfo/annnotations
+    #
+    # 1. "enabled": always mount a podInfo volume
+    # 2. "disabled": never mount a podInfo volume
+    # 3. "allowed": by default, do not mount a podInfo volume
+    #   However, a client may mount the podInfo volume on an individual Service by attaching
+    #   the following metadata annotation to the Service: "features.knative.dev/queueproxy-podinfo":"enabled".
+    #
+    # NOTE THAT THIS IS AN EXPERIMENTAL / ALPHA FEATURE
+    queueproxy.mount-podinfo: "disabled"

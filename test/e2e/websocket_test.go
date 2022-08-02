@@ -21,8 +21,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/gorilla/websocket"
@@ -42,35 +40,6 @@ import (
 const (
 	wsServerTestImageName = "wsserver"
 )
-
-const message = "Hello, websocket"
-
-func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
-	t.Helper()
-	// Establish the websocket connection.
-	conn, err := connect(t, clients, names.URL.Hostname())
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	// Send a message.
-	t.Logf("Sending message %q to server.", message)
-	if err = conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
-		return err
-	}
-	t.Log("Message sent.")
-
-	// Read back the echoed message and compared with sent.
-	_, recv, err := conn.ReadMessage()
-	if err != nil {
-		return err
-	} else if strings.HasPrefix(string(recv), message) {
-		t.Logf("Received message %q from echo server.", recv)
-		return nil
-	}
-	return fmt.Errorf("expected to receive back the message: %q but received %q", message, string(recv))
-}
 
 // Connects to a WebSocket target and executes `numReqs` requests.
 // Collects the answer frequences and returns them.
@@ -144,7 +113,7 @@ func TestWebSocket(t *testing.T) {
 	}
 
 	// Validate the websocket connection.
-	if err := validateWebSocketConnection(t, clients, names); err != nil {
+	if err := ValidateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)
 	}
 }
@@ -185,7 +154,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 	}); err != nil {
 		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
-	if err := validateWebSocketConnection(t, clients, names); err != nil {
+	if err := ValidateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)
 	}
 }
@@ -283,7 +252,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 
 	// But since network programming takes some time to take effect
 	// and it doesn't have a Status, we'll probe `green` until it's ready first.
-	if err := validateWebSocketConnection(t, clients, green); err != nil {
+	if err := ValidateWebSocketConnection(t, clients, green); err != nil {
 		t.Fatal("Error initializing WS connection:", err)
 	}
 

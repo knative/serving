@@ -160,10 +160,10 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 
 	var extraVolumes []corev1.Volume
 
-	podInfoFeature, podInfoExists := rev.Annotations[apiconfig.PodInfoFeatureKey]
+	podInfoFeature, podInfoExists := rev.Annotations[apiconfig.QueueProxyPodInfoFeatureKey]
 
-	if cfg.Features.MountPodInfo == apiconfig.Enabled ||
-		(cfg.Features.MountPodInfo == apiconfig.Allowed &&
+	if cfg.Features.QueueProxyMountPodInfo == apiconfig.Enabled ||
+		(cfg.Features.QueueProxyMountPodInfo == apiconfig.Allowed &&
 			podInfoExists &&
 			strings.EqualFold(podInfoFeature, string(apiconfig.Enabled))) {
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varPodInfoVolumeMount)
