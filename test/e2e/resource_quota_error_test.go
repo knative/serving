@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -75,6 +76,8 @@ func TestResourceQuotaError(t *testing.T) {
 		t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 	}
 
+	t.Log("Service created")
+
 	names.Config = serviceresourcenames.Configuration(svc)
 	var cond *apis.Condition
 	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(r *v1.Service) (bool, error) {
@@ -102,6 +105,9 @@ func TestResourceQuotaError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
 	}
+
+	// testing
+	time.Sleep(45 * time.Second)
 
 	t.Log("When the containers are not scheduled, the revision should have error status.")
 	err = v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
