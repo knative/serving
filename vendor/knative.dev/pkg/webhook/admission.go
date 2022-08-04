@@ -152,7 +152,7 @@ func admissionHandler(rootLogger *zap.SugaredLogger, stats StatsReporter, c Admi
 		logger.Debugf("AdmissionReview patch={ type: %s, body: %s }", patchType, string(reviewResponse.Patch))
 
 		defer func() {
-			logger.Debugf("admission time", time.Since(ttStart))
+			logger.Debug("admission time", zap.Duration("duration", time.Since(ttStart)))
 		}()
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
