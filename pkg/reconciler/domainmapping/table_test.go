@@ -451,6 +451,45 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "ingressclass.first-reconcile.com"),
 		},
 	}, {
+		Name: "reconcile with new label",
+		Key:  "default/ingressclass.first-reconcile.com",
+		Objects: []runtime.Object{
+			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
+			domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"),
+				withLabels(map[string]string{
+					netapi.IngressLabelKey: "new-label",
+				}),
+			),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "ingressclass.first-reconcile.com",
+				withRef("default", "target"),
+				withURL("http", "ingressclass.first-reconcile.com"),
+				withAddress("http", "ingressclass.first-reconcile.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withIngressNotConfigured,
+				withReferenceResolved,
+				withLabels(map[string]string{
+					netapi.IngressLabelKey: "new-label",
+				}),
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"))),
+			resources.MakeIngress(domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"), withLabels(map[string]string{netapi.IngressLabelKey: "new-label"})),
+				"the-target-svc", "the-target-svc.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "ingressclass.first-reconcile.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "ingressclass.first-reconcile.com"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "ingressclass.first-reconcile.com"),
+		},
+	}, {
 		Name: "reconcile changed ref",
 		Key:  "default/ingress-exists.org",
 		Objects: []runtime.Object{
@@ -1304,6 +1343,12 @@ func domainMapping(namespace, name string, opt ...domainMappingOption) *v1alpha1
 func withAnnotations(ans map[string]string) domainMappingOption {
 	return func(dm *v1alpha1.DomainMapping) {
 		dm.Annotations = ans
+	}
+}
+
+func withLabels(label map[string]string) domainMappingOption {
+	return func(dm *v1alpha1.DomainMapping) {
+		dm.Labels = label
 	}
 }
 
