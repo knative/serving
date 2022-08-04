@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -106,8 +105,11 @@ func TestResourceQuotaError(t *testing.T) {
 		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
 	}
 
-	// testing
-	time.Sleep(45 * time.Second)
+	if err := v1test.WaitForRevisionState(
+		clients.ServingClient, revisionName, v1test.IsRevisionFailed, "RevisionFailed",
+	); err != nil {
+		t.Fatalf("The Revision %q did not fail: %v", revisionName, err)
+	}
 
 	t.Log("When the containers are not scheduled, the revision should have error status.")
 	err = v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
