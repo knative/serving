@@ -151,6 +151,10 @@ func admissionHandler(rootLogger *zap.SugaredLogger, stats StatsReporter, c Admi
 		logger.Infof("remote admission controller audit annotations=%#v", reviewResponse.AuditAnnotations)
 		logger.Debugf("AdmissionReview patch={ type: %s, body: %s }", patchType, string(reviewResponse.Patch))
 
+		defer func() {
+			logger.Debugf("admission time", time.Since(ttStart))
+		}()
+
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			http.Error(w, fmt.Sprint("could not encode response:", err), http.StatusInternalServerError)
 			return
