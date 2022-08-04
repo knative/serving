@@ -80,7 +80,7 @@ func IsRevisionReady(r *v1.Revision) (bool, error) {
 }
 
 // IsRevisionFailed will check the status condition sof the revision and return true if the revision is
-// maked as failed, otherwise it will return false.
+// marked as failed, otherwise it will return false.
 func IsRevisionFailed(r *v1.Revision) (bool, error) {
 	return r.IsFailed(), nil
 }
