@@ -21,6 +21,7 @@ import (
 
 	"go.uber.org/zap"
 
+	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/tracing/config"
 )
@@ -47,6 +48,43 @@ func SetupDynamicPublishing(logger *zap.SugaredLogger, configMapWatcher configma
 
 	tracerUpdater := func(name string, value interface{}) {
 		if name == tracingConfigName {
+			cfg := value.(*config.Config)
+			logger.Debugw("Updating tracing config", zap.Any("cfg", cfg))
+			if err := oct.ApplyConfig(cfg); err != nil {
+				logger.Errorw("Unable to apply open census tracer config", zap.Error(err))
+			}
+		}
+	}
+
+	// Set up our config store.
+	configStore := configmap.NewUntypedStore(
+		"config-tracing-store",
+		logger,
+		configmap.Constructors{
+			"config-tracing": config.NewTracingConfigFromConfigMap,
+		},
+		tracerUpdater)
+	configStore.WatchConfigs(configMapWatcher)
+	return nil
+}
+
+// SetupDynamicPublishingWithInitialValue sets up the trace publishing for the process with an
+// initial value, by watching a ConfigMap for the configuration. Note that other pieces still
+// need to generate the traces, this just ensures that if generated, they are collected
+// appropriately. This is normally done by using tracing.HTTPSpanMiddleware as a middleware
+// HTTP handler. The configuration will be dynamically updated when the ConfigMap is updated.
+func SetupDynamicPublishingWithInitialValue(logger *zap.SugaredLogger, configMapWatcher configmap.Watcher, serviceName string, configm *corev1.ConfigMap) error {
+	oct := NewOpenCensusTracer(WithExporter(serviceName, logger))
+	cfg, err := config.NewTracingConfigFromConfigMap(configm)
+	if err != nil {
+		return fmt.Errorf("error while parsing %s config map: %w", configm.Name, err)
+	}
+	if err = oct.ApplyConfig(cfg); err != nil {
+		return fmt.Errorf("unable to set OpenCensusTracing config: %w", err)
+	}
+
+	tracerUpdater := func(name string, value interface{}) {
+		if name == configm.Name {
 			cfg := value.(*config.Config)
 			logger.Debugw("Updating tracing config", zap.Any("cfg", cfg))
 			if err := oct.ApplyConfig(cfg); err != nil {
