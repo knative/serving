@@ -75,6 +75,8 @@ func TestResourceQuotaError(t *testing.T) {
 		t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 	}
 
+	t.Log("Service created")
+
 	names.Config = serviceresourcenames.Configuration(svc)
 	var cond *apis.Condition
 	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(r *v1.Service) (bool, error) {
@@ -101,6 +103,12 @@ func TestResourceQuotaError(t *testing.T) {
 	revisionName, err := RevisionFromConfiguration(clients, names.Config)
 	if err != nil {
 		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
+	}
+
+	if err := v1test.WaitForRevisionState(
+		clients.ServingClient, revisionName, v1test.IsRevisionFailed, "RevisionFailed",
+	); err != nil {
+		t.Fatalf("The Revision %q did not fail: %v", revisionName, err)
 	}
 
 	t.Log("When the containers are not scheduled, the revision should have error status.")
