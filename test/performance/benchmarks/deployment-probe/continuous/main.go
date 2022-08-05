@@ -100,7 +100,7 @@ func handle(q *quickstore.Quickstore, svc kmeta.Accessor, status duckv1.Status,
 			metric: elapsed.Seconds(),
 		})
 		log.Print("Ready: ", svc.GetName())
-		performance.AddInfluxPoint(benchmarkName, map[string]interface{}{metric: float64(elapsed.Seconds())})
+		performance.AddInfluxPoint(benchmarkName, map[string]interface{}{metric: elapsed.Seconds()})
 	} else if cc.Status == corev1.ConditionFalse {
 		q.AddError(mako.XTime(created), cc.Message)
 		log.Printf("Not Ready: %s; %s: %s", svc.GetName(), cc.Reason, cc.Message)

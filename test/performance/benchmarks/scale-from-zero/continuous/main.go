@@ -160,8 +160,8 @@ func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v
 				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{
 					dlk: ddur.Seconds(),
 				})
-				performance.AddInfluxPoint(benchmarkName, map[string]interface{}{"lk": float64(sdur.Seconds())})
-				performance.AddInfluxPoint(benchmarkName, map[string]interface{}{"dlk": float64(ddur.Seconds())})
+				performance.AddInfluxPoint(benchmarkName, map[string]interface{}{"lk": sdur.Seconds()})
+				performance.AddInfluxPoint(benchmarkName, map[string]interface{}{"dlk": ddur.Seconds()})
 			} else {
 				// Add 1 to the error metric whenever there is an error.
 				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{

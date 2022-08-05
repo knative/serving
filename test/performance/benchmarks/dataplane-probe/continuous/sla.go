@@ -27,6 +27,10 @@ import (
 	"knative.dev/pkg/test/mako"
 )
 
+var (
+	minDefault = 100 * time.Millisecond
+)
+
 // This function constructs an analyzer that validates the p95 aggregate value of the given metric.
 func new95PercentileLatency(name, valueKey string, min, max time.Duration) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
@@ -49,7 +53,7 @@ func new95PercentileLatency(name, valueKey string, min, max time.Duration) *tpb.
 // on the dataplane, and so it is intended as a canary to flag environmental
 // problems that might be causing contemporaneous Knative or Istio runs to fall out of SLA.
 func newKubernetes95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
-	return new95PercentileLatency("Kubernetes baseline", valueKey, 100*time.Millisecond, 105*time.Millisecond)
+	return new95PercentileLatency("Kubernetes baseline", valueKey, minDefault, 105*time.Millisecond)
 }
 
 // This analyzer validates that the p95 latency talking to pods through Istio
@@ -57,19 +61,19 @@ func newKubernetes95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInp
 // on the dataplane, and so it is intended as a canary to flag environmental
 // problems that might be causing contemporaneous Knative runs to fall out of SLA.
 func newIstio95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
-	return new95PercentileLatency("Istio baseline", valueKey, 100*time.Millisecond, 108*time.Millisecond)
+	return new95PercentileLatency("Istio baseline", valueKey, minDefault, 108*time.Millisecond)
 }
 
 // This analyzer validates that the p95 latency hitting a Knative Service
 // going through JUST the queue-proxy falls in the +10ms range.
 func newQueue95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
-	return new95PercentileLatency("Queue p95 latency", valueKey, 100*time.Millisecond, 110*time.Millisecond)
+	return new95PercentileLatency("Queue p95 latency", valueKey, minDefault, 110*time.Millisecond)
 }
 
 // This analyzer validates that the p95 latency hitting a Knative Service
 // going through BOTH the activator and queue-proxy falls in the +10ms range.
 func newActivator95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
-	return new95PercentileLatency("Activator p95 latency", valueKey, 100*time.Millisecond, 110*time.Millisecond)
+	return new95PercentileLatency("Activator p95 latency", valueKey, minDefault, 110*time.Millisecond)
 }
 
 var (
