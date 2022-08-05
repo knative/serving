@@ -48,6 +48,14 @@ if (( IS_PROW )); then
 fi
 
 ###############################################################################################
+header "Create influx secret"
+
+run_ytt \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
+      --data-value influxurl="${INFLUX_URL}" \
+      --data-value influxtoken="${INFLUX_TOKEN}"
+
+###############################################################################################
 header "Dataplane probe performance test"
 kubectl delete job  dataplane-probe-deployment dataplane-probe-istio dataplane-probe-queue dataplane-probe-activator --ignore-not-found=true
 kubectl delete configmap config-mako --ignore-not-found=true
