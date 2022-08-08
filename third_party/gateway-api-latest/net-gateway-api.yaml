@@ -4046,7 +4046,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220805-f947b1ec"
+    app.kubernetes.io/version: "20220808-d100e913"
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
@@ -4062,7 +4062,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220805-f947b1ec"
+    app.kubernetes.io/version: "20220808-d100e913"
 rules:
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["httproutes", "referencegrants", "referencepolicies"]
@@ -4095,7 +4095,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220805-f947b1ec"
+    app.kubernetes.io/version: "20220808-d100e913"
 data:
   _example: |
     ################################
@@ -4149,7 +4149,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
-    app.kubernetes.io/version: "20220805-f947b1ec"
+    app.kubernetes.io/version: "20220808-d100e913"
     app.kubernetes.io/name: knative-serving
 spec:
   replicas: 1
@@ -4176,7 +4176,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:0148ec39be5ac221d7111bb47cf56b0e8a7950072135e2634aba0b1d7fdab851
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:19696f158255fd0687e9b2f2fc98ed8069e30ecc9fe760dce1d8ee74182c3544
           resources:
             requests:
               cpu: 100m
