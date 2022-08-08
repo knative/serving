@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "802886ca"
+    knative.dev/example-checksum: "d3ee202c"
 data:
   _example: |
     ################################
@@ -54,10 +54,10 @@ data:
     # should also be increased to prevent in-flight requests being disrupted.
     max-revision-timeout-seconds: "600"  # 10 minutes
 
-    # revision-request-start-timeout-seconds contains the default number of
+    # revision-response-start-timeout-seconds contains the default number of
     # seconds a request will be allowed to stay open while waiting to
     # receive any bytes from the user's application, if none is specified.
-    revision-request-start-timeout-seconds: "60"
+    revision-response-start-timeout-seconds: "60"
 
     # revision-idle-timeout-seconds contains the default number of
     # seconds a request will be allowed to stay open while not receiving any

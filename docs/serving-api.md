@@ -915,9 +915,9 @@ int64
 </td>
 <td>
 <em>(Optional)</em>
-<p>TimeoutSeconds is the maximum duration in seconds that the request routing
-layer will wait for a request delivered to a container to begin replying
-(send network traffic). If unspecified, a system default will be provided.</p>
+<p>TimeoutSeconds is the maximum duration in seconds that the request instance
+is allowed to respond to a request. If unspecified, a system default will
+be provided.</p>
 </td>
 </tr>
 <tr>
@@ -1405,9 +1405,9 @@ int64
 </td>
 <td>
 <em>(Optional)</em>
-<p>TimeoutSeconds is the maximum duration in seconds that the request routing
-layer will wait for a request delivered to a container to begin replying
-(send network traffic). If unspecified, a system default will be provided.</p>
+<p>TimeoutSeconds is the maximum duration in seconds that the request instance
+is allowed to respond to a request. If unspecified, a system default will
+be provided.</p>
 </td>
 </tr>
 <tr>
@@ -1633,9 +1633,9 @@ int64
 </td>
 <td>
 <em>(Optional)</em>
-<p>TimeoutSeconds is the maximum duration in seconds that the request routing
-layer will wait for a request delivered to a container to begin replying
-(send network traffic). If unspecified, a system default will be provided.</p>
+<p>TimeoutSeconds is the maximum duration in seconds that the request instance
+is allowed to respond to a request. If unspecified, a system default will
+be provided.</p>
 </td>
 </tr>
 <tr>

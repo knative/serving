@@ -119,7 +119,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 
 		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
 		cm.AsInt64("max-revision-timeout-seconds", &nc.MaxRevisionTimeoutSeconds),
-		cm.AsInt64("revision-request-start-timeout-seconds", &nc.RevisionRequestStartTimeoutSeconds),
+		cm.AsInt64("revision-response-start-timeout-seconds", &nc.RevisionRequestStartTimeoutSeconds),
 		cm.AsInt64("revision-idle-timeout-seconds", &nc.RevisionIdleTimeoutSeconds),
 
 		cm.AsInt64("container-concurrency", &nc.ContainerConcurrency),
@@ -139,7 +139,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		return nil, fmt.Errorf("revision-timeout-seconds (%d) cannot be greater than max-revision-timeout-seconds (%d)", nc.RevisionTimeoutSeconds, nc.MaxRevisionTimeoutSeconds)
 	}
 	if nc.RevisionRequestStartTimeoutSeconds > 0 && nc.RevisionRequestStartTimeoutSeconds > nc.RevisionTimeoutSeconds {
-		return nil, fmt.Errorf("revision-request-start-timeout-seconds (%d) cannot be greater than revision-timeout-seconds (%d)", nc.RevisionRequestStartTimeoutSeconds, nc.RevisionTimeoutSeconds)
+		return nil, fmt.Errorf("revision-response-start-timeout-seconds (%d) cannot be greater than revision-timeout-seconds (%d)", nc.RevisionRequestStartTimeoutSeconds, nc.RevisionTimeoutSeconds)
 	}
 	if nc.RevisionIdleTimeoutSeconds > 0 && nc.RevisionIdleTimeoutSeconds > nc.RevisionTimeoutSeconds {
 		return nil, fmt.Errorf("revision-idle-timeout-seconds (%d) cannot be greater than revision-timeout-seconds (%d)", nc.RevisionIdleTimeoutSeconds, nc.RevisionTimeoutSeconds)
