@@ -76,7 +76,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds": "123",
+					"revision-timeout-seconds": "423",
 				},
 			})
 
@@ -85,7 +85,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
-				TimeoutSeconds:       ptr.Int64(123),
+				TimeoutSeconds:       ptr.Int64(423),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -107,7 +107,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds": "123",
+					"revision-timeout-seconds": "323",
 				},
 			})
 
@@ -116,7 +116,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
-				TimeoutSeconds:       ptr.Int64(123),
+				TimeoutSeconds:       ptr.Int64(323),
 				PodSpec: corev1.PodSpec{
 					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{

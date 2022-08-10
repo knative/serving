@@ -45,7 +45,9 @@ const (
 	DefaultMaxRevisionTimeoutSeconds = 10 * 60
 
 	// DefaultRevisionRequestStartTimeoutSeconds will be set if RevisionRequestStartTimeoutSeconds is not specified.
-	DefaultRevisionRequestStartTimeoutSeconds = 60
+	// for backward compatibility will keep default similar to DefaultRevisionTimeoutSeconds,
+	// should be revised in future releases.
+	DefaultRevisionRequestStartTimeoutSeconds = 5 * 60
 
 	// DefaultRevisionIdleTimeoutSeconds will be set if idleTimeoutSeconds not specified.
 	DefaultRevisionIdleTimeoutSeconds = 0
