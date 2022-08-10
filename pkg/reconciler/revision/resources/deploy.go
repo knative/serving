@@ -41,9 +41,7 @@ import (
 	apiconfig "knative.dev/serving/pkg/apis/config"
 )
 
-//nolint:gosec // Filepath, not hardcoded credentials
-const concurrencyStateTokenVolumeMountPath = "/var/run/secrets/tokens"
-const concurrencyStateTokenName = "state-token"
+const certVolumeName = "server-certs"
 
 var (
 	varLogVolume = corev1.Volume{
@@ -59,6 +57,7 @@ var (
 		SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_",
 	}
 
+	//nolint:gosec // Volume, not hardcoded credentials
 	varTokenVolume = corev1.Volume{
 		Name: "knative-token-volume",
 		VolumeSource: corev1.VolumeSource{
@@ -66,22 +65,23 @@ var (
 				Sources: []corev1.VolumeProjection{{
 					ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
 						ExpirationSeconds: ptr.Int64(600),
-						Path:              concurrencyStateTokenName,
+						Path:              queue.ConcurrencyStateTokenFilename,
 						Audience:          "concurrency-state-hook"},
 				}},
 			},
 		},
 	}
 
-	certVolumeMount = corev1.VolumeMount{
-		MountPath: queue.CertDirectory,
-		Name:      "server-certs",
+	varCertVolumeMount = corev1.VolumeMount{
+		MountPath: queue.CertVolumeMountPath,
+		Name:      certVolumeName,
 		ReadOnly:  true,
 	}
 
+	//nolint:gosec // VolumeMount, not hardcoded credentials
 	varTokenVolumeMount = corev1.VolumeMount{
 		Name:      varTokenVolume.Name,
-		MountPath: concurrencyStateTokenVolumeMountPath,
+		MountPath: queue.TokenVolumeMountPath,
 	}
 
 	varPodInfoVolume = corev1.Volume{
@@ -120,7 +120,7 @@ var (
 
 func certVolume(secret string) corev1.Volume {
 	return corev1.Volume{
-		Name: "server-certs",
+		Name: certVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: secret,
@@ -174,7 +174,7 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	}
 
 	if cfg.Network.InternalEncryption {
-		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, certVolumeMount)
+		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varCertVolumeMount)
 		extraVolumes = append(extraVolumes, certVolume(rev.Namespace+"-"+networking.ServingCertName))
 	}
 
