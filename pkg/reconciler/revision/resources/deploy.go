@@ -43,9 +43,6 @@ import (
 
 const certVolumeName = "server-certs"
 
-// LogVolumeMountPath is the name of the log directory path
-const LogVolumeMountPath = "/var/log"
-
 var (
 	varLogVolume = corev1.Volume{
 		Name: "knative-var-log",
