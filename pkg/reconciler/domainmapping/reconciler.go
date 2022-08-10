@@ -262,12 +262,14 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMa
 	} else if err != nil {
 		return nil, err
 	} else if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
-		!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) {
+		!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) ||
+		!equality.Semantic.DeepEqual(ingress.Labels, desired.Labels) {
 
 		// Don't modify the informers copy
 		origin := ingress.DeepCopy()
 		origin.Spec = desired.Spec
 		origin.Annotations = desired.Annotations
+		origin.Labels = desired.Labels
 		updated, err := r.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(ctx, origin, metav1.UpdateOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to update Ingress: %w", err)
