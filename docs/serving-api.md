@@ -915,9 +915,37 @@ int64
 </td>
 <td>
 <em>(Optional)</em>
-<p>TimeoutSeconds is the maximum duration in seconds that the request routing
-layer will wait for a request delivered to a container to begin replying
-(send network traffic). If unspecified, a system default will be provided.</p>
+<p>TimeoutSeconds is the maximum duration in seconds that the request instance
+is allowed to respond to a request. If unspecified, a system default will
+be provided.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>responseStartTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResponseStartTimeoutSeconds is the maximum duration in seconds that the request
+routing layer will wait for a request delivered to a container to begin
+sending any network traffic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>idleTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IdleTimeoutSeconds is the maximum duration in seconds a request will be allowed
+to stay open while not receiving any bytes from the user&rsquo;s application. If
+unspecified, a system default will be provided.</p>
 </td>
 </tr>
 </table>
@@ -1377,9 +1405,37 @@ int64
 </td>
 <td>
 <em>(Optional)</em>
-<p>TimeoutSeconds is the maximum duration in seconds that the request routing
-layer will wait for a request delivered to a container to begin replying
-(send network traffic). If unspecified, a system default will be provided.</p>
+<p>TimeoutSeconds is the maximum duration in seconds that the request instance
+is allowed to respond to a request. If unspecified, a system default will
+be provided.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>responseStartTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResponseStartTimeoutSeconds is the maximum duration in seconds that the request
+routing layer will wait for a request delivered to a container to begin
+sending any network traffic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>idleTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IdleTimeoutSeconds is the maximum duration in seconds a request will be allowed
+to stay open while not receiving any bytes from the user&rsquo;s application. If
+unspecified, a system default will be provided.</p>
 </td>
 </tr>
 </tbody>
@@ -1577,9 +1633,37 @@ int64
 </td>
 <td>
 <em>(Optional)</em>
-<p>TimeoutSeconds is the maximum duration in seconds that the request routing
-layer will wait for a request delivered to a container to begin replying
-(send network traffic). If unspecified, a system default will be provided.</p>
+<p>TimeoutSeconds is the maximum duration in seconds that the request instance
+is allowed to respond to a request. If unspecified, a system default will
+be provided.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>responseStartTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResponseStartTimeoutSeconds is the maximum duration in seconds that the request
+routing layer will wait for a request delivered to a container to begin
+sending any network traffic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>idleTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IdleTimeoutSeconds is the maximum duration in seconds a request will be allowed
+to stay open while not receiving any bytes from the user&rsquo;s application. If
+unspecified, a system default will be provided.</p>
 </td>
 </tr>
 </table>

@@ -198,6 +198,14 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	if rev.Spec.TimeoutSeconds != nil {
 		ts = *rev.Spec.TimeoutSeconds
 	}
+	responseStartTimeout := int64(0)
+	if rev.Spec.ResponseStartTimeoutSeconds != nil {
+		responseStartTimeout = *rev.Spec.ResponseStartTimeoutSeconds
+	}
+	idleTimeout := int64(0)
+	if rev.Spec.IdleTimeoutSeconds != nil {
+		idleTimeout = *rev.Spec.IdleTimeoutSeconds
+	}
 	ports := queueNonServingPorts
 	if cfg.Observability.EnableProfiling {
 		ports = append(ports, profilingPort)
@@ -283,6 +291,12 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: strconv.Itoa(int(ts)),
+		}, {
+			Name:  "REVISION_RESPONSE_START_TIMEOUT_SECONDS",
+			Value: strconv.Itoa(int(responseStartTimeout)),
+		}, {
+			Name:  "REVISION_IDLE_TIMEOUT_SECONDS",
+			Value: strconv.Itoa(int(idleTimeout)),
 		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{

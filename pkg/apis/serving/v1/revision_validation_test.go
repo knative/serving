@@ -439,7 +439,9 @@ func TestRevisionSpecValidation(t *testing.T) {
 					Image: "helloworld",
 				}},
 			},
-			TimeoutSeconds: ptr.Int64(100),
+			TimeoutSeconds:              ptr.Int64(100),
+			ResponseStartTimeoutSeconds: ptr.Int64(0),
+			IdleTimeoutSeconds:          ptr.Int64(0),
 		},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
@@ -450,8 +452,10 @@ func TestRevisionSpecValidation(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds":     "25",
-					"max-revision-timeout-seconds": "50"},
+					"revision-timeout-seconds":                "25",
+					"max-revision-timeout-seconds":            "50",
+					"revision-response-start-timeout-seconds": "10",
+					"revision-idle-timeout-seconds":           "10"},
 			})
 			return s.ToContext(ctx)
 		},
@@ -534,7 +538,9 @@ func TestImmutableFields(t *testing.T) {
 						Image: "helloworld",
 					}},
 				},
-				TimeoutSeconds: ptr.Int64(100),
+				TimeoutSeconds:              ptr.Int64(100),
+				ResponseStartTimeoutSeconds: ptr.Int64(0),
+				IdleTimeoutSeconds:          ptr.Int64(0),
 			},
 		},
 		old: &Revision{
@@ -547,7 +553,9 @@ func TestImmutableFields(t *testing.T) {
 						Image: "helloworld",
 					}},
 				},
-				TimeoutSeconds: ptr.Int64(100),
+				TimeoutSeconds:              ptr.Int64(100),
+				ResponseStartTimeoutSeconds: ptr.Int64(0),
+				IdleTimeoutSeconds:          ptr.Int64(0),
 			},
 		},
 		wc: func(ctx context.Context) context.Context {
@@ -559,8 +567,10 @@ func TestImmutableFields(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds":     "25",
-					"max-revision-timeout-seconds": "50"},
+					"revision-timeout-seconds":                "25",
+					"max-revision-timeout-seconds":            "50",
+					"revision-response-start-timeout-seconds": "10",
+					"revision-idle-timeout-seconds":           "10"},
 			})
 			return s.ToContext(ctx)
 		},

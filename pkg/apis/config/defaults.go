@@ -44,6 +44,14 @@ const (
 	// DefaultMaxRevisionTimeoutSeconds will be set if MaxRevisionTimeoutSeconds is not specified.
 	DefaultMaxRevisionTimeoutSeconds = 10 * 60
 
+	// DefaultRevisionResponseStartTimeoutSeconds will be set if ResponseStartTimeoutSeconds is not specified.
+	// for backward compatibility will keep default similar to DefaultRevisionTimeoutSeconds,
+	// should be revised in future releases.
+	DefaultRevisionResponseStartTimeoutSeconds = 5 * 60
+
+	// DefaultRevisionIdleTimeoutSeconds will be set if idleTimeoutSeconds not specified.
+	DefaultRevisionIdleTimeoutSeconds = 0
+
 	// DefaultInitContainerName is the default name we give to the init containers
 	// specified by the user, if `name:` is omitted.
 	DefaultInitContainerName = "init-container"
@@ -71,14 +79,16 @@ var (
 
 func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
-		RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
-		MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
-		InitContainerNameTemplate:     DefaultInitContainerNameTemplate,
-		UserContainerNameTemplate:     DefaultUserContainerNameTemplate,
-		ContainerConcurrency:          DefaultContainerConcurrency,
-		ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
-		AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
-		EnableServiceLinks:            ptr.Bool(false),
+		RevisionTimeoutSeconds:             DefaultRevisionTimeoutSeconds,
+		MaxRevisionTimeoutSeconds:          DefaultMaxRevisionTimeoutSeconds,
+		RevisionRequestStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
+		RevisionIdleTimeoutSeconds:         DefaultRevisionIdleTimeoutSeconds,
+		InitContainerNameTemplate:          DefaultInitContainerNameTemplate,
+		UserContainerNameTemplate:          DefaultUserContainerNameTemplate,
+		ContainerConcurrency:               DefaultContainerConcurrency,
+		ContainerConcurrencyMaxLimit:       DefaultMaxRevisionContainerConcurrency,
+		AllowContainerConcurrencyZero:      DefaultAllowContainerConcurrencyZero,
+		EnableServiceLinks:                 ptr.Bool(false),
 	}
 }
 
@@ -111,6 +121,9 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 
 		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
 		cm.AsInt64("max-revision-timeout-seconds", &nc.MaxRevisionTimeoutSeconds),
+		cm.AsInt64("revision-response-start-timeout-seconds", &nc.RevisionRequestStartTimeoutSeconds),
+		cm.AsInt64("revision-idle-timeout-seconds", &nc.RevisionIdleTimeoutSeconds),
+
 		cm.AsInt64("container-concurrency", &nc.ContainerConcurrency),
 		cm.AsInt64("container-concurrency-max-limit", &nc.ContainerConcurrencyMaxLimit),
 
@@ -126,6 +139,12 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 
 	if nc.RevisionTimeoutSeconds > nc.MaxRevisionTimeoutSeconds {
 		return nil, fmt.Errorf("revision-timeout-seconds (%d) cannot be greater than max-revision-timeout-seconds (%d)", nc.RevisionTimeoutSeconds, nc.MaxRevisionTimeoutSeconds)
+	}
+	if nc.RevisionRequestStartTimeoutSeconds > 0 && nc.RevisionRequestStartTimeoutSeconds > nc.RevisionTimeoutSeconds {
+		return nil, fmt.Errorf("revision-response-start-timeout-seconds (%d) cannot be greater than revision-timeout-seconds (%d)", nc.RevisionRequestStartTimeoutSeconds, nc.RevisionTimeoutSeconds)
+	}
+	if nc.RevisionIdleTimeoutSeconds > 0 && nc.RevisionIdleTimeoutSeconds > nc.RevisionTimeoutSeconds {
+		return nil, fmt.Errorf("revision-idle-timeout-seconds (%d) cannot be greater than revision-timeout-seconds (%d)", nc.RevisionIdleTimeoutSeconds, nc.RevisionTimeoutSeconds)
 	}
 	if nc.ContainerConcurrencyMaxLimit < 1 {
 		return nil, apis.ErrOutOfBoundsValue(
@@ -156,6 +175,14 @@ type Defaults struct {
 	// This is the timeout set for ingress.
 	// RevisionTimeoutSeconds must be less than this value.
 	MaxRevisionTimeoutSeconds int64
+
+	// This is  the default number of seconds a request will be allowed to
+	// stay open while waiting to receive any bytes from the user's application
+	RevisionRequestStartTimeoutSeconds int64
+
+	// RevisionIdleTimeoutSeconds is the maximum duration in seconds a request
+	// will be allowed to stay open while not receiving any bytes from the user's application.
+	RevisionIdleTimeoutSeconds int64
 
 	InitContainerNameTemplate *ObjectMetaTemplate
 

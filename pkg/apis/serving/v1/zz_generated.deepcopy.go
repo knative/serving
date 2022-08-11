@@ -230,6 +230,16 @@ func (in *RevisionSpec) DeepCopyInto(out *RevisionSpec) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.ResponseStartTimeoutSeconds != nil {
+		in, out := &in.ResponseStartTimeoutSeconds, &out.ResponseStartTimeoutSeconds
+		*out = new(int64)
+		**out = **in
+	}
+	if in.IdleTimeoutSeconds != nil {
+		in, out := &in.IdleTimeoutSeconds, &out.IdleTimeoutSeconds
+		*out = new(int64)
+		**out = **in
+	}
 	return
 }
 
