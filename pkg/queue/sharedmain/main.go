@@ -74,7 +74,7 @@ const (
 
 	// AnnotationsPath is an exported path for the annotations file
 	// This path is used by QP Options (Extensions).
-	AnnotationsPath = queue.PodInfoDirectory + "/" + queue.PodInfoAnnotationsFilename
+	PodInfoAnnotationsPath = queue.PodInfoDirectory + "/" + queue.PodInfoAnnotationsFilename
 )
 
 type config struct {
