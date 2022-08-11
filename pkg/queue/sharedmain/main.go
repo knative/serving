@@ -72,7 +72,7 @@ const (
 	// keyPath is the path for the server certificate key mounted by queue-proxy.
 	keyPath = queue.CertDirectory + "/" + certificates.SecretPKKey
 
-	// AnnotationsPath is an exported path for the annotations file
+	// PodInfoAnnotationsPath is an exported path for the annotations file
 	// This path is used by QP Options (Extensions).
 	PodInfoAnnotationsPath = queue.PodInfoDirectory + "/" + queue.PodInfoAnnotationsFilename
 )
