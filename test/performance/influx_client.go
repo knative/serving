@@ -27,23 +27,26 @@ import (
 )
 
 const (
-	influxToken        = "INFLUX_TOKEN"
-	influxURL          = "INFLUX_URL"
-	prowBuildID        = "BUILD_ID"
-	prowPrNumber       = "PULL_NUMBER"
-	org                = "Knativetest"
-	bucket             = "knative-serving"
-	influxSecretVolume = "influx-secret-volume"
+	influxToken             = "INFLUX_TOKEN"
+	influxURL               = "INFLUX_URL"
+	prowBuildID             = "BUILD_ID"
+	prowPrNumber            = "PULL_NUMBER"
+	org                     = "Knativetest"
+	bucket                  = "knative-serving"
+	influxURLSecretVolume   = "influx-secret-volume"
+	influxTokenSecretVolume = "influx-secret-volume"
+	influxURLSecretKey      = "influxdb-url"
+	influxTokenSecretKey    = "influxdb-token"
 )
 
 func AddInfluxPoint(measurement string, fields map[string]interface{}) error {
 
-	url, err := getSecretValue("url", influxURL)
+	url, err := getSecretValue(influxURLSecretVolume, influxURLSecretKey, influxURL)
 	if err != nil {
 		return err
 	}
 
-	token, err := getSecretValue("token", influxToken)
+	token, err := getSecretValue(influxTokenSecretVolume, influxTokenSecretKey, influxToken)
 	if err != nil {
 		return err
 	}
@@ -84,8 +87,8 @@ func AddInfluxPoint(measurement string, fields map[string]interface{}) error {
 	return nil
 }
 
-func getSecretValue(secretKey, envVarName string) (string, error) {
-	value, err := os.ReadFile(fmt.Sprintf("/etc/%s/%s", influxSecretVolume, secretKey))
+func getSecretValue(secretVolume, secretKey, envVarName string) (string, error) {
+	value, err := os.ReadFile(fmt.Sprintf("/etc/%s/%s", secretVolume, secretKey))
 	if err != nil {
 		valueFromEnv, ok := os.LookupEnv(envVarName)
 		if !ok {

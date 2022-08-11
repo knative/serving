@@ -18,9 +18,16 @@ spec:
             - name: INFLUX_TOKEN
               value: #@ "{}".format(data.values.influxtoken)
           volumeMounts:
-            - name: influx-secret-volume
-              mountPath: /etc/influx-secret-volume
+            - mountPath: /etc/influx-token-secret-volume
+              name: influx-token-secret-volume
+              readOnly: true
+            - mountPath: /etc/influx-url-secret-volume
+              name: influx-url-secret-volume
+              readOnly: true
       volumes:
-        - name: influx-secret-volume
+        - name: influx-token-secret-volume
           secret:
-            secretName: influx-secret
+            secretName: influx-token-secret
+        - name: influx-url-secret-volume
+          secret:
+            secretName: influx-url-secret
