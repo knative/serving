@@ -44,10 +44,10 @@ const (
 	// DefaultMaxRevisionTimeoutSeconds will be set if MaxRevisionTimeoutSeconds is not specified.
 	DefaultMaxRevisionTimeoutSeconds = 10 * 60
 
-	// DefaultRevisionRequestStartTimeoutSeconds will be set if RevisionRequestStartTimeoutSeconds is not specified.
+	// DefaultRevisionResponseStartTimeoutSeconds will be set if ResponseStartTimeoutSeconds is not specified.
 	// for backward compatibility will keep default similar to DefaultRevisionTimeoutSeconds,
 	// should be revised in future releases.
-	DefaultRevisionRequestStartTimeoutSeconds = 5 * 60
+	DefaultRevisionResponseStartTimeoutSeconds = 5 * 60
 
 	// DefaultRevisionIdleTimeoutSeconds will be set if idleTimeoutSeconds not specified.
 	DefaultRevisionIdleTimeoutSeconds = 0
@@ -81,7 +81,7 @@ func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
 		RevisionTimeoutSeconds:             DefaultRevisionTimeoutSeconds,
 		MaxRevisionTimeoutSeconds:          DefaultMaxRevisionTimeoutSeconds,
-		RevisionRequestStartTimeoutSeconds: DefaultRevisionRequestStartTimeoutSeconds,
+		RevisionRequestStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
 		RevisionIdleTimeoutSeconds:         DefaultRevisionIdleTimeoutSeconds,
 		InitContainerNameTemplate:          DefaultInitContainerNameTemplate,
 		UserContainerNameTemplate:          DefaultUserContainerNameTemplate,

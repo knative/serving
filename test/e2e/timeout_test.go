@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package e2e
 
 import (
 	"context"
@@ -36,7 +36,7 @@ import (
 )
 
 // sendRequests send a request to "endpoint", returns error if unexpected response code, nil otherwise.
-func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
+func sendRequestWithTimeout(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	initialSleep, sleep time.Duration, expectedResponseCode int) error {
 	client, err := pkgtest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
@@ -77,12 +77,14 @@ func TestRevisionTimeout(t *testing.T) {
 	clients := test.Setup(t)
 
 	testCases := []struct {
-		name           string
-		timeoutSeconds int64
-		initialSleep   time.Duration
-		sleep          time.Duration
-		expectedStatus int
-		expectedBody   string
+		name                        string
+		timeoutSeconds              int64
+		responseStartTimeoutSeconds int64
+		idleTimeoutSeconds          int64
+		initialSleep                time.Duration
+		sleep                       time.Duration
+		expectedStatus              int
+		expectedBody                string
 	}{{
 		name:           "does not exceed timeout seconds",
 		timeoutSeconds: 10,
@@ -94,11 +96,29 @@ func TestRevisionTimeout(t *testing.T) {
 		initialSleep:   12 * time.Second,
 		expectedStatus: http.StatusGatewayTimeout,
 	}, {
-		name:           "writes first byte before timeout",
-		timeoutSeconds: 10,
-		expectedStatus: http.StatusOK,
-		sleep:          15 * time.Second,
-		initialSleep:   0,
+		name:                        "writes response before response start timeout",
+		timeoutSeconds:              10,
+		responseStartTimeoutSeconds: 7,
+		expectedStatus:              http.StatusOK,
+		initialSleep:                4 * time.Second,
+	}, {
+		name:                        "exceeds response start timeout",
+		timeoutSeconds:              20,
+		responseStartTimeoutSeconds: 7,
+		expectedStatus:              http.StatusGatewayTimeout,
+		initialSleep:                15 * time.Second,
+	}, {
+		name:               "writes response before idle timeout",
+		timeoutSeconds:     10,
+		idleTimeoutSeconds: 5,
+		expectedStatus:     http.StatusOK,
+		sleep:              2 * time.Second,
+	}, {
+		name:               "exceeds idle timeout",
+		timeoutSeconds:     15,
+		idleTimeoutSeconds: 7,
+		expectedStatus:     http.StatusGatewayTimeout,
+		initialSleep:       20 * time.Second,
 	}}
 
 	for _, tc := range testCases {
@@ -115,7 +135,10 @@ func TestRevisionTimeout(t *testing.T) {
 			test.EnsureTearDown(t, clients, &names)
 
 			t.Log("Creating a new Service ")
-			resources, err := v1test.CreateServiceReady(t, clients, &names, WithRevisionTimeoutSeconds(tc.timeoutSeconds))
+			resources, err := v1test.CreateServiceReady(t, clients, &names,
+				WithRevisionTimeoutSeconds(tc.timeoutSeconds),
+				WithRevisionResponseStartTimeoutSeconds(tc.responseStartTimeoutSeconds),
+				WithRevisionIdleTimeoutSeconds(tc.idleTimeoutSeconds))
 			if err != nil {
 				t.Fatal("Failed to create Service:", err)
 			}
@@ -136,9 +159,9 @@ func TestRevisionTimeout(t *testing.T) {
 				t.Fatalf("Error probing %s: %v", serviceURL, err)
 			}
 
-			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus); err != nil {
-				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds, expecting status %v: %v",
-					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.expectedStatus, err)
+			if err := sendRequestWithTimeout(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus); err != nil {
+				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds, response start timeout %ds idle timeout %ds, expecting status %v: %v",
+					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.responseStartTimeoutSeconds, tc.idleTimeoutSeconds, tc.expectedStatus, err)
 			}
 		})
 	}

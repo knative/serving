@@ -101,7 +101,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds:             DefaultRevisionTimeoutSeconds,
 			MaxRevisionTimeoutSeconds:          DefaultMaxRevisionTimeoutSeconds,
-			RevisionRequestStartTimeoutSeconds: DefaultRevisionRequestStartTimeoutSeconds,
+			RevisionRequestStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
 			InitContainerNameTemplate:          DefaultInitContainerNameTemplate,
 			UserContainerNameTemplate:          DefaultUserContainerNameTemplate,
 			ContainerConcurrencyMaxLimit:       DefaultMaxRevisionContainerConcurrency,
@@ -117,7 +117,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds:             DefaultRevisionTimeoutSeconds,
 			MaxRevisionTimeoutSeconds:          DefaultMaxRevisionTimeoutSeconds,
-			RevisionRequestStartTimeoutSeconds: DefaultRevisionRequestStartTimeoutSeconds,
+			RevisionRequestStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
 			InitContainerNameTemplate:          DefaultInitContainerNameTemplate,
 			UserContainerNameTemplate:          DefaultUserContainerNameTemplate,
 			ContainerConcurrencyMaxLimit:       DefaultMaxRevisionContainerConcurrency,
@@ -210,7 +210,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		wantDefaults: &Defaults{
 			RevisionTimeoutSeconds:             DefaultRevisionTimeoutSeconds,
 			MaxRevisionTimeoutSeconds:          DefaultMaxRevisionTimeoutSeconds,
-			RevisionRequestStartTimeoutSeconds: DefaultRevisionRequestStartTimeoutSeconds,
+			RevisionRequestStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
 			ContainerConcurrencyMaxLimit:       DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero:      DefaultAllowContainerConcurrencyZero,
 			EnableServiceLinks:                 ptr.Bool(false),
