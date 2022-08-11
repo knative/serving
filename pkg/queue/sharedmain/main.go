@@ -67,10 +67,14 @@ const (
 	drainSleepDuration = 30 * time.Second
 
 	// certPath is the path for the server certificate mounted by queue-proxy.
-	certPath = queue.CertVolumeMountPath + "/" + certificates.SecretCertKey
+	certPath = queue.CertDirectory + "/" + certificates.SecretCertKey
 
 	// keyPath is the path for the server certificate key mounted by queue-proxy.
-	keyPath = queue.CertVolumeMountPath + "/" + certificates.SecretPKKey
+	keyPath = queue.CertDirectory + "/" + certificates.SecretPKKey
+
+	// AnnotationsPath is an exported path for the annotations file
+	// This path is used by QP Options (Extensions).
+	AnnotationsPath = queue.PodInfoDirectory + "/" + queue.PodInfoAnnotationsFilename
 )
 
 type config struct {

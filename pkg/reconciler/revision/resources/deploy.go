@@ -73,7 +73,7 @@ var (
 	}
 
 	varCertVolumeMount = corev1.VolumeMount{
-		MountPath: queue.CertVolumeMountPath,
+		MountPath: queue.CertDirectory,
 		Name:      certVolumeName,
 		ReadOnly:  true,
 	}
@@ -81,7 +81,7 @@ var (
 	//nolint:gosec // VolumeMount, not hardcoded credentials
 	varTokenVolumeMount = corev1.VolumeMount{
 		Name:      varTokenVolume.Name,
-		MountPath: queue.TokenVolumeMountPath,
+		MountPath: queue.TokenDirectory,
 	}
 
 	varPodInfoVolume = corev1.Volume{
@@ -100,7 +100,7 @@ var (
 
 	varPodInfoVolumeMount = corev1.VolumeMount{
 		Name:      varPodInfoVolume.Name,
-		MountPath: queue.PodInfoVolumeMountPath,
+		MountPath: queue.PodInfoDirectory,
 		ReadOnly:  true,
 	}
 

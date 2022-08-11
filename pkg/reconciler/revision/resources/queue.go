@@ -350,7 +350,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Value: cfg.Deployment.ConcurrencyStateEndpoint,
 		}, {
 			Name:  "CONCURRENCY_STATE_TOKEN_PATH",
-			Value: path.Join(queue.TokenVolumeMountPath, queue.ConcurrencyStateTokenFilename),
+			Value: path.Join(queue.TokenDirectory, queue.ConcurrencyStateTokenFilename),
 		}, {
 			Name: "HOST_IP",
 			ValueFrom: &corev1.EnvVarSource{
