@@ -28,18 +28,18 @@ const (
 	// accepted requests have been processed.
 	RequestQueueDrainPath = "/wait-for-drain"
 
-	// CertVolumeMountPath is the name of the directory path where certificates are stored.
-	CertVolumeMountPath = "/var/lib/knative/certs"
+	// CertDirectory is the name of the directory path where certificates are stored.
+	CertDirectory = "/var/lib/knative/certs"
 
-	// PodInfoVolumeMountPath is the name of the directory path where podinfo are stored.
-	PodInfoVolumeMountPath = "/etc/podinfo"
+	// PodInfoDirectory is the name of the directory path where podinfo are stored.
+	PodInfoDirectory = "/etc/podinfo"
 
-	// TokenVolumeMountPath is the name of the directory path where tokens are stored.
-	TokenVolumeMountPath = "/var/run/secrets/tokens"
+	// TokenDirectory is the name of the directory path where tokens are stored.
+	TokenDirectory = "/var/run/secrets/tokens"
 
-	// ConcurrencyStateTokenFilename is the file name of the concurency state in TokenVolumeMountPath.
+	// ConcurrencyStateTokenFilename is the file name of the concurency state in TokenDirectory.
 	ConcurrencyStateTokenFilename = "state-token"
 
-	// PodInfoAnnotationsFilename is the file name of the annotations in PodInfoVolumeMountPath.
+	// PodInfoAnnotationsFilename is the file name of the annotations in PodInfoDirectory.
 	PodInfoAnnotationsFilename = "annotations"
 )
