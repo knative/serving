@@ -53,7 +53,10 @@ header "Create influx secret"
 run_ytt \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
       --data-value influxurl="${INFLUX_URL}" \
-      --data-value influxtoken="${INFLUX_TOKEN}"
+      --data-value influxtoken="${INFLUX_TOKEN}" \
+      --output-files "${ARTIFACTS}/mako-overlay"
+
+kubectl apply -f "${ARTIFACTS}/mako-overlay/influx-secret.yaml"
 
 ###############################################################################################
 header "Dataplane probe performance test"
