@@ -273,7 +273,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			defer func() {
 				cancel()
 				reporter.Close()
-				oct.Finish()
+				oct.Shutdown(context.Background())
 			}()
 
 			handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */)
