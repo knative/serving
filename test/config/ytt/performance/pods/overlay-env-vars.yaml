@@ -17,6 +17,8 @@ spec:
               value: #@ "{}".format(data.values.influxurl)
             - name: INFLUX_TOKEN
               value: #@ "{}".format(data.values.influxtoken)
+            - name: PROW_TAG
+              value: #@ "{}".format(data.values.prowtag)
           volumeMounts:
             - mountPath: /etc/influx-token-secret-volume
               name: influx-token-secret-volume

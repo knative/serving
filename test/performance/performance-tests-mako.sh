@@ -42,11 +42,12 @@ echo Results downloaded to "${ARTIFACTS}/mako"
 
 mkdir -p "${ARTIFACTS}/mako-overlay"
 
-# install netstat
+export PROW_TAG="local"
 if (( IS_PROW )); then
-      apt-get update && apt-get install -y net-tools
+      export PROW_TAG=${PROW_JOB_ID}
 fi
-
+echo ${PROW_JOB_ID}
+echo ${PROW_TAG}
 ###############################################################################################
 header "Create influx secret"
 
@@ -70,6 +71,7 @@ run_ytt \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
       --data-value dockerrepo="${KO_DOCKER_REPO}" \
+      --data-value prowtag="${PROW_TAG}" \
       --data-value influxurl="${INFLUX_URL}" \
       --data-value influxtoken="${INFLUX_TOKEN}" \
       --output-files "${ARTIFACTS}/mako-overlay"
@@ -114,6 +116,7 @@ run_ytt \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
       --data-value dockerrepo="${KO_DOCKER_REPO}" \
+      --data-value prowtag="${PROW_TAG}" \
       --data-value influxurl="${INFLUX_URL}" \
       --data-value influxtoken="${INFLUX_TOKEN}" \
       --output-files "${ARTIFACTS}/mako-overlay"
@@ -145,6 +148,7 @@ run_ytt \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
       --data-value dockerrepo="${KO_DOCKER_REPO}" \
+      --data-value prowtag="${PROW_TAG}" \
       --data-value influxurl="${INFLUX_URL}" \
       --data-value influxtoken="${INFLUX_TOKEN}" \
       --output-files "${ARTIFACTS}/mako-overlay"
@@ -192,6 +196,7 @@ run_ytt \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
       --data-value dockerrepo="${KO_DOCKER_REPO}" \
+      --data-value prowtag="${PROW_TAG}" \
       --data-value influxurl="${INFLUX_URL}" \
       --data-value influxtoken="${INFLUX_TOKEN}" \
       --output-files "${ARTIFACTS}/mako-overlay"
@@ -229,6 +234,7 @@ run_ytt \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
       --data-value dockerrepo="${KO_DOCKER_REPO}" \
+      --data-value prowtag="${PROW_TAG}" \
       --data-value influxurl="${INFLUX_URL}" \
       --data-value influxtoken="${INFLUX_TOKEN}" \
       --output-files "${ARTIFACTS}/mako-overlay"
@@ -266,6 +272,7 @@ run_ytt \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
       -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
       --data-value dockerrepo="${KO_DOCKER_REPO}" \
+      --data-value prowtag="${PROW_TAG}" \
       --data-value influxurl="${INFLUX_URL}" \
       --data-value influxtoken="${INFLUX_TOKEN}" \
       --output-files "${ARTIFACTS}/mako-overlay"

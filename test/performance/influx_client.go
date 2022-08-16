@@ -29,8 +29,7 @@ import (
 const (
 	influxToken             = "INFLUX_TOKEN"
 	influxURL               = "INFLUX_URL"
-	prowBuildID             = "BUILD_ID"
-	prowPrNumber            = "PULL_NUMBER"
+	prowTag                 = "PROW_TAG"
 	org                     = "Knativetest"
 	bucket                  = "knative-serving"
 	influxURLSecretVolume   = "influx-secret-volume"
@@ -52,17 +51,9 @@ func AddInfluxPoint(measurement string, fields map[string]interface{}) error {
 	}
 
 	tags := map[string]string{}
-	build, found := os.LookupEnv(prowBuildID)
+	build, found := os.LookupEnv(prowTag)
 	if found {
-		tags[prowBuildID] = build
-	} else {
-		tags[prowBuildID] = "local"
-	}
-
-	// prow PR number is optional since it doesn't exist for periodic jobs
-	pr, found := os.LookupEnv(prowPrNumber)
-	if found {
-		tags[prowPrNumber] = pr
+		tags[prowTag] = build
 	}
 
 	client := influxdb2.NewClientWithOptions(url, token,
