@@ -17,6 +17,7 @@ limitations under the License.
 package sharedmain
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -112,7 +113,7 @@ func TestQueueTraceSpans(t *testing.T) {
 			reporter, co := tracetesting.FakeZipkinExporter()
 			defer reporter.Close()
 			oct := tracing.NewOpenCensusTracer(co)
-			defer oct.Finish()
+			defer oct.Shutdown(context.Background())
 
 			cfg := tracingconfig.Config{
 				Backend: tracingconfig.Zipkin,
