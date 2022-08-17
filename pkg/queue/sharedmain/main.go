@@ -192,7 +192,18 @@ func Main(opts ...Option) error {
 		zap.String(logkey.Pod, env.ServingPod))
 
 	d.Logger = logger
-	d.Transport = buildTransport(env, logger)
+	d.Transport = buildTransport(env)
+
+	if env.TracingConfigBackend != tracingconfig.None {
+		oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(env.ServingPod, env.ServingPodIP, logger))
+		oct.ApplyConfig(&tracingconfig.Config{
+			Backend:        env.TracingConfigBackend,
+			Debug:          env.TracingConfigDebug,
+			ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
+			SampleRate:     env.TracingConfigSampleRate,
+		})
+		defer oct.Shutdown(context.Background())
+	}
 
 	// allow extensions to read d and return modified context and transport
 	for _, opts := range opts {
@@ -400,7 +411,7 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler), drainer.Drain
 }
 
-func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
+func buildTransport(env config) http.RoundTripper {
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
 	if env.ContainerConcurrency > 0 {
 		maxIdleConns = env.ContainerConcurrency
@@ -411,14 +422,6 @@ func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
 	if env.TracingConfigBackend == tracingconfig.None {
 		return transport
 	}
-
-	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(env.ServingPod, env.ServingPodIP, logger))
-	oct.ApplyConfig(&tracingconfig.Config{
-		Backend:        env.TracingConfigBackend,
-		Debug:          env.TracingConfigDebug,
-		ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
-		SampleRate:     env.TracingConfigSampleRate,
-	})
 
 	return &ochttp.Transport{
 		Base:        transport,
