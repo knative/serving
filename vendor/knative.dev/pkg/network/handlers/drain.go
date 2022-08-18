@@ -73,8 +73,11 @@ type Drainer struct {
 	// timer is used to orchestrate the drain.
 	timer timer
 
-	// used to synchronize callers of Drain and Reset
-	ch chan struct{}
+	// used to synchronize callers of Drain
+	drainCh chan struct{}
+
+	// used to synchronize Drain and Reset
+	resetCh chan struct{}
 
 	// HealthCheckUAPrefixes are the additional user agent prefixes that trigger the
 	// drainer's health check
@@ -118,8 +121,8 @@ func (d *Drainer) Drain() {
 	ch := func() chan struct{} {
 		d.Lock()
 		defer d.Unlock()
-		if d.ch != nil {
-			return d.ch
+		if d.drainCh != nil {
+			return d.drainCh
 		}
 
 		if d.QuietPeriod <= 0 {
@@ -127,30 +130,24 @@ func (d *Drainer) Drain() {
 		}
 
 		timer := newTimer(d.QuietPeriod)
-		ch := make(chan struct{})
+		drainCh := make(chan struct{})
+		resetCh := make(chan struct{})
 
 		go func() {
 			select {
-			case <-ch:
-				// closed by reset
+			case <-resetCh:
 			case <-timer.tickChan():
-				close(ch)
 			}
+			close(drainCh)
 		}()
 
-		d.ch = ch
+		d.drainCh = drainCh
+		d.resetCh = resetCh
 		d.timer = timer
-		return ch
+		return drainCh
 	}()
 
 	<-ch
-}
-
-func drainTimer(tc <-chan time.Time) {
-	select {
-	case <-tc:
-	default:
-	}
 }
 
 // isHealthcheckRequest validates if the request has a user agent that is for healthcheck
@@ -175,16 +172,16 @@ func (d *Drainer) Reset() {
 	defer d.Unlock()
 
 	if d.timer != nil {
-		if d.timer.Stop() {
-			d.timer = nil
-		} else {
-			drainTimer(d.timer.tickChan())
-		}
+		d.timer.Stop()
+		d.timer = nil
 	}
 
-	if d.ch != nil {
-		close(d.ch)
-		d.ch = nil
+	if d.resetCh != nil {
+		close(d.resetCh)
+		d.resetCh = nil
+	}
+	if d.drainCh != nil {
+		d.drainCh = nil
 	}
 }
 
