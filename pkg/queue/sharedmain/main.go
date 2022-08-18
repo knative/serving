@@ -242,11 +242,11 @@ func Main(opts ...Option) error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainServer, drain := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
+	mainServer, drainer := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 	httpServers := map[string]*http.Server{
 		"main":    mainServer,
 		"metrics": buildMetricsServer(protoStatReporter),
-		"admin":   buildAdminServer(logger, drain),
+		"admin":   buildAdminServer(d.Ctx, logger, drainer),
 	}
 	if env.EnableProfiling {
 		httpServers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
@@ -257,10 +257,10 @@ func Main(opts ...Option) error {
 	// See also https://github.com/knative/serving/issues/12808.
 	var tlsServers map[string]*http.Server
 	if tlsEnabled {
-		mainTLSServer, drain := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
+		mainTLSServer, drainer := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
 		tlsServers = map[string]*http.Server{
 			"tlsMain":  mainTLSServer,
-			"tlsAdmin": buildAdminServer(logger, drain),
+			"tlsAdmin": buildAdminServer(d.Ctx, logger, drainer),
 		}
 		// Drop admin http server as we Use TLS for the admin server.
 		// TODO: The drain created with mainServer above is lost. Unify the two drain.
@@ -300,7 +300,7 @@ func Main(opts ...Option) error {
 		}
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
-		drain()
+		drainer.Drain()
 
 		// Removing the main server from the shutdown logic as we've already shut it down.
 		delete(httpServers, "main")
@@ -336,7 +336,7 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 }
 
 func buildServer(ctx context.Context, env config, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
-	ce *queue.ConcurrencyEndpoint, enableTLS bool) (server *http.Server, drain func()) {
+	ce *queue.ConcurrencyEndpoint, enableTLS bool) (*http.Server, *pkghandler.Drainer) {
 	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
@@ -405,10 +405,10 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 	}
 
 	if enableTLS {
-		return pkgnet.NewServer(":"+env.QueueServingTLSPort, composedHandler), drainer.Drain
+		return pkgnet.NewServer(":"+env.QueueServingTLSPort, composedHandler), drainer
 	}
 
-	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler), drainer.Drain
+	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler), drainer
 }
 
 func buildTransport(env config) http.RoundTripper {
@@ -463,11 +463,25 @@ func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config,
 	return true
 }
 
-func buildAdminServer(logger *zap.SugaredLogger, drain func()) *http.Server {
+func buildAdminServer(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer) *http.Server {
 	adminMux := http.NewServeMux()
 	adminMux.HandleFunc(queue.RequestQueueDrainPath, func(w http.ResponseWriter, r *http.Request) {
-		logger.Info("Attached drain handler from user-container")
-		drain()
+		logger.Info("Attached drain handler from user-container", r)
+
+		go func() {
+			select {
+			case <-ctx.Done():
+			case <-time.After(time.Second):
+				// If the context isn't done then the queue proxy didn't
+				// receive a TERM signal. Thus the user-container's
+				// liveness probes are triggering the container to restart
+				// and we shouldn't block that
+				drainer.Reset()
+			}
+		}()
+
+		drainer.Drain()
+		w.WriteHeader(http.StatusOK)
 	})
 
 	return &http.Server{
