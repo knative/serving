@@ -106,7 +106,7 @@ func TestDomainMappingWebsocket(t *testing.T) {
 		t.Fatalf("The DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
 	}
 
-	if err := e2e.ValidateWebSocketConnection(t, clients, names); err != nil {
+	if err := e2e.ValidateWebSocketConnection(t, clients, names, ""); err != nil {
 		t.Error(err)
 	}
 }
