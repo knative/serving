@@ -16,11 +16,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: scale-from-zero
+  namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: scale-from-zero
+  namespace: default
 subjects:
   - kind: ServiceAccount
     name: scale-from-zero
@@ -34,6 +36,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: scale-from-zero-1
+  namespace: default
 spec:
   parallelism: 1
   template:
@@ -75,6 +78,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: scale-from-zero-5
+  namespace: default
 spec:
   parallelism: 1
   template:
@@ -116,6 +120,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: scale-from-zero-25
+  namespace: default
 spec:
   parallelism: 1
   template:

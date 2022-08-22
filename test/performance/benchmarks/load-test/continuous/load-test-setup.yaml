@@ -16,6 +16,7 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: load-test-always
+  namespace: default
 spec:
   template:
     metadata:
@@ -31,6 +32,7 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: load-test-zero
+  namespace: default
 spec:
   template:
     metadata:
@@ -46,6 +48,7 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: load-test-200
+  namespace: default
 spec:
   template:
     metadata:

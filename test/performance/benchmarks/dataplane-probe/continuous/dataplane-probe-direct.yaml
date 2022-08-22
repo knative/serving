@@ -16,11 +16,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: prober
+  namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: prober
+  namespace: default
 subjects:
   - kind: ServiceAccount
     name: prober
@@ -34,6 +36,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: dataplane-probe-deployment
+  namespace: default
 spec:
   parallelism: 1
   backoffLimit: 0
@@ -75,6 +78,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: dataplane-probe-istio
+  namespace: default
 spec:
   parallelism: 1
   backoffLimit: 0
@@ -116,6 +120,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: dataplane-probe-queue
+  namespace: default
 spec:
   parallelism: 1
   backoffLimit: 0
@@ -157,6 +162,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: dataplane-probe-activator
+  namespace: default
 spec:
   parallelism: 1
   backoffLimit: 0

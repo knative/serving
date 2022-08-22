@@ -62,9 +62,9 @@ kubectl apply -f "${ARTIFACTS}/mako-overlay/influx-secret.yaml"
 ###############################################################################################
 header "Dataplane probe performance test"
 kubectl delete job  dataplane-probe-deployment dataplane-probe-istio dataplane-probe-queue dataplane-probe-activator --ignore-not-found=true
-kubectl delete configmap config-mako --ignore-not-found=true
+kubectl delete configmap config-mako -n default --ignore-not-found=true
 
-kubectl create configmap config-mako --from-file=test/performance/benchmarks/dataplane-probe/dev.config
+kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/dataplane-probe/dev.config
 
 run_ytt \
       -f "${REPO_ROOT_DIR}/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-direct.yaml" \
@@ -108,8 +108,8 @@ kubectl delete job  dataplane-probe-deployment dataplane-probe-istio dataplane-p
 ############################################################################################
 header "Deployment probe performance test"
 kubectl delete job  deployment-probe --ignore-not-found=true
-kubectl delete configmap config-mako --ignore-not-found=true
-kubectl create configmap config-mako --from-file=test/performance/benchmarks/deployment-probe/dev.config
+kubectl delete configmap config-mako -n default --ignore-not-found=true
+kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/deployment-probe/dev.config
 
 run_ytt \
       -f "${REPO_ROOT_DIR}/test/performance/benchmarks/deployment-probe/continuous/benchmark-direct.yaml" \
@@ -139,9 +139,9 @@ test/performance/read_results.sh ${PODNAME_DP} "default" 10001 120 100 10 "${ART
 header "Scale from Zero performance test"
 
 kubectl delete job scale-from-zero-1 scale-from-zero-5 scale-from-zero-25 --ignore-not-found=true
-kubectl delete configmap config-mako --ignore-not-found=true
+kubectl delete configmap config-mako -n default --ignore-not-found=true
 
-kubectl create configmap config-mako --from-file=test/performance/benchmarks/scale-from-zero/dev.config
+kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/scale-from-zero/dev.config
 
 run_ytt \
       -f "${REPO_ROOT_DIR}/test/performance/benchmarks/scale-from-zero/continuous/scale-from-zero-direct.yaml" \
@@ -181,9 +181,9 @@ test/performance/read_results.sh ${PODNAME25} "default" 10001 120 100 10 "${ARTI
 
 ###############################################################################################
 header "Load test"
-kubectl delete configmap config-mako --ignore-not-found=true
+kubectl delete configmap config-mako -n default --ignore-not-found=true
 
-kubectl create configmap config-mako --from-file=test/performance/benchmarks/load-test/dev.config
+kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/load-test/dev.config
 
 ko apply -f test/performance/benchmarks/load-test/continuous/load-test-setup.yaml
 
@@ -303,9 +303,9 @@ echo ""
 
 ##############################################################################################
 #header "Rollout probe performance test"
-#kubectl delete configmap config-mako --ignore-not-found=true
+#kubectl delete configmap config-mako -n default --ignore-not-found=true
 #
-#kubectl create configmap config-mako --from-file=test/performance/benchmarks/rollout-probe/dev.config
+#kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/rollout-probe/dev.config
 #
 #ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-setup.yaml
 #
