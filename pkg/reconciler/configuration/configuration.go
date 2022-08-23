@@ -117,8 +117,14 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.GetMessage())
 
 		if !equality.Semantic.DeepEqual(beforeReady, config.Status.GetCondition(v1.ConfigurationConditionReady)) {
-			recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
-				"Latest created revision %q has failed", lcr.Name)
+
+			if lcr.Name == config.Status.LatestReadyRevisionName {
+				recorder.Eventf(config, corev1.EventTypeWarning, "LatestReadyFailed",
+					"Latest ready revision %q has failed", lcr.Name)
+			} else {
+				recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
+					"Latest created revision %q has failed", lcr.Name)
+			}
 		}
 
 	default:
@@ -169,7 +175,11 @@ func (c *Reconciler) getSortedCreatedRevisions(ctx context.Context, config *v1.C
 			// caller can synthesize a new Revision at the current generation to replace the one deleted.
 			logger.Errorf("Error getting latest ready revision %q: %v", config.Status.LatestReadyRevisionName, err)
 		} else {
-			start := lrr.Generation
+			start, err := configGeneration(lrr)
+			if err != nil {
+				logger.Errorf("Error getting latest ready revision's config generation %q, %v", config.Status.LatestReadyRevisionName, err)
+				start = config.Generation
+			}
 			var generations []string
 			for i := start; i <= config.Generation; i++ {
 				generations = append(generations, strconv.FormatInt(i, 10))
@@ -202,8 +212,8 @@ func (c *Reconciler) getSortedCreatedRevisions(ctx context.Context, config *v1.C
 			if config.Spec.Template.Name == list[j].Name {
 				return false
 			}
-			intI, errI := strconv.Atoi(list[i].Labels[serving.ConfigurationGenerationLabelKey])
-			intJ, errJ := strconv.Atoi(list[j].Labels[serving.ConfigurationGenerationLabelKey])
+			intI, errI := configGeneration(list[i])
+			intJ, errJ := configGeneration(list[j])
 			if errI != nil || errJ != nil {
 				return true
 			}
@@ -211,6 +221,10 @@ func (c *Reconciler) getSortedCreatedRevisions(ctx context.Context, config *v1.C
 		})
 	}
 	return list, nil
+}
+
+func configGeneration(rev *v1.Revision) (int64, error) {
+	return strconv.ParseInt(rev.Labels[serving.ConfigurationGenerationLabelKey], 10, 64)
 }
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration

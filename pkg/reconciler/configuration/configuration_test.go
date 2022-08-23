@@ -526,6 +526,35 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "lrrnotexist-00002"),
 		},
 		Key: "foo/lrrnotexist",
+	}, {
+		Name: "latest ready fails - latest ready doesn't change",
+		Key:  "foo/failed-lrr",
+		Objects: []runtime.Object{
+			cfg("failed-lrr", "foo", 2,
+				WithLatestCreated("rev-00002"),
+				WithLatestReady("rev-00002"),
+				WithConfigObservedGen,
+			),
+			rev("failed-lrr", "foo", 1,
+				WithRevName("rev-00001"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("failed-lrr", "foo", 2,
+				WithRevName("rev-00002"),
+				WithCreationTimestamp(now), MarkResourcesUnavailable("Bad", "Message")),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("failed-lrr", "foo", 2,
+				WithLatestCreated("rev-00002"),
+				WithLatestReady("rev-00002"),
+				WithConfigObservedGen,
+				func(cfg *v1.Configuration) {
+					cfg.Status.MarkLatestCreatedFailed("rev-00002", "Message")
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "LatestReadyFailed", "Latest ready revision %q has failed", "rev-00002"),
+		},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
