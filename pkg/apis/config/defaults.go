@@ -81,7 +81,7 @@ func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
 		RevisionTimeoutSeconds:             DefaultRevisionTimeoutSeconds,
 		MaxRevisionTimeoutSeconds:          DefaultMaxRevisionTimeoutSeconds,
-		RevisionRequestStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
+		RevisionRequestStartTimeoutSeconds: DefaultRevisionTimeoutSeconds,
 		RevisionIdleTimeoutSeconds:         DefaultRevisionIdleTimeoutSeconds,
 		InitContainerNameTemplate:          DefaultInitContainerNameTemplate,
 		UserContainerNameTemplate:          DefaultUserContainerNameTemplate,
