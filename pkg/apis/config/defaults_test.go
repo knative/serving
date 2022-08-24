@@ -221,6 +221,22 @@ func TestDefaultsConfiguration(t *testing.T) {
 			"container-name-template":      "{{.Name}}",
 			"init-container-name-template": "my-template",
 		},
+	}, {
+		name:    "revision response timeout defaults to revision-timeout-seconds",
+		wantErr: false,
+		data: map[string]string{
+			"revision-timeout-seconds": "200",
+		},
+		wantDefaults: &Defaults{
+			RevisionTimeoutSeconds:             200,
+			RevisionRequestStartTimeoutSeconds: 200,
+			MaxRevisionTimeoutSeconds:          DefaultMaxRevisionTimeoutSeconds,
+			ContainerConcurrencyMaxLimit:       DefaultMaxRevisionContainerConcurrency,
+			AllowContainerConcurrencyZero:      DefaultAllowContainerConcurrencyZero,
+			EnableServiceLinks:                 ptr.Bool(false),
+			InitContainerNameTemplate:          DefaultInitContainerNameTemplate,
+			UserContainerNameTemplate:          DefaultUserContainerNameTemplate,
+		},
 	}}
 
 	for _, tt := range configTests {
