@@ -121,7 +121,6 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 
 		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
 		cm.AsInt64("max-revision-timeout-seconds", &nc.MaxRevisionTimeoutSeconds),
-		cm.AsInt64("revision-response-start-timeout-seconds", &nc.RevisionRequestStartTimeoutSeconds),
 		cm.AsInt64("revision-idle-timeout-seconds", &nc.RevisionIdleTimeoutSeconds),
 
 		cm.AsInt64("container-concurrency", &nc.ContainerConcurrency),
@@ -133,6 +132,15 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		cm.AsQuantity("revision-cpu-limit", &nc.RevisionCPULimit),
 		cm.AsQuantity("revision-memory-limit", &nc.RevisionMemoryLimit),
 		cm.AsQuantity("revision-ephemeral-storage-limit", &nc.RevisionEphemeralStorageLimit),
+	); err != nil {
+		return nil, err
+	}
+
+	// We default this to what the user has specified
+	nc.RevisionRequestStartTimeoutSeconds = nc.RevisionTimeoutSeconds
+
+	if err := cm.Parse(data,
+		cm.AsInt64("revision-response-start-timeout-seconds", &nc.RevisionRequestStartTimeoutSeconds),
 	); err != nil {
 		return nil, err
 	}
