@@ -60,50 +60,50 @@ run_ytt \
 kubectl apply -f "${ARTIFACTS}/mako-overlay/influx-secret.yaml"
 
 ###############################################################################################
-header "Dataplane probe performance test"
-kubectl delete job  dataplane-probe-deployment dataplane-probe-istio dataplane-probe-queue dataplane-probe-activator --ignore-not-found=true
-kubectl delete configmap config-mako -n default --ignore-not-found=true
-
-kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/dataplane-probe/dev.config
-
-run_ytt \
-      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-direct.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
-      --data-value dockerrepo="${KO_DOCKER_REPO}" \
-      --data-value prowtag="${PROW_TAG}" \
-      --data-value influxurl="${INFLUX_URL}" \
-      --data-value influxtoken="${INFLUX_TOKEN}" \
-      --output-files "${ARTIFACTS}/mako-overlay"
-
-ko apply -f test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-setup.yaml
-ko apply -f "${ARTIFACTS}/mako-overlay/dataplane-probe-direct.yaml"
-
-echo "waiting for test to complete"
-for i in {1..600}; do
-        echo -n "#"
-        sleep 1
-done
-echo ""
-
-PODNAME_DPD=`kubectl get pods --selector=job-name=dataplane-probe-deployment --template '{{range .items}}{{.metadata.name}}{{end}}'`
-header "Results from ${PODNAME_DPD}"
-# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
-test/performance/read_results.sh ${PODNAME_DPD} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-deployment.csv"
-
-PODNAME_DPI=`kubectl get pods --selector=job-name=dataplane-probe-istio --template '{{range .items}}{{.metadata.name}}{{end}}'`
-header "Results from ${PODNAME_DPI}"
-test/performance/read_results.sh ${PODNAME_DPI} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-istio.csv"
-
-PODNAME_DPQ=`kubectl get pods --selector=job-name=dataplane-probe-queue --template '{{range .items}}{{.metadata.name}}{{end}}'`
-header "Results from ${PODNAME_DPQ}"
-test/performance/read_results.sh ${PODNAME_DPQ} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-queue.csv"
-
-PODNAME_DPA=`kubectl get pods --selector=job-name=dataplane-probe-activator --template '{{range .items}}{{.metadata.name}}{{end}}'`
-header "Results from ${PODNAME_DPA}"
-test/performance/read_results.sh ${PODNAME_DPA} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-activator.csv"
-
-kubectl delete job  dataplane-probe-deployment dataplane-probe-istio dataplane-probe-queue dataplane-probe-activator --ignore-not-found=true
+#header "Dataplane probe performance test"
+#kubectl delete job  dataplane-probe-deployment dataplane-probe-istio dataplane-probe-queue dataplane-probe-activator --ignore-not-found=true
+#kubectl delete configmap config-mako -n default --ignore-not-found=true
+#
+#kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/dataplane-probe/dev.config
+#
+#run_ytt \
+#      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-direct.yaml" \
+#      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
+#      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
+#      --data-value dockerrepo="${KO_DOCKER_REPO}" \
+#      --data-value prowtag="${PROW_TAG}" \
+#      --data-value influxurl="${INFLUX_URL}" \
+#      --data-value influxtoken="${INFLUX_TOKEN}" \
+#      --output-files "${ARTIFACTS}/mako-overlay"
+#
+#ko apply -f test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-setup.yaml
+#ko apply -f "${ARTIFACTS}/mako-overlay/dataplane-probe-direct.yaml"
+#
+#echo "waiting for test to complete"
+#for i in {1..600}; do
+#        echo -n "#"
+#        sleep 1
+#done
+#echo ""
+#
+#PODNAME_DPD=`kubectl get pods --selector=job-name=dataplane-probe-deployment --template '{{range .items}}{{.metadata.name}}{{end}}'`
+#header "Results from ${PODNAME_DPD}"
+## read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
+#test/performance/read_results.sh ${PODNAME_DPD} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-deployment.csv"
+#
+#PODNAME_DPI=`kubectl get pods --selector=job-name=dataplane-probe-istio --template '{{range .items}}{{.metadata.name}}{{end}}'`
+#header "Results from ${PODNAME_DPI}"
+#test/performance/read_results.sh ${PODNAME_DPI} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-istio.csv"
+#
+#PODNAME_DPQ=`kubectl get pods --selector=job-name=dataplane-probe-queue --template '{{range .items}}{{.metadata.name}}{{end}}'`
+#header "Results from ${PODNAME_DPQ}"
+#test/performance/read_results.sh ${PODNAME_DPQ} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-queue.csv"
+#
+#PODNAME_DPA=`kubectl get pods --selector=job-name=dataplane-probe-activator --template '{{range .items}}{{.metadata.name}}{{end}}'`
+#header "Results from ${PODNAME_DPA}"
+#test/performance/read_results.sh ${PODNAME_DPA} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-activator.csv"
+#
+#kubectl delete job  dataplane-probe-deployment dataplane-probe-istio dataplane-probe-queue dataplane-probe-activator --ignore-not-found=true
 
 ############################################################################################
 header "Deployment probe performance test"
@@ -180,126 +180,126 @@ header "Results from ${PODNAME25}"
 test/performance/read_results.sh ${PODNAME25} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-scale-from-zero-25.csv"
 
 ###############################################################################################
-header "Load test"
-kubectl delete configmap config-mako -n default --ignore-not-found=true
-
-kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/load-test/dev.config
-
-ko apply -f test/performance/benchmarks/load-test/continuous/load-test-setup.yaml
-
-###############################################################################################
-header "Load test zero"
-kubectl delete job load-test-zero --ignore-not-found=true
-
-run_ytt \
-      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/load-test/continuous/load-test-0-direct.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
-      --data-value dockerrepo="${KO_DOCKER_REPO}" \
-      --data-value prowtag="${PROW_TAG}" \
-      --data-value influxurl="${INFLUX_URL}" \
-      --data-value influxtoken="${INFLUX_TOKEN}" \
-      --output-files "${ARTIFACTS}/mako-overlay"
-
-ko apply -f "${ARTIFACTS}/mako-overlay/load-test-0-direct.yaml"
-
-echo "waiting for test to complete"
-for i in {1..600}; do
-        echo -n "#"
-        sleep 1
-done
-echo ""
-
-PODNAME_LTZ=`kubectl get pods --selector=job-name=load-test-zero --template '{{range .items}}{{.metadata.name}}{{end}}'`
-header "Results from ${PODNAME_LTZ}"
-# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
-test/performance/read_results.sh ${PODNAME_LTZ} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-load-test-zero.csv"
-
-# clean up for the next test
-kubectl delete job load-test-zero --ignore-not-found=true
-kubectl delete ksvc load-test-zero  --ignore-not-found=true
-echo "waiting for cleanup to complete"
-for i in {1..60}; do
-        echo -n "#"
-        sleep 1
-done
-echo ""
-
-###############################################################################################
-header "Load test always"
-kubectl delete job load-test-always --ignore-not-found=true
-
-run_ytt \
-      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/load-test/continuous/load-test-always-direct.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
-      --data-value dockerrepo="${KO_DOCKER_REPO}" \
-      --data-value prowtag="${PROW_TAG}" \
-      --data-value influxurl="${INFLUX_URL}" \
-      --data-value influxtoken="${INFLUX_TOKEN}" \
-      --output-files "${ARTIFACTS}/mako-overlay"
-
-ko apply -f "${ARTIFACTS}/mako-overlay/load-test-always-direct.yaml"
-
-echo "waiting for test to complete"
-for i in {1..600}; do
-     echo -n "#"
-     sleep 1
-done
-echo ""
-
-PODNAME_LTA=`kubectl get pods --selector=job-name=load-test-always --template '{{range .items}}{{.metadata.name}}{{end}}'`
-header "Results from ${PODNAME_LTA}"
-# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
-test/performance/read_results.sh ${PODNAME_LTA} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-load-test-always.csv"
-
-# clean up for the next test
-kubectl delete job load-test-always --ignore-not-found=true
-kubectl delete ksvc load-test-always --ignore-not-found=true
-echo "waiting for cleanup to complete"
-for i in {1..60}; do
-      echo -n "#"
-      sleep 1
-done
-echo ""
-
-#############################################################################################
-header "Load test 200"
-kubectl delete job load-test-200 --ignore-not-found=true
-
-run_ytt \
-      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/load-test/continuous/load-test-200-direct.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
-      --data-value dockerrepo="${KO_DOCKER_REPO}" \
-      --data-value prowtag="${PROW_TAG}" \
-      --data-value influxurl="${INFLUX_URL}" \
-      --data-value influxtoken="${INFLUX_TOKEN}" \
-      --output-files "${ARTIFACTS}/mako-overlay"
-
-ko apply -f "${ARTIFACTS}/mako-overlay/load-test-200-direct.yaml"
-
-echo "waiting for test to complete"
-for i in {1..600}; do
-      echo -n "#"
-      sleep 1
-done
-echo ""
-
-PODNAME_LT2=`kubectl get pods --selector=job-name=load-test-200 --template '{{range .items}}{{.metadata.name}}{{end}}'`
-header "Results from ${PODNAME_LT2}"
-# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
-test/performance/read_results.sh ${PODNAME_LT2} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-load-test-200.csv"
-
-# clean up for the next test
-kubectl delete job load-test-200 --ignore-not-found=true
-kubectl delete ksvc load-test-200  --ignore-not-found=true
-echo "waiting for cleanup to complete"
-for i in {1..60}; do
-      echo -n "#"
-      sleep 1
-done
-echo ""
+#header "Load test"
+#kubectl delete configmap config-mako -n default --ignore-not-found=true
+#
+#kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/load-test/dev.config
+#
+#ko apply -f test/performance/benchmarks/load-test/continuous/load-test-setup.yaml
+#
+################################################################################################
+#header "Load test zero"
+#kubectl delete job load-test-zero --ignore-not-found=true
+#
+#run_ytt \
+#      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/load-test/continuous/load-test-0-direct.yaml" \
+#      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
+#      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
+#      --data-value dockerrepo="${KO_DOCKER_REPO}" \
+#      --data-value prowtag="${PROW_TAG}" \
+#      --data-value influxurl="${INFLUX_URL}" \
+#      --data-value influxtoken="${INFLUX_TOKEN}" \
+#      --output-files "${ARTIFACTS}/mako-overlay"
+#
+#ko apply -f "${ARTIFACTS}/mako-overlay/load-test-0-direct.yaml"
+#
+#echo "waiting for test to complete"
+#for i in {1..600}; do
+#        echo -n "#"
+#        sleep 1
+#done
+#echo ""
+#
+#PODNAME_LTZ=`kubectl get pods --selector=job-name=load-test-zero --template '{{range .items}}{{.metadata.name}}{{end}}'`
+#header "Results from ${PODNAME_LTZ}"
+## read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
+#test/performance/read_results.sh ${PODNAME_LTZ} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-load-test-zero.csv"
+#
+## clean up for the next test
+#kubectl delete job load-test-zero --ignore-not-found=true
+#kubectl delete ksvc load-test-zero  --ignore-not-found=true
+#echo "waiting for cleanup to complete"
+#for i in {1..60}; do
+#        echo -n "#"
+#        sleep 1
+#done
+#echo ""
+#
+################################################################################################
+#header "Load test always"
+#kubectl delete job load-test-always --ignore-not-found=true
+#
+#run_ytt \
+#      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/load-test/continuous/load-test-always-direct.yaml" \
+#      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
+#      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
+#      --data-value dockerrepo="${KO_DOCKER_REPO}" \
+#      --data-value prowtag="${PROW_TAG}" \
+#      --data-value influxurl="${INFLUX_URL}" \
+#      --data-value influxtoken="${INFLUX_TOKEN}" \
+#      --output-files "${ARTIFACTS}/mako-overlay"
+#
+#ko apply -f "${ARTIFACTS}/mako-overlay/load-test-always-direct.yaml"
+#
+#echo "waiting for test to complete"
+#for i in {1..600}; do
+#     echo -n "#"
+#     sleep 1
+#done
+#echo ""
+#
+#PODNAME_LTA=`kubectl get pods --selector=job-name=load-test-always --template '{{range .items}}{{.metadata.name}}{{end}}'`
+#header "Results from ${PODNAME_LTA}"
+## read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
+#test/performance/read_results.sh ${PODNAME_LTA} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-load-test-always.csv"
+#
+## clean up for the next test
+#kubectl delete job load-test-always --ignore-not-found=true
+#kubectl delete ksvc load-test-always --ignore-not-found=true
+#echo "waiting for cleanup to complete"
+#for i in {1..60}; do
+#      echo -n "#"
+#      sleep 1
+#done
+#echo ""
+#
+##############################################################################################
+#header "Load test 200"
+#kubectl delete job load-test-200 --ignore-not-found=true
+#
+#run_ytt \
+#      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/load-test/continuous/load-test-200-direct.yaml" \
+#      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
+#      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
+#      --data-value dockerrepo="${KO_DOCKER_REPO}" \
+#      --data-value prowtag="${PROW_TAG}" \
+#      --data-value influxurl="${INFLUX_URL}" \
+#      --data-value influxtoken="${INFLUX_TOKEN}" \
+#      --output-files "${ARTIFACTS}/mako-overlay"
+#
+#ko apply -f "${ARTIFACTS}/mako-overlay/load-test-200-direct.yaml"
+#
+#echo "waiting for test to complete"
+#for i in {1..600}; do
+#      echo -n "#"
+#      sleep 1
+#done
+#echo ""
+#
+#PODNAME_LT2=`kubectl get pods --selector=job-name=load-test-200 --template '{{range .items}}{{.metadata.name}}{{end}}'`
+#header "Results from ${PODNAME_LT2}"
+## read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
+#test/performance/read_results.sh ${PODNAME_LT2} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-load-test-200.csv"
+#
+## clean up for the next test
+#kubectl delete job load-test-200 --ignore-not-found=true
+#kubectl delete ksvc load-test-200  --ignore-not-found=true
+#echo "waiting for cleanup to complete"
+#for i in {1..60}; do
+#      echo -n "#"
+#      sleep 1
+#done
+#echo ""
 
 ##############################################################################################
 #header "Rollout probe performance test"
