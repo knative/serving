@@ -29,11 +29,15 @@ import (
 	"knative.dev/pkg/websocket"
 )
 
+// TimeoutFunc returns the timeout duration to be used by the timeout handler.
+type TimeoutFunc func(req *http.Request) (time.Duration, time.Duration, time.Duration)
+
 type timeoutHandler struct {
 	handler              http.Handler
 	timeout              time.Duration
 	responseStartTimeout time.Duration
 	idleTimeout          time.Duration
+	timeoutFunc          TimeoutFunc
 	body                 string
 	clock                clock.Clock
 }
@@ -54,20 +58,20 @@ type timeoutHandler struct {
 // https://golang.org/pkg/net/http/#Handler.
 //
 // The implementation is largely inspired by http.TimeoutHandler.
-func NewTimeoutHandler(h http.Handler, msg string, timeout time.Duration, responseStartTimeout time.Duration, idleTimeout time.Duration) http.Handler {
+func NewTimeoutHandler(h http.Handler, msg string, timeoutFunc TimeoutFunc) http.Handler {
 	return &timeoutHandler{
-		handler:              h,
-		body:                 msg,
-		timeout:              timeout,
-		responseStartTimeout: responseStartTimeout,
-		idleTimeout:          idleTimeout,
-		clock:                clock.RealClock{},
+		handler:     h,
+		body:        msg,
+		timeoutFunc: timeoutFunc,
+		clock:       clock.RealClock{},
 	}
 }
 
 func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
+
+	h.timeout, h.responseStartTimeout, h.idleTimeout = h.timeoutFunc(r)
 
 	timeout := getTimer(h.clock, h.timeout)
 	var timeoutDrained bool

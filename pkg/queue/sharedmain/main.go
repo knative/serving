@@ -353,11 +353,11 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
 	concurrencyStateEnabled := env.ConcurrencyStateEndpoint != ""
 	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
-	var responseStartTimeout time.Duration
+	var responseStartTimeout = 0 * time.Second
 	if env.RevisionResponseStartTimeoutSeconds != 0 {
 		responseStartTimeout = time.Duration(env.RevisionResponseStartTimeoutSeconds) * time.Second
 	}
-	var idleTimeout time.Duration
+	var idleTimeout = 0 * time.Second
 	if env.RevisionIdleTimeoutSeconds != 0 {
 		idleTimeout = time.Duration(env.RevisionIdleTimeoutSeconds) * time.Second
 	}
@@ -380,7 +380,9 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 	}
 	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", timeout, responseStartTimeout, idleTimeout)
+	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
+		return timeout, responseStartTimeout, idleTimeout
+	})
 
 	if metricsSupported {
 		composedHandler = requestMetricsHandler(logger, composedHandler, env)

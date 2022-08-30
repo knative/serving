@@ -36,6 +36,7 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/http/handler"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -62,6 +63,7 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	activatornet "knative.dev/serving/pkg/activator/net"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
@@ -224,6 +226,22 @@ func main() {
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled)
+	ah = handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
+		if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
+			var responseStartTimeout = 0 * time.Second
+			if rev.Spec.ResponseStartTimeoutSeconds != nil {
+				responseStartTimeout = time.Duration(*rev.Spec.ResponseStartTimeoutSeconds) * time.Second
+			}
+			var idleTimeout = 0 * time.Second
+			if rev.Spec.IdleTimeoutSeconds != nil {
+				idleTimeout = time.Duration(*rev.Spec.IdleTimeoutSeconds) * time.Second
+			}
+			return time.Duration(*rev.Spec.TimeoutSeconds) * time.Second, responseStartTimeout, idleTimeout
+		}
+		return apiconfig.DefaultRevisionTimeoutSeconds * time.Second,
+			apiconfig.DefaultRevisionResponseStartTimeoutSeconds * time.Second,
+			apiconfig.DefaultRevisionIdleTimeoutSeconds * time.Second
+	})
 	ah = concurrencyReporter.Handler(ah)
 	ah = activatorhandler.NewTracingHandler(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
