@@ -31,7 +31,7 @@ import (
 
 const suffixMessageEnv = "SUFFIX"
 
-var timeoutDuration time.Duration
+var delay time.Duration
 
 // Gets the message suffix from envvar. Empty by default.
 func messageSuffix() string {
@@ -51,11 +51,11 @@ var upgrader = websocket.Upgrader{
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
-	timeout := params.Get("timeout")
-	if timeout != "" {
-		log.Println("Found timeout header")
-		parsed, _ := strconv.Atoi(timeout)
-		timeoutDuration = time.Duration(parsed) * time.Second
+	d := params.Get("delay")
+	if d != "" {
+		log.Println("Found delay header")
+		parsed, _ := strconv.Atoi(d)
+		delay = time.Duration(parsed) * time.Second
 	}
 
 	if netheader.IsKubeletProbe(r) {
@@ -87,8 +87,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Printf("Successfully received: %q", message)
-		if timeoutDuration > 0 {
-			time.Sleep(timeoutDuration)
+		if delay > 0 {
+			time.Sleep(delay)
 		}
 
 		if err = conn.WriteMessage(messageType, message); err != nil {

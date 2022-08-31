@@ -39,7 +39,7 @@ import (
 
 const (
 	wsServerTestImageName = "wsserver"
-	TimeoutNotSet         = ""
+	NoDelay               = ""
 )
 
 // Connects to a WebSocket target and executes `numReqs` requests.
@@ -54,7 +54,7 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 		g.Go(func() error {
 			// Establish the websocket connection. Since they are persistent
 			// we can't reuse.
-			conn, err := connect(t, clients, url, TimeoutNotSet)
+			conn, err := connect(t, clients, url, NoDelay)
 			if err != nil {
 				return err
 			}
@@ -114,7 +114,7 @@ func TestWebSocket(t *testing.T) {
 	}
 
 	// Validate the websocket connection.
-	if err := ValidateWebSocketConnection(t, clients, names, TimeoutNotSet); err != nil {
+	if err := ValidateWebSocketConnection(t, clients, names, NoDelay); err != nil {
 		t.Error(err)
 	}
 }
@@ -155,7 +155,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 	}); err != nil {
 		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
-	if err := ValidateWebSocketConnection(t, clients, names, TimeoutNotSet); err != nil {
+	if err := ValidateWebSocketConnection(t, clients, names, NoDelay); err != nil {
 		t.Error(err)
 	}
 }
@@ -253,7 +253,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 
 	// But since network programming takes some time to take effect
 	// and it doesn't have a Status, we'll probe `green` until it's ready first.
-	if err := ValidateWebSocketConnection(t, clients, green, TimeoutNotSet); err != nil {
+	if err := ValidateWebSocketConnection(t, clients, green, NoDelay); err != nil {
 		t.Fatal("Error initializing WS connection:", err)
 	}
 
@@ -277,6 +277,12 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	}
 }
 
+// TestWebSocketWithTimeout
+// (1) creates a service based on the `wsserver` image,
+// (2) connects to the service using websocket
+// (3) and sets a delay using a request param, then
+// (4) sends a message, and verifies that we receive back
+// (5) the same message within the timeout or get an error.
 func TestWebSocketWithTimeout(t *testing.T) {
 	clients := Setup(t)
 
@@ -285,37 +291,37 @@ func TestWebSocketWithTimeout(t *testing.T) {
 		timeoutSeconds              int64
 		responseStartTimeoutSeconds int64
 		idleTimeoutSeconds          int64
-		sleep                       string
+		delay                       string
 		expectError                 bool
 	}{{
 		name:           "does not exceed timeout seconds",
 		timeoutSeconds: 10,
-		sleep:          "2",
+		delay:          "2",
 		expectError:    false,
 	}, {
 		name:           "exceeds timeout seconds",
 		timeoutSeconds: 10,
-		sleep:          "20",
+		delay:          "20",
 		expectError:    true,
 	}, {
 		name:                        "does not exceed response start timeout seconds",
 		responseStartTimeoutSeconds: 10,
-		sleep:                       "2",
+		delay:                       "2",
 		expectError:                 false,
 	}, {
 		name:                        "exceeds response start timeout seconds",
 		responseStartTimeoutSeconds: 10,
-		sleep:                       "20",
+		delay:                       "20",
 		expectError:                 true,
 	}, {
 		name:               "does not exceed idle timeout seconds",
 		idleTimeoutSeconds: 10,
-		sleep:              "2",
+		delay:              "2",
 		expectError:        false,
 	}, {
 		name:               "exceeds idle timeout seconds",
 		idleTimeoutSeconds: 10,
-		sleep:              "20",
+		delay:              "20",
 		expectError:        true,
 	}}
 	for _, tc := range testCases {
@@ -339,7 +345,7 @@ func TestWebSocketWithTimeout(t *testing.T) {
 				t.Fatal("Failed to create WebSocket server:", err)
 			}
 			// Validate the websocket connection.
-			err = ValidateWebSocketConnection(t, clients, names, tc.sleep)
+			err = ValidateWebSocketConnection(t, clients, names, tc.delay)
 			if (err == nil && tc.expectError) || (err != nil && !tc.expectError) {
 				t.Error(err)
 			}
