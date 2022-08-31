@@ -64,8 +64,12 @@ func main() {
 		routedHost = gateway
 	}
 
+	scheme := "http"
+	if caCert := os.Getenv("CA_CERT"); caCert != "" {
+		scheme = "https"
+	}
 	target := &url.URL{
-		Scheme: "http",
+		Scheme: scheme,
 		Host:   routedHost,
 	}
 	log.Print("target is ", target)
