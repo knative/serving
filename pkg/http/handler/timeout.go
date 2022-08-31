@@ -33,13 +33,10 @@ import (
 type TimeoutFunc func(req *http.Request) (time.Duration, time.Duration, time.Duration)
 
 type timeoutHandler struct {
-	handler              http.Handler
-	timeout              time.Duration
-	responseStartTimeout time.Duration
-	idleTimeout          time.Duration
-	timeoutFunc          TimeoutFunc
-	body                 string
-	clock                clock.Clock
+	handler     http.Handler
+	timeoutFunc TimeoutFunc
+	body        string
+	clock       clock.Clock
 }
 
 // NewTimeoutHandler returns a Handler that runs `h` with the
@@ -71,9 +68,9 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
-	h.timeout, h.responseStartTimeout, h.idleTimeout = h.timeoutFunc(r)
+	revTimeout, revResponseStartTimeout, revIdleTimeout := h.timeoutFunc(r)
 
-	timeout := getTimer(h.clock, h.timeout)
+	timeout := getTimer(h.clock, revTimeout)
 	var timeoutDrained bool
 	defer func() {
 		putTimer(timeout, timeoutDrained)
@@ -81,8 +78,8 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var idleTimeout clock.Timer
 	var idleTimeoutDrained bool
-	if h.idleTimeout > 0 {
-		idleTimeout = getTimer(h.clock, h.idleTimeout)
+	if revIdleTimeout > 0 {
+		idleTimeout = getTimer(h.clock, revIdleTimeout)
 		defer func() {
 			putTimer(idleTimeout, idleTimeoutDrained)
 		}()
@@ -99,8 +96,8 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var responseStartTimeout clock.Timer
 	var responseStartTimeoutDrained bool
-	if h.responseStartTimeout > 0 {
-		responseStartTimeout = getTimer(h.clock, h.responseStartTimeout)
+	if revResponseStartTimeout > 0 {
+		responseStartTimeout = getTimer(h.clock, revResponseStartTimeout)
 		defer func() {
 			putTimer(responseStartTimeout, responseStartTimeoutDrained)
 		}()
@@ -134,7 +131,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		case now := <-idleTimeoutCh:
-			timedOut, timeToNextTimeout := tw.tryIdleTimeoutAndWriteError(now, h.idleTimeout, h.body)
+			timedOut, timeToNextTimeout := tw.tryIdleTimeoutAndWriteError(now, revIdleTimeout, h.body)
 			if timedOut {
 				idleTimeoutDrained = true
 				return
