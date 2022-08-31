@@ -29,13 +29,14 @@ import (
 	"knative.dev/pkg/websocket"
 )
 
+// TimeoutFunc returns the timeout duration to be used by the timeout handler.
+type TimeoutFunc func(req *http.Request) (time.Duration, time.Duration, time.Duration)
+
 type timeoutHandler struct {
-	handler              http.Handler
-	timeout              time.Duration
-	responseStartTimeout time.Duration
-	idleTimeout          time.Duration
-	body                 string
-	clock                clock.Clock
+	handler     http.Handler
+	timeoutFunc TimeoutFunc
+	body        string
+	clock       clock.Clock
 }
 
 // NewTimeoutHandler returns a Handler that runs `h` with the
@@ -54,14 +55,12 @@ type timeoutHandler struct {
 // https://golang.org/pkg/net/http/#Handler.
 //
 // The implementation is largely inspired by http.TimeoutHandler.
-func NewTimeoutHandler(h http.Handler, msg string, timeout time.Duration, responseStartTimeout time.Duration, idleTimeout time.Duration) http.Handler {
+func NewTimeoutHandler(h http.Handler, msg string, timeoutFunc TimeoutFunc) http.Handler {
 	return &timeoutHandler{
-		handler:              h,
-		body:                 msg,
-		timeout:              timeout,
-		responseStartTimeout: responseStartTimeout,
-		idleTimeout:          idleTimeout,
-		clock:                clock.RealClock{},
+		handler:     h,
+		body:        msg,
+		timeoutFunc: timeoutFunc,
+		clock:       clock.RealClock{},
 	}
 }
 
@@ -69,7 +68,9 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
-	timeout := getTimer(h.clock, h.timeout)
+	revTimeout, revResponseStartTimeout, revIdleTimeout := h.timeoutFunc(r)
+
+	timeout := getTimer(h.clock, revTimeout)
 	var timeoutDrained bool
 	defer func() {
 		putTimer(timeout, timeoutDrained)
@@ -77,8 +78,8 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var idleTimeout clock.Timer
 	var idleTimeoutDrained bool
-	if h.idleTimeout > 0 {
-		idleTimeout = getTimer(h.clock, h.idleTimeout)
+	if revIdleTimeout > 0 {
+		idleTimeout = getTimer(h.clock, revIdleTimeout)
 		defer func() {
 			putTimer(idleTimeout, idleTimeoutDrained)
 		}()
@@ -95,8 +96,8 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var responseStartTimeout clock.Timer
 	var responseStartTimeoutDrained bool
-	if h.responseStartTimeout > 0 {
-		responseStartTimeout = getTimer(h.clock, h.responseStartTimeout)
+	if revResponseStartTimeout > 0 {
+		responseStartTimeout = getTimer(h.clock, revResponseStartTimeout)
 		defer func() {
 			putTimer(responseStartTimeout, responseStartTimeoutDrained)
 		}()
@@ -130,7 +131,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		case now := <-idleTimeoutCh:
-			timedOut, timeToNextTimeout := tw.tryIdleTimeoutAndWriteError(now, h.idleTimeout, h.body)
+			timedOut, timeToNextTimeout := tw.tryIdleTimeoutAndWriteError(now, revIdleTimeout, h.body)
 			if timedOut {
 				idleTimeoutDrained = true
 				return

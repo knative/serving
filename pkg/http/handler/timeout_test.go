@@ -104,12 +104,10 @@ func testTimeoutScenario(t *testing.T, scenarios []timeoutHandlerTestScenario) {
 			rr := httptest.NewRecorder()
 
 			handler := &timeoutHandler{
-				handler:              scenario.handler(fakeClock, &reqMux, writeErrors),
-				body:                 scenario.timeoutMessage,
-				timeout:              scenario.timeout,
-				responseStartTimeout: scenario.responseStartTimeout,
-				idleTimeout:          scenario.idleTimeout,
-				clock:                fakeClock,
+				handler:     scenario.handler(fakeClock, &reqMux, writeErrors),
+				body:        scenario.timeoutMessage,
+				timeoutFunc: StaticTimeoutFunc(scenario.timeout, scenario.responseStartTimeout, scenario.idleTimeout),
+				clock:       fakeClock,
 			}
 
 			defer func() {
@@ -411,7 +409,7 @@ func BenchmarkTimeoutHandler(b *testing.B) {
 			w.Write(write)
 		}
 	})
-	handler := NewTimeoutHandler(baseHandler, "test", 10*time.Minute, 10*time.Minute, 10*time.Minute)
+	handler := NewTimeoutHandler(baseHandler, "test", StaticTimeoutFunc(10*time.Minute, 10*time.Minute, 10*time.Minute))
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 
 	b.Run("sequential", func(b *testing.B) {
@@ -429,4 +427,10 @@ func BenchmarkTimeoutHandler(b *testing.B) {
 			}
 		})
 	})
+}
+
+func StaticTimeoutFunc(timeout time.Duration, requestStart time.Duration, idle time.Duration) TimeoutFunc {
+	return func(req *http.Request) (time.Duration, time.Duration, time.Duration) {
+		return timeout, requestStart, idle
+	}
 }
