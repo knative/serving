@@ -368,6 +368,10 @@ function install() {
     if [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]]; then
       echo "Point Kourier local gateway to custom server certificates"
       toggle_feature cluster-cert-secret server-certs config-kourier
+      # This needs to match the name of Secret in test/config/tls/cert-secret.yaml
+      export CA_CERT=ca-cert
+      # This needs to match $san from test/config/tls/generate.sh
+      export SERVER_NAME=knative.dev
     fi
     echo "Restart activator to mount the certificates"
     kubectl delete pod -n ${SYSTEM_NAMESPACE} -l app=activator
