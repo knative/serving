@@ -17,6 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"flag"
 	"log"
 	"os"
@@ -67,6 +70,7 @@ func main() {
 	}
 	log.Print("target is ", target)
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = newTLSEnabledTransport()
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
 		log.Print("error reverse proxying request: ", err)
 		http.Error(w, err.Error(), http.StatusBadGateway)
@@ -83,4 +87,40 @@ func main() {
 	address := ":" + port
 	log.Print("Listening on address: ", address)
 	test.ListenAndServeGracefully(address, handler)
+}
+
+func newTLSEnabledTransport() http.RoundTripper {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if caCert := os.Getenv("CA_CERT"); caCert != "" {
+		rootCAs, err := createRootCAs(caCert)
+		if err != nil {
+			log.Fatal(err)
+			return transport
+		}
+		transport.TLSClientConfig = &tls.Config{
+			RootCAs: rootCAs,
+			// If SERVER_NAME is not set the empty value will make the
+			// TLS client infer the ServerName from the hostname.
+			ServerName: os.Getenv("SERVER_NAME"),
+		}
+	}
+	return transport
+}
+
+func createRootCAs(caCertFile string) (*x509.CertPool, error) {
+	pemData, err := os.ReadFile(caCertFile)
+	if err != nil {
+		return nil, err
+	}
+	rootCAs, err := x509.SystemCertPool()
+	if rootCAs == nil || err != nil {
+		if err != nil {
+			log.Printf("Failed to load cert poll from system: %v. Will create a new cert pool.", err)
+		}
+		rootCAs = x509.NewCertPool()
+	}
+	if !rootCAs.AppendCertsFromPEM(pemData) {
+		return nil, errors.New("failed to add the certificate to the root CA")
+	}
+	return rootCAs, nil
 }
