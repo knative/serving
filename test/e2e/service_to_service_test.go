@@ -113,7 +113,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		})
 	}
 
-	caSecretName := os.Getenv("UPSTREAM_CA_CERT")
+	caSecretName := os.Getenv("CA_CERT")
 	if caSecretName != "" {
 		envVars = append(envVars, []corev1.EnvVar{{Name: "CA_CERT", Value: caCertPath},
 			{Name: "SERVER_NAME", Value: os.Getenv("SERVER_NAME")}}...)
