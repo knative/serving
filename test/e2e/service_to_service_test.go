@@ -114,7 +114,11 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	}
 
 	caSecretName := os.Getenv("CA_CERT")
-	if caSecretName != "" {
+
+	// External services use different TLS certificates than cluster-local services.
+	// Not passing CA_CERT will make the httpproxy use plain http to connect to the
+	// target service.
+	if caSecretName != "" && !accessibleExternal {
 		envVars = append(envVars, []corev1.EnvVar{{Name: "CA_CERT", Value: caCertPath},
 			{Name: "SERVER_NAME", Value: os.Getenv("SERVER_NAME")}}...)
 	}
@@ -135,7 +139,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		}),
 	}
 
-	if caSecretName != "" {
+	if caSecretName != "" && !accessibleExternal {
 		serviceOptions = append(serviceOptions, rtesting.WithVolume("ca-certs", caCertDirectory, corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: caSecretName,
