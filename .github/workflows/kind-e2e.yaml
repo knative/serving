@@ -312,6 +312,8 @@ jobs:
         echo "SYSTEM_NAMESPACE=$SYSTEM_NAMESPACE" >> $GITHUB_ENV
         echo "GATEWAY_OVERRIDE=$GATEWAY_OVERRIDE" >> $GITHUB_ENV
         echo "GATEWAY_NAMESPACE_OVERRIDE=$GATEWAY_NAMESPACE_OVERRIDE" >> $GITHUB_ENV
+        echo "CA_CERT=$CA_CERT" >> $GITHUB_ENV
+        echo "SERVER_NAME=$SERVER_NAME" >> $GITHUB_ENV
 
     - name: Test ${{ matrix.test-suite }}
       run: |
