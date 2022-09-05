@@ -307,6 +307,10 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/resource-quota/resource-quota.yaml")
   fi
 
+  if (( ENABLE_TLS )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/tls/cert-secret.yaml")
+  fi
+
   local ytt_result=$(mktemp)
   local ytt_post_install_result=$(mktemp)
   local ytt_flags=""
@@ -360,11 +364,15 @@ function install() {
 
   if (( ENABLE_TLS )); then
     echo "Patch to config-network to enable internal encryption"
-    kubectl patch configmap/config-network \
-      -n ${SYSTEM_NAMESPACE} \
-      --type merge \
-      -p '{"data":{"internal-encryption":"true"}}'
-
+    toggle_feature internal-encryption true config-network
+    if [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]]; then
+      echo "Point Kourier local gateway to custom server certificates"
+      toggle_feature cluster-cert-secret server-certs config-kourier
+      # This needs to match the name of Secret in test/config/tls/cert-secret.yaml
+      export CA_CERT=ca-cert
+      # This needs to match $san from test/config/tls/generate.sh
+      export SERVER_NAME=knative.dev
+    fi
     echo "Restart activator to mount the certificates"
     kubectl delete pod -n ${SYSTEM_NAMESPACE} -l app=activator
     kubectl wait --timeout=60s --for=condition=Available deployment  -n ${SYSTEM_NAMESPACE} activator

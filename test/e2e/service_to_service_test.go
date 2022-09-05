@@ -24,12 +24,14 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	netapi "knative.dev/networking/pkg/apis/networking"
+	ptr "knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
@@ -45,6 +47,8 @@ const (
 	targetHostEnv      = "TARGET_HOST"
 	gatewayHostEnv     = "GATEWAY_HOST"
 	helloworldResponse = "Hello World! How about some tasty noodles?"
+	caCertDirectory    = "/var/lib/knative/ca"
+	caCertPath         = caCertDirectory + "/ca.crt"
 )
 
 // testCases for table-driven testing.
@@ -109,6 +113,16 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		})
 	}
 
+	caSecretName := os.Getenv("CA_CERT")
+
+	// External services use different TLS certificates than cluster-local services.
+	// Not passing CA_CERT will make the httpproxy use plain http to connect to the
+	// target service.
+	if caSecretName != "" && !accessibleExternal {
+		envVars = append(envVars, []corev1.EnvVar{{Name: "CA_CERT", Value: caCertPath},
+			{Name: "SERVER_NAME", Value: os.Getenv("SERVER_NAME")}}...)
+	}
+
 	// Set up httpproxy app.
 	t.Log("Creating a Service for the httpproxy test app.")
 	names := test.ResourceNames{
@@ -118,11 +132,24 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 
 	test.EnsureTearDown(t, clients, &names)
 
-	resources, err := v1test.CreateServiceReady(t, clients, &names,
+	serviceOptions := []rtesting.ServiceOption{
 		rtesting.WithEnv(envVars...),
 		rtesting.WithConfigAnnotations(map[string]string{
 			"sidecar.istio.io/inject": strconv.FormatBool(inject),
-		}))
+		}),
+	}
+
+	if caSecretName != "" && !accessibleExternal {
+		serviceOptions = append(serviceOptions, rtesting.WithVolume("ca-certs", caCertDirectory, corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: caSecretName,
+				Optional:   ptr.Bool(false),
+			}}),
+		)
+	}
+
+	resources, err := v1test.CreateServiceReady(t, clients, &names, serviceOptions...)
+
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
