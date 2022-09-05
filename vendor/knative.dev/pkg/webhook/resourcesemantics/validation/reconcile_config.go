@@ -100,21 +100,52 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 	logger := logging.FromContext(ctx)
 
 	rules := make([]admissionregistrationv1.RuleWithOperations, 0, len(ac.handlers))
-	for gvk := range ac.handlers {
+	for gvk, config := range ac.handlers {
 		plural := strings.ToLower(flect.Pluralize(gvk.Kind))
 
+		// If SupportedVerbs has not been given, provide the legacy defaults
+		// of Create, Update, and Delete
+		supportedVerbs := []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
+			admissionregistrationv1.Delete,
+		}
+
+		if vl, ok := config.(resourcesemantics.VerbLimited); ok {
+			logging.FromContext(ctx).Debugf("Using custom Verbs")
+			supportedVerbs = vl.SupportedVerbs()
+		}
+		logging.FromContext(ctx).Debugf("Registering verbs: %s", supportedVerbs)
+
+		resources := []string{}
+		// If SupportedSubResources has not been given, provide the legacy
+		// defaults of main resource, and status
+		if srl, ok := config.(resourcesemantics.SubResourceLimited); ok {
+			logging.FromContext(ctx).Debugf("Using custom SubResources")
+			for _, subResource := range srl.SupportedSubResources() {
+				if subResource == "" {
+					// Special case the actual plural if given
+					resources = append(resources, plural)
+				} else {
+					resources = append(resources, plural+subResource)
+				}
+			}
+		} else {
+			resources = append(resources, plural, plural+"/status")
+		}
+		logging.FromContext(ctx).Debugf("Registering SubResources: %s", resources)
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
-			Operations: []admissionregistrationv1.OperationType{
-				admissionregistrationv1.Create,
-				admissionregistrationv1.Update,
-				admissionregistrationv1.Delete,
-			},
+			Operations: supportedVerbs,
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gvk.Group},
 				APIVersions: []string{gvk.Version},
-				Resources:   []string{plural, plural + "/status"},
+				Resources:   resources,
 			},
 		})
+	}
+
+	for _, r := range rules {
+		logging.FromContext(ctx).Debugf("Rule: %+v", r)
 	}
 
 	// Sort the rules by Group, Version, Kind so that things are deterministically ordered.
