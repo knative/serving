@@ -97,7 +97,7 @@ function patch_version() {
 # Print error message and exit 1
 # Parameters: $1..$n - error message to be displayed
 function abort() {
-  echo "error: $*"
+  echo "error: $*" >&2
   exit 1
 }
 
@@ -126,7 +126,7 @@ function subheader() {
 
 # Simple warning banner for logging purposes.
 function warning() {
-  make_banner "!" "$1"
+  make_banner '!' "$*" >&2
 }
 
 # Checks whether the given function exists.
@@ -567,7 +567,6 @@ function go_run() {
   export GORUN_PATH
   GOPATH="${GORUN_PATH}" \
   GOFLAGS='' \
-  GO111MODULE='' \
     go run "$package" "$@"
 }
 
@@ -577,6 +576,7 @@ function go_run() {
 #             $3..$n - parameters passed to the tool.
 # Deprecated: use go_run instead
 function run_go_tool() {
+  warning 'The "run_go_tool" function is deprecated. Use "go_run" instead.'
   local package=$1
   # If no `@version` is provided, default to adding `@latest`
   if [[ "$package" != *@* ]]; then
@@ -601,6 +601,26 @@ function add_trap {
   done
 }
 
+# Run a command, described by $1, for every go module in the project.
+# Parameters: $1      - Description of the command being run,
+#             $2 - $n - Arguments to pass to the command.
+function foreach_go_module() {
+  local failed=0
+  local -r cmd="$1"
+  shift
+  local gomod_filepath gomod_dir
+  while read -r gomod_filepath; do
+    gomod_dir="$(dirname "$gomod_filepath")"
+    pushd "$gomod_dir" > /dev/null
+    "$cmd" "$@" || failed=$?
+    popd > /dev/null
+    if (( failed )); then
+      echo "Command '${cmd}' failed in module $gomod_dir: $failed" >&2
+      return $failed
+    fi
+  done < <(find . -name go.mod -type f ! -path "*/vendor/*" ! -path "*/third_party/*")
+}
+
 # Update go deps.
 # Parameters (parsed as flags):
 #   "--upgrade", bool, do upgrade.
@@ -613,14 +633,18 @@ function add_trap {
 # global env var: FLOATING_DEPS
 # --upgrade will set GOPROXY to direct unless it is already set.
 function go_update_deps() {
-  cd "${REPO_ROOT_DIR}" || return 1
+  foreach_go_module __go_update_deps_for_module "$@"
+}
 
-  export GO111MODULE=on
+function __go_update_deps_for_module() {
+  ( # do not modify the environment
+  set -Eeuo pipefail
+
   export GOFLAGS=""
   export GONOSUMDB="${GONOSUMDB:-},knative.dev/*"
   export GONOPROXY="${GONOPROXY:-},knative.dev/*"
 
-  echo "=== Update Deps for Golang"
+  echo "=== Update Deps for Golang module: $(go_mod_module_name)"
 
   local UPGRADE=0
   local RELEASE="v9000.1" # release v9000 is so far in the future, it will always pick the default branch.
@@ -646,7 +670,7 @@ function go_update_deps() {
     else
       group "Upgrading to release ${RELEASE}"
     fi
-    FLOATING_DEPS+=( $(go_run knative.dev/test-infra/buoy@latest float ${REPO_ROOT_DIR}/go.mod "${buoyArgs[@]}") )
+    FLOATING_DEPS+=( $(go_run knative.dev/test-infra/buoy@latest float ./go.mod "${buoyArgs[@]}") )
     if [[ ${#FLOATING_DEPS[@]} > 0 ]]; then
       echo "Floating deps to ${FLOATING_DEPS[@]}"
       go get -d ${FLOATING_DEPS[@]}
@@ -664,6 +688,9 @@ function go_update_deps() {
   go mod vendor 2>&1 |  grep -v "ignoring symlink" || true
   eval "$orig_pipefail_opt"
 
+  if ! [ -d vendor ]; then
+    return 0
+  fi
   group "Removing unwanted vendor files"
 
   # Remove unwanted vendor files
@@ -680,13 +707,15 @@ function go_update_deps() {
 
   group "Removing broken symlinks"
   remove_broken_symlinks ./vendor
+  )
 }
+
 
 # Return the go module name of the current module.
 # Intended to be used like:
 #   export MODULE_NAME=$(go_mod_module_name)
 function go_mod_module_name() {
-  go mod graph | cut -d' ' -f 1 | grep -v '@' | head -1
+  grep -E '^module ' go.mod | cut -d' ' -f2
 }
 
 # Return a GOPATH to a temp directory. Works around the out-of-GOPATH issues
@@ -717,11 +746,10 @@ function run_kntest() {
 # Parameters: $1 - output file, relative to repo root dir.
 #             $2 - directory to inspect.
 function update_licenses() {
-  cd "${REPO_ROOT_DIR}" || return 1
   local dst=$1
   local dir=$2
   shift
-  go_run github.com/google/go-licenses@v1.2.0 \
+  go_run github.com/google/go-licenses@v1.2.1 \
     save "${dir}" --save_path="${dst}" --force || \
     { echo "--- FAIL: go-licenses failed to update licenses"; return 1; }
 }
@@ -729,7 +757,7 @@ function update_licenses() {
 # Run go-licenses to check for forbidden licenses.
 function check_licenses() {
   # Check that we don't have any forbidden licenses.
-  go_run github.com/google/go-licenses@v1.2.0 \
+  go_run github.com/google/go-licenses@v1.2.1 \
     check "${REPO_ROOT_DIR}/..." || \
     { echo "--- FAIL: go-licenses failed the license check"; return 1; }
 }
@@ -762,7 +790,7 @@ function is_protected_project() {
 # Remove symlinks in a path that are broken or lead outside the repo.
 # Parameters: $1 - path name, e.g. vendor
 function remove_broken_symlinks() {
-  for link in $(find $1 -type l); do
+  for link in $(find "$1" -type l); do
     # Remove broken symlinks
     if [[ ! -e ${link} ]]; then
       unlink ${link}
