@@ -70,7 +70,7 @@ var (
 	wildcardDNSNames      = []string{"*.foo.example.com"}
 	defaultCertName       = names.WildcardCertificate(wildcardDNSNames[0])
 	defaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
-	defaultDomain         = "example.com"
+	defaultDomain         = "svc.cluster.local"
 	// Used to pass configuration to tests in TestReconcile
 	netConfigContextKey key
 )
@@ -110,7 +110,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"example.com": "",
+			"svc.cluster.local": "",
 		},
 	}}
 	cms = append(cms, configs...)
@@ -483,8 +483,8 @@ func TestDomainConfigDomain(t *testing.T) {
 			"autoTLS":                          "Enabled",
 			"namespace-wildcard-cert-selector": "{}",
 		},
-		wantCertName: "testns.example.com",
-		wantDNSName:  "*.testns.example.com",
+		wantCertName: "testns.svc.cluster.local",
+		wantDNSName:  "*.testns.svc.cluster.local",
 	}, {
 		name: "default domain",
 		domainCfg: map[string]string{
