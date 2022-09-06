@@ -67,7 +67,7 @@ const (
 type key int
 
 var (
-	wildcardDNSNames      = []string{"*.foo.example.com"}
+	wildcardDNSNames      = []string{"*.foo.svc.cluster.local"}
 	defaultCertName       = names.WildcardCertificate(wildcardDNSNames[0])
 	defaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 	defaultDomain         = "svc.cluster.local"
@@ -161,7 +161,7 @@ func TestNewController(t *testing.T) {
 				Namespace: system.Namespace(),
 			},
 			Data: map[string]string{
-				"example.com": "",
+				"svc.cluster.local": "",
 			}},
 	)
 
@@ -279,7 +279,7 @@ func TestReconcile(t *testing.T) {
 				Verb:      "delete",
 				Resource:  netv1alpha1.SchemeGroupVersion.WithResource("certificates"),
 			},
-			Name: "foo.example.com",
+			Name: "foo.svc.cluster.local",
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Deleted", "Deleted Knative Certificate %s/%s", "foo", defaultCertName),
@@ -430,7 +430,7 @@ func TestChangeDefaultDomain(t *testing.T) {
 
 	// The certificate should be created with the default domain.
 	cert := <-certEvents
-	if got, want := cert.Spec.DNSNames[0], "*.testns.example.com"; got != want {
+	if got, want := cert.Spec.DNSNames[0], "*.testns.svc.cluster.local"; got != want {
 		t.Errorf("DNSName[0] = %s, want %s", got, want)
 	}
 
@@ -623,7 +623,7 @@ func networkConfig() *netcfg.Config {
 func domainConfig() *routecfg.Domain {
 	domainConfig := &routecfg.Domain{
 		Domains: map[string]*routecfg.LabelSelector{
-			"example.com": {},
+			"svc.cluster.local": {},
 		},
 	}
 	return domainConfig
