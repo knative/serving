@@ -40,7 +40,19 @@ fi
 readonly IS_PROW
 [[ ! -v REPO_ROOT_DIR ]] && REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 readonly REPO_ROOT_DIR
-readonly REPO_NAME="${REPO_NAME:-$(basename "${REPO_ROOT_DIR}")}"
+
+# Resolves the repository name given a root directory.
+# Parameters: $1 - repository root directory.
+function __resolveRepoName() {
+  local repoName
+  repoName="$(basename "${1:-$(git rev-parse --show-toplevel)}")"
+  repoName="${repoName#knative-sandbox-}" # Remove knative-sandbox- prefix if any
+  repoName="${repoName#knative-}" # Remove knative- prefix if any
+  echo "${repoName}"
+}
+default_repo_name="$(__resolveRepoName "${REPO_ROOT_DIR}")"
+readonly REPO_NAME="${REPO_NAME:-$default_repo_name}"
+unset default_repo_name
 
 # Useful flags about the current OS
 IS_LINUX=0
@@ -64,10 +76,6 @@ if [[ -z "${ARTIFACTS:-}" ]]; then
   export ARTIFACTS
 fi
 mkdir -p "$ARTIFACTS"
-
-
-# On a Prow job, redirect stderr to stdout so it's synchronously added to log
-(( IS_PROW )) && exec 2>&1
 
 # Return the major version of a release.
 # For example, "v0.2.1" returns "0"
@@ -94,11 +102,49 @@ function patch_version() {
   echo "${tokens[2]}"
 }
 
-# Print error message and exit 1
+# Calculates the hashcode for a given string.
+# Parameters: $* - string to be hashed.
+# See: https://stackoverflow.com/a/48863502/844449
+function hashCode() {
+  local input="$1"
+  local -i h=0
+  for ((i = 0; i < ${#input}; i++)); do
+    # val is ASCII val
+    printf -v val "%d" "'${input:$i:1}"
+    hval=$((31 * h + val))
+    # hash scheme
+    if ((hval > 2147483647)); then
+      h=$(( (hval - 2147483648) % 2147483648 ))
+    elif ((hval < -2147483648)); then
+      h=$(( (hval + 2147483648) % 2147483648 ))
+    else
+      h=$(( hval ))
+    fi
+  done
+  # final hashCode in decimal
+  printf "%d" $h
+}
+
+# Calculates the retcode for a given string. Makes sure the return code is
+# non-zero.
+# Parameters: $* - string to be hashed.
+function calcRetcode() {
+  local rc=1
+  local rcc
+  rcc="$(hashCode "$*")"
+  if [[ $rcc != 0 ]]; then
+    rc=$(( rcc % 255 ))
+  fi
+  echo "$rc"
+}
+
+# Print error message and call exit(n) where n calculated from the error message.
 # Parameters: $1..$n - error message to be displayed
+# Globals: abort_retcode will change the default retcode to be returned
 function abort() {
-  echo "error: $*" >&2
-  exit 1
+  make_banner '*' "ERROR: $*" >&2
+  readonly abort_retcode="${abort_retcode:-$(calcRetcode "$*")}"
+  exit "$abort_retcode"
 }
 
 # Display a box banner.
@@ -106,11 +152,13 @@ function abort() {
 #             $2 - banner message.
 function make_banner() {
   local msg="$1$1$1$1 $2 $1$1$1$1"
-  local border="${msg//[-0-9A-Za-z _.,\/()\']/$1}"
+  local border="${msg//[^$1]/$1}"
   echo -e "${border}\n${msg}\n${border}"
   # TODO(adrcunha): Remove once logs have timestamps on Prow
   # For details, see https://github.com/kubernetes/test-infra/issues/10100
-  echo -e "$1$1$1$1 $(TZ='UTC' date)\n${border}"
+  if (( IS_PROW )); then
+    echo -e "$1$1$1$1 $(TZ='UTC' date --rfc-3339=ns)\n${border}"
+  fi
 }
 
 # Simple header for logging purposes.
@@ -126,7 +174,7 @@ function subheader() {
 
 # Simple warning banner for logging purposes.
 function warning() {
-  make_banner '!' "$*" >&2
+  make_banner '!' "WARN: $*" >&2
 }
 
 # Checks whether the given function exists.
@@ -448,14 +496,14 @@ function report_go_test() {
   logfile="${xml/junit_/go_test_}"
   logfile="${logfile/.xml/.jsonl}"
   echo "Running go test with args: ${go_test_args[*]}"
+  local gotest_retcode=0
   go_run gotest.tools/gotestsum@v1.8.0 \
     --format "${GO_TEST_VERBOSITY:-testname}" \
     --junitfile "${xml}" \
     --junitfile-testsuite-name relative \
     --junitfile-testcase-classname relative \
     --jsonfile "${logfile}" \
-    -- "${go_test_args[@]}"
-  local gotest_retcode=$?
+    -- "${go_test_args[@]}" || gotest_retcode=$?
   echo "Finished run, return code is ${gotest_retcode}"
 
   echo "XML report written to ${xml}"
@@ -557,6 +605,9 @@ function go_run() {
   package="$1"
   if [[ "$package" != *@* ]]; then
     abort 'Package for "go_run" needs to have @version'
+  fi
+  if [[ "$package" == *@latest ]] && [[ "$package" != knative.dev* ]]; then
+    warning 'Using @latest version for external dependencies is unsafe. Use numbered version!'
   fi
   shift 1
   GORUN_PATH="${GORUN_PATH:-$(go env GOPATH)}"
