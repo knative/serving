@@ -240,15 +240,14 @@ function run_integration_tests() {
 # Default integration test runner that runs all `test/e2e-*tests.sh`.
 function default_integration_test_runner() {
   local failed=0
-  find test/ ! -name "$(printf "*\n*")" -name "e2e-*tests.sh" -maxdepth 1 > tmp
-  while IFS= read -r e2e_test
-  do
+
+  while IFS= read -r e2e_test; do
     echo "Running integration test ${e2e_test}"
     if ! ${e2e_test}; then
       failed=1
       step_failed "${e2e_test}"
     fi
-  done < tmp
+  done < <(find test/ ! -name "$(printf "*\n*")" -name "e2e-*tests.sh" -maxdepth 1)
   return ${failed}
 }
 
@@ -284,16 +283,16 @@ function main() {
     git version
     echo ">> ko version"
     [[ -f /ko_version ]] && cat /ko_version || echo "unknown"
-    if [[ "${DOCKER_IN_DOCKER_ENABLED}" == "true" ]]; then
+    if [[ "${DOCKER_IN_DOCKER_ENABLED:-}" == "true" ]]; then
       echo ">> docker version"
       docker version
     fi
     if type java > /dev/null; then
       echo ">> java version"
       java -version
-      echo "JAVA_HOME: $JAVA_HOME"
+      echo "JAVA_HOME: ${JAVA_HOME:-}"
     fi
-    if type mvn > /dev/null; then
+    if command -v mvn > /dev/null; then
       echo ">> maven version"
       mvn --version
     fi

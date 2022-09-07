@@ -76,7 +76,7 @@ function setup_test_cluster() {
   # Setup KO_DOCKER_REPO if it is a GKE cluster. Incorporate an element of
   # randomness to ensure that each run properly publishes images. Don't
   # owerwrite KO_DOCKER_REPO if already set.
-  [ -z "${KO_DOCKER_REPO}" ] && \
+  [ -z "${KO_DOCKER_REPO:-}" ] && \
     [[ "${k8s_cluster}" =~ ^gke_.* ]] && \
     export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${REPO_NAME}-e2e-img/${RANDOM}
 
@@ -120,12 +120,14 @@ function success() {
 }
 
 # Exit test, dumping current state info.
-# Parameters: $1 - error message (optional).
+# Parameters: $* - error message (optional).
 function fail_test() {
-  [[ -n $1 ]] && echo "ERROR: $1"
-  dump_cluster_state
-  dump_metrics
-  exit 1
+  local message="$*"
+  if [[ -n ${message:-} ]]; then
+    message='test failed'
+  fi
+  add_trap "dump_cluster_state;dump_metrics" EXIT
+  abort "${message}"
 }
 
 SKIP_TEARDOWNS=0

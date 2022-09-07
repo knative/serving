@@ -91,8 +91,8 @@ function create_test_cluster() {
   fi
 
   case "$1" in
-    gke) create_gke_test_cluster "$2" "$3" "$4" ;;
-    kind) create_kind_test_cluster "$2" "$3" "$4" ;;
+    gke) create_gke_test_cluster "$2" "$3" "${4:-}" ;;
+    kind) create_kind_test_cluster "$2" "$3" "${4:-}" ;;
     *) echo "unsupported provider: $1"; exit 1 ;;
   esac
 
@@ -126,11 +126,11 @@ function create_gke_test_cluster() {
   # We are disabling logs and metrics on Boskos Clusters by default as they are not used. Manually set ENABLE_GKE_TELEMETRY to true to enable telemetry
   # and ENABLE_PREEMPTIBLE_NODES to true to create preemptible/spot VMs. VM Preemption is a rare event and shouldn't be distruptive given the fault tolerant nature of our tests.
   local extra_gcloud_flags=""
-  if [[ "$ENABLE_GKE_TELEMETRY" != "true" ]]; then
+  if [[ "${ENABLE_GKE_TELEMETRY:-}" != "true" ]]; then
     extra_gcloud_flags="${extra_gcloud_flags} --logging=NONE --monitoring=NONE"
   fi
 
-  if [[ "$ENABLE_PREEMPTIBLE_NODES" == "true" ]]; then
+  if [[ "${ENABLE_PREEMPTIBLE_NODES:-}" == "true" ]]; then
     extra_gcloud_flags="${extra_gcloud_flags} --preemptible"
   fi
   run_kntest kubetest2 gke "${_custom_flags[@]}" --test-command="${_test_command[*]}" --extra-gcloud-flags="${extra_gcloud_flags}"
