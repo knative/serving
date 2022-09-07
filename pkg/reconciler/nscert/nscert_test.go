@@ -67,10 +67,10 @@ const (
 type key int
 
 var (
-	wildcardDNSNames      = []string{"*.foo.svc.cluster.local"}
+	wildcardDNSNames      = []string{"*.foo.example.com"}
 	defaultCertName       = names.WildcardCertificate(wildcardDNSNames[0])
 	defaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
-	defaultDomain         = "svc.cluster.local"
+	defaultDomain         = "example.com"
 	// Used to pass configuration to tests in TestReconcile
 	netConfigContextKey key
 )
@@ -279,7 +279,7 @@ func TestReconcile(t *testing.T) {
 				Verb:      "delete",
 				Resource:  netv1alpha1.SchemeGroupVersion.WithResource("certificates"),
 			},
-			Name: "foo.svc.cluster.local",
+			Name: "foo.example.com",
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Deleted", "Deleted Knative Certificate %s/%s", "foo", defaultCertName),
@@ -623,7 +623,7 @@ func networkConfig() *netcfg.Config {
 func domainConfig() *routecfg.Domain {
 	domainConfig := &routecfg.Domain{
 		Domains: map[string]*routecfg.LabelSelector{
-			"svc.cluster.local": {},
+			"example.com": {},
 		},
 	}
 	return domainConfig
