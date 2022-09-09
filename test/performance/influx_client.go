@@ -17,7 +17,6 @@ limitations under the License.
 package performance
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"os"
@@ -32,8 +31,8 @@ const (
 	prowTag                 = "PROW_TAG"
 	org                     = "Knativetest"
 	bucket                  = "knative-serving"
-	influxURLSecretVolume   = "influx-secret-volume"
-	influxTokenSecretVolume = "influx-secret-volume"
+	influxURLSecretVolume   = "influx-url-secret-volume"
+	influxTokenSecretVolume = "influx-token-secret-volume"
 	influxURLSecretKey      = "influxdb-url"
 	influxTokenSecretKey    = "influxdb-token"
 )
@@ -59,20 +58,19 @@ func AddInfluxPoint(measurement string, fields map[string]interface{}) error {
 	client := influxdb2.NewClientWithOptions(url, token,
 		influxdb2.DefaultOptions().
 			SetUseGZip(true).
+			SetBatchSize(20).
 			SetTLSConfig(&tls.Config{
 				InsecureSkipVerify: true,
 			}))
-	// User blocking write client for writes to desired bucket
-	writeAPI := client.WriteAPIBlocking(org, bucket)
+	writeAPI := client.WriteAPI(org, bucket)
 	p := influxdb2.NewPoint(measurement,
 		tags,
 		fields,
 		time.Now())
-	// Write point immediately
-	err = writeAPI.WritePoint(context.Background(), p)
-	if err != nil {
-		return err
-	}
+	// Write point asynchronously
+	writeAPI.WritePoint(p)
+	// Force all unwritten data to be sent
+	writeAPI.Flush()
 	// Ensures background processes finishes
 	client.Close()
 	return nil
