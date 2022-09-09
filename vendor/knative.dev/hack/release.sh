@@ -29,6 +29,10 @@ readonly REPO_UPSTREAM="https://github.com/${ORG_NAME}/${REPO_NAME}"
 readonly NIGHTLY_GCR="gcr.io/knative-nightly/github.com/${ORG_NAME}/${REPO_NAME}"
 readonly RELEASE_GCR="gcr.io/knative-releases/github.com/${ORG_NAME}/${REPO_NAME}"
 
+# Signing identities for knative releases.
+readonly NIGHTLY_SIGNING_IDENTITY="signer@knative-nightly.iam.gserviceaccount.com"
+readonly RELEASE_SIGNING_IDENTITY="signer@knative-releases.iam.gserviceaccount.com"
+
 # Georeplicate images to {us,eu,asia}.gcr.io
 readonly GEO_REPLICATION=(us eu asia)
 
@@ -94,11 +98,12 @@ RELEASE_NOTES=""
 RELEASE_BRANCH=""
 RELEASE_GCS_BUCKET="knative-nightly/${REPO_NAME}"
 RELEASE_DIR=""
-KO_FLAGS="-P --platform=all"
+KO_FLAGS="-P --platform=all --image-refs=imagerefs.txt"
 VALIDATION_TESTS="./test/presubmit-tests.sh"
 ARTIFACTS_TO_PUBLISH=""
 FROM_NIGHTLY_RELEASE=""
 FROM_NIGHTLY_RELEASE_GCS=""
+SIGNING_IDENTITY=""
 export KO_DOCKER_REPO="gcr.io/knative-nightly"
 # Build stripped binary to reduce size
 export GOFLAGS="-ldflags=-s -ldflags=-w"
@@ -301,6 +306,34 @@ function build_from_source() {
   if [[ $? -ne 0 ]]; then
     abort "error building the release"
   fi
+  sign_release || abort "error signing the release"
+}
+
+# Build a release from source.
+function sign_release() {
+  if [ -z "$SIGN_IMAGES" ]; then # Temporary Feature Gate
+    return 0
+  fi
+  ## Sign the images with cosign
+  ## For now, check if ko has created imagerefs.txt file. In the future, missing image refs will break
+  ## the release for all jobs that publish images.
+  if [[ -f "imagerefs.txt" ]]; then
+      echo "Signing Images with the identity ${SIGNING_IDENTITY}"
+      COSIGN_EXPERIMENTAL=1 cosign sign $(cat imagerefs.txt) --recursive --identity-token="$(
+        gcloud auth print-identity-token --audiences=sigstore \
+        --include-email \
+        --impersonate-service-account="${SIGNING_IDENTITY}")"
+  fi
+
+  ## Check if there is checksums.txt file. If so, sign the checksum file
+  if [[ -f "checksums.txt" ]]; then
+      echo "Signing Images with the identity ${SIGNING_IDENTITY}"
+      COSIGN_EXPERIMENTAL=1 cosign sign-blob checksums.txt --output-signature checksums.txt.sig --identity-token="$(
+        gcloud auth print-identity-token --audiences=sigstore \
+        --include-email \
+        --impersonate-service-account="${SIGNING_IDENTITY}")"
+      ARTIFACTS_TO_PUBLISH="${ARTIFACTS_TO_PUBLISH} checksums.txt.sig"
+  fi
 }
 
 # Copy tagged images from the nightly GCR to the release GCR, tagging them 'latest'.
@@ -375,10 +408,12 @@ function parse_flags() {
             ;;
           --release-gcr)
             KO_DOCKER_REPO=$1
+            SIGNING_IDENTITY=$RELEASE_SIGNING_IDENTITY
             has_gcr_flag=1
             ;;
           --release-gcs)
             RELEASE_GCS_BUCKET=$1
+            SIGNING_IDENTITY=$RELEASE_SIGNING_IDENTITY
             RELEASE_DIR=""
             has_gcs_flag=1
             ;;
@@ -449,6 +484,11 @@ function parse_flags() {
     [[ -z "${RELEASE_DIR}" ]] && RELEASE_DIR="${REPO_ROOT_DIR}"
   fi
 
+  # Set signing identity for cosign, it would already be set to the RELEASE one if the release-gcr/release-gcs flags are set
+  if [[ -z "${SIGNING_IDENTITY}" ]]; then
+    SIGNING_IDENTITY="${NIGHTLY_SIGNING_IDENTITY}"
+  fi
+
   [[ -z "${RELEASE_GCS_BUCKET}" && -z "${RELEASE_DIR}" ]] && abort "--release-gcs or --release-dir must be used"
   if [[ -n "${RELEASE_DIR}" ]]; then
     mkdir -p "${RELEASE_DIR}" || abort "cannot create release dir '${RELEASE_DIR}'"
@@ -481,6 +521,7 @@ function parse_flags() {
   readonly RELEASE_DIR
   readonly VALIDATION_TESTS
   readonly FROM_NIGHTLY_RELEASE
+  readonly SIGNING_IDENTITY
 }
 
 # Run tests (unless --skip-tests was passed). Conveniently displays a banner indicating so.
