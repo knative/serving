@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/util/clock"
 )
 
 func TestTimeoutWriterAllowsForAdditionalWritesBeforeTimeout(t *testing.T) {
