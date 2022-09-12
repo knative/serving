@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 
+	"knative.dev/pkg/test/logstream"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -34,6 +35,7 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 	var clients *test.Clients
 	var names *test.ResourceNames
 	var prober test.Prober
+	var cancel logstream.Canceler
 	return pkgupgrade.NewBackgroundVerification("ProbeTest",
 		func(c pkgupgrade.Context) {
 			// Setup
@@ -42,6 +44,7 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 				Service: "upgrade-probe",
 				Image:   test.PizzaPlanet1,
 			}
+			cancel = logstream.StartForUserNamespace(c.T, c.Log.Infof, test.ServingFlags.TestNamespace, names.Service)
 			objects, err := v1test.CreateServiceReady(c.T, clients, names)
 			if err != nil {
 				c.T.Fatal("Failed to create Service:", err)
@@ -57,6 +60,7 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 			// Verify
 			test.EnsureTearDown(c.T, clients, names)
 			test.AssertProberSLO(c.T, prober, *successFraction)
+			c.T.Cleanup(cancel)
 		},
 	)
 }

@@ -19,6 +19,7 @@ package upgrade
 import (
 	"time"
 
+	"knative.dev/pkg/test/logstream"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -40,6 +41,7 @@ const (
 func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 	var ctx *e2e.TestContext
 	var wait func() error
+	var cancel logstream.Canceler
 	stopCh := make(chan time.Time)
 	return pkgupgrade.NewBackgroundVerification("AutoscaleSustainingTest",
 		func(c pkgupgrade.Context) {
@@ -48,6 +50,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
 				}))
+			cancel = logstream.StartForUserNamespace(c.T, c.Log.Infof, test.ServingFlags.TestNamespace, ctx.Names().Service)
 			ctx.SetLogger(c.Log.Infof)
 			wait = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
 
@@ -62,6 +65,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 			if err := wait(); err != nil {
 				c.T.Error("Error: ", err)
 			}
+			c.T.Cleanup(cancel)
 		},
 	)
 }
