@@ -159,26 +159,32 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/byo-name-exists",
 	}, {
+		// This example shows what we might see with a `git revert` in GitOps.
 		Name: "create revision byo name (exists, wrong generation, right spec)",
 		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
-		// This example shows what we might see with a `git revert` in GitOps.
 		Objects: []runtime.Object{
 			cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-foo"
-			}),
-			rev("byo-name-git-revert", "foo", 1200, WithCreationTimestamp(now), func(rev *v1.Revision) {
+			}, WithLatestCreated("byo-name-git-revert"), WithLatestReady("byo-name-git-revert"), WithConfigObservedGen),
+			// This revision was a bad rollout
+			rev("byo-name-git-revert", "foo", 1234, WithCreationTimestamp(now), MarkRevisionReady),
+			// This revision is good
+			rev("byo-name-git-revert", "foo", 1200, WithCreationTimestamp(now.Add(-time.Second)), func(rev *v1.Revision) {
 				rev.Name = "byo-name-git-revert-foo"
 				rev.GenerateName = ""
-			}),
+			}, MarkRevisionReady),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-foo"
-			}, WithLatestCreated("byo-name-git-revert-foo"), WithConfigObservedGen),
+			}, WithLatestCreated("byo-name-git-revert-foo"), WithLatestReady("byo-name-git-revert-foo"), WithConfigObservedGen),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "byo-name-git-revert-foo"),
+		},
 		Key: "foo/byo-name-git-revert",
 	}, {
-		Name: "create revision byo name (exists @ wrong generation w/ wrong spec)",
+		Name: "create revision byo name (exists, wrong generation,/ wrong spec)",
 		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1.Configuration) {
