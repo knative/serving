@@ -27,9 +27,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
+	clocktest "k8s.io/utils/clock/testing"
 
 	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -3035,7 +3035,7 @@ func NewTestReconciler(ctx context.Context, listers *Listers, cmw configmap.Watc
 		ingressLister:       listers.GetIngressLister(),
 		certificateLister:   listers.GetCertificateLister(),
 		tracker:             ctx.Value(TrackerKey).(tracker.Interface),
-		clock:               clock.NewFakePassiveClock(fakeCurTime),
+		clock:               clocktest.NewFakePassiveClock(fakeCurTime),
 		enqueueAfter:        func(interface{}, time.Duration) {},
 	}
 

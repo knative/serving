@@ -22,8 +22,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/clock"
+
 	clientgotesting "k8s.io/client-go/testing"
+	clocktest "k8s.io/utils/clock/testing"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -62,7 +63,7 @@ func TestCollectMin(t *testing.T) {
 	old := now.Add(-11 * time.Minute)
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
-	fc := clock.NewFakePassiveClock(now)
+	fc := clocktest.NewFakePassiveClock(now)
 
 	table := []struct {
 		name        string
@@ -226,7 +227,7 @@ func TestCollectMax(t *testing.T) {
 	old := now.Add(-11 * time.Minute)
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
-	fc := clock.NewFakePassiveClock(now)
+	fc := clocktest.NewFakePassiveClock(now)
 
 	table := []struct {
 		name        string
@@ -326,7 +327,7 @@ func TestCollectSettings(t *testing.T) {
 	old := now.Add(-11 * time.Minute)
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
-	fc := clock.NewFakePassiveClock(now)
+	fc := clocktest.NewFakePassiveClock(now)
 
 	cfg := cfg("settings-test", "foo", 5556,
 		WithLatestCreated("5556"),
@@ -411,7 +412,7 @@ func TestGCInOrder(t *testing.T) {
 	old3 := now.Add(-13 * time.Minute)
 	old4 := now.Add(-14 * time.Minute)
 	old5 := now.Add(-15 * time.Minute)
-	fc := clock.NewFakePassiveClock(now)
+	fc := clocktest.NewFakePassiveClock(now)
 
 	cfg := cfg("gc-order-test", "foo", 5557,
 		WithLatestCreated("5557"),

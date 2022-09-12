@@ -27,8 +27,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/wait"
+	clocktest "k8s.io/utils/clock/testing"
 
 	. "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -146,7 +146,7 @@ func TestMetricCollectorScraperMovingTime(t *testing.T) {
 	}
 	now := time.Now()
 	fc := fake.Clock{
-		FakeClock: clock.NewFakeClock(now),
+		FakeClock: clocktest.NewFakeClock(now),
 		TP:        mtp,
 	}
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
@@ -222,7 +222,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	}
 	now := time.Now()
 	fc := fake.Clock{
-		FakeClock: clock.NewFakeClock(now),
+		FakeClock: clocktest.NewFakeClock(now),
 		TP:        mtp,
 	}
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
@@ -321,7 +321,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	}
 	now := time.Now()
 	fc := fake.Clock{
-		FakeClock: clock.NewFakeClock(now),
+		FakeClock: clocktest.NewFakeClock(now),
 		TP:        mtp,
 	}
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
@@ -452,7 +452,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 		Channel: make(chan time.Time),
 	}
 	fc := fake.Clock{
-		FakeClock: clock.NewFakeClock(now),
+		FakeClock: clocktest.NewFakeClock(now),
 		TP:        mtp,
 	}
 	coll.clock = fc
@@ -560,7 +560,7 @@ func TestMetricCollectorError(t *testing.T) {
 			}
 			now := time.Now()
 			fc := fake.Clock{
-				FakeClock: clock.NewFakeClock(now),
+				FakeClock: clocktest.NewFakeClock(now),
 				TP:        mtp,
 			}
 			coll := NewMetricCollector(factory, logger)

@@ -19,7 +19,8 @@ package fake
 import (
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/utils/clock"
+	clocktest "k8s.io/utils/clock/testing"
 )
 
 // A ManualTickProvider holds a channel that delivers `ticks' of a clock at intervals.
@@ -46,7 +47,7 @@ func (mtp *ManualTickProvider) Stop() {}
 // Clock is K8s clock.Clock but it overrides tick provider
 // with ManualTickProvider above.
 type Clock struct {
-	*clock.FakeClock
+	*clocktest.FakeClock
 	TP *ManualTickProvider
 }
 
