@@ -34,33 +34,39 @@ import (
 	"knative.dev/pkg/ptr"
 )
 
-func FromNamespaces(ctx context.Context, c kubernetes.Interface, namespaces []string) Source {
+func FromNamespaces(ctx context.Context, c kubernetes.Interface, namespaces []string, filterLines bool, podPrefixes []string) Source {
 	return &namespaceSource{
-		ctx:        ctx,
-		kc:         c,
-		namespaces: namespaces,
-		keys:       make(map[string]Callback, 1),
+		ctx:         ctx,
+		kc:          c,
+		namespaces:  namespaces,
+		keys:        make(map[string]Callback, 1),
+		filterLines: filterLines,
+		podPrefixes: podPrefixes,
 	}
 }
 
-func FromNamespace(ctx context.Context, c kubernetes.Interface, namespace string) Source {
+func FromNamespace(ctx context.Context, c kubernetes.Interface, namespace string, filterLines bool, podPrefixes []string) Source {
 	return &namespaceSource{
-		ctx:        ctx,
-		kc:         c,
-		namespaces: []string{namespace},
-		keys:       make(map[string]Callback, 1),
+		ctx:         ctx,
+		kc:          c,
+		namespaces:  []string{namespace},
+		keys:        make(map[string]Callback, 1),
+		filterLines: filterLines,
+		podPrefixes: podPrefixes,
 	}
 }
 
 type namespaceSource struct {
 	namespaces []string
-	kc         kubernetes.Interface
-	ctx        context.Context
+	kc         	kubernetes.Interface
+	ctx        	context.Context
 
-	m        sync.RWMutex
-	once     sync.Once
-	keys     map[string]Callback
-	watchErr error
+	m        		sync.RWMutex
+	once     		sync.Once
+	keys     		map[string]Callback
+	filterLines bool
+	podPrefixes []string
+	watchErr 		error
 }
 
 func (s *namespaceSource) StartStream(name string, l Callback) (Canceler, error) {
@@ -113,7 +119,7 @@ func (s *namespaceSource) watchPods() error {
 					case watch.Deleted:
 						watchedPods.Delete(p.Name)
 					case watch.Added, watch.Modified:
-						if !watchedPods.Has(p.Name) && isPodReady(p) {
+						if !watchedPods.Has(p.Name) && isPodReady(p) && s.matchesPodPrefix(p.Name) {
 							watchedPods.Insert(p.Name)
 							s.startForPod(p)
 						}
@@ -127,6 +133,19 @@ func (s *namespaceSource) watchPods() error {
 	return nil
 }
 
+func (s *namespaceSource) matchesPodPrefix(name string) bool {
+	if len(s.podPrefixes) == 0 {
+		// Pod prefixes are not configured => always match.
+		return true
+	}
+	for _, p := range s.podPrefixes {
+		if strings.Contains(name, p) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *namespaceSource) startForPod(pod *corev1.Pod) {
 	// Grab data from all containers in the pods.  We need this in case
 	// an envoy sidecar is injected for mesh installs.  This should be
@@ -136,7 +155,7 @@ func (s *namespaceSource) startForPod(pod *corev1.Pod) {
 		psn, pn, cn := pod.Namespace, pod.Name, container.Name
 
 		handleLine := s.handleLine
-		if wellKnownContainers.Has(cn) {
+		if wellKnownContainers.Has(cn) || !s.filterLines {
 			// Specialcase logs from chaosduck, queueproxy etc.
 			// - ChaosDuck logs enable easy
 			//   monitoring of killed pods throughout all tests.
@@ -223,6 +242,7 @@ func (s *namespaceSource) handleLine(l []byte, pod string, _ string) {
 	for name, logf := range s.keys {
 		// TODO(mattmoor): Do a slightly smarter match.
 		if !strings.Contains(line.Key, "/"+name) {
+			logf("Key %s does not contain %s", line.Key, name)
 			continue
 		}
 

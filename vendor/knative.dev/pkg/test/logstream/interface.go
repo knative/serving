@@ -18,6 +18,7 @@ package logstream
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -31,7 +32,10 @@ import (
 
 // Canceler is the type of a function returned when a logstream is started to be
 // deferred so that the logstream can be stopped when the test is complete.
-type Canceler = logstreamv2.Canceler
+type (
+	Canceler = logstreamv2.Canceler
+	Callback = logstreamv2.Callback
+)
 
 type ti interface {
 	Name() string
@@ -41,53 +45,69 @@ type ti interface {
 }
 
 // Start begins streaming the logs from system components with a `key:` matching
-// `test.ObjectNameForTest(t)` to `t.Log`.  It returns a Canceler, which must
+// `test.ObjectNameForTest(t)` to `t.Log`. It returns a Canceler, which must
 // be called before the test completes.
 func Start(t ti) Canceler {
 	// Do this lazily to make import ordering less important.
 	once.Do(func() {
 		if ns := os.Getenv(system.NamespaceEnvKey); ns != "" {
-			config, err := test.Flags.GetRESTConfig()
-			if err != nil {
-				t.Error("Error loading client config", "error", err)
-				return
-			}
-
-			kc, err := kubernetes.NewForConfig(config)
-			if err != nil {
-				t.Error("Error creating kubernetes client", "error", err)
-				return
-			}
-
+			var err error
 			// handle case when ns contains a csv list
 			namespaces := strings.Split(ns, ",")
-			stream = &shim{logstreamv2.FromNamespaces(context.Background(), kc, namespaces)}
-
+			if sysStream, err = initStream(namespaces, true /*filterLines*/, nil /*podPrefixes*/); err != nil {
+				t.Error("Error initializing logstream", "error", err)
+			}
 		} else {
 			// Otherwise set up a null stream.
-			stream = &null{}
+			sysStream = &null{}
 		}
 	})
 
-	return stream.Start(t)
+	return sysStream.Start(t, t.Logf)
+}
+
+// StartForUserNamespace begins streaming the logs from custom namespaces.
+// Filtering of log lines is disabled in this case so all lines will be printed
+// throught the provided callback.
+// It returns a Canceler which must be called before the test completes.
+func StartForUserNamespace(t ti, callback Callback, namespace string, podPrefixes ...string) Canceler {
+	userStream, err := initStream([]string{namespace}, false /*filterLines*/, podPrefixes)
+	if err != nil {
+		t.Error("Error initializing logstream", "error", err)
+	}
+	return userStream.Start(t, callback)
+}
+
+func initStream(namespaces []string, filterLines bool, podPrefixes []string) (streamer, error) {
+	config, err := test.Flags.GetRESTConfig()
+	if err != nil {
+		return &null{}, fmt.Errorf("error loading client config: %w", err)
+	}
+
+	kc, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return &null{}, fmt.Errorf("error creating kubernetes client: %w", err)
+	}
+
+	return &shim{logstreamv2.FromNamespaces(context.Background(), kc, namespaces, filterLines, podPrefixes)}, nil
 }
 
 type streamer interface {
-	Start(t ti) Canceler
+	Start(t ti, c Callback) Canceler
 }
 
 var (
-	stream streamer
-	once   sync.Once
+	sysStream streamer
+	once      sync.Once
 )
 
 type shim struct {
 	logstreamv2.Source
 }
 
-func (s *shim) Start(t ti) Canceler {
+func (s *shim) Start(t ti, callback Callback) Canceler {
 	name := helpers.ObjectPrefixForTest(t)
-	canceler, err := s.StartStream(name, t.Logf)
+	canceler, err := s.StartStream(name, callback)
 
 	if err != nil {
 		t.Error("Failed to start logstream", "error", err)
