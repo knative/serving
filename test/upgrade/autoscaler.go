@@ -66,6 +66,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 				c.T.Error("Error: ", err)
 			}
 			c.T.Cleanup(cancel)
+			c.T.Fail()
 		},
 	)
 }

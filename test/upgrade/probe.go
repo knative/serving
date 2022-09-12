@@ -61,6 +61,7 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 			test.EnsureTearDown(c.T, clients, names)
 			test.AssertProberSLO(c.T, prober, *successFraction)
 			c.T.Cleanup(cancel)
+			c.T.Fail()
 		},
 	)
 }
