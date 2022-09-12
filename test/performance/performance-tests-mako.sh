@@ -71,45 +71,26 @@ run_ytt \
 kubectl apply -f "${ARTIFACTS}/mako-overlay/influx-secret.yaml"
 
 ###############################################################################################
-#header "Dataplane probe performance test"
-#kubectl delete job  dataplane-probe-deployment dataplane-probe-istio dataplane-probe-queue dataplane-probe-activator --ignore-not-found=true
-#kubectl delete configmap config-mako -n default --ignore-not-found=true
-#
-#kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/dataplane-probe/dev.config
-#
-#run_ytt \
-#      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-direct.yaml" \
-#      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
-#      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
-#      --data-value dockerrepo="${KO_DOCKER_REPO}" \
-#      --data-value prowtag="${PROW_TAG}" \
-#      --data-value influxurl="${INFLUX_URL}" \
-#      --data-value influxtoken="${INFLUX_TOKEN}" \
-#      --output-files "${ARTIFACTS}/mako-overlay"
-#
-#ko apply -f test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-setup.yaml
-#ko apply -f "${ARTIFACTS}/mako-overlay/dataplane-probe-direct.yaml"
-#
-#wait_for_test
-#
-#PODNAME_DPD=`kubectl get pods --selector=job-name=dataplane-probe-deployment --template '{{range .items}}{{.metadata.name}}{{end}}'`
-#header "Results from ${PODNAME_DPD}"
-## read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
-#test/performance/read_results.sh ${PODNAME_DPD} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-deployment.csv"
-#
-#PODNAME_DPI=`kubectl get pods --selector=job-name=dataplane-probe-istio --template '{{range .items}}{{.metadata.name}}{{end}}'`
-#header "Results from ${PODNAME_DPI}"
-#test/performance/read_results.sh ${PODNAME_DPI} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-istio.csv"
-#
-#PODNAME_DPQ=`kubectl get pods --selector=job-name=dataplane-probe-queue --template '{{range .items}}{{.metadata.name}}{{end}}'`
-#header "Results from ${PODNAME_DPQ}"
-#test/performance/read_results.sh ${PODNAME_DPQ} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-queue.csv"
-#
-#PODNAME_DPA=`kubectl get pods --selector=job-name=dataplane-probe-activator --template '{{range .items}}{{.metadata.name}}{{end}}'`
-#header "Results from ${PODNAME_DPA}"
-#test/performance/read_results.sh ${PODNAME_DPA} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-dataplane-probe-activator.csv"
-#
-#kubectl delete job  dataplane-probe-deployment dataplane-probe-istio dataplane-probe-queue dataplane-probe-activator --ignore-not-found=true
+header "Dataplane probe performance test"
+kubectl delete job  dataplane-probe-deployment dataplane-probe-istio dataplane-probe-queue dataplane-probe-activator --ignore-not-found=true
+kubectl delete configmap config-mako -n default --ignore-not-found=true
+
+kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/dataplane-probe/dev.config
+
+run_ytt \
+      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-direct.yaml" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
+      --data-value dockerrepo="${KO_DOCKER_REPO}" \
+      --data-value prowtag="${PROW_TAG}" \
+      --data-value influxurl="${INFLUX_URL}" \
+      --data-value influxtoken="${INFLUX_TOKEN}" \
+      --output-files "${ARTIFACTS}/mako-overlay"
+
+ko apply -f test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-setup.yaml
+ko apply -f "${ARTIFACTS}/mako-overlay/dataplane-probe-direct.yaml"
+
+wait_for_test
 
 ############################################################################################
 header "Deployment probe performance test"
@@ -130,15 +111,6 @@ run_ytt \
 ko apply -f "${ARTIFACTS}/mako-overlay/benchmark-direct.yaml"
 
 wait_for_test
-
-# PODNAME_DP=`kubectl get pods --selector=job-name=deployment-probe --template '{{range .items}}{{.metadata.name}}{{end}}'`
-# header "Results from ${PODNAME_DP}"
-
-# echo "kubectl exec\"${PODNAME_DP} -- cat \"/etc/config-mako/some-error-happened\" > \"${ARTIFACTS}/mako/some-error-happened\""
-# kubectl exec ${PODNAME_DP} -- cat "/etc/config-mako/some-error-happened" > "${ARTIFACTS}/mako/${PODNAME_DP}-some-error-happened"
-
-# #read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
-# test/performance/read_results.sh ${PODNAME_DP} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-deployment-probe.csv"
 
 ###############################################################################################
 header "Scale from Zero performance test"
@@ -166,25 +138,6 @@ ko apply -f "${ARTIFACTS}/mako-overlay/scale-from-zero-direct.yaml"
 
 wait_for_test
 
-# PODNAME1=`kubectl get pods --selector=job-name=scale-from-zero-1 --template '{{range .items}}{{.metadata.name}}{{end}}'`
-# header "Results from ${PODNAME1}"
-# kubectl exec ${PODNAME1} -- cat "/etc/config-mako/some-error-happened" > "${ARTIFACTS}/mako/${PODNAME1}-some-error-happened"
-# kubectl exec ${PODNAME1} -- cat "/etc/config-mako/query-result" > "${ARTIFACTS}/mako/${PODNAME1}-some-error-happened"
-# # read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
-# test/performance/read_results.sh ${PODNAME1} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-scale-from-zero-1.csv"
-
-# PODNAME5=`kubectl get pods --selector=job-name=scale-from-zero-5 --template '{{range .items}}{{.metadata.name}}{{end}}'`
-# kubectl exec ${PODNAME5} -- cat "/etc/config-mako/some-error-happened" > "${ARTIFACTS}/mako/${PODNAME5}-some-error-happened"
-# kubectl exec ${PODNAME5} -- cat "/etc/config-mako/query-result" > "${ARTIFACTS}/mako/${PODNAME5}-query-result"
-# header "Results from ${PODNAME5}"
-# test/performance/read_results.sh ${PODNAME5} "default" 10001 120 100 10 "${ARTIFACTS}/mako/${PODNAME5}-testrun-scale-from-zero-5.csv"
-
-# PODNAME25=`kubectl get pods --selector=job-name=scale-from-zero-25 --template '{{range .items}}{{.metadata.name}}{{end}}'`
-# kubectl exec ${PODNAME25} -- cat "/etc/config-mako/some-error-happened" > "${ARTIFACTS}/mako/${PODNAME25}-some-error-happened"
-# kubectl exec ${PODNAME25} -- cat "/etc/config-mako/query-result" > "${ARTIFACTS}/mako/${PODNAME25}-query-result"
-# header "Results from ${PODNAME25}"
-# test/performance/read_results.sh ${PODNAME25} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-scale-from-zero-25.csv"
-
 ###############################################################################################
 header "Load test"
 kubectl delete configmap config-mako -n default --ignore-not-found=true
@@ -210,11 +163,6 @@ run_ytt \
 ko apply -f "${ARTIFACTS}/mako-overlay/load-test-0-direct.yaml"
 
 wait_for_test
-
-# PODNAME_LTZ=`kubectl get pods --selector=job-name=load-test-zero --template '{{range .items}}{{.metadata.name}}{{end}}'`
-# header "Results from ${PODNAME_LTZ}"
-# # read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
-# test/performance/read_results.sh ${PODNAME_LTZ} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-load-test-zero.csv"
 
 # clean up for the next test
 kubectl delete job load-test-zero --ignore-not-found=true
@@ -244,11 +192,6 @@ ko apply -f "${ARTIFACTS}/mako-overlay/load-test-always-direct.yaml"
 
 wait_for_test
 
-# PODNAME_LTA=`kubectl get pods --selector=job-name=load-test-always --template '{{range .items}}{{.metadata.name}}{{end}}'`
-# header "Results from ${PODNAME_LTA}"
-# # read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
-# test/performance/read_results.sh ${PODNAME_LTA} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-load-test-always.csv"
-
 # clean up for the next test
 kubectl delete job load-test-always --ignore-not-found=true
 kubectl delete ksvc load-test-always --ignore-not-found=true
@@ -276,11 +219,6 @@ run_ytt \
 ko apply -f "${ARTIFACTS}/mako-overlay/load-test-200-direct.yaml"
 
 wait_for_test
-
-# PODNAME_LT2=`kubectl get pods --selector=job-name=load-test-200 --template '{{range .items}}{{.metadata.name}}{{end}}'`
-# header "Results from ${PODNAME_LT2}"
-# # read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
-# test/performance/read_results.sh ${PODNAME_LT2} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-load-test-200.csv"
 
 # clean up for the next test
 kubectl delete job load-test-200 --ignore-not-found=true
