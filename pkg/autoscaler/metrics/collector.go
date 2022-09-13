@@ -23,7 +23,7 @@ import (
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/utils/clock"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -87,7 +87,7 @@ type MetricCollector struct {
 	logger *zap.SugaredLogger
 
 	statsScraperFactory StatsScraperFactory
-	clock               clock.Clock
+	clock               clock.WithTicker
 
 	collectionsMutex sync.RWMutex
 	collections      map[types.NamespacedName]*collection
@@ -262,7 +262,7 @@ func (c *collection) getScraper() StatsScraper {
 
 // newCollection creates a new collection, which uses the given scraper to
 // collect stats every scrapeTickInterval.
-func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clock clock.Clock,
+func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clock clock.WithTicker,
 	callback func(types.NamespacedName), logger *zap.SugaredLogger) *collection {
 	// Pick the constructor to use to build the buckets.
 	// NB: this relies on the fact that aggregation algorithm is set on annotation of revision

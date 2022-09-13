@@ -30,8 +30,9 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
+	"k8s.io/utils/clock"
+	clocktest "k8s.io/utils/clock/testing"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -64,7 +65,7 @@ var (
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
-	testClock = clock.NewFakePassiveClock(time.Now())
+	testClock = clocktest.NewFakePassiveClock(time.Now())
 	testCtx = context.Background()
 	retryAttempted := false
 

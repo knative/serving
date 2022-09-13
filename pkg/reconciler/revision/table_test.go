@@ -25,8 +25,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
+	clocktest "k8s.io/utils/clock/testing"
 
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
@@ -58,7 +58,7 @@ import (
 func TestReconcile(t *testing.T) {
 	// We don't care about the value, but that it does not change,
 	// since it leads to flakes.
-	fc := clock.NewFakePassiveClock(time.Now())
+	fc := clocktest.NewFakePassiveClock(time.Now())
 
 	table := TableTest{{
 		Name: "bad workqueue key",

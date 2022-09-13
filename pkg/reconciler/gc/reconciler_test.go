@@ -23,8 +23,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
+	clocktest "k8s.io/utils/clock/testing"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -64,7 +64,7 @@ func TestGCReconcile(t *testing.T) {
 			},
 		}}
 
-	fc := clock.NewFakePassiveClock(time.Now())
+	fc := clocktest.NewFakePassiveClock(time.Now())
 	table := TableTest{{
 		Name: "delete oldest, keep two V2",
 		Objects: []runtime.Object{
