@@ -311,7 +311,7 @@ function build_from_source() {
 
 # Build a release from source.
 function sign_release() {
-  if [ -z "$SIGN_IMAGES" ]; then # Temporary Feature Gate
+  if [ -z "${SIGN_IMAGES:-}" ]; then # Temporary Feature Gate
     return 0
   fi
   ## Sign the images with cosign

@@ -133,5 +133,7 @@ function create_gke_test_cluster() {
   if [[ "${ENABLE_PREEMPTIBLE_NODES:-}" == "true" ]]; then
     extra_gcloud_flags="${extra_gcloud_flags} --preemptible"
   fi
-  run_kntest kubetest2 gke "${_custom_flags[@]}" --test-command="${_test_command[*]}" --extra-gcloud-flags="${extra_gcloud_flags}"
+  run_kntest kubetest2 gke "${_custom_flags[@]}" \
+    --test-command="${_test_command[*]}" \
+    --extra-gcloud-flags="${extra_gcloud_flags}"
 }

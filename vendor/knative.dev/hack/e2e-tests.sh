@@ -54,6 +54,7 @@ function go_test_e2e() {
 
 # Setup the test cluster for running the tests.
 function setup_test_cluster() {
+  (
   # Fail fast during setup.
   set -o errexit
   set -o pipefail
@@ -108,6 +109,7 @@ function setup_test_cluster() {
   if function_exists test_setup; then
     test_setup || fail_test "test setup failed"
   fi
+  )
 }
 
 # Signal (as return code and in the logs) that all E2E tests passed.

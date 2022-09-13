@@ -659,9 +659,8 @@ function foreach_go_module() {
   local failed=0
   local -r cmd="$1"
   shift
-  local gomod_filepath gomod_dir
-  while read -r gomod_filepath; do
-    gomod_dir="$(dirname "$gomod_filepath")"
+  local gomod_dir
+  while read -r gomod_dir; do
     pushd "$gomod_dir" > /dev/null
     "$cmd" "$@" || failed=$?
     popd > /dev/null
@@ -669,7 +668,7 @@ function foreach_go_module() {
       echo "Command '${cmd}' failed in module $gomod_dir: $failed" >&2
       return $failed
     fi
-  done < <(find . -name go.mod -type f ! -path "*/vendor/*" ! -path "*/third_party/*")
+  done < <(go_run knative.dev/test-infra/tools/modscope@latest ls -p)
 }
 
 # Update go deps.
@@ -766,7 +765,7 @@ function __go_update_deps_for_module() {
 # Intended to be used like:
 #   export MODULE_NAME=$(go_mod_module_name)
 function go_mod_module_name() {
-  grep -E '^module ' go.mod | cut -d' ' -f2
+  go_run knative.dev/test-infra/tools/modscope@latest current
 }
 
 # Return a GOPATH to a temp directory. Works around the out-of-GOPATH issues
