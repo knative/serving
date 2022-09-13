@@ -59,9 +59,8 @@ func AddInfluxPoint(measurement string, fields map[string]interface{}) error {
 		influxdb2.DefaultOptions().
 			SetUseGZip(true).
 			SetBatchSize(20).
-			SetTLSConfig(&tls.Config{
-				InsecureSkipVerify: true,
-			}))
+			//nolint:gosec // We explicitly don't need to check certs here since this is test code.
+			SetTLSConfig(&tls.Config{InsecureSkipVerify: true}))
 	writeAPI := client.WriteAPI(org, bucket)
 	p := influxdb2.NewPoint(measurement,
 		tags,
