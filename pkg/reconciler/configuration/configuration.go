@@ -186,7 +186,7 @@ func (c *Reconciler) getSortedCreatedRevisions(ctx context.Context, config *v1.C
 			}
 
 			lcrGen, err := configGeneration(latestCreated)
-			if isBYOName && err != nil {
+			if isBYOName && err == nil {
 				generations = append(generations, strconv.FormatInt(lcrGen, int(10)))
 			}
 			// Add an "In" filter so that the configurations we get back from List have generation

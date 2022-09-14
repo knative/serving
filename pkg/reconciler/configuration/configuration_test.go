@@ -164,23 +164,26 @@ func TestReconcile(t *testing.T) {
 		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1.Configuration) {
-				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-foo"
-			}, WithLatestCreated("byo-name-git-revert"), WithLatestReady("byo-name-git-revert"), WithConfigObservedGen),
+				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-good"
+			}, WithLatestCreated("byo-name-git-revert-bad"), WithLatestReady("byo-name-git-revert-bad"), WithConfigObservedGen),
 			// This revision was a bad rollout
-			rev("byo-name-git-revert", "foo", 1234, WithCreationTimestamp(now), MarkRevisionReady),
+			rev("byo-name-git-revert", "foo", 1234, WithCreationTimestamp(now), func(rev *v1.Revision) {
+				rev.Name = "byo-name-git-revert-bad"
+				rev.GenerateName = ""
+			}, MarkRevisionReady),
 			// This revision is good
 			rev("byo-name-git-revert", "foo", 1200, WithCreationTimestamp(now.Add(-time.Second)), func(rev *v1.Revision) {
-				rev.Name = "byo-name-git-revert-foo"
+				rev.Name = "byo-name-git-revert-good"
 				rev.GenerateName = ""
 			}, MarkRevisionReady),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1.Configuration) {
-				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-foo"
-			}, WithLatestCreated("byo-name-git-revert-foo"), WithLatestReady("byo-name-git-revert-foo"), WithConfigObservedGen),
+				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-good"
+			}, WithLatestCreated("byo-name-git-revert-good"), WithLatestReady("byo-name-git-revert-good"), WithConfigObservedGen),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "byo-name-git-revert-foo"),
+			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "byo-name-git-revert-good"),
 		},
 		Key: "foo/byo-name-git-revert",
 	}, {
