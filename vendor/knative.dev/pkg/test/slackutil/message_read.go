@@ -22,8 +22,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"io/ioutil"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -44,7 +44,7 @@ type readClient struct {
 
 // NewReadClient reads token file and stores it for later authentication
 func NewReadClient(userName, tokenPath string) (ReadOperations, error) {
-	b, err := ioutil.ReadFile(tokenPath)
+	b, err := os.ReadFile(tokenPath)
 	if err != nil {
 		return nil, err
 	}

@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	admissionlisters "k8s.io/client-go/listers/admissionregistration/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
+
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
@@ -99,7 +100,7 @@ func (ac *reconciler) Reconcile(ctx context.Context, key string) error {
 func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []byte) error {
 	logger := logging.FromContext(ctx)
 
-	rules := make([]admissionregistrationv1.RuleWithOperations, 0, len(ac.handlers))
+	rules := make([]admissionregistrationv1.RuleWithOperations, 0, len(ac.handlers)+len(ac.callbacks))
 	for gvk, config := range ac.handlers {
 		plural := strings.ToLower(flect.Pluralize(gvk.Kind))
 
@@ -136,6 +137,29 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 		logging.FromContext(ctx).Debugf("Registering SubResources: %s", resources)
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Operations: supportedVerbs,
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{gvk.Group},
+				APIVersions: []string{gvk.Version},
+				Resources:   resources,
+			},
+		})
+	}
+	for gvk, callback := range ac.callbacks {
+		if _, ok := ac.handlers[gvk]; ok {
+			continue
+		}
+		plural := strings.ToLower(flect.Pluralize(gvk.Kind))
+		resources := []string{plural, plural + "/status"}
+
+		verbs := make([]admissionregistrationv1.OperationType, 0, len(callback.supportedVerbs))
+		for verb := range callback.supportedVerbs {
+			verbs = append(verbs, admissionregistrationv1.OperationType(verb))
+		}
+		// supportedVerbs is a map which doesn't provide a stable order in for loops.
+		sort.Slice(verbs, func(i, j int) bool { return string(verbs[i]) < string(verbs[j]) })
+
+		rules = append(rules, admissionregistrationv1.RuleWithOperations{
+			Operations: verbs,
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gvk.Group},
 				APIVersions: []string{gvk.Version},

@@ -21,7 +21,7 @@ package slackutil
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"net/url"
@@ -42,7 +42,7 @@ type writeClient struct {
 
 // NewWriteClient reads token file and stores it for later authentication
 func NewWriteClient(userName, tokenPath string) (WriteOperations, error) {
-	b, err := ioutil.ReadFile(tokenPath)
+	b, err := os.ReadFile(tokenPath)
 	if err != nil {
 		return nil, err
 	}

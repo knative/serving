@@ -18,7 +18,7 @@ package testing
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 	"unicode"
@@ -45,7 +45,7 @@ func ConfigMapFromTestFile(t testing.TB, name string, allowed ...string) *corev1
 func ConfigMapsFromTestFile(t testing.TB, name string, allowed ...string) (*corev1.ConfigMap, *corev1.ConfigMap) {
 	t.Helper()
 
-	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", name))
+	b, err := os.ReadFile(fmt.Sprintf("testdata/%s.yaml", name))
 	if err != nil {
 		t.Fatal("ReadFile() =", err)
 	}

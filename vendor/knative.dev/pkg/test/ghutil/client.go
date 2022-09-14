@@ -22,8 +22,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -73,7 +73,7 @@ type GithubClient struct {
 
 // NewGithubClient explicitly authenticates to github with giving token and returns a handle
 func NewGithubClient(tokenFilePath string) (*GithubClient, error) {
-	b, err := ioutil.ReadFile(tokenFilePath)
+	b, err := os.ReadFile(tokenFilePath)
 	if err != nil {
 		return nil, err
 	}
