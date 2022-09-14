@@ -228,7 +228,6 @@ LOOP:
 				}
 			}
 			q.AddSamplePoint(mako.XTime(rs.Time), v)
-			//performance.AddInfluxPoint(benchmarkName, v)
 		}
 	}
 	if restoreFn != nil {

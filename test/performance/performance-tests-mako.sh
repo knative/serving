@@ -46,6 +46,18 @@ function wait_for_test() {
   echo ""
 }
 
+function run_ytt_for_test() {
+      run_ytt \
+      -f "$@" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
+      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
+      --data-value dockerrepo="${KO_DOCKER_REPO}" \
+      --data-value prowtag="${PROW_TAG}" \
+      --data-value influxurl="${INFLUX_URL}" \
+      --data-value influxtoken="${INFLUX_TOKEN}" \
+      --output-files "${ARTIFACTS}/mako-overlay"
+}
+
 mkdir -p "${ARTIFACTS}/mako"
 echo Results downloaded to "${ARTIFACTS}/mako"
 
@@ -77,15 +89,7 @@ kubectl delete configmap config-mako -n default --ignore-not-found=true
 
 kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/dataplane-probe/dev.config
 
-run_ytt \
-      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-direct.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
-      --data-value dockerrepo="${KO_DOCKER_REPO}" \
-      --data-value prowtag="${PROW_TAG}" \
-      --data-value influxurl="${INFLUX_URL}" \
-      --data-value influxtoken="${INFLUX_TOKEN}" \
-      --output-files "${ARTIFACTS}/mako-overlay"
+run_ytt_for_test "${REPO_ROOT_DIR}/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-direct.yaml"
 
 ko apply -f test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-setup.yaml
 ko apply -f "${ARTIFACTS}/mako-overlay/dataplane-probe-direct.yaml"
@@ -98,15 +102,7 @@ kubectl delete job  deployment-probe --ignore-not-found=true
 kubectl delete configmap config-mako -n default --ignore-not-found=true
 kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/deployment-probe/dev.config
 
-run_ytt \
-      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/deployment-probe/continuous/benchmark-direct.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
-      --data-value dockerrepo="${KO_DOCKER_REPO}" \
-      --data-value prowtag="${PROW_TAG}" \
-      --data-value influxurl="${INFLUX_URL}" \
-      --data-value influxtoken="${INFLUX_TOKEN}" \
-      --output-files "${ARTIFACTS}/mako-overlay"
+run_ytt_for_test "${REPO_ROOT_DIR}/test/performance/benchmarks/deployment-probe/continuous/benchmark-direct.yaml"
 
 ko apply -f "${ARTIFACTS}/mako-overlay/benchmark-direct.yaml"
 
@@ -120,15 +116,7 @@ kubectl delete configmap config-mako -n default --ignore-not-found=true
 
 kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/scale-from-zero/dev.config
 
-run_ytt \
-      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/scale-from-zero/continuous/scale-from-zero-direct.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
-      --data-value dockerrepo="${KO_DOCKER_REPO}" \
-      --data-value prowtag="${PROW_TAG}" \
-      --data-value influxurl="${INFLUX_URL}" \
-      --data-value influxtoken="${INFLUX_TOKEN}" \
-      --output-files "${ARTIFACTS}/mako-overlay"
+run_ytt_for_test "${REPO_ROOT_DIR}/test/performance/benchmarks/scale-from-zero/continuous/scale-from-zero-direct.yaml"
 
 echo ">> Upload the test images"
 # Upload helloworld test image as it's used by the scale-from-zero benchmark.
@@ -150,15 +138,7 @@ ko apply -f test/performance/benchmarks/load-test/continuous/load-test-setup.yam
 header "Load test zero"
 kubectl delete job load-test-zero --ignore-not-found=true
 
-run_ytt \
-      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/load-test/continuous/load-test-0-direct.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
-      --data-value dockerrepo="${KO_DOCKER_REPO}" \
-      --data-value prowtag="${PROW_TAG}" \
-      --data-value influxurl="${INFLUX_URL}" \
-      --data-value influxtoken="${INFLUX_TOKEN}" \
-      --output-files "${ARTIFACTS}/mako-overlay"
+run_ytt_for_test "${REPO_ROOT_DIR}/test/performance/benchmarks/load-test/continuous/load-test-0-direct.yaml"
 
 ko apply -f "${ARTIFACTS}/mako-overlay/load-test-0-direct.yaml"
 
@@ -178,15 +158,7 @@ echo ""
 header "Load test always"
 kubectl delete job load-test-always --ignore-not-found=true
 
-run_ytt \
-      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/load-test/continuous/load-test-always-direct.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
-      --data-value dockerrepo="${KO_DOCKER_REPO}" \
-      --data-value prowtag="${PROW_TAG}" \
-      --data-value influxurl="${INFLUX_URL}" \
-      --data-value influxtoken="${INFLUX_TOKEN}" \
-      --output-files "${ARTIFACTS}/mako-overlay"
+run_ytt_for_test "${REPO_ROOT_DIR}/test/performance/benchmarks/load-test/continuous/load-test-always-direct.yaml"
 
 ko apply -f "${ARTIFACTS}/mako-overlay/load-test-always-direct.yaml"
 
@@ -206,15 +178,7 @@ echo ""
 header "Load test 200"
 kubectl delete job load-test-200 --ignore-not-found=true
 
-run_ytt \
-      -f "${REPO_ROOT_DIR}/test/performance/benchmarks/load-test/continuous/load-test-200-direct.yaml" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/influx" \
-      -f "${REPO_ROOT_DIR}/test/config/ytt/performance/pods" \
-      --data-value dockerrepo="${KO_DOCKER_REPO}" \
-      --data-value prowtag="${PROW_TAG}" \
-      --data-value influxurl="${INFLUX_URL}" \
-      --data-value influxtoken="${INFLUX_TOKEN}" \
-      --output-files "${ARTIFACTS}/mako-overlay"
+run_ytt_for_test "${REPO_ROOT_DIR}/test/performance/benchmarks/load-test/continuous/load-test-200-direct.yaml"
 
 ko apply -f "${ARTIFACTS}/mako-overlay/load-test-200-direct.yaml"
 
@@ -231,78 +195,38 @@ done
 echo ""
 
 ##############################################################################################
-#header "Rollout probe performance test"
-#kubectl delete configmap config-mako -n default --ignore-not-found=true
-#
-#kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/rollout-probe/dev.config
-#
-#ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-setup.yaml
-#
+header "Rollout probe performance test"
+kubectl delete configmap config-mako -n default --ignore-not-found=true
+
+kubectl create configmap config-mako -n default --from-file=test/performance/benchmarks/rollout-probe/dev.config
+
+ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-setup.yaml
+
 ################################################################################################
-#header "Rollout probe performance test with activator"
-#kubectl delete job rollout-probe-activator-with-cc --ignore-not-found=true
-#
-#ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-activator-direct.yaml
-#
-#wait_for_test
-#
-#PODNAME_RPACC=`kubectl get pods --selector=job-name=rollout-probe-activator-with-cc --template '{{range .items}}{{.metadata.name}}{{end}}'`
-#header "Results from ${PODNAME_RPACC}"
-#test/performance/read_results.sh ${PODNAME_RPACC} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-rollout-probe-activator-with-cc.csv"
-# #clean up for the next test
-#kubectl delete job rollout-probe-activator-with-cc --ignore-not-found=true
-#kubectl delete ksvc activator-with-cc --ignore-not-found=true
-#echo "waiting for cleanup to complete"
-#for i in {1..60}; do
-#      echo -n "#"
-#      sleep 1
-#done
-# echo ""
-#
+header "Rollout probe performance test with activator"
+kubectl delete job rollout-probe-activator-with-cc --ignore-not-found=true
+
+run_ytt_for_test "${REPO_ROOT_DIR}/test/performance/benchmarks/rollout-probe/continuous/rollout-probe-activator-direct.yaml"
+
+wait_for_test
+echo ""
+
+##############################################################################################
+header "Rollout probe performance test with activator lin"
+kubectl delete job rollout-probe-activator-with-cc-lin --ignore-not-found=true
+
+run_ytt_for_test "${REPO_ROOT_DIR}/test/performance/benchmarks/rollout-probe/continuous/rollout-probe-activator-lin-direct.yaml"
+
+wait_for_test
+echo ""
+
 ###############################################################################################
-#header "Rollout probe performance test with activator lin"
-#kubectl delete job rollout-probe-activator-with-cc-lin --ignore-not-found=true
-#
-#ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-activator-lin-direct.yaml
-#
-#wait_for_test
-#
-#PODNAME_RPALIN=`kubectl get pods --selector=job-name=rollout-probe-activator-with-cc-lin --template '{{range .items}}{{.metadata.name}}{{end}}'`
-#header "Results from ${PODNAME_RPALIN}"
-# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
-#test/performance/read_results.sh ${PODNAME_RPALIN} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-rollout-probe-activator-with-cc-lin.csv"
-#
-## clean up for the next test
-#kubectl delete job rollout-probe-activator-with-cc-lin --ignore-not-found=true
-#kubectl delete ksvc activator-with-cc-lin --ignore-not-found=true
-#echo "waiting for cleanup to complete"
-#for i in {1..60}; do
-#        echo -n "#"
-#        sleep 1
-#done
-# echo ""
-#
-################################################################################################
-#header "Rollout probe performance test with queue"
-#kubectl delete job rollout-probe-queue-with-cc --ignore-not-found=true
-#
-#ko apply -f test/performance/benchmarks/rollout-probe/continuous/rollout-probe-queue-direct.yaml
-#
-#wait_for_test
-#
-#PODNAME_RPQ=`kubectl get pods --selector=job-name=rollout-probe-queue-with-cc --template '{{range .items}}{{.metadata.name}}{{end}}'`
-#header "Results from ${PODNAME_RPQ}"
-# read results usage: <mako_stub_pod_name> <mako_stub_namespace> <mako_stub_port> <timeout> <retries> <retries_interval> <out_file>
-#test/performance/read_results.sh ${PODNAME_RPQ} "default" 10001 120 100 10 "${ARTIFACTS}/mako/testrun-rollout-probe-queue-with-cc.csv"
-#
-## clean up for the next test
-#kubectl delete job rollout-probe-queue-with-cc --ignore-not-found=true
-#kubectl delete ksvc queue-proxy-with-cc --ignore-not-found=true
-#echo "waiting for cleanup to complete"
-#for i in {1..60}; do
-#        echo -n "#"
-#        sleep 1
-#done
-#echo ""
+header "Rollout probe performance test with queue"
+kubectl delete job rollout-probe-queue-with-cc --ignore-not-found=true
+
+run_ytt_for_test "${REPO_ROOT_DIR}/test/performance/benchmarks/rollout-probe/continuous/rollout-probe-queue-direct.yaml"
+
+wait_for_test
+echo ""
 
 success

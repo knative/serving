@@ -61,6 +61,8 @@ func AddInfluxPoint(measurement string, fields map[string]interface{}) error {
 			SetBatchSize(20).
 			//nolint:gosec // We explicitly don't need to check certs here since this is test code.
 			SetTLSConfig(&tls.Config{InsecureSkipVerify: true}))
+	defer client.Close()
+
 	writeAPI := client.WriteAPI(org, bucket)
 	p := influxdb2.NewPoint(measurement,
 		tags,
@@ -70,8 +72,7 @@ func AddInfluxPoint(measurement string, fields map[string]interface{}) error {
 	writeAPI.WritePoint(p)
 	// Force all unwritten data to be sent
 	writeAPI.Flush()
-	// Ensures background processes finishes
-	client.Close()
+
 	return nil
 }
 
