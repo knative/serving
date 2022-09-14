@@ -360,6 +360,9 @@ func (cb *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
 	if err != nil {
 		return err
 	}
+	if !rev.IsReady() {
+		return errUnreadyRevision(rev)
+	}
 	ntt := tt.DeepCopy()
 	target := RevisionTarget{
 		TrafficTarget: *ntt,

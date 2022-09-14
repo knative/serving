@@ -160,26 +160,35 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/byo-name-exists",
 	}, {
+		// This example shows what we might see with a `git revert` in GitOps.
 		Name: "create revision byo name (exists, wrong generation, right spec)",
 		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
-		// This example shows what we might see with a `git revert` in GitOps.
 		Objects: []runtime.Object{
 			cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1.Configuration) {
-				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-foo"
-			}),
-			rev("byo-name-git-revert", "foo", 1200, WithCreationTimestamp(now), func(rev *v1.Revision) {
-				rev.Name = "byo-name-git-revert-foo"
+				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-good"
+			}, WithLatestCreated("byo-name-git-revert-bad"), WithLatestReady("byo-name-git-revert-bad"), WithConfigObservedGen),
+			// This revision was a bad rollout
+			rev("byo-name-git-revert", "foo", 1234, WithCreationTimestamp(now), func(rev *v1.Revision) {
+				rev.Name = "byo-name-git-revert-bad"
 				rev.GenerateName = ""
-			}),
+			}, MarkRevisionReady),
+			// This revision is good
+			rev("byo-name-git-revert", "foo", 1200, WithCreationTimestamp(now.Add(-time.Second)), func(rev *v1.Revision) {
+				rev.Name = "byo-name-git-revert-good"
+				rev.GenerateName = ""
+			}, MarkRevisionReady),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1.Configuration) {
-				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-foo"
-			}, WithLatestCreated("byo-name-git-revert-foo"), WithConfigObservedGen),
+				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-good"
+			}, WithLatestCreated("byo-name-git-revert-good"), WithLatestReady("byo-name-git-revert-good"), WithConfigObservedGen),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "byo-name-git-revert-good"),
+		},
 		Key: "foo/byo-name-git-revert",
 	}, {
-		Name: "create revision byo name (exists @ wrong generation w/ wrong spec)",
+		Name: "create revision byo name (exists, wrong generation,/ wrong spec)",
 		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1.Configuration) {
@@ -527,6 +536,35 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "lrrnotexist-00002"),
 		},
 		Key: "foo/lrrnotexist",
+	}, {
+		Name: "latest ready fails - latest ready doesn't change",
+		Key:  "foo/failed-lrr",
+		Objects: []runtime.Object{
+			cfg("failed-lrr", "foo", 2,
+				WithLatestCreated("rev-00002"),
+				WithLatestReady("rev-00002"),
+				WithConfigObservedGen,
+			),
+			rev("failed-lrr", "foo", 1,
+				WithRevName("rev-00001"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("failed-lrr", "foo", 2,
+				WithRevName("rev-00002"),
+				WithCreationTimestamp(now), MarkResourcesUnavailable("Bad", "Message")),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("failed-lrr", "foo", 2,
+				WithLatestCreated("rev-00002"),
+				WithLatestReady("rev-00002"),
+				WithConfigObservedGen,
+				func(cfg *v1.Configuration) {
+					cfg.Status.MarkLatestCreatedFailed("rev-00002", "Message")
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "LatestReadyFailed", "Latest ready revision %q has failed", "rev-00002"),
+		},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
