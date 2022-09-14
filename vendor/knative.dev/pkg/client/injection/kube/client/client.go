@@ -13603,6 +13603,145 @@ func (w *wrapStorageV1CSINodeImpl) Watch(ctx context.Context, opts metav1.ListOp
 	return nil, errors.New("NYI: Watch")
 }
 
+func (w *wrapStorageV1) CSIStorageCapacities(namespace string) typedstoragev1.CSIStorageCapacityInterface {
+	return &wrapStorageV1CSIStorageCapacityImpl{
+		dyn: w.dyn.Resource(schema.GroupVersionResource{
+			Group:    "storage.k8s.io",
+			Version:  "v1",
+			Resource: "csistoragecapacities",
+		}),
+
+		namespace: namespace,
+	}
+}
+
+type wrapStorageV1CSIStorageCapacityImpl struct {
+	dyn dynamic.NamespaceableResourceInterface
+
+	namespace string
+}
+
+var _ typedstoragev1.CSIStorageCapacityInterface = (*wrapStorageV1CSIStorageCapacityImpl)(nil)
+
+func (w *wrapStorageV1CSIStorageCapacityImpl) Apply(ctx context.Context, in *storagev1.CSIStorageCapacityApplyConfiguration, opts metav1.ApplyOptions) (result *apistoragev1.CSIStorageCapacity, err error) {
+	panic("NYI")
+}
+
+func (w *wrapStorageV1CSIStorageCapacityImpl) ApplyStatus(ctx context.Context, in *storagev1.CSIStorageCapacityApplyConfiguration, opts metav1.ApplyOptions) (result *apistoragev1.CSIStorageCapacity, err error) {
+	panic("NYI")
+}
+
+func (w *wrapStorageV1CSIStorageCapacityImpl) Create(ctx context.Context, in *apistoragev1.CSIStorageCapacity, opts metav1.CreateOptions) (*apistoragev1.CSIStorageCapacity, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "storage.k8s.io",
+		Version: "v1",
+		Kind:    "CSIStorageCapacity",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Namespace(w.namespace).Create(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &apistoragev1.CSIStorageCapacity{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapStorageV1CSIStorageCapacityImpl) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return w.dyn.Namespace(w.namespace).Delete(ctx, name, opts)
+}
+
+func (w *wrapStorageV1CSIStorageCapacityImpl) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+	return w.dyn.Namespace(w.namespace).DeleteCollection(ctx, opts, listOpts)
+}
+
+func (w *wrapStorageV1CSIStorageCapacityImpl) Get(ctx context.Context, name string, opts metav1.GetOptions) (*apistoragev1.CSIStorageCapacity, error) {
+	uo, err := w.dyn.Namespace(w.namespace).Get(ctx, name, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &apistoragev1.CSIStorageCapacity{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapStorageV1CSIStorageCapacityImpl) List(ctx context.Context, opts metav1.ListOptions) (*apistoragev1.CSIStorageCapacityList, error) {
+	uo, err := w.dyn.Namespace(w.namespace).List(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &apistoragev1.CSIStorageCapacityList{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapStorageV1CSIStorageCapacityImpl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *apistoragev1.CSIStorageCapacity, err error) {
+	uo, err := w.dyn.Namespace(w.namespace).Patch(ctx, name, pt, data, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &apistoragev1.CSIStorageCapacity{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapStorageV1CSIStorageCapacityImpl) Update(ctx context.Context, in *apistoragev1.CSIStorageCapacity, opts metav1.UpdateOptions) (*apistoragev1.CSIStorageCapacity, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "storage.k8s.io",
+		Version: "v1",
+		Kind:    "CSIStorageCapacity",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Namespace(w.namespace).Update(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &apistoragev1.CSIStorageCapacity{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapStorageV1CSIStorageCapacityImpl) UpdateStatus(ctx context.Context, in *apistoragev1.CSIStorageCapacity, opts metav1.UpdateOptions) (*apistoragev1.CSIStorageCapacity, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "storage.k8s.io",
+		Version: "v1",
+		Kind:    "CSIStorageCapacity",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Namespace(w.namespace).UpdateStatus(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &apistoragev1.CSIStorageCapacity{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapStorageV1CSIStorageCapacityImpl) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	return nil, errors.New("NYI: Watch")
+}
+
 func (w *wrapStorageV1) StorageClasses() typedstoragev1.StorageClassInterface {
 	return &wrapStorageV1StorageClassImpl{
 		dyn: w.dyn.Resource(schema.GroupVersionResource{

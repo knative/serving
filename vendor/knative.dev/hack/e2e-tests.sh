@@ -123,7 +123,7 @@ function success() {
 # Parameters: $* - error message (optional).
 function fail_test() {
   local message="$*"
-  if [[ -n ${message:-} ]]; then
+  if [[ "X${message:-}X" == "XX" ]]; then
     message='test failed'
   fi
   add_trap "dump_cluster_state;dump_metrics" EXIT

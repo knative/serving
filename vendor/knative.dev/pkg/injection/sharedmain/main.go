@@ -24,6 +24,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -165,6 +166,14 @@ func toControllerConstructors(namedCtors []injection.NamedControllerConstructor)
 // MainWithContext runs the generic main flow for controllers and
 // webhooks. Use MainWithContext if you do not need to serve webhooks.
 func MainWithContext(ctx context.Context, component string, ctors ...injection.ControllerConstructor) {
+	// Allow configuration of threads per controller
+	if val, ok := os.LookupEnv("K_THREADS_PER_CONTROLLER"); ok {
+		threadsPerController, err := strconv.Atoi(val)
+		if err != nil {
+			log.Fatalf("failed to parse value %q of K_THREADS_PER_CONTROLLER: %v\n", val, err)
+		}
+		controller.DefaultThreadsPerController = threadsPerController
+	}
 
 	// TODO(mattmoor): Remove this once HA is stable.
 	disableHighAvailability := flag.Bool("disable-ha", false,

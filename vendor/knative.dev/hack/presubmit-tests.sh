@@ -139,15 +139,14 @@ function __build_test_runner_for_module() {
   # Don't merge these two lines, or return code will always be 0.
   # Get all build tags in go code (ignore /vendor, /hack and /third_party)
   local tags
-  tags="$(grep -I  -r '// +build' . | \
-    grep -v '/vendor/' | \
+  tags="$(grep -I -r '// +build' . | grep -v '/vendor/' | \
     grep -v '/hack/' | \
     grep -v '/third_party' | \
     cut -f3 -d' ' | \
     tr ',' '\n' | \
     sort | uniq | \
     grep -v '^!' | \
-    tr '\n' ' ')"
+    paste -s -d, /dev/stdin)"
   local go_pkg_dirs
   go_pkg_dirs="$(go list -tags "${tags}" ./...)" || return $?
   if [[ -z "${go_pkg_dirs}" ]]; then
@@ -241,13 +240,14 @@ function run_integration_tests() {
 function default_integration_test_runner() {
   local failed=0
 
-  while IFS= read -r e2e_test; do
-    echo "Running integration test ${e2e_test}"
-    if ! ${e2e_test}; then
-      failed=1
-      step_failed "${e2e_test}"
+  while read -r e2e_test; do
+    subheader "Running integration test ${e2e_test}"
+    "${e2e_test}" || failed=$?
+    if (( failed )); then
+      echo "${e2e_test} failed: $failed" >&2
+      return $failed
     fi
-  done < <(find test/ ! -name "$(printf "*\n*")" -name "e2e-*tests.sh" -maxdepth 1)
+  done < <(find test/ -maxdepth 1 ! -name "$(printf "*\n*")" -name "e2e-*tests.sh")
   return ${failed}
 }
 
@@ -355,18 +355,18 @@ function main() {
       exit 0
     fi
     for test_to_run in "${TESTS_TO_RUN[@]}"; do
-      ${test_to_run} || { failed=1; step_failed "${test_to_run}"; }
+      ${test_to_run} || { failed=$?; step_failed "${test_to_run}"; }
     done
   fi
 
-  run_build_tests || { failed=1; step_failed "run_build_tests"; }
+  run_build_tests || { failed=$?; step_failed "run_build_tests"; }
   # If PRESUBMIT_TEST_FAIL_FAST is set to true, don't run unit tests if build tests failed
   if (( ! PRESUBMIT_TEST_FAIL_FAST )) || (( ! failed )); then
-    run_unit_tests || { failed=1; step_failed "run_unit_tests"; }
+    run_unit_tests || { failed=$?; step_failed "run_unit_tests"; }
   fi
   # If PRESUBMIT_TEST_FAIL_FAST is set to true, don't run integration tests if build/unit tests failed
   if (( ! PRESUBMIT_TEST_FAIL_FAST )) || (( ! failed )); then
-    run_integration_tests || { failed=1; step_failed "run_integration_tests"; }
+    run_integration_tests || { failed=$?; step_failed "run_integration_tests"; }
   fi
 
   exit ${failed}
