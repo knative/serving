@@ -34,6 +34,10 @@ import (
 	_ "knative.dev/pkg/system/testing"
 )
 
+const (
+	benchmarkName = "Development - Serving dataplane probe"
+)
+
 var (
 	target   = flag.String("target", "", "The target to attack.")
 	duration = flag.Duration("duration", 5*time.Minute, "The duration of the probe")
@@ -114,6 +118,7 @@ LOOP:
 			q.AddSamplePoint(mako.XTime(ds.Time), map[string]float64{
 				"ap": float64(ds.ReadyReplicas),
 			})
+			performance.AddInfluxPoint(benchmarkName, map[string]interface{}{"ap": float64(ds.ReadyReplicas)})
 		case res, ok := <-results:
 			if !ok {
 				// Once we have read all of the request results, break out of
@@ -121,7 +126,7 @@ LOOP:
 				break LOOP
 			}
 			// Handle the result for this request
-			metrics.HandleResult(q, *res, t.stat, ar)
+			metrics.HandleResult(q, benchmarkName, *res, t.stat, ar)
 		}
 	}
 
@@ -132,6 +137,7 @@ LOOP:
 		q.AddSamplePoint(mako.XTime(time.Unix(ts, 0)), map[string]float64{
 			t.estat: float64(count),
 		})
+		performance.AddInfluxPoint(benchmarkName, map[string]interface{}{t.estat: float64(count)})
 	}
 
 	// Commit data to Mako and handle the result.

@@ -43,7 +43,10 @@ var (
 	duration = flag.Duration("duration", 5*time.Minute, "The duration of the probe")
 )
 
-const namespace = "default"
+const (
+	namespace     = "default"
+	benchmarkName = "Development - Serving rollout probe"
+)
 
 func main() {
 	flag.Parse()
@@ -172,7 +175,7 @@ LOOP:
 				break LOOP
 			}
 			// Handle the result for this request.
-			metrics.HandleResult(q, *res, t.stat, ar)
+			metrics.HandleResult(q, benchmarkName, *res, t.stat, ar)
 		case ds := <-deploymentStatus:
 			// Ignore deployment updates until we get current one.
 			if firstRev == "" {
@@ -186,12 +189,16 @@ LOOP:
 					"dp": float64(ds.DesiredReplicas),
 					"ap": float64(ds.ReadyReplicas),
 				})
+				performance.AddInfluxPoint(benchmarkName,
+					map[string]interface{}{"dp": float64(ds.DesiredReplicas), "ap": float64(ds.ReadyReplicas)})
 			} else if secondRev != "" && strings.Contains(ds.DeploymentName, secondRev) {
 				// Otherwise eport the pods for the new deployment.
 				q.AddSamplePoint(mako.XTime(ds.Time), map[string]float64{
 					"dp2": float64(ds.DesiredReplicas),
 					"ap2": float64(ds.ReadyReplicas),
 				})
+				performance.AddInfluxPoint(benchmarkName,
+					map[string]interface{}{"dp2": float64(ds.DesiredReplicas), "ap2": float64(ds.ReadyReplicas)})
 				// Ignore all other revisions' deployments if there are, since
 				// they are from previous test run iterations and we don't care about
 				// their reported scale values (should be 0 & 100 depending on which

@@ -23,6 +23,7 @@ import (
 	vegeta "github.com/tsenart/vegeta/v12/lib"
 
 	"knative.dev/pkg/test/mako"
+	"knative.dev/serving/test/performance"
 )
 
 // AggregateResult is the aggregated result of requests for better visualization.
@@ -44,7 +45,7 @@ func NewAggregateResult(initialSize int) *AggregateResult {
 // HandleResult will handle the attack result by:
 // 1. Adding its latency as a sample point if no error, or adding it as an error if there is
 // 2. Updating the aggregate results
-func HandleResult(q *quickstore.Quickstore, res vegeta.Result, latencyKey string, ar *AggregateResult) {
+func HandleResult(q *quickstore.Quickstore, benchmarkName string, res vegeta.Result, latencyKey string, ar *AggregateResult) {
 	// Handle the result by reporting an error or a latency sample point.
 	var isAnError int64
 	if res.Error != "" {
@@ -59,6 +60,7 @@ func HandleResult(q *quickstore.Quickstore, res vegeta.Result, latencyKey string
 		q.AddSamplePoint(mako.XTime(res.Timestamp), map[string]float64{
 			latencyKey: res.Latency.Seconds(),
 		})
+		performance.AddInfluxPoint(benchmarkName, map[string]interface{}{latencyKey: res.Latency.Seconds()})
 		isAnError = 0
 	}
 

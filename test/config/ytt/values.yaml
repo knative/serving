@@ -21,3 +21,8 @@ serving:
     - autoscaler
     - domainmapping-webhook
     - domain-mapping
+#! for perrformance tests
+influxtoken:
+influxurl:
+dockerrepo:
+prowtag:

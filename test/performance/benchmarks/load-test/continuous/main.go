@@ -37,7 +37,10 @@ import (
 	"knative.dev/serving/test/performance/metrics"
 )
 
-const namespace = "default"
+const (
+	namespace     = "default"
+	benchmarkName = "Development - Serving load testing"
+)
 
 var (
 	flavor   = flag.String("flavor", "", "The flavor of the benchmark to run.")
@@ -55,11 +58,13 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			q.AddSamplePoint(mako.XTime(time.Unix(t, 0)), map[string]float64{
 				"rs": float64(req),
 			})
+			performance.AddInfluxPoint(benchmarkName, map[string]interface{}{"rs": float64(req)})
 		}
 		for t, err := range ar.ErrorRates {
 			q.AddSamplePoint(mako.XTime(time.Unix(t, 0)), map[string]float64{
 				"es": float64(err),
 			})
+			performance.AddInfluxPoint(benchmarkName, map[string]interface{}{"es": float64(err)})
 		}
 	}()
 
@@ -76,13 +81,15 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 				return
 			}
 			// Handle the result for this request
-			metrics.HandleResult(q, *res, "l", ar)
+			metrics.HandleResult(q, benchmarkName, *res, "l", ar)
 		case ds := <-deploymentStatus:
 			// Add a sample point for the deployment status
 			q.AddSamplePoint(mako.XTime(ds.Time), map[string]float64{
 				"dp": float64(ds.DesiredReplicas),
 				"ap": float64(ds.ReadyReplicas),
 			})
+			performance.AddInfluxPoint(benchmarkName,
+				map[string]interface{}{"ap": float64(ds.ReadyReplicas), "dp": float64(ds.DesiredReplicas)})
 		case sksm := <-sksMode:
 			// Add a sample point for the serverless service mode
 			mode := float64(0)
@@ -93,6 +100,8 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 				"sks": mode,
 				"na":  float64(sksm.NumActivators),
 			})
+			performance.AddInfluxPoint(benchmarkName,
+				map[string]interface{}{"sks": mode, "na": float64(sksm.NumActivators)})
 		}
 	}
 }

@@ -56,6 +56,7 @@ var (
 )
 
 const (
+	benchmarkName            = "Development - Serving scale from zero"
 	testNamespace            = "default"
 	serviceName              = "perftest-scalefromzero"
 	helloWorldExpectedOutput = "Hello World!"
@@ -159,11 +160,14 @@ func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v
 				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{
 					dlk: ddur.Seconds(),
 				})
+				performance.AddInfluxPoint(benchmarkName, map[string]interface{}{"lk": sdur.Seconds()})
+				performance.AddInfluxPoint(benchmarkName, map[string]interface{}{"dlk": ddur.Seconds()})
 			} else {
 				// Add 1 to the error metric whenever there is an error.
 				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{
 					ek: 1,
 				})
+				performance.AddInfluxPoint(benchmarkName, map[string]interface{}{"ek": float64(1)})
 				// By reporting errors like this, the error strings show up on
 				// the details page for each Mako run.
 				q.AddError(mako.XTime(time.Now()), err.Error())
