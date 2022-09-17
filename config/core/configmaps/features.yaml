@@ -118,6 +118,11 @@ data:
     # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-security-context
     kubernetes.podspec-securitycontext: "disabled"
 
+    # Indicates whether hostIPC support is enabled
+    #
+    # Disabled by default
+    kubernetes.podspec-hostipc: "disabled"
+
     # Indicates whether Kubernetes PriorityClassName support is enabled
     #
     # WARNING: Cannot safely be disabled once enabled.

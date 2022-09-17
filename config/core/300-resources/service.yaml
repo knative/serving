@@ -574,6 +574,9 @@ spec:
                           description: This is accessible behind a feature flag - kubernetes.podspec-securitycontext
                           type: object
                           x-kubernetes-preserve-unknown-fields: true
+                        hostIPC:
+                          description: This is accessible behind a feature flag - kubernetes.podspec-hostipc
+                          type: boolean
                         serviceAccountName:
                           description: 'ServiceAccountName is the name of the ServiceAccount to use to run this pod. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                           type: string

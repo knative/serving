@@ -83,6 +83,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-nodeselector":              "Enabled",
 			"kubernetes.podspec-runtimeclassname":          "Enabled",
 			"kubernetes.podspec-securitycontext":           "Enabled",
+			"kubernetes.podspec-hostipc":                   "Enabled",
 			"kubernetes.podspec-tolerations":               "Enabled",
 			"kubernetes.podspec-priorityclassname":         "Enabled",
 			"kubernetes.podspec-schedulername":             "Enabled",
@@ -323,6 +324,24 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"kubernetes.podspec-securitycontext": "Disabled",
+		},
+	}, {
+		name:    "security context Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecSecurityContext: Allowed,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-hostipc": "Allowed",
+		},
+	}, {
+		name:    "security context disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecSecurityContext: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-hostipc": "Disabled",
 		},
 	}, {
 		name:    "kubernetes.containerspec-addcapabilities Disabled",

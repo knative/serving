@@ -59,6 +59,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecNodeSelector:              Disabled,
 		PodSpecRuntimeClassName:          Disabled,
 		PodSpecSecurityContext:           Disabled,
+		PodSpecHostIPC:                   Disabled,
 		PodSpecPriorityClassName:         Disabled,
 		PodSpecSchedulerName:             Disabled,
 		ContainerSpecAddCapabilities:     Disabled,
@@ -89,11 +90,13 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-nodeselector", &nc.PodSpecNodeSelector),
 		asFlag("kubernetes.podspec-runtimeclassname", &nc.PodSpecRuntimeClassName),
 		asFlag("kubernetes.podspec-securitycontext", &nc.PodSpecSecurityContext),
+		asFlag("kubernetes.podspec-hostipc", &nc.PodSpecHostIPC),
 		asFlag("kubernetes.podspec-priorityclassname", &nc.PodSpecPriorityClassName),
 		asFlag("kubernetes.podspec-schedulername", &nc.PodSpecSchedulerName),
 		asFlag("kubernetes.containerspec-addcapabilities", &nc.ContainerSpecAddCapabilities),
 		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
 		asFlag("kubernetes.podspec-volumes-emptydir", &nc.PodSpecVolumesEmptyDir),
+		asFlag("kubernetes.podspec-hostipc", &nc.PodSpecHostIPC),
 		asFlag("kubernetes.podspec-init-containers", &nc.PodSpecInitContainers),
 		asFlag("kubernetes.podspec-persistent-volume-claim", &nc.PodSpecPersistentVolumeClaim),
 		asFlag("kubernetes.podspec-persistent-volume-write", &nc.PodSpecPersistentVolumeWrite),
@@ -123,6 +126,7 @@ type Features struct {
 	PodSpecNodeSelector              Flag
 	PodSpecRuntimeClassName          Flag
 	PodSpecSecurityContext           Flag
+	PodSpecHostIPC                   Flag
 	PodSpecPriorityClassName         Flag
 	PodSpecSchedulerName             Flag
 	ContainerSpecAddCapabilities     Flag
