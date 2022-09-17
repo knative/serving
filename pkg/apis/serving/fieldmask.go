@@ -263,7 +263,9 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	if cfg.Features.PodSpecDNSConfig != config.Disabled {
 		out.DNSConfig = in.DNSConfig
 	}
-
+	if cfg.Features.PodSpecHostIPC != config.Disabled {
+		out.HostIPC = in.HostIPC
+	}
 	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
 	out.RestartPolicy = ""
@@ -273,6 +275,7 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.HostNetwork = false
 	out.HostPID = false
 	out.HostIPC = false
+	out.ShareProcessNamespace = nil
 	out.Hostname = ""
 	out.Subdomain = ""
 	out.Priority = nil
