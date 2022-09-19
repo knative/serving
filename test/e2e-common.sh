@@ -597,5 +597,5 @@ function run_ytt() {
 
 
 function run_kapp() {
-  run_go_tool github.com/k14s/kapp/cmd/kapp kapp "$@"
+  run_go_tool github.com/vmware-tanzu/carvel-kapp/cmd/kapp kapp "$@"
 }
