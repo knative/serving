@@ -21,7 +21,7 @@ type null struct{}
 var _ streamer = (*null)(nil)
 
 // Start implements streamer
-func (*null) Start(t ti, callback Callback) Canceler {
+func (*null) Start(t ti) Canceler {
 	t.Log("logstream was requested, but SYSTEM_NAMESPACE was unset.")
 	return func() {}
 }

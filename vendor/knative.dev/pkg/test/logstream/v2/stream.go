@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -34,42 +35,74 @@ import (
 	"knative.dev/pkg/ptr"
 )
 
-func FromNamespaces(ctx context.Context, c kubernetes.Interface, namespaces []string, filterLines bool, podPrefixes []string) Source {
-	return &namespaceSource{
+// New creates a new log source. The source namespace must be configured through
+// log source options.
+func New(ctx context.Context, c kubernetes.Interface, opts ...func(*logSource)) Source {
+	s := &logSource{
+		ctx:         ctx,
+		kc:          c,
+		keys:        make(map[string]Callback, 1),
+		filterLines: true, // Filtering log lines by the watched resource name is enabled by default.
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+// WithNamespaces configures namespaces for log stream.
+func WithNamespaces(namespaces ...string) func(*logSource) {
+	return func(s *logSource) {
+		s.namespaces = namespaces
+	}
+}
+
+// WithLineFiltering configures whether log lines will be filtered by
+// the resource name.
+func WithLineFiltering(enabled bool) func(*logSource) {
+	return func(s *logSource) {
+		s.filterLines = enabled
+	}
+}
+
+// WithPodPrefixes specifies which Pods will be included in the
+// log stream through the provided prefixes. If no prefixes are
+// configured then logs from all Pods in the configured namespaces will
+// be streamed.
+func WithPodPrefixes(podPrefixes ...string) func(*logSource) {
+	return func(s *logSource) {
+		s.podPrefixes = podPrefixes
+	}
+}
+
+func FromNamespaces(ctx context.Context, c kubernetes.Interface, namespaces []string) Source {
+	return &logSource{
 		ctx:         ctx,
 		kc:          c,
 		namespaces:  namespaces,
 		keys:        make(map[string]Callback, 1),
-		filterLines: filterLines,
-		podPrefixes: podPrefixes,
+		filterLines: true,
 	}
 }
 
-func FromNamespace(ctx context.Context, c kubernetes.Interface, namespace string, filterLines bool, podPrefixes []string) Source {
-	return &namespaceSource{
-		ctx:         ctx,
-		kc:          c,
-		namespaces:  []string{namespace},
-		keys:        make(map[string]Callback, 1),
-		filterLines: filterLines,
-		podPrefixes: podPrefixes,
-	}
+func FromNamespace(ctx context.Context, c kubernetes.Interface, namespace string) Source {
+	return FromNamespaces(ctx, c, []string{namespace})
 }
 
-type namespaceSource struct {
+type logSource struct {
 	namespaces []string
-	kc         	kubernetes.Interface
-	ctx        	context.Context
+	kc         kubernetes.Interface
+	ctx        context.Context
 
-	m        		sync.RWMutex
-	once     		sync.Once
-	keys     		map[string]Callback
+	m           sync.RWMutex
+	once        sync.Once
+	keys        map[string]Callback
 	filterLines bool
 	podPrefixes []string
-	watchErr 		error
+	watchErr    error
 }
 
-func (s *namespaceSource) StartStream(name string, l Callback) (Canceler, error) {
+func (s *logSource) StartStream(name string, l Callback) (Canceler, error) {
 	s.once.Do(func() { s.watchErr = s.watchPods() })
 	if s.watchErr != nil {
 		return nil, fmt.Errorf("failed to watch pods in one of the namespace(s) %q: %w", s.namespaces, s.watchErr)
@@ -88,7 +121,10 @@ func (s *namespaceSource) StartStream(name string, l Callback) (Canceler, error)
 	}, nil
 }
 
-func (s *namespaceSource) watchPods() error {
+func (s *logSource) watchPods() error {
+	if len(s.namespaces) == 0 {
+		return errors.New("namespaces for logstream not configured")
+	}
 	for _, ns := range s.namespaces {
 		wi, err := s.kc.CoreV1().Pods(ns).Watch(s.ctx, metav1.ListOptions{})
 		if err != nil {
@@ -133,7 +169,7 @@ func (s *namespaceSource) watchPods() error {
 	return nil
 }
 
-func (s *namespaceSource) matchesPodPrefix(name string) bool {
+func (s *logSource) matchesPodPrefix(name string) bool {
 	if len(s.podPrefixes) == 0 {
 		// Pod prefixes are not configured => always match.
 		return true
@@ -146,7 +182,7 @@ func (s *namespaceSource) matchesPodPrefix(name string) bool {
 	return false
 }
 
-func (s *namespaceSource) startForPod(pod *corev1.Pod) {
+func (s *logSource) startForPod(pod *corev1.Pod) {
 	// Grab data from all containers in the pods.  We need this in case
 	// an envoy sidecar is injected for mesh installs.  This should be
 	// equivalent to --all-containers.
@@ -215,7 +251,7 @@ const (
 // are captured without filtering.
 var wellKnownContainers = sets.NewString(ChaosDuck, QueueProxy)
 
-func (s *namespaceSource) handleLine(l []byte, pod string, _ string) {
+func (s *logSource) handleLine(l []byte, pod string, _ string) {
 	// This holds the standard structure of our logs.
 	var line struct {
 		Level      string    `json:"severity"`
@@ -242,7 +278,6 @@ func (s *namespaceSource) handleLine(l []byte, pod string, _ string) {
 	for name, logf := range s.keys {
 		// TODO(mattmoor): Do a slightly smarter match.
 		if !strings.Contains(line.Key, "/"+name) {
-			logf("Key %s does not contain %s", line.Key, name)
 			continue
 		}
 
@@ -278,7 +313,7 @@ func (s *namespaceSource) handleLine(l []byte, pod string, _ string) {
 
 // handleGenericLine prints the given logline to all active tests as it cannot be parsed
 // and/or doesn't contain any correlation data (like the chaosduck for example).
-func (s *namespaceSource) handleGenericLine(l []byte, pod string, cn string) {
+func (s *logSource) handleGenericLine(l []byte, pod string, cn string) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
