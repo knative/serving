@@ -20,7 +20,7 @@ import (
 	"context"
 	"flag"
 
-	"knative.dev/pkg/test/logstream"
+	logstream "knative.dev/pkg/test/logstream/v2"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -44,7 +44,14 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 				Service: "upgrade-probe",
 				Image:   test.PizzaPlanet1,
 			}
-			cancel = logstream.StartForUserNamespace(c.T, c.Log.Infof, test.ServingFlags.TestNamespace, names.Service)
+			stream := logstream.New(context.Background(), clients.KubeClient,
+				logstream.WithNamespaces(test.ServingFlags.TestNamespace),
+				logstream.WithLineFiltering(false),
+				logstream.WithPodPrefixes(names.Service))
+			var err error
+			if cancel, err = stream.StartStream(names.Service, c.Log.Infof); err != nil {
+				c.T.Fatal("Unable to stream logs:", err)
+			}
 			objects, err := v1test.CreateServiceReady(c.T, clients, names)
 			if err != nil {
 				c.T.Fatal("Failed to create Service:", err)

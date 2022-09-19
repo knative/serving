@@ -17,9 +17,10 @@ limitations under the License.
 package upgrade
 
 import (
+	"context"
 	"time"
 
-	"knative.dev/pkg/test/logstream"
+	"knative.dev/pkg/test/logstream/v2"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -50,7 +51,14 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
 				}))
-			cancel = logstream.StartForUserNamespace(c.T, c.Log.Infof, test.ServingFlags.TestNamespace, ctx.Names().Service)
+			stream := logstream.New(context.Background(), ctx.Clients().KubeClient,
+				logstream.WithNamespaces(test.ServingFlags.TestNamespace),
+				logstream.WithLineFiltering(false),
+				logstream.WithPodPrefixes(ctx.Names().Service))
+			var err error
+			if cancel, err = stream.StartStream(ctx.Names().Service, c.Log.Infof); err != nil {
+				c.T.Fatal("Unable to stream logs:", err)
+			}
 			ctx.SetLogger(c.Log.Infof)
 			wait = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
 
@@ -85,7 +93,14 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
 				}))
-			cancel = logstream.StartForUserNamespace(c.T, c.Log.Infof, test.ServingFlags.TestNamespace, ctx.Names().Service)
+			stream := logstream.New(context.Background(), ctx.Clients().KubeClient,
+				logstream.WithNamespaces(test.ServingFlags.TestNamespace),
+				logstream.WithLineFiltering(false),
+				logstream.WithPodPrefixes(ctx.Names().Service))
+			var err error
+			if cancel, err = stream.StartStream(ctx.Names().Service, c.Log.Infof); err != nil {
+				c.T.Fatal("Unable to stream logs:", err)
+			}
 			ctx.SetLogger(c.Log.Infof)
 			wait = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
 
