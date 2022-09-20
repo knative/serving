@@ -64,7 +64,7 @@ func certClass(ctx context.Context, r *corev1.Namespace) string {
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pkgreconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	cfg := config.FromContext(ctx)
