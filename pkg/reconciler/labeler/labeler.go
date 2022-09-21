@@ -18,7 +18,6 @@ package labeler
 
 import (
 	"context"
-	"time"
 
 	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -44,7 +43,7 @@ func (rec *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconci
 // ReconcileKind syncs the Route reference metadata to its traffic targets.
 // This does not modify or observe spec for the Route itself.
 func (rec *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
 	return syncRoutingMeta(ctx, r, rec.caccV2, rec.raccV2)

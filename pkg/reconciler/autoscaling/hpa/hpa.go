@@ -19,7 +19,6 @@ package hpa
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -51,7 +50,7 @@ var _ pareconciler.Interface = (*Reconciler)(nil)
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) pkgreconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
 	logger := logging.FromContext(ctx)

@@ -22,7 +22,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	networkaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
@@ -80,7 +79,7 @@ func (r *Reconciler) GetCertificateLister() networkinglisters.CertificateLister 
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMapping) reconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, reconciler.DefaultTimeout)
 	defer cancel()
 
 	logger := logging.FromContext(ctx)

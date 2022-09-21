@@ -18,7 +18,6 @@ package gc
 
 import (
 	"context"
-	"time"
 
 	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -40,7 +39,7 @@ var _ configreconciler.Interface = (*reconciler)(nil)
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
 	return collect(ctx, c.client, c.revisionLister, config)

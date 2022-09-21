@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"time"
 
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
@@ -81,7 +80,7 @@ var (
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) pkgreconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
 	logger := logging.FromContext(ctx)
