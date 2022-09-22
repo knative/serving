@@ -120,7 +120,7 @@ function create_kind_test_cluster() {
 # Parameters: $1 - custom flags defined in kntest
 #             $2 - test command to run after the cluster is created (optional)
 function create_gke_test_cluster() {
-  local -n _custom_flags=$1
+  local -n _custom_flags=$1 # this is currently --addons=NodeLocalDNS,IstioAddon
   local -n _test_command=$2
 
   # We are disabling logs and metrics on Boskos Clusters by default as they are not used. Manually set ENABLE_GKE_TELEMETRY to true to enable telemetry
@@ -134,8 +134,8 @@ function create_gke_test_cluster() {
     extra_gcloud_flags="${extra_gcloud_flags} --preemptible"
   fi
 
-  extra_gcloud_flags="${extra_gcloud_flags} --quiet --enable-autoscaling"
-  kubetest2 gke "${_custom_flags[@]}" --up --down \
+  extra_gcloud_flags="${extra_gcloud_flags} --quiet --enable-autoscaling ${_custom_flags[@]}"
+  kubetest2 gke --up --down \
     --ignore-gcp-ssh-key=true --boskos-heartbeat-interval-seconds=20 \
     --cluster-name=e2e-cls-rnnxoafn --environment=prod --machine-type=e2-standard-4 \
     --network=e2e-network --image-type=cos_containerd --boskos-acquire-timeout-seconds=1200 \
