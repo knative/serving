@@ -87,9 +87,9 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.22.9
         - v1.23.6
         - v1.24.0
+        - v1.25.0
 
         ingress:
         - kourier
@@ -109,9 +109,6 @@ jobs:
           # This is attempting to make it a bit clearer what's being tested.
           # See: https://github.com/kubernetes-sigs/kind/releases
           #      https://hub.docker.com/r/kindest/node/tags
-        - k8s-version: v1.22.9
-          kind-version: v0.14.0
-          kind-image-sha: sha256:8135260b959dfe320206eb36b3aeda9cffcb262f4b44cda6b33f7bb73f453105
 
         - k8s-version: v1.23.6
           kind-version: v0.14.0
@@ -120,6 +117,10 @@ jobs:
         - k8s-version: v1.24.0
           kind-version: v0.14.0
           kind-image-sha: sha256:0866296e693efe1fed79d5e6c7af8df71fc73ae45e3679af05342239cdc5bc8e
+
+        - k8s-version: v1.25.0
+          kind-version: v0.15.0
+          kind-image-sha: sha256:428aaa17ec82ccde0131cb2d1ca6547d13cf5fdabcc0bbecf749baa935387cbf
 
         # Disabled due to consistent failures
         # - ingress: gateway_istio
@@ -263,8 +264,7 @@ jobs:
     - name: Install metallb
       shell: bash
       run: |
-        kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/namespace.yaml
-        kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/metallb.yaml
+        kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13/config/manifests/metallb-native.yaml
         kubectl create secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
         network=$(docker network inspect kind -f "{{(index .IPAM.Config 0).Subnet}}" | cut -d '.' -f1,2)
         cat <<EOF | kubectl apply -f -

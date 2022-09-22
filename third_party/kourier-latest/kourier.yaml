@@ -346,7 +346,9 @@ spec:
             runAsNonRoot: true
             capabilities:
               drop:
-                - all
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
       restartPolicy: Always
       serviceAccountName: net-kourier
 ---
@@ -444,7 +446,9 @@ spec:
             runAsNonRoot: false
             capabilities:
               drop:
-                - all
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
           volumeMounts:
             - name: config-volume
               mountPath: /tmp/config
