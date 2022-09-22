@@ -139,6 +139,7 @@ CLOUD_PROVIDER="gke"
 function initialize() {
   local run_tests=0
   local custom_flags=()
+  local extra_gcloud_flags=()
   local parse_script_flags=0
   E2E_SCRIPT="$(get_canonical_path "$0")"
   local e2e_script_command=( "${E2E_SCRIPT}" "--run-tests" )
@@ -186,9 +187,9 @@ function initialize() {
 
   if [[ "${CLOUD_PROVIDER}" == "gke" ]]; then
     if (( SKIP_ISTIO_ADDON )); then
-      custom_flags+=("--addons=NodeLocalDNS")
+      extra_gcloud_flags+=("--addons=NodeLocalDNS")
     else
-      custom_flags+=("--addons=Istio,NodeLocalDNS")
+      extra_gcloud_flags+=("--addons=Istio,NodeLocalDNS")
     fi
   fi
 
@@ -196,7 +197,7 @@ function initialize() {
   readonly SKIP_TEARDOWNS
 
   if (( ! run_tests )); then
-    create_test_cluster "${CLOUD_PROVIDER}" custom_flags e2e_script_command
+    create_test_cluster "${CLOUD_PROVIDER}" custom_flags extra_gcloud_flags e2e_script_command
   else
     setup_test_cluster
   fi

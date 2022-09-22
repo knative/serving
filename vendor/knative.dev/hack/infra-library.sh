@@ -91,7 +91,7 @@ function create_test_cluster() {
   fi
 
   case "$1" in
-    gke) create_gke_test_cluster "$2" "$3" "${4:-}" ;;
+    gke) create_gke_test_cluster "$2" "$3" "$4" "${5:-}" ;;
     kind) create_kind_test_cluster "$2" "$3" "${4:-}" ;;
     *) echo "unsupported provider: $1"; exit 1 ;;
   esac
@@ -117,11 +117,13 @@ function create_kind_test_cluster() {
 }
 
 # Create a GKE test cluster with kubetest2 and run the test command.
-# Parameters: $1 - custom flags defined in kntest
-#             $2 - test command to run after the cluster is created (optional)
+# Parameters: $1 - custom flags defined in kubetest2
+#             $2 - custom flags to pass directly to gcloud
+#             $3 - test command to run after the cluster is created (optional)
 function create_gke_test_cluster() {
-  local -n _custom_flags=$1 # this is currently --addons=NodeLocalDNS,IstioAddon
-  local -n _test_command=$2
+  local -n _custom_flags=$1
+  local -n _extra_gcloud_flags=$2
+  local -n _test_command=$3
 
   # We are disabling logs and metrics on Boskos Clusters by default as they are not used. Manually set ENABLE_GKE_TELEMETRY to true to enable telemetry
   # and ENABLE_PREEMPTIBLE_NODES to true to create preemptible/spot VMs. VM Preemption is a rare event and shouldn't be distruptive given the fault tolerant nature of our tests.
@@ -134,12 +136,12 @@ function create_gke_test_cluster() {
     extra_gcloud_flags="${extra_gcloud_flags} --preemptible"
   fi
 
-  extra_gcloud_flags="${extra_gcloud_flags} --quiet ${_custom_flags[@]}"
-  kubetest2 gke --up --down \
+  extra_gcloud_flags="${extra_gcloud_flags} --quiet ${_extra_gcloud_flags[@]}"
+  kubetest2 gke "${_custom_flags[@]}" --up --down \
     --ignore-gcp-ssh-key=true --boskos-heartbeat-interval-seconds=20 \
     --environment=prod --machine-type=e2-standard-4 \
     --network=e2e-network --image-type=cos_containerd --boskos-acquire-timeout-seconds=1200 \
-    --region=us-east1,us-west1,us-central1 --gcloud-extra-flags="${extra_gcloud_flags}" \
+    --region="${E2E_CLUSTER_REGION},us-east1,us-west1" --gcloud-extra-flags="${extra_gcloud_flags}" \
     --retryable-error-patterns='.*does not have enough resources available to fulfill.*,.*only \\d+ nodes out of \\d+ have registered; this is likely due to Nodes failing to start correctly.*,.*All cluster resources were brought up.+ but: component .+ from endpoint .+ is unhealthy.*' \
     --test=exec -- "${_test_command[@]}"
 }
