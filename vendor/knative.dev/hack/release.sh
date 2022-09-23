@@ -328,11 +328,11 @@ function sign_release() {
   ## Check if there is checksums.txt file. If so, sign the checksum file
   if [[ -f "checksums.txt" ]]; then
       echo "Signing Images with the identity ${SIGNING_IDENTITY}"
-      COSIGN_EXPERIMENTAL=1 cosign sign-blob checksums.txt --output-signature checksums.txt.sig --identity-token="$(
+      COSIGN_EXPERIMENTAL=1 cosign sign-blob checksums.txt --output-signature=checksums.txt.sig --output-certificate=checksums.txt.pem --identity-token="$(
         gcloud auth print-identity-token --audiences=sigstore \
         --include-email \
         --impersonate-service-account="${SIGNING_IDENTITY}")"
-      ARTIFACTS_TO_PUBLISH="${ARTIFACTS_TO_PUBLISH} checksums.txt.sig"
+      ARTIFACTS_TO_PUBLISH="${ARTIFACTS_TO_PUBLISH} checksums.txt.sig checksums.txt.pem"
   fi
 }
 
