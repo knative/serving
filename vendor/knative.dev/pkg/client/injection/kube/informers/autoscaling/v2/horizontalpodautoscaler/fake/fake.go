@@ -21,7 +21,7 @@ package fake
 import (
 	context "context"
 
-	horizontalpodautoscaler "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta2/horizontalpodautoscaler"
+	horizontalpodautoscaler "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2/horizontalpodautoscaler"
 	fake "knative.dev/pkg/client/injection/kube/informers/factory/fake"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
@@ -35,6 +35,6 @@ func init() {
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	f := fake.Get(ctx)
-	inf := f.Autoscaling().V2beta2().HorizontalPodAutoscalers()
+	inf := f.Autoscaling().V2().HorizontalPodAutoscalers()
 	return context.WithValue(ctx, horizontalpodautoscaler.Key{}, inf), inf.Informer()
 }

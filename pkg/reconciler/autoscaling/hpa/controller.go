@@ -22,7 +22,7 @@ import (
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	sksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	hpainformer "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta2/horizontalpodautoscaler"
+	hpainformer "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2/horizontalpodautoscaler"
 	"knative.dev/pkg/logging"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"

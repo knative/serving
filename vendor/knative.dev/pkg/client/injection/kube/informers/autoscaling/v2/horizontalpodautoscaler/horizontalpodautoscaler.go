@@ -21,12 +21,12 @@ package horizontalpodautoscaler
 import (
 	context "context"
 
-	apiautoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	apiautoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	v2beta2 "k8s.io/client-go/informers/autoscaling/v2beta2"
+	v2 "k8s.io/client-go/informers/autoscaling/v2"
 	kubernetes "k8s.io/client-go/kubernetes"
-	autoscalingv2beta2 "k8s.io/client-go/listers/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/client-go/listers/autoscaling/v2"
 	cache "k8s.io/client-go/tools/cache"
 	client "knative.dev/pkg/client/injection/kube/client"
 	factory "knative.dev/pkg/client/injection/kube/informers/factory"
@@ -45,7 +45,7 @@ type Key struct{}
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	f := factory.Get(ctx)
-	inf := f.Autoscaling().V2beta2().HorizontalPodAutoscalers()
+	inf := f.Autoscaling().V2().HorizontalPodAutoscalers()
 	return context.WithValue(ctx, Key{}, inf), inf.Informer()
 }
 
@@ -55,13 +55,13 @@ func withDynamicInformer(ctx context.Context) context.Context {
 }
 
 // Get extracts the typed informer from the context.
-func Get(ctx context.Context) v2beta2.HorizontalPodAutoscalerInformer {
+func Get(ctx context.Context) v2.HorizontalPodAutoscalerInformer {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panic(
-			"Unable to fetch k8s.io/client-go/informers/autoscaling/v2beta2.HorizontalPodAutoscalerInformer from context.")
+			"Unable to fetch k8s.io/client-go/informers/autoscaling/v2.HorizontalPodAutoscalerInformer from context.")
 	}
-	return untyped.(v2beta2.HorizontalPodAutoscalerInformer)
+	return untyped.(v2.HorizontalPodAutoscalerInformer)
 }
 
 type wrapper struct {
@@ -72,18 +72,18 @@ type wrapper struct {
 	resourceVersion string
 }
 
-var _ v2beta2.HorizontalPodAutoscalerInformer = (*wrapper)(nil)
-var _ autoscalingv2beta2.HorizontalPodAutoscalerLister = (*wrapper)(nil)
+var _ v2.HorizontalPodAutoscalerInformer = (*wrapper)(nil)
+var _ autoscalingv2.HorizontalPodAutoscalerLister = (*wrapper)(nil)
 
 func (w *wrapper) Informer() cache.SharedIndexInformer {
-	return cache.NewSharedIndexInformer(nil, &apiautoscalingv2beta2.HorizontalPodAutoscaler{}, 0, nil)
+	return cache.NewSharedIndexInformer(nil, &apiautoscalingv2.HorizontalPodAutoscaler{}, 0, nil)
 }
 
-func (w *wrapper) Lister() autoscalingv2beta2.HorizontalPodAutoscalerLister {
+func (w *wrapper) Lister() autoscalingv2.HorizontalPodAutoscalerLister {
 	return w
 }
 
-func (w *wrapper) HorizontalPodAutoscalers(namespace string) autoscalingv2beta2.HorizontalPodAutoscalerNamespaceLister {
+func (w *wrapper) HorizontalPodAutoscalers(namespace string) autoscalingv2.HorizontalPodAutoscalerNamespaceLister {
 	return &wrapper{client: w.client, namespace: namespace, resourceVersion: w.resourceVersion}
 }
 
@@ -95,8 +95,8 @@ func (w *wrapper) SetResourceVersion(resourceVersion string) {
 	w.resourceVersion = resourceVersion
 }
 
-func (w *wrapper) List(selector labels.Selector) (ret []*apiautoscalingv2beta2.HorizontalPodAutoscaler, err error) {
-	lo, err := w.client.AutoscalingV2beta2().HorizontalPodAutoscalers(w.namespace).List(context.TODO(), v1.ListOptions{
+func (w *wrapper) List(selector labels.Selector) (ret []*apiautoscalingv2.HorizontalPodAutoscaler, err error) {
+	lo, err := w.client.AutoscalingV2().HorizontalPodAutoscalers(w.namespace).List(context.TODO(), v1.ListOptions{
 		LabelSelector:   selector.String(),
 		ResourceVersion: w.resourceVersion,
 	})
@@ -109,8 +109,8 @@ func (w *wrapper) List(selector labels.Selector) (ret []*apiautoscalingv2beta2.H
 	return ret, nil
 }
 
-func (w *wrapper) Get(name string) (*apiautoscalingv2beta2.HorizontalPodAutoscaler, error) {
-	return w.client.AutoscalingV2beta2().HorizontalPodAutoscalers(w.namespace).Get(context.TODO(), name, v1.GetOptions{
+func (w *wrapper) Get(name string) (*apiautoscalingv2.HorizontalPodAutoscaler, error) {
+	return w.client.AutoscalingV2().HorizontalPodAutoscalers(w.namespace).Get(context.TODO(), name, v1.GetOptions{
 		ResourceVersion: w.resourceVersion,
 	})
 }

@@ -19,7 +19,7 @@ package resources
 import (
 	"math"
 
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,12 +33,12 @@ import (
 )
 
 // MakeHPA creates an HPA resource from a PA resource.
-func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autoscalingv2beta2.HorizontalPodAutoscaler {
+func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autoscalingv2.HorizontalPodAutoscaler {
 	min, max := pa.ScaleBounds(config)
 	if max == 0 {
 		max = math.MaxInt32 // default to no limit
 	}
-	hpa := &autoscalingv2beta2.HorizontalPodAutoscaler{
+	hpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            pa.Name,
 			Namespace:       pa.Namespace,
@@ -46,8 +46,8 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 			Annotations:     pa.Annotations,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
-		Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
-			ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 				APIVersion: pa.Spec.ScaleTargetRef.APIVersion,
 				Kind:       pa.Spec.ScaleTargetRef.Kind,
 				Name:       pa.Spec.ScaleTargetRef.Name,
@@ -62,12 +62,12 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 	if target, ok := pa.Target(); ok {
 		switch pa.Metric() {
 		case autoscaling.CPU:
-			hpa.Spec.Metrics = []autoscalingv2beta2.MetricSpec{{
-				Type: autoscalingv2beta2.ResourceMetricSourceType,
-				Resource: &autoscalingv2beta2.ResourceMetricSource{
+			hpa.Spec.Metrics = []autoscalingv2.MetricSpec{{
+				Type: autoscalingv2.ResourceMetricSourceType,
+				Resource: &autoscalingv2.ResourceMetricSource{
 					Name: corev1.ResourceCPU,
-					Target: autoscalingv2beta2.MetricTarget{
-						Type:               autoscalingv2beta2.UtilizationMetricType,
+					Target: autoscalingv2.MetricTarget{
+						Type:               autoscalingv2.UtilizationMetricType,
 						AverageUtilization: ptr.Int32(int32(math.Ceil(target))),
 					},
 				},
@@ -75,12 +75,12 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 
 		case autoscaling.Memory:
 			memory := resource.NewQuantity(int64(target)*1024*1024, resource.BinarySI)
-			hpa.Spec.Metrics = []autoscalingv2beta2.MetricSpec{{
-				Type: autoscalingv2beta2.ResourceMetricSourceType,
-				Resource: &autoscalingv2beta2.ResourceMetricSource{
+			hpa.Spec.Metrics = []autoscalingv2.MetricSpec{{
+				Type: autoscalingv2.ResourceMetricSourceType,
+				Resource: &autoscalingv2.ResourceMetricSource{
 					Name: corev1.ResourceMemory,
-					Target: autoscalingv2beta2.MetricTarget{
-						Type:         autoscalingv2beta2.AverageValueMetricType,
+					Target: autoscalingv2.MetricTarget{
+						Type:         autoscalingv2.AverageValueMetricType,
 						AverageValue: memory,
 					},
 				},
@@ -88,14 +88,14 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 		default:
 			if target, ok := pa.Target(); ok {
 				targetQuantity := resource.NewQuantity(int64(target), resource.DecimalSI)
-				hpa.Spec.Metrics = []autoscalingv2beta2.MetricSpec{{
-					Type: autoscalingv2beta2.PodsMetricSourceType,
-					Pods: &autoscalingv2beta2.PodsMetricSource{
-						Metric: autoscalingv2beta2.MetricIdentifier{
+				hpa.Spec.Metrics = []autoscalingv2.MetricSpec{{
+					Type: autoscalingv2.PodsMetricSourceType,
+					Pods: &autoscalingv2.PodsMetricSource{
+						Metric: autoscalingv2.MetricIdentifier{
 							Name: pa.Metric(),
 						},
-						Target: autoscalingv2beta2.MetricTarget{
-							Type:         autoscalingv2beta2.AverageValueMetricType,
+						Target: autoscalingv2.MetricTarget{
+							Type:         autoscalingv2.AverageValueMetricType,
 							AverageValue: targetQuantity,
 						},
 					},
@@ -106,11 +106,11 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 
 	if window, hasWindow := pa.Window(); hasWindow {
 		windowSeconds := int32(window.Seconds())
-		hpa.Spec.Behavior = &autoscalingv2beta2.HorizontalPodAutoscalerBehavior{
-			ScaleDown: &autoscalingv2beta2.HPAScalingRules{
+		hpa.Spec.Behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{
+			ScaleDown: &autoscalingv2.HPAScalingRules{
 				StabilizationWindowSeconds: &windowSeconds,
 			},
-			ScaleUp: &autoscalingv2beta2.HPAScalingRules{
+			ScaleUp: &autoscalingv2.HPAScalingRules{
 				StabilizationWindowSeconds: &windowSeconds,
 			},
 		}
