@@ -1,4 +1,4 @@
 # Use :nonroot base image for all containers
-defaultBaseImage: gcr.io/distroless/static:nonroot
+defaultBaseImage: cgr.dev/chainguard/static
 baseImageOverrides:
   knative.dev/serving/vendor/github.com/tsenart/vegeta/v12: ubuntu:latest
