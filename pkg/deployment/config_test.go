@@ -49,8 +49,7 @@ func TestMatchingExceptions(t *testing.T) {
 }
 
 func TestControllerConfigurationFromFile(t *testing.T) {
-	// TODO: change to other case after  0.27
-	cm, example := ConfigMapsFromTestFile(t, ConfigName, DeprecatedQueueSidecarImageKey)
+	cm, example := ConfigMapsFromTestFile(t, ConfigName, QueueSidecarImageKey)
 
 	if _, err := NewConfigFromConfigMap(cm); err != nil {
 		t.Error("NewConfigFromConfigMap(actual) =", err)

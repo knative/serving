@@ -26,8 +26,7 @@ metadata:
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
-  # TODO: switch to 'queue-sidecar-image' after 0.27
-  queueSidecarImage: ko://knative.dev/serving/cmd/queue
+  queue-sidecar-image: ko://knative.dev/serving/cmd/queue
   _example: |-
     ################################
     #                              #
