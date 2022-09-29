@@ -61,7 +61,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName,
-		deployment.DeprecatedQueueSidecarImageKey))
+		deployment.QueueSidecarImageKey))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, netcfg.ConfigMapName))
 
 	config := store.Load()
