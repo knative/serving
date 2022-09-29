@@ -41,7 +41,6 @@ import (
 func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	// TODO: change to proper casing after 0.27 cuts
 	deploymentConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
 	networkConfig := ConfigMapFromTestFile(t, netcfg.ConfigMapName)
 	observabilityConfig, observabilityConfigExample := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
