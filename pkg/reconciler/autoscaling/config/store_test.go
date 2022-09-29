@@ -60,8 +60,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName,
-		deployment.QueueSidecarImageKey))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, netcfg.ConfigMapName))
 
 	config := store.Load()
