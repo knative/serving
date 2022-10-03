@@ -166,6 +166,7 @@ func main() {
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
+		logger.Info("Internal Encryption is enabled")
 		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
 		if err != nil {
 			logger.Fatalw("Failed to get secret", zap.Error(err))
@@ -298,7 +299,7 @@ func main() {
 	// Enable TLS server when internal-encryption is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if networkConfig.InternalEncryption {
+	if tlsEnabled {
 		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
 		if err != nil {
 			logger.Fatalw("failed to get secret", zap.Error(err))
