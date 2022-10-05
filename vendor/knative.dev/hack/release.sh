@@ -320,16 +320,17 @@ function sign_release() {
 
   # Notarizing mac binaries needs to be done before cosign as it changes the checksum values
   # of the darwin binaries
- if [ -n "${APPLE_CODESIGN_KEY}" ] && [ -n "${APPLE_CODESIGN_PASSWORD}" ] && [ -n "${APPLE_NOTARY_API_KEY}" ]; then
+ if [ -n "${APPLE_CODESIGN_KEY}" ] && [ -n "${APPLE_CODESIGN_PASSWORD_FILE}" ] && [ -n "${APPLE_NOTARY_API_KEY}" ]; then
+    banner "Notarizing macOS Binaries for the release"
     FILES=$(find -- * -type f -name "*darwin*")
     for file in $FILES; do
       rcodesign sign "${file}" --p12-file="${APPLE_CODESIGN_KEY}" \
         --code-signature-flags=runtime \
         --p12-password-file="${APPLE_CODESIGN_PASSWORD_FILE}"
     done
-    zip files.zip "$FILES"
+    zip files.zip ${FILES}
     rcodesign notary-submit files.zip --api-key-path="${APPLE_NOTARY_API_KEY}" --wait
-    sha256sum "${ARTIFACTS_TO_PUBLISH//checksums.txt/}" > checksums.txt
+    sha256sum ${ARTIFACTS_TO_PUBLISH//checksums.txt/} > checksums.txt
   fi
 
   ## Sign the images with cosign
