@@ -53,6 +53,18 @@ aliases:
   - matzew
   - odacremolbap
   - pierDipi
+  func-reviewers:
+  - jrangelramos
+  - nainaz
+  func-writers:
+  - lance
+  - lkingland
+  - matejvasek
+  - salaboy
+  - zroubalik
+  functions-wg-leads:
+  - lance
+  - salaboy
   knative-admin:
   - csantanapr
   - dprotaso
