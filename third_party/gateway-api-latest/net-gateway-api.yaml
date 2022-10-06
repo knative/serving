@@ -4046,7 +4046,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220929-c68b83dd"
+    app.kubernetes.io/version: "20221006-4930fe30"
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
@@ -4062,7 +4062,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220929-c68b83dd"
+    app.kubernetes.io/version: "20221006-4930fe30"
 rules:
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["httproutes", "referencegrants", "referencepolicies"]
@@ -4095,7 +4095,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220929-c68b83dd"
+    app.kubernetes.io/version: "20221006-4930fe30"
 data:
   _example: |
     ################################
@@ -4149,7 +4149,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
-    app.kubernetes.io/version: "20220929-c68b83dd"
+    app.kubernetes.io/version: "20221006-4930fe30"
     app.kubernetes.io/name: knative-serving
 spec:
   replicas: 1
@@ -4176,7 +4176,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:c42d072ab391cc072daebe3444829fb7e91445d3cd015f020550587a0bd737de
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:d1b4104a60630507a0437f309cf07d20ab66d6bdc8d3be95c3be4317baf5da48
           resources:
             requests:
               cpu: 100m
@@ -4206,8 +4206,6 @@ spec:
             runAsNonRoot: true
             capabilities:
               drop:
-                - ALL
-            seccompProfile:
-              type: RuntimeDefault
+                - all
 
 ---
