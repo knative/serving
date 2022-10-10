@@ -49,6 +49,10 @@ type ServingEnvironmentFlags struct {
 	ExceedingMemoryLimitSize int    // Memory size used to trigger a non-200 response when the service is set with 300MB memory limit.
 	RequestHeaders           string // Extra HTTP request headers sent to the testing deployed KServices.
 	IngressClass             string // Ingress class used for serving.
+	CustomMemoryRequests     string // Memory requests used for services with a specific size.
+	CustomMemoryLimits       string // Memory limits used for services with a specific size.
+	CustomCPURequests        string // CPU requests used for services with a specific size.
+	CustomCPULimits          string // CPU limits used for services with a specific size.
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -102,6 +106,22 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.StringVar(&f.IngressClass, "ingress-class", "",
 		"Set the ingress class in use to this flag in order to skip non-compatible test")
+
+	flag.StringVar(&f.CustomMemoryRequests, "custom-memory-requests", "",
+		"Set this flag to the custom memory request for tests with specific memory request values."+
+			"This should differ from what is used as default. The flag accepts a value acceptable to resource.MustParse.")
+
+	flag.StringVar(&f.CustomMemoryLimits, "custom-memory-limits", "",
+		"Set this flag to the custom memory limit for tests with specific memory limit values."+
+			"This should differ from what is used as default. The flag accepts a value acceptable to resource.MustParse.")
+
+	flag.StringVar(&f.CustomCPURequests, "custom-cpu-requests", "",
+		"Set this flag to the custom cpu request for tests with specific cpu request values."+
+			"This should differ from what is used as default. The flag accepts a value acceptable to resource.MustParse.")
+
+	flag.StringVar(&f.CustomCPULimits, "custom-cpu-limits", "",
+		"Set this flag to the custom cpu limit for tests with specific cpu limit values."+
+			"This should differ from what is used as default. The flag accepts a value acceptable to resource.MustParse.")
 	return &f
 }
 
