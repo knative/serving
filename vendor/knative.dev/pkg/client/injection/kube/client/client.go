@@ -54,6 +54,7 @@ import (
 	apiflowcontrolv1beta1 "k8s.io/api/flowcontrol/v1beta1"
 	apiflowcontrolv1beta2 "k8s.io/api/flowcontrol/v1beta2"
 	apinetworkingv1 "k8s.io/api/networking/v1"
+	apinetworkingv1alpha1 "k8s.io/api/networking/v1alpha1"
 	apinetworkingv1beta1 "k8s.io/api/networking/v1beta1"
 	apinodev1 "k8s.io/api/node/v1"
 	apinodev1alpha1 "k8s.io/api/node/v1alpha1"
@@ -101,6 +102,7 @@ import (
 	flowcontrolv1beta1 "k8s.io/client-go/applyconfigurations/flowcontrol/v1beta1"
 	flowcontrolv1beta2 "k8s.io/client-go/applyconfigurations/flowcontrol/v1beta2"
 	networkingv1 "k8s.io/client-go/applyconfigurations/networking/v1"
+	networkingv1alpha1 "k8s.io/client-go/applyconfigurations/networking/v1alpha1"
 	networkingv1beta1 "k8s.io/client-go/applyconfigurations/networking/v1beta1"
 	nodev1 "k8s.io/client-go/applyconfigurations/node/v1"
 	nodev1alpha1 "k8s.io/client-go/applyconfigurations/node/v1alpha1"
@@ -149,6 +151,7 @@ import (
 	typedflowcontrolv1beta1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta1"
 	typedflowcontrolv1beta2 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta2"
 	typednetworkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
+	typednetworkingv1alpha1 "k8s.io/client-go/kubernetes/typed/networking/v1alpha1"
 	typednetworkingv1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 	typednodev1 "k8s.io/client-go/kubernetes/typed/node/v1"
 	typednodev1alpha1 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
@@ -9954,6 +9957,156 @@ func (w *wrapNetworkingV1NetworkPolicyImpl) UpdateStatus(ctx context.Context, in
 }
 
 func (w *wrapNetworkingV1NetworkPolicyImpl) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	return nil, errors.New("NYI: Watch")
+}
+
+// NetworkingV1alpha1 retrieves the NetworkingV1alpha1Client
+func (w *wrapClient) NetworkingV1alpha1() typednetworkingv1alpha1.NetworkingV1alpha1Interface {
+	return &wrapNetworkingV1alpha1{
+		dyn: w.dyn,
+	}
+}
+
+type wrapNetworkingV1alpha1 struct {
+	dyn dynamic.Interface
+}
+
+func (w *wrapNetworkingV1alpha1) RESTClient() rest.Interface {
+	panic("RESTClient called on dynamic client!")
+}
+
+func (w *wrapNetworkingV1alpha1) ClusterCIDRs() typednetworkingv1alpha1.ClusterCIDRInterface {
+	return &wrapNetworkingV1alpha1ClusterCIDRImpl{
+		dyn: w.dyn.Resource(schema.GroupVersionResource{
+			Group:    "networking.k8s.io",
+			Version:  "v1alpha1",
+			Resource: "clustercidrs",
+		}),
+	}
+}
+
+type wrapNetworkingV1alpha1ClusterCIDRImpl struct {
+	dyn dynamic.NamespaceableResourceInterface
+}
+
+var _ typednetworkingv1alpha1.ClusterCIDRInterface = (*wrapNetworkingV1alpha1ClusterCIDRImpl)(nil)
+
+func (w *wrapNetworkingV1alpha1ClusterCIDRImpl) Apply(ctx context.Context, in *networkingv1alpha1.ClusterCIDRApplyConfiguration, opts metav1.ApplyOptions) (result *apinetworkingv1alpha1.ClusterCIDR, err error) {
+	panic("NYI")
+}
+
+func (w *wrapNetworkingV1alpha1ClusterCIDRImpl) ApplyStatus(ctx context.Context, in *networkingv1alpha1.ClusterCIDRApplyConfiguration, opts metav1.ApplyOptions) (result *apinetworkingv1alpha1.ClusterCIDR, err error) {
+	panic("NYI")
+}
+
+func (w *wrapNetworkingV1alpha1ClusterCIDRImpl) Create(ctx context.Context, in *apinetworkingv1alpha1.ClusterCIDR, opts metav1.CreateOptions) (*apinetworkingv1alpha1.ClusterCIDR, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.k8s.io",
+		Version: "v1alpha1",
+		Kind:    "ClusterCIDR",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Create(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &apinetworkingv1alpha1.ClusterCIDR{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ClusterCIDRImpl) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return w.dyn.Delete(ctx, name, opts)
+}
+
+func (w *wrapNetworkingV1alpha1ClusterCIDRImpl) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+	return w.dyn.DeleteCollection(ctx, opts, listOpts)
+}
+
+func (w *wrapNetworkingV1alpha1ClusterCIDRImpl) Get(ctx context.Context, name string, opts metav1.GetOptions) (*apinetworkingv1alpha1.ClusterCIDR, error) {
+	uo, err := w.dyn.Get(ctx, name, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &apinetworkingv1alpha1.ClusterCIDR{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ClusterCIDRImpl) List(ctx context.Context, opts metav1.ListOptions) (*apinetworkingv1alpha1.ClusterCIDRList, error) {
+	uo, err := w.dyn.List(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &apinetworkingv1alpha1.ClusterCIDRList{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ClusterCIDRImpl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *apinetworkingv1alpha1.ClusterCIDR, err error) {
+	uo, err := w.dyn.Patch(ctx, name, pt, data, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &apinetworkingv1alpha1.ClusterCIDR{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ClusterCIDRImpl) Update(ctx context.Context, in *apinetworkingv1alpha1.ClusterCIDR, opts metav1.UpdateOptions) (*apinetworkingv1alpha1.ClusterCIDR, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.k8s.io",
+		Version: "v1alpha1",
+		Kind:    "ClusterCIDR",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.Update(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &apinetworkingv1alpha1.ClusterCIDR{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ClusterCIDRImpl) UpdateStatus(ctx context.Context, in *apinetworkingv1alpha1.ClusterCIDR, opts metav1.UpdateOptions) (*apinetworkingv1alpha1.ClusterCIDR, error) {
+	in.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.k8s.io",
+		Version: "v1alpha1",
+		Kind:    "ClusterCIDR",
+	})
+	uo := &unstructured.Unstructured{}
+	if err := convert(in, uo); err != nil {
+		return nil, err
+	}
+	uo, err := w.dyn.UpdateStatus(ctx, uo, opts)
+	if err != nil {
+		return nil, err
+	}
+	out := &apinetworkingv1alpha1.ClusterCIDR{}
+	if err := convert(uo, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (w *wrapNetworkingV1alpha1ClusterCIDRImpl) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return nil, errors.New("NYI: Watch")
 }
 
