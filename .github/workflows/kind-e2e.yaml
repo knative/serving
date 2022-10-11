@@ -16,7 +16,7 @@ env:
   REGISTRY_NAME: registry.local
   REGISTRY_PORT: 5000
   KO_DOCKER_REPO: registry.local:5000/knative
-  KIND_VERSION: 0.14.0
+  KIND_VERSION: 0.16.0
   GOTESTSUM_VERSION: 1.7.0
   KAPP_VERSION: 0.46.0
   YTT_VERSION: 0.40.1
@@ -89,6 +89,7 @@ jobs:
         k8s-version:
         - v1.23.12
         - v1.24.6
+        - v1.25.2
 
         ingress:
         - kourier
@@ -109,12 +110,16 @@ jobs:
           # See: https://github.com/kubernetes-sigs/kind/releases
           #      https://hub.docker.com/r/kindest/node/tags
         - k8s-version: v1.23.12
-          kind-version: v0.14.0
+          kind-version: v0.16.0
           kind-image-sha: sha256:934835129873881bbfac668e1da74890c749afed16e020cd173b77788841155c
 
         - k8s-version: v1.24.6
-          kind-version: v0.14.0
+          kind-version: v0.16.0
           kind-image-sha: sha256:ec13a9319ee30ab5e842517a9dffdb8e3c0e36151ffdef82b41be537ac124fbc
+
+        - k8s-version: v1.25.2
+          kind-version: v0.16.0
+          kind-image-sha: sha256:6e0f9005eba4010e364aa1bb25c8d7c64f050f744258eb68c4eb40c284c3c0dd
 
         # Disabled due to consistent failures
         # - ingress: gateway_istio
@@ -258,23 +263,31 @@ jobs:
     - name: Install metallb
       shell: bash
       run: |
-        kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/namespace.yaml
-        kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/metallb.yaml
-        kubectl create secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
+        # Install metallb
+        # disable the webhook-mode because there is a bug:https://github.com/metallb/metallb/issues/1597
+        # this webhook only checks crd, it has not effects to out e2e tests
+        curl https://raw.githubusercontent.com/metallb/metallb/v0.13.5/config/manifests/metallb-native.yaml -k | \
+         sed '0,/args:/s//args:\n        - --webhook-mode=disabled/' | \
+         sed '/apiVersion: admissionregistration/,$d' | \
+         kubectl apply -f -
+
+        # Add Layer 2 config
         network=$(docker network inspect kind -f "{{(index .IPAM.Config 0).Subnet}}" | cut -d '.' -f1,2)
         cat <<EOF | kubectl apply -f -
-        apiVersion: v1
-        kind: ConfigMap
+        apiVersion: metallb.io/v1beta1
+        kind: IPAddressPool
         metadata:
+          name: first-pool
           namespace: metallb-system
-          name: config
-        data:
-          config: |
-            address-pools:
-            - name: default
-              protocol: layer2
-              addresses:
-              - $network.255.1-$network.255.250
+        spec:
+          addresses:
+          - $network.255.1-$network.255.250
+        ---
+        apiVersion: metallb.io/v1beta1
+        kind: L2Advertisement
+        metadata:
+          name: example
+          namespace: metallb-system
         EOF
 
     - name: Setup local registry
