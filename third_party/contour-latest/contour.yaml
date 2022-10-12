@@ -4039,13 +4039,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            seccompProfile:
-              type: RuntimeDefault
       restartPolicy: Never
       serviceAccountName: contour-certgen
       securityContext:
@@ -4225,12 +4218,6 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.name
-          securityContext:
-            capabilities:
-              drop:
-                - ALL
-            seccompProfile:
-              type: RuntimeDefault
       dnsPolicy: ClusterFirst
       serviceAccountName: contour
       securityContext:
