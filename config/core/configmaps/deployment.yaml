@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "dd7ee769"
+    knative.dev/example-checksum: "fdff0b50"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -75,6 +75,11 @@ data:
     # Sets the queue proxy's ephemeral storage limit.
     # If omitted, no value is specified and the system default is used.
     queue-sidecar-ephemeral-storage-limit: "1024Mi"
+
+    # Sets tokens associated with specific audiences for the queue proxy's QPOptions
+    # If omitted, or empty, no tokens are created
+    # Supports a list of audiences e.g. queue-sidecar-tokens: "some-audience,some-other-audience"
+    queue-sidecar-tokens: ""
 
     # The freezer service endpoint that queue-proxy calls when its traffic drops to zero or
     # scales up from zero.
