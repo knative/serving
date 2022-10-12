@@ -85,7 +85,6 @@ func defaultConfig() *Config {
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-		QueueSidecarTokens:             sets.NewString(),
 		ConcurrencyStateEndpoint:       "",
 	}
 }
