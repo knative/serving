@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
@@ -375,6 +376,23 @@ func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSp
 	}
 
 	return podSpec
+}
+
+func withAppendedTokenVolumes(filenames []string, audiences []string) podSpecOption {
+	return func(ps *corev1.PodSpec) {
+		tokenVolume := varTokenVolume.DeepCopy()
+		for i, filename := range filenames {
+			token := &corev1.VolumeProjection{
+				ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+					ExpirationSeconds: ptr.Int64(600),
+					Path:              filename,
+					Audience:          audiences[i],
+				},
+			}
+			tokenVolume.VolumeSource.Projected.Sources = append(tokenVolume.VolumeSource.Projected.Sources, *token)
+		}
+		ps.Volumes = append(ps.Volumes, *tokenVolume)
+	}
 }
 
 func withAppendedVolumes(volumes ...corev1.Volume) podSpecOption {
@@ -1257,9 +1275,48 @@ func TestMakePodSpec(t *testing.T) {
 					}),
 			}),
 	}, {
+		name: "qpoption tokens",
+		dc: deployment.Config{
+			QueueSidecarTokens: sets.NewString("boo-srv"),
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+			}, {
+				Name:  sidecarContainerName,
+				Image: "ubuntu",
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}, {
+				ImageDigest: "ubuntu@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
+					c.Image = "ubuntu@sha256:deadbeef"
+				}),
+				queueContainer(func(container *corev1.Container) {
+					container.VolumeMounts = []corev1.VolumeMount{{
+						Name:      varTokenVolume.Name,
+						MountPath: "/var/run/secrets/tokens",
+					}}
+				}),
+			},
+			withAppendedTokenVolumes([]string{"boo-srv"}, []string{"boo-srv"}),
+		),
+	}, {
 		name: "concurrency state projected volume",
 		dc: deployment.Config{
 			ConcurrencyStateEndpoint: "freeze-proxy",
+			QueueSidecarTokens:       sets.NewString(),
 		},
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -1295,7 +1352,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("CONCURRENCY_STATE_TOKEN_PATH", `/var/run/secrets/tokens/state-token`),
 				),
 			},
-			withAppendedVolumes(varTokenVolume),
+			withAppendedTokenVolumes([]string{queue.ConcurrencyStateTokenFilename}, []string{concurrencyStateHook}),
 		),
 	}}
 
@@ -1304,6 +1361,7 @@ func TestMakePodSpec(t *testing.T) {
 			cfg := revConfig()
 			cfg.Observability = &test.oc
 			cfg.Deployment = &test.dc
+			fmt.Println(cfg.Deployment)
 			cfg.Features = &test.fc
 			if test.defaults != nil {
 				cfg.Defaults = test.defaults

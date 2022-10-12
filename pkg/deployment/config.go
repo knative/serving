@@ -65,6 +65,9 @@ const (
 	queueSidecarMemoryLimitKey           = "queue-sidecar-memory-limit"
 	queueSidecarEphemeralStorageLimitKey = "queue-sidecar-ephemeral-storage-limit"
 
+	// qpoption tokens
+	queueSidecarTokensKey = "queue-sidecar-tokens"
+
 	// concurrencyStateEndpointKey is the key to configure the endpoint Queue Proxy will call when traffic drops to / increases from zero.
 	concurrencyStateEndpointKey = "concurrency-state-endpoint"
 )
@@ -82,6 +85,7 @@ func defaultConfig() *Config {
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+		QueueSidecarTokens:             sets.NewString(),
 		ConcurrencyStateEndpoint:       "",
 	}
 }
@@ -102,6 +106,8 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsQuantity("queueSidecarCPULimit", &nc.QueueSidecarCPULimit),
 		cm.AsQuantity("queueSidecarMemoryLimit", &nc.QueueSidecarMemoryLimit),
 		cm.AsQuantity("queueSidecarEphemeralStorageLimit", &nc.QueueSidecarEphemeralStorageLimit),
+
+		cm.AsStringSet("queueSidecarTokens", &nc.QueueSidecarTokens),
 		cm.AsString("concurrencyStateEndpoint", &nc.ConcurrencyStateEndpoint),
 
 		cm.AsString(QueueSidecarImageKey, &nc.QueueSidecarImage),
@@ -116,6 +122,7 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsQuantity(queueSidecarMemoryLimitKey, &nc.QueueSidecarMemoryLimit),
 		cm.AsQuantity(queueSidecarEphemeralStorageLimitKey, &nc.QueueSidecarEphemeralStorageLimit),
 
+		cm.AsStringSet(queueSidecarTokensKey, &nc.QueueSidecarTokens),
 		cm.AsString(concurrencyStateEndpointKey, &nc.ConcurrencyStateEndpoint),
 	); err != nil {
 		return nil, err
@@ -180,6 +187,10 @@ type Config struct {
 	// QueueSidecarEphemeralStorageLimit is the Ephemeral Storage Limit to set
 	// for the queue proxy sidecar container.
 	QueueSidecarEphemeralStorageLimit *resource.Quantity
+
+	// QueueSidecarTokens is a set of strings defining required tokens  - each string represent the token audience
+	// used by the queue proxy sidecar container to create tokens.
+	QueueSidecarTokens sets.String
 
 	// ConcurrencyStateEndpoint is the endpoint Queue Proxy will call when traffic drops to / increases from zero.
 	ConcurrencyStateEndpoint string
