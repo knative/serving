@@ -221,10 +221,10 @@ func (c *Reconciler) reconcileSecret(ctx context.Context, rev *v1.Revision) erro
 	}
 
 	// Verify if secret has been added the data.
-	if _, ok := secret.Data[certificates.SecretCertKey]; !ok {
+	if _, ok := secret.Data[certificates.CertName]; !ok {
 		return fmt.Errorf("public cert in the secret is not ready yet")
 	}
-	if _, ok := secret.Data[certificates.SecretPKKey]; !ok {
+	if _, ok := secret.Data[certificates.PrivateKeyName]; !ok {
 		return fmt.Errorf("private key in the secret is not ready yet")
 	}
 
