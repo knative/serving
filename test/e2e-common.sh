@@ -69,9 +69,14 @@ function latest_net_istio_version() {
   curl -L --silent "https://api.github.com/repos/knative/net-istio/releases" | jq --arg major_minor "$major_minor" -r '[.[].tag_name] | map(select(. | startswith($major_minor))) | sort_by( sub("knative-";"") | sub("v";"") | split(".") | map(tonumber) ) | reverse[0]'
 }
 
+# Searches for the latest version for serving
+function latest_serving_version() {
+  curl -L --silent "https://api.github.com/repos/knative/serving/releases" | jq --arg major_minor "" -r '[.[].tag_name] | map(select(. | startswith($major_minor))) | sort_by( sub("knative-";"") | sub("v";"") | split(".") | map(tonumber) ) | reverse[0]'
+}
+
 # Latest serving release. If user does not supply this as a flag, the latest
-# tagged release on the current branch will be used.
-LATEST_SERVING_RELEASE_VERSION=$(latest_version)
+# tagged release will be used.
+LATEST_SERVING_RELEASE_VERSION=$(latest_serving_version)
 
 # Latest net-istio release.
 LATEST_NET_ISTIO_RELEASE_VERSION=$(latest_net_istio_version "$LATEST_SERVING_RELEASE_VERSION")
