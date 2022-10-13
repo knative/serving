@@ -114,10 +114,10 @@ var (
 	}
 )
 
-func addToken(tokenVolume *corev1.Volume, filename string, audience string) {
+func addToken(tokenVolume *corev1.Volume, filename string, audience string, expiry *int64) {
 	volumeProjection := &corev1.VolumeProjection{
 		ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-			ExpirationSeconds: ptr.Int64(600),
+			ExpirationSeconds: expiry,
 			Path:              filename,
 			Audience:          audience,
 		},
@@ -178,12 +178,12 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	// If concurrencyStateEndpoint is enabled, add the serviceAccountToken to QP via a projected volume
 	if cfg.Deployment.ConcurrencyStateEndpoint != "" {
 		// add token for audience "concurrency-state-hook" under filename ConcurrencyStateTokenFilename
-		addToken(tokenVolume, queue.ConcurrencyStateTokenFilename, concurrencyStateHook)
+		addToken(tokenVolume, queue.ConcurrencyStateTokenFilename, concurrencyStateHook, ptr.Int64(600))
 	}
 
 	for aud := range cfg.Deployment.QueueSidecarTokens {
 		// add token for audience <aud> under filename <aud>
-		addToken(tokenVolume, aud, aud)
+		addToken(tokenVolume, aud, aud, ptr.Int64(7200))
 	}
 
 	if len(tokenVolume.VolumeSource.Projected.Sources) > 0 {
