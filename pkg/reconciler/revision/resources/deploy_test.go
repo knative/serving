@@ -378,13 +378,13 @@ func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSp
 	return podSpec
 }
 
-func withAppendedTokenVolumes(filenames []string, audiences []string) podSpecOption {
+func withAppendedTokenVolumes(filenames []string, audiences []string, expiries []*int64) podSpecOption {
 	return func(ps *corev1.PodSpec) {
 		tokenVolume := varTokenVolume.DeepCopy()
 		for i, filename := range filenames {
 			token := &corev1.VolumeProjection{
 				ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-					ExpirationSeconds: ptr.Int64(600),
+					ExpirationSeconds: expiries[i],
 					Path:              filename,
 					Audience:          audiences[i],
 				},
@@ -1310,7 +1310,7 @@ func TestMakePodSpec(t *testing.T) {
 					}}
 				}),
 			},
-			withAppendedTokenVolumes([]string{"boo-srv"}, []string{"boo-srv"}),
+			withAppendedTokenVolumes([]string{"boo-srv"}, []string{"boo-srv"}, []*int64{ptr.Int64(7200)}),
 		),
 	}, {
 		name: "concurrency state projected volume",
@@ -1352,7 +1352,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("CONCURRENCY_STATE_TOKEN_PATH", `/var/run/secrets/tokens/state-token`),
 				),
 			},
-			withAppendedTokenVolumes([]string{queue.ConcurrencyStateTokenFilename}, []string{concurrencyStateHook}),
+			withAppendedTokenVolumes([]string{queue.ConcurrencyStateTokenFilename}, []string{concurrencyStateHook}, []*int64{ptr.Int64(600)}),
 		),
 	}}
 
