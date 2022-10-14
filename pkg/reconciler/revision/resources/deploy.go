@@ -183,7 +183,7 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 
 	for aud := range cfg.Deployment.QueueSidecarTokens {
 		// add token for audience <aud> under filename <aud>
-		addToken(tokenVolume, aud, aud, ptr.Int64(7200))
+		addToken(tokenVolume, aud, aud, ptr.Int64(3600))
 	}
 
 	if len(tokenVolume.VolumeSource.Projected.Sources) > 0 {

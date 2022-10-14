@@ -1310,7 +1310,7 @@ func TestMakePodSpec(t *testing.T) {
 					}}
 				}),
 			},
-			withAppendedTokenVolumes([]string{"boo-srv"}, []string{"boo-srv"}, []*int64{ptr.Int64(7200)}),
+			withAppendedTokenVolumes([]string{"boo-srv"}, []string{"boo-srv"}, []*int64{ptr.Int64(3600)}),
 		),
 	}, {
 		name: "concurrency state projected volume",
