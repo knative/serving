@@ -722,11 +722,12 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 func TestSecurityContextMask(t *testing.T) {
 	mtype := corev1.UnmaskedProcMount
 	want := &corev1.SecurityContext{
-		Capabilities:           &corev1.Capabilities{},
-		RunAsUser:              ptr.Int64(1),
-		RunAsGroup:             ptr.Int64(2),
-		RunAsNonRoot:           ptr.Bool(true),
-		ReadOnlyRootFilesystem: ptr.Bool(true),
+		Capabilities:             &corev1.Capabilities{},
+		RunAsUser:                ptr.Int64(1),
+		RunAsGroup:               ptr.Int64(2),
+		RunAsNonRoot:             ptr.Bool(true),
+		ReadOnlyRootFilesystem:   ptr.Bool(true),
+		AllowPrivilegeEscalation: ptr.Bool(false),
 	}
 	in := &corev1.SecurityContext{
 		RunAsUser:                ptr.Int64(1),
@@ -736,7 +737,7 @@ func TestSecurityContextMask(t *testing.T) {
 		RunAsGroup:               ptr.Int64(2),
 		RunAsNonRoot:             ptr.Bool(true),
 		ReadOnlyRootFilesystem:   ptr.Bool(true),
-		AllowPrivilegeEscalation: ptr.Bool(true),
+		AllowPrivilegeEscalation: ptr.Bool(false),
 		ProcMount:                &mtype,
 	}
 
@@ -760,14 +761,15 @@ func TestSecurityContextMask(t *testing.T) {
 func TestSecurityContextMask_FeatureEnabled(t *testing.T) {
 	mtype := corev1.UnmaskedProcMount
 	want := &corev1.SecurityContext{
-		Capabilities:           &corev1.Capabilities{},
-		RunAsGroup:             ptr.Int64(2),
-		RunAsNonRoot:           ptr.Bool(true),
-		RunAsUser:              ptr.Int64(1),
-		ReadOnlyRootFilesystem: ptr.Bool(true),
+		AllowPrivilegeEscalation: ptr.Bool(false),
+		Capabilities:             &corev1.Capabilities{},
+		RunAsGroup:               ptr.Int64(2),
+		RunAsNonRoot:             ptr.Bool(true),
+		RunAsUser:                ptr.Int64(1),
+		ReadOnlyRootFilesystem:   ptr.Bool(true),
 	}
 	in := &corev1.SecurityContext{
-		AllowPrivilegeEscalation: ptr.Bool(true),
+		AllowPrivilegeEscalation: ptr.Bool(false),
 		Capabilities:             &corev1.Capabilities{},
 		Privileged:               ptr.Bool(true),
 		ProcMount:                &mtype,
