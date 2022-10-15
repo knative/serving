@@ -72,6 +72,10 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	applyDefaultContainerNames(rs.PodSpec.InitContainers, containerNames, defaultInitContainerName)
 	for idx := range rs.PodSpec.Containers {
 		rs.applyDefault(ctx, &rs.PodSpec.Containers[idx], cfg)
+		rs.defaultSecurityContext(ctx, &rs.PodSpec.Containers[idx], cfg)
+	}
+	for idx := range rs.PodSpec.InitContainers {
+		rs.defaultSecurityContext(ctx, &rs.PodSpec.InitContainers[idx], cfg)
 	}
 }
 
@@ -155,6 +159,37 @@ func (*RevisionSpec) applyProbes(container *corev1.Container) {
 		if container.ReadinessProbe.TimeoutSeconds == 0 {
 			container.ReadinessProbe.TimeoutSeconds = 1
 		}
+	}
+}
+
+//
+func (rs *RevisionSpec) defaultSecurityContext(ctx context.Context, container *corev1.Container, cfg *config.Config) {
+	if cfg.Features.SecurePodDefaults != config.Enabled {
+		return
+	}
+
+	if container.SecurityContext == nil {
+		container.SecurityContext = &corev1.SecurityContext{}
+	}
+
+	if container.SecurityContext.AllowPrivilegeEscalation == nil {
+		container.SecurityContext.AllowPrivilegeEscalation = ptr.Bool(false)
+	}
+	if container.SecurityContext.SeccompProfile == nil {
+		container.SecurityContext.SeccompProfile = &corev1.SeccompProfile{}
+	}
+	if container.SecurityContext.SeccompProfile.Type == "" {
+		container.SecurityContext.SeccompProfile.Type = corev1.SeccompProfileTypeRuntimeDefault
+	}
+	if container.SecurityContext.Capabilities == nil {
+		container.SecurityContext.Capabilities = &corev1.Capabilities{}
+	}
+	if container.SecurityContext.Capabilities.Drop == nil {
+		container.SecurityContext.Capabilities.Drop = []corev1.Capability{"ALL"}
+	}
+	// Default in NET_BIND_SERVICE to allow binding to low-numbered ports.
+	if container.SecurityContext.Capabilities.Add == nil {
+		container.SecurityContext.Capabilities.Add = []corev1.Capability{"NET_BIND_SERVICE"}
 	}
 }
 
