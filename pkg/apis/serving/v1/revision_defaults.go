@@ -72,10 +72,10 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	applyDefaultContainerNames(rs.PodSpec.InitContainers, containerNames, defaultInitContainerName)
 	for idx := range rs.PodSpec.Containers {
 		rs.applyDefault(ctx, &rs.PodSpec.Containers[idx], cfg)
-		rs.defaultSecurityContext(ctx, rs.PodSpec.SecurityContext, &rs.PodSpec.Containers[idx], cfg)
+		rs.defaultSecurityContext(rs.PodSpec.SecurityContext, &rs.PodSpec.Containers[idx], cfg)
 	}
 	for idx := range rs.PodSpec.InitContainers {
-		rs.defaultSecurityContext(ctx, rs.PodSpec.SecurityContext, &rs.PodSpec.InitContainers[idx], cfg)
+		rs.defaultSecurityContext(rs.PodSpec.SecurityContext, &rs.PodSpec.InitContainers[idx], cfg)
 	}
 }
 
@@ -163,7 +163,7 @@ func (*RevisionSpec) applyProbes(container *corev1.Container) {
 }
 
 //
-func (rs *RevisionSpec) defaultSecurityContext(ctx context.Context, psc *corev1.PodSecurityContext, container *corev1.Container, cfg *config.Config) {
+func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, container *corev1.Container, cfg *config.Config) {
 	if cfg.Features.SecurePodDefaults != config.Enabled {
 		return
 	}
