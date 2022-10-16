@@ -39,9 +39,10 @@ import (
 
 func TestRevisionValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		r    *Revision
-		want *apis.FieldError
+		name     string
+		r        *Revision
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "valid",
 		r: &Revision{
@@ -82,6 +83,7 @@ func TestRevisionValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
+			got = got.Filter(test.errLevel)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
@@ -98,9 +100,10 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 		},
 	}
 	tests := []struct {
-		name string
-		r    *Revision
-		want *apis.FieldError
+		name     string
+		r        *Revision
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "valid route name",
 		r: &Revision{
@@ -238,6 +241,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
+			got = got.Filter(test.errLevel)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
@@ -247,9 +251,10 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 
 func TestContainerConcurrencyValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		cc   int64
-		want *apis.FieldError
+		name     string
+		cc       int64
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "single",
 		cc:   1,
@@ -277,6 +282,7 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := serving.ValidateContainerConcurrency(context.Background(), &test.cc)
+			got = got.Filter(test.errLevel)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
@@ -286,10 +292,11 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 
 func TestRevisionSpecValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		rs   *RevisionSpec
-		wc   func(context.Context) context.Context
-		want *apis.FieldError
+		name     string
+		rs       *RevisionSpec
+		wc       func(context.Context) context.Context
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "valid",
 		rs: &RevisionSpec{
@@ -482,6 +489,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				ctx = test.wc(ctx)
 			}
 			got := test.rs.Validate(ctx)
+			got = got.Filter(test.errLevel)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
@@ -491,11 +499,12 @@ func TestRevisionSpecValidation(t *testing.T) {
 
 func TestImmutableFields(t *testing.T) {
 	tests := []struct {
-		name string
-		new  *Revision
-		old  *Revision
-		wc   func(context.Context) context.Context
-		want *apis.FieldError
+		name     string
+		new      *Revision
+		old      *Revision
+		wc       func(context.Context) context.Context
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "good (no change)",
 		new: &Revision{
@@ -769,6 +778,7 @@ func TestImmutableFields(t *testing.T) {
 				ctx = test.wc(ctx)
 			}
 			got := test.new.Validate(ctx)
+			got = got.Filter(test.errLevel)
 			if got, want := got.Error(), test.want.Error(); got != want {
 				t.Errorf("Validate got: %s, want: %s, diff:(-want, +got)=\n%v", got, want, cmp.Diff(got, want))
 			}
@@ -778,10 +788,11 @@ func TestImmutableFields(t *testing.T) {
 
 func TestRevisionTemplateSpecValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		ctx  context.Context
-		rts  *RevisionTemplateSpec
-		want *apis.FieldError
+		name     string
+		ctx      context.Context
+		rts      *RevisionTemplateSpec
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "valid",
 		rts: &RevisionTemplateSpec{
@@ -1070,6 +1081,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			})
 
 			got := test.rts.Validate(ctx)
+			got = got.Filter(test.errLevel)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got):\n%s", cmp.Diff(want, got))
 			}

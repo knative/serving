@@ -32,9 +32,10 @@ import (
 
 func TestConfigurationValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		c    *Configuration
-		want *apis.FieldError
+		name     string
+		c        *Configuration
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "valid",
 		c: &Configuration{
@@ -262,6 +263,7 @@ func TestConfigurationValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.c.Validate(context.Background())
+			got = got.Filter(test.errLevel)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
 					cmp.Diff(test.want.Error(), got.Error()))
@@ -286,9 +288,10 @@ func TestConfigurationLabelValidation(t *testing.T) {
 		},
 	}
 	tests := []struct {
-		name string
-		c    *Configuration
-		want *apis.FieldError
+		name     string
+		c        *Configuration
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "valid route name",
 		c: &Configuration{
@@ -403,6 +406,7 @@ func TestConfigurationLabelValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.c.Validate(context.Background())
+			got = got.Filter(test.errLevel)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
 					cmp.Diff(test.want.Error(), got.Error()))
@@ -412,10 +416,11 @@ func TestConfigurationLabelValidation(t *testing.T) {
 }
 func TestImmutableConfigurationFields(t *testing.T) {
 	tests := []struct {
-		name string
-		new  *Configuration
-		old  *Configuration
-		want *apis.FieldError
+		name     string
+		new      *Configuration
+		old      *Configuration
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "without byo-name",
 		new: &Configuration{
@@ -585,6 +590,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.old)
 			got := test.new.Validate(ctx)
+			got = got.Filter(test.errLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v\nwant: %v\ngot: %v",
 					diff, test.want, got)
@@ -599,6 +605,7 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 		config      *Configuration
 		subresource string
 		want        *apis.FieldError
+		errLevel    apis.DiagnosticLevel
 	}{{
 		name: "status update with valid revision template",
 		config: &Configuration{
@@ -692,6 +699,7 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinSubResourceUpdate(ctx, test.config, test.subresource)
 			got := test.config.Validate(ctx)
+			got = got.Filter(test.errLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Error("Validate (-want, +got) =", diff)
 			}
@@ -721,10 +729,11 @@ func TestConfigurationAnnotationUpdate(t *testing.T) {
 		u3 = "vaca@knative.dev"
 	)
 	tests := []struct {
-		name string
-		prev *Configuration
-		this *Configuration
-		want *apis.FieldError
+		name     string
+		prev     *Configuration
+		this     *Configuration
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "update creator annotation",
 		this: &Configuration{
@@ -878,7 +887,7 @@ func TestConfigurationAnnotationUpdate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.prev)
-			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Filter(test.errLevel).Error()); diff != "" {
 				t.Error("Validate (-want, +got) =", diff)
 			}
 		})
