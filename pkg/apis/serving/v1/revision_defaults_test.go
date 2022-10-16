@@ -856,7 +856,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "user-container",
 						Ports: []corev1.ContainerPort{{
-							ContainerPort: 8888,
+							ContainerPort: 80,
 						}},
 					}, {
 						Name:            "sidecar",
@@ -895,7 +895,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "user-container",
 						Ports: []corev1.ContainerPort{{
-							ContainerPort: 8888,
+							ContainerPort: 80,
 						}},
 						ReadinessProbe: defaultProbe,
 						Resources:      defaultResources,
@@ -919,7 +919,6 @@ func TestRevisionDefaulting(t *testing.T) {
 							},
 							Capabilities: &corev1.Capabilities{
 								Drop: []corev1.Capability{"ALL"},
-								Add:  []corev1.Capability{"NET_BIND_SERVICE"},
 							},
 						},
 					}, {
@@ -950,6 +949,78 @@ func TestRevisionDefaulting(t *testing.T) {
 							},
 						},
 					}},
+				},
+			},
+		},
+	}, {
+		name: "uses pod defaults in security context",
+		wc: func(ctx context.Context) context.Context {
+			s := config.NewStore(logger)
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.DefaultsConfigName}})
+			s.OnConfigChanged(
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName},
+					Data:       map[string]string{"secure-pod-defaults": "Enabled"},
+				},
+			)
+
+			return s.ToContext(ctx)
+		},
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "user-container",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8080,
+						}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:            "init",
+						SecurityContext: &corev1.SecurityContext{},
+					}},
+					SecurityContext: &corev1.PodSecurityContext{
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeUnconfined,
+						},
+					},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "user-container",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8080,
+						}},
+						ReadinessProbe: defaultProbe,
+						Resources:      defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+						},
+					}},
+					InitContainers: []corev1.Container{{
+						Name: "init",
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+						},
+					}},
+					SecurityContext: &corev1.PodSecurityContext{
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeUnconfined,
+						},
+					},
 				},
 			},
 		},
