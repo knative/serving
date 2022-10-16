@@ -38,11 +38,12 @@ import (
 type configOption func(*config.Config) *config.Config
 
 type containerValidationTestCase struct {
-	name    string
-	c       corev1.Container
-	want    *apis.FieldError
-	volumes map[string]corev1.Volume
-	cfgOpts []configOption
+	name     string
+	c        corev1.Container
+	want     *apis.FieldError
+	volumes  map[string]corev1.Volume
+	cfgOpts  []configOption
+	errLevel apis.DiagnosticLevel
 }
 
 func withMultiContainerDisabled() configOption {
@@ -173,10 +174,11 @@ func withPodSpecDNSConfigEnabled() configOption {
 
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
-		name    string
-		ps      corev1.PodSpec
-		cfgOpts []configOption
-		want    *apis.FieldError
+		name     string
+		ps       corev1.PodSpec
+		cfgOpts  []configOption
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "valid",
 		ps: corev1.PodSpec{
@@ -625,6 +627,90 @@ func TestPodSpecValidation(t *testing.T) {
 				}},
 			}},
 		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled(), withPodSpecPersistentVolumeWriteEnabled()},
+	}, {
+		name: "insecure security context default struct",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+		},
+		want: &apis.FieldError{
+			Message: "Kubernetes default value is insecure, Knative may default this to secure in a future release",
+			Paths: []string{
+				"securityContext.containers[1].allowPrivilegeEscalation",
+				"securityContext.containers[1].capabilities",
+				"securityContext.containers[1].runAsNonRoot",
+				"securityContext.containers[1].seccompProfile",
+			},
+			Level: apis.WarningLevel,
+		},
+		errLevel: apis.WarningLevel,
+	}, {
+		name: "insecure security context default values",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				SecurityContext: &corev1.SecurityContext{
+					Capabilities: &corev1.Capabilities{},
+				},
+			}},
+			SecurityContext: &corev1.PodSecurityContext{
+				SeccompProfile: &corev1.SeccompProfile{},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "Kubernetes default value is insecure, Knative may default this to secure in a future release",
+			Paths: []string{
+				"securityContext.containers[1].allowPrivilegeEscalation",
+				"securityContext.containers[1].capabilities.drop",
+				"securityContext.containers[1].runAsNonRoot",
+				"securityContext.containers[1].seccompProfile.type",
+			},
+			Level: apis.WarningLevel,
+		},
+		errLevel: apis.WarningLevel,
+	}, {
+		// We don't warn about explicitly insecure values, because they were
+		// presumably chosen intentionally.
+		name: "explicitly dangerous security context values",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				SecurityContext: &corev1.SecurityContext{
+					AllowPrivilegeEscalation: ptr.Bool(true),
+					RunAsNonRoot:             ptr.Bool(false),
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{},
+					},
+					SeccompProfile: &corev1.SeccompProfile{
+						Type: corev1.SeccompProfileTypeUnconfined,
+					},
+				},
+			}},
+		},
+		errLevel: apis.WarningLevel,
+	}, {
+		name: "explicitly dangerous pod security context values",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsNonRoot: ptr.Bool(true),
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeUnconfined,
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "Kubernetes default value is insecure, Knative may default this to secure in a future release",
+			Paths: []string{
+				"securityContext.containers[1].allowPrivilegeEscalation",
+				"securityContext.containers[1].capabilities",
+			},
+			Level: apis.WarningLevel,
+		},
+		errLevel: apis.WarningLevel,
 	}}
 
 	for _, test := range tests {
@@ -638,6 +724,7 @@ func TestPodSpecValidation(t *testing.T) {
 				ctx = config.ToContext(ctx, cfg)
 			}
 			got := ValidatePodSpec(ctx, test.ps)
+			got = got.Filter(test.errLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
 			}
@@ -647,10 +734,11 @@ func TestPodSpecValidation(t *testing.T) {
 
 func TestPodSpecMultiContainerValidation(t *testing.T) {
 	tests := []struct {
-		name    string
-		ps      corev1.PodSpec
-		cfgOpts []configOption
-		want    *apis.FieldError
+		name     string
+		ps       corev1.PodSpec
+		cfgOpts  []configOption
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "flag disabled: more than one container",
 		ps: corev1.PodSpec{
@@ -1018,6 +1106,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				ctx = config.ToContext(ctx, cfg)
 			}
 			got := ValidatePodSpec(ctx, test.ps)
+			got = got.Filter(test.errLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
 			}
@@ -1033,6 +1122,7 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 		featureSpec corev1.PodSpec
 		cfgOpts     []configOption
 		err         *apis.FieldError
+		errLevel    apis.DiagnosticLevel
 	}{{
 		name: "Affinity",
 		featureSpec: corev1.PodSpec{
@@ -1234,6 +1324,7 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 					}}
 				}
 				got := ValidatePodSpec(ctx, obj)
+				got = got.Filter(featureData.errLevel)
 				if diff := cmp.Diff(want.Error(), got.Error()); diff != "" {
 					t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
 				}
@@ -1244,10 +1335,11 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 
 func TestPodSpecFieldRefValidation(t *testing.T) {
 	tests := []struct {
-		name    string
-		ps      corev1.PodSpec
-		cfgOpts []configOption
-		want    *apis.FieldError
+		name     string
+		ps       corev1.PodSpec
+		cfgOpts  []configOption
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "flag disabled: fieldRef not present",
 		ps: corev1.PodSpec{
@@ -1348,6 +1440,7 @@ func TestPodSpecFieldRefValidation(t *testing.T) {
 				ctx = config.ToContext(ctx, cfg)
 			}
 			got := ValidatePodSpec(ctx, test.ps)
+			got = got.Filter(test.errLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
 			}
@@ -1792,6 +1885,7 @@ func TestContainerValidation(t *testing.T) {
 			port, err := validateContainersPorts([]corev1.Container{test.c})
 
 			got := err.Also(ValidateContainer(ctx, test.c, test.volumes, port))
+			got = got.Filter(test.errLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
 			}
@@ -1885,6 +1979,7 @@ func TestInitContainerValidation(t *testing.T) {
 				ctx = config.ToContext(ctx, cfg)
 			}
 			got := validateInitContainer(ctx, test.c, test.volumes)
+			got = got.Filter(test.errLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateInitContainer (-want, +got): \n%s", diff)
 			}
@@ -2307,10 +2402,11 @@ func getCommonContainerValidationTestCases() []containerValidationTestCase {
 
 func TestVolumeValidation(t *testing.T) {
 	tests := []struct {
-		name    string
-		v       corev1.Volume
-		want    *apis.FieldError
-		cfgOpts []configOption
+		name     string
+		v        corev1.Volume
+		want     *apis.FieldError
+		cfgOpts  []configOption
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "just name",
 		v: corev1.Volume{
@@ -2615,6 +2711,7 @@ func TestVolumeValidation(t *testing.T) {
 				ctx = config.ToContext(ctx, cfg)
 			}
 			got := validateVolume(ctx, test.v)
+			got = got.Filter(test.errLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("validateVolume (-want, +got): \n%s", diff)
 			}
@@ -2624,9 +2721,10 @@ func TestVolumeValidation(t *testing.T) {
 
 func TestObjectReferenceValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		r    *corev1.ObjectReference
-		want *apis.FieldError
+		name     string
+		r        *corev1.ObjectReference
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "nil",
 	}, {
@@ -2709,6 +2807,7 @@ func TestObjectReferenceValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := ValidateNamespacedObjectReference(test.r)
+			got = got.Filter(test.errLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateNamespacedObjectReference (-want, +got): \n%s", diff)
 			}
@@ -2719,9 +2818,10 @@ func TestObjectReferenceValidation(t *testing.T) {
 func TestPodSpecSecurityContextValidation(t *testing.T) {
 	// Note the feature flag is always enabled on this test
 	tests := []struct {
-		name string
-		sc   *corev1.PodSecurityContext
-		want *apis.FieldError
+		name     string
+		sc       *corev1.PodSecurityContext
+		want     *apis.FieldError
+		errLevel apis.DiagnosticLevel
 	}{{
 		name: "nil",
 	}, {
@@ -2792,6 +2892,7 @@ func TestPodSpecSecurityContextValidation(t *testing.T) {
 
 		t.Run(test.name, func(t *testing.T) {
 			got := ValidatePodSecurityContext(ctx, test.sc)
+			got.Filter(test.errLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidatePodSecurityContext(-want, +got): \n%s", diff)
 			}
