@@ -314,9 +314,6 @@ jobs:
         knative_setup
 
         # Run the tests tagged as e2e on the KinD cluster.
-        # TODO: Remove feature toogle when emptyDir is enabled by default
-        toggle_feature kubernetes.podspec-volumes-emptydir Enabled
-
         echo "SYSTEM_NAMESPACE=$SYSTEM_NAMESPACE" >> $GITHUB_ENV
         echo "GATEWAY_OVERRIDE=$GATEWAY_OVERRIDE" >> $GITHUB_ENV
         echo "GATEWAY_NAMESPACE_OVERRIDE=$GATEWAY_NAMESPACE_OVERRIDE" >> $GITHUB_ENV
