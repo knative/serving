@@ -1361,7 +1361,6 @@ func TestMakePodSpec(t *testing.T) {
 			cfg := revConfig()
 			cfg.Observability = &test.oc
 			cfg.Deployment = &test.dc
-			fmt.Println(cfg.Deployment)
 			cfg.Features = &test.fc
 			if test.defaults != nil {
 				cfg.Defaults = test.defaults
