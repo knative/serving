@@ -935,8 +935,8 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5cxcmMvtA=
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
-github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PKk=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/sylvia7788/contextcheck v1.0.4/go.mod h1:vuPKJMQ7MQ91ZTqfdyreNKwZjyUg6KO+IebVyQDedZQ=
 github.com/tdakkota/asciicheck v0.0.0-20200416200610-e657995f937b/go.mod h1:yHp0ai0Z9gUljN3o0xMhYJnH/IcvkdTBOX2fmJ93JEM=
@@ -1661,8 +1661,8 @@ k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed h1:jAne/RjBTyawwAy0utX5eqigAwz/l
 k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 knative.dev/caching v0.0.0-20221012041550-ce26e9293067 h1:MdDI6dtZ9969kdEDA91aXC2NB6McE/jAw4tzsyrHJTo=
 knative.dev/caching v0.0.0-20221012041550-ce26e9293067/go.mod h1:d9+oJfahkIbUy+9vXFqf02b2o9ez4EMNfusqcbF3zvU=
-knative.dev/control-protocol v0.0.0-20221014040653-b8948e8e4f1c h1:66KLT6G8e0SQaYuj6d1Uwwr5MPto19KbA5QVDl/TiAs=
-knative.dev/control-protocol v0.0.0-20221014040653-b8948e8e4f1c/go.mod h1:/u6x1wGDID/YJPrjhoQZ99Feeteg9e19erW1yf4I0p0=
+knative.dev/control-protocol v0.0.0-20221017021456-3e2f8785943b h1:PP9M/LtGwrGLbr1CjrLzuFU8HcrjB/qtoHPtqkg1M0E=
+knative.dev/control-protocol v0.0.0-20221017021456-3e2f8785943b/go.mod h1:v9fqtPTwQKwJAeUyFjyo4teoFA0EanxFVrtcQELTrRY=
 knative.dev/hack v0.0.0-20221010154335-3fdc50b9c24a h1:yfq1OMrkyYkxDeM0pmAOeN4YF16R/WG0C+VvLBeq4uc=
 knative.dev/hack v0.0.0-20221010154335-3fdc50b9c24a/go.mod h1:yk2OjGDsbEnQjfxdm0/HJKS2WqTLEFg/N6nUs6Rqx3Q=
 knative.dev/networking v0.0.0-20221012062251-58f3e6239b4f h1:e/08+ofUjGjSYV2Usvb22IbkX4MjoiywbRtnXUK3FQY=
