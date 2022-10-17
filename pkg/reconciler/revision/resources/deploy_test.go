@@ -378,13 +378,13 @@ func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSp
 	return podSpec
 }
 
-func withAppendedTokenVolumes(filenames []string, audiences []string, expiries []*int64) podSpecOption {
+func withAppendedTokenVolumes(filenames []string, audiences []string, expires []*int64) podSpecOption {
 	return func(ps *corev1.PodSpec) {
 		tokenVolume := varTokenVolume.DeepCopy()
 		for i, filename := range filenames {
 			token := &corev1.VolumeProjection{
 				ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-					ExpirationSeconds: expiries[i],
+					ExpirationSeconds: expires[i],
 					Path:              filename,
 					Audience:          audiences[i],
 				},

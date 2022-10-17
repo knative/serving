@@ -105,8 +105,6 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsQuantity("queueSidecarCPULimit", &nc.QueueSidecarCPULimit),
 		cm.AsQuantity("queueSidecarMemoryLimit", &nc.QueueSidecarMemoryLimit),
 		cm.AsQuantity("queueSidecarEphemeralStorageLimit", &nc.QueueSidecarEphemeralStorageLimit),
-
-		cm.AsStringSet("queueSidecarTokens", &nc.QueueSidecarTokens),
 		cm.AsString("concurrencyStateEndpoint", &nc.ConcurrencyStateEndpoint),
 
 		cm.AsString(QueueSidecarImageKey, &nc.QueueSidecarImage),
