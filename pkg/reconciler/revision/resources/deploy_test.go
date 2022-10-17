@@ -52,15 +52,10 @@ var (
 	sidecarContainerName2        = "sidecar-container-2"
 	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
 	defaultServingContainer      = &corev1.Container{
-		Name:      servingContainerName,
-		Image:     "busybox",
-		Ports:     buildContainerPorts(v1.DefaultUserPort),
-		Lifecycle: userLifecycle,
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: ptr.Bool(false),
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			}},
+		Name:                     servingContainerName,
+		Image:                    "busybox",
+		Ports:                    buildContainerPorts(v1.DefaultUserPort),
+		Lifecycle:                userLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
 		TTY:                      false,
@@ -260,11 +255,6 @@ func defaultSidecarContainer(containerName string) *corev1.Container {
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
 		TTY:                      false,
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: ptr.Bool(false),
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			}},
 		Env: []corev1.EnvVar{{
 			Name:  "K_REVISION",
 			Value: "bar",

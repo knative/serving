@@ -230,15 +230,6 @@ func makeContainer(container corev1.Container, rev *v1.Revision) corev1.Containe
 	container.Lifecycle = userLifecycle
 	container.Env = append(container.Env, getKnativeEnvVar(rev)...)
 
-	// Set PSP requirements explicitly to avoid failures in case `pod-security.kubernetes.io/enforce=restricted` is used
-	// at the user workload namespace
-	if container.SecurityContext == nil {
-		container.SecurityContext = &corev1.SecurityContext{}
-	}
-	container.SecurityContext.AllowPrivilegeEscalation = ptr.Bool(false)
-	container.SecurityContext.SeccompProfile = &corev1.SeccompProfile{
-		Type: corev1.SeccompProfileTypeRuntimeDefault,
-	}
 	// Explicitly disable stdin and tty allocation
 	container.Stdin = false
 	container.TTY = false
