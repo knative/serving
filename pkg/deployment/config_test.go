@@ -102,6 +102,7 @@ func TestControllerConfiguration(t *testing.T) {
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokens:             sets.NewString(""),
 			ProgressDeadline:               444 * time.Second,
 		},
 		data: map[string]string{
@@ -115,6 +116,7 @@ func TestControllerConfiguration(t *testing.T) {
 			DigestResolutionTimeout:        60 * time.Second,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokens:             sets.NewString(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
@@ -128,6 +130,7 @@ func TestControllerConfiguration(t *testing.T) {
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokens:             sets.NewString(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
@@ -147,6 +150,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPULimit:                quantity("987M"),
 			QueueSidecarMemoryLimit:             quantity("654m"),
 			QueueSidecarEphemeralStorageLimit:   quantity("321M"),
+			QueueSidecarTokens:                  sets.NewString(""),
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:                   defaultSidecarImage,
@@ -204,6 +208,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			ProgressDeadline:               ProgressDeadlineDefault,
+			QueueSidecarTokens:             sets.NewString(""),
 			ConcurrencyStateEndpoint:       "freeze-proxy",
 		},
 		data: map[string]string{
@@ -238,6 +243,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarEphemeralStorageRequest: quantity("9M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("10M"),
 			ConcurrencyStateEndpoint:            "11",
+			QueueSidecarTokens:                  sets.NewString(""),
 		},
 	}, {
 		name: "newer key case takes priority",

@@ -115,6 +115,9 @@ var (
 )
 
 func addToken(tokenVolume *corev1.Volume, filename string, audience string, expiry *int64) {
+	if filename == "" || audience == "" || expiry == nil {
+		return
+	}
 	volumeProjection := &corev1.VolumeProjection{
 		ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
 			ExpirationSeconds: expiry,

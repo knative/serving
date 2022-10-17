@@ -80,13 +80,18 @@ var (
 )
 
 func defaultConfig() *Config {
-	return &Config{
+	cfg := &Config{
 		ProgressDeadline:               ProgressDeadlineDefault,
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 		ConcurrencyStateEndpoint:       "",
 	}
+	if cfg.QueueSidecarTokens == nil {
+		cfg.QueueSidecarTokens = sets.NewString("")
+	}
+
+	return cfg
 }
 
 // NewConfigFromMap creates a DeploymentConfig from the supplied Map.
