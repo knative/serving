@@ -1316,7 +1316,6 @@ func TestMakePodSpec(t *testing.T) {
 		name: "concurrency state projected volume",
 		dc: deployment.Config{
 			ConcurrencyStateEndpoint: "freeze-proxy",
-			QueueSidecarTokens:       sets.NewString(),
 		},
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{

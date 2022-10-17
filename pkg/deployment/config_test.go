@@ -224,7 +224,6 @@ func TestControllerConfiguration(t *testing.T) {
 			"queueSidecarMemoryLimit":             "8M",
 			"queueSidecarEphemeralStorageRequest": "9M",
 			"queueSidecarEphemeralStorageLimit":   "10M",
-			"queueSidecarTokens":                  "bar",
 			"concurrencyStateEndpoint":            "11",
 		},
 		wantConfig: &Config{
@@ -238,7 +237,6 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarMemoryLimit:             quantity("8M"),
 			QueueSidecarEphemeralStorageRequest: quantity("9M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("10M"),
-			QueueSidecarTokens:                  sets.NewString("bar"),
 			ConcurrencyStateEndpoint:            "11",
 		},
 	}, {
