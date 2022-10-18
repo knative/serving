@@ -68,7 +68,7 @@ KO_FLAGS="${KO_FLAGS:-}"
 [[ "${KO_DOCKER_REPO}" != gcr.io/* ]] && KO_YAML_FLAGS=""
 
 if [[ "${KO_FLAGS}" != *"--platform"* ]]; then
-  KO_YAML_FLAGS="${KO_YAML_FLAGS} --platform=all"
+  KO_YAML_FLAGS="${KO_YAML_FLAGS} --platform=all --image-refs=imagerefs-temp.txt"
 fi
 
 readonly KO_YAML_FLAGS="${KO_YAML_FLAGS} ${KO_FLAGS}"
@@ -85,17 +85,23 @@ export KO_DOCKER_REPO
 cd "${YAML_REPO_ROOT}"
 
 echo "Building Knative Serving"
+rm -rf imagerefs.txt
+echo "ko FLAGS ${KO_YAML_FLAGS}"
 ko resolve ${KO_YAML_FLAGS} -R -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
+cat imagerefs-temp.txt >> imagerefs.txt # Create a final list of image references to sign
 
 ko resolve ${KO_YAML_FLAGS} -f config/post-install/default-domain.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
+cat imagerefs-temp.txt >> imagerefs.txt # Create a final list of image references to sign
 
 ko resolve ${KO_YAML_FLAGS} -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
+cat imagerefs-temp.txt >> imagerefs.txt # Create a final list of image references to sign
 
 # These don't have images, but ko will concatenate them for us.
 ko resolve ${KO_YAML_FLAGS} -f config/core/300-resources/ -f config/core/300-imagecache.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
 
 # Create hpa-class autoscaling related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
+cat imagerefs-temp.txt >> imagerefs.txt # Create a final list of image references to sign
 
 # By putting the list of files used to create serving-upgrade.yaml
 # people can choose to exclude certain ones via 'grep' but still keep in-sync
