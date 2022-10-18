@@ -18,6 +18,7 @@ package resources
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -184,7 +185,12 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		addToken(tokenVolume, queue.ConcurrencyStateTokenFilename, concurrencyStateHook, ptr.Int64(600))
 	}
 
-	for aud := range cfg.Deployment.QueueSidecarTokens {
+	audiances := make([]string, 0, len(cfg.Deployment.QueueSidecarTokens))
+	for k := range cfg.Deployment.QueueSidecarTokens {
+		audiances = append(audiances, k)
+	}
+	sort.Strings(audiances)
+	for _, aud := range audiances {
 		// add token for audience <aud> under filename <aud>
 		addToken(tokenVolume, aud, aud, ptr.Int64(3600))
 	}
