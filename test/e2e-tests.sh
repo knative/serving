@@ -125,7 +125,7 @@ docker run -d --name jaeger \
   -e BADGER_DIRECTORY_KEY=/badger/key \
   -v ${ARTIFACTS}/jaeger-store:/badger \
   \
-  jaegertracing/all-in-one:1.35
+  jaegertracing/all-in-one:1.38
 
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
