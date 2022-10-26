@@ -258,7 +258,7 @@ var (
 	ActivationScale = kmap.KeyPriority{
 		ActivationScaleKey,
 	}
-  ScaleMinAnnotation = kmap.KeyPriority{
+	ScaleMinAnnotation = kmap.KeyPriority{
 		ScaleMinAnnotationKey,
 		DeprecatedMinScaleAnnotationKey,
 		GroupName + "/scaleMin",
