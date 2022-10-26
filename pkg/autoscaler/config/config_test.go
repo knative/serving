@@ -133,8 +133,8 @@ func TestNewConfig(t *testing.T) {
 		name: "with toggles explicitly flipped",
 		input: map[string]string{
 			"enable-scale-to-zero": "false",
-			"min-scale":            "1",
-			"max-scale":            "2",
+			"scale-min":            "1",
+			"scale-max":            "2",
 		},
 		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
@@ -148,7 +148,7 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"enable-scale-to-zero":       "false",
 			"scale-to-zero-grace-period": "33s",
-			"min-scale":                  "1",
+			"scale-min":                  "1",
 			"max-scale":                  "2",
 		},
 		want: func() *autoscalerconfig.Config {
@@ -325,13 +325,13 @@ func TestNewConfig(t *testing.T) {
 	}, {
 		name: "with negative default max scale",
 		input: map[string]string{
-			"max-scale": "-1",
+			"scale-max": "-1",
 		},
 		wantErr: true,
 	}, {
 		name: "with valid default max scale",
 		input: map[string]string{
-			"max-scale": "10",
+			"scale-max": "10",
 		},
 		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
@@ -341,7 +341,7 @@ func TestNewConfig(t *testing.T) {
 	}, {
 		name: "max scale exceeding max scale limit",
 		input: map[string]string{
-			"max-scale":       "10",
+			"scale-max":       "10",
 			"max-scale-limit": "9",
 		},
 		wantErr: true,
@@ -354,21 +354,21 @@ func TestNewConfig(t *testing.T) {
 	}, {
 		name: "with max scale limit and zero default max scale",
 		input: map[string]string{
-			"max-scale":       "0",
+			"scale-max":       "0",
 			"max-scale-limit": "11",
 		},
 		wantErr: true,
 	}, {
 		name: "with max scale less than min-scale",
 		input: map[string]string{
-			"min-scale": "4",
-			"max-scale": "3",
+			"scale-min": "4",
+			"scale-max": "3",
 		},
 		wantErr: true,
 	}, {
 		name: "with min scale set but max-scale not set",
 		input: map[string]string{
-			"min-scale": "4",
+			"scale-min": "4",
 		},
 		want: func() *autoscalerconfig.Config {
 			c := defaultConfig()
@@ -378,7 +378,7 @@ func TestNewConfig(t *testing.T) {
 	}, {
 		name: "with valid default max scale and max scale limit",
 		input: map[string]string{
-			"max-scale":       "10",
+			"scale-max":       "10",
 			"max-scale-limit": "11",
 		},
 		want: func() *autoscalerconfig.Config {
