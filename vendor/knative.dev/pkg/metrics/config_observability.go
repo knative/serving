@@ -110,6 +110,9 @@ func defaultConfig() *ObservabilityConfig {
 // NewObservabilityConfigFromConfigMap creates a ObservabilityConfig from the supplied ConfigMap
 func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*ObservabilityConfig, error) {
 	oc := defaultConfig()
+	if configMap == nil {
+		return oc, nil
+	}
 
 	if err := cm.Parse(configMap.Data,
 		cm.AsBool("logging.enable-var-log-collection", &oc.EnableVarLogCollection),
