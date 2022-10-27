@@ -2316,7 +2316,7 @@ func TestVolumeValidation(t *testing.T) {
 		v: corev1.Volume{
 			Name: "foo",
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap", "projected"),
+		want: apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir"),
 	}, {
 		name: "secret volume",
 		v: corev1.Volume{
@@ -2395,7 +2395,7 @@ func TestVolumeValidation(t *testing.T) {
 		v: corev1.Volume{
 			Name: "foo",
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap", "projected"),
+		want: apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir"),
 	}, {
 		name: "multiple volume source",
 		v: corev1.Volume{

@@ -75,14 +75,12 @@ if (( SHORT )); then
 fi
 
 toggle_feature autocreateClusterDomainClaims true config-network || fail_test
-toggle_feature kubernetes.podspec-volumes-emptydir Enabled
 go_test_e2e -timeout=30m \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
   ./test/e2e \
   ${parallelism} \
   ${TEST_OPTIONS} || failed=1
-toggle_feature kubernetes.podspec-volumes-emptydir Disabled
 toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
 toggle_feature tag-header-based-routing Enabled
@@ -113,13 +111,11 @@ kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.ya
 # Run HPA tests
 go_test_e2e -timeout=30m -tags=hpa ./test/e2e ${TEST_OPTIONS} || failed=1
 
-# Run emptyDir, initContainers tests with alpha enabled avoiding any issues with the testing options guard above
+# Run initContainers tests with alpha enabled avoiding any issues with the testing options guard above
 # InitContainers test uses emptyDir.
-toggle_feature kubernetes.podspec-volumes-emptydir Enabled
 toggle_feature kubernetes.podspec-init-containers Enabled
 go_test_e2e -timeout=2m ./test/e2e/initcontainers ${TEST_OPTIONS} || failed=1
 toggle_feature kubernetes.podspec-init-containers Disabled
-toggle_feature kubernetes.podspec-volumes-emptydir Disabled
 
 # RUN PVC tests with default storage class.
 toggle_feature kubernetes.podspec-persistent-volume-claim Enabled
