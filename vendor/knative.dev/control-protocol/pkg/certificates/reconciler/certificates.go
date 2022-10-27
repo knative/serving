@@ -163,10 +163,13 @@ func (r *reconciler) commitUpdatedSecret(ctx context.Context, secret *corev1.Sec
 	secret = secret.DeepCopy()
 
 	secret.Data = make(map[string][]byte, 3)
+	secret.Data[certificates.CertName] = keyPair.CertBytes()
+	secret.Data[certificates.PrivateKeyName] = keyPair.PrivateKeyBytes()
 	secret.Data[certificates.SecretCertKey] = keyPair.CertBytes()
 	secret.Data[certificates.SecretPKKey] = keyPair.PrivateKeyBytes()
 	if caCert != nil {
 		secret.Data[certificates.SecretCaCertKey] = caCert
+		secret.Data[certificates.CaCertName] = caCert
 	}
 
 	_, err := r.client.CoreV1().Secrets(secret.Namespace).Update(ctx, secret, metav1.UpdateOptions{})
