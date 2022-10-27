@@ -20,6 +20,13 @@ const (
 	Organization = "knative.dev"
 	FakeDnsName  = "data-plane." + Organization
 
+	//These keys are meant to line up with cert-manager, see
+	//https://cert-manager.io/docs/usage/certificate/#additional-certificate-output-formats
+	CaCertName     = "ca.crt"
+	CertName       = "tls.crt"
+	PrivateKeyName = "tls.key"
+
+	//These should be able to be deprecated some time in the future when the new names are fully adopted
 	SecretCaCertKey = "ca-cert.pem"
 	SecretCertKey   = "public-cert.pem"
 	SecretPKKey     = "private-key.pem"
