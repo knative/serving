@@ -37,7 +37,7 @@ require (
 	knative.dev/control-protocol v0.0.0-20221026172758-74766ce15fd4
 	knative.dev/hack v0.0.0-20221024013916-9d2ae47c16b2
 	knative.dev/networking v0.0.0-20221026111258-0f6a54a6271f
-	knative.dev/pkg v0.0.0-20221025200856-6ce976ce9255
+	knative.dev/pkg v0.0.0-20221027173407-198b4637065d
 	sigs.k8s.io/yaml v1.3.0
 )
 
