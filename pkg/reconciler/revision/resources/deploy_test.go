@@ -191,6 +191,9 @@ var (
 		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: "false",
+		}, {
+			Name:  "ROOT_CA",
+			Value: "",
 		}},
 	}
 
@@ -525,6 +528,34 @@ func TestMakePodSpec(t *testing.T) {
 		fc       apicfg.Features
 		want     *corev1.PodSpec
 	}{{
+		name: "user-defined user port, queue proxy have PORT env",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:  servingContainerName,
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+				ReadinessProbe: withTCPReadinessProbe(8888),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					func(container *corev1.Container) {
+						container.Ports[0].ContainerPort = 8888
+						container.Image = "busybox@sha256:deadbeef"
+					},
+					withEnvVar("PORT", "8888"),
+				),
+				queueContainer(
+					withEnvVar("USER_PORT", "8888"),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
+				)}),
+	}, {
 		name: "user-defined user port, queue proxy have PORT env",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -1311,6 +1342,40 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 			},
 			withAppendedTokenVolumes([]string{"boo-srv"}, []string{"boo-srv"}, []*int64{ptr.Int64(3600)}),
+		),
+	}, {
+		name: "qpoption rootca",
+		dc: deployment.Config{
+			QueueSidecarRootCA: "myCertificate",
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+			}, {
+				Name:  sidecarContainerName,
+				Image: "ubuntu",
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}, {
+				ImageDigest: "ubuntu@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
+					c.Image = "ubuntu@sha256:deadbeef"
+				}),
+				queueContainer(
+					withEnvVar("ROOT_CA", `myCertificate`),
+				),
+			},
 		),
 	}, {
 		name: "concurrency state projected volume",
