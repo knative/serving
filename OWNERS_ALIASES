@@ -79,11 +79,11 @@ aliases:
   - kvmware
   - lance
   - lionelvillard
+  - mchmarny
   - nak3
   - pmorie
   - psschwei
   - smoser-ibm
-  - spencerdillard
   - thisisnotapril
   - upodroid
   - vaikas
@@ -212,8 +212,8 @@ aliases:
   - zroubalik
   trademark-committee:
   - evankanderson
+  - mchmarny
   - smoser-ibm
-  - spencerdillard
   ux-wg-leads:
   - abrennan89
   - snneji
