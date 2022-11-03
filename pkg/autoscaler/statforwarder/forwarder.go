@@ -53,11 +53,11 @@ type stat struct {
 }
 
 // Forwarder does the following things:
-// 1. Watches the change of Leases for Autoscaler buckets. Stores the
-//    Lease -> IP mapping.
-// 2. Creates/updates the corresponding K8S Service and Endpoints.
-// 3. Can be used to forward the metrics owned by a bucket based on
-//    the holder IP.
+//  1. Watches the change of Leases for Autoscaler buckets. Stores the
+//     Lease -> IP mapping.
+//  2. Creates/updates the corresponding K8S Service and Endpoints.
+//  3. Can be used to forward the metrics owned by a bucket based on
+//     the holder IP.
 type Forwarder struct {
 	logger *zap.SugaredLogger
 	// bs is the BucketSet including all Autoscaler buckets.
