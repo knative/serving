@@ -484,7 +484,7 @@ func buildAdminServer(ctx context.Context, logger *zap.SugaredLogger, drainer *p
 		w.WriteHeader(http.StatusOK)
 	})
 
-	//nolint:gosec https://github.com/knative/serving/issues/13439
+	//nolint:gosec // https://github.com/knative/serving/issues/13439
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.QueueAdminPort),
 		Handler: adminMux,
@@ -494,6 +494,8 @@ func buildAdminServer(ctx context.Context, logger *zap.SugaredLogger, drainer *p
 func buildMetricsServer(protobufStatReporter *queue.ProtobufStatsReporter) *http.Server {
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", queue.NewStatsHandler(protobufStatReporter))
+
+	//nolint:gosec // https://github.com/knative/serving/issues/13439
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
 		Handler: metricsMux,
