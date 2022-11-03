@@ -38,9 +38,12 @@ const (
 // populationMeanSampleSize uses the following formula for the sample size n:
 //
 // if N <= 3:
-//   n = N
+//
+//	n = N
+//
 // else:
-//   n = N*X / (N + X – 1), X = C^2 * σ^2 / MOE^2,
+//
+//	n = N*X / (N + X – 1), X = C^2 * σ^2 / MOE^2,
 //
 // where N is the population size, C is the critical value of the Normal distribution
 // for a given confidence level of 95%, MOE is the margin of error and σ^2 is the
