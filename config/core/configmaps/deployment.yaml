@@ -81,8 +81,8 @@ data:
     # Supports a list of audiences
     queue-sidecar-tokens: ""
 
-    # Sets rooCA for the queue proxy's QPOptions
-    # If omitted, or empty, no rooCA is added to the golang rooCAs
+    # Sets rootCA for the queue proxy's QPOptions
+    # If omitted, or empty, no rootCA is added to the golang rootCAs
     queue-sidecar-rootca: ""
 
     # The freezer service endpoint that queue-proxy calls when its traffic drops to zero or
