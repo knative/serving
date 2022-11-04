@@ -51,6 +51,8 @@ kind: Secret
 metadata:
   name: ca-cert
   namespace: serving-tests
+    networking.internal.knative.dev/certificate-uid: "serving-certs"
+    serving-certs-ctrl: "data-plane"
 data:
   ca.crt: ${CA_CERT}
 ---
@@ -59,6 +61,8 @@ kind: Secret
 metadata:
   name: server-certs
   namespace: knative-serving
+    networking.internal.knative.dev/certificate-uid: "serving-certs"
+    serving-certs-ctrl: "data-plane"
 data:
   tls.key: ${TLS_KEY}
   tls.crt: ${TLS_CERT}

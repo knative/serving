@@ -160,7 +160,7 @@ func (ac *reconciler) decodeRequestAndPrepareContext(
 	return ctx, newObj, nil
 }
 
-func validate(ctx context.Context, resource resourcesemantics.GenericCRD, req *admissionv1.AdmissionRequest) (err error, warn []error) {
+func validate(ctx context.Context, resource resourcesemantics.GenericCRD, req *admissionv1.AdmissionRequest) (err error, warn []error) { //nolint
 	logger := logging.FromContext(ctx)
 
 	// Only run validation for supported create and update validation.
