@@ -77,8 +77,12 @@ data:
     queue-sidecar-ephemeral-storage-limit: "1024Mi"
 
     # Sets tokens associated with specific audiences for the queue proxy's QPOptions
+    #
+    # For example, to add the `service-x` audience:
+    #    queue-sidecar-tokens: "service-x"
+    # Also supports a list of audiences, for example:
+    #    queue-sidecar-tokens: "service-x,service-y"
     # If omitted, or empty, no tokens are created
-    # Supports a list of audiences
     queue-sidecar-tokens: ""
 
     # Sets rootCA for the queue proxy's QPOptions
