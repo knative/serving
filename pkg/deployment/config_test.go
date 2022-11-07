@@ -87,12 +87,12 @@ func TestControllerConfiguration(t *testing.T) {
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokens:             sets.NewString("foo", "bar", "boo-srv"),
+			QueueSidecarTokenAudiences:     sets.NewString("foo", "bar", "boo-srv"),
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,
-			queueSidecarTokensKey:             "bar,foo,boo-srv",
+			queueSidecarTokenAudiencesKey:     "bar,foo,boo-srv",
 			registriesSkippingTagResolvingKey: "ko.local,,",
 		},
 	}, {
@@ -102,7 +102,7 @@ func TestControllerConfiguration(t *testing.T) {
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokens:             sets.NewString(""),
+			QueueSidecarTokenAudiences:     sets.NewString(""),
 			ProgressDeadline:               444 * time.Second,
 		},
 		data: map[string]string{
@@ -116,7 +116,7 @@ func TestControllerConfiguration(t *testing.T) {
 			DigestResolutionTimeout:        60 * time.Second,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokens:             sets.NewString(""),
+			QueueSidecarTokenAudiences:     sets.NewString(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
@@ -130,7 +130,7 @@ func TestControllerConfiguration(t *testing.T) {
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokens:             sets.NewString(""),
+			QueueSidecarTokenAudiences:     sets.NewString(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
@@ -150,7 +150,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPULimit:                quantity("987M"),
 			QueueSidecarMemoryLimit:             quantity("654m"),
 			QueueSidecarEphemeralStorageLimit:   quantity("321M"),
-			QueueSidecarTokens:                  sets.NewString(""),
+			QueueSidecarTokenAudiences:          sets.NewString(""),
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:                   defaultSidecarImage,
@@ -208,7 +208,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			ProgressDeadline:               ProgressDeadlineDefault,
-			QueueSidecarTokens:             sets.NewString(""),
+			QueueSidecarTokenAudiences:     sets.NewString(""),
 			ConcurrencyStateEndpoint:       "freeze-proxy",
 		},
 		data: map[string]string{
@@ -243,7 +243,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarEphemeralStorageRequest: quantity("9M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("10M"),
 			ConcurrencyStateEndpoint:            "11",
-			QueueSidecarTokens:                  sets.NewString(""),
+			QueueSidecarTokenAudiences:          sets.NewString(""),
 		},
 	}, {
 		name: "newer key case takes priority",
@@ -272,7 +272,7 @@ func TestControllerConfiguration(t *testing.T) {
 			queueSidecarMemoryLimitKey:             "19M",
 			queueSidecarEphemeralStorageRequestKey: "20M",
 			queueSidecarEphemeralStorageLimitKey:   "21M",
-			queueSidecarTokensKey:                  "foo",
+			queueSidecarTokenAudiencesKey:          "foo",
 			concurrencyStateEndpointKey:            "22",
 		},
 		wantConfig: &Config{
@@ -286,7 +286,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarMemoryLimit:             quantity("19M"),
 			QueueSidecarEphemeralStorageRequest: quantity("20M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("21M"),
-			QueueSidecarTokens:                  sets.NewString("foo"),
+			QueueSidecarTokenAudiences:          sets.NewString("foo"),
 			ConcurrencyStateEndpoint:            "22",
 		},
 	}}

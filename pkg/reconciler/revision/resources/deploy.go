@@ -116,7 +116,7 @@ var (
 )
 
 func addToken(tokenVolume *corev1.Volume, filename string, audience string, expiry *int64) {
-	if filename == "" || audience == "" || expiry == nil {
+	if filename == "" || audience == "" {
 		return
 	}
 	volumeProjection := &corev1.VolumeProjection{
@@ -185,8 +185,8 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		addToken(tokenVolume, queue.ConcurrencyStateTokenFilename, concurrencyStateHook, ptr.Int64(600))
 	}
 
-	audiances := make([]string, 0, len(cfg.Deployment.QueueSidecarTokens))
-	for k := range cfg.Deployment.QueueSidecarTokens {
+	audiances := make([]string, 0, len(cfg.Deployment.QueueSidecarTokenAudiences))
+	for k := range cfg.Deployment.QueueSidecarTokenAudiences {
 		audiances = append(audiances, k)
 	}
 	sort.Strings(audiances)

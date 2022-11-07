@@ -66,8 +66,8 @@ const (
 	queueSidecarEphemeralStorageLimitKey = "queue-sidecar-ephemeral-storage-limit"
 
 	// qpoptions
-	queueSidecarTokensKey = "queue-sidecar-tokens"
-	queueSidecarRooCAKey  = "queue-sidecar-rootca"
+	queueSidecarTokenAudiencesKey = "queue-sidecar-token-audiences"
+	queueSidecarRooCAKey          = "queue-sidecar-rootca"
 
 	// concurrencyStateEndpointKey is the key to configure the endpoint Queue Proxy will call when traffic drops to / increases from zero.
 	concurrencyStateEndpointKey = "concurrency-state-endpoint"
@@ -88,8 +88,8 @@ func defaultConfig() *Config {
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 		ConcurrencyStateEndpoint:       "",
 	}
-	if cfg.QueueSidecarTokens == nil {
-		cfg.QueueSidecarTokens = sets.NewString("")
+	if cfg.QueueSidecarTokenAudiences == nil {
+		cfg.QueueSidecarTokenAudiences = sets.NewString("")
 	}
 
 	return cfg
@@ -125,7 +125,7 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsQuantity(queueSidecarMemoryLimitKey, &nc.QueueSidecarMemoryLimit),
 		cm.AsQuantity(queueSidecarEphemeralStorageLimitKey, &nc.QueueSidecarEphemeralStorageLimit),
 
-		cm.AsStringSet(queueSidecarTokensKey, &nc.QueueSidecarTokens),
+		cm.AsStringSet(queueSidecarTokenAudiencesKey, &nc.QueueSidecarTokenAudiences),
 		cm.AsString(queueSidecarRooCAKey, &nc.QueueSidecarRootCA),
 
 		cm.AsString(concurrencyStateEndpointKey, &nc.ConcurrencyStateEndpoint),
@@ -193,9 +193,9 @@ type Config struct {
 	// for the queue proxy sidecar container.
 	QueueSidecarEphemeralStorageLimit *resource.Quantity
 
-	// QueueSidecarTokens is a set of strings defining required tokens  - each string represent the token audience
+	// QueueSidecarTokenAudiences is a set of strings defining required tokens  - each string represent the token audience
 	// used by the queue proxy sidecar container to create tokens for qpoptions.
-	QueueSidecarTokens sets.String
+	QueueSidecarTokenAudiences sets.String
 
 	// QueueSidecarRootCA is a root certificate to be trusted by the queue proxy sidecar  qpoptions.
 	QueueSidecarRootCA string

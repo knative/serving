@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "1398f1b9"
+    knative.dev/example-checksum: "ac007ed2"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -76,16 +76,16 @@ data:
     # If omitted, no value is specified and the system default is used.
     queue-sidecar-ephemeral-storage-limit: "1024Mi"
 
-    # Sets tokens associated with specific audiences for the queue proxy's QPOptions
+    # Sets tokens associated with specific audiences for queue proxy - used by QPOptions
     #
     # For example, to add the `service-x` audience:
-    #    queue-sidecar-tokens: "service-x"
+    #    queue-sidecar-token-audiences: "service-x"
     # Also supports a list of audiences, for example:
-    #    queue-sidecar-tokens: "service-x,service-y"
+    #    queue-sidecar-token-audiences: "service-x,service-y"
     # If omitted, or empty, no tokens are created
-    queue-sidecar-tokens: ""
+    queue-sidecar-token-audiences: ""
 
-    # Sets rootCA for the queue proxy's QPOptions
+    # Sets rootCA for the queue proxy - used by QPOptions
     # If omitted, or empty, no rootCA is added to the golang rootCAs
     queue-sidecar-rootca: ""
 

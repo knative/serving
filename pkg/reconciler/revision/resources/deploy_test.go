@@ -381,15 +381,21 @@ func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSp
 	return podSpec
 }
 
-func withAppendedTokenVolumes(filenames []string, audiences []string, expires []*int64) podSpecOption {
+type appendTokenVolume struct {
+	filename string
+	audience string
+	expires  int64
+}
+
+func withAppendedTokenVolumes(appended []appendTokenVolume) podSpecOption {
 	return func(ps *corev1.PodSpec) {
 		tokenVolume := varTokenVolume.DeepCopy()
-		for i, filename := range filenames {
+		for _, a := range appended {
 			token := &corev1.VolumeProjection{
 				ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-					ExpirationSeconds: expires[i],
-					Path:              filename,
-					Audience:          audiences[i],
+					ExpirationSeconds: ptr.Int64(a.expires),
+					Path:              a.filename,
+					Audience:          a.audience,
 				},
 			}
 			tokenVolume.VolumeSource.Projected.Sources = append(tokenVolume.VolumeSource.Projected.Sources, *token)
@@ -528,34 +534,6 @@ func TestMakePodSpec(t *testing.T) {
 		fc       apicfg.Features
 		want     *corev1.PodSpec
 	}{{
-		name: "user-defined user port, queue proxy have PORT env",
-		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "busybox",
-				Ports: []corev1.ContainerPort{{
-					ContainerPort: 8888,
-				}},
-				ReadinessProbe: withTCPReadinessProbe(8888),
-			}}),
-			WithContainerStatuses([]v1.ContainerStatus{{
-				ImageDigest: "busybox@sha256:deadbeef",
-			}}),
-		),
-		want: podSpec(
-			[]corev1.Container{
-				servingContainer(
-					func(container *corev1.Container) {
-						container.Ports[0].ContainerPort = 8888
-						container.Image = "busybox@sha256:deadbeef"
-					},
-					withEnvVar("PORT", "8888"),
-				),
-				queueContainer(
-					withEnvVar("USER_PORT", "8888"),
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
-				)}),
-	}, {
 		name: "user-defined user port, queue proxy have PORT env",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -1308,7 +1286,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "qpoption tokens",
 		dc: deployment.Config{
-			QueueSidecarTokens: sets.NewString("boo-srv"),
+			QueueSidecarTokenAudiences: sets.NewString("boo-srv"),
 		},
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -1316,9 +1294,6 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 				Ports:          buildContainerPorts(v1.DefaultUserPort),
-			}, {
-				Name:  sidecarContainerName,
-				Image: "ubuntu",
 			}}),
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -1331,9 +1306,6 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
-					c.Image = "ubuntu@sha256:deadbeef"
-				}),
 				queueContainer(func(container *corev1.Container) {
 					container.VolumeMounts = []corev1.VolumeMount{{
 						Name:      varTokenVolume.Name,
@@ -1341,7 +1313,7 @@ func TestMakePodSpec(t *testing.T) {
 					}}
 				}),
 			},
-			withAppendedTokenVolumes([]string{"boo-srv"}, []string{"boo-srv"}, []*int64{ptr.Int64(3600)}),
+			withAppendedTokenVolumes([]appendTokenVolume{{filename: "boo-srv", audience: "boo-srv", expires: 3600}}),
 		),
 	}, {
 		name: "qpoption rootca",
@@ -1354,9 +1326,6 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 				Ports:          buildContainerPorts(v1.DefaultUserPort),
-			}, {
-				Name:  sidecarContainerName,
-				Image: "ubuntu",
 			}}),
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -1368,9 +1337,6 @@ func TestMakePodSpec(t *testing.T) {
 			[]corev1.Container{
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
-				}),
-				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
-					c.Image = "ubuntu@sha256:deadbeef"
 				}),
 				queueContainer(
 					withEnvVar("ROOT_CA", `myCertificate`),
@@ -1388,9 +1354,6 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 				Ports:          buildContainerPorts(v1.DefaultUserPort),
-			}, {
-				Name:  sidecarContainerName,
-				Image: "ubuntu",
 			}}),
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -1403,9 +1366,6 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
-					c.Image = "ubuntu@sha256:deadbeef"
-				}),
 				queueContainer(func(container *corev1.Container) {
 					container.VolumeMounts = []corev1.VolumeMount{{
 						Name:      varTokenVolume.Name,
@@ -1416,7 +1376,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("CONCURRENCY_STATE_TOKEN_PATH", `/var/run/secrets/tokens/state-token`),
 				),
 			},
-			withAppendedTokenVolumes([]string{queue.ConcurrencyStateTokenFilename}, []string{concurrencyStateHook}, []*int64{ptr.Int64(600)}),
+			withAppendedTokenVolumes([]appendTokenVolume{{filename: queue.ConcurrencyStateTokenFilename, audience: concurrencyStateHook, expires: 600}}),
 		),
 	}}
 
