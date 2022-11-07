@@ -142,10 +142,8 @@ func main() {
 	multiScaler := scaling.NewMultiScaler(ctx.Done(),
 		uniScalerFactoryFunc(podLister, collector), logger)
 
-	controllers := []*controller.Impl{
-		kpa.NewController(ctx, cmw, multiScaler),
-		metric.NewController(ctx, cmw, collector),
-	}
+	kpaController := kpa.NewController(ctx, cmw, multiScaler)
+	metricController := metric.NewController(ctx, cmw, collector)
 
 	// Start watching the configs.
 	if err := cmw.Start(ctx.Done()); err != nil {
@@ -157,6 +155,10 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
+	// Start controllers that don't perform leadership election.
+	go controller.StartAll(ctx, metricController)
+
+	// Add leadership election configuration to ctx
 	cc := componentConfigAndIP(ctx)
 
 	// accept is the func to call when this pod owns the Revision for this StatMessage.
@@ -187,7 +189,7 @@ func main() {
 
 	defer f.Cancel()
 
-	go controller.StartAll(ctx, controllers...)
+	go controller.StartAll(ctx, kpaController)
 
 	go func() {
 		for sm := range statsCh {
