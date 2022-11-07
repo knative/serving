@@ -1,10 +1,10 @@
-# Generated with "kubectl kustomize https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v0.5.0
+# Generated with "kubectl kustomize https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v0.5.1
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.5.0
+    gateway.networking.k8s.io/bundle-version: v0.5.1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: gatewayclasses.gateway.networking.k8s.io
@@ -323,7 +323,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.5.0
+    gateway.networking.k8s.io/bundle-version: v0.5.1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: gateways.gateway.networking.k8s.io
@@ -1186,7 +1186,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.5.0
+    gateway.networking.k8s.io/bundle-version: v0.5.1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: httproutes.gateway.networking.k8s.io
@@ -1415,7 +1415,7 @@ spec:
                                             pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                             type: string
                                           port:
-                                            description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. For other resources, destination port might be derived from the referent resource or this field.
+                                            description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. In this case, the port number is the service port number, not the target port. For other resources, destination port might be derived from the referent resource or this field.
                                             format: int32
                                             maximum: 65535
                                             minimum: 1
@@ -1447,7 +1447,7 @@ spec:
                                             maxLength: 1024
                                             type: string
                                           type:
-                                            description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
+                                            description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
                                             enum:
                                               - ReplaceFullPath
                                               - ReplacePrefixMatch
@@ -1462,21 +1462,21 @@ spec:
                                         minimum: 1
                                         type: integer
                                       scheme:
-                                        description: "Scheme is the scheme to be used in the value of the `Location` header in the response. When empty, the scheme of the request is used. \n Support: Extended \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
+                                        description: "Scheme is the scheme to be used in the value of the `Location` header in the response. When empty, the scheme of the request is used. \n Support: Extended \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
                                         enum:
                                           - http
                                           - https
                                         type: string
                                       statusCode:
                                         default: 302
-                                        description: "StatusCode is the HTTP status code to be used in response. \n Support: Core \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
+                                        description: "StatusCode is the HTTP status code to be used in response. \n Support: Core \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
                                         enum:
                                           - 301
                                           - 302
                                         type: integer
                                     type: object
                                   type:
-                                    description: "Type identifies the type of filter to apply. As with other API fields, types are classified into three conformance levels: \n - Core: Filter types and their corresponding configuration defined by   \"Support: Core\" in this package, e.g. \"RequestHeaderModifier\". All   implementations must support core filters. \n - Extended: Filter types and their corresponding configuration defined by   \"Support: Extended\" in this package, e.g. \"RequestMirror\". Implementers   are encouraged to support extended filters. \n - Custom: Filters that are defined and supported by specific vendors.   In the future, filters showing convergence in behavior across multiple   implementations will be considered for inclusion in extended or core   conformance levels. Filter-specific configuration for such filters   is specified using the ExtensionRef field. `Type` should be set to   \"ExtensionRef\" for custom filters. \n Implementers are encouraged to define custom implementation types to extend the core API with implementation-specific behavior. \n If a reference to a custom filter type cannot be resolved, the filter MUST NOT be skipped. Instead, requests that would have been processed by that filter MUST receive a HTTP error response. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n "
+                                    description: "Type identifies the type of filter to apply. As with other API fields, types are classified into three conformance levels: \n - Core: Filter types and their corresponding configuration defined by   \"Support: Core\" in this package, e.g. \"RequestHeaderModifier\". All   implementations must support core filters. \n - Extended: Filter types and their corresponding configuration defined by   \"Support: Extended\" in this package, e.g. \"RequestMirror\". Implementers   are encouraged to support extended filters. \n - Custom: Filters that are defined and supported by specific vendors.   In the future, filters showing convergence in behavior across multiple   implementations will be considered for inclusion in extended or core   conformance levels. Filter-specific configuration for such filters   is specified using the ExtensionRef field. `Type` should be set to   \"ExtensionRef\" for custom filters. \n Implementers are encouraged to define custom implementation types to extend the core API with implementation-specific behavior. \n If a reference to a custom filter type cannot be resolved, the filter MUST NOT be skipped. Instead, requests that would have been processed by that filter MUST receive a HTTP error response. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n "
                                     enum:
                                       - RequestHeaderModifier
                                       - RequestMirror
@@ -1505,7 +1505,7 @@ spec:
                                             maxLength: 1024
                                             type: string
                                           type:
-                                            description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
+                                            description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
                                             enum:
                                               - ReplaceFullPath
                                               - ReplacePrefixMatch
@@ -1544,7 +1544,7 @@ spec:
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                               type: string
                             port:
-                              description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. For other resources, destination port might be derived from the referent resource or this field.
+                              description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. In this case, the port number is the service port number, not the target port. For other resources, destination port might be derived from the referent resource or this field.
                               format: int32
                               maximum: 65535
                               minimum: 1
@@ -1681,7 +1681,7 @@ spec:
                                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                       type: string
                                     port:
-                                      description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. For other resources, destination port might be derived from the referent resource or this field.
+                                      description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. In this case, the port number is the service port number, not the target port. For other resources, destination port might be derived from the referent resource or this field.
                                       format: int32
                                       maximum: 65535
                                       minimum: 1
@@ -1713,7 +1713,7 @@ spec:
                                       maxLength: 1024
                                       type: string
                                     type:
-                                      description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
+                                      description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
                                       enum:
                                         - ReplaceFullPath
                                         - ReplacePrefixMatch
@@ -1728,21 +1728,21 @@ spec:
                                   minimum: 1
                                   type: integer
                                 scheme:
-                                  description: "Scheme is the scheme to be used in the value of the `Location` header in the response. When empty, the scheme of the request is used. \n Support: Extended \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
+                                  description: "Scheme is the scheme to be used in the value of the `Location` header in the response. When empty, the scheme of the request is used. \n Support: Extended \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
                                   enum:
                                     - http
                                     - https
                                   type: string
                                 statusCode:
                                   default: 302
-                                  description: "StatusCode is the HTTP status code to be used in response. \n Support: Core \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
+                                  description: "StatusCode is the HTTP status code to be used in response. \n Support: Core \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
                                   enum:
                                     - 301
                                     - 302
                                   type: integer
                               type: object
                             type:
-                              description: "Type identifies the type of filter to apply. As with other API fields, types are classified into three conformance levels: \n - Core: Filter types and their corresponding configuration defined by   \"Support: Core\" in this package, e.g. \"RequestHeaderModifier\". All   implementations must support core filters. \n - Extended: Filter types and their corresponding configuration defined by   \"Support: Extended\" in this package, e.g. \"RequestMirror\". Implementers   are encouraged to support extended filters. \n - Custom: Filters that are defined and supported by specific vendors.   In the future, filters showing convergence in behavior across multiple   implementations will be considered for inclusion in extended or core   conformance levels. Filter-specific configuration for such filters   is specified using the ExtensionRef field. `Type` should be set to   \"ExtensionRef\" for custom filters. \n Implementers are encouraged to define custom implementation types to extend the core API with implementation-specific behavior. \n If a reference to a custom filter type cannot be resolved, the filter MUST NOT be skipped. Instead, requests that would have been processed by that filter MUST receive a HTTP error response. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n "
+                              description: "Type identifies the type of filter to apply. As with other API fields, types are classified into three conformance levels: \n - Core: Filter types and their corresponding configuration defined by   \"Support: Core\" in this package, e.g. \"RequestHeaderModifier\". All   implementations must support core filters. \n - Extended: Filter types and their corresponding configuration defined by   \"Support: Extended\" in this package, e.g. \"RequestMirror\". Implementers   are encouraged to support extended filters. \n - Custom: Filters that are defined and supported by specific vendors.   In the future, filters showing convergence in behavior across multiple   implementations will be considered for inclusion in extended or core   conformance levels. Filter-specific configuration for such filters   is specified using the ExtensionRef field. `Type` should be set to   \"ExtensionRef\" for custom filters. \n Implementers are encouraged to define custom implementation types to extend the core API with implementation-specific behavior. \n If a reference to a custom filter type cannot be resolved, the filter MUST NOT be skipped. Instead, requests that would have been processed by that filter MUST receive a HTTP error response. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n "
                               enum:
                                 - RequestHeaderModifier
                                 - RequestMirror
@@ -1771,7 +1771,7 @@ spec:
                                       maxLength: 1024
                                       type: string
                                     type:
-                                      description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
+                                      description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
                                       enum:
                                         - ReplaceFullPath
                                         - ReplacePrefixMatch
@@ -2232,7 +2232,7 @@ spec:
                                             pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                             type: string
                                           port:
-                                            description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. For other resources, destination port might be derived from the referent resource or this field.
+                                            description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. In this case, the port number is the service port number, not the target port. For other resources, destination port might be derived from the referent resource or this field.
                                             format: int32
                                             maximum: 65535
                                             minimum: 1
@@ -2264,7 +2264,7 @@ spec:
                                             maxLength: 1024
                                             type: string
                                           type:
-                                            description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
+                                            description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
                                             enum:
                                               - ReplaceFullPath
                                               - ReplacePrefixMatch
@@ -2279,21 +2279,21 @@ spec:
                                         minimum: 1
                                         type: integer
                                       scheme:
-                                        description: "Scheme is the scheme to be used in the value of the `Location` header in the response. When empty, the scheme of the request is used. \n Support: Extended \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
+                                        description: "Scheme is the scheme to be used in the value of the `Location` header in the response. When empty, the scheme of the request is used. \n Support: Extended \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
                                         enum:
                                           - http
                                           - https
                                         type: string
                                       statusCode:
                                         default: 302
-                                        description: "StatusCode is the HTTP status code to be used in response. \n Support: Core \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
+                                        description: "StatusCode is the HTTP status code to be used in response. \n Support: Core \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
                                         enum:
                                           - 301
                                           - 302
                                         type: integer
                                     type: object
                                   type:
-                                    description: "Type identifies the type of filter to apply. As with other API fields, types are classified into three conformance levels: \n - Core: Filter types and their corresponding configuration defined by   \"Support: Core\" in this package, e.g. \"RequestHeaderModifier\". All   implementations must support core filters. \n - Extended: Filter types and their corresponding configuration defined by   \"Support: Extended\" in this package, e.g. \"RequestMirror\". Implementers   are encouraged to support extended filters. \n - Custom: Filters that are defined and supported by specific vendors.   In the future, filters showing convergence in behavior across multiple   implementations will be considered for inclusion in extended or core   conformance levels. Filter-specific configuration for such filters   is specified using the ExtensionRef field. `Type` should be set to   \"ExtensionRef\" for custom filters. \n Implementers are encouraged to define custom implementation types to extend the core API with implementation-specific behavior. \n If a reference to a custom filter type cannot be resolved, the filter MUST NOT be skipped. Instead, requests that would have been processed by that filter MUST receive a HTTP error response. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n "
+                                    description: "Type identifies the type of filter to apply. As with other API fields, types are classified into three conformance levels: \n - Core: Filter types and their corresponding configuration defined by   \"Support: Core\" in this package, e.g. \"RequestHeaderModifier\". All   implementations must support core filters. \n - Extended: Filter types and their corresponding configuration defined by   \"Support: Extended\" in this package, e.g. \"RequestMirror\". Implementers   are encouraged to support extended filters. \n - Custom: Filters that are defined and supported by specific vendors.   In the future, filters showing convergence in behavior across multiple   implementations will be considered for inclusion in extended or core   conformance levels. Filter-specific configuration for such filters   is specified using the ExtensionRef field. `Type` should be set to   \"ExtensionRef\" for custom filters. \n Implementers are encouraged to define custom implementation types to extend the core API with implementation-specific behavior. \n If a reference to a custom filter type cannot be resolved, the filter MUST NOT be skipped. Instead, requests that would have been processed by that filter MUST receive a HTTP error response. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n "
                                     enum:
                                       - RequestHeaderModifier
                                       - RequestMirror
@@ -2322,7 +2322,7 @@ spec:
                                             maxLength: 1024
                                             type: string
                                           type:
-                                            description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
+                                            description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
                                             enum:
                                               - ReplaceFullPath
                                               - ReplacePrefixMatch
@@ -2361,7 +2361,7 @@ spec:
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                               type: string
                             port:
-                              description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. For other resources, destination port might be derived from the referent resource or this field.
+                              description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. In this case, the port number is the service port number, not the target port. For other resources, destination port might be derived from the referent resource or this field.
                               format: int32
                               maximum: 65535
                               minimum: 1
@@ -2498,7 +2498,7 @@ spec:
                                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                       type: string
                                     port:
-                                      description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. For other resources, destination port might be derived from the referent resource or this field.
+                                      description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. In this case, the port number is the service port number, not the target port. For other resources, destination port might be derived from the referent resource or this field.
                                       format: int32
                                       maximum: 65535
                                       minimum: 1
@@ -2530,7 +2530,7 @@ spec:
                                       maxLength: 1024
                                       type: string
                                     type:
-                                      description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
+                                      description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
                                       enum:
                                         - ReplaceFullPath
                                         - ReplacePrefixMatch
@@ -2545,21 +2545,21 @@ spec:
                                   minimum: 1
                                   type: integer
                                 scheme:
-                                  description: "Scheme is the scheme to be used in the value of the `Location` header in the response. When empty, the scheme of the request is used. \n Support: Extended \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
+                                  description: "Scheme is the scheme to be used in the value of the `Location` header in the response. When empty, the scheme of the request is used. \n Support: Extended \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
                                   enum:
                                     - http
                                     - https
                                   type: string
                                 statusCode:
                                   default: 302
-                                  description: "StatusCode is the HTTP status code to be used in response. \n Support: Core \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
+                                  description: "StatusCode is the HTTP status code to be used in response. \n Support: Core \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`."
                                   enum:
                                     - 301
                                     - 302
                                   type: integer
                               type: object
                             type:
-                              description: "Type identifies the type of filter to apply. As with other API fields, types are classified into three conformance levels: \n - Core: Filter types and their corresponding configuration defined by   \"Support: Core\" in this package, e.g. \"RequestHeaderModifier\". All   implementations must support core filters. \n - Extended: Filter types and their corresponding configuration defined by   \"Support: Extended\" in this package, e.g. \"RequestMirror\". Implementers   are encouraged to support extended filters. \n - Custom: Filters that are defined and supported by specific vendors.   In the future, filters showing convergence in behavior across multiple   implementations will be considered for inclusion in extended or core   conformance levels. Filter-specific configuration for such filters   is specified using the ExtensionRef field. `Type` should be set to   \"ExtensionRef\" for custom filters. \n Implementers are encouraged to define custom implementation types to extend the core API with implementation-specific behavior. \n If a reference to a custom filter type cannot be resolved, the filter MUST NOT be skipped. Instead, requests that would have been processed by that filter MUST receive a HTTP error response. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n "
+                              description: "Type identifies the type of filter to apply. As with other API fields, types are classified into three conformance levels: \n - Core: Filter types and their corresponding configuration defined by   \"Support: Core\" in this package, e.g. \"RequestHeaderModifier\". All   implementations must support core filters. \n - Extended: Filter types and their corresponding configuration defined by   \"Support: Extended\" in this package, e.g. \"RequestMirror\". Implementers   are encouraged to support extended filters. \n - Custom: Filters that are defined and supported by specific vendors.   In the future, filters showing convergence in behavior across multiple   implementations will be considered for inclusion in extended or core   conformance levels. Filter-specific configuration for such filters   is specified using the ExtensionRef field. `Type` should be set to   \"ExtensionRef\" for custom filters. \n Implementers are encouraged to define custom implementation types to extend the core API with implementation-specific behavior. \n If a reference to a custom filter type cannot be resolved, the filter MUST NOT be skipped. Instead, requests that would have been processed by that filter MUST receive a HTTP error response. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n "
                               enum:
                                 - RequestHeaderModifier
                                 - RequestMirror
@@ -2588,7 +2588,7 @@ spec:
                                       maxLength: 1024
                                       type: string
                                     type:
-                                      description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Attached Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
+                                      description: "Type defines the type of path modifier. Additional types may be added in a future release of the API. \n Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. \n Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. \n <gateway:experimental>"
                                       enum:
                                         - ReplaceFullPath
                                         - ReplacePrefixMatch
@@ -2847,7 +2847,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.5.0
+    gateway.networking.k8s.io/bundle-version: v0.5.1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: referencegrants.gateway.networking.k8s.io
@@ -2962,7 +2962,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.5.0
+    gateway.networking.k8s.io/bundle-version: v0.5.1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: referencepolicies.gateway.networking.k8s.io
@@ -3079,7 +3079,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.5.0
+    gateway.networking.k8s.io/bundle-version: v0.5.1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: tcproutes.gateway.networking.k8s.io
@@ -3195,7 +3195,7 @@ spec:
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                               type: string
                             port:
-                              description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. For other resources, destination port might be derived from the referent resource or this field.
+                              description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. In this case, the port number is the service port number, not the target port. For other resources, destination port might be derived from the referent resource or this field.
                               format: int32
                               maximum: 65535
                               minimum: 1
@@ -3353,7 +3353,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.5.0
+    gateway.networking.k8s.io/bundle-version: v0.5.1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: tlsroutes.gateway.networking.k8s.io
@@ -3479,7 +3479,7 @@ spec:
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                               type: string
                             port:
-                              description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. For other resources, destination port might be derived from the referent resource or this field.
+                              description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. In this case, the port number is the service port number, not the target port. For other resources, destination port might be derived from the referent resource or this field.
                               format: int32
                               maximum: 65535
                               minimum: 1
@@ -3637,7 +3637,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.5.0
+    gateway.networking.k8s.io/bundle-version: v0.5.1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: udproutes.gateway.networking.k8s.io
@@ -3753,7 +3753,7 @@ spec:
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                               type: string
                             port:
-                              description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. For other resources, destination port might be derived from the referent resource or this field.
+                              description: Port specifies the destination port number to use for this resource. Port is required when the referent is a Kubernetes Service. In this case, the port number is the service port number, not the target port. For other resources, destination port might be derived from the referent resource or this field.
                               format: int32
                               maximum: 65535
                               minimum: 1
@@ -3911,7 +3911,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.5.0
+    gateway.networking.k8s.io/bundle-version: v0.5.1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: referencepolicies.gateway.networking.k8s.io
@@ -4046,7 +4046,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20221027-9d33f705"
+    app.kubernetes.io/version: "20221107-c39f7d4a"
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
@@ -4062,7 +4062,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20221027-9d33f705"
+    app.kubernetes.io/version: "20221107-c39f7d4a"
 rules:
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["httproutes", "referencegrants", "referencepolicies"]
@@ -4095,7 +4095,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20221027-9d33f705"
+    app.kubernetes.io/version: "20221107-c39f7d4a"
 data:
   _example: |
     ################################
@@ -4149,7 +4149,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
-    app.kubernetes.io/version: "20221027-9d33f705"
+    app.kubernetes.io/version: "20221107-c39f7d4a"
     app.kubernetes.io/name: knative-serving
 spec:
   replicas: 1
@@ -4176,7 +4176,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:af7a87ff70e161a5a010d3c288004a0f772f3ac4666f60d3fd640a037be6de02
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:f5b5f292157988897a068bf60a0a7130d38495a450633e10fc2131680509c636
           resources:
             requests:
               cpu: 100m

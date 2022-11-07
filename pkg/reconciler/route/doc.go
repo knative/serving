@@ -15,9 +15,7 @@ limitations under the License.
 */
 
 /*
-
 Package route implements a kubernetes controller which tracks Route resource
 and reconcile Ingress as its child resource.
-
 */
 package route
