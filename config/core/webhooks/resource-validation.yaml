@@ -33,22 +33,109 @@ webhooks:
   rules:
   - apiGroups:
     - autoscaling.internal.knative.dev
-    - networking.internal.knative.dev
-    - serving.knative.dev
     apiVersions:
-    - "*"
+    - v1alpha1
     operations:
     - CREATE
     - UPDATE
     - DELETE
-    scope: "*"
     resources:
     - metrics
+    - metrics/status
+    scope: '*'
+  - apiGroups:
+    - autoscaling.internal.knative.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
     - podautoscalers
+    - podautoscalers/status
+    scope: '*'
+  - apiGroups:
+    - networking.internal.knative.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
     - certificates
+    - certificates/status
+    scope: '*'
+  - apiGroups:
+    - networking.internal.knative.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
     - ingresses
+    - ingresses/status
+    scope: '*'
+  - apiGroups:
+    - networking.internal.knative.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
     - serverlessservices
+    - serverlessservices/status
+    scope: '*'
+  - apiGroups:
+    - serving.knative.dev
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
     - configurations
+    - configurations/status
+    scope: '*'
+  - apiGroups:
+    - serving.knative.dev
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
     - revisions
+    - revisions/status
+    scope: '*'
+  - apiGroups:
+    - serving.knative.dev
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
     - routes
+    - routes/status
+    scope: '*'
+  - apiGroups:
+    - serving.knative.dev
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
     - services
+    - services/status
+    scope: '*'

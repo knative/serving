@@ -33,21 +33,100 @@ webhooks:
   rules:
   - apiGroups:
     - autoscaling.internal.knative.dev
-    - networking.internal.knative.dev
-    - serving.knative.dev
     apiVersions:
-    - "*"
+    - v1alpha1
     operations:
     - CREATE
     - UPDATE
-    scope: "*"
     resources:
     - metrics
+    - metrics/status
+    scope: '*'
+  - apiGroups:
+    - autoscaling.internal.knative.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
     - podautoscalers
+    - podautoscalers/status
+    scope: '*'
+  - apiGroups:
+    - networking.internal.knative.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
     - certificates
+    - certificates/status
+    scope: '*'
+  - apiGroups:
+    - networking.internal.knative.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
     - ingresses
+    - ingresses/status
+    scope: '*'
+  - apiGroups:
+    - networking.internal.knative.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
     - serverlessservices
+    - serverlessservices/status
+    scope: '*'
+  - apiGroups:
+    - serving.knative.dev
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
     - configurations
+    - configurations/status
+    scope: '*'
+  - apiGroups:
+    - serving.knative.dev
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
     - revisions
+    - revisions/status
+    scope: '*'
+  - apiGroups:
+    - serving.knative.dev
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
     - routes
+    - routes/status
+    scope: '*'
+  - apiGroups:
+    - serving.knative.dev
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
     - services
+    - services/status
+    scope: '*'
