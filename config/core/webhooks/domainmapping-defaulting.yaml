@@ -30,15 +30,3 @@ webhooks:
   sideEffects: None
   name: webhook.domainmapping.serving.knative.dev
   timeoutSeconds: 10
-  rules:
-  - apiGroups:
-    - serving.knative.dev
-    apiVersions:
-    - "*"
-    operations:
-    - CREATE
-    - UPDATE
-    scope: "*"
-    resources:
-    - domainmappings
-    - domainmappings/status

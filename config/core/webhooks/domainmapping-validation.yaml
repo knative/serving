@@ -30,16 +30,3 @@ webhooks:
   sideEffects: None
   name: validation.webhook.domainmapping.serving.knative.dev
   timeoutSeconds: 10
-  rules:
-  - apiGroups:
-    - serving.knative.dev
-    apiVersions:
-    - "*"
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    scope: "*"
-    resources:
-    - domainmappings
-    - domainmappings/status
