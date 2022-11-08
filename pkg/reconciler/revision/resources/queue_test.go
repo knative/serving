@@ -384,6 +384,18 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
+		name: "set root ca",
+		rev: revision("bar", "foo",
+			withContainers(containers)),
+		dc: deployment.Config{
+			QueueSidecarRootCA: "xyz",
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"ROOT_CA": "xyz",
+			})
+		}),
+	}, {
 		name: "HTTP2 autodetection disabled",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
@@ -932,6 +944,7 @@ var defaultEnv = map[string]string{
 	"TRACING_CONFIG_SAMPLE_RATE":              "0",
 	"TRACING_CONFIG_ZIPKIN_ENDPOINT":          "",
 	"USER_PORT":                               strconv.Itoa(v1.DefaultUserPort),
+	"ROOT_CA":                                 "",
 }
 
 func probeJSON(container *corev1.Container) string {
