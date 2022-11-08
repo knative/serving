@@ -88,7 +88,8 @@ func defaultConfig() *Config {
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 		ConcurrencyStateEndpoint:       "",
 	}
-        // The following code is needed for ConfigMap testing forcing defaultConfig to match the example which includes: `queue-sidecar-token-audiences: ""`
+        // The following code is needed for ConfigMap testing.
+        // defaultConfig must match the example in deployment.yaml which includes: `queue-sidecar-token-audiences: ""`
         if cfg.QueueSidecarTokenAudiences == nil {
 		cfg.QueueSidecarTokenAudiences = sets.NewString("")
 	}
