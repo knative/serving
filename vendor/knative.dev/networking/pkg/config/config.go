@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"strings"
 	"text/template"
@@ -418,7 +418,7 @@ func checkTagTemplate(t *template.Template) error {
 		Name: "foo",
 		Tag:  "v2",
 	}
-	return t.Execute(ioutil.Discard, data)
+	return t.Execute(io.Discard, data)
 }
 
 // asLabelSelector returns a LabelSelector extracted from a given configmap key.
