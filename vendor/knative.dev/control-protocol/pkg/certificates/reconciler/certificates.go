@@ -33,8 +33,6 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 
-	reconcilersecret "knative.dev/pkg/client/injection/kube/reconciler/core/v1/secret"
-
 	"knative.dev/control-protocol/pkg/certificates"
 )
 
@@ -59,7 +57,7 @@ type reconciler struct {
 }
 
 // Check that our Reconciler implements Interface
-var _ reconcilersecret.Interface = (*reconciler)(nil)
+var _ Interface = (*reconciler)(nil)
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) pkgreconciler.Event {

@@ -19,7 +19,7 @@ package prober
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -110,7 +110,7 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 		return false, fmt.Errorf("error roundtripping %s: %w", target, err)
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false, fmt.Errorf("error reading body: %w", err)
 	}

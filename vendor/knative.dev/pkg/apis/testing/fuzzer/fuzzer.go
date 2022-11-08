@@ -54,16 +54,16 @@ var Funcs = fuzzer.MergeFuzzerFuncs(
 // Consumers should initialize their conditions prior to fuzzing them.
 // For example:
 //
-// func(s *SomeStatus, c fuzz.Continue) {
-//   c.FuzzNoCustom(s) // fuzz the status object
+//	func(s *SomeStatus, c fuzz.Continue) {
+//	  c.FuzzNoCustom(s) // fuzz the status object
 //
-//   // Clear the random fuzzed condition
-//   s.Status.SetConditions(nil)
+//	  // Clear the random fuzzed condition
+//	  s.Status.SetConditions(nil)
 //
-//   // Fuzz the known conditions except their type value
-//   s.InitializeConditions()
-//   fuzz.Conditions(&s.Status, c)
-// }
+//	  // Fuzz the known conditions except their type value
+//	  s.InitializeConditions()
+//	  fuzz.Conditions(&s.Status, c)
+//	}
 func FuzzConditions(accessor apis.ConditionsAccessor, c fuzz.Continue) {
 	conds := accessor.GetConditions()
 	for i, cond := range conds {
