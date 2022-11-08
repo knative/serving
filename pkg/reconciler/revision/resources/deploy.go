@@ -185,12 +185,12 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		addToken(tokenVolume, queue.ConcurrencyStateTokenFilename, concurrencyStateHook, ptr.Int64(600))
 	}
 
-	audiances := make([]string, 0, len(cfg.Deployment.QueueSidecarTokenAudiences))
+	audiences := make([]string, 0, len(cfg.Deployment.QueueSidecarTokenAudiences))
 	for k := range cfg.Deployment.QueueSidecarTokenAudiences {
-		audiances = append(audiances, k)
+		audiences = append(audiences, k)
 	}
-	sort.Strings(audiances)
-	for _, aud := range audiances {
+	sort.Strings(audiences)
+	for _, aud := range audiences {
 		// add token for audience <aud> under filename <aud>
 		addToken(tokenVolume, aud, aud, ptr.Int64(3600))
 	}
