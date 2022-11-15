@@ -98,7 +98,7 @@ RELEASE_NOTES=""
 RELEASE_BRANCH=""
 RELEASE_GCS_BUCKET="knative-nightly/${REPO_NAME}"
 RELEASE_DIR=""
-KO_FLAGS="-P --platform=all --image-refs=imagerefs.txt"
+KO_FLAGS="-P --platform=all"
 VALIDATION_TESTS="./test/presubmit-tests.sh"
 ARTIFACTS_TO_PUBLISH=""
 FROM_NIGHTLY_RELEASE=""
@@ -312,8 +312,22 @@ function build_from_source() {
   sign_release || abort "error signing the release"
 }
 
+function get_images_in_yamls() {
+  rm -rf imagerefs.txt
+  echo "Assembling a list of image refences to sign"
+  for file in $@; do
+    [[ "${file##*.}" != "yaml" ]] && continue
+    echo "Inspecting ${file}"
+    for image in $(grep -oh "\S*${KO_DOCKER_REPO}\S*" "${file}"); do
+      echo $image >> imagerefs.txt
+    done
+  done
+  sort -uo imagerefs.txt imagerefs.txt # Remove duplicate entries
+}
+
 # Build a release from source.
 function sign_release() {
+  get_images_in_yamls "${ARTIFACTS_TO_PUBLISH}"
   if (( ! IS_PROW )); then # This function can't be run by devs on their laptops
     return 0
   fi
