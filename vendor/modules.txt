@@ -1241,7 +1241,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 ## explicit; go 1.18
 knative.dev/control-protocol/pkg/certificates
 knative.dev/control-protocol/pkg/certificates/reconciler
-# knative.dev/hack v0.0.0-20221104013908-8f3c7050408b
+# knative.dev/hack v0.0.0-20221104013908-8f3c7050408b => github.com/dprotaso/knative-hack v0.0.0-20221115020730-7c182c932b3d
 ## explicit; go 1.18
 knative.dev/hack
 knative.dev/hack/shell
@@ -1417,3 +1417,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
+# knative.dev/hack => github.com/dprotaso/knative-hack v0.0.0-20221115020730-7c182c932b3d

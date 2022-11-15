@@ -2,6 +2,8 @@ module knative.dev/serving
 
 go 1.18
 
+replace knative.dev/hack => github.com/dprotaso/knative-hack v0.0.0-20221115020730-7c182c932b3d
+
 require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210609063737-0067dc6dcea2
 	github.com/davecgh/go-spew v1.1.1

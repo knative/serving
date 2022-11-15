@@ -274,6 +274,8 @@ github.com/docker/docker-credential-helpers v0.6.3/go.mod h1:WRaJzqw3CTB9bk10avu
 github.com/docker/docker-credential-helpers v0.6.4 h1:axCks+yV+2MR3/kZhAmy07yC56WZ2Pwu/fKWtKuZB0o=
 github.com/docker/docker-credential-helpers v0.6.4/go.mod h1:ofX3UI0Gz1TteYBjtgs07O36Pyasyp66D2uKT7H8W1c=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
+github.com/dprotaso/knative-hack v0.0.0-20221115020730-7c182c932b3d h1:Bdma7UpaDEkrQBLuUy37mNIa81PP4lV56Q2NE3sh8O8=
+github.com/dprotaso/knative-hack v0.0.0-20221115020730-7c182c932b3d/go.mod h1:yk2OjGDsbEnQjfxdm0/HJKS2WqTLEFg/N6nUs6Rqx3Q=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/eapache/go-resiliency v1.1.0/go.mod h1:kFI+JgMyC7bLPUVY133qvEBtVayf5mFgVsvEsIPBvNs=
@@ -1663,8 +1665,6 @@ knative.dev/caching v0.0.0-20221104144007-30a02f944313 h1:2/H2s6XshbAPqgZt/dTHxB
 knative.dev/caching v0.0.0-20221104144007-30a02f944313/go.mod h1:jR0Himaz8BICrpzYmgkBj8POMU56mk2oVfAGEi4f6K4=
 knative.dev/control-protocol v0.0.0-20221107200116-1b58fafda5dc h1:FgzMNja/cjsQcFcOmbprzX2x/2Me/jl1s0eCxgEx08E=
 knative.dev/control-protocol v0.0.0-20221107200116-1b58fafda5dc/go.mod h1:haD8MbHeIzQNTNxHTVeaXR/qE+ZrsQWs9dKz8a4qRIU=
-knative.dev/hack v0.0.0-20221104013908-8f3c7050408b h1:EqqlOqjCy/hVexdmPpUjcplO2eZc12+jTdTpodfLaI4=
-knative.dev/hack v0.0.0-20221104013908-8f3c7050408b/go.mod h1:yk2OjGDsbEnQjfxdm0/HJKS2WqTLEFg/N6nUs6Rqx3Q=
 knative.dev/networking v0.0.0-20221104155004-0d4e93709170 h1:/DP0jHUGFJcF20BH4waFLz/W/RBMH4f7wQpf12t0eDI=
 knative.dev/networking v0.0.0-20221104155004-0d4e93709170/go.mod h1:qwWlbknoGTz/NV+MKB7Hb2nMjwI5zfum3KLLSl2QUMc=
 knative.dev/pkg v0.0.0-20221107171117-0243d641354d h1:ACj/4O74QvoB8zE/mlg1ji680gFW7RaUIjAL1x5IN58=
