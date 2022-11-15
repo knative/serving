@@ -647,7 +647,7 @@ function add_trap {
     local current_trap
     current_trap="$(trap -p "$trap_signal" | cut -d\' -f2)"
     local new_cmd="($cmd)"
-    [[ -n "${current_trap}" ]] && new_cmd="${current_trap};${new_cmd}"
+    [[ -n "${current_trap}" ]] && new_cmd="${new_cmd};${current_trap}"
     trap -- "${new_cmd}" "$trap_signal"
   done
 }
