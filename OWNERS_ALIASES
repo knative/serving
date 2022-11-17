@@ -77,9 +77,7 @@ aliases:
   - knative-test-reporter-robot
   - kvmware
   - lance
-  - lionelvillard
   - mchmarny
-  - nak3
   - pmorie
   - psschwei
   - smoser-ibm
@@ -88,8 +86,8 @@ aliases:
   - vaikas
   - zroubalik
   knative-release-leads:
-  - lionelvillard
-  - nak3
+  - evankanderson
+  - psschwei
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
