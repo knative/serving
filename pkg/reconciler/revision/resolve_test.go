@@ -534,6 +534,7 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 				t.Error("Didn't get an error when we wanted it")
 			} else if err == nil {
 				// If we didn't get an error, make sure everything we wanted to happen happened.
+				// nolint:staticcheck
 				subjects := tr.TLSClientConfig.RootCAs.Subjects()
 
 				if !containsSubject(t, subjects, tc.certBundleContents) {

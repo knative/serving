@@ -192,6 +192,8 @@ func main() {
 	h := netprobe.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
+
+	// nolint:gosec
 	server := http.Server{Addr: ":8080", Handler: h}
 	go server.ListenAndServe()
 

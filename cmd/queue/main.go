@@ -403,6 +403,7 @@ func buildAdminServer(logger *zap.SugaredLogger, drain func()) *http.Server {
 		drain()
 	})
 
+	// nolint:gosec
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.QueueAdminPort),
 		Handler: adminMux,
@@ -412,6 +413,7 @@ func buildAdminServer(logger *zap.SugaredLogger, drain func()) *http.Server {
 func buildMetricsServer(protobufStatReporter *queue.ProtobufStatsReporter) *http.Server {
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", queue.NewStatsHandler(protobufStatReporter))
+	//nolint:gosec
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
 		Handler: metricsMux,
