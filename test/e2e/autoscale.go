@@ -380,9 +380,9 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 
 // AssertAutoscaleUpToNumPods asserts the number of pods gets scaled to targetPods.
 // It supports two test modes: quick, and not quick.
-// 1) Quick mode: succeeds when the number of pods meets targetPods.
-// 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
-//    sustains there until the `done` channel sends a signal.
+//  1. Quick mode: succeeds when the number of pods meets targetPods.
+//  2. Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
+//     sustains there until the `done` channel sends a signal.
 func AssertAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-chan time.Time, quick bool) {
 	ctx.t.Helper()
 	wait := AutoscaleUpToNumPods(ctx, curPods, targetPods, done, quick)
