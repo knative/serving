@@ -512,7 +512,7 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 		// Fails with invalid cert for path.
 		name:               "invalid cert",
 		certBundle:         "invalid-cert.crt",
-		certBundleContents: []byte("this will not parse"),
+		certBundleContents: nil,
 		wantErr:            true,
 	}}
 
@@ -533,7 +533,9 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 			} else if tc.wantErr && err == nil {
 				t.Error("Didn't get an error when we wanted it")
 			} else if err == nil {
+
 				// If we didn't get an error, make sure everything we wanted to happen happened.
+				//nolint:staticcheck // ignore deprecation since we're not asserting system roots
 				subjects := tr.TLSClientConfig.RootCAs.Subjects()
 
 				if !containsSubject(t, subjects, tc.certBundleContents) {
