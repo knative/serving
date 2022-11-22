@@ -40,7 +40,8 @@ import (
 )
 
 // TestServiceCreateListAndDelete tests Creation, Listing and Deletion for Service resources.
-//   This test doesn't validate the Data Plane, it is just to check the Control Plane resources and their APIs
+//
+//	This test doesn't validate the Data Plane, it is just to check the Control Plane resources and their APIs
 func TestServiceCreateListAndDelete(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
@@ -90,10 +91,10 @@ func TestServiceCreateListAndDelete(t *testing.T) {
 // TestServiceCreateAndUpdate tests both Creation and Update paths for a service. The test performs a series of Update/Validate steps to ensure that
 // the service transitions as expected during each step.
 // Currently the test performs the following updates:
-// 1. Update Container Image
-// 2. Update Metadata
-//    a. Update Labels
-//    b. Update Annotations
+//  1. Update Container Image
+//  2. Update Metadata
+//     a. Update Labels
+//     b. Update Annotations
 func TestServiceCreateAndUpdate(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
