@@ -153,8 +153,9 @@ func TestProbeRuntime(t *testing.T) {
 // startup. When a pod goes unready after startup and there are no other pods
 // in the revision, then there are two possible behaviors:
 //  1. When the Activator is present we hang, potentially forever, which may or
-//    may not be what a user wants.
+//     may not be what a user wants.
 //  2. When the Activator is not present, we see a 5xx.
+//
 // The goal of this test is largely to describe the current behaviour, so that
 // we can confidently change it.
 // See https://github.com/knative/serving/issues/10765.

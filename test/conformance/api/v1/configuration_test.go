@@ -32,7 +32,8 @@ import (
 )
 
 // TestConfigurationGetAndList tests Getting and Listing Configurations resources.
-//   This test doesn't validate the Data Plane, it is just to check the APIs for conformance
+//
+//	This test doesn't validate the Data Plane, it is just to check the APIs for conformance
 func TestConfigurationGetAndList(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
