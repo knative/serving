@@ -65,6 +65,7 @@ func New(statsServerAddr string, statsCh chan<- metrics.StatMessage, logger *zap
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", svr.Handler)
+	//nolint:gosec
 	svr.wsSrv = http.Server{
 		Addr:      statsServerAddr,
 		Handler:   mux,
