@@ -26,13 +26,15 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/system"
+	pkgtest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/networking"
+	revnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -227,6 +229,38 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(ctx); err != nil {
 		t.Fatal("Never got Activator endpoints in the service:", err)
+	}
+}
+
+// Explicitly setting this should cause the revision to scale down after ~10s
+func TestTargetBurstCapacityZero(t *testing.T) {
+	t.Parallel()
+
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "0",
+			autoscaling.WindowAnnotationKey:    "10s", // scale faster
+		}))
+
+	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
+
+	deploymentName := revnames.Deployment(ctx.resources.Revision)
+
+	t.Log("waiting for scale down")
+	err := pkgtest.WaitForDeploymentState(
+		context.Background(),
+		ctx.Clients().KubeClient,
+		deploymentName,
+		func(d *appsv1.Deployment) (bool, error) {
+			return d.Status.ReadyReplicas == 0, nil
+		},
+		"DeploymentIsScaledDown",
+		test.ServingFlags.TestNamespace,
+		time.Minute,
+	)
+
+	if err != nil {
+		t.Error(err)
 	}
 }
 

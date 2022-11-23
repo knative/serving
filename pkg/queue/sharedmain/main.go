@@ -398,7 +398,7 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 	drainer := &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
-		HealthCheckUAPrefixes: []string{netheader.ActivatorUserAgent},
+		HealthCheckUAPrefixes: []string{netheader.ActivatorUserAgent, netheader.AutoscalingUserAgent},
 		Inner:                 composedHandler,
 		HealthCheck:           health.ProbeHandler(probeContainer, tracingEnabled),
 	}
