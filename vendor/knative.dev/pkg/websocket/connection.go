@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http/httputil"
 	"sync"
 	"time"
@@ -302,7 +301,7 @@ func (c *ManagedConnection) read() error {
 	// and if that channel is set.
 	// TODO(markusthoemmes): Return the messageType along with the payload.
 	if c.messageChan != nil && (messageType == websocket.TextMessage || messageType == websocket.BinaryMessage) {
-		if message, _ := ioutil.ReadAll(reader); message != nil {
+		if message, _ := io.ReadAll(reader); message != nil {
 			c.messageChan <- message
 		}
 	}
