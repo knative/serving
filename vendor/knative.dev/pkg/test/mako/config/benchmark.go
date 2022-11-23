@@ -18,7 +18,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -49,7 +48,7 @@ func getBenchmark() (*mpb.BenchmarkInfo, error) {
 	// Read the Mako config file for this environment.
 	data, koerr := readFileFromKoData(env + ".config")
 	if koerr != nil {
-		data, err = ioutil.ReadFile(filepath.Join(configMako, env+".config"))
+		data, err = os.ReadFile(filepath.Join(configMako, env+".config"))
 		if err != nil {
 			//nolint: errorlint // It's fine not to wrap here.
 			return nil, fmt.Errorf("cannot load both from kodata and from config mako config map: %s, %s", koerr.Error(), err.Error())
@@ -72,5 +71,5 @@ func readFileFromKoData(name string) ([]byte, error) {
 		return nil, fmt.Errorf("%q does not exist or is empty", koDataPathEnvName)
 	}
 	fullFilename := filepath.Join(koDataPath, name)
-	return ioutil.ReadFile(fullFilename)
+	return os.ReadFile(fullFilename)
 }
