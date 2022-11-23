@@ -49,9 +49,11 @@ func (g graph) order() []string {
 }
 
 // path constructs an examplary path that looks something like:
-//    knative.dev/pkg/apis/duck
-//    knative.dev/pkg/apis  # Also: [knative.dev/pkg/kmeta knative.dev/pkg/tracker]
-//    k8s.io/api/core/v1
+//
+//	knative.dev/pkg/apis/duck
+//	knative.dev/pkg/apis  # Also: [knative.dev/pkg/kmeta knative.dev/pkg/tracker]
+//	k8s.io/api/core/v1
+//
 // See the failing example in the test file.
 func (g graph) path(name string) []string {
 	n := g[name]
