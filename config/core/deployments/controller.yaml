@@ -86,8 +86,6 @@ spec:
           capabilities:
             drop:
             - ALL
-          seccompProfile:
-            type: RuntimeDefault
 
         ports:
         - name: metrics
