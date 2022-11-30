@@ -1,4 +1,23 @@
-# Generated with "kubectl kustomize https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v0.5.1
+# Copyright 2022 The Kubernetes Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#
+# Gateway API Experimental channel install
+#
+#
+# config/crd/experimental/gateway.networking.k8s.io_gatewayclasses.yaml
+#
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -318,6 +337,9 @@ status:
   conditions: []
   storedVersions: []
 ---
+#
+# config/crd/experimental/gateway.networking.k8s.io_gateways.yaml
+#
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -1181,6 +1203,9 @@ status:
   conditions: []
   storedVersions: []
 ---
+#
+# config/crd/experimental/gateway.networking.k8s.io_httproutes.yaml
+#
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -2842,6 +2867,9 @@ status:
   conditions: []
   storedVersions: []
 ---
+#
+# config/crd/experimental/gateway.networking.k8s.io_referencegrants.yaml
+#
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -2957,6 +2985,9 @@ status:
   conditions: []
   storedVersions: []
 ---
+#
+# config/crd/experimental/gateway.networking.k8s.io_referencepolicies.yaml
+#
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -3074,6 +3105,9 @@ status:
   conditions: []
   storedVersions: []
 ---
+#
+# config/crd/experimental/gateway.networking.k8s.io_tcproutes.yaml
+#
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -3348,6 +3382,9 @@ status:
   conditions: []
   storedVersions: []
 ---
+#
+# config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+#
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -3632,6 +3669,9 @@ status:
   conditions: []
   storedVersions: []
 ---
+#
+# config/crd/experimental/gateway.networking.k8s.io_udproutes.yaml
+#
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -3906,122 +3946,252 @@ status:
   conditions: []
   storedVersions: []
 ---
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
+#
+# config/webhook/0-namespace.yaml
+#
+apiVersion: v1
+kind: Namespace
 metadata:
-  annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.5.1
-    gateway.networking.k8s.io/channel: experimental
-  creationTimestamp: null
-  name: referencepolicies.gateway.networking.k8s.io
+  name: gateway-system
+---
+#
+# config/webhook/admission_webhook.yaml
+#
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: gateway-api-admission
+webhooks:
+  - name: validate.gateway.networking.k8s.io
+    matchPolicy: Equivalent
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["gateway.networking.k8s.io"]
+        apiVersions: ["v1alpha2", "v1beta1"]
+        resources: ["gateways", "gatewayclasses", "httproutes"]
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: gateway-api-admission-server
+        namespace: gateway-system
+        path: "/validate"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: gateway-api-webhook-server
+  name: gateway-api-admission-server
+  namespace: gateway-system
 spec:
-  group: gateway.networking.k8s.io
-  names:
-    categories:
-      - gateway-api
-    kind: ReferencePolicy
-    listKind: ReferencePolicyList
-    plural: referencepolicies
-    shortNames:
-      - refpol
-    singular: referencepolicy
-  scope: Namespaced
-  versions:
-    - additionalPrinterColumns:
-        - jsonPath: .metadata.creationTimestamp
-          name: Age
-          type: date
-      deprecated: true
-      deprecationWarning: ReferencePolicy has been renamed to ReferenceGrant. ReferencePolicy will be removed in v0.6.0 in favor of the identical ReferenceGrant resource.
-      name: v1alpha2
-      schema:
-        openAPIV3Schema:
-          description: "ReferencePolicy identifies kinds of resources in other namespaces that are trusted to reference the specified kinds of resources in the same namespace as the policy. \n Note: This resource has been renamed to ReferenceGrant. ReferencePolicy will be removed in v0.6.0 in favor of the identical ReferenceGrant resource. \n Each ReferencePolicy can be used to represent a unique trust relationship. Additional Reference Policies can be used to add to the set of trusted sources of inbound references for the namespace they are defined within. \n All cross-namespace references in Gateway API (with the exception of cross-namespace Gateway-route attachment) require a ReferenceGrant. \n Support: Core"
-          properties:
-            apiVersion:
-              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-              type: string
-            kind:
-              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-              type: string
-            metadata:
-              type: object
-            spec:
-              description: Spec defines the desired state of ReferencePolicy.
-              properties:
-                from:
-                  description: "From describes the trusted namespaces and kinds that can reference the resources described in \"To\". Each entry in this list must be considered to be an additional place that references can be valid from, or to put this another way, entries must be combined using OR. \n Support: Core"
-                  items:
-                    description: ReferenceGrantFrom describes trusted namespaces and kinds.
-                    properties:
-                      group:
-                        description: "Group is the group of the referent. When empty, the Kubernetes core API group is inferred. \n Support: Core"
-                        maxLength: 253
-                        pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                        type: string
-                      kind:
-                        description: "Kind is the kind of the referent. Although implementations may support additional resources, the following types are part of the \"Core\" support level for this field. \n When used to permit a SecretObjectReference: \n * Gateway \n When used to permit a BackendObjectReference: \n * HTTPRoute * TCPRoute * TLSRoute * UDPRoute"
-                        maxLength: 63
-                        minLength: 1
-                        pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
-                        type: string
-                      namespace:
-                        description: "Namespace is the namespace of the referent. \n Support: Core"
-                        maxLength: 63
-                        minLength: 1
-                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                        type: string
-                    required:
-                      - group
-                      - kind
-                      - namespace
-                    type: object
-                  maxItems: 16
-                  minItems: 1
-                  type: array
-                to:
-                  description: "To describes the resources that may be referenced by the resources described in \"From\". Each entry in this list must be considered to be an additional place that references can be valid to, or to put this another way, entries must be combined using OR. \n Support: Core"
-                  items:
-                    description: ReferenceGrantTo describes what Kinds are allowed as targets of the references.
-                    properties:
-                      group:
-                        description: "Group is the group of the referent. When empty, the Kubernetes core API group is inferred. \n Support: Core"
-                        maxLength: 253
-                        pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                        type: string
-                      kind:
-                        description: "Kind is the kind of the referent. Although implementations may support additional resources, the following types are part of the \"Core\" support level for this field: \n * Secret when used to permit a SecretObjectReference * Service when used to permit a BackendObjectReference"
-                        maxLength: 63
-                        minLength: 1
-                        pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
-                        type: string
-                      name:
-                        description: Name is the name of the referent. When unspecified, this policy refers to all resources of the specified Group and Kind in the local namespace.
-                        maxLength: 253
-                        minLength: 1
-                        type: string
-                    required:
-                      - group
-                      - kind
-                    type: object
-                  maxItems: 16
-                  minItems: 1
-                  type: array
-              required:
-                - from
-                - to
-              type: object
-          type: object
-      served: true
-      storage: true
-      subresources: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
+  type: ClusterIP
+  ports:
+    - name: https-webhook
+      port: 443
+      targetPort: 8443
+  selector:
+    name: gateway-api-admission-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-api-admission-server
+  namespace: gateway-system
+  labels:
+    name: gateway-api-admission-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: gateway-api-admission-server
+  template:
+    metadata:
+      name: gateway-api-admission-server
+      labels:
+        name: gateway-api-admission-server
+    spec:
+      containers:
+        - name: webhook
+          image: gcr.io/k8s-staging-gateway-api/admission-server:v0.5.1
+          imagePullPolicy: Always
+          args:
+            - -logtostderr
+            - --tlsCertFile=/etc/certs/cert
+            - --tlsKeyFile=/etc/certs/key
+            - -v=10
+            - 2>&1
+          ports:
+            - containerPort: 8443
+              name: webhook
+          resources:
+            limits:
+              memory: 50Mi
+              cpu: 100m
+            requests:
+              memory: 50Mi
+              cpu: 100m
+          volumeMounts:
+            - name: webhook-certs
+              mountPath: /etc/certs
+              readOnly: true
+          securityContext:
+            readOnlyRootFilesystem: true
+      volumes:
+        - name: webhook-certs
+          secret:
+            secretName: gateway-api-admission
+---
+#
+# config/webhook/certificate_config.yaml
+#
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gateway-api-admission
+  labels:
+    name: gateway-api-webhook
+  namespace: gateway-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gateway-api-admission
+  labels:
+    name: gateway-api
+rules:
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingwebhookconfigurations
+    verbs:
+      - get
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gateway-api-admission
+  annotations:
+  labels:
+    name: gateway-api-webhook
+  namespace: gateway-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gateway-api-admission
+subjects:
+  - kind: ServiceAccount
+    name: gateway-api-admission
+    namespace: gateway-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gateway-api-admission
+  annotations:
+  labels:
+    name: gateway-api-webhook
+  namespace: gateway-system
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - get
+      - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gateway-api-admission
+  annotations:
+  labels:
+    name: gateway-api-webhook
+  namespace: gateway-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gateway-api-admission
+subjects:
+  - kind: ServiceAccount
+    name: gateway-api-admission
+    namespace: gateway-system
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gateway-api-admission
+  annotations:
+  labels:
+    name: gateway-api-webhook
+  namespace: gateway-system
+spec:
+  template:
+    metadata:
+      name: gateway-api-admission-create
+      labels:
+        name: gateway-api-webhook
+    spec:
+      containers:
+        - name: create
+          image: k8s.gcr.io/ingress-nginx/kube-webhook-certgen:v1.1.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - create
+            - --host=gateway-api-admission-server,gateway-api-admission-server.gateway-system.svc
+            - --namespace=gateway-system
+            - --secret-name=gateway-api-admission
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+      restartPolicy: OnFailure
+      serviceAccountName: gateway-api-admission
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2000
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gateway-api-admission-patch
+  labels:
+    name: gateway-api-webhook
+  namespace: gateway-system
+spec:
+  template:
+    metadata:
+      name: gateway-api-admission-patch
+      labels:
+        name: gateway-api-webhook
+    spec:
+      containers:
+        - name: patch
+          image: k8s.gcr.io/ingress-nginx/kube-webhook-certgen:v1.1.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - patch
+            - --webhook-name=gateway-api-admission
+            - --namespace=gateway-system
+            - --patch-mutating=false
+            - --patch-validating=true
+            - --secret-name=gateway-api-admission
+            - --patch-failure-policy=Fail
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+      restartPolicy: OnFailure
+      serviceAccountName: gateway-api-admission
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2000
 
 ---
 # Copyright 2021 The Knative Authors
@@ -4046,7 +4216,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20221121-ee396c8f"
+    app.kubernetes.io/version: "20221130-75e03799"
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
@@ -4062,7 +4232,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20221121-ee396c8f"
+    app.kubernetes.io/version: "20221130-75e03799"
 rules:
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["httproutes", "referencegrants", "referencepolicies"]
@@ -4095,7 +4265,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20221121-ee396c8f"
+    app.kubernetes.io/version: "20221130-75e03799"
 data:
   _example: |
     ################################
@@ -4149,7 +4319,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
-    app.kubernetes.io/version: "20221121-ee396c8f"
+    app.kubernetes.io/version: "20221130-75e03799"
     app.kubernetes.io/name: knative-serving
 spec:
   replicas: 1
@@ -4176,7 +4346,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:9f91d425b718da6dde97015d40e8fa43dd575b4b576f70fe599ed919cc74a670
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:d67eb7d8d2c7751e86ac087e7b0c65cb6e50d54301c8226138de70d975dbf446
           resources:
             requests:
               cpu: 100m
