@@ -39,6 +39,9 @@ jobs:
         mkdir -p ~/artifacts/build
         mkdir -p ~/artifacts/registry
 
+    - name: Check cgroups version
+      run: |
+        stat -fc %T /sys/fs/cgroup/
     - uses: actions/cache@v3
       with:
         path: |
