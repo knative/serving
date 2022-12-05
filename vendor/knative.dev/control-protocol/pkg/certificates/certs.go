@@ -43,11 +43,7 @@ func createCertTemplate(expirationInterval time.Duration) (*x509.Certificate, er
 	}
 
 	tmpl := x509.Certificate{
-		SerialNumber: serialNumber,
-		Subject: pkix.Name{
-			Organization: []string{Organization},
-			CommonName:   "control-plane",
-		},
+		SerialNumber:          serialNumber,
 		SignatureAlgorithm:    x509.SHA256WithRSA,
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(expirationInterval),
@@ -67,6 +63,10 @@ func createCACertTemplate(expirationInterval time.Duration) (*x509.Certificate, 
 	rootCert.IsCA = true
 	rootCert.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature
 	rootCert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
+	rootCert.Subject = pkix.Name{
+		Organization: []string{Organization},
+		CommonName:   "control-plane",
+	}
 	return rootCert, nil
 }
 
@@ -78,18 +78,28 @@ func createServerCertTemplate(expirationInterval time.Duration) (*x509.Certifica
 	}
 	serverCert.KeyUsage = x509.KeyUsageDigitalSignature
 	serverCert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+	serverCert.Subject = pkix.Name{
+		Organization: []string{Organization},
+		// Do not use the same value with CA.
+		CommonName: "control-plane-server",
+	}
 	return serverCert, err
 }
 
-// Create cert template that we can use on the server for TLS
+// Create cert template that we can use on the client for TLS
 func createClientCertTemplate(expirationInterval time.Duration) (*x509.Certificate, error) {
-	serverCert, err := createCertTemplate(expirationInterval)
+	clientCert, err := createCertTemplate(expirationInterval)
 	if err != nil {
 		return nil, err
 	}
-	serverCert.KeyUsage = x509.KeyUsageDigitalSignature
-	serverCert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
-	return serverCert, err
+	clientCert.KeyUsage = x509.KeyUsageDigitalSignature
+	clientCert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+	clientCert.Subject = pkix.Name{
+		Organization: []string{Organization},
+		// Do not use the same value with CA.
+		CommonName: "control-plane-client",
+	}
+	return clientCert, err
 }
 
 func createCert(template, parent *x509.Certificate, pub, parentPriv interface{}) (cert *x509.Certificate, certPEM *pem.Block, err error) {
