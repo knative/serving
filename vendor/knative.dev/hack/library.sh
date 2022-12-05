@@ -586,17 +586,6 @@ function start_knative_eventing_extension() {
   wait_until_pods_running "$2" || return 1
 }
 
-# Install the stable release of eventing extension sugar controller in the current cluster.
-# Parameters: $1 - Knative Eventing release version, e.g. 0.16.0
-function start_release_eventing_sugar_controller() {
-  start_knative_eventing_extension "https://storage.googleapis.com/knative-releases/eventing/previous/v$1/eventing-sugar-controller.yaml" "knative-eventing"
-}
-
-# Install the sugar cotroller eventing extension
-function start_latest_eventing_sugar_controller() {
-  start_knative_eventing_extension "${KNATIVE_EVENTING_SUGAR_CONTROLLER_RELEASE}" "knative-eventing"
-}
-
 # Run a go utility without installing it.
 # Parameters: $1 - tool package for go run.
 #             $2..$n - parameters passed to the tool.
@@ -1018,4 +1007,3 @@ readonly KNATIVE_SERVING_RELEASE_CRDS="$(get_latest_knative_yaml_source "serving
 readonly KNATIVE_SERVING_RELEASE_CORE="$(get_latest_knative_yaml_source "serving" "serving-core")"
 readonly KNATIVE_NET_ISTIO_RELEASE="$(get_latest_knative_yaml_source "net-istio" "net-istio")"
 readonly KNATIVE_EVENTING_RELEASE="$(get_latest_knative_yaml_source "eventing" "eventing")"
-readonly KNATIVE_EVENTING_SUGAR_CONTROLLER_RELEASE="$(get_latest_knative_yaml_source "eventing" "eventing-sugar-controller")"
