@@ -165,19 +165,32 @@ func main() {
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
 
-	var f *statforwarder.Forwarder
+	var (
+		f       *statforwarder.Forwarder
+		elector leaderelection.Elector
+	)
 	if b, bs, err := leaderelection.NewStatefulSetBucketAndSet(int(cc.Buckets)); err == nil {
 		logger.Info("Running with StatefulSet leader election")
-		ctx = leaderelection.WithStatefulSetElectorBuilder(ctx, cc, b)
-		f = statforwarder.New(ctx, bs)
-		if err := statforwarder.StatefulSetBasedProcessor(ctx, f, accept); err != nil {
+		leaderCtx := leaderelection.WithStatefulSetElectorBuilder(ctx, cc, b)
+		elector, err = controller.BuildElectorForControllers(leaderCtx, controllers[0].Name, controllers...)
+		ctx = leaderelection.WithNoElectorBuilder(ctx)
+		if err != nil {
+			logger.Fatalw("Failed to set up leader election", zap.Error(err))
+		}
+		f = statforwarder.New(leaderCtx, bs)
+		if err := statforwarder.StatefulSetBasedProcessor(leaderCtx, f, accept); err != nil {
 			logger.Fatalw("Failed to set up statefulset processors", zap.Error(err))
 		}
 	} else {
 		logger.Info("Running with Standard leader election")
-		ctx = leaderelection.WithStandardLeaderElectorBuilder(ctx, kubeClient, cc)
-		f = statforwarder.New(ctx, bucket.AutoscalerBucketSet(cc.Buckets))
-		if err := statforwarder.LeaseBasedProcessor(ctx, f, accept); err != nil {
+		leaderCtx := leaderelection.WithStandardLeaderElectorBuilder(ctx, kubeClient, cc)
+		elector, err = controller.BuildElectorForControllers(leaderCtx, controllers[0].Name, controllers...)
+		ctx = leaderelection.WithNoElectorBuilder(ctx)
+		if err != nil {
+			logger.Fatalw("Failed to set up leader election", zap.Error(err))
+		}
+		f = statforwarder.New(leaderCtx, bucket.AutoscalerBucketSet(cc.Buckets))
+		if err := statforwarder.LeaseBasedProcessor(leaderCtx, f, accept); err != nil {
 			logger.Fatalw("Failed to set up lease tracking", zap.Error(err))
 		}
 	}
@@ -187,7 +200,23 @@ func main() {
 
 	defer f.Cancel()
 
-	go controller.StartAll(ctx, controllers...)
+	// Start the single leadership elector and controllers in one group.
+	go func() {
+		eg, egCtx := errgroup.WithContext(ctx)
+
+		eg.Go(func() error {
+			elector.Run(egCtx)
+			return nil
+		})
+
+		// Start all the controllers using a context that lacks an elector builder.
+		for _, ctrl := range controllers {
+			c := ctrl
+			eg.Go(func() error {
+				return c.Run(egCtx)
+			})
+		}
+	}()
 
 	go func() {
 		for sm := range statsCh {
