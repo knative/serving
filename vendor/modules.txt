@@ -1280,7 +1280,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20221221230956-4fd6eb8652b7
+# knative.dev/pkg v0.0.0-20221221230956-4fd6eb8652b7 => github.com/mbaynton/knative-pkg v0.0.0-20221223192904-11256db0dcd4
 ## explicit; go 1.18
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate

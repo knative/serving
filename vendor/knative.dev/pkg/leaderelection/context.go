@@ -18,6 +18,7 @@ package leaderelection
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -68,11 +69,16 @@ func WithStatefulSetElectorBuilder(ctx context.Context, cc ComponentConfig, bkt 
 	})
 }
 
+func WithNoElectorBuilder(ctx context.Context) context.Context {
+	return context.WithValue(ctx, builderKey{}, ErrElectorBuiltManually)
+}
+
 // HasLeaderElection returns whether there is leader election configuration
 // associated with the context
 func HasLeaderElection(ctx context.Context) bool {
 	val := ctx.Value(builderKey{})
-	return val != nil
+	_, isErr := val.(error)
+	return val != nil && !isErr
 }
 
 // Elector is the interface for running a leader elector.
@@ -86,26 +92,50 @@ type ElectorWithInitialBuckets interface {
 	InitialBuckets() []reconciler.Bucket
 }
 
+type LeaderAwareWithEnq struct {
+	La  reconciler.LeaderAware
+	Enq func(reconciler.Bucket, types.NamespacedName)
+}
+
+var ErrElectorBuiltManually = errors.New("intended elector is not built and run via decorated context")
+
 // BuildElector builds a leaderelection.LeaderElector for the named LeaderAware
 // reconciler using a builder added to the context via WithStandardLeaderElectorBuilder.
 func BuildElector(ctx context.Context, la reconciler.LeaderAware, queueName string, enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
+	reconcilerAndEnq := LeaderAwareWithEnq{
+		La:  la,
+		Enq: enq,
+	}
+	return BuildElectorForMultipleReconcilers(ctx, queueName, reconcilerAndEnq)
+}
+
+func BuildElectorForMultipleReconcilers(ctx context.Context, queueName string, reconcilers ...LeaderAwareWithEnq) (Elector, error) {
 	if val := ctx.Value(builderKey{}); val != nil {
 		switch builder := val.(type) {
+		case error:
+			return nil, builder
 		case *standardBuilder:
-			return builder.buildElector(ctx, la, queueName, enq)
+			return builder.buildElector(ctx, queueName, reconcilers...)
 		case *statefulSetBuilder:
-			return builder.buildElector(ctx, la, enq)
+			return builder.buildElector(ctx, reconcilers...)
+		}
+	}
+
+	las := make([]LeaderAwareWithEnq, len(reconcilers))
+	for i := range reconcilers {
+		las[i] = LeaderAwareWithEnq{
+			La: reconcilers[i].La,
+			// The UniversalBucket owns everything, so there is never a need to
+			// enqueue things (no possible state change).  We pass nil here to
+			// avoid filling the queue for an extra resynce at startup along
+			// this path.
+			Enq: nil,
 		}
 	}
 
 	return &unopposedElector{
-		la:  la,
-		bkt: reconciler.UniversalBucket(),
-		// The UniversalBucket owns everything, so there is never a need to
-		// enqueue things (no possible state change).  We pass nil here to
-		// avoid filling the queue for an extra resynce at startup along
-		// this path.
-		enq: nil,
+		bkt:         reconciler.UniversalBucket(),
+		reconcilers: las,
 	}, nil
 }
 
@@ -116,8 +146,8 @@ type standardBuilder struct {
 	lec ComponentConfig
 }
 
-func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.LeaderAware,
-	queueName string, enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
+func (b *standardBuilder) buildElector(ctx context.Context, queueName string,
+	reconcilers ...LeaderAwareWithEnq) (Elector, error) {
 	logger := logging.FromContext(ctx)
 
 	id := b.lec.Identity
@@ -156,16 +186,20 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(context.Context) {
 					logger.Infof("%q has started leading %q", rl.Identity(), bkt.Name())
-					if err := la.Promote(bkt, enq); err != nil {
-						// TODO(mattmoor): We expect this to effectively never happen,
-						// but if it does, we should support wrapping `le` in an elector
-						// we can cancel here.
-						logger.Fatalf("%q failed to Promote: %v", rl.Identity(), err)
+					for _, rec := range reconcilers {
+						if err := rec.La.Promote(bkt, rec.Enq); err != nil {
+							// TODO(mattmoor): We expect this to effectively never happen,
+							// but if it does, we should support wrapping `le` in an elector
+							// we can cancel here.
+							logger.Fatalf("%q failed to Promote: %v", rl.Identity(), err)
+						}
 					}
 				},
 				OnStoppedLeading: func() {
 					logger.Infof("%q has stopped leading %q", rl.Identity(), bkt.Name())
-					la.Demote(bkt)
+					for i := len(reconcilers) - 1; i >= 0; i-- {
+						reconcilers[i].La.Demote(bkt)
+					}
 				},
 			},
 			ReleaseOnCancel: true,
@@ -211,15 +245,14 @@ type statefulSetBuilder struct {
 	bkt reconciler.Bucket
 }
 
-func (b *statefulSetBuilder) buildElector(ctx context.Context, la reconciler.LeaderAware, enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
+func (b *statefulSetBuilder) buildElector(ctx context.Context, reconcilers ...LeaderAwareWithEnq) (Elector, error) {
 	logger := logging.FromContext(ctx)
 	logger.Infof("%s will run in StatefulSet ordinal assignment mode with bucket name %s",
 		b.lec.Component, b.bkt.Name())
 
 	return &unopposedElector{
-		bkt: b.bkt,
-		la:  la,
-		enq: enq,
+		bkt:         b.bkt,
+		reconcilers: reconcilers,
 	}, nil
 }
 
@@ -256,9 +289,8 @@ func statefulSetPodDNS(ordinal int, ssc *statefulSetConfig) string {
 
 // unopposedElector promotes when run without needing to be elected.
 type unopposedElector struct {
-	bkt reconciler.Bucket
-	la  reconciler.LeaderAware
-	enq func(reconciler.Bucket, types.NamespacedName)
+	bkt         reconciler.Bucket
+	reconcilers []LeaderAwareWithEnq
 }
 
 var (
@@ -268,7 +300,9 @@ var (
 
 // Run implements Elector
 func (ue *unopposedElector) Run(ctx context.Context) {
-	ue.la.Promote(ue.bkt, ue.enq)
+	for _, r := range ue.reconcilers {
+		r.La.Promote(ue.bkt, r.Enq)
+	}
 }
 
 func (ue *unopposedElector) InitialBuckets() []reconciler.Bucket {

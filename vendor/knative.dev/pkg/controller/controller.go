@@ -465,21 +465,23 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 	if la, ok := c.Reconciler.(reconciler.LeaderAware); ok {
 		// Build and execute an elector.
 		le, err := kle.BuildElector(ctx, la, c.Name, c.MaybeEnqueueBucketKey)
-		if err != nil {
-			return err
-		}
-		if ib, ok := le.(kle.ElectorWithInitialBuckets); ok {
-			for _, b := range ib.InitialBuckets() {
-				// No need to provide an enq function since the controller
-				// is not processing items
-				la.Promote(b, nil)
+		if !errors.Is(err, kle.ErrElectorBuiltManually) {
+			if err != nil {
+				return err
 			}
+			if ib, ok := le.(kle.ElectorWithInitialBuckets); ok {
+				for _, b := range ib.InitialBuckets() {
+					// No need to provide an enq function since the controller
+					// is not processing items
+					la.Promote(b, nil)
+				}
+			}
+			sg.Add(1)
+			go func() {
+				defer sg.Done()
+				le.Run(ctx)
+			}()
 		}
-		sg.Add(1)
-		go func() {
-			defer sg.Done()
-			le.Run(ctx)
-		}()
 	}
 
 	// Launch workers to process resources that get enqueued to our workqueue.
@@ -789,6 +791,21 @@ func StartAll(ctx context.Context, controllers ...*Impl) error {
 		})
 	}
 	return eg.Wait()
+}
+
+// BuildElectorForControllers creates a leadership elector that promotes and demotes all controllers together.
+func BuildElectorForControllers(ctx context.Context, queueName string, controllers ...*Impl) (kle.Elector, error) {
+	reconcilerQueuers := make([]kle.LeaderAwareWithEnq, 0, len(controllers))
+	for _, ctrl := range controllers {
+		if leaderAwareReconciler, ok := ctrl.Reconciler.(reconciler.LeaderAware); ok {
+			reconcilerQueuers = append(reconcilerQueuers, kle.LeaderAwareWithEnq{
+				La:  leaderAwareReconciler,
+				Enq: ctrl.MaybeEnqueueBucketKey,
+			})
+		}
+	}
+
+	return kle.BuildElectorForMultipleReconcilers(ctx, queueName, reconcilerQueuers...)
 }
 
 // This is attached to contexts passed to controller constructors to associate
