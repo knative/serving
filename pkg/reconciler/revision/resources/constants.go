@@ -22,4 +22,9 @@ const (
 
 	// AppLabelKey is the label defining the application's name.
 	AppLabelKey = "app"
+
+	// DeploymentSpecHashAnnotationKey is the annotation used in a Deployment to store the
+	// hash of the client-side generated spec to compare it on reconciliations to determine
+	// if it has changed.
+	DeploymentSpecHashAnnotationKey = "serving.knative.dev/deployment-spec-hash"
 )

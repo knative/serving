@@ -17,12 +17,15 @@ limitations under the License.
 package resources
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
@@ -367,7 +370,9 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 
 	// Slowly but steadily roll the deployment out, to have the least possible impact.
 	maxUnavailable := intstr.FromInt(0)
-	return &appsv1.Deployment{
+
+	// create the deployment
+	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.Deployment(rev),
 			Namespace:       rev.Namespace,
@@ -393,5 +398,38 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 				Spec: *podSpec,
 			},
 		},
-	}, nil
+	}
+
+	if err = SetSpecHashAnnotation(deployment); err != nil {
+		return nil, err
+	}
+
+	return deployment, nil
+}
+
+// SetSpecHashAnnotation updates the deployment to contain a hash for its spec
+func SetSpecHashAnnotation(deployment *appsv1.Deployment) error {
+	// create a copy to add another annotation while not modifying other places where the
+	// same map is referenced (such as spec.template.metadata.annotations)
+	deploymentAnnotations := make(map[string]string)
+	for k, v := range deployment.Annotations {
+		deploymentAnnotations[k] = v
+	}
+
+	// serialize as YAML and create a hash of it
+	deploymentSpecYAML, err := yaml.Marshal(deployment.Spec)
+	if err != nil {
+		return err
+	}
+
+	hash := sha256.New()
+	_, err = hash.Write(deploymentSpecYAML)
+	if err != nil {
+		return err
+	}
+	deploymentAnnotations[DeploymentSpecHashAnnotationKey] = base64.StdEncoding.EncodeToString(hash.Sum(nil))
+
+	deployment.Annotations = deploymentAnnotations
+
+	return nil
 }

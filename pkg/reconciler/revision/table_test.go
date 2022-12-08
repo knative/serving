@@ -202,7 +202,7 @@ func TestReconcile(t *testing.T) {
 			Revision("foo", "fix-containers",
 				WithLogURL, allUnknownConditions, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
 			pa("foo", "fix-containers", WithReachabilityUnknown),
-			changeContainers(deploy(t, "foo", "fix-containers")),
+			changeContainers(t, deploy(t, "foo", "fix-containers")),
 			image("foo", "fix-containers"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -221,7 +221,7 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, allUnknownConditions,
 				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
 			pa("foo", "failure-update-deploy"),
-			changeContainers(deploy(t, "foo", "failure-update-deploy")),
+			changeContainers(t, deploy(t, "foo", "failure-update-deploy")),
 			image("foo", "failure-update-deploy"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -625,7 +625,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantCreates: []runtime.Object{
 			pa("foo", "image-pull-secrets"),
-			deployImagePullSecrets(deploy(t, "foo", "image-pull-secrets"), "foo-secret"),
+			deployImagePullSecrets(t, deploy(t, "foo", "image-pull-secrets"), "foo-secret"),
 			imagePullSecrets(image("foo", "image-pull-secrets"), "foo-secret"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -704,6 +704,15 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
+func deploySetSpecHash(t *testing.T, deployment *appsv1.Deployment) *appsv1.Deployment {
+	err := resources.SetSpecHashAnnotation(deployment)
+	if err != nil {
+		t.Logf("Error on SetSpecHashAnnotation: %v", err)
+	}
+
+	return deployment
+}
+
 func readyDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
 	deploy.Status.Conditions = []appsv1.DeploymentCondition{{
 		Type:   appsv1.DeploymentProgressing,
@@ -737,11 +746,11 @@ func noOwner(deploy *appsv1.Deployment) *appsv1.Deployment {
 	return deploy
 }
 
-func deployImagePullSecrets(deploy *appsv1.Deployment, secretName string) *appsv1.Deployment {
+func deployImagePullSecrets(t *testing.T, deploy *appsv1.Deployment, secretName string) *appsv1.Deployment {
 	deploy.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
 		Name: secretName,
 	}}
-	return deploy
+	return deploySetSpecHash(t, deploy)
 }
 
 func imagePullSecrets(Revision *caching.Image, secretName string) *caching.Image {
@@ -751,12 +760,12 @@ func imagePullSecrets(Revision *caching.Image, secretName string) *caching.Image
 	return Revision
 }
 
-func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
+func changeContainers(t *testing.T, deploy *appsv1.Deployment) *appsv1.Deployment {
 	podSpec := deploy.Spec.Template.Spec
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Image = "asdf"
 	}
-	return deploy
+	return deploySetSpecHash(t, deploy)
 }
 
 func withDefaultContainerStatuses() RevisionOption {

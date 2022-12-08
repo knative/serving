@@ -1587,6 +1587,15 @@ func TestMakeDeployment(t *testing.T) {
 			if err != nil {
 				t.Fatal("Got unexpected error:", err)
 			}
+
+			// Verify that there is a deployment-spec-hash annotation
+			if got.Annotations[DeploymentSpecHashAnnotationKey] == "" {
+				t.Errorf("Response from MakeDeployment misses deployment spec hash")
+			}
+
+			// Remove the annotation because we cannot foresee its expected value
+			delete(got.Annotations, DeploymentSpecHashAnnotationKey)
+
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("MakeDeployment (-want, +got) =\n%s", diff)
 			}

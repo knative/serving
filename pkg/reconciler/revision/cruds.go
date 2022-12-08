@@ -71,6 +71,12 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 		return nil, fmt.Errorf("failed to update deployment: %w", err)
 	}
 
+	// Check if the hash matches what we currently have in the system
+	if deployment.Annotations[resources.DeploymentSpecHashAnnotationKey] == have.Annotations[resources.DeploymentSpecHashAnnotationKey] {
+		logger.Infof("Not updating deployment %s/%s because of an empty diff\n", deployment.Namespace, deployment.Name)
+		return have, nil
+	}
+
 	// Preserve the current scale of the Deployment.
 	deployment.Spec.Replicas = have.Spec.Replicas
 
@@ -78,17 +84,15 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	// TODO(dprotaso): determine other immutable properties.
 	deployment.Spec.Selector = have.Spec.Selector
 
-	// If the spec we want is the spec we have, then we're good.
-	if equality.Semantic.DeepEqual(have.Spec, deployment.Spec) {
-		return have, nil
-	}
-
 	// Otherwise attempt an update (with ONLY the spec changes).
 	desiredDeployment := have.DeepCopy()
 	desiredDeployment.Spec = deployment.Spec
+	desiredDeployment.Annotations[resources.DeploymentSpecHashAnnotationKey] = deployment.Annotations[resources.DeploymentSpecHashAnnotationKey]
 
 	// Carry over new labels.
 	desiredDeployment.Labels = kmeta.UnionMaps(deployment.Labels, desiredDeployment.Labels)
+
+	logger.Infof("Updating deployment %s/%s\n", deployment.Namespace, deployment.Name)
 
 	d, err := c.kubeclient.AppsV1().Deployments(deployment.Namespace).Update(ctx, desiredDeployment, metav1.UpdateOptions{})
 	if err != nil {
