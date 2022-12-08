@@ -82,7 +82,7 @@ jobs:
   test:
     name: test
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false # Keep running if one leg fails.
       matrix:
