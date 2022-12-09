@@ -78,12 +78,11 @@ aliases:
   - kvmware
   - lance
   - mchmarny
-  - pmorie
+  - nainaz
   - psschwei
+  - salaboy
   - smoser-ibm
-  - thisisnotapril
   - upodroid
-  - vaikas
   - zroubalik
   knative-release-leads:
   - evankanderson
@@ -194,9 +193,8 @@ aliases:
   - csantanapr
   - itsmurugappan
   - lance
-  - pmorie
-  - thisisnotapril
-  - vaikas
+  - nainaz
+  - salaboy
   technical-oversight-committee:
   - dprotaso
   - dsimansk
