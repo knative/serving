@@ -116,7 +116,6 @@ function fail_test() {
   if [[ "X${message:-}X" == "XX" ]]; then
     message='test failed'
   fi
-  docker images
   function_exists on_failure && on_failure
   (( ! SKIP_DUMP_ON_FAILURE )) && dump_cluster_state
   abort "${message}"
