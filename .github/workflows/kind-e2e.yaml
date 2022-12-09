@@ -191,21 +191,13 @@ jobs:
         cluster-suffix: ${{ env.CLUSTER_DOMAIN }}
         kind-version: ${{ env.KIND_VERSION }}
 
-    - name: Setup local registry
-      run: |
-        # Run a registry.
-        docker run -d --restart=always \
-          -v $HOME/artifacts/registry:/var/lib/registry \
-          -p $REGISTRY_PORT:$REGISTRY_PORT --name $REGISTRY_NAME registry:2
-        # Connect the registry to the KinD network.
-        docker network connect "kind" $REGISTRY_NAME
-        # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
-        # local registry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
-        sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
-
     - name: Install Serving & Ingress
       run: |
         set -x
+
+        # TEST: list repositories
+        curl -X GET https://$REGISTRY_NAME:$REGISTRY_PORT/v2/_catalog
+
         # Remove chaosduck since we don't use it and it'll skip the build
         rm ./test/config/chaosduck/chaosduck.yaml
 
