@@ -347,10 +347,11 @@ function install() {
   echo "serving config at ${ytt_result}"
   echo "serving post-install config at ${ytt_post_install_result}"
 
-  run_kapp deploy --yes --app serving --file "${ytt_result}" \
-      || {
-      curl -X GET http://$REGISTRY_NAME:$REGISTRY_PORT/v2/_catalog
-      fail_test "failed to setup knative"
+  { run_kapp deploy --yes --app serving --file "${ytt_result}"
+    curl -X GET http://$REGISTRY_NAME:$REGISTRY_PORT/v2/_catalog
+  } || {
+    curl -X GET http://$REGISTRY_NAME:$REGISTRY_PORT/v2/_catalog
+    fail_test "failed to setup knative"
   }
 
   run_kapp deploy --yes --app serving-post-install --file "${ytt_post_install_result}" \
