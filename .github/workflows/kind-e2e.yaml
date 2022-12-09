@@ -196,7 +196,7 @@ jobs:
         set -x
 
         # TEST: list repositories
-        curl -X GET https://$REGISTRY_NAME:$REGISTRY_PORT/v2/_catalog
+        curl -X GET http://$REGISTRY_NAME:$REGISTRY_PORT/v2/_catalog
 
         # Remove chaosduck since we don't use it and it'll skip the build
         rm ./test/config/chaosduck/chaosduck.yaml
