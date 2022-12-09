@@ -186,7 +186,7 @@ jobs:
     - name: Configure KinD Cluster
       uses: chainguard-dev/actions/setup-kind@main
       with:
-        k8s-version: ${{ maxtrix-k8s-version }}
+        k8s-version: ${{ matrix-k8s-version }}
         kind-worker-count: 4
         cluster-suffix: ${{ env.CLUSTER_DOMAIN }}
         kind-version: ${{ env.KIND_VERSION }}
