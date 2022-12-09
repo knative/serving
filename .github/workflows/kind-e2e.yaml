@@ -183,14 +183,87 @@ jobs:
         name: artifacts
         path: ~/artifacts
 
-    - name: Configure KinD Cluster
-      uses: chainguard-dev/actions/setup-kind@main
-      with:
-        k8s-version: ${{ matrix.k8s-version }}
-        kind-worker-count: 4
-        cluster-suffix: ${{ env.CLUSTER_DOMAIN }}
-        kind-version: ${{ env.KIND_VERSION }}
 
+    - name: Configure KinD Cluster
+      run: |
+        set -x
+        # Disable swap otherwise memory enforcement doesn't work
+        # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600009955324200
+        sudo swapoff -a
+        sudo rm -f /swapfile
+        # Use in-memory storage to avoid etcd server timeouts.
+        # https://kubernetes.slack.com/archives/CEKK1KTN2/p1615134111016300
+        # https://github.com/kubernetes-sigs/kind/issues/845
+        sudo mkdir -p /tmp/etcd
+        sudo mount -t tmpfs tmpfs /tmp/etcd
+        # KinD configuration.
+        cat > kind.yaml <<EOF
+        apiVersion: kind.x-k8s.io/v1alpha4
+        kind: Cluster
+        # Configure registry for KinD.
+        containerdConfigPatches:
+        - |-
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."$REGISTRY_NAME:$REGISTRY_PORT"]
+            endpoint = ["http://$REGISTRY_NAME:$REGISTRY_PORT"]
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+            endpoint = ["https://mirror.gcr.io"]
+        # This is needed in order to support projected volumes with service account tokens.
+        # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
+        kubeadmConfigPatches:
+          - |
+            kind: ClusterConfiguration
+            metadata:
+              name: config
+            apiServer:
+              extraArgs:
+                "service-account-issuer": "kubernetes.default.svc"
+                "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+            networking:
+              dnsDomain: "${CLUSTER_DOMAIN}"
+        nodes:
+        - role: control-plane
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+          extraMounts:
+          - containerPath: /var/lib/etcd
+            hostPath: /tmp/etcd
+        - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+        - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+        - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+        - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+        EOF
+        kind create cluster --config kind.yaml --wait 5m
+    - name: Install metallb
+      shell: bash
+      run: |
+        # Install metallb
+        # disable the webhook-mode because there is a bug:https://github.com/metallb/metallb/issues/1597
+        # this webhook only checks crd, it has not effects to out e2e tests
+        curl https://raw.githubusercontent.com/metallb/metallb/v0.13.5/config/manifests/metallb-native.yaml -k | \
+         sed '0,/args:/s//args:\n        - --webhook-mode=disabled/' | \
+         sed '/apiVersion: admissionregistration/,$d' | \
+         kubectl apply -f -
+        # Add Layer 2 config
+        network=$(docker network inspect kind -f "{{(index .IPAM.Config 0).Subnet}}" | cut -d '.' -f1,2)
+        cat <<EOF | kubectl apply -f -
+        apiVersion: metallb.io/v1beta1
+        kind: IPAddressPool
+        metadata:
+          name: first-pool
+          namespace: metallb-system
+        spec:
+          addresses:
+          - $network.255.1-$network.255.250
+        ---
+        apiVersion: metallb.io/v1beta1
+        kind: L2Advertisement
+        metadata:
+          name: example
+          namespace: metallb-system
+        EOF
     - name: Setup local registry
       run: |
         # Run a registry.
