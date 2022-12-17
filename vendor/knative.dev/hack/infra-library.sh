@@ -133,6 +133,12 @@ function create_gke_test_cluster() {
   if [[ "${ENABLE_PREEMPTIBLE_NODES:-}" == "true" ]]; then
     extra_gcloud_flags="${extra_gcloud_flags} --preemptible"
   fi
+  if ! command -v kubetest2 >/dev/null; then
+    tmpbin="$(mktemp -d)"
+    echo "kubetest2 not found, installing in temp path: ${tmpbin}"
+    GOBIN="$tmpbin" go install sigs.k8s.io/kubetest2/...@latest
+    export PATH="${tmpbin}:${PATH}"
+  fi
   run_kntest kubetest2 gke "${_custom_flags[@]}" \
     --test-command="${_test_command[*]}" \
     --extra-gcloud-flags="${extra_gcloud_flags}"

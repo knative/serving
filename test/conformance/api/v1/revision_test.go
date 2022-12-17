@@ -27,7 +27,8 @@ import (
 )
 
 // Test Revision Get and List operations.
-//   This test doesn't validate the Data Plane, it is just to check the Control Plane resources and their APIs
+//
+//	This test doesn't validate the Data Plane, it is just to check the Control Plane resources and their APIs
 func TestRevisionGetAndList(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)

@@ -43,7 +43,6 @@ aliases:
   - akashrv
   - lberk
   eventing-wg-leads:
-  - lionelvillard
   - pierDipi
   eventing-writers:
   - akashrv
@@ -78,19 +77,16 @@ aliases:
   - knative-test-reporter-robot
   - kvmware
   - lance
-  - lionelvillard
-  - nak3
-  - pmorie
+  - mchmarny
+  - nainaz
   - psschwei
+  - salaboy
   - smoser-ibm
-  - spencerdillard
-  - thisisnotapril
   - upodroid
-  - vaikas
   - zroubalik
   knative-release-leads:
-  - lionelvillard
-  - nak3
+  - evankanderson
+  - psschwei
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
@@ -108,11 +104,9 @@ aliases:
   - tcnghia
   - vagababov
   - yanweiguo
-  networking-wg-leads:
-  - nak3
+  networking-wg-leads: []
   networking-writers:
   - JRBANCEL
-  - nak3
   - vagababov
   operations-reviewers:
   - Cynocracy
@@ -157,7 +151,6 @@ aliases:
   productivity-reviewers:
   - albertomilan
   - evankanderson
-  - gerardo-lc
   - mgencur
   - shinigambit
   productivity-wg-leads:
@@ -172,10 +165,8 @@ aliases:
   - upodroid
   security-wg-leads:
   - evankanderson
-  - julz
   security-writers:
   - evankanderson
-  - julz
   serving-observability-reviewers:
   - skonto
   - yanweiguo
@@ -202,9 +193,8 @@ aliases:
   - csantanapr
   - itsmurugappan
   - lance
-  - pmorie
-  - thisisnotapril
-  - vaikas
+  - nainaz
+  - salaboy
   technical-oversight-committee:
   - dprotaso
   - dsimansk
@@ -213,8 +203,8 @@ aliases:
   - zroubalik
   trademark-committee:
   - evankanderson
+  - mchmarny
   - smoser-ibm
-  - spencerdillard
   ux-wg-leads:
   - abrennan89
   - snneji

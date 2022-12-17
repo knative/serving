@@ -85,7 +85,7 @@ var (
 		ReadOnlyRootFilesystem:   ptr.Bool(true),
 		RunAsNonRoot:             ptr.Bool(true),
 		Capabilities: &corev1.Capabilities{
-			Drop: []corev1.Capability{"all"},
+			Drop: []corev1.Capability{"ALL"},
 		},
 	}
 )
@@ -376,6 +376,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: strconv.FormatBool(cfg.Features.AutoDetectHTTP2 == apicfg.Enabled),
+		}, {
+			Name:  "ROOT_CA",
+			Value: cfg.Deployment.QueueSidecarRootCA,
 		}},
 	}
 

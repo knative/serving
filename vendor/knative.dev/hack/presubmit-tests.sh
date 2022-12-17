@@ -139,14 +139,7 @@ function __build_test_runner_for_module() {
   # Don't merge these two lines, or return code will always be 0.
   # Get all build tags in go code (ignore /vendor, /hack and /third_party)
   local tags
-  tags="$(grep -I -r '// +build' . | grep -v '/vendor/' | \
-    grep -v '/hack/' | \
-    grep -v '/third_party' | \
-    cut -f3 -d' ' | \
-    tr ',' '\n' | \
-    sort | uniq | \
-    grep -v '^!' | \
-    paste -s -d, /dev/stdin)"
+  tags="$(go run knative.dev/test-infra/tools/go-ls-tags@latest --joiner=,)"
   local go_pkg_dirs
   go_pkg_dirs="$(go list -tags "${tags}" ./...)" || return $?
   if [[ -z "${go_pkg_dirs}" ]]; then
