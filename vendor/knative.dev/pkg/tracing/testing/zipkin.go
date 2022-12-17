@@ -27,13 +27,14 @@ import (
 // FakeZipkinExporter is intended to capture the testing boilerplate of building
 // up the ConfigOption to pass NewOpenCensusTracer and expose a mechanism for examining
 // the traces it would have reported.  To set it up, use something like:
-//    reporter, co := FakeZipkinExporter()
-//    defer reporter.Close()
-//    oct := NewOpenCensusTracer(co)
-//    defer oct.Close()
-//    // Do stuff.
-//    spans := reporter.Flush()
-//    // Check reported spans.
+//
+//	reporter, co := FakeZipkinExporter()
+//	defer reporter.Close()
+//	oct := NewOpenCensusTracer(co)
+//	defer oct.Close()
+//	// Do stuff.
+//	spans := reporter.Flush()
+//	// Check reported spans.
 func FakeZipkinExporter() (*recorder.ReporterRecorder, tracing.ConfigOption) {
 	// Create tracer with reporter recorder
 	reporter := recorder.NewReporter()

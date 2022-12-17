@@ -192,7 +192,8 @@ func main() {
 	h := netprobe.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	server := http.Server{Addr: ":8080", Handler: h}
+	//nolinlt:gosec https://github.com/knative/serving/issues/13439
+	server := http.Server{Addr: ":8080", Handler: h, ReadHeaderTimeout: time.Minute}
 	go server.ListenAndServe()
 
 	// Determine the address of the gateway service.

@@ -27,7 +27,7 @@ import (
 // itemExponentialFailureRateLimiter does a simple baseDelay*2^<num-failures> limit
 // dealing with max failures and expiration are up to the caller
 //
-// When num-failures is 0 it will not wait
+// # When num-failures is 0 it will not wait
 //
 // Copyright 2016 The Kubernetes Authors.
 // From: https://github.com/kubernetes/client-go/blob/master/util/workqueue/default_rate_limiters.go

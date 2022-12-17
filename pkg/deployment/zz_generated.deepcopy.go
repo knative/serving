@@ -65,6 +65,13 @@ func (in *Config) DeepCopyInto(out *Config) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
+	if in.QueueSidecarTokenAudiences != nil {
+		in, out := &in.QueueSidecarTokenAudiences, &out.QueueSidecarTokenAudiences
+		*out = make(sets.String, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
