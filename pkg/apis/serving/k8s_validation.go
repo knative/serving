@@ -892,7 +892,7 @@ func ValidatePodSecurityContext(ctx context.Context, sc *corev1.PodSecurityConte
 // Note that this **explicitly** does not warn on dangerous SecurityContext
 // settings, the purpose is to avoid accidentally-insecure settings, not to
 // block deliberate use of dangerous settings.
-func warnDefaultContainerSecurityContext(ctx context.Context, psc *corev1.PodSecurityContext, sc *corev1.SecurityContext) *apis.FieldError {
+func warnDefaultContainerSecurityContext(_ context.Context, psc *corev1.PodSecurityContext, sc *corev1.SecurityContext) *apis.FieldError {
 	if sc == nil {
 		sc = &corev1.SecurityContext{}
 	}
