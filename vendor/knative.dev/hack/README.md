@@ -123,6 +123,10 @@ This is a helper script for Knative E2E test scripts. To use it:
    when a test fails, and can dump extra information about the current state of
    the cluster (typically using `kubectl`).
 
+1. [optional] Write the `on_success` function. It will be called when a test succeeds
+
+1. [optional] Write the `on_failure` function. It will be called when a test fails
+
 1. [optional] Write the `parse_flags()` function. It will be called whenever an
    unrecognized flag is passed to the script, allowing you to define your own
    flags. The function must return 0 if the flag is unrecognized, or the number
@@ -148,9 +152,6 @@ This is a helper script for Knative E2E test scripts. To use it:
 
 1. By default `knative_teardown()` and `test_teardown()` will be called after
    the tests finish, use `--skip-teardowns` if you don't want them to be called.
-
-1. By default Istio is installed on the cluster via Addon, use
-   `--skip-istio-addon` if you choose not to have it preinstalled.
 
 1. By default Google Kubernetes Engine telemetry to Cloud Logging and Monitoring is disabled.
    This can be enabled by setting `ENABLE_GKE_TELEMETRY` to `true`.

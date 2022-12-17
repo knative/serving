@@ -63,7 +63,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecSchedulerName:             Disabled,
 		ContainerSpecAddCapabilities:     Disabled,
 		PodSpecTolerations:               Disabled,
-		PodSpecVolumesEmptyDir:           Disabled,
+		PodSpecVolumesEmptyDir:           Enabled,
 		PodSpecPersistentVolumeClaim:     Disabled,
 		PodSpecPersistentVolumeWrite:     Disabled,
 		QueueProxyMountPodInfo:           Disabled,

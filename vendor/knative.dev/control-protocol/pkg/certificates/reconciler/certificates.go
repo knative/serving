@@ -33,8 +33,6 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 
-	reconcilersecret "knative.dev/pkg/client/injection/kube/reconciler/core/v1/secret"
-
 	"knative.dev/control-protocol/pkg/certificates"
 )
 
@@ -59,7 +57,7 @@ type reconciler struct {
 }
 
 // Check that our Reconciler implements Interface
-var _ reconcilersecret.Interface = (*reconciler)(nil)
+var _ Interface = (*reconciler)(nil)
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) pkgreconciler.Event {
@@ -163,10 +161,13 @@ func (r *reconciler) commitUpdatedSecret(ctx context.Context, secret *corev1.Sec
 	secret = secret.DeepCopy()
 
 	secret.Data = make(map[string][]byte, 3)
+	secret.Data[certificates.CertName] = keyPair.CertBytes()
+	secret.Data[certificates.PrivateKeyName] = keyPair.PrivateKeyBytes()
 	secret.Data[certificates.SecretCertKey] = keyPair.CertBytes()
 	secret.Data[certificates.SecretPKKey] = keyPair.PrivateKeyBytes()
 	if caCert != nil {
 		secret.Data[certificates.SecretCaCertKey] = caCert
+		secret.Data[certificates.CaCertName] = caCert
 	}
 
 	_, err := r.client.CoreV1().Secrets(secret.Namespace).Update(ctx, secret, metav1.UpdateOptions{})

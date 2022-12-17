@@ -28,6 +28,7 @@ import (
 
 // NewServer returns a new HTTP Server with HTTP2 handler.
 func NewServer(addr string, h http.Handler) *http.Server {
+	//nolint:gosec
 	h1s := &http.Server{
 		Addr:    addr,
 		Handler: h2c.NewHandler(h, &http2.Server{}),

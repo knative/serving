@@ -177,7 +177,7 @@ func main() {
 			pool = x509.NewCertPool()
 		}
 
-		if ok := pool.AppendCertsFromPEM(caSecret.Data[certificates.SecretCaCertKey]); !ok {
+		if ok := pool.AppendCertsFromPEM(caSecret.Data[certificates.CaCertName]); !ok {
 			logger.Fatalw("Failed to append ca cert to the RootCAs")
 		}
 
@@ -304,7 +304,7 @@ func main() {
 		if err != nil {
 			logger.Fatalw("failed to get secret", zap.Error(err))
 		}
-		cert, err := tls.X509KeyPair(secret.Data[certificates.SecretCertKey], secret.Data[certificates.SecretPKKey])
+		cert, err := tls.X509KeyPair(secret.Data[certificates.CertName], secret.Data[certificates.PrivateKeyName])
 		if err != nil {
 			logger.Fatalw("failed to load certs", zap.Error(err))
 		}

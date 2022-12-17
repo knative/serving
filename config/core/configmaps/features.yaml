@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "ca2c8415"
+    knative.dev/example-checksum: "2e089c30"
 data:
   _example: |-
     ################################
@@ -116,6 +116,7 @@ data:
     # - RunAsNonRoot
     # - SupplementalGroups
     # - RunAsUser
+    # - SeccompProfile
     #
     # This feature flag should be used with caution as the PodSecurityContext
     # properties may have a side-effect on non-user sidecar containers that come
@@ -167,7 +168,7 @@ data:
     # Controls whether volume support for EmptyDir is enabled or not.
     # 1. Enabled: enabling EmptyDir volume support
     # 2. Disabled: disabling EmptyDir volume support
-    kubernetes.podspec-volumes-emptydir: "disabled"
+    kubernetes.podspec-volumes-emptydir: "enabled"
 
     # Controls whether init containers support is enabled or not.
     # 1. Enabled: enabling init containers support

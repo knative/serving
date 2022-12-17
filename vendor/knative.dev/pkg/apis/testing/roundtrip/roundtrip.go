@@ -87,8 +87,7 @@ func init() {
 // ExternalTypesViaJSON applies the round-trip test to all external round-trippable Kinds
 // in the scheme. This is effectively testing the scenario:
 //
-//    external -> json -> external
-//
+//	external -> json -> external
 func ExternalTypesViaJSON(t *testing.T, scheme *runtime.Scheme, fuzzerFuncs fuzzer.FuzzerFuncs) {
 	codecFactory := serializer.NewCodecFactory(scheme)
 
@@ -114,8 +113,7 @@ func ExternalTypesViaJSON(t *testing.T, scheme *runtime.Scheme, fuzzerFuncs fuzz
 // ExternalTypesViaHub applies the round-trip test to all external round-trippable Kinds
 // in the scheme. This is effectively testing the scenario:
 //
-//    external version -> hub version -> external version
-//
+//	external version -> hub version -> external version
 func ExternalTypesViaHub(t *testing.T, scheme, hubs *runtime.Scheme, fuzzerFuncs fuzzer.FuzzerFuncs) {
 	f := fuzzer.FuzzerFor(
 		fuzzer.MergeFuzzerFuncs(metafuzzer.Funcs, fuzzerFuncs),
