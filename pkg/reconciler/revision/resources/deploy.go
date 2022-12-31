@@ -18,6 +18,7 @@ package resources
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -42,6 +43,7 @@ import (
 )
 
 const certVolumeName = "server-certs"
+const concurrencyStateHook = "concurrency-state-hook"
 
 var (
 	varLogVolume = corev1.Volume{
@@ -62,12 +64,7 @@ var (
 		Name: "knative-token-volume",
 		VolumeSource: corev1.VolumeSource{
 			Projected: &corev1.ProjectedVolumeSource{
-				Sources: []corev1.VolumeProjection{{
-					ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-						ExpirationSeconds: ptr.Int64(600),
-						Path:              queue.ConcurrencyStateTokenFilename,
-						Audience:          "concurrency-state-hook"},
-				}},
+				Sources: []corev1.VolumeProjection{},
 			},
 		},
 	}
@@ -118,6 +115,20 @@ var (
 	}
 )
 
+func addToken(tokenVolume *corev1.Volume, filename string, audience string, expiry *int64) {
+	if filename == "" || audience == "" {
+		return
+	}
+	volumeProjection := &corev1.VolumeProjection{
+		ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+			ExpirationSeconds: expiry,
+			Path:              filename,
+			Audience:          audience,
+		},
+	}
+	tokenVolume.VolumeSource.Projected.Sources = append(tokenVolume.VolumeSource.Projected.Sources, *volumeProjection)
+}
+
 func certVolume(secret string) corev1.Volume {
 	return corev1.Volume{
 		Name: certVolumeName,
@@ -150,6 +161,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 
 func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) {
 	queueContainer, err := makeQueueContainer(rev, cfg)
+	tokenVolume := varTokenVolume.DeepCopy()
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
@@ -169,8 +181,23 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 
 	// If concurrencyStateEndpoint is enabled, add the serviceAccountToken to QP via a projected volume
 	if cfg.Deployment.ConcurrencyStateEndpoint != "" {
+		// add token for audience "concurrency-state-hook" under filename ConcurrencyStateTokenFilename
+		addToken(tokenVolume, queue.ConcurrencyStateTokenFilename, concurrencyStateHook, ptr.Int64(600))
+	}
+
+	audiences := make([]string, 0, len(cfg.Deployment.QueueSidecarTokenAudiences))
+	for k := range cfg.Deployment.QueueSidecarTokenAudiences {
+		audiences = append(audiences, k)
+	}
+	sort.Strings(audiences)
+	for _, aud := range audiences {
+		// add token for audience <aud> under filename <aud>
+		addToken(tokenVolume, aud, aud, ptr.Int64(3600))
+	}
+
+	if len(tokenVolume.VolumeSource.Projected.Sources) > 0 {
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varTokenVolumeMount)
-		extraVolumes = append(extraVolumes, varTokenVolume)
+		extraVolumes = append(extraVolumes, *tokenVolume)
 	}
 
 	if cfg.Network.InternalEncryption {

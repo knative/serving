@@ -26,13 +26,14 @@ import (
 )
 
 // steadyUpPacer is a Pacer that describes attack request rates that increases in the beginning then becomes steady.
-//  Max  |     ,----------------
-//       |    /
-//       |   /
-//       |  /
-//       | /
-//  Min -+------------------------------> t
-//       |<-Up->|
+//
+//	Max  |     ,----------------
+//	     |    /
+//	     |   /
+//	     |  /
+//	     | /
+//	Min -+------------------------------> t
+//	     |<-Up->|
 type steadyUpPacer struct {
 	// upDuration is the duration that attack request rates increase from Min to Max.
 	// MUST be larger than 0.

@@ -19,9 +19,9 @@ package sample
 import (
 	"context"
 
+	v1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/client/injection/kube/reconciler/core/v1/secret"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/system"
 
@@ -31,7 +31,8 @@ import (
 
 	pkgreconciler "knative.dev/pkg/reconciler"
 
-	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
+	secretfilteredinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/filtered"
+	filteredFactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 )
 
 const (
@@ -45,12 +46,12 @@ func NewControllerFactory(componentName string) injection.ControllerConstructor 
 		ctx context.Context,
 		cmw configmap.Watcher,
 	) *controller.Impl {
-		ctx = logging.WithLogger(ctx, logging.FromContext(ctx).Named("ctrl-secrets-controller"))
-
-		secretInformer := secretinformer.Get(ctx)
 
 		caSecretName := componentName + caSecretNamePostfix
 		labelName := componentName + secretLabelNamePostfix
+
+		ctx = filteredFactory.WithSelectors(ctx, labelName)
+		secretInformer := getSecretInformer(ctx)
 
 		r := &reconciler{
 			client: kubeclient.Get(ctx),
@@ -62,7 +63,7 @@ func NewControllerFactory(componentName string) injection.ControllerConstructor 
 			logger: logging.FromContext(ctx),
 		}
 
-		impl := secret.NewImpl(ctx, r)
+		impl := NewFilteredImpl(ctx, r, secretInformer)
 		r.enqueueAfter = impl.EnqueueKeyAfter
 
 		logging.FromContext(ctx).Info("Setting up event handlers")
@@ -83,4 +84,9 @@ func NewControllerFactory(componentName string) injection.ControllerConstructor 
 
 		return impl
 	}
+}
+
+func getSecretInformer(ctx context.Context) v1.SecretInformer {
+	untyped := ctx.Value(filteredFactory.LabelKey{}) // This should always be not nil and have exactly one selector
+	return secretfilteredinformer.Get(ctx, untyped.([]string)[0])
 }
