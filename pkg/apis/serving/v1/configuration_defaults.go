@@ -38,5 +38,25 @@ func (c *Configuration) SetDefaults(ctx context.Context) {
 
 // SetDefaults implements apis.Defaultable
 func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
+	if apis.IsInUpdate(ctx) {
+		var prev ConfigurationSpec
+		prevConfig, ok := apis.GetBaseline(ctx).(*Configuration)
+		if ok {
+			prev = prevConfig.Spec
+		} else {
+			prevSvc, ok := apis.GetBaseline(ctx).(*Service)
+			if !ok {
+				panic("expected a Configuration or Service baseline")
+			}
+			prev = prevSvc.Spec.ConfigurationSpec
+		}
+		newName := cs.Template.ObjectMeta.Name
+		oldName := prev.Template.ObjectMeta.Name
+		if newName != "" && newName == oldName {
+			// Skip defaulting, to avoid suggesting changes that would conflict with
+			// "BYO RevisionName".
+			return
+		}
+	}
 	cs.Template.SetDefaults(ctx)
 }
