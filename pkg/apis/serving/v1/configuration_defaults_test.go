@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
@@ -170,6 +171,46 @@ func TestConfigurationDefaulting(t *testing.T) {
 					cmp.Diff(test.want, got, ignoreUnexportedResources))
 			}
 		})
+	}
+}
+
+func TestBYORevisionName(t *testing.T) {
+	new := &Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "thing",
+			Annotations: map[string]string{"annotated": "yes"},
+		},
+		Spec: ConfigurationSpec{
+			Template: RevisionTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "thing-2022",
+				},
+				Spec: RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Image: "busybox",
+						}},
+					},
+				},
+			},
+		},
+	}
+
+	old := new.DeepCopy()
+	old.ObjectMeta.Annotations = map[string]string{}
+
+	want := new.DeepCopy()
+
+	ctx := apis.WithinUpdate(context.Background(), old)
+	new.SetDefaults(ctx)
+
+	if diff := cmp.Diff(want, new); diff != "" {
+		t.Errorf("SetDefaults (-want, +got) = %v", diff)
+	}
+
+	new.SetDefaults(context.Background())
+	if cmp.Equal(want, new, ignoreUnexportedResources) {
+		t.Errorf("Expected diff, got none! object: %v", new)
 	}
 }
 

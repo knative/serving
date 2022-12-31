@@ -23,20 +23,47 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 )
 
+type configSpecKey struct{}
+
+// WithConfigurationSpec stores a ConfigurationSpec in the context,
+func WithConfigurationSpec(ctx context.Context, spec *ConfigurationSpec) context.Context {
+	return context.WithValue(ctx, configSpecKey{}, spec)
+}
+
+func previousConfigSpec(ctx context.Context) *ConfigurationSpec {
+	if spec, ok := ctx.Value(configSpecKey{}).(*ConfigurationSpec); ok {
+		return spec
+	}
+	return nil
+}
+
 // SetDefaults implements apis.Defaultable
 func (c *Configuration) SetDefaults(ctx context.Context) {
 	ctx = apis.WithinParent(ctx, c.ObjectMeta)
+
+	var prevSpec *ConfigurationSpec
+	if prev, ok := apis.GetBaseline(ctx).(*Configuration); ok && prev != nil {
+		prevSpec = &prev.Spec
+		ctx = WithConfigurationSpec(ctx, prevSpec)
+	}
+
 	c.Spec.SetDefaults(apis.WithinSpec(ctx))
+
 	if c.GetOwnerReferences() == nil {
-		if apis.IsInUpdate(ctx) {
-			serving.SetUserInfo(ctx, apis.GetBaseline(ctx).(*Configuration).Spec, c.Spec, c)
-		} else {
-			serving.SetUserInfo(ctx, nil, c.Spec, c)
-		}
+		serving.SetUserInfo(ctx, prevSpec, &c.Spec, c)
 	}
 }
 
 // SetDefaults implements apis.Defaultable
 func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
+	if prev := previousConfigSpec(ctx); prev != nil {
+		newName := cs.Template.ObjectMeta.Name
+		oldName := prev.Template.ObjectMeta.Name
+		if newName != "" && newName == oldName {
+			// Skip defaulting, to avoid suggesting changes that would conflict with
+			// "BYO RevisionName".
+			return
+		}
+	}
 	cs.Template.SetDefaults(ctx)
 }
