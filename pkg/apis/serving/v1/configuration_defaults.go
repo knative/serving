@@ -25,7 +25,9 @@ import (
 
 type configSpecKey struct{}
 
-// WithConfigurationSpec stores a ConfigurationSpec in the context,
+// WithConfigurationSpec stores a ConfigurationSpec in the context, to allow
+// ConfigurationSpec.SetDefaults to determine whether the update would create a
+// new Revision.
 func WithConfigurationSpec(ctx context.Context, spec *ConfigurationSpec) context.Context {
 	return context.WithValue(ctx, configSpecKey{}, spec)
 }
