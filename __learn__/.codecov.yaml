@@ -1,0 +1,23 @@
+coverage:
+  # Using https://docs.codecov.io/docs/commit-status for commit status for blocking PR based on configured coverage threshold
+  status:
+    project:
+      default:
+        target: 80
+        threshold: 1%
+    patch:
+      # Don't apply coverage threshold to the patch
+      # This is so that PRs are blocked only because overall coverage threshold is not reached
+      # details at https://docs.codecov.io/docs/commit-status#disabling-a-status
+      default: false
+comment:
+  # create new comment if it's deleted/update existing comment
+  behavior: default
+ignore:
+  - "**/zz_generated*.go" 
+  - "**/*.pb.go" # proto-created files
+  - "hack"
+  - "pkg/client"
+  - "test"
+  - "third_party"
+  - "vendor"
