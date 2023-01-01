@@ -53,4 +53,9 @@ import (
   "knative.dev/serving/pkg/networking"
 )
 
+const (
+  component = "activator"
 
+  // listening on this port for autoscaler WebSocket server
+  autoscalerPort = ":8080"
+)
