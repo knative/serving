@@ -92,4 +92,15 @@ func main() {
   }
 
   kubeClient := kubeclient.Get(ctx)
+
+  // prevent termination by polling failure - sometimes startup occurs before reaching kube-api
+  var err error
+  if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
+    if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+      log.Print("Couldn't obtain k8s version", err)
+    }
+    return err == nil, nil
+  }); perr != nil {
+    log.Fatal("Reached timeout trying to get k8s version: ", err)
+  }
 }
