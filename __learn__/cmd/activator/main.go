@@ -117,4 +117,10 @@ func main() {
   )
   ctx = pkglogging.WithLogger(ctx, logger)
   defer flush(logger)
+
+  // empty handler can cause sync hanging - we want to avoid this
+  // so we run informers rather than using the factory to start them
+  if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+    logger.Fatalw("Couldn't start informers", zap.Error(err))
+  }
 }
