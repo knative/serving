@@ -59,3 +59,13 @@ const (
   // listening on this port for autoscaler WebSocket server
   autoscalerPort = ":8080"
 )
+
+type config struct {
+  PodName string `split_words:"true" required:"true"`
+  PodIP string `split_words:"true" required:"true"`
+
+  // set up higher keep-alive values for bigger deployments
+  // @todo - to research what are better starting values via running loadtests with these flags
+  MaxIdleProxyConns int `split_words:"true" default:"1000"`
+  MaxIdleProxyConnsPerHost int `split_words:"true" default:"100"`
+}
