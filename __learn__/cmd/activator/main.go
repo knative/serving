@@ -69,3 +69,27 @@ type config struct {
   MaxIdleProxyConns int `split_words:"true" default:"1000"`
   MaxIdleProxyConnsPerHost int `split_words:"true" default:"100"`
 }
+
+func main() {
+  // configure context with which we can cancel to message informers/other subprocesses to stop
+  ctx, cancel := context.WithCancel(context.Background())
+  defer cancel()
+
+  // every half minute report on RAM usage by go
+  metrics.MemStatsOrDie(ctx)
+
+  cfg := injection.ParseAndGetRESTConfigOrDie()
+
+  log.Printf("%d clients registered", len(injection.Default.GetClients()))
+  log.Printf("%d informer factories registered", len(injection.Default.GetInformerFactories()))
+  log.Printf("%d informers registered", len(injection.Default.GetInformers()))
+
+  ctx, informers := injection.Default.SetupInformers(ctx, cfg)
+
+  var env config
+  if err := envconfig.Process("", &env); err != nil {
+    log.Fatal("Couldn't process env: ", err)
+  }
+
+  kubeClient := kubeclient.Get(ctx)
+}
