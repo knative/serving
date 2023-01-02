@@ -103,4 +103,18 @@ func main() {
   }); perr != nil {
     log.Fatal("Reached timeout trying to get k8s version: ", err)
   }
+
+  // initialise logger
+  loggingConfig, err := sharedmain.GetLoggingConfig(ctx)
+  if err != nil {
+    log.Fatal("Cannot load/parse logging setup: ", err)
+  }
+
+  logger, atomicLevel := pkglogging.NewLoggerFromConfig(loggingConfig, component)
+  logger = logger.With(
+    zap.String(logkey.ControllerType, component),
+    zap.String(logkey.Pod, env.PodName)
+  )
+  ctx = pkglogging.WithLogger(ctx, logger)
+  defer flush(logger)
 }
