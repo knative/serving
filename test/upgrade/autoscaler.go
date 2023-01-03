@@ -58,6 +58,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 			// Verification is done inside e2e.AssertAutoscaleUpToNumPods.
 			// We're just giving it a signal.
 			close(stopCh)
+			c.T.Error("Fail autoscaler verify phase")
 			if err := wait(); err != nil {
 				c.T.Error("Error: ", err)
 			}
