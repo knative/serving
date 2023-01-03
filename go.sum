@@ -721,6 +721,8 @@ github.com/mgencur/pkg v0.0.0-20230103131240-a04081acd228 h1:0bPI2XiQv/I5UkK2O5L
 github.com/mgencur/pkg v0.0.0-20230103131240-a04081acd228/go.mod h1:IeUSNPPUpQnM35SjpnfCx0w5/V2RpEc+nmke6oPwpD0=
 github.com/mgencur/pkg v0.0.0-20230103151539-4837608b6068 h1:r3Sv+uaarjVxHtfHsPcaFLCCFo8rh54ZDmCqcQXeuOI=
 github.com/mgencur/pkg v0.0.0-20230103151539-4837608b6068/go.mod h1:IeUSNPPUpQnM35SjpnfCx0w5/V2RpEc+nmke6oPwpD0=
+github.com/mgencur/pkg v0.0.0-20230103162433-fcab7ce47b0e h1:ax8LY9K210E0nKLw9N1vQB2TauUo3F7EGEfrF8frmCI=
+github.com/mgencur/pkg v0.0.0-20230103162433-fcab7ce47b0e/go.mod h1:IeUSNPPUpQnM35SjpnfCx0w5/V2RpEc+nmke6oPwpD0=
 github.com/miekg/dns v1.0.14/go.mod h1:W1PPwlIAgtquWBMBEV9nkV9Cazfe8ScdGz/Lj7v3Nrg=
 github.com/miekg/dns v1.1.17/go.mod h1:WgzbA6oji13JREwiNsRDNfl7jYdPnmz+VEuLrA+/48M=
 github.com/miekg/dns v1.1.26/go.mod h1:bPDLeHnStXmXAq1m/Ch/hvfNHr14JKNPMBo3VZKjuso=

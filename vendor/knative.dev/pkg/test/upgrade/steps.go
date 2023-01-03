@@ -60,8 +60,7 @@ func (se *suiteExecution) runContinualTests(t *testing.T, num int, stopCh <-chan
 			t.Run(operation.Name(), func(t *testing.T) {
 				setup := operation.Setup()
 				setup(Context{T: t, Log: l})
-				se.failed = se.failed || t.Failed()
-				if se.failed {
+				if t.Failed() {
 					return
 				}
 				t.Parallel()
@@ -72,7 +71,6 @@ func (se *suiteExecution) runContinualTests(t *testing.T, num int, stopCh <-chan
 					Log:  l,
 					Stop: stopCh,
 				})
-				se.failed = se.failed || t.Failed()
 				l.Debugf(`Finished "%s"`, operation.Name())
 			})
 		}

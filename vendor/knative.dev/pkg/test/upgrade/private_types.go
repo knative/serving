@@ -23,7 +23,6 @@ import (
 type suiteExecution struct {
 	suite         *enrichedSuite
 	configuration Configuration
-	failed        bool
 	logger        *zap.SugaredLogger
 }
 

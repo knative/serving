@@ -27,7 +27,7 @@ func (se *suiteExecution) processOperationGroup(t *testing.T, op operationGroup)
 			l.Infof(op.groupTemplate, op.num, len(op.operations))
 			for i, operation := range op.operations {
 				l.Infof(op.elementTemplate, op.num, i+1, operation.Name())
-				if se.failed {
+				if t.Failed() {
 					l.Debugf(skippingOperationTemplate, operation.Name())
 					return
 				}
@@ -35,8 +35,7 @@ func (se *suiteExecution) processOperationGroup(t *testing.T, op operationGroup)
 				t.Run(operation.Name(), func(t *testing.T) {
 					handler(Context{T: t, Log: l})
 				})
-				se.failed = se.failed || t.Failed()
-				if se.failed {
+				if t.Failed() {
 					return
 				}
 			}
@@ -56,7 +55,7 @@ func (se *suiteExecution) execute() {
 	for _, operation := range operations {
 		operation(se.configuration.T, idx)
 		idx++
-		if se.failed {
+		if se.configuration.T.Failed() {
 			return
 		}
 	}
@@ -77,7 +76,7 @@ func (se *suiteExecution) execute() {
 		}()
 
 		idx++
-		if se.failed {
+		if t.Failed() {
 			return
 		}
 
@@ -95,7 +94,7 @@ func (se *suiteExecution) execute() {
 			for _, operation := range operations {
 				operation(t, idx)
 				idx++
-				if se.failed {
+				if t.Failed() {
 					return
 				}
 			}

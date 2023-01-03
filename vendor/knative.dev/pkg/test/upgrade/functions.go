@@ -26,19 +26,19 @@ import (
 func (s *Suite) Execute(c Configuration) {
 	l, err := c.logger()
 	if err != nil {
-		c.T.Fatal("Failed to create logger:", err)
+		c.T.Fatal("Failed to build logger:", err)
+		return
 	}
 	se := suiteExecution{
 		suite:         enrichSuite(s),
 		configuration: c,
-		failed:        false,
 		logger:        l,
 	}
 	l.Info("🏃 Running upgrade test suite...")
 
 	se.execute()
 
-	if !se.failed {
+	if !c.T.Failed() {
 		l.Info("🥳🎉 Success! Upgrade suite completed without errors.")
 	} else {
 		l.Error("💣🤬💔️ Upgrade suite have failed!")
@@ -46,17 +46,11 @@ func (s *Suite) Execute(c Configuration) {
 }
 
 func (c Configuration) logger() (*zap.SugaredLogger, error) {
-	// TODO(mgencur): Remove when dependent repositories use LogConfig instead of Log.
-	// This is for backwards compatibility.
-	if c.Log != nil {
-		return c.Log.Sugar(), nil
-	}
-	var err error
-	c.Log, err = c.logConfig().Config.Build(c.logConfig().Options...)
+	logger, err := c.logConfig().Config.Build(c.logConfig().Options...)
 	if err != nil {
 		return nil, err
 	}
-	return c.Log.Sugar(), nil
+	return logger.Sugar(), nil
 }
 
 // NewOperation creates a new upgrade operation or test.

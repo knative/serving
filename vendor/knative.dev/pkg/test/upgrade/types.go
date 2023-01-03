@@ -104,9 +104,6 @@ type WaitForStopEventConfiguration struct {
 // Configuration holds required and optional configuration to run upgrade tests.
 type Configuration struct {
 	T *testing.T
-	// TODO(mgencur): Remove when dependent repositories migrate to LogConfig.
-	// Keep this for backwards compatibility.
-	Log *zap.Logger
 	LogConfig
 }
 
