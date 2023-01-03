@@ -19,6 +19,7 @@ package upgrade
 import (
 	"time"
 
+	logstream "knative.dev/pkg/test/logstream/v2"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -41,14 +42,17 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 	var ctx *e2e.TestContext
 	var wait func() error
 	stopCh := make(chan time.Time)
+	var canceler logstream.Canceler = func() {}
 	return pkgupgrade.NewBackgroundVerification("AutoscaleSustainingTest",
 		func(c pkgupgrade.Context) {
 			// Setup
-			ctx = e2e.SetupSvc(c.T, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+			ctx = e2e.SetupSvc(c.T, "autoscale-sustaining", autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
 				}))
-			ctx.SetLogger(c.Log.Infof)
+			if !test.ServingFlags.DisableLogStream {
+				canceler = streamLogs(c.T, ctx.Clients(), ctx.Names().Service)
+			}
 			wait = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
 
 			// Allow the traffic and scale to settle before starting the upgrade.
@@ -62,6 +66,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 			if err := wait(); err != nil {
 				c.T.Error("Error: ", err)
 			}
+			c.T.Cleanup(canceler)
 		},
 	)
 }
@@ -72,14 +77,17 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 	var ctx *e2e.TestContext
 	var wait func() error
 	stopCh := make(chan time.Time)
+	var canceler logstream.Canceler = func() {}
 	return pkgupgrade.NewBackgroundVerification("AutoscaleSustainingWithTBCTest",
 		func(c pkgupgrade.Context) {
 			// Setup
-			ctx = e2e.SetupSvc(c.T, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+			ctx = e2e.SetupSvc(c.T, "autoscale-sus-tbc", autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
 				}))
-			ctx.SetLogger(c.Log.Infof)
+			if !test.ServingFlags.DisableLogStream {
+				canceler = streamLogs(c.T, ctx.Clients(), ctx.Names().Service)
+			}
 			wait = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
 
 			// Allow the traffic and scale to settle before starting the upgrade.
@@ -93,6 +101,7 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 			if err := wait(); err != nil {
 				c.T.Error("Error: ", err)
 			}
+			c.T.Cleanup(canceler)
 		},
 	)
 }

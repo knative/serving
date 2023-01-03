@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 
+	logstream "knative.dev/pkg/test/logstream/v2"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -34,6 +35,7 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 	var clients *test.Clients
 	var names *test.ResourceNames
 	var prober test.Prober
+	var canceler logstream.Canceler = func() {}
 	return pkgupgrade.NewBackgroundVerification("ProbeTest",
 		func(c pkgupgrade.Context) {
 			// Setup
@@ -41,6 +43,9 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 			names = &test.ResourceNames{
 				Service: "upgrade-probe",
 				Image:   test.PizzaPlanet1,
+			}
+			if !test.ServingFlags.DisableLogStream {
+				canceler = streamLogs(c.T, clients, names.Service)
 			}
 			objects, err := v1test.CreateServiceReady(c.T, clients, names)
 			if err != nil {
@@ -51,12 +56,13 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 			// This polls until we get a 200 with the right body.
 			assertServiceResourcesUpdated(c.T, clients, *names, url, test.PizzaPlanetText1)
 
-			prober = test.RunRouteProber(c.Log.Infof, clients, url, test.AddRootCAtoTransport(context.Background(), c.T.Logf, clients, test.ServingFlags.HTTPS))
+			prober = test.RunRouteProber(c.T.Logf, clients, url, test.AddRootCAtoTransport(context.Background(), c.T.Logf, clients, test.ServingFlags.HTTPS))
 		},
 		func(c pkgupgrade.Context) {
 			// Verify
 			test.EnsureTearDown(c.T, clients, names)
 			test.AssertProberSLO(c.T, prober, *successFraction)
+			c.T.Cleanup(canceler)
 		},
 	)
 }

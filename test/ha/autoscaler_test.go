@@ -47,7 +47,7 @@ const (
 )
 
 func TestAutoscalerHA(t *testing.T) {
-	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization,
+	ctx := e2e.SetupSvc(t, test.ObjectNameForTest(t), autoscaling.KPA, autoscaling.RPS, target, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(), // Make sure we scale to zero quickly.
 			autoscaling.TargetBurstCapacityKey: "-1",
