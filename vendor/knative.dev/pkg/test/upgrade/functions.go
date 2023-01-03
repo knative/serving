@@ -24,7 +24,10 @@ import (
 
 // Execute the Suite of upgrade tests with a Configuration given.
 func (s *Suite) Execute(c Configuration) {
-	l := c.logger()
+	l, err := c.logger()
+	if err != nil {
+		c.T.Fatal("Failed to create logger:", err)
+	}
 	se := suiteExecution{
 		suite:         enrichSuite(s),
 		configuration: c,
@@ -42,8 +45,18 @@ func (s *Suite) Execute(c Configuration) {
 	}
 }
 
-func (c Configuration) logger() *zap.SugaredLogger {
-	return c.Log.Sugar()
+func (c Configuration) logger() (*zap.SugaredLogger, error) {
+	// TODO(mgencur): Remove when dependent repositories use LogConfig instead of Log.
+	// This is for backwards compatibility.
+	if c.Log != nil {
+		return c.Log.Sugar(), nil
+	}
+	var err error
+	c.Log, err = c.logConfig().Config.Build(c.logConfig().Options...)
+	if err != nil {
+		return nil, err
+	}
+	return c.Log.Sugar(), nil
 }
 
 // NewOperation creates a new upgrade operation or test.
