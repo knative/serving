@@ -50,7 +50,6 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 
 			// This polls until we get a 200 with the right body.
 			assertServiceResourcesUpdated(c.T, clients, *names, url, test.PizzaPlanetText1)
-			c.T.Error("Fail prober setup phase")
 
 			prober = test.RunRouteProber(c.T.Logf, clients, url, test.AddRootCAtoTransport(context.Background(), c.T.Logf, clients, test.ServingFlags.HTTPS))
 		},
