@@ -48,7 +48,6 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
 				}))
-			ctx.SetLogger(c.Log.Infof)
 			wait = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
 
 			// Allow the traffic and scale to settle before starting the upgrade.
@@ -79,7 +78,6 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
 				}))
-			ctx.SetLogger(c.Log.Infof)
 			wait = e2e.AutoscaleUpToNumPods(ctx, curPods, targetPods, stopCh, false /* quick */)
 
 			// Allow the traffic and scale to settle before starting the upgrade.
