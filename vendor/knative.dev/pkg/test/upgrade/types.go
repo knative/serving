@@ -81,35 +81,22 @@ type Context struct {
 }
 
 // BackgroundContext is a upgrade test execution context that will be passed
-// down to each handler of BackgroundOperation. It contains a StopEvent channel
-// which end user should use to obtain a testing.T for error reporting. Until
-// StopEvent is sent user may use zap.SugaredLogger to log state of execution if
-// necessary. The logs are stored in a threadSafeBuffer and flushed to the test
-// output when the test fails.
+// down to each handler of BackgroundOperation. It contains a stop event channel.
+// Until stop event is sent user may use zap.SugaredLogger to log state of execution if
+// necessary.
 type BackgroundContext struct {
-	Log       *zap.SugaredLogger
-	Stop      <-chan StopEvent
-	logBuffer *threadSafeBuffer
-}
-
-// StopEvent represents an event that is to be received by background operation
-// to indicate that is should stop it's operations and validate results using
-// passed T. User should use Finished channel to signalize upgrade suite that
-// all stop & verify operations are finished and it is safe to end tests.
-type StopEvent struct {
-	T        *testing.T
-	Finished chan<- struct{}
-	name     string
-	logger   *zap.SugaredLogger
+	T    *testing.T
+	Log  *zap.SugaredLogger
+	Stop <-chan struct{}
 }
 
 // WaitForStopEventConfiguration holds a values to be used be WaitForStopEvent
-// function. OnStop will be called when StopEvent is sent. OnWait will be
+// function. OnStop will be called when a stop event is sent. OnWait will be
 // invoked in a loop while waiting, and each wait act is driven by WaitTime
 // amount.
 type WaitForStopEventConfiguration struct {
 	Name     string
-	OnStop   func(event StopEvent)
+	OnStop   func()
 	OnWait   func(bc BackgroundContext, self WaitForStopEventConfiguration)
 	WaitTime time.Duration
 }

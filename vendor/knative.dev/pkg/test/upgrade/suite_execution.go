@@ -20,12 +20,9 @@ import (
 	"testing"
 )
 
-func (se *suiteExecution) processOperationGroup(op operationGroup) {
-	se.configuration.T.Run(op.groupName, func(t *testing.T) {
-		l, err := se.configuration.logger(t)
-		if err != nil {
-			t.Fatal(err)
-		}
+func (se *suiteExecution) processOperationGroup(t *testing.T, op operationGroup) {
+	l := se.logger
+	t.Run(op.groupName, func(t *testing.T) {
 		if len(op.operations) > 0 {
 			l.Infof(op.groupTemplate, op.num, len(op.operations))
 			for i, operation := range op.operations {
@@ -36,10 +33,6 @@ func (se *suiteExecution) processOperationGroup(op operationGroup) {
 				}
 				handler := operation.Handler()
 				t.Run(operation.Name(), func(t *testing.T) {
-					l, err = se.configuration.logger(t)
-					if err != nil {
-						t.Fatal(err)
-					}
 					handler(Context{T: t, Log: l})
 				})
 				se.failed = se.failed || t.Failed()
@@ -55,38 +48,57 @@ func (se *suiteExecution) processOperationGroup(op operationGroup) {
 
 func (se *suiteExecution) execute() {
 	idx := 1
-	operations := []func(num int){
+	stopCh := make(chan struct{})
+	operations := []func(t *testing.T, num int){
 		se.installingBase,
 		se.preUpgradeTests,
 	}
 	for _, operation := range operations {
-		operation(idx)
+		operation(se.configuration.T, idx)
 		idx++
 		if se.failed {
 			return
 		}
 	}
 
-	se.startContinualTests(idx)
-	idx++
-	if se.failed {
-		return
-	}
-	defer func() {
-		se.verifyContinualTests(idx)
-	}()
+	upgradesExecuted := false
+	se.configuration.T.Run("Parallel", func(t *testing.T) {
+		// Calls t.Parallel() after doing setup phase. The second part runs in parallel
+		// with UpgradeDowngrade test below.
+		se.runContinualTests(t, idx, stopCh)
 
-	operations = []func(num int){
-		se.upgradeWith,
-		se.postUpgradeTests,
-		se.downgradeWith,
-		se.postDowngradeTests,
-	}
-	for _, operation := range operations {
-		operation(idx)
+		// Make sure the stop channel is closed and continual tests unblocked in the event
+		// of failing continual tests (possibly calling t.Fatal) when the rest of sub-tests
+		// are skipped.
+		defer func() {
+			if !upgradesExecuted {
+				close(stopCh)
+			}
+		}()
+
 		idx++
 		if se.failed {
 			return
 		}
-	}
+
+		operations = []func(t *testing.T, num int){
+			se.upgradeWith,
+			se.postUpgradeTests,
+			se.downgradeWith,
+			se.postDowngradeTests,
+		}
+		t.Run("UpgradeDowngrade", func(t *testing.T) {
+			upgradesExecuted = true
+			defer close(stopCh)
+			// The rest of this test group will run in parallel with individual continual tests.
+			t.Parallel()
+			for _, operation := range operations {
+				operation(t, idx)
+				idx++
+				if se.failed {
+					return
+				}
+			}
+		})
+	})
 }
