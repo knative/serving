@@ -137,4 +137,18 @@ func main() {
     env.MaxIdleProxyConns, 
     env.MaxIdleProxyConnsPerHost
   )
+
+  // access networking setup - check if EnableMeshPodAddressability is turned on or not
+  networkCM, err := kubeclient
+    .Get(ctx)
+    .CoreV1()
+    .ConfigMaps(system.Namespace())
+    .Get(ctx, netcfg.ConfigMapName, metav1.GetOptions{})
+  if err != nil {
+    logger.Fatalw("Couldn't get network setup", zap.Error(err))
+  }
+  networkConfig, err := network.NewConfigFromConfigMap(networkCM)
+  if err != nil {
+    logger.Fatalw("Couldn't create network config", zap.Error(err))
+  }
 }
