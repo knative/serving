@@ -162,7 +162,10 @@ func (*RevisionSpec) applyProbes(container *corev1.Container) {
 	}
 }
 
-//
+// Upgrade SecurityContext for this container and the Pod definition to use settings
+// for the `restricted` profile when the feature flag is enabled.
+// This does not currently set `runAsNonRoot` for the restricted profile, because
+// that feels harder to default safely.
 func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, container *corev1.Container, cfg *config.Config) {
 	if cfg.Features.SecurePodDefaults != config.Enabled {
 		return
