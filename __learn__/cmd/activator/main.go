@@ -123,4 +123,18 @@ func main() {
   if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
     logger.Fatalw("Couldn't start informers", zap.Error(err))
   }
+
+  logger.Info("Knative activator starting");
+  
+  // the activator->QP probe and the proxy uses this transport which will be created
+  // we can avoid having an unnecessary reconnect for the first request, following a successful probe, by having the throttler and activatorhandler share this transport. They share this transport so that having reusable throttler probe connections post probing (via keep-alive) would be useful for sending real requests
+  logger.Debugf(
+    "MaxIdleProxyConns: %d; MaxIdleProxyConnsPerHost: %d", 
+    env.MaxIdleProxyConns,
+    env.MaxIdleProxyConnsPerHost
+  )
+  transport := pkgnet.NewProxyAutoTransport(
+    env.MaxIdleProxyConns, 
+    env.MaxIdleProxyConnsPerHost
+  )
 }
