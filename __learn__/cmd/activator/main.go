@@ -151,4 +151,7 @@ func main() {
   if err != nil {
     logger.Fatalw("Couldn't create network config", zap.Error(err))
   }
+
+  // when internal-encryption is enabled, turn on TLS for queue-proxy
+  tlsEnabled := networkConfig.InternalEncryption
 }
