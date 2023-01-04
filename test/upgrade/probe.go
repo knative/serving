@@ -19,7 +19,11 @@ package upgrade
 import (
 	"context"
 	"flag"
+	"os"
+	"strings"
 
+	"knative.dev/pkg/system"
+	logstream "knative.dev/pkg/test/logstream/v2"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -34,6 +38,7 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 	var clients *test.Clients
 	var names *test.ResourceNames
 	var prober test.Prober
+	var cancel logstream.Canceler
 	return pkgupgrade.NewBackgroundVerification("ProbeTest",
 		func(c pkgupgrade.Context) {
 			// Setup
@@ -42,6 +47,18 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 				Service: "upgrade-probe",
 				Image:   test.PizzaPlanet1,
 			}
+
+			var systemNamespaces []string
+			if ns := os.Getenv(system.NamespaceEnvKey); ns != "" {
+				// handle case when ns contains a csv list
+				systemNamespaces = strings.Split(ns, ",")
+			}
+			stream := logstream.FromNamespaces(context.Background(), clients.KubeClient, systemNamespaces)
+			var err error
+			if cancel, err = stream.StartStream(names.Service, c.Log.Infof); err != nil {
+				c.T.Fatal("Unable to stream logs:", err)
+			}
+
 			objects, err := v1test.CreateServiceReady(c.T, clients, names)
 			if err != nil {
 				c.T.Fatal("Failed to create Service:", err)
@@ -57,6 +74,7 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 			// Verify
 			test.EnsureTearDown(c.T, clients, names)
 			test.AssertProberSLO(c.T, prober, *successFraction)
+			c.T.Cleanup(cancel)
 			c.T.Error("Induced failure")
 		},
 	)
