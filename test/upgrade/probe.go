@@ -55,7 +55,7 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 			}
 			stream := logstream.FromNamespaces(context.Background(), clients.KubeClient, systemNamespaces)
 			var err error
-			if cancel, err = stream.StartStream(names.Service, c.Log.Infof); err != nil {
+			if cancel, err = stream.StartStream(names.Service, c.T.Logf); err != nil {
 				c.T.Fatal("Unable to stream logs:", err)
 			}
 
