@@ -728,6 +728,51 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 	}
 }
 
+func TestPodSecurityContextMask_SecureEnabled(t *testing.T) {
+	// Ensure that users can opt out of better security by explicitly
+	// requesting the Kubernetes default, which is "Unconfined".
+	want := &corev1.PodSecurityContext{
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeUnconfined,
+		},
+	}
+
+	in := &corev1.PodSecurityContext{
+		SELinuxOptions:     &corev1.SELinuxOptions{},
+		WindowsOptions:     &corev1.WindowsSecurityContextOptions{},
+		SupplementalGroups: []int64{1},
+		Sysctls:            []corev1.Sysctl{},
+		RunAsUser:          ptr.Int64(1),
+		RunAsGroup:         ptr.Int64(1),
+		RunAsNonRoot:       ptr.Bool(true),
+		FSGroup:            ptr.Int64(1),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeUnconfined,
+		},
+	}
+
+	ctx := config.ToContext(context.Background(),
+		&config.Config{
+			Features: &config.Features{
+				SecurePodDefaults:      config.Enabled,
+				PodSpecSecurityContext: config.Disabled,
+			},
+		},
+	)
+
+	got := PodSecurityContextMask(ctx, in)
+
+	if &want == &got {
+		t.Error("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Error("Got error comparing output, err =", err)
+	} else if diff != "" {
+		t.Error("PostSecurityContextMask (-want, +got):", diff)
+	}
+}
+
 func TestSecurityContextMask(t *testing.T) {
 	mtype := corev1.UnmaskedProcMount
 	want := &corev1.SecurityContext{
