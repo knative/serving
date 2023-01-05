@@ -20,6 +20,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"runtime"
 	"testing"
 
 	_ "knative.dev/pkg/system/testing"
@@ -28,6 +29,7 @@ import (
 )
 
 func TestServingUpgrades(t *testing.T) {
+	t.Logf("Number of logical CPUs available: %d", runtime.GOMAXPROCS(0))
 	suite := pkgupgrade.Suite{
 		Tests: pkgupgrade.Tests{
 			PreUpgrade:    ServingPreUpgradeTests(),
