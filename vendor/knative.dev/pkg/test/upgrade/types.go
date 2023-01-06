@@ -107,13 +107,6 @@ type Configuration struct {
 	LogConfig
 }
 
-func (c Configuration) logConfig() LogConfig {
-	if len(c.LogConfig.Config.OutputPaths) == 0 {
-		c.LogConfig.Config = zap.NewDevelopmentConfig()
-	}
-	return c.LogConfig
-}
-
 // LogConfig holds the logger configuration. It allows for passing just the
 // logger configuration and also a custom function for building the resulting
 // logger.

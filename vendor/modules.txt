@@ -1280,7 +1280,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20221221230956-4fd6eb8652b7 => github.com/mgencur/pkg v0.0.0-20230103162433-fcab7ce47b0e
+# knative.dev/pkg v0.0.0-20230104193420-027482598489 => github.com/mgencur/pkg v0.0.0-20230106082528-1b8e58a60266
 ## explicit; go 1.18
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1415,4 +1415,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# knative.dev/pkg => github.com/mgencur/pkg v0.0.0-20230103162433-fcab7ce47b0e
+# knative.dev/pkg => github.com/mgencur/pkg v0.0.0-20230106082528-1b8e58a60266

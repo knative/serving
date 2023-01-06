@@ -21,8 +21,8 @@ import (
 )
 
 func (se *suiteExecution) processOperationGroup(t *testing.T, op operationGroup) {
-	l := se.logger
 	t.Run(op.groupName, func(t *testing.T) {
+		l := se.configuration.logger(t)
 		if len(op.operations) > 0 {
 			l.Infof(op.groupTemplate, op.num, len(op.operations))
 			for i, operation := range op.operations {
@@ -48,35 +48,29 @@ func (se *suiteExecution) processOperationGroup(t *testing.T, op operationGroup)
 func (se *suiteExecution) execute() {
 	idx := 1
 	stopCh := make(chan struct{})
+	t := se.configuration.T
 	operations := []func(t *testing.T, num int){
 		se.installingBase,
 		se.preUpgradeTests,
 	}
 	for _, operation := range operations {
-		operation(se.configuration.T, idx)
+		operation(t, idx)
 		idx++
-		if se.configuration.T.Failed() {
+		if t.Failed() {
 			return
 		}
 	}
 
-	upgradesExecuted := false
-	se.configuration.T.Run("Parallel", func(t *testing.T) {
+	t.Run("Parallel", func(t *testing.T) {
 		// Calls t.Parallel() after doing setup phase. The second part runs in parallel
 		// with UpgradeDowngrade test below.
 		se.runContinualTests(t, idx, stopCh)
 
-		// Make sure the stop channel is closed and continual tests unblocked in the event
-		// of failing continual tests (possibly calling t.Fatal) when the rest of sub-tests
-		// are skipped.
-		defer func() {
-			if !upgradesExecuted {
-				close(stopCh)
-			}
-		}()
-
 		idx++
+		// At this point only the setup phase of continual tests was done. We want
+		// to quit early in the event of failures.
 		if t.Failed() {
+			close(stopCh)
 			return
 		}
 
@@ -87,7 +81,6 @@ func (se *suiteExecution) execute() {
 			se.postDowngradeTests,
 		}
 		t.Run("UpgradeDowngrade", func(t *testing.T) {
-			upgradesExecuted = true
 			defer close(stopCh)
 			// The rest of this test group will run in parallel with individual continual tests.
 			t.Parallel()

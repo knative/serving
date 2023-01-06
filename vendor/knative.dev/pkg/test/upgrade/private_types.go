@@ -16,14 +16,9 @@ limitations under the License.
 
 package upgrade
 
-import (
-	"go.uber.org/zap"
-)
-
 type suiteExecution struct {
 	suite         *enrichedSuite
 	configuration Configuration
-	logger        *zap.SugaredLogger
 }
 
 type enrichedSuite struct {

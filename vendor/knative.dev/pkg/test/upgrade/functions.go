@@ -17,22 +17,23 @@ limitations under the License.
 package upgrade
 
 import (
+	"testing"
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 // Execute the Suite of upgrade tests with a Configuration given.
+// When the suite includes Continual tests the number of logical CPUs
+// usable by the test process must be at least <NUMBER OF CONTINUAL TESTS> + 1.
+// The -parallel test flag or GOMAXPROCS environment variable might be
+// used to adjust the settings.
 func (s *Suite) Execute(c Configuration) {
-	l, err := c.logger()
-	if err != nil {
-		c.T.Fatal("Failed to build logger:", err)
-		return
-	}
+	l := c.logger(c.T)
 	se := suiteExecution{
 		suite:         enrichSuite(s),
 		configuration: c,
-		logger:        l,
 	}
 	l.Info("🏃 Running upgrade test suite...")
 
@@ -45,12 +46,8 @@ func (s *Suite) Execute(c Configuration) {
 	}
 }
 
-func (c Configuration) logger() (*zap.SugaredLogger, error) {
-	logger, err := c.logConfig().Config.Build(c.logConfig().Options...)
-	if err != nil {
-		return nil, err
-	}
-	return logger.Sugar(), nil
+func (c Configuration) logger(t *testing.T) *zap.SugaredLogger {
+	return zaptest.NewLogger(t, zaptest.WrapOptions(c.Options...)).Sugar()
 }
 
 // NewOperation creates a new upgrade operation or test.
@@ -95,7 +92,7 @@ func WaitForStopEvent(bc BackgroundContext, w WaitForStopEventConfiguration) {
 	for {
 		select {
 		case <-bc.Stop:
-			bc.Log.Debugf("%s have received a stop event", w.Name)
+			bc.Log.Debugf("%s received a stop event", w.Name)
 			w.OnStop()
 			return
 		default:

@@ -46,7 +46,7 @@ func (se *suiteExecution) preUpgradeTests(t *testing.T, num int) {
 }
 
 func (se *suiteExecution) runContinualTests(t *testing.T, num int, stopCh <-chan struct{}) {
-	l := se.logger
+	l := se.configuration.logger(t)
 	operations := se.suite.tests.continual
 	groupTemplate := "%d) 🔄 Starting continual tests. " +
 		"%d tests are registered."
@@ -58,6 +58,7 @@ func (se *suiteExecution) runContinualTests(t *testing.T, num int, stopCh <-chan
 			operation := operations[i]
 			l.Debugf(elementTemplate, num, i+1, operation.Name())
 			t.Run(operation.Name(), func(t *testing.T) {
+				l := se.configuration.logger(t)
 				setup := operation.Setup()
 				setup(Context{T: t, Log: l})
 				if t.Failed() {
