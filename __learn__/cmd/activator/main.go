@@ -154,4 +154,37 @@ func main() {
 
   // when internal-encryption is enabled, turn on TLS for queue-proxy
   tlsEnabled := networkConfig.InternalEncryption
+
+  // when queue-proxy-ca is enabled, turn on TLS client
+  // unfortunately at this point TLS-enabled activator doesn't turn off insecure HTTP
+  // check out https://github.com/knative/serving/issues/12808
+  if tlsEnabled {
+    logger.Info("Enable internal encryption")
+    caSecret, err := kubeClient.CoreV1()
+      .Secrets(system.Namespace())
+      .Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
+    if err != nil {
+      logger.Fatalw("Couldn't get secret", zap.Error(err))
+    }
+
+    pool, err := x509.SystemCertPool()
+    if err != nil {
+      pool = x509.NewCertPool()
+    }
+
+    if ok := pool.AppendCertsFromPEM(caSecret.Data[certificates.CaCertName]); !ok {
+      logger.Fatalw("Couldn't add ca cert to Root Certificate Authorities")
+    }
+    tlsConf := &tls.Config{
+      RootCAs:            pool, 
+      InsecureSkipVerify: false,
+      ServerName:         certificates.FakeDnsName,
+      MinVersion:         tls.VersionTLS12,
+    }
+    transport = pkgnet.NewProxyAutoTLSTransport(
+      env.MaxIdleProxyConns,
+      env.MaxIdleProxyConnsPerHost,
+      tlsConf
+    )
+  }
 }
