@@ -30,7 +30,7 @@ import (
 	netcfg "knative.dev/networking/pkg/config"
 	netprobe "knative.dev/networking/pkg/http/probe"
 	"knative.dev/pkg/configmap"
-	configmapinformer "knative.dev/pkg/configmap/informer"
+	theconfigmapinformer "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
 	pkglogging "knative.dev/pkg/logging"
@@ -214,4 +214,12 @@ func main() {
 			return
 		}
 	})
+
+	// initialise config store
+	configMapWatcher := theconfigmapinformer.NewInformedWatcher(kubeClient, system.Namespace())
+	configStore := activatorconfig.NewStore(logger, tracerUpdater)
+	configStore.WatchConfigs(configMapWatcher)
+
+	statCh := make(chan []asmetrics.StatMessage)
+	defer close(statCh)
 }
