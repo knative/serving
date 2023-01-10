@@ -46,6 +46,7 @@ import (
 	"knative.dev/pkg/websocket"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
   activatorhandler "knative.dev/serving/pkg/activator/handler"
+	activatornet "knative.dev/serving/pkg/activator/net"
   apiconfig "knative.dev/serving/pkg/apis/config"
   asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
   pkghttp "knative.ev/serving/pkg/http"
@@ -187,4 +188,30 @@ func main() {
       tlsConf
     )
   }
+
+	// initiate throttler
+	throttler := activatornet.NewThrottler(ctx, env.PodIP)
+	go throttler.Run(
+		ctx,
+		transport,
+		networkConfig.EnableMeshPodAddressability,
+		networkConfig.MeshCompatibilityMode
+	)
+
+	oct := tracing.NewOpenCensusTracer(
+		tracing.WithExporterFull(
+			networking.ActivatorServiceName,
+			env.PodIP,
+			logger
+		)
+	)
+	defer oct.Shutdown(context.Background())
+
+	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
+		cfg := value.(*tracingconfig.Config)
+		if err := oct.ApplyConfig(cfg); err != nil {
+			logger.Errorw("OpenCensus tracer config cannot be applied", zap.Error(err))
+			return
+		}
+	})
 }
