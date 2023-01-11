@@ -57,6 +57,8 @@ import (
 const (
   component = "activator"
 
+	autoscalerHostname = "autoscaler"
+
   // listening on this port for autoscaler WebSocket server
   autoscalerPort = ":8080"
 )
@@ -222,4 +224,11 @@ func main() {
 
 	statCh := make(chan []asmetrics.StatMessage)
 	defer close(statCh)
+
+	// connect to the autoscaler via WebSocket
+	autoscalerEndpoint := "ws://" + pkgnet.GetServiceHostname(autoscalerHostname, system.Namespace) + autoscalerPort
+	logger.Info("Autoscaler connection in progress - at ", autoscalerEndpoint)
+	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
+	defer statSink.Shutdown()
+	go activator.ReportStats(logger, statSink, statCh)
 }
