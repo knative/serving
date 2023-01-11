@@ -231,4 +231,8 @@ func main() {
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	defer statSink.Shutdown()
 	go activator.ReportStats(logger, statSink, statCh)
+
+	// initialise and deploy concurrency reporter
+	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh)
+	go concurrencyReporter.Run(logger, statSink, statCh)
 }
