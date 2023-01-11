@@ -235,4 +235,47 @@ func main() {
 	// initialise and deploy concurrency reporter
 	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh)
 	go concurrencyReporter.Run(logger, statSink, statCh)
+
+	// instantiate activator handler chain
+	// so we specify the innermost handlers first - the first one to be executed will be the last chain handler
+	ah: activatorhandler.New(
+		ctx,
+		throttler,
+		transport,
+		networkConfig.EnableMeshPodAddressability,
+		logger,
+		tlsEnabled
+	)
+	ah = handler.NewTimeoutHandler(
+		ah,
+		"activator request timeout",
+		func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
+			if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
+				var responseStartTimeout = 0 * time.Second
+				if rev.Spec.ResponseStartTimeoutSeconds != nil {
+					responseStartTimeout = time.Duration(*rev.Spec.ResponseStartTimeoutSeconds) * time.Second
+				}
+				var idleTimeout = 0 * time.Second
+				if rev.Spec.IdleTimeoutSeconds != nil {
+					idleTimeout = time.Duration(*rev.Spec.IdleTimeoutSeconds) * time.Second
+				}
+				return time.Duration(*rev.Spec.TimeoutSeconds) * time.Second, responseStartTimeout, idleTimeout
+			}
+			return apiconfig.DefaultRevisionTimeoutSeconds * time.Second,
+				apiconfig.DefaultRevisionResponseStartTimeoutSeconds * time.Second,
+				apiconfig.DefaultRevisionIdleTimeoutSeconds * time.Second		
+		})
+		ah = concurrencyReporter.Handler(ah)
+		ah = activatorhandler.NewTracingHandler(ah)
+		reqLogHandler, err := pkghttp.NewRequestLogHandler(
+			ah, 
+			logging.NewSyncFileWriter(os.Stdout),
+			"",
+			requestLogTemplateInputGetter,
+			false /*enableProbeRequestLog*/
+		)
+		if err != nil {
+			logger.Fatalw("Couldn't create request log handler", zap.Error(err))
+		}
+		ah = reqLogHandler
 }
