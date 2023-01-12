@@ -25,18 +25,49 @@ import (
 	"knative.dev/pkg/reconciler"
 )
 
+type leaderAwareReconciler interface {
+	reconciler.LeaderAware
+	controller.Reconciler
+}
+
+// leaderAware is intended to wrap a controller.Reconciler in order to disable
+// leader election. It accomplishes this by not implementing the reconciler.LeaderAware
+// interface. Bucket promotion/demotion needs to be done manually
+//
+// The controller's reconciler needs to be set prior to calling Run
+type leaderAware struct {
+	reconciler leaderAwareReconciler
+	enqueue    func(bkt reconciler.Bucket, key types.NamespacedName)
+}
+
+func (l *leaderAware) Reconcile(ctx context.Context, key string) error {
+	return l.reconciler.Reconcile(ctx, key)
+}
+
 func setupSharedElector(ctx context.Context, controllers []*controller.Impl) (leaderelection.Elector, error) {
 	var (
 		// the elector component config on the ctx will override this value
 		// so we leave this empty
 		queueName string
 
-		// we leave this 'nil' since since we will use each controller's
+		// we leave this 'nil' since we will use each controller's
 		// MaybeEnqueueBucketKey when we promote buckets
 		enq func(reconciler.Bucket, types.NamespacedName)
 	)
 
-	el, err := leaderelection.BuildElector(ctx, leaderAware(controllers), queueName, enq)
+	reconcilers := make([]*leaderAware, 0, len(controllers))
+
+	for _, c := range controllers {
+		if r, ok := c.Reconciler.(leaderAwareReconciler); ok {
+			la := &leaderAware{reconciler: r, enqueue: c.MaybeEnqueueBucketKey}
+			// rewire the controller's reconciler so it isn't leader aware
+			// this prevents the universal bucket from being promoted
+			c.Reconciler = la
+			reconcilers = append(reconcilers, la)
+		}
+	}
+
+	el, err := leaderelection.BuildElector(ctx, coalese(reconcilers), queueName, enq)
 
 	if err != nil {
 		return nil, err
@@ -47,35 +78,26 @@ func setupSharedElector(ctx context.Context, controllers []*controller.Impl) (le
 		return el, nil
 	}
 
-	for _, c := range controllers {
-		r, ok := c.Reconciler.(reconciler.LeaderAware)
-		if !ok {
-			continue
-		}
+	for _, r := range reconcilers {
 		for _, b := range electorWithBuckets.InitialBuckets() {
 			// Controller hasn't started yet so need to enqueue anything
-			r.Promote(b, nil)
+			r.reconciler.Promote(b, nil)
 		}
 	}
 	return el, nil
 }
 
-func leaderAware(controllers []*controller.Impl) reconciler.LeaderAware {
+func coalese(reconcilers []*leaderAware) reconciler.LeaderAware {
 	return &reconciler.LeaderAwareFuncs{
 		PromoteFunc: func(b reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
-			for _, c := range controllers {
-				if r, ok := c.Reconciler.(reconciler.LeaderAware); ok {
-					c := c
-					r.Promote(b, c.MaybeEnqueueBucketKey)
-				}
+			for _, r := range reconcilers {
+				r.reconciler.Promote(b, r.enqueue)
 			}
 			return nil
 		},
 		DemoteFunc: func(b reconciler.Bucket) {
-			for _, c := range controllers {
-				if r, ok := c.Reconciler.(reconciler.LeaderAware); ok {
-					r.Demote(b)
-				}
+			for _, r := range reconcilers {
+				r.reconciler.Demote(b)
 			}
 		},
 	}
