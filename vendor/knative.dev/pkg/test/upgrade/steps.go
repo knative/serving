@@ -22,8 +22,8 @@ import (
 
 const skippingOperationTemplate = `Skipping "%s" as previous operation have failed`
 
-func (se *suiteExecution) installingBase(num int) {
-	se.processOperationGroup(operationGroup{
+func (se *suiteExecution) installingBase(t *testing.T, num int) {
+	se.processOperationGroup(t, operationGroup{
 		num:                   num,
 		operations:            se.suite.installations.Base,
 		groupName:             "InstallingBase",
@@ -33,8 +33,8 @@ func (se *suiteExecution) installingBase(num int) {
 	})
 }
 
-func (se *suiteExecution) preUpgradeTests(num int) {
-	se.processOperationGroup(operationGroup{
+func (se *suiteExecution) preUpgradeTests(t *testing.T, num int) {
+	se.processOperationGroup(t, operationGroup{
 		num:                   num,
 		operations:            se.suite.tests.preUpgrade,
 		groupName:             "PreUpgradeTests",
@@ -45,93 +45,43 @@ func (se *suiteExecution) preUpgradeTests(num int) {
 	})
 }
 
-func (se *suiteExecution) startContinualTests(num int) {
+func (se *suiteExecution) runContinualTests(t *testing.T, num int, stopCh <-chan struct{}) {
+	l := se.configuration.logger(t)
 	operations := se.suite.tests.continual
 	groupTemplate := "%d) 🔄 Starting continual tests. " +
 		"%d tests are registered."
 	elementTemplate := `%d.%d) Starting continual tests of "%s".`
 	numOps := len(operations)
-	se.configuration.T.Run("ContinualTests", func(t *testing.T) {
-		l, err := se.configuration.logger(t)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if numOps > 0 {
-			l.Infof(groupTemplate, num, numOps)
-			for i := range operations {
-				operation := operations[i]
-				l.Infof(elementTemplate, num, i+1, operation.Name())
-				if se.failed {
-					l.Debugf(skippingOperationTemplate, operation.Name())
-					return
-				}
+	if numOps > 0 {
+		l.Infof(groupTemplate, num, numOps)
+		for i := range operations {
+			operation := operations[i]
+			l.Debugf(elementTemplate, num, i+1, operation.Name())
+			t.Run(operation.Name(), func(t *testing.T) {
+				l := se.configuration.logger(t)
 				setup := operation.Setup()
-
-				logger, buffer := newInMemoryLoggerBuffer(se.configuration)
-				t.Run("Setup"+operation.Name(), func(t *testing.T) {
-					l, err = se.configuration.logger(t)
-					if err != nil {
-						t.Fatal(err)
-					}
-					setup(Context{T: t, Log: logger.Sugar()})
-				})
-
-				handler := operation.Handler()
-				go func() {
-					handler(BackgroundContext{
-						Log:       logger.Sugar(),
-						Stop:      operation.stop,
-						logBuffer: buffer,
-					})
-				}()
-				se.failed = se.failed || t.Failed()
-				if se.failed {
-					// need to dump logs here, because verify will not be executed.
-					l.Error(wrapLog(buffer.Dump()))
+				setup(Context{T: t, Log: l})
+				if t.Failed() {
 					return
 				}
-			}
-
-		} else {
-			l.Infof("%d) 🔄 No continual tests registered. Skipping.", num)
-		}
-	})
-}
-
-func (se *suiteExecution) verifyContinualTests(num int) {
-	testsCount := len(se.suite.tests.continual)
-	if testsCount > 0 {
-		se.configuration.T.Run("VerifyContinualTests", func(t *testing.T) {
-			l, err := se.configuration.logger(t)
-			if err != nil {
-				t.Fatal(err)
-			}
-			l.Infof("%d) ✋ Verifying %d running continual tests.", num, testsCount)
-			for i, operation := range se.suite.tests.continual {
-				t.Run(operation.Name(), func(t *testing.T) {
-					l, err = se.configuration.logger(t)
-					if err != nil {
-						t.Fatal(err)
-					}
-					l.Infof(`%d.%d) Verifying "%s".`, num, i+1, operation.Name())
-					finished := make(chan struct{})
-					operation.stop <- StopEvent{
-						T:        t,
-						Finished: finished,
-						logger:   l,
-						name:     "Stop of " + operation.Name(),
-					}
-					<-finished
-					se.failed = se.failed || t.Failed()
-					l.Debugf(`Finished "%s"`, operation.Name())
+				t.Parallel()
+				handle := operation.Handler()
+				// Blocking operation.
+				handle(BackgroundContext{
+					T:    t,
+					Log:  l,
+					Stop: stopCh,
 				})
-			}
-		})
+				l.Debugf(`Finished "%s"`, operation.Name())
+			})
+		}
+	} else {
+		l.Infof("%d) 🔄 No continual tests registered. Skipping.", num)
 	}
 }
 
-func (se *suiteExecution) upgradeWith(num int) {
-	se.processOperationGroup(operationGroup{
+func (se *suiteExecution) upgradeWith(t *testing.T, num int) {
+	se.processOperationGroup(t, operationGroup{
 		num:                   num,
 		operations:            se.suite.installations.UpgradeWith,
 		groupName:             "UpgradeWith",
@@ -141,8 +91,8 @@ func (se *suiteExecution) upgradeWith(num int) {
 	})
 }
 
-func (se *suiteExecution) postUpgradeTests(num int) {
-	se.processOperationGroup(operationGroup{
+func (se *suiteExecution) postUpgradeTests(t *testing.T, num int) {
+	se.processOperationGroup(t, operationGroup{
 		num:                   num,
 		operations:            se.suite.tests.postUpgrade,
 		groupName:             "PostUpgradeTests",
@@ -153,8 +103,8 @@ func (se *suiteExecution) postUpgradeTests(num int) {
 	})
 }
 
-func (se *suiteExecution) downgradeWith(num int) {
-	se.processOperationGroup(operationGroup{
+func (se *suiteExecution) downgradeWith(t *testing.T, num int) {
+	se.processOperationGroup(t, operationGroup{
 		num:                   num,
 		operations:            se.suite.installations.DowngradeWith,
 		groupName:             "DowngradeWith",
@@ -164,8 +114,8 @@ func (se *suiteExecution) downgradeWith(num int) {
 	})
 }
 
-func (se *suiteExecution) postDowngradeTests(num int) {
-	se.processOperationGroup(operationGroup{
+func (se *suiteExecution) postDowngradeTests(t *testing.T, num int) {
+	se.processOperationGroup(t, operationGroup{
 		num:                   num,
 		operations:            se.suite.tests.postDowngrade,
 		groupName:             "PostDowngradeTests",

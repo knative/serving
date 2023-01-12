@@ -359,6 +359,7 @@ function sign_release() {
       if  [ -n "${ATTEST_IMAGES:-}" ]; then # Temporary Feature Gate
         provenance-generator --clone-log=/logs/clone.json \
           --image-refs=imagerefs.txt --output=attestation.json
+        mkdir -p "${ARTIFACTS}"/attestation && cp attestation.json "${ARTIFACTS}"/attestation
         COSIGN_EXPERIMENTAL=1 cosign attest $(cat imagerefs.txt) --recursive --identity-token="${ID_TOKEN}" \
           --predicate=attestation.json --type=slsaprovenance
       fi
