@@ -65,7 +65,7 @@ func setupSharedElector(ctx context.Context, controllers []*controller.Impl) (le
 	// MaybeEnqueueBucketKey when we promote buckets
 	noopEnqueue := func(reconciler.Bucket, types.NamespacedName) {}
 
-	el, err := leaderelection.BuildElector(ctx, coalese(reconcilers), queueName, noopEnqueue)
+	el, err := leaderelection.BuildElector(ctx, coalesce(reconcilers), queueName, noopEnqueue)
 
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func setupSharedElector(ctx context.Context, controllers []*controller.Impl) (le
 	return el, nil
 }
 
-func coalese(reconcilers []*leaderAware) reconciler.LeaderAware {
+func coalesce(reconcilers []*leaderAware) reconciler.LeaderAware {
 	return &reconciler.LeaderAwareFuncs{
 		PromoteFunc: func(b reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
 			for _, r := range reconcilers {
