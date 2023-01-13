@@ -45,16 +45,6 @@ func (l *leaderAware) Reconcile(ctx context.Context, key string) error {
 }
 
 func setupSharedElector(ctx context.Context, controllers []*controller.Impl) (leaderelection.Elector, error) {
-	var (
-		// the elector component config on the ctx will override this value
-		// so we leave this empty
-		queueName string
-
-		// we leave this 'nil' since we will use each controller's
-		// MaybeEnqueueBucketKey when we promote buckets
-		enq func(reconciler.Bucket, types.NamespacedName)
-	)
-
 	reconcilers := make([]*leaderAware, 0, len(controllers))
 
 	for _, c := range controllers {
@@ -67,7 +57,15 @@ func setupSharedElector(ctx context.Context, controllers []*controller.Impl) (le
 		}
 	}
 
-	el, err := leaderelection.BuildElector(ctx, coalese(reconcilers), queueName, enq)
+	// the elector component config on the ctx will override the queueName
+	// value so we leave this empty
+	queueName := ""
+
+	// this is a noop function since we will use each controller's
+	// MaybeEnqueueBucketKey when we promote buckets
+	noopEnqueue := func(reconciler.Bucket, types.NamespacedName) {}
+
+	el, err := leaderelection.BuildElector(ctx, coalese(reconcilers), queueName, noopEnqueue)
 
 	if err != nil {
 		return nil, err
