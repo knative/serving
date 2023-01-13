@@ -54,6 +54,9 @@ spec:
                   type: array
                   items:
                     type: string
+                domain:
+                  description: Domain is the top level domain of the values for DNSNames.
+                  type: string
                 secretName:
                   description: SecretName is the name of the secret resource to store the SSL certificate in.
                   type: string
