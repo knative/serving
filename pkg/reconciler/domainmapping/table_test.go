@@ -970,6 +970,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 				},
 				Spec: netv1alpha1.CertificateSpec{
 					DNSNames:   []string{"becomes.ready.run"},
+					Domain:     "becomes.ready.run",
 					SecretName: "becomes.ready.run",
 				},
 				Status: readyCertStatus(),
@@ -1116,6 +1117,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 				},
 				Spec: netv1alpha1.CertificateSpec{
 					DNSNames:   []string{"challenged.com"},
+					Domain:     "challenged.com",
 					SecretName: "challenged.com",
 				},
 				Status: netv1alpha1.CertificateStatus{

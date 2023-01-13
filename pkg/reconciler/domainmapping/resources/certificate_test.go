@@ -65,6 +65,7 @@ func TestMakeCertificate(t *testing.T) {
 				DNSNames: []string{
 					"mapping.com",
 				},
+				Domain:     "mapping.com",
 				SecretName: "mapping.com",
 			},
 		},
@@ -102,6 +103,7 @@ func TestMakeCertificate(t *testing.T) {
 				DNSNames: []string{
 					"mapping.com",
 				},
+				Domain:     "mapping.com",
 				SecretName: "mapping.com",
 			},
 		},
