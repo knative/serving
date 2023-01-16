@@ -25,8 +25,8 @@ jobs:
   releasability:
     uses: knative/actions/.github/workflows/releasability.yaml@main
     with:
-      releaseFamily: ${{ github.event.inputs.releaseFamily || 'v1.8' }}
-      moduleReleaseFamily: ${{ github.event.inputs.moduleReleaseFamily || 'v0.35' }}
+      releaseFamily: ${{ github.event.inputs.releaseFamily || 'v1.9' }}
+      moduleReleaseFamily: ${{ github.event.inputs.moduleReleaseFamily || 'v0.36' }}
       slackChannel: ${{ github.event.inputs.slackChannel || 'release' }}
     secrets:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
