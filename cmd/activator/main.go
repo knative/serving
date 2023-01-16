@@ -18,6 +18,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"log"
@@ -34,11 +36,15 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/http/handler"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/control-protocol/pkg/certificates"
 	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
+	netprobe "knative.dev/networking/pkg/http/probe"
 	"knative.dev/pkg/configmap"
 	configmapinformer "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
@@ -57,6 +63,7 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	activatornet "knative.dev/serving/pkg/activator/net"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
@@ -143,7 +150,7 @@ func main() {
 
 	// Fetch networking configuration to determine whether EnableMeshPodAddressability
 	// is enabled or not.
-	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, network.ConfigName, metav1.GetOptions{})
+	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, netcfg.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		logger.Fatalw("Failed to fetch network config", zap.Error(err))
 	}
@@ -152,11 +159,43 @@ func main() {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
 
+	// Enable TLS against queue-proxy when internal-encryption is enabled.
+	tlsEnabled := networkConfig.InternalEncryption
+
+	// Enable TLS client when queue-proxy-ca is specified.
+	// At this moment activator with TLS does not disable HTTP.
+	// See also https://github.com/knative/serving/issues/12808.
+	if tlsEnabled {
+		logger.Info("Internal Encryption is enabled")
+		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
+		if err != nil {
+			logger.Fatalw("Failed to get secret", zap.Error(err))
+		}
+
+		pool, err := x509.SystemCertPool()
+		if err != nil {
+			pool = x509.NewCertPool()
+		}
+
+		if ok := pool.AppendCertsFromPEM(caSecret.Data[certificates.CaCertName]); !ok {
+			logger.Fatalw("Failed to append ca cert to the RootCAs")
+		}
+
+		tlsConf := &tls.Config{
+			RootCAs:            pool,
+			InsecureSkipVerify: false,
+			ServerName:         certificates.FakeDnsName,
+			MinVersion:         tls.VersionTLS12,
+		}
+		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, tlsConf)
+	}
+
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
 	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(networking.ActivatorServiceName, env.PodIP, logger))
+	defer oct.Shutdown(context.Background())
 
 	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
 		cfg := value.(*tracingconfig.Config)
@@ -187,7 +226,23 @@ func main() {
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger)
+	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled)
+	ah = handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
+		if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
+			var responseStartTimeout = 0 * time.Second
+			if rev.Spec.ResponseStartTimeoutSeconds != nil {
+				responseStartTimeout = time.Duration(*rev.Spec.ResponseStartTimeoutSeconds) * time.Second
+			}
+			var idleTimeout = 0 * time.Second
+			if rev.Spec.IdleTimeoutSeconds != nil {
+				idleTimeout = time.Duration(*rev.Spec.IdleTimeoutSeconds) * time.Second
+			}
+			return time.Duration(*rev.Spec.TimeoutSeconds) * time.Second, responseStartTimeout, idleTimeout
+		}
+		return apiconfig.DefaultRevisionTimeoutSeconds * time.Second,
+			apiconfig.DefaultRevisionResponseStartTimeoutSeconds * time.Second,
+			apiconfig.DefaultRevisionIdleTimeoutSeconds * time.Second
+	})
 	ah = concurrencyReporter.Handler(ah)
 	ah = activatorhandler.NewTracingHandler(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
@@ -204,10 +259,10 @@ func main() {
 
 	// Network probe handlers.
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
-	ah = network.NewProbeHandler(ah)
+	ah = netprobe.NewHandler(ah)
 
 	// Set up our health check based on the health of stat sink and environmental factors.
-	sigCtx, sigCancel := context.WithCancel(context.Background())
+	sigCtx := signals.NewContext()
 	hc := newHealthCheck(sigCtx, logger, statSink)
 	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah, Logger: logger}
 
@@ -241,14 +296,35 @@ func main() {
 		}(name, server)
 	}
 
-	sigCh := signals.SetupSignalHandler()
+	// Enable TLS server when internal-encryption is specified.
+	// At this moment activator with TLS does not disable HTTP.
+	// See also https://github.com/knative/serving/issues/12808.
+	if tlsEnabled {
+		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
+		if err != nil {
+			logger.Fatalw("failed to get secret", zap.Error(err))
+		}
+		cert, err := tls.X509KeyPair(secret.Data[certificates.CertName], secret.Data[certificates.PrivateKeyName])
+		if err != nil {
+			logger.Fatalw("failed to load certs", zap.Error(err))
+		}
+
+		// TODO: Implement the secret (certificate) rotation like knative.dev/pkg/webhook/certificates/.
+		// Also, the current activator must be restarted when updating the secret.
+		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
+		go func(name string, s *http.Server) {
+			s.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+			// Don't forward ErrServerClosed as that indicates we're already shutting down.
+			if err := s.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errCh <- fmt.Errorf("%s server failed: %w", name, err)
+			}
+		}(name, server)
+	}
 
 	// Wait for the signal to drain.
 	select {
-	case <-sigCh:
+	case <-sigCtx.Done():
 		logger.Info("Received SIGTERM")
-		// Send a signal to let readiness probes start failing.
-		sigCancel()
 	case err := <-errCh:
 		logger.Errorw("Failed to run HTTP server", zap.Error(err))
 	}

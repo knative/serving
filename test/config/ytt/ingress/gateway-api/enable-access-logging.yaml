@@ -1,0 +1,23 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:yaml", "yaml")
+#@ load("helpers.lib.yaml", "subset")
+
+#! The data.mesh property in the istio config map is a string literal
+#! but the contents are yaml. Thus we use a custom replace function
+
+#@ def append_to_yaml_string(old, new):
+#@   yaml_old = yaml.decode(old)
+#@   return yaml.encode(overlay.apply(yaml_old, new))
+#@ end
+
+#@overlay/match by=subset(kind="ConfigMap", name="istio", namespace="istio-system")
+---
+data:
+  #@overlay/replace via=append_to_yaml_string
+  mesh:
+    #! The custom replace function appends these properties
+    #! to the mesh string literal
+    #@overlay/match missing_ok=True
+    accessLogEncoding: JSON
+    #@overlay/match missing_ok=True
+    accessLogFile: /dev/stdout

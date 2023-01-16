@@ -26,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/networking/pkg/apis/networking"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
@@ -44,9 +44,10 @@ import (
 )
 
 const (
-	localAddress             = "127.0.0.1"
-	requestQueueHTTPPortName = "queue-port"
-	profilingPortName        = "profiling-port"
+	localAddress              = "127.0.0.1"
+	requestQueueHTTPPortName  = "queue-port"
+	requestQueueHTTPSPortName = "https-port" // must be no more than 15 characters.
+	profilingPortName         = "profiling-port"
 )
 
 var (
@@ -57,6 +58,10 @@ var (
 	queueHTTP2Port = corev1.ContainerPort{
 		Name:          requestQueueHTTPPortName,
 		ContainerPort: networking.BackendHTTP2Port,
+	}
+	queueHTTPSPort = corev1.ContainerPort{
+		Name:          requestQueueHTTPSPortName,
+		ContainerPort: networking.BackendHTTPSPort,
 	}
 	queueNonServingPorts = []corev1.ContainerPort{{
 		// Provides health checks and lifecycle hooks.
@@ -80,7 +85,7 @@ var (
 		ReadOnlyRootFilesystem:   ptr.Bool(true),
 		RunAsNonRoot:             ptr.Bool(true),
 		Capabilities: &corev1.Capabilities{
-			Drop: []corev1.Capability{"all"},
+			Drop: []corev1.Capability{"ALL"},
 		},
 	}
 )
@@ -193,7 +198,14 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	if rev.Spec.TimeoutSeconds != nil {
 		ts = *rev.Spec.TimeoutSeconds
 	}
-
+	responseStartTimeout := int64(0)
+	if rev.Spec.ResponseStartTimeoutSeconds != nil {
+		responseStartTimeout = *rev.Spec.ResponseStartTimeoutSeconds
+	}
+	idleTimeout := int64(0)
+	if rev.Spec.IdleTimeoutSeconds != nil {
+		idleTimeout = *rev.Spec.IdleTimeoutSeconds
+	}
 	ports := queueNonServingPorts
 	if cfg.Observability.EnableProfiling {
 		ports = append(ports, profilingPort)
@@ -203,19 +215,27 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	if rev.GetProtocol() == pkgnet.ProtocolH2C {
 		servingPort = queueHTTP2Port
 	}
-	ports = append(ports, servingPort)
+	ports = append(ports, servingPort, queueHTTPSPort)
 
 	container := rev.Spec.GetContainer()
 
 	var httpProbe, execProbe *corev1.Probe
 	var userProbeJSON string
 	if container.ReadinessProbe != nil {
+		probePort := userPort
+		if container.ReadinessProbe.HTTPGet != nil && container.ReadinessProbe.HTTPGet.Port.IntValue() != 0 {
+			probePort = container.ReadinessProbe.HTTPGet.Port.IntVal
+		}
+		if container.ReadinessProbe.TCPSocket != nil && container.ReadinessProbe.TCPSocket.Port.IntValue() != 0 {
+			probePort = container.ReadinessProbe.TCPSocket.Port.IntVal
+		}
+
 		// The activator attempts to detect readiness itself by checking the Queue
 		// Proxy's health endpoint rather than waiting for Kubernetes to check and
 		// propagate the Ready state. We encode the original probe as JSON in an
 		// environment variable for this health endpoint to use.
 		userProbe := container.ReadinessProbe.DeepCopy()
-		applyReadinessProbeDefaultsForExec(userProbe, userPort)
+		applyReadinessProbeDefaultsForExec(userProbe, probePort)
 
 		var err error
 		userProbeJSON, err = readiness.EncodeProbe(userProbe)
@@ -228,21 +248,14 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		// Unlike the StartupProbe, we don't need to override any of the other settings
 		// except period here. See below.
 		httpProbe = container.ReadinessProbe.DeepCopy()
-		httpProbe.Handler = corev1.Handler{
+		httpProbe.ProbeHandler = corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt(int(servingPort.ContainerPort)),
 				HTTPHeaders: []corev1.HTTPHeader{{
-					Name:  network.ProbeHeaderName,
+					Name:  netheader.ProbeKey,
 					Value: queue.Name,
 				}},
 			},
-		}
-
-		// Default PeriodSeconds to 1 if not set to make for the quickest possible startup
-		// time.
-		// TODO(#10973): Remove this once we're on K8s 1.21
-		if httpProbe.PeriodSeconds == 0 {
-			httpProbe.PeriodSeconds = 1
 		}
 	}
 
@@ -270,11 +283,20 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "QUEUE_SERVING_PORT",
 			Value: strconv.Itoa(int(servingPort.ContainerPort)),
 		}, {
+			Name:  "QUEUE_SERVING_TLS_PORT",
+			Value: strconv.Itoa(int(queueHTTPSPort.ContainerPort)),
+		}, {
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: strconv.Itoa(int(rev.Spec.GetContainerConcurrency())),
 		}, {
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: strconv.Itoa(int(ts)),
+		}, {
+			Name:  "REVISION_RESPONSE_START_TIMEOUT_SECONDS",
+			Value: strconv.Itoa(int(responseStartTimeout)),
+		}, {
+			Name:  "REVISION_IDLE_TIMEOUT_SECONDS",
+			Value: strconv.Itoa(int(idleTimeout)),
 		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{
@@ -342,7 +364,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Value: cfg.Deployment.ConcurrencyStateEndpoint,
 		}, {
 			Name:  "CONCURRENCY_STATE_TOKEN_PATH",
-			Value: path.Join(concurrencyStateTokenVolumeMountPath, concurrencyStateTokenName),
+			Value: path.Join(queue.TokenDirectory, queue.ConcurrencyStateTokenFilename),
 		}, {
 			Name: "HOST_IP",
 			ValueFrom: &corev1.EnvVarSource{
@@ -354,6 +376,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: strconv.FormatBool(cfg.Features.AutoDetectHTTP2 == apicfg.Enabled),
+		}, {
+			Name:  "ROOT_CA",
+			Value: cfg.Deployment.QueueSidecarRootCA,
 		}},
 	}
 
@@ -373,7 +398,7 @@ func applyReadinessProbeDefaultsForExec(p *corev1.Probe, port int32) {
 		}
 
 		p.HTTPGet.HTTPHeaders = append(p.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
-			Name:  network.KubeletProbeHeaderName,
+			Name:  netheader.KubeletProbeKey,
 			Value: queue.Name,
 		})
 	case p.TCPSocket != nil:

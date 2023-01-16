@@ -27,7 +27,7 @@ Resource Types:
 <p>PodAutoscaler is a Knative abstraction that encapsulates the interface by which Knative
 components instantiate autoscalers.  This definition is an abstraction that may be backed
 by multiple definitions.  For more information, see the Knative Pluggability presentation:
-<a href="https://docs.google.com/presentation/d/10KWynvAJYuOEWy69VBa6bHJVCqIsz1TNdEKosNvcpPY/edit">https://docs.google.com/presentation/d/10KWynvAJYuOEWy69VBa6bHJVCqIsz1TNdEKosNvcpPY/edit</a></p>
+<a href="https://docs.google.com/presentation/d/19vW9HFZ6Puxt31biNZF3uLRejDmu82rxJIk1cWmxF7w/edit">https://docs.google.com/presentation/d/19vW9HFZ6Puxt31biNZF3uLRejDmu82rxJIk1cWmxF7w/edit</a></p>
 </div>
 <table>
 <thead>
@@ -58,7 +58,7 @@ string
 <td>
 <code>metadata</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -102,7 +102,7 @@ Defaults to <code>0</code> which means unlimited concurrency.</p>
 <td>
 <code>scaleTargetRef</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectreference-v1-core">
 Kubernetes core/v1.ObjectReference
 </a>
 </em>
@@ -176,7 +176,7 @@ PodAutoscalerStatus
 <td>
 <code>metadata</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -380,7 +380,7 @@ Defaults to <code>0</code> which means unlimited concurrency.</p>
 <td>
 <code>scaleTargetRef</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectreference-v1-core">
 Kubernetes core/v1.ObjectReference
 </a>
 </em>
@@ -520,7 +520,7 @@ the referenced resources may take.</p>
 <td>
 <code>metadata</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -557,7 +557,7 @@ int32
 <td>
 <code>selector</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#labelselector-v1-meta">
 Kubernetes meta/v1.LabelSelector
 </a>
 </em>
@@ -569,7 +569,7 @@ Kubernetes meta/v1.LabelSelector
 <td>
 <code>template</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#podtemplatespec-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#podtemplatespec-v1-core">
 Kubernetes core/v1.PodTemplateSpec
 </a>
 </em>
@@ -625,7 +625,7 @@ int32
 <td>
 <code>selector</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#labelselector-v1-meta">
 Kubernetes meta/v1.LabelSelector
 </a>
 </em>
@@ -637,7 +637,7 @@ Kubernetes meta/v1.LabelSelector
 <td>
 <code>template</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#podtemplatespec-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#podtemplatespec-v1-core">
 Kubernetes core/v1.PodTemplateSpec
 </a>
 </em>
@@ -757,7 +757,7 @@ string
 <td>
 <code>metadata</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -851,7 +851,7 @@ string
 <td>
 <code>metadata</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -880,7 +880,7 @@ RevisionSpec
 <td>
 <code>PodSpec</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#podspec-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#podspec-v1-core">
 Kubernetes core/v1.PodSpec
 </a>
 </em>
@@ -915,9 +915,37 @@ int64
 </td>
 <td>
 <em>(Optional)</em>
-<p>TimeoutSeconds is the maximum duration in seconds that the request routing
-layer will wait for a request delivered to a container to begin replying
-(send network traffic). If unspecified, a system default will be provided.</p>
+<p>TimeoutSeconds is the maximum duration in seconds that the request instance
+is allowed to respond to a request. If unspecified, a system default will
+be provided.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>responseStartTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResponseStartTimeoutSeconds is the maximum duration in seconds that the request
+routing layer will wait for a request delivered to a container to begin
+sending any network traffic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>idleTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IdleTimeoutSeconds is the maximum duration in seconds a request will be allowed
+to stay open while not receiving any bytes from the user&rsquo;s application. If
+unspecified, a system default will be provided.</p>
 </td>
 </tr>
 </table>
@@ -977,7 +1005,7 @@ string
 <td>
 <code>metadata</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -1080,7 +1108,7 @@ string
 <td>
 <code>metadata</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -1342,7 +1370,7 @@ string
 <td>
 <code>PodSpec</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#podspec-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#podspec-v1-core">
 Kubernetes core/v1.PodSpec
 </a>
 </em>
@@ -1377,9 +1405,37 @@ int64
 </td>
 <td>
 <em>(Optional)</em>
-<p>TimeoutSeconds is the maximum duration in seconds that the request routing
-layer will wait for a request delivered to a container to begin replying
-(send network traffic). If unspecified, a system default will be provided.</p>
+<p>TimeoutSeconds is the maximum duration in seconds that the request instance
+is allowed to respond to a request. If unspecified, a system default will
+be provided.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>responseStartTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResponseStartTimeoutSeconds is the maximum duration in seconds that the request
+routing layer will wait for a request delivered to a container to begin
+sending any network traffic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>idleTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IdleTimeoutSeconds is the maximum duration in seconds a request will be allowed
+to stay open while not receiving any bytes from the user&rsquo;s application. If
+unspecified, a system default will be provided.</p>
 </td>
 </tr>
 </tbody>
@@ -1513,7 +1569,7 @@ Based on: <a href="https://github.com/kubernetes/api/blob/e771f807/core/v1/types
 <td>
 <code>metadata</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -1542,7 +1598,7 @@ RevisionSpec
 <td>
 <code>PodSpec</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#podspec-v1-core">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#podspec-v1-core">
 Kubernetes core/v1.PodSpec
 </a>
 </em>
@@ -1577,9 +1633,37 @@ int64
 </td>
 <td>
 <em>(Optional)</em>
-<p>TimeoutSeconds is the maximum duration in seconds that the request routing
-layer will wait for a request delivered to a container to begin replying
-(send network traffic). If unspecified, a system default will be provided.</p>
+<p>TimeoutSeconds is the maximum duration in seconds that the request instance
+is allowed to respond to a request. If unspecified, a system default will
+be provided.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>responseStartTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResponseStartTimeoutSeconds is the maximum duration in seconds that the request
+routing layer will wait for a request delivered to a container to begin
+sending any network traffic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>idleTimeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IdleTimeoutSeconds is the maximum duration in seconds a request will be allowed
+to stay open while not receiving any bytes from the user&rsquo;s application. If
+unspecified, a system default will be provided.</p>
 </td>
 </tr>
 </table>
@@ -2046,7 +2130,7 @@ string
 <td>
 <code>metadata</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -2350,7 +2434,7 @@ string
 <td>
 <code>metadata</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>

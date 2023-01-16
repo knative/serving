@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"time"
 
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
@@ -81,7 +80,7 @@ var (
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) pkgreconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
 	logger := logging.FromContext(ctx)
@@ -98,7 +97,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	if sks == nil || sks.Status.PrivateServiceName == "" {
 		// Before we can reconcile decider and get real number of activators
 		// we start with default of 2.
-		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, minActivators); err != nil {
+		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeProxy, minActivators); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
 		pa.Status.MarkSKSNotReady(noPrivateServiceName) // In both cases this is true.
@@ -123,16 +122,26 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		return fmt.Errorf("error scaling target: %w", err)
 	}
 
-	mode := nv1alpha1.SKSOperationModeServe
-	// We put activator in the serving path in the following cases:
-	// 1. The revision is scaled to 0:
-	//   a. want == 0
-	//   b. want == -1 && PA is inactive (Autoscaler has no previous knowledge of
-	//			this revision, e.g. after a restart) but PA status is inactive (it was
-	//			already scaled to 0).
-	// 2. The excess burst capacity is negative.
-	if want == 0 || decider.Status.ExcessBurstCapacity < 0 || want == scaleUnknown && pa.Status.IsInactive() {
+	mode := nv1alpha1.SKSOperationModeProxy
+
+	switch {
+	// When activator CA is enabled, force activator always in path.
+	// TODO: This is a temporary state and to be fixed.
+	// See also issues/11906 and issues/12797.
+	case config.FromContext(ctx).Network.InternalEncryption:
 		mode = nv1alpha1.SKSOperationModeProxy
+
+	// If the want == -1 and PA is inactive that implies the autoscaler
+	// has no knowledge of the revision (due to restart) but it was previously
+	// scaled down (inactive). In this instance we want to remain in Proxy Mode
+	case want == scaleUnknown && pa.Status.IsInactive():
+		mode = nv1alpha1.SKSOperationModeProxy
+
+	// We remove the activator from the serving path when
+	// we want the revision's scale to be greater than 0
+	// and we have excess burst capacity (>=0)
+	case want > 0 && decider.Status.ExcessBurstCapacity >= 0:
+		mode = nv1alpha1.SKSOperationModeServe
 	}
 
 	// Compare the desired and observed resources to determine our situation.
@@ -237,18 +246,18 @@ func reportMetrics(pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
 // computeActiveCondition updates the status of a PA given the current scale (got), desired scale (want)
 // active threshold (min), and the current status, as per the following table:
 //
-//    | Want | Got    | min   | Status     | New status |
-//    | 0    | <any>  | <any> | <any>      | inactive   |
-//    | >0   | < min  | <any> | <any>      | activating |
-//    | >0   | >= min | <any> | <any>      | active     |
-//    | -1   | < min  | <any> | inactive   | inactive   |
-//    | -1   | < min  | <any> | activating | activating |
-//    | -1   | < min  | <any> | active     | activating |
-//    | -1   | >= min | <any> | inactive   | inactive   |
-//    | -1   | >= min | 0     | activating | inactive   |
-//    | -1   | >= min | 0     | active     | inactive   | <-- this case technically is impossible.
-//    | -1   | >= min | >0    | activating | active     |
-//    | -1   | >= min | >0    | active     | active     |
+//	| Want | Got    | min   | Status     | New status |
+//	| 0    | <any>  | <any> | <any>      | inactive   |
+//	| >0   | < min  | <any> | <any>      | activating |
+//	| >0   | >= min | <any> | <any>      | active     |
+//	| -1   | < min  | <any> | inactive   | inactive   |
+//	| -1   | < min  | <any> | activating | activating |
+//	| -1   | < min  | <any> | active     | activating |
+//	| -1   | >= min | <any> | inactive   | inactive   |
+//	| -1   | >= min | 0     | activating | inactive   |
+//	| -1   | >= min | 0     | active     | inactive   | <-- this case technically is impossible.
+//	| -1   | >= min | >0    | activating | active     |
+//	| -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
 	if pc.ready >= minReady && pa.Status.ServiceName != "" {

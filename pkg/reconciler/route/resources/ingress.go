@@ -19,9 +19,7 @@ package resources
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/zap"
@@ -29,9 +27,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netheader "knative.dev/networking/pkg/http/header"
 	ingress "knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
@@ -39,6 +37,7 @@ import (
 	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingnetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
@@ -136,6 +135,7 @@ func makeIngressSpec(
 	rules := make([]netv1alpha1.IngressRule, 0, len(names))
 
 	featuresConfig := config.FromContextOrDefaults(ctx).Features
+	networkConfig := config.FromContextOrDefaults(ctx).Network
 
 	for _, name := range names {
 		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
@@ -149,7 +149,7 @@ func makeIngressSpec(
 				return netv1alpha1.IngressSpec{}, err
 			}
 			rule := makeIngressRule(domains, r.Namespace,
-				visibility, tc.Targets[name], ro.RolloutsByTag(name))
+				visibility, tc.Targets[name], ro.RolloutsByTag(name), networkConfig.InternalEncryption)
 			if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string, 1)
@@ -161,7 +161,7 @@ func makeIngressSpec(
 					// If the header has "true" and there is a "Knative-Serving-Tag" header,
 					// then the request is having the undefined tag header,
 					// which will be observed in queue-proxy.
-					rule.HTTP.Paths[0].AppendHeaders[network.DefaultRouteHeaderName] = "true"
+					rule.HTTP.Paths[0].AppendHeaders[netheader.DefaultRouteKey] = "true"
 
 					// Add ingress paths for a request with the tag header.
 					// If a request has one of the `names` (tag name), specified as the
@@ -171,7 +171,7 @@ func makeIngressSpec(
 					// Since names are sorted `DefaultTarget == ""` is the first one,
 					// so just pass the subslice.
 					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(r.Namespace, tc, ro, names[1:]), rule.HTTP.Paths...)
+						makeTagBasedRoutingIngressPaths(r.Namespace, tc, ro, networkConfig.InternalEncryption, names[1:]), rule.HTTP.Paths...)
 				} else {
 					// If a request is routed by a tag-attached hostname instead of the tag header,
 					// the request may not have the tag header "Knative-Serving-Tag",
@@ -180,7 +180,7 @@ func makeIngressSpec(
 					//
 					// To prevent such inconsistency,
 					// the tag header is appended with the tag corresponding to the tag-attached hostname
-					rule.HTTP.Paths[0].AppendHeaders[network.TagHeaderName] = name
+					rule.HTTP.Paths[0].AppendHeaders[netheader.RouteTagKey] = name
 				}
 			}
 			// If this is a public rule, we need to configure ACME challenge paths.
@@ -192,7 +192,7 @@ func makeIngressSpec(
 		}
 	}
 
-	httpProtocol, err := getHTTPProtocol(ctx, r.Annotations)
+	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, r.GetAnnotations())
 	if err != nil {
 		return netv1alpha1.IngressSpec{}, err
 	}
@@ -200,34 +200,8 @@ func makeIngressSpec(
 	return netv1alpha1.IngressSpec{
 		Rules:      rules,
 		TLS:        tls,
-		HTTPOption: httpProtocol,
+		HTTPOption: httpOption,
 	}, nil
-}
-
-func getHTTPProtocol(ctx context.Context, annotations map[string]string) (netv1alpha1.HTTPOption, error) {
-	if len(annotations) != 0 && networking.GetHTTPProtocol(annotations) != "" {
-		protocol := strings.ToLower(networking.GetHTTPProtocol(annotations))
-		switch network.HTTPProtocol(protocol) {
-		case network.HTTPEnabled:
-			return netv1alpha1.HTTPOptionEnabled, nil
-		case network.HTTPRedirected:
-			return netv1alpha1.HTTPOptionRedirected, nil
-		default:
-			return "", fmt.Errorf("incorrect http-protocol annotation:" + protocol)
-		}
-	}
-
-	switch config.FromContext(ctx).Network.HTTPProtocol {
-	case network.HTTPEnabled:
-		return netv1alpha1.HTTPOptionEnabled, nil
-	case network.HTTPRedirected:
-		return netv1alpha1.HTTPOptionRedirected, nil
-	// This will be deprecated soon
-	case network.HTTPDisabled:
-		return "", nil
-	default:
-		return "", nil
-	}
 }
 
 func getChallengeHosts(challenges []netv1alpha1.HTTP01Challenge) map[string]netv1alpha1.HTTP01Challenge {
@@ -290,25 +264,26 @@ func MakeACMEIngressPaths(acmeChallenges []netv1alpha1.HTTP01Challenge, domains 
 func makeIngressRule(domains []string, ns string,
 	visibility netv1alpha1.IngressVisibility,
 	targets traffic.RevisionTargets,
-	roCfgs []*traffic.ConfigurationRollout) netv1alpha1.IngressRule {
+	roCfgs []*traffic.ConfigurationRollout,
+	encryption bool) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{
-				*makeBaseIngressPath(ns, targets, roCfgs),
+				*makeBaseIngressPath(ns, targets, roCfgs, encryption),
 			},
 		},
 	}
 }
 
 // `names` must not include `""` — the DefaultTarget.
-func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.Rollout, names []string) []netv1alpha1.HTTPIngressPath {
+func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.Rollout, encryption bool, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
-		path := makeBaseIngressPath(ns, tc.Targets[name], ro.RolloutsByTag(name))
-		path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
+		path := makeBaseIngressPath(ns, tc.Targets[name], ro.RolloutsByTag(name), encryption)
+		path.Headers = map[string]netv1alpha1.HeaderMatch{netheader.RouteTagKey: {Exact: name}}
 		paths = append(paths, *path)
 	}
 
@@ -327,7 +302,7 @@ func rolloutConfig(cfgName string, ros []*traffic.ConfigurationRollout) *traffic
 }
 
 func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
-	roCfgs []*traffic.ConfigurationRollout) *netv1alpha1.HTTPIngressPath {
+	roCfgs []*traffic.ConfigurationRollout, encryption bool) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
@@ -339,6 +314,12 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 		if t.LatestRevision != nil && *t.LatestRevision {
 			cfg = rolloutConfig(t.ConfigurationName, roCfgs)
 		}
+		var servicePort intstr.IntOrString
+		if encryption {
+			servicePort = intstr.FromInt(networking.ServiceHTTPSPort)
+		} else {
+			servicePort = intstr.FromInt(networking.ServicePort(t.Protocol))
+		}
 		if cfg == nil || len(cfg.Revisions) < 2 {
 			// No rollout in progress.
 			splits = append(splits, netv1alpha1.IngressBackendSplit{
@@ -347,7 +328,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 					ServiceName:      t.RevisionName,
 					// Port on the public service must match port on the activator.
 					// Otherwise, the serverless services can't guarantee seamless positive handoff.
-					ServicePort: intstr.FromInt(networking.ServicePort(t.Protocol)),
+					ServicePort: servicePort,
 				},
 				Percent: int(*t.Percent),
 				AppendHeaders: map[string]string{
@@ -364,7 +345,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 						ServiceName:      rev.RevisionName,
 						// Port on the public service must match port on the activator.
 						// Otherwise, the serverless services can't guarantee seamless positive handoff.
-						ServicePort: intstr.FromInt(networking.ServicePort(t.Protocol)),
+						ServicePort: servicePort,
 					},
 					Percent: rev.Percent,
 					AppendHeaders: map[string]string{

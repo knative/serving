@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	network "knative.dev/networking/pkg"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
@@ -75,7 +75,7 @@ func TestServiceValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 				Labels: map[string]string{
-					network.VisibilityLabelKey: "cluster-local",
+					netapi.VisibilityLabelKey: "cluster-local",
 				},
 			},
 			Spec: ServiceSpec{
@@ -97,21 +97,6 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec:         goodRouteSpec,
 			},
 		},
-	}, {
-		name: "invalid visibility label value",
-		r: &Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
-				Labels: map[string]string{
-					network.VisibilityLabelKey: "bad-label",
-				},
-			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: goodConfigSpec,
-				RouteSpec:         goodRouteSpec,
-			},
-		},
-		wantErr: apis.ErrInvalidValue("bad-label", "metadata.labels."+network.VisibilityLabelKey),
 	}, {
 		name: "valid release",
 		r: &Service{

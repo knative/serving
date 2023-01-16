@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Knative Authors
+Copyright 2022 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ func (c *FakeConfigurations) UpdateStatus(ctx context.Context, configuration *se
 // Delete takes name of the configuration and deletes it. Returns an error if one occurs.
 func (c *FakeConfigurations) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(configurationsResource, c.ns, name), &servingv1.Configuration{})
+		Invokes(testing.NewDeleteActionWithOptions(configurationsResource, c.ns, name, opts), &servingv1.Configuration{})
 
 	return err
 }

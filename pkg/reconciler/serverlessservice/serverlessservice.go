@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
@@ -67,7 +66,7 @@ var _ sksreconciler.Interface = (*reconciler)(nil)
 // converge the two. It then updates the Status block of the Revision resource
 // with the current status of the resource.
 func (r *reconciler) ReconcileKind(ctx context.Context, sks *netv1alpha1.ServerlessService) pkgreconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
 	logger := logging.FromContext(ctx)
@@ -209,48 +208,54 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	if err != nil {
 		return fmt.Errorf("failed to get private K8s Service endpoints: %w", err)
 	}
+
 	// We still might be "ready" even if in proxy mode,
 	// if proxy mode is by means of burst capacity handling.
 	pvtReady := presources.ReadyAddressCount(pvtEps)
-	if pvtReady > 0 {
-		foundServingEndpoints = true
+	sharedReady := presources.ReadyAddressCount(activatorEps)
+
+	logger.Infof("SKS is in %s mode; has %d endpoints in %s; %d activator endpoints",
+		sks.Spec.Mode, pvtReady, psn, sharedReady)
+
+	// Spew is expensive and there might be a lof of endpoints.
+	if dlogger.Core().Enabled(zap.DebugLevel) {
+		dlogger.Debug("Private endpoints: " + spew.Sprint(pvtEps.Subsets))
+		dlogger.Debug(fmt.Sprintf("Subset of activator endpoints (needed %d): %s",
+			sks.Spec.NumActivators, spew.Sprint(activatorEps)))
 	}
 
 	// The logic below is as follows:
+	// mode = sks.Spec.Mode
+	// if len(private_service_endpoints) == 0:
+	//    // Override the mode to Proxy if the service has no endpoints
+	//    mode = Proxy
+	// if len(activator_endpoints) == 0:
+	//    // Override the mode to Serve if the shared activator has no
+	//    // endpoints.
+	//    mode = Serve
+	//
 	// if mode == serve:
-	//   if len(private_service_endpoints) > 0:
-	//     srcEps = private_service_endpoints
-	//   else:
-	//     srcEps = subset(activator_endpoints)
+	//    srcEps = private_service_endpoints
 	// else:
 	//    srcEps = subset(activator_endpoints)
 	// The reason for this is, we don't want to leave the public service endpoints empty,
 	// since those endpoints are the ones programmed into the VirtualService.
-	//
-	switch sks.Spec.Mode {
+	mode := sks.Spec.Mode
+	if pvtReady == 0 {
+		logger.Info("Forcing SKS into Proxy mode, insufficient ready endpoints.")
+		mode = netv1alpha1.SKSOperationModeProxy
+	} else {
+		foundServingEndpoints = true
+	}
+	if sharedReady == 0 {
+		logger.Info("Forcing SKS into Serve mode, no activator endpoints.")
+		mode = netv1alpha1.SKSOperationModeServe
+	}
+	switch mode {
 	case netv1alpha1.SKSOperationModeServe:
-		// We should have successfully reconciled the private service if we're here
-		// which means that we'd have the name assigned in Status.
-		if dlogger.Core().Enabled(zap.DebugLevel) {
-			// Spew is expensive and there might be a lof of endpoints.
-			dlogger.Debug("Private endpoints: " + spew.Sprint(pvtEps.Subsets))
-		}
-		// Serving but no ready endpoints.
-		logger.Infof("SKS is in Serve mode and has %d endpoints in private service %s", pvtReady, psn)
-		if foundServingEndpoints {
-			// Serving & have endpoints ready.
-			srcEps = pvtEps
-		} else {
-			srcEps = subsetEndpoints(activatorEps, sks.Name, int(sks.Spec.NumActivators))
-		}
+		srcEps = pvtEps
 	case netv1alpha1.SKSOperationModeProxy:
-		dlogger.Debug("SKS is in Proxy mode")
 		srcEps = subsetEndpoints(activatorEps, sks.Name, int(sks.Spec.NumActivators))
-		if dlogger.Core().Enabled(zap.DebugLevel) {
-			// Spew is expensive and there might be a lof of  endpoints.
-			dlogger.Debug(fmt.Sprintf("Subset of activator endpoints (needed %d): %s",
-				sks.Spec.NumActivators, spew.Sprint(pvtEps)))
-		}
 	}
 
 	sn := sks.Name

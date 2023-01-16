@@ -21,9 +21,8 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "51b4d68a"
+    knative.dev/example-checksum: "aa3813a8"
 data:
   _example: |
     ################################
@@ -40,7 +39,6 @@ data:
     # These sample configuration options may be copied out of
     # this example block and unindented to be in the data block
     # to actually change the configuration.
-
 
     # ---------------------------------------
     # Garbage Collector Settings
@@ -64,6 +62,7 @@ data:
     #
     # Example config to immediately collect any inactive revision:
     #    min-non-active-revisions: "0"
+    #    max-non-active-revisions: "0"
     #    retain-since-create-time: "disabled"
     #    retain-since-last-active-time: "disabled"
     #
@@ -72,7 +71,7 @@ data:
     #     retain-since-last-active-time: "disabled"
     #     max-non-active-revisions: "10"
     #
-    # Example config to disable all GC:
+    # Example config to disable all garbage collection:
     #     retain-since-create-time: "disabled"
     #     retain-since-last-active-time: "disabled"
     #     max-non-active-revisions: "disabled"

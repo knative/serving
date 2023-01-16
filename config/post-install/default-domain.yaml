@@ -22,7 +22,6 @@ metadata:
     app.kubernetes.io/component: default-domain-job
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
 spec:
   template:
     metadata:
@@ -62,6 +61,11 @@ spec:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
         env:
         - name: POD_NAME
           valueFrom:
@@ -85,7 +89,6 @@ metadata:
     app.kubernetes.io/component: default-domain-job
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
 spec:
   selector:
     app: default-domain

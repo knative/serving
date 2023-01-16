@@ -17,6 +17,7 @@ limitations under the License.
 package leaderelection
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -56,6 +57,8 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsDuration("retry-period", &config.RetryPeriod),
 
 		cm.AsUint32("buckets", &config.Buckets),
+
+		cm.CollectMapEntriesWithPrefix("map-lease-prefix", &config.LeaseNamesPrefixMapping),
 	); err != nil {
 		return nil, err
 	}
@@ -79,28 +82,48 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 // contained within a single namespace. Typically these will correspond to a
 // single source repository, viz: serving or eventing.
 type Config struct {
-	Buckets       uint32
-	LeaseDuration time.Duration
-	RenewDeadline time.Duration
-	RetryPeriod   time.Duration
+	Buckets                 uint32
+	LeaseDuration           time.Duration
+	RenewDeadline           time.Duration
+	RetryPeriod             time.Duration
+	LeaseNamesPrefixMapping map[string]string
+}
+
+type lecfg struct{}
+
+// WithConfig associates a leader election configuration with the
+// context.
+func WithConfig(ctx context.Context, cfg *Config) context.Context {
+	return context.WithValue(ctx, lecfg{}, cfg)
+}
+
+// GetConfig gets the leader election config from the provided
+// context.
+func GetConfig(ctx context.Context) *Config {
+	untyped := ctx.Value(lecfg{})
+	if untyped == nil {
+		return nil
+	}
+	return untyped.(*Config)
 }
 
 func (c *Config) GetComponentConfig(name string) ComponentConfig {
 	return ComponentConfig{
-		Component:     name,
-		Buckets:       c.Buckets,
-		LeaseDuration: c.LeaseDuration,
-		RenewDeadline: c.RenewDeadline,
-		RetryPeriod:   c.RetryPeriod,
+		Component:               name,
+		Buckets:                 c.Buckets,
+		LeaseDuration:           c.LeaseDuration,
+		RenewDeadline:           c.RenewDeadline,
+		RetryPeriod:             c.RetryPeriod,
+		LeaseNamesPrefixMapping: c.LeaseNamesPrefixMapping,
 	}
 }
 
 func defaultConfig() *Config {
 	return &Config{
 		Buckets:       1,
-		LeaseDuration: 15 * time.Second,
-		RenewDeadline: 10 * time.Second,
-		RetryPeriod:   2 * time.Second,
+		LeaseDuration: 60 * time.Second,
+		RenewDeadline: 40 * time.Second,
+		RetryPeriod:   10 * time.Second,
 	}
 }
 
@@ -123,6 +146,11 @@ type ComponentConfig struct {
 	// be generated to be used as identity for each BuildElector call.
 	// Autoscaler uses the pod IP as identity.
 	Identity string
+
+	// LeaseNamesPrefixMapping maps lease prefixes
+	// from <component>.<package>.<reconciler_type_name> to the
+	// associated value when using standardBuilder.
+	LeaseNamesPrefixMapping map[string]string
 }
 
 // statefulSetID is a envconfig Decodable controller ordinal and name.

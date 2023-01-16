@@ -130,6 +130,17 @@ func TestValidateAnnotations(t *testing.T) {
 		},
 		annotations: map[string]string{MaxScaleAnnotationKey: "9"},
 	}, {
+		name:        "min-scale, activation-scale, max-scale all set appropriately",
+		annotations: map[string]string{MinScaleAnnotationKey: "1", ActivationScaleKey: "2", MaxScaleAnnotationKey: "3"},
+	}, {
+		name:        "min-scale is greater than activation-scale",
+		annotations: map[string]string{MinScaleAnnotationKey: "3", ActivationScaleKey: "2"},
+		expectErr:   "min-scale=3 is greater than activation-scale=2: " + ActivationScaleKey,
+	}, {
+		name:        "max-scale is less than activation-scale",
+		annotations: map[string]string{MaxScaleAnnotationKey: "1", ActivationScaleKey: "2"},
+		expectErr:   "max-scale=1 is less than activation-scale=2: " + ActivationScaleKey,
+	}, {
 		name: "valid algorithm on KPA",
 		annotations: map[string]string{
 			MetricAggregationAlgorithmKey: MetricAggregationAlgorithmLinear,
@@ -189,6 +200,10 @@ func TestValidateAnnotations(t *testing.T) {
 		name:        "target 0",
 		annotations: map[string]string{TargetAnnotationKey: "0"},
 		expectErr:   "target 0 should be at least 0.01: " + TargetAnnotationKey,
+	}, {}, {
+		name:        "invalid target",
+		annotations: map[string]string{TargetAnnotationKey: "100}"},
+		expectErr:   "invalid value: 100}: " + TargetAnnotationKey,
 	}, {
 		name:        "target okay",
 		annotations: map[string]string{TargetAnnotationKey: "11"},
@@ -317,8 +332,8 @@ func TestValidateAnnotations(t *testing.T) {
 		expectErr:   "invalid value: cpu: " + MetricAnnotationKey,
 	}, {
 		name:        "invalid metric for HPA class",
-		annotations: map[string]string{MetricAnnotationKey: "metrics", ClassAnnotationKey: HPA},
-		expectErr:   "invalid value: metrics: " + MetricAnnotationKey,
+		annotations: map[string]string{MetricAnnotationKey: "", ClassAnnotationKey: HPA},
+		expectErr:   "invalid value: : " + MetricAnnotationKey,
 	}, {
 		name:        "valid class KPA with metric RPS",
 		annotations: map[string]string{MetricAnnotationKey: RPS},
@@ -334,7 +349,7 @@ func TestValidateAnnotations(t *testing.T) {
 	}, {
 		name:        "initial scale is zero but cluster doesn't allow",
 		annotations: map[string]string{InitialScaleAnnotationKey: "0"},
-		expectErr:   "invalid value: 0: autoscaling.knative.dev/initial-scale",
+		expectErr:   "invalid value: 0: " + InitialScaleAnnotationKey + "=0 not allowed by cluster",
 	}, {
 		name: "initial scale is zero and cluster allows",
 		configMutator: func(config *autoscalerconfig.Config) {
@@ -344,6 +359,10 @@ func TestValidateAnnotations(t *testing.T) {
 	}, {
 		name:        "initial scale is greater than 0",
 		annotations: map[string]string{InitialScaleAnnotationKey: "2"},
+	}, {
+		name:        "initial scale is less than 0",
+		annotations: map[string]string{InitialScaleAnnotationKey: "-1"},
+		expectErr:   "invalid value: -1: " + InitialScaleAnnotationKey + " must be greater than 0",
 	}, {
 		name:        "initial scale non-parseable",
 		annotations: map[string]string{InitialScaleAnnotationKey: "invalid"},

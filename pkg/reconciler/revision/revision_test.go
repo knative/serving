@@ -49,7 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -98,7 +98,7 @@ func newTestController(t *testing.T, configs []*corev1.ConfigMap, opts ...reconc
 	for _, cm := range append([]*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      network.ConfigName,
+			Name:      netcfg.ConfigMapName,
 		},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
@@ -170,7 +170,7 @@ func createRevision(
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
-	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err == nil {
+	if err := controller.Reconciler.Reconcile(ctx, KeyOrDie(rev)); err == nil {
 		rev, _, _ = addResourcesToInformers(t, ctx, rev)
 	}
 	return rev
@@ -186,7 +186,7 @@ func updateRevision(
 	fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace).Update(ctx, rev, metav1.UpdateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Update(rev)
 
-	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err == nil {
+	if err := controller.Reconciler.Reconcile(ctx, KeyOrDie(rev)); err == nil {
 		addResourcesToInformers(t, ctx, rev)
 	}
 }
@@ -266,7 +266,7 @@ func testPodSpec() corev1.PodSpec {
 				TimeoutSeconds: 42,
 			},
 			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "health",
 					},
@@ -449,7 +449,7 @@ func TestStatusUnknownWhenDigestsNotResolvedYet(t *testing.T) {
 
 	fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
-	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err != nil {
+	if err := controller.Reconciler.Reconcile(ctx, KeyOrDie(rev)); err != nil {
 		t.Fatal("Reconcile failed:", err)
 	}
 
@@ -517,7 +517,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 	if ierr := wait.PollImmediate(50*time.Millisecond, 6*time.Second, func() (bool, error) {
 		_, err = paL.Get(rev.Name)
 		if apierrs.IsNotFound(err) {
-			return false, err
+			return false, nil
 		}
 		return err == nil, err
 	}); ierr != nil {

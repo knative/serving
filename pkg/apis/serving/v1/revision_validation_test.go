@@ -328,11 +328,13 @@ func TestRevisionSpecValidation(t *testing.T) {
 		rs: &RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
+					Name:  "container-a",
 					Image: "busybox",
 					Ports: []corev1.ContainerPort{{
 						ContainerPort: 8881,
 					}},
 				}, {
+					Name:  "container-b",
 					Image: "helloworld",
 				}},
 			},
@@ -437,7 +439,9 @@ func TestRevisionSpecValidation(t *testing.T) {
 					Image: "helloworld",
 				}},
 			},
-			TimeoutSeconds: ptr.Int64(100),
+			TimeoutSeconds:              ptr.Int64(100),
+			ResponseStartTimeoutSeconds: ptr.Int64(0),
+			IdleTimeoutSeconds:          ptr.Int64(0),
 		},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
@@ -448,8 +452,10 @@ func TestRevisionSpecValidation(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds":     "25",
-					"max-revision-timeout-seconds": "50"},
+					"revision-timeout-seconds":                "25",
+					"max-revision-timeout-seconds":            "50",
+					"revision-response-start-timeout-seconds": "10",
+					"revision-idle-timeout-seconds":           "10"},
 			})
 			return s.ToContext(ctx)
 		},
@@ -532,7 +538,9 @@ func TestImmutableFields(t *testing.T) {
 						Image: "helloworld",
 					}},
 				},
-				TimeoutSeconds: ptr.Int64(100),
+				TimeoutSeconds:              ptr.Int64(100),
+				ResponseStartTimeoutSeconds: ptr.Int64(0),
+				IdleTimeoutSeconds:          ptr.Int64(0),
 			},
 		},
 		old: &Revision{
@@ -545,7 +553,9 @@ func TestImmutableFields(t *testing.T) {
 						Image: "helloworld",
 					}},
 				},
-				TimeoutSeconds: ptr.Int64(100),
+				TimeoutSeconds:              ptr.Int64(100),
+				ResponseStartTimeoutSeconds: ptr.Int64(0),
+				IdleTimeoutSeconds:          ptr.Int64(0),
 			},
 		},
 		wc: func(ctx context.Context) context.Context {
@@ -557,8 +567,10 @@ func TestImmutableFields(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds":     "25",
-					"max-revision-timeout-seconds": "50"},
+					"revision-timeout-seconds":                "25",
+					"max-revision-timeout-seconds":            "50",
+					"revision-response-start-timeout-seconds": "10",
+					"revision-idle-timeout-seconds":           "10"},
 			})
 			return s.ToContext(ctx)
 		},
@@ -944,7 +956,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "invalid value: 0",
-			Paths:   []string{autoscaling.InitialScaleAnnotationKey},
+			Paths:   []string{fmt.Sprintf("%s=0 not allowed by cluster", autoscaling.InitialScaleAnnotationKey)},
 		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Valid initial scale when cluster allows zero",
@@ -964,6 +976,87 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "Valid progress-deadline",
+		ctx:  autoscalerConfigCtx(true, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.ProgressDeadlineAnnotationKey: "1m3s",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "progress-deadline too precise",
+		ctx:  autoscalerConfigCtx(true, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.ProgressDeadlineAnnotationKey: "1m3s34ms",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "progress-deadline=1m3s34ms is not at second precision",
+			Paths:   []string{serving.ProgressDeadlineAnnotationKey},
+		}).ViaField("metadata.annotations"),
+	}, {
+		name: "invalid progress-deadline duration",
+		ctx:  autoscalerConfigCtx(true, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.ProgressDeadlineAnnotationKey: "not-a-duration",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "invalid value: not-a-duration",
+			Paths:   []string{serving.ProgressDeadlineAnnotationKey},
+		}).ViaField("metadata.annotations"),
+	}, {
+		name: "negative progress-deadline",
+		ctx:  autoscalerConfigCtx(true, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.ProgressDeadlineAnnotationKey: "-1m3s",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "progress-deadline=-1m3s must be positive",
+			Paths:   []string{serving.ProgressDeadlineAnnotationKey},
+		}).ViaField("metadata.annotations"),
 	}}
 
 	for _, test := range tests {

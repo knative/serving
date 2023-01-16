@@ -1,0 +1,35 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+
+#@overlay/match by=overlay.subset({"kind": "Job"}), expects = "0+"
+---
+spec:
+  template:
+    spec:
+      containers:
+        #@overlay/match by=overlay.index(0), expects="1+"
+        -
+          #@overlay/match missing_ok=True
+          env:
+            - name: KO_DOCKER_REPO
+              value: #@ "{}".format(data.values.dockerrepo)
+            - name: INFLUX_URL
+              value: #@ "{}".format(data.values.influxurl)
+            - name: INFLUX_TOKEN
+              value: #@ "{}".format(data.values.influxtoken)
+            - name: PROW_TAG
+              value: #@ "{}".format(data.values.prowtag)
+          volumeMounts:
+            - mountPath: /etc/influx-token-secret-volume
+              name: influx-token-secret-volume
+              readOnly: true
+            - mountPath: /etc/influx-url-secret-volume
+              name: influx-url-secret-volume
+              readOnly: true
+      volumes:
+        - name: influx-token-secret-volume
+          secret:
+            secretName: influx-token-secret
+        - name: influx-url-secret-volume
+          secret:
+            secretName: influx-url-secret

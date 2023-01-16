@@ -20,6 +20,7 @@ import (
 	"context"
 
 	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
@@ -35,7 +36,7 @@ type Config struct {
 	*apiconfig.Config
 	Deployment    *deployment.Config
 	Logging       *logging.Config
-	Network       *network.Config
+	Network       *netcfg.Config
 	Observability *metrics.ObservabilityConfig
 	Tracing       *pkgtracing.Config
 }
@@ -66,7 +67,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 				deployment.ConfigName:   deployment.NewConfigFromConfigMap,
 				logging.ConfigMapName(): logging.NewConfigFromConfigMap,
 				metrics.ConfigMapName(): metrics.NewObservabilityConfigFromConfigMap,
-				network.ConfigName:      network.NewConfigFromConfigMap,
+				netcfg.ConfigMapName:    network.NewConfigFromConfigMap,
 				pkgtracing.ConfigName:   pkgtracing.NewTracingConfigFromConfigMap,
 			},
 			onAfterStore...,
@@ -98,10 +99,10 @@ func (s *Store) Load() *Config {
 	if dep, ok := s.UntypedLoad(deployment.ConfigName).(*deployment.Config); ok {
 		cfg.Deployment = dep.DeepCopy()
 	}
-	if log, ok := s.UntypedLoad((logging.ConfigMapName())).(*logging.Config); ok {
+	if log, ok := s.UntypedLoad(logging.ConfigMapName()).(*logging.Config); ok {
 		cfg.Logging = log.DeepCopy()
 	}
-	if net, ok := s.UntypedLoad(network.ConfigName).(*network.Config); ok {
+	if net, ok := s.UntypedLoad(netcfg.ConfigMapName).(*netcfg.Config); ok {
 		cfg.Network = net.DeepCopy()
 	}
 	if obs, ok := s.UntypedLoad(metrics.ConfigMapName()).(*metrics.ObservabilityConfig); ok {

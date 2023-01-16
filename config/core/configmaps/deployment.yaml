@@ -21,14 +21,12 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "dd7ee769"
+    knative.dev/example-checksum: "ac007ed2"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
-  # TODO: switch to 'queue-sidecar-image' after 0.27
-  queueSidecarImage: ko://knative.dev/serving/cmd/queue
+  queue-sidecar-image: ko://knative.dev/serving/cmd/queue
   _example: |-
     ################################
     #                              #
@@ -77,6 +75,19 @@ data:
     # Sets the queue proxy's ephemeral storage limit.
     # If omitted, no value is specified and the system default is used.
     queue-sidecar-ephemeral-storage-limit: "1024Mi"
+
+    # Sets tokens associated with specific audiences for queue proxy - used by QPOptions
+    #
+    # For example, to add the `service-x` audience:
+    #    queue-sidecar-token-audiences: "service-x"
+    # Also supports a list of audiences, for example:
+    #    queue-sidecar-token-audiences: "service-x,service-y"
+    # If omitted, or empty, no tokens are created
+    queue-sidecar-token-audiences: ""
+
+    # Sets rootCA for the queue proxy - used by QPOptions
+    # If omitted, or empty, no rootCA is added to the golang rootCAs
+    queue-sidecar-rootca: ""
 
     # The freezer service endpoint that queue-proxy calls when its traffic drops to zero or
     # scales up from zero.

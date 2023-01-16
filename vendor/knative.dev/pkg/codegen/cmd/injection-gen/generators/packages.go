@@ -27,7 +27,7 @@ import (
 	"k8s.io/gengo/generator"
 	"k8s.io/gengo/namer"
 	"k8s.io/gengo/types"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	informergenargs "knative.dev/pkg/codegen/cmd/injection-gen/args"
 )
@@ -446,6 +446,7 @@ func versionInformerPackages(basePackage string, groupPkgName string, gv clientg
 					clientSetPackage:            customArgs.VersionedClientSetPackage,
 					injectionClientSetPackage:   filepath.Join(basePackage, "client"),
 					listerPkg:                   listerPackagePath,
+					listerHasPointerElem:        customArgs.ListerHasPointerElem,
 				})
 				return generators
 			},
@@ -502,6 +503,7 @@ func versionInformerPackages(basePackage string, groupPkgName string, gv clientg
 					clientSetPackage:            customArgs.VersionedClientSetPackage,
 					injectionClientSetPackage:   filepath.Join(basePackage, "client"),
 					listerPkg:                   listerPackagePath,
+					listerHasPointerElem:        customArgs.ListerHasPointerElem,
 				})
 				return generators
 			},

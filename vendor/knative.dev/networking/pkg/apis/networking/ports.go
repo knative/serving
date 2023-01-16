@@ -26,11 +26,18 @@ const (
 	// HTTP/2 endpoints.
 	ServiceHTTP2Port = 81
 
+	// ServiceHTTPSPort is the port that we setup our Serving and Activator K8s services for
+	// HTTPS endpoints.
+	ServiceHTTPSPort = 443
+
 	// ServicePortNameHTTP1 is the name of the external port of the service for HTTP/1.1
 	ServicePortNameHTTP1 = "http"
 
 	// ServicePortNameH2C is the name of the external port of the service for HTTP/2
 	ServicePortNameH2C = "http2"
+
+	// ServicePortNameHTTPS is the name of the external port of the service for HTTPS
+	ServicePortNameHTTPS = "https"
 )
 
 // ServicePortName returns the port for the app level protocol.

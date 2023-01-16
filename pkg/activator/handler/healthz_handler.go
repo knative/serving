@@ -20,7 +20,7 @@ import (
 	"net/http"
 
 	"go.uber.org/zap"
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 )
 
 // HealthHandler handles responding to kubelet probes with a provided health check.
@@ -31,7 +31,7 @@ type HealthHandler struct {
 }
 
 func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if network.IsKubeletProbe(r) {
+	if netheader.IsKubeletProbe(r) {
 		if err := h.HealthCheck(); err != nil {
 			h.Logger.Warn("Healthcheck failed: ", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)

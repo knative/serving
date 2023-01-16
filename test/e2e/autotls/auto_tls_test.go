@@ -59,7 +59,7 @@ func TestTLS(t *testing.T) {
 }
 
 func TestTLSDisabledWithAnnotation(t *testing.T) {
-	clients := test.Setup(t, test.ServingFlags.TLSTestNamespace)
+	clients := test.Setup(t, test.Options{Namespace: test.ServingFlags.TLSTestNamespace})
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -85,7 +85,7 @@ func TestTLSDisabledWithAnnotation(t *testing.T) {
 }
 
 func testAutoTLS(t *testing.T) {
-	clients := test.Setup(t, test.ServingFlags.TLSTestNamespace)
+	clients := test.Setup(t, test.Options{Namespace: test.ServingFlags.TLSTestNamespace})
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),

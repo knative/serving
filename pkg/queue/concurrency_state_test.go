@@ -30,7 +30,8 @@ import (
 	pkglogging "knative.dev/pkg/logging"
 	ltesting "knative.dev/pkg/logging/testing"
 
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
+	netstats "knative.dev/networking/pkg/http/stats"
 )
 
 func TestConcurrencyStateHandler(t *testing.T) {
@@ -349,17 +350,10 @@ func TestConcurrencyStateErrorRetryOperation(t *testing.T) {
 func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 	logger, _ := pkglogging.NewLogger("", "error")
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	stats := network.NewRequestStats(time.Now())
-
-	promStatReporter, err := NewPrometheusStatsReporter(
-		"ns", "testksvc", "testksvc",
-		"pod", reportingPeriod)
-	if err != nil {
-		b.Fatal("Failed to create stats reporter:", err)
-	}
+	stats := netstats.NewRequestStats(time.Now())
 
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-	req.Header.Set(network.OriginalHostHeader, wantHost)
+	req.Header.Set(netheader.OriginalHostKey, wantHost)
 
 	tests := []struct {
 		label        string
@@ -386,11 +380,6 @@ func BenchmarkConcurrencyStateProxyHandler(b *testing.B) {
 	for _, tc := range tests {
 		reportTicker := time.NewTicker(tc.reportPeriod)
 
-		go func() {
-			for now := range reportTicker.C {
-				promStatReporter.Report(stats.Report(now))
-			}
-		}()
 		pause := func(*zap.SugaredLogger) {}
 		resume := func(*zap.SugaredLogger) {}
 

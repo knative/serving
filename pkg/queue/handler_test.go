@@ -28,13 +28,13 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
+	netstats "knative.dev/networking/pkg/http/stats"
 	"knative.dev/serving/pkg/activator"
 )
 
 const (
-	wantHost        = "a-better-host.com"
-	reportingPeriod = time.Second
+	wantHost = "a-better-host.com"
 )
 
 func TestHandlerBreakerQueueFull(t *testing.T) {
@@ -47,7 +47,7 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 	breaker := NewBreaker(BreakerParams{
 		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1,
 	})
-	stats := network.NewRequestStats(time.Now())
+	stats := netstats.NewRequestStats(time.Now())
 	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil)
@@ -95,7 +95,7 @@ func TestHandlerBreakerTimeout(t *testing.T) {
 	breaker := NewBreaker(BreakerParams{
 		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1,
 	})
-	stats := network.NewRequestStats(time.Now())
+	stats := netstats.NewRequestStats(time.Now())
 	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
 
 	go func() {
@@ -140,8 +140,8 @@ func TestHandlerReqEvent(t *testing.T) {
 				if got, want := r.Host, wantHost; got != want {
 					t.Errorf("Host header = %q, want: %q", got, want)
 				}
-				if got, want := r.Header.Get(network.OriginalHostHeader), ""; got != want {
-					t.Errorf("%s header was preserved", network.OriginalHostHeader)
+				if got, want := r.Header.Get(netheader.OriginalHostKey), ""; got != want {
+					t.Errorf("%s header was preserved", netheader.OriginalHostKey)
 				}
 
 				w.WriteHeader(http.StatusOK)
@@ -153,7 +153,7 @@ func TestHandlerReqEvent(t *testing.T) {
 			defer server.Close()
 			proxy := httputil.NewSingleHostReverseProxy(serverURL)
 
-			stats := network.NewRequestStats(time.Now())
+			stats := netstats.NewRequestStats(time.Now())
 			h := ProxyHandler(br, stats, true /*tracingEnabled*/, proxy)
 
 			writer := httptest.NewRecorder()
@@ -161,9 +161,8 @@ func TestHandlerReqEvent(t *testing.T) {
 
 			// Verify the Original host header processing.
 			req.Host = "nimporte.pas"
-			req.Header.Set(network.OriginalHostHeader, wantHost)
-
-			req.Header.Set(network.ProxyHeaderName, activator.Name)
+			req.Header.Set(netheader.OriginalHostKey, wantHost)
+			req.Header.Set(netheader.ProxyKey, activator.Name)
 			h(writer, req)
 
 			if got := stats.Report(time.Now()).ProxiedRequestCount; got != 1 {
@@ -200,7 +199,7 @@ func TestIgnoreProbe(t *testing.T) {
 	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		c.Inc()
 		<-resp
-		if !network.IsKubeletProbe(r) {
+		if !netheader.IsKubeletProbe(r) {
 			t.Error("Request was not a probe")
 			w.WriteHeader(http.StatusBadRequest)
 		}
@@ -214,11 +213,11 @@ func TestIgnoreProbe(t *testing.T) {
 
 	// Ensure no more than 1 request can be queued. So we'll send 3.
 	breaker := NewBreaker(BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1})
-	stats := network.NewRequestStats(time.Now())
+	stats := netstats.NewRequestStats(time.Now())
 	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, proxy)
 
 	req := httptest.NewRequest(http.MethodPost, "http://prob.in", nil)
-	req.Header.Set(network.KubeletProbeHeaderName, "1") // Mark it a probe.
+	req.Header.Set(netheader.KubeletProbeKey, "1") // Mark it a probe.
 	go h(httptest.NewRecorder(), req)
 	go h(httptest.NewRecorder(), req)
 
@@ -233,17 +232,10 @@ func TestIgnoreProbe(t *testing.T) {
 
 func BenchmarkProxyHandler(b *testing.B) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	stats := network.NewRequestStats(time.Now())
-
-	promStatReporter, err := NewPrometheusStatsReporter(
-		"ns", "testksvc", "testksvc",
-		"pod", reportingPeriod)
-	if err != nil {
-		b.Fatal("Failed to create stats reporter:", err)
-	}
+	stats := netstats.NewRequestStats(time.Now())
 
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-	req.Header.Set(network.OriginalHostHeader, wantHost)
+	req.Header.Set(netheader.OriginalHostKey, wantHost)
 
 	tests := []struct {
 		label        string
@@ -269,12 +261,6 @@ func BenchmarkProxyHandler(b *testing.B) {
 
 	for _, tc := range tests {
 		reportTicker := time.NewTicker(tc.reportPeriod)
-
-		go func() {
-			for now := range reportTicker.C {
-				promStatReporter.Report(stats.Report(now))
-			}
-		}()
 
 		h := ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler)
 		b.Run("sequential-"+tc.label, func(b *testing.B) {

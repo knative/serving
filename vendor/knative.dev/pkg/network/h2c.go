@@ -28,6 +28,7 @@ import (
 
 // NewServer returns a new HTTP Server with HTTP2 handler.
 func NewServer(addr string, h http.Handler) *http.Server {
+	//nolint:gosec
 	h1s := &http.Server{
 		Addr:    addr,
 		Handler: h2c.NewHandler(h, &http2.Server{}),
@@ -52,5 +53,18 @@ func newH2CTransport(disableCompression bool) http.RoundTripper {
 			return DialWithBackOff(context.Background(),
 				netw, addr)
 		},
+	}
+}
+
+// newH2Transport constructs a neew H2 transport. That transport will handles HTTPS traffic
+// with TLS config.
+func newH2Transport(disableCompression bool, tlsConf *tls.Config) http.RoundTripper {
+	return &http2.Transport{
+		DisableCompression: disableCompression,
+		DialTLS: func(netw, addr string, tlsConf *tls.Config) (net.Conn, error) {
+			return DialTLSWithBackOff(context.Background(),
+				netw, addr, tlsConf)
+		},
+		TLSClientConfig: tlsConf,
 	}
 }

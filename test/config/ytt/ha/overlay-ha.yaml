@@ -18,6 +18,12 @@ spec:
 
 #@overlay/match by=system_configmap("config-leader-election"), expects=1
 ---
+#@overlay/match-child-defaults missing_ok=True
 data:
-  #@overlay/match missing_ok=True
   buckets: #@ str(data.values.serving.ha.buckets)
+
+  #! These defaults are more aggressive to cause the fail over to happen
+  #! more quickly given chaosduck
+  lease-duration: "15s"
+  renew-deadline: "10s"
+  retry-period: "2s"

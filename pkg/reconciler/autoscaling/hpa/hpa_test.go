@@ -21,23 +21,8 @@ import (
 	"errors"
 	"testing"
 
-	// Inject our fake informers
-	networkingclient "knative.dev/networking/pkg/client/injection/client"
-	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta2/horizontalpodautoscaler/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
-	servingclient "knative.dev/serving/pkg/client/injection/client"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
-	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
-	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
-
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,6 +32,10 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	networkingclient "knative.dev/networking/pkg/client/injection/client"
+	netcfg "knative.dev/networking/pkg/config"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -57,6 +46,11 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
+	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
+	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	"knative.dev/serving/pkg/deployment"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -64,7 +58,13 @@ import (
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 
+	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2/horizontalpodautoscaler/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	_ "knative.dev/pkg/metrics/testing"
+	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
+
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing"
@@ -93,6 +93,13 @@ func TestControllerCanReconcile(t *testing.T) {
 			Data: map[string]string{
 				deployment.QueueSidecarImageKey: "motorbike-sidecar",
 			},
+		},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      netcfg.ConfigMapName,
+			},
+			Data: map[string]string{},
 		}))
 
 	waitInformers, err := RunAndSyncInformers(ctx, infs...)
@@ -113,12 +120,12 @@ func TestControllerCanReconcile(t *testing.T) {
 		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
-	err = ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+	err = ctl.Reconciler.Reconcile(ctx, testNamespace+"/"+testRevision)
 	if err != nil {
 		t.Error("Reconcile() =", err)
 	}
 
-	_, err = fakekubeclient.Get(ctx).AutoscalingV2beta2().HorizontalPodAutoscalers(testNamespace).Get(ctx, testRevision, metav1.GetOptions{})
+	_, err = fakekubeclient.Get(ctx).AutoscalingV2().HorizontalPodAutoscalers(testNamespace).Get(ctx, testRevision, metav1.GetOptions{})
 	if err != nil {
 		t.Error("error getting hpa:", err)
 	}
@@ -183,7 +190,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: key(testNamespace, testRevision),
 	}, {
-		Name: "reconcile sks becomes ready",
+		Name: "reconcile sks becomes ready, scale target not initialized",
 		Objects: []runtime.Object{
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithPASKSNotReady("I wasn't ready yet :-("),
 				WithMetricAnnotation("cpu"))),
@@ -193,10 +200,27 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, withScales(0, 0),
-				WithPASKSReady, WithTraffic, WithScaleTargetInitialized,
+				WithPASKSReady, WithTraffic,
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
 		Key: key(testNamespace, testRevision),
+	}, {
+		Name: "reconcile sks becmes ready, scale target initialized",
+		Objects: []runtime.Object{
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu")), withHPAScaleStatus(1, 1)),
+			pa(testNamespace, testRevision, WithHPAClass, withScales(1, 0), WithPASKSNotReady("crufty"), WithTraffic),
+			deploy(testNamespace, testRevision),
+			sks(testNamespace, testRevision, WithDeployRef("bar"), WithSKSReady),
+		},
+		WantStatusUpdates: []ktesting.UpdateActionImpl{{
+			Object: pa(testNamespace, testRevision, WithHPAClass, WithPASKSReady, WithTraffic,
+				WithScaleTargetInitialized, withScales(1, 1),
+				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
+		}},
+		Key: key(testNamespace, testRevision),
+		WantUpdates: []ktesting.UpdateActionImpl{{
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+		}},
 	}, {
 		Name: "reconcile sks",
 		Objects: []runtime.Object{
@@ -455,9 +479,9 @@ func pa(namespace, name string, options ...PodAutoscalerOption) *autoscalingv1al
 	return pa
 }
 
-type hpaOption func(*autoscalingv2beta2.HorizontalPodAutoscaler)
+type hpaOption func(*autoscalingv2.HorizontalPodAutoscaler)
 
-func withHPAOwnersRemoved(hpa *autoscalingv2beta2.HorizontalPodAutoscaler) {
+func withHPAOwnersRemoved(hpa *autoscalingv2.HorizontalPodAutoscaler) {
 	hpa.OwnerReferences = nil
 }
 
@@ -467,12 +491,12 @@ func withScales(d, a int32) PodAutoscalerOption {
 	}
 }
 func withHPAScaleStatus(d, a int32) hpaOption {
-	return func(hpa *autoscalingv2beta2.HorizontalPodAutoscaler) {
+	return func(hpa *autoscalingv2.HorizontalPodAutoscaler) {
 		hpa.Status.DesiredReplicas, hpa.Status.CurrentReplicas = d, a
 	}
 }
 
-func hpa(pa *autoscalingv1alpha1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta2.HorizontalPodAutoscaler {
+func hpa(pa *autoscalingv1alpha1.PodAutoscaler, options ...hpaOption) *autoscalingv2.HorizontalPodAutoscaler {
 	h := resources.MakeHPA(pa, defaultConfig().Autoscaler)
 	for _, o := range options {
 		o(h)

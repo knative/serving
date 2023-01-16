@@ -21,7 +21,6 @@ metadata:
     app.kubernetes.io/component: activator
     app.kubernetes.io/version: devel
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: devel
 spec:
   selector:
     matchLabels:
@@ -37,7 +36,6 @@ spec:
         app.kubernetes.io/component: activator
         app.kubernetes.io/name: knative-serving
         app.kubernetes.io/version: devel
-        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:
@@ -86,7 +84,9 @@ spec:
           runAsNonRoot: true
           capabilities:
             drop:
-            - all
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
 
         ports:
         - name: metrics
@@ -104,13 +104,15 @@ spec:
             httpHeaders:
             - name: k-kubelet-probe
               value: "activator"
-          failureThreshold: 12
+          periodSeconds: 5
+          failureThreshold: 5
         livenessProbe:
           httpGet:
             port: 8012
             httpHeaders:
             - name: k-kubelet-probe
               value: "activator"
+          periodSeconds: 10
           failureThreshold: 12
           initialDelaySeconds: 15
 
@@ -134,7 +136,6 @@ metadata:
     app.kubernetes.io/component: activator
     app.kubernetes.io/version: devel
     app.kubernetes.io/name: knative-serving
-    serving.knative.dev/release: devel
 spec:
   selector:
     app: activator
@@ -152,4 +153,7 @@ spec:
   - name: http2
     port: 81
     targetPort: 8013
+  - name: https
+    port: 443
+    targetPort: 8112
   type: ClusterIP

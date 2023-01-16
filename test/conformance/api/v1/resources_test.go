@@ -42,14 +42,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	clients := test.Setup(t)
 
 	t.Log("Creating a new Route and Configuration")
-	withResources := rtesting.WithResourceRequirements(corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("350Mi"),
-		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("350Mi"),
-		},
-	})
+	withResources := rtesting.WithResourceRequirements(createResources())
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -72,7 +65,8 @@ func TestCustomResourcesLimits(t *testing.T) {
 		spoof.MatchesAllOf(spoof.IsStatusOK),
 		"ResourceTestServesText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+		spoof.WithHeader(test.ServingFlags.RequestHeader()))
 	if err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}
@@ -88,6 +82,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
+		spoof.WithHeader(test.ServingFlags.RequestHeader())(req)
 		return client.Do(req)
 	}
 
@@ -123,4 +118,29 @@ func TestCustomResourcesLimits(t *testing.T) {
 	if err := pokeCowForMB(exceedingMemory); err == nil {
 		t.Fatalf("We shouldn't have got a response from bloating cow with %d MBs of Memory: %v", exceedingMemory, err)
 	}
+}
+
+func createResources() corev1.ResourceRequirements {
+	resources := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("350Mi"),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("350Mi"),
+		},
+	}
+
+	if test.ServingFlags.CustomCPULimits != "" {
+		resources.Limits[corev1.ResourceCPU] = resource.MustParse(test.ServingFlags.CustomCPULimits)
+	}
+	if test.ServingFlags.CustomMemoryLimits != "" {
+		resources.Limits[corev1.ResourceMemory] = resource.MustParse(test.ServingFlags.CustomMemoryLimits)
+	}
+	if test.ServingFlags.CustomCPURequests != "" {
+		resources.Requests[corev1.ResourceCPU] = resource.MustParse(test.ServingFlags.CustomCPURequests)
+	}
+	if test.ServingFlags.CustomMemoryRequests != "" {
+		resources.Requests[corev1.ResourceMemory] = resource.MustParse(test.ServingFlags.CustomMemoryRequests)
+	}
+	return resources
 }

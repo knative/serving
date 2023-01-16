@@ -17,8 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 
@@ -26,7 +28,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	network "knative.dev/networking/pkg"
 	"knative.dev/serving/test"
 )
 
@@ -38,68 +39,92 @@ const (
 	defaultPort = "8080"
 )
 
-var (
-	httpProxy *httputil.ReverseProxy
-)
-
-func handler(w http.ResponseWriter, r *http.Request) {
-	log.Print("HTTP proxy received a request.")
-	// Reverse proxy does not automatically reset the Host header.
-	// We need to manually reset it.
-	r.Host = getTargetHostEnv()
-	httpProxy.ServeHTTP(w, r)
-}
-
-func getPort() string {
-	value := os.Getenv(portEnv)
-	if value == "" {
-		return defaultPort
-	}
-	return value
-}
-
-func getTargetHostEnv() string {
-	value := os.Getenv(targetHostEnv)
-	if value == "" {
-		log.Fatalf("No env %v provided.", targetHostEnv)
-	}
-	return value
-}
-
-func initialHTTPProxy(proxyURL string) *httputil.ReverseProxy {
-	target, err := url.Parse(proxyURL)
-	if err != nil {
-		log.Fatal("Failed to parse url ", proxyURL)
-	}
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
-		log.Print("error reverse proxying request: ", err)
-		http.Error(w, err.Error(), http.StatusBadGateway)
-	}
-	return proxy
-}
-
 func main() {
 	flag.Parse()
 	log.Print("HTTP Proxy app started.")
 
-	targetHost := getTargetHostEnv()
-	port := getPort()
+	// Fetch port from env or use default if not provided.
+	port := os.Getenv(portEnv)
+	if port == "" {
+		port = defaultPort
+	}
 
-	// Gateway is an optional value. It is used only when resolvable domain is not set
+	// Fetch target host from env or fail if not provided.
+	targetHost := os.Getenv(targetHostEnv)
+	if targetHost == "" {
+		log.Fatalf("No value for env var %q provided.", targetHostEnv)
+	}
+
+	routedHost := targetHost
+	// gateway is an optional value. It is used only when resolvable domain is not set
 	// for external access test, as services like sslip.io may be flaky.
 	// ref: https://github.com/knative/serving/issues/5389
 	gateway := os.Getenv(gatewayHostEnv)
 	if gateway != "" {
-		targetHost = gateway
+		routedHost = gateway
 	}
-	targetURL := fmt.Sprint("http://", targetHost)
-	log.Print("target is " + targetURL)
-	httpProxy = initialHTTPProxy(targetURL)
 
-	address := fmt.Sprint(":", port)
+	scheme := "http"
+	if caCert := os.Getenv("CA_CERT"); caCert != "" {
+		scheme = "https"
+	}
+	target := &url.URL{
+		Scheme: scheme,
+		Host:   routedHost,
+	}
+	log.Print("target is ", target)
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = newTLSEnabledTransport()
+	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
+		log.Print("error reverse proxying request: ", err)
+		http.Error(w, err.Error(), http.StatusBadGateway)
+	}
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Print("HTTP proxy received a request.")
+		// Reverse proxy does not automatically reset the Host header.
+		// We need to manually reset it.
+		r.Host = targetHost
+		proxy.ServeHTTP(w, r)
+	})
+
+	address := ":" + port
 	log.Print("Listening on address: ", address)
-	// Handle forwarding requests which uses "K-Network-Hash" header.
-	probeHandler := network.NewProbeHandler(http.HandlerFunc(handler)).ServeHTTP
-	test.ListenAndServeGracefully(address, probeHandler)
+	test.ListenAndServeGracefully(address, handler)
+}
+
+func newTLSEnabledTransport() http.RoundTripper {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if caCert := os.Getenv("CA_CERT"); caCert != "" {
+		rootCAs, err := createRootCAs(caCert)
+		if err != nil {
+			log.Fatal(err)
+			return transport
+		}
+		transport.TLSClientConfig = &tls.Config{
+			RootCAs: rootCAs,
+			// If SERVER_NAME is not set the empty value will make the
+			// TLS client infer the ServerName from the hostname.
+			ServerName: os.Getenv("SERVER_NAME"),
+		}
+	}
+	return transport
+}
+
+func createRootCAs(caCertFile string) (*x509.CertPool, error) {
+	pemData, err := os.ReadFile(caCertFile)
+	if err != nil {
+		return nil, err
+	}
+	rootCAs, err := x509.SystemCertPool()
+	if rootCAs == nil || err != nil {
+		if err != nil {
+			log.Printf("Failed to load cert poll from system: %v. Will create a new cert pool.", err)
+		}
+		rootCAs = x509.NewCertPool()
+	}
+	if !rootCAs.AppendCertsFromPEM(pemData) {
+		return nil, errors.New("failed to add the certificate to the root CA")
+	}
+	return rootCAs, nil
 }

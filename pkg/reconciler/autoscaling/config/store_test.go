@@ -24,6 +24,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	logtesting "knative.dev/pkg/logging/testing"
 
+	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	. "knative.dev/pkg/configmap/testing"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
@@ -33,9 +35,11 @@ func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
-	depConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.DeprecatedQueueSidecarImageKey)
+	depConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
+	netConfig := ConfigMapFromTestFile(t, netcfg.ConfigMapName)
 	store.OnConfigChanged(autoscalerConfig)
 	store.OnConfigChanged(depConfig)
+	store.OnConfigChanged(netConfig)
 	config := FromContext(store.ToContext(context.Background()))
 
 	wantAS, _ := autoscalerconfig.NewConfigFromConfigMap(autoscalerConfig)
@@ -46,24 +50,33 @@ func TestStoreLoadWithContext(t *testing.T) {
 	if !cmp.Equal(wantD, config.Deployment) {
 		t.Error("Deployment ConfigMap mismatch (-want, +got):", cmp.Diff(wantD, config.Deployment))
 	}
+	wantNet, _ := network.NewConfigFromConfigMap(netConfig)
+	if !cmp.Equal(wantNet, config.Network) {
+		t.Error("Network ConfigMap mismatch (-want, +got):", cmp.Diff(wantNet, config.Network))
+	}
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName,
-		deployment.DeprecatedQueueSidecarImageKey))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, netcfg.ConfigMapName))
 
 	config := store.Load()
 	config.Autoscaler.MaxScaleUpRate = 100.0
 	config.Deployment.ProgressDeadline = 3 * time.Minute
+	config.Network.InternalEncryption = true
 	newConfig := store.Load()
 
 	if newConfig.Autoscaler.MaxScaleUpRate == 100.0 {
 		t.Error("Autoscaler config is not immuable")
 	}
 	if newConfig.Deployment.ProgressDeadline == 3*time.Minute {
-		t.Error("Autoscaler config is not immuable")
+		t.Error("Deployment config is not immuable")
+	}
+
+	if newConfig.Network.InternalEncryption {
+		t.Error("Network config is not immuable")
 	}
 }

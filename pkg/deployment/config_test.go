@@ -49,8 +49,7 @@ func TestMatchingExceptions(t *testing.T) {
 }
 
 func TestControllerConfigurationFromFile(t *testing.T) {
-	// TODO: change to other case after  0.27
-	cm, example := ConfigMapsFromTestFile(t, ConfigName, DeprecatedQueueSidecarImageKey)
+	cm, example := ConfigMapsFromTestFile(t, ConfigName, QueueSidecarImageKey)
 
 	if _, err := NewConfigFromConfigMap(cm); err != nil {
 		t.Error("NewConfigFromConfigMap(actual) =", err)
@@ -88,10 +87,12 @@ func TestControllerConfiguration(t *testing.T) {
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:     sets.NewString("foo", "bar", "boo-srv"),
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,
+			queueSidecarTokenAudiencesKey:     "bar,foo,boo-srv",
 			registriesSkippingTagResolvingKey: "ko.local,,",
 		},
 	}, {
@@ -101,6 +102,7 @@ func TestControllerConfiguration(t *testing.T) {
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:     sets.NewString(""),
 			ProgressDeadline:               444 * time.Second,
 		},
 		data: map[string]string{
@@ -114,6 +116,7 @@ func TestControllerConfiguration(t *testing.T) {
 			DigestResolutionTimeout:        60 * time.Second,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:     sets.NewString(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
@@ -127,6 +130,7 @@ func TestControllerConfiguration(t *testing.T) {
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:     sets.NewString(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
@@ -146,6 +150,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPULimit:                quantity("987M"),
 			QueueSidecarMemoryLimit:             quantity("654m"),
 			QueueSidecarEphemeralStorageLimit:   quantity("321M"),
+			QueueSidecarTokenAudiences:          sets.NewString(""),
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:                   defaultSidecarImage,
@@ -203,6 +208,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			ProgressDeadline:               ProgressDeadlineDefault,
+			QueueSidecarTokenAudiences:     sets.NewString(""),
 			ConcurrencyStateEndpoint:       "freeze-proxy",
 		},
 		data: map[string]string{
@@ -237,6 +243,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarEphemeralStorageRequest: quantity("9M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("10M"),
 			ConcurrencyStateEndpoint:            "11",
+			QueueSidecarTokenAudiences:          sets.NewString(""),
 		},
 	}, {
 		name: "newer key case takes priority",
@@ -252,6 +259,7 @@ func TestControllerConfiguration(t *testing.T) {
 			"queueSidecarMemoryLimit":             "8M",
 			"queueSidecarEphemeralStorageRequest": "9M",
 			"queueSidecarEphemeralStorageLimit":   "10M",
+			"queueSidecarTokens":                  "bar",
 			"concurrencyStateEndpoint":            "11",
 
 			QueueSidecarImageKey:                   "12",
@@ -264,6 +272,7 @@ func TestControllerConfiguration(t *testing.T) {
 			queueSidecarMemoryLimitKey:             "19M",
 			queueSidecarEphemeralStorageRequestKey: "20M",
 			queueSidecarEphemeralStorageLimitKey:   "21M",
+			queueSidecarTokenAudiencesKey:          "foo",
 			concurrencyStateEndpointKey:            "22",
 		},
 		wantConfig: &Config{
@@ -277,6 +286,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarMemoryLimit:             quantity("19M"),
 			QueueSidecarEphemeralStorageRequest: quantity("20M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("21M"),
+			QueueSidecarTokenAudiences:          sets.NewString("foo"),
 			ConcurrencyStateEndpoint:            "22",
 		},
 	}}

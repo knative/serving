@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -39,7 +38,7 @@ func main() {
 // processFile reads the ConfigMap manifest from a file and adds or updates the label
 // containing the checksum of it's _example data if present.
 func processFile(fileName string) error {
-	in, err := ioutil.ReadFile(fileName)
+	in, err := os.ReadFile(fileName)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
@@ -50,7 +49,7 @@ func processFile(fileName string) error {
 	}
 
 	//nolint:gosec // This is not security critical so open permissions are fine.
-	if err := ioutil.WriteFile(fileName, out, 0644); err != nil {
+	if err := os.WriteFile(fileName, out, 0644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 	return nil

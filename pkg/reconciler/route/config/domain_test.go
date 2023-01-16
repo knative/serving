@@ -24,7 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	netpkg "knative.dev/networking/pkg"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 
@@ -175,7 +175,7 @@ func TestLookupDomainForLabels(t *testing.T) {
 		labels: map[string]string{},
 		domain: "default.com",
 	}, {
-		labels: map[string]string{netpkg.VisibilityLabelKey: "cluster-local"},
+		labels: map[string]string{netapi.VisibilityLabelKey: "cluster-local"},
 		domain: "svc." + network.GetClusterDomainName(),
 	}}
 

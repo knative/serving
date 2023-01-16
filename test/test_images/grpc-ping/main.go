@@ -28,7 +28,6 @@ import (
 
 	"google.golang.org/grpc"
 
-	networkingpkg "knative.dev/networking/pkg"
 	"knative.dev/pkg/network"
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
 )
@@ -81,16 +80,6 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 	}
 }
 
-func httpWrapper(g *grpc.Server) http.Handler {
-	return networkingpkg.NewProbeHandler(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.ProtoMajor == 2 && r.Header.Get("Content-Type") == "application/grpc" {
-				g.ServeHTTP(w, r)
-			}
-		}),
-	)
-}
-
 func main() {
 	log.Print("Starting server on ", os.Getenv("PORT"))
 
@@ -103,9 +92,14 @@ func main() {
 	}
 
 	g := grpc.NewServer()
-	s := network.NewServer(":"+os.Getenv("PORT"), httpWrapper(g))
-
 	ping.RegisterPingServiceServer(g, &server{})
 
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor == 2 && r.Header.Get("Content-Type") == "application/grpc" {
+			g.ServeHTTP(w, r)
+		}
+	}
+
+	s := network.NewServer(":"+os.Getenv("PORT"), http.HandlerFunc(handler))
 	log.Fatal(s.ListenAndServe())
 }

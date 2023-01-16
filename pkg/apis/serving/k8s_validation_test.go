@@ -26,10 +26,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+
 	"knative.dev/serving/pkg/apis/config"
 )
 
@@ -60,6 +62,13 @@ func withPodSpecFieldRefEnabled() configOption {
 func withPodSpecAffinityEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecAffinity = config.Enabled
+		return cfg
+	}
+}
+
+func withPodSpecTopologySpreadConstraintsEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecTopologySpreadConstraints = config.Enabled
 		return cfg
 	}
 }
@@ -113,6 +122,20 @@ func withPodSpecVolumesEmptyDirEnabled() configOption {
 	}
 }
 
+func withPodSpecPersistentVolumeClaimEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecPersistentVolumeClaim = config.Enabled
+		return cfg
+	}
+}
+
+func withPodSpecPersistentVolumeWriteEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecPersistentVolumeWrite = config.Enabled
+		return cfg
+	}
+}
+
 func withPodSpecPriorityClassNameEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecPriorityClassName = config.Enabled
@@ -130,6 +153,20 @@ func withPodSpecSchedulerNameEnabled() configOption {
 func withPodSpecInitContainersEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecInitContainers = config.Enabled
+		return cfg
+	}
+
+}
+func withPodSpecDNSPolicyEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecDNSPolicy = config.Enabled
+		return cfg
+	}
+}
+
+func withPodSpecDNSConfigEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecDNSConfig = config.Enabled
 		return cfg
 	}
 }
@@ -417,6 +454,177 @@ func TestPodSpecValidation(t *testing.T) {
 			Message: `volume with name "debugging-support-files" not mounted`,
 			Paths:   []string{"volumes[0].name"},
 		},
+	}, {
+		name: "init-container name collision",
+		ps: corev1.PodSpec{
+			InitContainers: []corev1.Container{{
+				Name:  "the-name",
+				Image: "busybox",
+			}},
+			Containers: []corev1.Container{{
+				Name:  "the-name",
+				Image: "busybox",
+			}},
+		},
+		cfgOpts: []configOption{withPodSpecInitContainersEnabled()},
+		want: (&apis.FieldError{
+			Message: `duplicate container name "the-name"`,
+			Paths:   []string{"name"},
+		}).ViaFieldIndex("containers", 0),
+	}, {
+		name: "container name collision",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "the-name",
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Name:  "the-name",
+				Image: "busybox",
+			}},
+		},
+		want: (&apis.FieldError{
+			Message: `duplicate container name "the-name"`,
+			Paths:   []string{"name"},
+		}).ViaFieldIndex("containers", 1),
+	}, {
+		name: "PVC not read-only, mount read-only, write disabled by default",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  true,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  false,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+		want: &apis.FieldError{
+			Message: `Persistent volume write support is disabled, but found persistent volume claim myclaim that is not read-only`,
+		},
+	}, {
+		name: "PVC not read-only, mount not read-only, write disabled by default",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  false,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  false,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+		want: &apis.FieldError{
+			Message: `Persistent volume write support is disabled, but found persistent volume claim myclaim that is not read-only`,
+		},
+	}, {
+		name: "PVC read-only, mount not read-only, write disabled by default",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  false,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  true,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+		want: &apis.FieldError{
+			Message: "volume is readOnly but volume mount is not",
+			Paths:   []string{"containers[0].volumeMounts[0].readOnly"},
+		},
+	}, {
+		name: "PVC read-only, write disabled by default",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  true,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  true,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+	}, {
+		name: "PVC not read-only, write enabled",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  true,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  false,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled(), withPodSpecPersistentVolumeWriteEnabled()},
+	}, {
+		name: "PVC read-only, write enabled",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  false,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  false,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled(), withPodSpecPersistentVolumeWriteEnabled()},
 	}}
 
 	for _, test := range tests {
@@ -461,11 +669,13 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: more than one container with one container port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 			}},
 		},
@@ -474,11 +684,13 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: probes are not allowed for non serving containers",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 				LivenessProbe: &corev1.Probe{
 					TimeoutSeconds: 1,
@@ -496,8 +708,10 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with no port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 			}},
 		},
@@ -506,11 +720,13 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with multiple port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 9999,
@@ -526,6 +742,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with multiple ports for each container",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
@@ -533,6 +750,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 					ContainerPort: 9999,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 80,
@@ -548,6 +766,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with multiple port for a single container",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
@@ -555,6 +774,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 					ContainerPort: 9999,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 			}},
 		},
@@ -567,14 +787,16 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with readinessProbe targeting different container's port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "work",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 9999,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "health",
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Port: intstr.FromInt(9999), // This is the other container's port
 						},
@@ -587,11 +809,13 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with illegal env variable defined for side car",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 				Env: []corev1.EnvVar{{
 					Name:  "PORT",
@@ -610,11 +834,13 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		name: "flag enabled: multiple containers with PORT defined for side car",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "helloworld",
 				Env: []corev1.EnvVar{{
 					Name:  "PORT",
@@ -683,6 +909,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 			},
 			Containers: []corev1.Container{
 				{
+					Name:  "container-a",
 					Image: "busybox",
 					Ports: []corev1.ContainerPort{{ContainerPort: 8888}},
 					VolumeMounts: []corev1.VolumeMount{{
@@ -692,6 +919,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 					}},
 				},
 				{
+					Name:  "container-b",
 					Image: "busybox",
 					VolumeMounts: []corev1.VolumeMount{{
 						MountPath: "/mount/path",
@@ -721,6 +949,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 			},
 			Containers: []corev1.Container{
 				{
+					Name:  "container-a",
 					Image: "busybox",
 					Ports: []corev1.ContainerPort{{ContainerPort: 8888}},
 					VolumeMounts: []corev1.VolumeMount{{
@@ -729,7 +958,9 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 						ReadOnly:  true,
 					}},
 				},
-				{Image: "busybox"},
+				{
+					Name:  "container-b",
+					Image: "busybox"},
 			},
 		},
 		want: &apis.FieldError{
@@ -744,6 +975,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Name:  "install-nodejs-debug-support",
 			}},
 			Containers: []corev1.Container{{
+				Name:  "container-a",
 				Image: "busybox1",
 				Ports: []corev1.ContainerPort{{ContainerPort: 8888}},
 				VolumeMounts: []corev1.VolumeMount{{
@@ -751,6 +983,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 					MountPath: "/data",
 				}},
 			}, {
+				Name:  "container-b",
 				Image: "busybox2",
 				VolumeMounts: []corev1.VolumeMount{{
 					Name:      "debugging-support-files",
@@ -822,6 +1055,49 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 			Paths:   []string{"affinity"},
 		},
 		cfgOpts: []configOption{withPodSpecAffinityEnabled()},
+	}, {
+		name: "TopologySpreadConstraints",
+		featureSpec: corev1.PodSpec{
+			TopologySpreadConstraints: []corev1.TopologySpreadConstraint{{
+				MaxSkew:           1,
+				TopologyKey:       "topology.kubernetes.io/zone",
+				WhenUnsatisfiable: "DoNotSchedule",
+				LabelSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{{
+						Key:      "key",
+						Operator: "In",
+						Values:   []string{"value"},
+					}},
+				},
+			}},
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"topologySpreadConstraints"},
+		},
+		cfgOpts: []configOption{withPodSpecTopologySpreadConstraintsEnabled()},
+	}, {
+		name: "DNSPolicy",
+		featureSpec: corev1.PodSpec{
+			DNSPolicy: corev1.DNSDefault,
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"dnsPolicy"},
+		},
+		cfgOpts: []configOption{withPodSpecDNSPolicyEnabled()},
+	}, {
+		name: "DNSConfig",
+		featureSpec: corev1.PodSpec{
+			DNSConfig: &corev1.PodDNSConfig{
+				Nameservers: []string{"1.2.3.4"},
+			},
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"dnsConfig"},
+		},
+		cfgOpts: []configOption{withPodSpecDNSConfigEnabled()},
 	}, {
 		name: "HostAliases",
 		featureSpec: corev1.PodSpec{
@@ -1211,14 +1487,14 @@ func TestContainerValidation(t *testing.T) {
 					TimeoutSeconds:   1,
 					SuccessThreshold: 1,
 					FailureThreshold: 3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
 					},
 				},
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{},
 					},
 				},
@@ -1234,14 +1510,14 @@ func TestContainerValidation(t *testing.T) {
 					TimeoutSeconds:      1,
 					SuccessThreshold:    1,
 					FailureThreshold:    3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
 					},
 				},
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{},
 					},
 				},
@@ -1256,14 +1532,14 @@ func TestContainerValidation(t *testing.T) {
 					TimeoutSeconds:   1,
 					SuccessThreshold: 1,
 					FailureThreshold: 3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
 					},
 				},
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{},
+					ProbeHandler: corev1.ProbeHandler{},
 				},
 			},
 			want: apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec"),
@@ -1276,7 +1552,7 @@ func TestContainerValidation(t *testing.T) {
 					TimeoutSeconds:   1,
 					SuccessThreshold: 1,
 					FailureThreshold: 3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
@@ -1287,15 +1563,15 @@ func TestContainerValidation(t *testing.T) {
 			},
 			want: apis.ErrMultipleOneOf("readinessProbe.exec", "readinessProbe.tcpSocket", "readinessProbe.httpGet"),
 		}, {
-			name: "invalid readiness http probe (has wrong port)",
+			name: "valid liveness http probe with a different container port",
 			c: corev1.Container{
 				Image: "foo",
-				ReadinessProbe: &corev1.Probe{
+				LivenessProbe: &corev1.Probe{
 					PeriodSeconds:    1,
 					TimeoutSeconds:   1,
 					SuccessThreshold: 1,
 					FailureThreshold: 3,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 							Port: intstr.FromInt(5000),
@@ -1303,20 +1579,73 @@ func TestContainerValidation(t *testing.T) {
 					},
 				},
 			},
-			want: apis.ErrInvalidValue(5000, "readinessProbe.httpGet.port", "May only probe containerPort"),
+			want: nil,
+		}, {
+			name: "valid liveness tcp probe with a different container port",
+			c: corev1.Container{
+				Image: "foo",
+				LivenessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt(5000),
+						},
+					},
+				},
+			},
+			want: nil,
+		}, {
+			name: "valid readiness http probe with a different container port",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt(5000),
+						},
+					},
+				},
+			},
+			want: nil,
+		}, {
+			name: "valid readiness tcp probe with a different container port",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt(5000),
+						},
+					},
+				},
+			},
+			want: nil,
 		}, {
 			name: "valid readiness http probe with port",
 			c: corev1.Container{
 				Image: "foo",
 				ReadinessProbe: &corev1.Probe{
 					SuccessThreshold: 1,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Port: intstr.FromString("http"), // http is the default
 						},
 					},
 				},
 			},
+			want: nil,
 		}, {
 			name: "invalid readiness probe (has failureThreshold while using special probe)",
 			c: corev1.Container{
@@ -1325,7 +1654,7 @@ func TestContainerValidation(t *testing.T) {
 					PeriodSeconds:    0,
 					FailureThreshold: 2,
 					SuccessThreshold: 1,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
@@ -1344,7 +1673,7 @@ func TestContainerValidation(t *testing.T) {
 					PeriodSeconds:    0,
 					TimeoutSeconds:   2,
 					SuccessThreshold: 1,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
@@ -1365,7 +1694,7 @@ func TestContainerValidation(t *testing.T) {
 					SuccessThreshold:    0,
 					FailureThreshold:    0,
 					InitialDelaySeconds: -1,
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{},
 					},
 				},
@@ -1396,14 +1725,14 @@ func TestContainerValidation(t *testing.T) {
 			c: corev1.Container{
 				Image: "foo",
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.FromString("imap"),
 						},
 					},
 				},
 			},
-			want: apis.ErrInvalidValue("imap", "livenessProbe.tcpSocket.port", "May only probe containerPort"),
+			want: apis.ErrInvalidValue("imap", "livenessProbe.tcpSocket.port", "Probe port must match container port"),
 		}, {
 			name: "valid liveness tcp probe with correct port",
 			c: corev1.Container{
@@ -1414,7 +1743,7 @@ func TestContainerValidation(t *testing.T) {
 					},
 				},
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.FromInt(8888),
 						},
@@ -1499,7 +1828,7 @@ func TestInitContainerValidation(t *testing.T) {
 			c: corev1.Container{
 				Image: "foo",
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.FromString("http"),
 						},
@@ -1700,7 +2029,10 @@ func getCommonContainerValidationTestCases() []containerValidationTestCase {
 				Message: "volumeMount has no matching volume",
 				Paths:   []string{"name"},
 			}).ViaFieldIndex("volumeMounts", 0).Also(
-				apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", 0)).Also(
+				(&apis.FieldError{
+					Message: "volume mount should be readOnly for this type of volume",
+					Paths:   []string{"readOnly"},
+				}).ViaFieldIndex("volumeMounts", 0)).Also(
 				apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
 				apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
 		}, {
@@ -1984,7 +2316,7 @@ func TestVolumeValidation(t *testing.T) {
 		v: corev1.Volume{
 			Name: "foo",
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap", "projected"),
+		want: apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir"),
 	}, {
 		name: "secret volume",
 		v: corev1.Volume{
@@ -2031,11 +2363,39 @@ func TestVolumeValidation(t *testing.T) {
 		want:    apis.ErrInvalidValue(-1, "emptyDir.sizeLimit"),
 		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled()},
 	}, {
+		name: "valid PVC with PVC feature enabled",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "myclaim",
+					ReadOnly:  true,
+				},
+			},
+		},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+	}, {
+		name: "valid PVC with PVC feature disabled",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "myclaim",
+					ReadOnly:  false,
+				},
+			}},
+		want: (&apis.FieldError{
+			Message: `Persistent volume claim support is disabled, but found persistent volume claim myclaim`,
+		}).Also(&apis.FieldError{
+			Message: `Persistent volume write support is disabled, but found persistent volume claim myclaim that is not read-only`,
+		}).Also(
+			&apis.FieldError{Message: "must not set the field(s)", Paths: []string{"persistentVolumeClaim"}}),
+	}, {
 		name: "no volume source",
 		v: corev1.Volume{
 			Name: "foo",
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap", "projected"),
+		want: apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir"),
 	}, {
 		name: "multiple volume source",
 		v: corev1.Volume{

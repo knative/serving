@@ -22,7 +22,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	networkaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
@@ -32,11 +31,11 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	networkingpkg "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
@@ -47,6 +46,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
+	servingnetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
 	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
@@ -79,7 +79,7 @@ func (r *Reconciler) GetCertificateLister() networkinglisters.CertificateLister 
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMapping) reconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, reconciler.DefaultTimeout)
 	defer cancel()
 
 	logger := logging.FromContext(ctx)
@@ -99,7 +99,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 	dm.Status.Address = &duckv1.Addressable{URL: url}
 
 	// IngressClass can be set via annotations or in the config map.
-	ingressClass := networking.GetIngressClass(dm.Annotations)
+	ingressClass := netapi.GetIngressClass(dm.Annotations)
 	if ingressClass == "" {
 		ingressClass = config.FromContext(ctx).Network.DefaultIngressClass
 	}
@@ -121,16 +121,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 		return err
 	}
 
-	// Set HTTPOption via config-network.
-	var httpOption netv1alpha1.HTTPOption
-	switch config.FromContext(ctx).Network.HTTPProtocol {
-	case networkingpkg.HTTPEnabled:
-		httpOption = netv1alpha1.HTTPOptionEnabled
-	case networkingpkg.HTTPRedirected:
-		httpOption = netv1alpha1.HTTPOptionRedirected
-	// This will be deprecated soon
-	case networkingpkg.HTTPDisabled:
-		httpOption = ""
+	// HTTPOption can be set via annotations or in the config map.
+	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, dm.GetAnnotations())
+	if err != nil {
+		return err
 	}
 
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
@@ -181,14 +175,14 @@ func autoTLSEnabled(ctx context.Context, dm *v1alpha1.DomainMapping) bool {
 	if !config.FromContext(ctx).Network.AutoTLS {
 		return false
 	}
-	annotationValue := networking.GetDisableAutoTLS(dm.Annotations)
+	annotationValue := netapi.GetDisableAutoTLS(dm.Annotations)
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
 	if annotationValue != "" && err != nil {
 		logger := logging.FromContext(ctx)
 		// Validation should've caught an invalid value here.
 		// If we have one anyway, assume not disabled and log a warning.
 		logger.Warnf("DM.Annotations[%s] = %q is invalid",
-			networking.DisableAutoTLSAnnotationKey, annotationValue)
+			netapi.DisableAutoTLSAnnotationKey, annotationValue)
 	}
 
 	return !disabledByAnnotation
@@ -236,7 +230,7 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]net
 		dm.Status.MarkCertificateReady(cert.Name)
 		return []netv1alpha1.IngressTLS{routeresources.MakeIngressTLS(cert, desiredCert.Spec.DNSNames)}, nil, nil
 	}
-	if config.FromContext(ctx).Network.HTTPProtocol == networkingpkg.HTTPEnabled {
+	if config.FromContext(ctx).Network.HTTPProtocol == netcfg.HTTPEnabled {
 		// When httpProtocol is enabled, downgrade http scheme.
 		dm.Status.URL.Scheme = "http"
 		dm.Status.MarkHTTPDowngrade(cert.Name)
@@ -267,12 +261,14 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMa
 	} else if err != nil {
 		return nil, err
 	} else if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
-		!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) {
+		!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) ||
+		!equality.Semantic.DeepEqual(ingress.Labels, desired.Labels) {
 
 		// Don't modify the informers copy
 		origin := ingress.DeepCopy()
 		origin.Spec = desired.Spec
 		origin.Annotations = desired.Annotations
+		origin.Labels = desired.Labels
 		updated, err := r.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(ctx, origin, metav1.UpdateOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to update Ingress: %w", err)
@@ -342,7 +338,7 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.Doma
 func (r *Reconciler) createDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
 	if !config.FromContext(ctx).Network.AutocreateClusterDomainClaims {
 		dm.Status.MarkDomainClaimNotOwned()
-		return fmt.Errorf("no ClusterDomainClaim found for domain %q", dm.Name)
+		return fmt.Errorf("no ClusterDomainClaim found for domain %q (and autocreate-cluster-domain-claims property is not true)", dm.Name)
 	}
 
 	_, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, resources.MakeDomainClaim(dm), metav1.CreateOptions{})

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Knative Authors
+Copyright 2022 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ func (c *FakeRevisions) UpdateStatus(ctx context.Context, revision *servingv1.Re
 // Delete takes name of the revision and deletes it. Returns an error if one occurs.
 func (c *FakeRevisions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(revisionsResource, c.ns, name), &servingv1.Revision{})
+		Invokes(testing.NewDeleteActionWithOptions(revisionsResource, c.ns, name, opts), &servingv1.Revision{})
 
 	return err
 }

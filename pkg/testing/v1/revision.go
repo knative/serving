@@ -22,7 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/utils/clock"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -228,6 +228,22 @@ func WithRevisionInitContainers() RevisionOption {
 		}, {
 			Name:  "init2",
 			Image: "initimage",
+		}}
+	}
+}
+
+func WithRevisionPVC() RevisionOption {
+	return func(r *v1.Revision) {
+		r.Spec.Volumes = []corev1.Volume{{
+			Name: "claimvolume",
+			VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: "myclaim",
+				ReadOnly:  false,
+			}}},
+		}
+		r.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{{
+			Name:      "claimvolume",
+			MountPath: "/data",
 		}}
 	}
 }

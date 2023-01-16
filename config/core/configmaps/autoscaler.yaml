@@ -21,9 +21,8 @@ metadata:
     app.kubernetes.io/component: autoscaler
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "b4401cf4"
+    knative.dev/example-checksum: "47c2487f"
 data:
   _example: |
     ################################
@@ -98,7 +97,7 @@ data:
     # -1 denotes unlimited target-burst-capacity and activator will always
     # be in the request path.
     # Other negative values are invalid.
-    target-burst-capacity: "200"
+    target-burst-capacity: "211"
 
     # When operating in a stable mode, the autoscaler operates on the
     # average concurrency over the stable window.
@@ -165,8 +164,8 @@ data:
     scale-to-zero-pod-retention-period: "0s"
 
     # pod-autoscaler-class specifies the default pod autoscaler class
-    # that should be used if none is specified. If omitted, the Knative
-    # Horizontal Pod Autoscaler (KPA) is used by default.
+    # that should be used if none is specified. If omitted,
+    # the Knative Pod Autoscaler (KPA) is used by default.
     pod-autoscaler-class: "kpa.autoscaling.knative.dev"
 
     # The capacity of a single activator task.

@@ -47,15 +47,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	resources := corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse(toMilliValue(cpuLimit)),
-			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(memoryLimit) + "Mi"),
-		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse(toMilliValue(cpuRequest)),
-		},
-	}
+	resources := createResources()
 
 	// Cgroup settings are based on the CPU and Memory Limits as well as CPU Requests
 	// https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
@@ -64,8 +56,8 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 	// size (4k, 8k, 16k, 64k) as some environments apply rounding to the closest page
 	// size multiple, see https://github.com/kubernetes/kubernetes/issues/82230.
 	expectedCgroups := map[string]int{
-		"/sys/fs/cgroup/memory/memory.limit_in_bytes": memoryLimit * 1024 * 1024, // 128 MiB
-		"/sys/fs/cgroup/cpu/cpu.shares":               cpuRequest * 1024}         // CPURequests * 1024
+		"/sys/fs/cgroup/memory/memory.limit_in_bytes": int(resources.Limits.Memory().Value()) &^ 4095, // floor() to 4K pages
+		"/sys/fs/cgroup/cpu/cpu.shares":               int(resources.Requests.Cpu().MilliValue()) * 1024 / 1000}
 
 	_, ri, err := fetchRuntimeInfo(t, clients, WithResourceRequirements(resources))
 	if err != nil {
@@ -104,15 +96,17 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 		}
 	}
 
+	expectedCPULimit := int(resources.Limits.Cpu().MilliValue())
 	if period == nil {
 		t.Error("Can't find the 'cpu.cfs_period_us' from cgroups")
 	} else if quota == nil {
 		t.Error("Can't find the 'cpu.cfs_quota_us' from cgroups")
 	} else {
-		percent := (100 * (*period)) / (*quota)
-		if percent != cpuLimit*100 {
-			t.Errorf("Percent (%v) is wrong should be %v. Period: %v Quota: %v",
-				percent, cpuLimit*100, period, quota)
+		// CustomCpuLimits of a core e.g. 125m means 12,5% of a single CPU, 2 or 2000m means 200% of a single CPU
+		milliCPU := (1000 * (*quota)) / (*period)
+		if milliCPU != expectedCPULimit {
+			t.Errorf("MilliCPU (%v) is wrong should be %v. Period: %v Quota: %v",
+				milliCPU, expectedCPULimit, period, quota)
 		}
 	}
 
@@ -140,4 +134,29 @@ func TestShouldHaveCgroupReadOnly(t *testing.T) {
 		}
 	}
 
+}
+
+func createResources() corev1.ResourceRequirements {
+	resources := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(toMilliValue(cpuLimit)),
+			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(memoryLimit) + "Mi")},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse(toMilliValue(cpuRequest)),
+		},
+	}
+
+	if test.ServingFlags.CustomCPULimits != "" {
+		resources.Limits[corev1.ResourceCPU] = resource.MustParse(test.ServingFlags.CustomCPULimits)
+	}
+	if test.ServingFlags.CustomMemoryLimits != "" {
+		resources.Limits[corev1.ResourceMemory] = resource.MustParse(test.ServingFlags.CustomMemoryLimits)
+	}
+	if test.ServingFlags.CustomCPURequests != "" {
+		resources.Requests[corev1.ResourceCPU] = resource.MustParse(test.ServingFlags.CustomCPURequests)
+	}
+	if test.ServingFlags.CustomMemoryRequests != "" {
+		resources.Requests[corev1.ResourceMemory] = resource.MustParse(test.ServingFlags.CustomMemoryRequests)
+	}
+	return resources
 }

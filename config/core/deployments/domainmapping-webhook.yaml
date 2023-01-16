@@ -21,7 +21,6 @@ metadata:
     app.kubernetes.io/component: domain-mapping
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
 spec:
   selector:
     matchLabels:
@@ -37,7 +36,6 @@ spec:
         app.kubernetes.io/component: domain-mapping
         app.kubernetes.io/name: knative-serving
         app.kubernetes.io/version: devel
-        serving.knative.dev/release: devel
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
       affinity:
@@ -91,7 +89,9 @@ spec:
           runAsNonRoot: true
           capabilities:
             drop:
-            - all
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
 
         ports:
         - name: metrics
@@ -133,7 +133,6 @@ metadata:
     app.kubernetes.io/component: domain-mapping
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
   name: domainmapping-webhook
   namespace: knative-serving
 spec:
@@ -149,4 +148,5 @@ spec:
     port: 443
     targetPort: 8443
   selector:
+    app: domainmapping-webhook
     role: domainmapping-webhook

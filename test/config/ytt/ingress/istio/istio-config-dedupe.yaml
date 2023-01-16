@@ -3,13 +3,13 @@
 #!
 #! As a side-effect we end up with *two* configmap/config-istio resources
 #! in our YAML. We want to keep the profile specific version - which is
-#! the one with the 'serving.knative.dev/release: devel' label
+#! the one with the 'apps.kubernetes.io/name: knative-serving' label
 
 #@ load("@ytt:overlay", "overlay")
 #@ load("helpers.lib.yaml", "system_configmap")
 
 #@ def keep_only_devel(left, right):
-#@   if left["metadata"]["labels"]["serving.knative.dev/release"] == "devel":
+#@   if left["metadata"]["labels"]["apps.kubernetes.io/name"] == "knative-serving":
 #@     return left
 #@   end
 #@ end

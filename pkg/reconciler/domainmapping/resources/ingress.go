@@ -20,9 +20,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -40,7 +40,7 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName
 			Name:      kmeta.ChildName(dm.GetName(), ""),
 			Namespace: dm.Namespace,
 			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
-				networking.IngressClassAnnotationKey: ingressClass,
+				netapi.IngressClassAnnotationKey: ingressClass,
 			}, dm.GetAnnotations()), routeresources.ExcludedAnnotations.Has),
 			Labels: kmeta.UnionMaps(dm.Labels, map[string]string{
 				serving.DomainMappingUIDLabelKey:       string(dm.UID),
@@ -62,7 +62,7 @@ func MakeIngress(dm *servingv1alpha1.DomainMapping, backendServiceName, hostName
 							Splits: []netv1alpha1.IngressBackendSplit{{
 								Percent: 100,
 								AppendHeaders: map[string]string{
-									network.OriginalHostHeader: dm.Name,
+									netheader.OriginalHostKey: dm.Name,
 								},
 								IngressBackend: netv1alpha1.IngressBackend{
 									ServiceNamespace: dm.Namespace,

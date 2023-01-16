@@ -82,6 +82,10 @@ type CertificateSpec struct {
 	// The wildcard format of DNSNames (e.g. *.default.example.com) is supported.
 	DNSNames []string `json:"dnsNames"`
 
+	// Domain is the top level domain of the values for DNSNames.
+	// +optional
+	Domain string `json:"domain,omitempty"`
+
 	// SecretName is the name of the secret resource to store the SSL certificate in.
 	SecretName string `json:"secretName"`
 }

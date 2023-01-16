@@ -113,7 +113,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
 	readyBeforeReconcile := rev.IsReady()
@@ -136,6 +136,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	logger := logging.FromContext(ctx).Desugar()
 	if logger.Core().Enabled(zapcore.DebugLevel) {
 		logger.Debug("Revision meta: " + spew.Sdump(rev.ObjectMeta))
+	}
+
+	// Deploy certificate when internal-encryption is enabled.
+	if config.FromContext(ctx).Network.InternalEncryption {
+		if err := c.reconcileSecret(ctx, rev); err != nil {
+			return err
+		}
 	}
 
 	for _, phase := range []func(context.Context, *v1.Revision) error{

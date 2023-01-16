@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Knative Authors
+Copyright 2022 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -343,23 +343,14 @@ func (r *reconcilerImpl) updateStatus(ctx context.Context, existing *v1.Service,
 // updateFinalizersFiltered will update the Finalizers of the resource.
 // TODO: this method could be generic and sync all finalizers. For now it only
 // updates defaultFinalizerName or its override.
-func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource *v1.Service) (*v1.Service, error) {
-
-	getter := r.Lister.Services(resource.Namespace)
-
-	actual, err := getter.Get(resource.Name)
-	if err != nil {
-		return resource, err
-	}
-
+func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource *v1.Service, desiredFinalizers sets.String) (*v1.Service, error) {
 	// Don't modify the informers copy.
-	existing := actual.DeepCopy()
+	existing := resource.DeepCopy()
 
 	var finalizers []string
 
 	// If there's nothing to update, just return.
 	existingFinalizers := sets.NewString(existing.Finalizers...)
-	desiredFinalizers := sets.NewString(resource.Finalizers...)
 
 	if desiredFinalizers.Has(r.finalizerName) {
 		if existingFinalizers.Has(r.finalizerName) {
@@ -416,10 +407,8 @@ func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx context.Context, resource *
 		finalizers.Insert(r.finalizerName)
 	}
 
-	resource.Finalizers = finalizers.List()
-
 	// Synchronize the finalizers filtered by r.finalizerName.
-	return r.updateFinalizersFiltered(ctx, resource)
+	return r.updateFinalizersFiltered(ctx, resource, finalizers)
 }
 
 func (r *reconcilerImpl) clearFinalizer(ctx context.Context, resource *v1.Service, reconcileEvent reconciler.Event) (*v1.Service, error) {
@@ -443,8 +432,6 @@ func (r *reconcilerImpl) clearFinalizer(ctx context.Context, resource *v1.Servic
 		finalizers.Delete(r.finalizerName)
 	}
 
-	resource.Finalizers = finalizers.List()
-
 	// Synchronize the finalizers filtered by r.finalizerName.
-	return r.updateFinalizersFiltered(ctx, resource)
+	return r.updateFinalizersFiltered(ctx, resource, finalizers)
 }

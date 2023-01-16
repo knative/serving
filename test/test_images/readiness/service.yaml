@@ -8,3 +8,8 @@ spec:
     spec:
       containers:
       - image: ko://knative.dev/serving/test/test_images/readiness
+        livenessProbe:
+          httpGet:
+            path: /healthz
+          periodSeconds: 1
+          failureThreshold: 1

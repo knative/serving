@@ -28,16 +28,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/utils/clock"
 
-	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
@@ -98,7 +98,7 @@ func certClass(ctx context.Context, r *v1.Route) string {
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
 	logger := logging.FromContext(ctx)
@@ -248,7 +248,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 			// When httpProtocol is enabled, downgrade http scheme.
 			// Explicitly not using the override settings here as to not to muck with
 			// AutoTLS semantics.
-			if config.FromContext(ctx).Network.HTTPProtocol == network.HTTPEnabled {
+			if config.FromContext(ctx).Network.HTTPProtocol == netcfg.HTTPEnabled {
 				if dnsNames.Has(host) {
 					r.Status.URL = &apis.URL{
 						Scheme: "http",

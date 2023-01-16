@@ -49,12 +49,7 @@ func servicePreUpgrade(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
 
-	names := test.ResourceNames{
-		Service: serviceName,
-		Image:   test.PizzaPlanet1,
-	}
-
-	resources, err := v1test.CreateServiceReady(t, clients, &names,
+	resources, err := v1test.CreateServiceReady(t, clients, &upgradeServiceNames,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.MinScaleAnnotationKey: "1", //make sure we don't scale to zero during the test
 		}),
@@ -63,7 +58,7 @@ func servicePreUpgrade(t *testing.T) {
 		t.Fatal("Failed to create Service:", err)
 	}
 	url := resources.Service.Status.URL.URL()
-	assertServiceResourcesUpdated(t, clients, names, url, test.PizzaPlanetText1)
+	assertServiceResourcesUpdated(t, clients, upgradeServiceNames, url, test.PizzaPlanetText1)
 }
 
 // ServicePreUpgradeAndScaleToZeroTest creates a new service before
@@ -78,12 +73,7 @@ func servicePreUpgradeAndScaleToZero(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
 
-	names := test.ResourceNames{
-		Service: scaleToZeroServiceName,
-		Image:   test.PizzaPlanet1,
-	}
-
-	resources, err := v1test.CreateServiceReady(t, clients, &names,
+	resources, err := v1test.CreateServiceReady(t, clients, &scaleToZeroServiceNames,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: autoscaling.WindowMin.String(), //make sure we scale to zero quickly
 		}),
@@ -92,7 +82,7 @@ func servicePreUpgradeAndScaleToZero(t *testing.T) {
 		t.Fatal("Failed to create Service:", err)
 	}
 	url := resources.Service.Status.URL.URL()
-	assertServiceResourcesUpdated(t, clients, names, url, test.PizzaPlanetText1)
+	assertServiceResourcesUpdated(t, clients, scaleToZeroServiceNames, url, test.PizzaPlanetText1)
 
 	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
 		t.Fatal("Could not scale to zero:", err)
@@ -110,12 +100,8 @@ func BYORevisionPreUpgradeTest() pkgupgrade.Operation {
 func bYORevisionPreUpgrade(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
-	names := test.ResourceNames{
-		Service: byoServiceName,
-		Image:   test.PizzaPlanet1,
-	}
 
-	if _, err := v1test.CreateServiceReady(t, clients, &names,
+	if _, err := v1test.CreateServiceReady(t, clients, &byoServiceNames,
 		rtesting.WithBYORevisionName(byoRevName)); err != nil {
 		t.Fatal("Failed to create Service:", err)
 	}
@@ -132,12 +118,8 @@ func InitialScalePreUpgradeTest() pkgupgrade.Operation {
 func initialScalePreUpgrade(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
-	names := test.ResourceNames{
-		Service: initialScaleServiceName,
-		Image:   test.PizzaPlanet1,
-	}
 
-	resources, err := v1test.CreateServiceReady(t, clients, &names)
+	resources, err := v1test.CreateServiceReady(t, clients, &initialScaleServiceNames)
 	if err != nil {
 		t.Fatal("Failed to create Service:", err)
 	}

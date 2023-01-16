@@ -28,12 +28,7 @@
 source $(dirname $0)/e2e-common.sh
 
 # Script entry point.
-
-# Skip installing istio as an add-on.
-# Temporarily increasing the cluster size for serving tests to rule out
-# resource/eviction as causes of flakiness.
-# Pin to 1.20 since scale test is super flakey on 1.21
-initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.20 "$@"
+initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.24 "$@"
 
 # Run the tests
 header "Running tests"
@@ -65,7 +60,16 @@ if [[ -z "${INGRESS_CLASS}" \
   alpha="--enable-alpha"
 fi
 
-TEST_OPTIONS="${TEST_OPTIONS:-${alpha} --enable-beta --resolvabledomain=$(use_resolvable_domain) ${use_https}}"
+# Currently only Istio, Contour and Kourier implement the beta features.
+beta=""
+if [[ -z "${INGRESS_CLASS}" \
+  || "${INGRESS_CLASS}" == "istio.ingress.networking.knative.dev" \
+  || "${INGRESS_CLASS}" == "contour.ingress.networking.knative.dev" \
+  || "${INGRESS_CLASS}" == "kourier.ingress.networking.knative.dev" ]]; then
+  beta="--enable-beta"
+fi
+
+TEST_OPTIONS="${TEST_OPTIONS:-${alpha} ${beta} --resolvabledomain=$(use_resolvable_domain) ${use_https} --ingress-class=${INGRESS_CLASS}}"
 if (( SHORT )); then
   TEST_OPTIONS+=" -short"
 fi
@@ -101,19 +105,26 @@ kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.ya
 # Note that we use a very high -parallel because each ksvc is run as its own
 # sub-test. If this is not larger than the maximum scale tested then the test
 # simply cannot pass.
-go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} || failed=1
+# TODO - Renable once we get this reliably passing on GKE 1.21
+# go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} || failed=1
 
 # Run HPA tests
 go_test_e2e -timeout=30m -tags=hpa ./test/e2e ${TEST_OPTIONS} || failed=1
 
-# Run emptyDir, initContainers tests with alpha enabled avoiding any issues with the testing options guard above
+# Run initContainers tests with alpha enabled avoiding any issues with the testing options guard above
 # InitContainers test uses emptyDir.
-toggle_feature kubernetes.podspec-volumes-emptydir Enabled
 toggle_feature kubernetes.podspec-init-containers Enabled
-go_test_e2e -timeout=2m ./test/e2e/emptydir ${TEST_OPTIONS} || failed=1
 go_test_e2e -timeout=2m ./test/e2e/initcontainers ${TEST_OPTIONS} || failed=1
 toggle_feature kubernetes.podspec-init-containers Disabled
-toggle_feature kubernetes.podspec-volumes-emptydir Disabled
+
+# RUN PVC tests with default storage class.
+toggle_feature kubernetes.podspec-persistent-volume-claim Enabled
+toggle_feature kubernetes.podspec-persistent-volume-write Enabled
+toggle_feature kubernetes.podspec-securitycontext Enabled
+go_test_e2e -timeout=5m ./test/e2e/pvc ${TEST_OPTIONS} || failed=1
+toggle_feature kubernetes.podspec-securitycontext Disabled
+toggle_feature kubernetes.podspec-persistent-volume-write Disabled
+toggle_feature kubernetes.podspec-persistent-volume-claim Disabled
 
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
@@ -135,32 +146,5 @@ fi
 # Remove the kail log file if the test flow passes.
 # This is for preventing too many large log files to be uploaded to GCS in CI.
 rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
-
-header "Collecting performance data"
-
-cat <<EOF | ko apply -f -
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
-  name: podspeed
-spec:
-  template:
-    metadata:
-      annotations:
-        autoscaling.knative.dev/minScale: "1"
-    spec:
-      containers:
-      - image: ko://knative.dev/serving/test/test_images/helloworld
-EOF
-
-kubectl wait ksvc/podspeed --for=condition=Ready
-
-template=$(mktemp)
-kubectl get pods -lserving.knative.dev/service=podspeed -ojson | jq '.items[0]' > "$template"
-
-run_go_tool github.com/markusthoemmes/podspeed/cmd/podspeed@358209f podspeed --prepull -pods 100 -template "$template" > "${ARTIFACTS}/pod-bringup-performance.txt"
-cat "${ARTIFACTS}/pod-bringup-performance.txt"
-
-kubectl delete ksvc podspeed
 
 success

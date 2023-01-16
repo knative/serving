@@ -27,14 +27,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
+	clocktest "k8s.io/utils/clock/testing"
 
-	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
+	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	networkingclient "knative.dev/networking/pkg/client/injection/client/fake"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/apis"
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/configmap"
@@ -289,7 +289,7 @@ func TestReconcile(t *testing.T) {
 		Name: "cluster local route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithLocalDomain,
-				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
+				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: "cluster-local"}),
 				WithRouteUID("65-23"), WithRouteGeneration(1)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
@@ -299,7 +299,7 @@ func TestReconcile(t *testing.T) {
 			simpleIngress(
 				Route("default", "becomes-ready", WithConfigTarget("config"),
 					WithLocalDomain, WithRouteUID("65-23"),
-					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
+					WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: "cluster-local"})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -319,7 +319,7 @@ func TestReconcile(t *testing.T) {
 			simplePlaceholderK8sService(
 				getContext(),
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithLocalDomain,
-					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
+					WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: "cluster-local"}),
 					WithRouteUID("65-23"), WithRouteGeneration(1)),
 				"",
 			),
@@ -329,7 +329,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
 				WithLocalDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
+				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: "cluster-local"}),
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -1007,7 +1007,7 @@ func TestReconcile(t *testing.T) {
 		Name: "public becomes cluster local",
 		Objects: []runtime.Object{
 			Route("default", "becomes-local", WithConfigTarget("config"), WithRouteGeneration(1),
-				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
+				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: "cluster-local"}),
 				WithRouteUID("65-23")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
@@ -1028,14 +1028,14 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 			simpleK8sService(Route("default", "becomes-local", WithConfigTarget("config"),
-				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
+				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: "cluster-local"}),
 				WithRouteUID("65-23"))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleIngress(
 				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteGeneration(1),
 					WithRouteUID("65-23"),
-					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
+					WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: "cluster-local"})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -1058,7 +1058,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
 				MarkTrafficAssigned, MarkIngressNotConfigured,
 				WithLocalDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
+				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: "cluster-local"}),
 				WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -1077,7 +1077,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleIngress(
 				Route("default", "becomes-public", WithConfigTarget("config"), WithRouteUID("65-23"),
-					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
+					WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: "cluster-local"})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -2095,7 +2095,7 @@ func TestReconcile(t *testing.T) {
 		Ctx:  context.WithValue(context.Background(), externalSchemeKey, "https"),
 		Objects: []runtime.Object{
 			Route("default", "steady-state", WithConfigTarget("config"),
-				WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}),
+				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithLocalDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
 				MarkTrafficAssigned, MarkIngressReady, WithRouteGeneration(1), WithRouteObservedGeneration,
 				WithRouteFinalizer, WithStatusTraffic(
@@ -2112,7 +2112,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleIngress(
 				Route("default", "steady-state", WithConfigTarget("config"),
-					WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal})),
+					WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: serving.VisibilityClusterLocal})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -2407,7 +2407,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		},
 		WantCreates: []runtime.Object{
 			resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0],
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0],
 			ingressWithTLS(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
@@ -2457,7 +2457,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0], readyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0], readyCertStatus()),
 		},
 		WantCreates: []runtime.Object{
 			ingressWithTLS(
@@ -2522,7 +2522,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
 						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
 					Annotations: map[string]string{
-						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
 					},
 					Labels: map[string]string{
 						serving.RouteLabelKey: "becomes-ready",
@@ -2564,7 +2564,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0], readyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0], readyCertStatus()),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
@@ -2613,7 +2613,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 						serving.RouteLabelKey: "becomes-ready",
 					},
 					Annotations: map[string]string{
-						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
 					},
 				},
 				Spec: netv1alpha1.CertificateSpec{
@@ -2633,7 +2633,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 						serving.RouteLabelKey: "becomes-ready",
 					},
 					Annotations: map[string]string{
-						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
 					},
 				},
 				Spec: netv1alpha1.CertificateSpec{
@@ -2653,7 +2653,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 						serving.RouteLabelKey: "becomes-ready",
 					},
 					Annotations: map[string]string{
-						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
 					},
 				},
 				Spec: netv1alpha1.CertificateSpec{
@@ -2692,7 +2692,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0], readyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0], readyCertStatus()),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
@@ -2737,7 +2737,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
 						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
 					Annotations: map[string]string{
-						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
 					},
 					Labels: map[string]string{
 						serving.RouteLabelKey: "becomes-ready",
@@ -2831,7 +2831,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 					// Mark OwnerReferences for this test.
 					OwnerReferences: nil,
 					Annotations: map[string]string{
-						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
 					},
 					Labels: map[string]string{
 						serving.RouteLabelKey: "becomes-ready",
@@ -2882,7 +2882,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 						serving.RouteLabelKey: "becomes-ready",
 					},
 					Annotations: map[string]string{
-						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
 					},
 				},
 				Spec: netv1alpha1.CertificateSpec{
@@ -2914,7 +2914,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0], notReadyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0], notReadyCertStatus()),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
@@ -2951,7 +2951,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		Name: "public becomes cluster local w/ autoTLS",
 		Objects: []runtime.Object{
 			Route("default", "becomes-local", WithConfigTarget("config"), WithRouteGeneration(1),
-				WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}),
+				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithRouteUID("65-23")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
@@ -2972,14 +2972,14 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				},
 			),
 			simpleK8sService(Route("default", "becomes-local", WithConfigTarget("config"),
-				WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}),
+				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithRouteUID("65-23"))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleIngress(
 				Route("default", "becomes-local", WithConfigTarget("config"),
 					WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
-					WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal})),
+					WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: serving.VisibilityClusterLocal})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -3003,7 +3003,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				WithRouteGeneration(1), WithRouteObservedGeneration,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithRouteConditionsTLSNotEnabledForClusterLocalMessage,
 				WithLocalDomain, WithAddress, WithInitRouteConditions,
-				WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}),
+				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -3035,7 +3035,7 @@ func NewTestReconciler(ctx context.Context, listers *Listers, cmw configmap.Watc
 		ingressLister:       listers.GetIngressLister(),
 		certificateLister:   listers.GetCertificateLister(),
 		tracker:             ctx.Value(TrackerKey).(tracker.Interface),
-		clock:               clock.NewFakePassiveClock(fakeCurTime),
+		clock:               clocktest.NewFakePassiveClock(fakeCurTime),
 		enqueueAfter:        func(interface{}, time.Duration) {},
 	}
 
@@ -3066,7 +3066,7 @@ func wildcardCert(namespace string, domain string) *netv1alpha1.Certificate {
 			Namespace: namespace,
 			Name:      fmt.Sprintf("%s.%s", namespace, domain),
 			Labels: map[string]string{
-				networking.WildcardCertDomainLabelKey: domain,
+				netapi.WildcardCertDomainLabelKey: domain,
 			},
 		},
 		Spec: netv1alpha1.CertificateSpec{
@@ -3176,7 +3176,7 @@ func ingressWithRollout(r *v1.Route, tc *traffic.Config, ro *traffic.Rollout, io
 
 func withClass(class string) IngressOption {
 	return func(i *netv1alpha1.Ingress) {
-		i.Annotations[networking.IngressClassAnnotationKey] = class
+		i.Annotations[netapi.IngressClassAnnotationKey] = class
 	}
 }
 
@@ -3263,12 +3263,12 @@ func reconcilerTestConfig() *config.Config {
 				},
 			},
 		},
-		Network: &network.Config{
+		Network: &netcfg.Config{
 			DefaultIngressClass:     testIngressClass,
-			DefaultCertificateClass: network.CertManagerCertificateClassName,
-			DomainTemplate:          network.DefaultDomainTemplate,
-			TagTemplate:             network.DefaultTagTemplate,
-			HTTPProtocol:            network.HTTPEnabled,
+			DefaultCertificateClass: netcfg.CertManagerCertificateClassName,
+			DomainTemplate:          netcfg.DefaultDomainTemplate,
+			TagTemplate:             netcfg.DefaultTagTemplate,
+			HTTPProtocol:            netcfg.HTTPEnabled,
 			DefaultExternalScheme:   "http",
 		},
 		Features: &cfgmap.Features{
@@ -3330,7 +3330,7 @@ func simpleRollout(cfg string, revs []traffic.RevisionRollout,
 		for _, ro := range ros {
 			ro(r)
 		}
-		i.Annotations[networking.RolloutAnnotationKey] = func() string {
+		i.Annotations[netapi.RolloutAnnotationKey] = func() string {
 			d, _ := json.Marshal(r)
 			return string(d)
 		}()

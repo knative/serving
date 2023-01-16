@@ -24,9 +24,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
-
-	"github.com/spf13/pflag"
 
 	"go.uber.org/automaxprocs/maxprocs" // automatically set GOMAXPROCS based on cgroups
 	"go.uber.org/zap"
@@ -60,10 +60,16 @@ func init() {
 	maxprocs.Set()
 }
 
-// GetLoggingConfig gets the logging config from either the file system if present
-// or via reading a configMap from the API.
+// GetLoggingConfig gets the logging config from the (in order):
+// 1. provided context,
+// 2. reading from the API server,
+// 3. defaults (if not found).
 // The context is expected to be initialized with injection.
 func GetLoggingConfig(ctx context.Context) (*logging.Config, error) {
+	if cfg := logging.GetConfig(ctx); cfg != nil {
+		return cfg, nil
+	}
+
 	var loggingConfigMap *corev1.ConfigMap
 	// These timeout and retry interval are set by heuristics.
 	// e.g. istio sidecar needs a few seconds to configure the pod network.
@@ -80,8 +86,15 @@ func GetLoggingConfig(ctx context.Context) (*logging.Config, error) {
 	return logging.NewConfigFromConfigMap(loggingConfigMap)
 }
 
-// GetLeaderElectionConfig gets the leader election config.
+// GetLeaderElectionConfig gets the leader election config from the (in order):
+// 1. provided context,
+// 2. reading from the API server,
+// 3. defaults (if not found).
 func GetLeaderElectionConfig(ctx context.Context) (*leaderelection.Config, error) {
+	if cfg := leaderelection.GetConfig(ctx); cfg != nil {
+		return cfg, nil
+	}
+
 	leaderElectionConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, leaderelection.ConfigMapName(), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		return leaderelection.NewConfigFromConfigMap(nil)
@@ -89,6 +102,25 @@ func GetLeaderElectionConfig(ctx context.Context) (*leaderelection.Config, error
 		return nil, err
 	}
 	return leaderelection.NewConfigFromConfigMap(leaderElectionConfigMap)
+}
+
+// GetObservabilityConfig gets the observability config from the (in order):
+// 1. provided context,
+// 2. reading from the API server,
+// 3. defaults (if not found).
+func GetObservabilityConfig(ctx context.Context) (*metrics.ObservabilityConfig, error) {
+	if cfg := metrics.GetObservabilityConfig(ctx); cfg != nil {
+		return cfg, nil
+	}
+
+	observabilityConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, metrics.ConfigMapName(), metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return metrics.NewObservabilityConfigFromConfigMap(nil)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return metrics.NewObservabilityConfigFromConfigMap(observabilityConfigMap)
 }
 
 // EnableInjectionOrDie enables Knative Injection and starts the informers.
@@ -120,13 +152,12 @@ var (
 // by name.
 func MainNamed(ctx context.Context, component string, ctors ...injection.NamedControllerConstructor) {
 
-	disabledControllers := pflag.StringSlice("disable-controllers", []string{}, "Comma-separated list of disabled controllers.")
+	disabledControllers := flag.String("disable-controllers", "", "Comma-separated list of disabled controllers.")
 
 	// HACK: This parses flags, so the above should be set once this runs.
 	cfg := injection.ParseAndGetRESTConfigOrDie()
 
-	enabledCtors := enabledControllers(*disabledControllers, ctors)
-
+	enabledCtors := enabledControllers(strings.Split(*disabledControllers, ","), ctors)
 	MainWithConfig(ctx, component, cfg, toControllerConstructors(enabledCtors)...)
 }
 
@@ -154,6 +185,14 @@ func toControllerConstructors(namedCtors []injection.NamedControllerConstructor)
 // MainWithContext runs the generic main flow for controllers and
 // webhooks. Use MainWithContext if you do not need to serve webhooks.
 func MainWithContext(ctx context.Context, component string, ctors ...injection.ControllerConstructor) {
+	// Allow configuration of threads per controller
+	if val, ok := os.LookupEnv("K_THREADS_PER_CONTROLLER"); ok {
+		threadsPerController, err := strconv.Atoi(val)
+		if err != nil {
+			log.Fatalf("failed to parse value %q of K_THREADS_PER_CONTROLLER: %v\n", val, err)
+		}
+		controller.DefaultThreadsPerController = threadsPerController
+	}
 
 	// TODO(mattmoor): Remove this once HA is stable.
 	disableHighAvailability := flag.Bool("disable-ha", false,
@@ -229,6 +268,8 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 			leaderElectionConfig.GetComponentConfig(component))
 	}
 
+	SetupObservabilityOrDie(ctx, component, logger, profilingHandler)
+
 	controllers, webhooks := ControllersAndWebhooksFromCtors(ctx, cmw, ctors...)
 	WatchLoggingConfigOrDie(ctx, cmw, logger, atomicLevel, component)
 	WatchObservabilityConfigOrDie(ctx, cmw, profilingHandler, logger, component)
@@ -268,7 +309,9 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 		wh.InformersHaveSynced()
 	}
 	logger.Info("Starting controllers...")
-	go controller.StartAll(ctx, controllers...)
+	eg.Go(func() error {
+		return controller.StartAll(ctx, controllers...)
+	})
 
 	// This will block until either a signal arrives or one of the grouped functions
 	// returns an error.
@@ -303,6 +346,18 @@ func SetupLoggerOrDie(ctx context.Context, component string) (*zap.SugaredLogger
 	}
 
 	return l, level
+}
+
+// SetupObservabilityOrDie sets up the observability using the config from the given context
+// or dies by calling log.Fatalf.
+func SetupObservabilityOrDie(ctx context.Context, component string, logger *zap.SugaredLogger, profilingHandler *profiling.Handler) {
+	observabilityConfig, err := GetObservabilityConfig(ctx)
+	if err != nil {
+		logger.Fatal("Error loading observability configuration: ", err)
+	}
+	observabilityConfigMap := observabilityConfig.GetConfigMap()
+	metrics.ConfigMapWatcher(ctx, component, SecretFetcher(ctx), logger)(&observabilityConfigMap)
+	profilingHandler.UpdateFromConfigMap(&observabilityConfigMap)
 }
 
 // CheckK8sClientMinimumVersionOrDie checks that the hosting Kubernetes cluster

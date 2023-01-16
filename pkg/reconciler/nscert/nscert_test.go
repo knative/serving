@@ -33,9 +33,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	// Inject the fakes for informers this reconciler depends on.
-	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netapi "knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netclient "knative.dev/networking/pkg/client/injection/client"
+	netcfg "knative.dev/networking/pkg/config"
 	namespacereconciler "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -47,7 +48,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/nscert/resources/names"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 
-	"knative.dev/networking/pkg/client/injection/client"
 	fakeclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakecertinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
@@ -76,7 +76,7 @@ var (
 )
 
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
-	context.Context, context.CancelFunc, chan *v1alpha1.Certificate, *configmap.ManualWatcher) {
+	context.Context, context.CancelFunc, chan *netv1alpha1.Certificate, *configmap.ManualWatcher) {
 	t.Helper()
 
 	ctx, ccl, ifs := SetupFakeContextWithCancel(t)
@@ -95,7 +95,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 	cms := []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
+			Name:      netcfg.ConfigMapName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
@@ -110,7 +110,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"example.com": "",
+			"svc.cluster.local": "",
 		},
 	}}
 	cms = append(cms, configs...)
@@ -122,14 +122,14 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		t.Fatal("failed to start config manager:", err)
 	}
 
-	certEvents := make(chan *v1alpha1.Certificate)
+	certEvents := make(chan *netv1alpha1.Certificate)
 	fakecertinformer.Get(ctx).Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind("Namespace")),
 		Handler: controller.HandleAll(func(obj interface{}) {
 			select {
 			case <-ctx.Done():
 				// context go cancelled, no more reads necessary.
-			case certEvents <- obj.(*v1alpha1.Certificate):
+			case certEvents <- obj.(*netv1alpha1.Certificate):
 				// written successfully.
 			}
 		}),
@@ -137,10 +137,6 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 	var eg errgroup.Group
 	eg.Go(func() error { return ctl.RunContext(ctx, 1) })
-
-	// Short pause to ensure that the controller has started
-	// Ick, but this brought test flakiness from 1-in-100 to less than 1-in-2000.
-	time.Sleep(10 * time.Millisecond)
 
 	return ctx, func() {
 		cancel()
@@ -153,7 +149,7 @@ func TestNewController(t *testing.T) {
 
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
+			Name:      netcfg.ConfigMapName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
@@ -165,7 +161,7 @@ func TestNewController(t *testing.T) {
 				Namespace: system.Namespace(),
 			},
 			Data: map[string]string{
-				"example.com": "",
+				"svc.cluster.local": "",
 			}},
 	)
 
@@ -281,7 +277,7 @@ func TestReconcile(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource:  v1alpha1.SchemeGroupVersion.WithResource("certificates"),
+				Resource:  netv1alpha1.SchemeGroupVersion.WithResource("certificates"),
 			},
 			Name: "foo.example.com",
 		}},
@@ -299,7 +295,7 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &reconciler{
-			client:              client.Get(ctx),
+			client:              netclient.Get(ctx),
 			knCertificateLister: listers.GetKnCertificateLister(),
 		}
 
@@ -322,7 +318,7 @@ func TestReconcile(t *testing.T) {
 func TestUpdateDomainTemplate(t *testing.T) {
 	netCfg := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
+			Name:      netcfg.ConfigMapName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
@@ -346,7 +342,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	// Update the domain template to something matched by the existing DNSName
 	netCfg = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
+			Name:      netcfg.ConfigMapName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
@@ -367,7 +363,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	// Update the domain template to something not matched by the existing DNSName
 	netCfg = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
+			Name:      netcfg.ConfigMapName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
@@ -389,7 +385,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	oldDomain := want
 	netCfg = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
+			Name:      netcfg.ConfigMapName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
@@ -416,7 +412,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 func TestChangeDefaultDomain(t *testing.T) {
 	netCfg := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
+			Name:      netcfg.ConfigMapName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
@@ -434,7 +430,7 @@ func TestChangeDefaultDomain(t *testing.T) {
 
 	// The certificate should be created with the default domain.
 	cert := <-certEvents
-	if got, want := cert.Spec.DNSNames[0], "*.testns.example.com"; got != want {
+	if got, want := cert.Spec.DNSNames[0], "*.testns.svc.cluster.local"; got != want {
 		t.Errorf("DNSName[0] = %s, want %s", got, want)
 	}
 
@@ -487,8 +483,8 @@ func TestDomainConfigDomain(t *testing.T) {
 			"autoTLS":                          "Enabled",
 			"namespace-wildcard-cert-selector": "{}",
 		},
-		wantCertName: "testns.example.com",
-		wantDNSName:  "*.testns.example.com",
+		wantCertName: "testns.svc.cluster.local",
+		wantDNSName:  "*.testns.svc.cluster.local",
 	}, {
 		name: "default domain",
 		domainCfg: map[string]string{
@@ -513,7 +509,7 @@ func TestDomainConfigDomain(t *testing.T) {
 			}
 			netCfg := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      network.ConfigName,
+					Name:      netcfg.ConfigMapName,
 					Namespace: system.Namespace(),
 				},
 				Data: test.netCfg,
@@ -534,7 +530,7 @@ func TestDomainConfigDomain(t *testing.T) {
 			configStore.WatchConfigs(cmw)
 
 			r := &reconciler{
-				client:              client.Get(ctx),
+				client:              netclient.Get(ctx),
 				knCertificateLister: fakecertinformer.Get(ctx).Lister(),
 			}
 
@@ -573,24 +569,24 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 
 var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
-func knCert(namespace *corev1.Namespace) *v1alpha1.Certificate {
-	return knCertWithStatus(namespace, &v1alpha1.CertificateStatus{})
+func knCert(namespace *corev1.Namespace) *netv1alpha1.Certificate {
+	return knCertWithStatus(namespace, &netv1alpha1.CertificateStatus{})
 }
 
-func knCertWithStatus(namespace *corev1.Namespace, status *v1alpha1.CertificateStatus) *v1alpha1.Certificate {
-	return &v1alpha1.Certificate{
+func knCertWithStatus(namespace *corev1.Namespace, status *netv1alpha1.CertificateStatus) *netv1alpha1.Certificate {
+	return &netv1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            defaultCertName,
 			Namespace:       namespace.Name,
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(namespace, corev1.SchemeGroupVersion.WithKind("Namespace"))},
 			Annotations: map[string]string{
-				networking.CertificateClassAnnotationKey: testCertClass,
+				netapi.CertificateClassAnnotationKey: testCertClass,
 			},
 			Labels: map[string]string{
-				networking.WildcardCertDomainLabelKey: defaultDomain,
+				netapi.WildcardCertDomainLabelKey: defaultDomain,
 			},
 		},
-		Spec: v1alpha1.CertificateSpec{
+		Spec: netv1alpha1.CertificateSpec{
 			DNSNames:   wildcardDNSNames,
 			SecretName: defaultCertName,
 		},
@@ -615,8 +611,8 @@ func kubeNamespaceWithLabelValue(name string, labels map[string]string) *corev1.
 	}
 }
 
-func networkConfig() *network.Config {
-	return &network.Config{
+func networkConfig() *netcfg.Config {
+	return &netcfg.Config{
 		DomainTemplate:                defaultDomainTemplate,
 		AutoTLS:                       true,
 		DefaultCertificateClass:       testCertClass,

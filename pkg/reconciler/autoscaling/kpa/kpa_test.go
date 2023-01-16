@@ -62,6 +62,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -112,6 +113,7 @@ func defaultConfigMapData() map[string]string {
 		"scale-to-zero-grace-period":              gracePeriod.String(),
 		"tick-interval":                           "2s",
 		"min-scale":                               "0",
+		"target-burst-capacity":                   "200",
 	}
 }
 
@@ -124,15 +126,27 @@ func initialScaleZeroASConfig() *autoscalerconfig.Config {
 	return ac
 }
 
+func activatorCertsNetConfig() *netcfg.Config {
+	nc, _ := netcfg.NewConfigFromMap(map[string]string{
+		netcfg.InternalEncryptionKey: "true",
+	})
+	return nc
+}
+
 func defaultConfig() *config.Config {
 	ac, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
 	deploymentConfig, _ := deployment.NewConfigFromMap(map[string]string{
 		deployment.QueueSidecarImageKey: "bob",
 		deployment.ProgressDeadlineKey:  progressDeadline.String(),
 	})
+	networkConfig, _ := netcfg.NewConfigFromMap(map[string]string{
+		netcfg.InternalEncryptionKey: "false",
+	})
+
 	return &config.Config{
 		Autoscaler: ac,
 		Deployment: deploymentConfig,
+		Network:    networkConfig,
 	}
 }
 
@@ -151,6 +165,12 @@ func newConfigWatcher() configmap.Watcher {
 		Data: map[string]string{
 			deployment.QueueSidecarImageKey: "covid is here",
 		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
+			Name:      netcfg.ConfigMapName,
+		},
+		Data: map[string]string{},
 	})
 }
 
@@ -292,6 +312,7 @@ func TestReconcile(t *testing.T) {
 
 	type deciderKey struct{}
 	type asConfigKey struct{}
+	type netConfigKey struct{}
 
 	retryAttempted := false
 
@@ -584,7 +605,7 @@ func TestReconcile(t *testing.T) {
 				WithObservedGeneration(1)),
 		}},
 		WantCreates: []runtime.Object{
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(minActivators), sksNoConds),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(minActivators), WithProxyMode, sksNoConds),
 		},
 	}, {
 		Name: "sks is out of whack",
@@ -619,7 +640,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantCreates: []runtime.Object{
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(minActivators), sksNoConds),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithNumActivators(minActivators), sksNoConds),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -630,7 +651,7 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, withScales(1, defaultScale), WithPAMetricsService(privateSvc), WithTraffic, WithObservedGeneration(1)),
-			sks(testNamespace, testRevision, WithDeployRef("bar")),
+			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef("bar")),
 			metric(testNamespace, testRevision),
 			defaultDeployment,
 		},
@@ -639,7 +660,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(minActivators)),
+			Object: sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithNumActivators(minActivators)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
@@ -1036,7 +1057,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName)),
 			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService, WithPubService),
+			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithPrivateService, WithPubService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
@@ -1060,7 +1081,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName)),
 			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
+			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithPrivateService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
@@ -1078,13 +1099,12 @@ func TestReconcile(t *testing.T) {
 		Name: "initial scale zero: stay at zero",
 		Key:  key,
 		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey{}, initialScaleZeroASConfig()), deciderKey{},
-			decider(testNamespace, testRevision, -1, /* desiredScale */
-				0 /* ebc */)),
+			decider(testNamespace, testRevision, -1 /* desiredScale */, 0 /* ebc */)),
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markScaleTargetInitialized, withScales(0, scaleUnknown),
 				WithReachabilityReachable, WithPAMetricsService(privateSvc), WithPASKSNotReady(""),
 			),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
+			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithPrivateService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
@@ -1119,6 +1139,38 @@ func TestReconcile(t *testing.T) {
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 			),
 		}},
+	}, {
+		Name: "we have enough burst capacity, but keep proxy mode as activator CA is enabled",
+		Key:  key,
+		Ctx: context.WithValue(context.WithValue(context.Background(), netConfigKey{}, activatorCertsNetConfig()), deciderKey{},
+			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
+				1 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
+				WithPAMetricsService(privateSvc), withScales(1, defaultScale),
+				WithPAStatusService(testRevision), WithObservedGeneration(1)),
+			defaultProxySKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+			defaultReady},
+		// No update from ProxySKS.
+	}, {
+		Name: "we have enough burst capacity, but switch to keep proxy mode as activator CA is turned on",
+		Key:  key,
+		Ctx: context.WithValue(context.WithValue(context.Background(), netConfigKey{}, activatorCertsNetConfig()), deciderKey{},
+			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
+				1 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
+				WithPAMetricsService(privateSvc), withScales(1, defaultScale),
+				WithPAStatusService(testRevision), WithObservedGeneration(1)),
+			defaultSKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+			defaultReady},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: defaultProxySKS,
+		}},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -1143,6 +1195,9 @@ func TestReconcile(t *testing.T) {
 		testConfigs := defaultConfig()
 		if asConfig := ctx.Value(asConfigKey{}); asConfig != nil {
 			testConfigs.Autoscaler = asConfig.(*autoscalerconfig.Config)
+		}
+		if netConfig := ctx.Value(netConfigKey{}); netConfig != nil {
+			testConfigs.Network = netConfig.(*netcfg.Config)
 		}
 		psf := podscalable.Get(ctx)
 		scaler := newScaler(ctx, psf, func(interface{}, time.Duration) {})
@@ -1217,6 +1272,13 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 		Data: map[string]string{
 			deployment.QueueSidecarImageKey: "i'm on a bike",
 		},
+	})
+	watcher.OnChange(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      netcfg.ConfigMapName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
 	})
 
 	grp := errgroup.Group{}
@@ -1307,18 +1369,23 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 
 	pod := makeReadyPods(1, testNamespace, testRevision)[0].(*corev1.Pod)
 	fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(ctx, pod, metav1.CreateOptions{})
-	fakefilteredpodsinformer.Get(ctx, serving.RevisionUID).Informer().GetIndexer().Add(pod)
 
 	newDeployment(ctx, t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	kpa := revisionresources.MakePA(rev)
-	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
-		WithSKSReady)
+	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name), WithSKSReady)
 	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(ctx, sks, metav1.CreateOptions{})
-	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
-
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(ctx, kpa, metav1.CreateOptions{})
-	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
+
+	wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		_, err := fakepainformer.Get(ctx).Lister().PodAutoscalers(testNamespace).Get(kpa.Name)
+		if err != nil && apierrors.IsNotFound(err) {
+			return false, nil
+		} else if err != nil {
+			return false, err
+		}
+		return true, nil
+	})
 
 	// Start controller after creating initial resources so it observes a steady state.
 	eg.Go(func() error { return ctl.RunContext(ctx, 1) })
@@ -1335,8 +1402,10 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 			ctx, kpa.Name, metav1.GetOptions{})
-		if err != nil {
-			return true, err
+		if err != nil && apierrors.IsNotFound(err) {
+			return false, nil
+		} else if err != nil {
+			return false, err
 		}
 		return newKPA.IsReady() && newKPA.Status.GetDesiredScale() == 1, nil
 	}); err != nil {
@@ -1399,7 +1468,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	// Wait for the Reconcile to complete.
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
+	if err := ctl.Reconciler.Reconcile(ctx, testNamespace+"/"+testRevision); err != nil {
 		t.Error("Reconcile() =", err)
 	}
 
@@ -1426,7 +1495,7 @@ func TestUpdate(t *testing.T) {
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Update(ctx, kpa, metav1.UpdateOptions{})
 	fakepainformer.Get(ctx).Informer().GetIndexer().Update(kpa)
 
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
+	if err := ctl.Reconciler.Reconcile(ctx, testNamespace+"/"+testRevision); err != nil {
 		t.Error("Reconcile() =", err)
 	}
 
@@ -1472,7 +1541,7 @@ func TestControllerCreateError(t *testing.T) {
 		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	got := ctl.Reconciler.Reconcile(ctx, key)
 	if !errors.Is(got, want) {
 		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
 	}
@@ -1515,7 +1584,7 @@ func TestControllerUpdateError(t *testing.T) {
 		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	got := ctl.Reconciler.Reconcile(ctx, key)
 	if !errors.Is(got, want) {
 		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
 	}
@@ -1557,7 +1626,7 @@ func TestControllerGetError(t *testing.T) {
 		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
-	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	got := ctl.Reconciler.Reconcile(ctx, key)
 	if !errors.Is(got, want) {
 		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
 	}
@@ -1590,7 +1659,7 @@ func TestScaleFailure(t *testing.T) {
 		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err == nil {
+	if err := ctl.Reconciler.Reconcile(ctx, testNamespace+"/"+testRevision); err == nil {
 		t.Error("Reconcile() = nil, wanted error")
 	}
 }

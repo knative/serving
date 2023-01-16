@@ -16,13 +16,9 @@ limitations under the License.
 
 package upgrade
 
-import "go.uber.org/zap"
-
 type suiteExecution struct {
 	suite         *enrichedSuite
 	configuration Configuration
-	failed        bool
-	logger        *zap.SugaredLogger
 }
 
 type enrichedSuite struct {
@@ -39,7 +35,7 @@ type enrichedTests struct {
 
 type stoppableOperation struct {
 	BackgroundOperation
-	stop chan StopEvent
+	stop chan struct{}
 }
 
 type operationGroup struct {

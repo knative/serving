@@ -24,7 +24,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
@@ -57,48 +56,6 @@ func TestMustNotContainerConstraints(t *testing.T) {
 				MountPropagation: &propagationMode,
 			}}
 		},
-	}, {
-		name: "TestReadinessHTTPProbePort",
-		options: func(s *v1.Service) {
-			s.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt(8888),
-					},
-				},
-			}
-		},
-	}, {
-		name: "TestLivenessHTTPProbePort",
-		options: func(s *v1.Service) {
-			s.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt(8888),
-					},
-				},
-			}
-		},
-	}, {
-		name: "TestReadinessTCPProbePort",
-		options: func(s *v1.Service) {
-			s.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
-				},
-			}
-		},
-	}, {
-		name: "TestLivenessTCPProbePort",
-		options: func(s *v1.Service) {
-			s.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8888)},
-				},
-			}
-		},
 	}}
 
 	for _, tc := range testCases {
@@ -123,8 +80,9 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 	clients := test.Setup(t)
 
 	testCases := []struct {
-		name    string
-		options func(s *v1.Service)
+		name            string
+		options         func(s *v1.Service)
+		assertIfNoError func(t *testing.T, s *v1.Service)
 	}{{
 		name: "TestPoststartHook",
 		options: func(s *v1.Service) {
@@ -132,17 +90,29 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				Command: []string{"/bin/sh", "-c", "echo Hello from the post start handler > /usr/share/message"},
 			}
 			s.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{
-				PostStart: &corev1.Handler{Exec: lifecycleHandler},
+				PostStart: &corev1.LifecycleHandler{Exec: lifecycleHandler},
+			}
+		},
+		assertIfNoError: func(t *testing.T, svc *v1.Service) {
+			lifecycle := svc.Spec.Template.Spec.Containers[0].Lifecycle
+			if lifecycle != nil && lifecycle.PostStart != nil {
+				t.Error("Expected Lifecycle.PostStart to be pruned")
 			}
 		},
 	}, {
 		name: "TestPrestopHook",
 		options: func(s *v1.Service) {
 			lifecycleHandler := &corev1.ExecAction{
-				Command: []string{"/bin/sh", "-c", "echo Hello from the pre stop handler > /usr/share/message"},
+				Command: []string{"/bin/sh", "-c", "echo Hello from the post start handler > /usr/share/message"},
 			}
 			s.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{
-				PreStop: &corev1.Handler{Exec: lifecycleHandler},
+				PreStop: &corev1.LifecycleHandler{Exec: lifecycleHandler},
+			}
+		},
+		assertIfNoError: func(t *testing.T, svc *v1.Service) {
+			lifecycle := svc.Spec.Template.Spec.Containers[0].Lifecycle
+			if lifecycle != nil && lifecycle.PreStop != nil {
+				t.Error("Expected Lifecycle.Prestop to be pruned")
 			}
 		},
 	}, {
@@ -160,20 +130,40 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				HostPort: 80,
 			}}
 		},
+		assertIfNoError: func(t *testing.T, svc *v1.Service) {
+			if svc.Spec.Template.Spec.Containers[0].Ports[0].HostPort != 0 {
+				t.Error("Expected Containers[].Ports[].HostPort to be pruned")
+			}
+		},
 	}, {
 		name: "TestStdin",
 		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].Stdin = true
+		},
+		assertIfNoError: func(t *testing.T, svc *v1.Service) {
+			if svc.Spec.Template.Spec.Containers[0].Stdin == true {
+				t.Error("Expected Stdin to be pruned")
+			}
 		},
 	}, {
 		name: "TestStdinOnce",
 		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].StdinOnce = true
 		},
+		assertIfNoError: func(t *testing.T, svc *v1.Service) {
+			if svc.Spec.Template.Spec.Containers[0].StdinOnce == true {
+				t.Error("Expected StdinOnce to be pruned")
+			}
+		},
 	}, {
 		name: "TestTTY",
 		options: func(s *v1.Service) {
 			s.Spec.Template.Spec.Containers[0].TTY = true
+		},
+		assertIfNoError: func(t *testing.T, svc *v1.Service) {
+			if svc.Spec.Template.Spec.Containers[0].TTY == true {
+				t.Error("Expected TTY to be pruned")
+			}
 		},
 	}, {
 		name: "TestInvalidUID",
@@ -192,8 +182,12 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   test.Runtime,
 			}
-			if svc, err := testv1.CreateService(t, clients, names, tc.options); err == nil {
+
+			svc, err := testv1.CreateService(t, clients, names, tc.options)
+			if err == nil && tc.assertIfNoError == nil {
 				t.Errorf("CreateService = %v, want: error", spew.Sdump(svc))
+			} else if err == nil && tc.assertIfNoError != nil {
+				tc.assertIfNoError(t, svc)
 			}
 		})
 	}

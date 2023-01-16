@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/networking/pkg/apis/networking"
+	netcfg "knative.dev/networking/pkg/config"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
@@ -130,7 +130,7 @@ func TestRevisionWatcher(t *testing.T) {
 		initialClusterIPState bool
 		noPodAddressability   bool // This keeps the test defs shorter.
 		usePassthroughLb      bool
-		meshMode              network.MeshCompatibilityMode
+		meshMode              netcfg.MeshCompatibilityMode
 	}{{
 		name:  "single healthy podIP",
 		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
@@ -436,7 +436,7 @@ func TestRevisionWatcher(t *testing.T) {
 		expectUpdates: []revisionDestsUpdate{
 			{ClusterIPDest: "129.0.0.1:1235", Dests: sets.NewString("128.0.0.1:1234")},
 		},
-		meshMode: network.MeshCompatibilityModeEnabled,
+		meshMode: netcfg.MeshCompatibilityModeEnabled,
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"128.0.0.1:1234": {{
 				// Pod is healthy, but should not be used since we're in mesh mode.
@@ -460,7 +460,7 @@ func TestRevisionWatcher(t *testing.T) {
 		expectUpdates: []revisionDestsUpdate{
 			{Dests: sets.NewString("128.0.0.1:1234")},
 		},
-		meshMode: network.MeshCompatibilityModeDisabled,
+		meshMode: netcfg.MeshCompatibilityModeDisabled,
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				// Cluster IP healthy, but should not be used.
@@ -488,7 +488,7 @@ func TestRevisionWatcher(t *testing.T) {
 		expectUpdates: []revisionDestsUpdate{
 			{Dests: sets.NewString("128.0.0.1:1234")},
 		},
-		meshMode: network.MeshCompatibilityModeDisabled,
+		meshMode: netcfg.MeshCompatibilityModeDisabled,
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"128.0.0.1:1234": {{
 				// Probe errors, but it shouldn't matter because we should trust
@@ -519,7 +519,7 @@ func TestRevisionWatcher(t *testing.T) {
 
 			// Default for meshMode is auto.
 			if tc.meshMode == "" {
-				tc.meshMode = network.MeshCompatibilityModeAuto
+				tc.meshMode = netcfg.MeshCompatibilityModeAuto
 			}
 
 			fake := fakekubeclient.Get(ctx)
@@ -837,7 +837,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		revisions: []*v1.Revision{
 			revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1, 1, func(r *v1.Revision) {
 				r.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{},
 					},
 				}
@@ -864,7 +864,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		revisions: []*v1.Revision{
 			revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1, 1, func(r *v1.Revision) {
 				r.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{},
 					},
 				}
@@ -919,7 +919,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				t.Fatal("Failed to start informers:", err)
 			}
 
-			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, false /*usePassthroughLb*/, network.MeshCompatibilityModeAuto, probeFreq)
+			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto, probeFreq)
 			defer func() {
 				cancel()
 				waitInformers()
@@ -1036,7 +1036,7 @@ func TestCheckDestsReadyToNotReady(t *testing.T) {
 		logger:                  TestLogger(t),
 		stopCh:                  dCh,
 		transport:               pkgnetwork.RoundTripperFunc(fakeRT.RT),
-		meshMode:                network.MeshCompatibilityModeAuto,
+		meshMode:                netcfg.MeshCompatibilityModeAuto,
 		enableProbeOptimisation: true,
 	}
 	// Initial state. Both are ready.
@@ -1241,7 +1241,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 		stopCh:                  dCh,
 		podsAddressable:         true,
 		transport:               pkgnetwork.RoundTripperFunc(fakeRT.RT),
-		meshMode:                network.MeshCompatibilityModeAuto,
+		meshMode:                netcfg.MeshCompatibilityModeAuto,
 		enableProbeOptimisation: true,
 	}
 
@@ -1382,7 +1382,7 @@ func TestRevisionDeleted(t *testing.T) {
 	ri.Informer().GetIndexer().Add(rev)
 
 	fakeRT := activatortest.FakeRoundTripper{}
-	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, network.MeshCompatibilityModeAuto, probeFreq)
+	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto, probeFreq)
 	defer func() {
 		cancel()
 		waitInformers()
@@ -1438,7 +1438,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 			}},
 		},
 	}
-	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, network.MeshCompatibilityModeAuto, probeFreq)
+	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto, probeFreq)
 	defer func() {
 		cancel()
 		waitInformers()
@@ -1502,7 +1502,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 			}},
 		},
 	}
-	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, network.MeshCompatibilityModeAuto, probeFreq)
+	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto, probeFreq)
 	defer func() {
 		cancel()
 		waitInformers()

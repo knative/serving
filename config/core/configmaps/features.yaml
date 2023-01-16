@@ -21,9 +21,8 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "2897f625"
+    knative.dev/example-checksum: "691a192e"
 data:
   _example: |-
     ################################
@@ -52,6 +51,12 @@ data:
     # WARNING: Cannot safely be disabled once enabled.
     # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-node-affinity
     kubernetes.podspec-affinity: "disabled"
+
+    # Indicates whether Kubernetes topologySpreadConstraints support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-topology-spread-constraints
+    kubernetes.podspec-topologyspreadconstraints: "disabled"
 
     # Indicates whether Kubernetes hostAliases support is enabled
     #
@@ -83,6 +88,18 @@ data:
     # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-runtime-class
     kubernetes.podspec-runtimeclassname: "disabled"
 
+    # Indicates whether Kubernetes DNSPolicy support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-dnspolicy
+    kubernetes.podspec-dnspolicy: "disabled"
+
+    # Indicates whether Kubernetes DNSConfig support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-dnsconfig
+    kubernetes.podspec-dnsconfig: "disabled"
+
     # This feature allows end-users to set a subset of fields on the Pod's SecurityContext
     #
     # When set to "enabled" or "allowed" it allows the following
@@ -92,6 +109,7 @@ data:
     # - RunAsNonRoot
     # - SupplementalGroups
     # - RunAsUser
+    # - SeccompProfile
     #
     # This feature flag should be used with caution as the PodSecurityContext
     # properties may have a side-effect on non-user sidecar containers that come
@@ -143,9 +161,36 @@ data:
     # Controls whether volume support for EmptyDir is enabled or not.
     # 1. Enabled: enabling EmptyDir volume support
     # 2. Disabled: disabling EmptyDir volume support
-    kubernetes.podspec-volumes-emptydir: "disabled"
+    kubernetes.podspec-volumes-emptydir: "enabled"
 
     # Controls whether init containers support is enabled or not.
     # 1. Enabled: enabling init containers support
     # 2. Disabled: disabling init containers support
     kubernetes.podspec-init-containers: "disabled"
+
+    # Controls whether persistent volume claim support is enabled or not.
+    # 1. Enabled: enabling persistent volume claim support
+    # 2. Disabled: disabling persistent volume claim support
+    kubernetes.podspec-persistent-volume-claim: "disabled"
+
+    # Controls whether write access for persistent volumes is enabled or not.
+    # 1. Enabled: enabling write access for persistent volumes
+    # 2. Disabled: disabling write access for persistent volumes
+    kubernetes.podspec-persistent-volume-write: "disabled"
+
+    # Controls if the queue proxy podInfo feature is enabled, allowed or disabled
+    #
+    # This feature should be enabled/allowed when using queue proxy Options (Extensions)
+    # Enabling will mount a podInfo volume to the queue proxy container.
+    # The volume will contains an 'annotations' file (from the pod's annotation field).
+    # The annotations in this file include the Service annotations set by the client creating the service.
+    # If mounted, the annotations can be accessed by queue proxy extensions at /etc/podinfo/annnotations
+    #
+    # 1. "enabled": always mount a podInfo volume
+    # 2. "disabled": never mount a podInfo volume
+    # 3. "allowed": by default, do not mount a podInfo volume
+    #   However, a client may mount the podInfo volume on an individual Service by attaching
+    #   the following metadata annotation to the Service: "features.knative.dev/queueproxy-podinfo":"enabled".
+    #
+    # NOTE THAT THIS IS AN EXPERIMENTAL / ALPHA FEATURE
+    queueproxy.mount-podinfo: "disabled"

@@ -182,6 +182,20 @@ func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
 	}
 }
 
+// WithRevisionResponseStartTimeoutSeconds sets revision first byte timeout
+func WithRevisionResponseStartTimeoutSeconds(revisionResponseStartTimeoutSeconds int64) ServiceOption {
+	return func(service *v1.Service) {
+		service.Spec.Template.Spec.ResponseStartTimeoutSeconds = ptr.Int64(revisionResponseStartTimeoutSeconds)
+	}
+}
+
+// WithRevisionIdleTimeoutSeconds sets revision idle timeout
+func WithRevisionIdleTimeoutSeconds(revisionIdleTimeoutSeconds int64) ServiceOption {
+	return func(service *v1.Service) {
+		service.Spec.Template.Spec.IdleTimeoutSeconds = ptr.Int64(revisionIdleTimeoutSeconds)
+	}
+}
+
 // WithServiceAccountName sets revision service account name
 func WithServiceAccountName(serviceAccountName string) ServiceOption {
 	return func(service *v1.Service) {
@@ -481,8 +495,22 @@ var (
 	}
 )
 
+// WithInitContainer adds init container to a service.
 func WithInitContainer(p corev1.Container) ServiceOption {
 	return func(s *v1.Service) {
 		s.Spec.Template.Spec.InitContainers = []corev1.Container{p}
+	}
+}
+
+// WithPodSecurityContext assigns security context to a service.
+func WithPodSecurityContext(secCtx corev1.PodSecurityContext) ServiceOption {
+	return func(s *v1.Service) {
+		s.Spec.Template.Spec.SecurityContext = &secCtx
+	}
+}
+
+func WithNamespace(namespace string) ServiceOption {
+	return func(svc *v1.Service) {
+		svc.ObjectMeta.Namespace = namespace
 	}
 }

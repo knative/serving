@@ -25,12 +25,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
+	clocktest "k8s.io/utils/clock/testing"
 
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
 	"knative.dev/networking/pkg/apis/networking"
+	netcfg "knative.dev/networking/pkg/config"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -57,7 +58,7 @@ import (
 func TestReconcile(t *testing.T) {
 	// We don't care about the value, but that it does not change,
 	// since it leads to flakes.
-	fc := clock.NewFakePassiveClock(time.Now())
+	fc := clocktest.NewFakePassiveClock(time.Now())
 
 	table := TableTest{{
 		Name: "bad workqueue key",
@@ -655,6 +656,30 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/first-reconcile",
 		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{PodSpecInitContainers: defaultconfig.Enabled}}),
+	}, {
+		Name: "first revision reconciliation with PVC, PVC enabled",
+		// Test the simplest successful reconciliation flow.
+		// We feed in a well formed Revision where none of its sub-resources exist,
+		// and we expect it to create them and initialize the Revision's status.
+		Objects: []runtime.Object{
+			Revision("foo", "first-reconcile", WithRevisionPVC()),
+		},
+		WantCreates: []runtime.Object{
+			// The first reconciliation of a Revision creates the following resources.
+			pa("foo", "first-reconcile"),
+			deploy(t, "foo", "first-reconcile", WithRevisionPVC()),
+			image("foo", "first-reconcile")},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Revision("foo", "first-reconcile",
+				// The first reconciliation Populates the following status properties.
+				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
+				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1), WithRevisionPVC()),
+		}},
+		Key: "foo/first-reconcile",
+		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{
+			PodSpecPersistentVolumeClaim: defaultconfig.Enabled,
+			PodSpecPersistentVolumeWrite: defaultconfig.Enabled,
+		}}),
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, _ configmap.Watcher) controller.Reconciler {
@@ -867,5 +892,6 @@ func reconcilerTestConfig() *config.Config {
 		},
 		Logging: &logging.Config{},
 		Tracing: &tracingconfig.Config{},
+		Network: &netcfg.Config{},
 	}
 }

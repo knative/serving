@@ -52,7 +52,8 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(expectedText)),
 		"CheckEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+		spoof.WithHeader(test.ServingFlags.RequestHeader()))
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err)
 	}

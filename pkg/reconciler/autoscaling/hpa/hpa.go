@@ -19,18 +19,18 @@ package hpa
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	autoscalingv2beta2listers "k8s.io/client-go/listers/autoscaling/v2beta2"
+	autoscalingv2listers "k8s.io/client-go/listers/autoscaling/v2"
 	nv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -42,7 +42,7 @@ type Reconciler struct {
 	*areconciler.Base
 
 	kubeClient kubernetes.Interface
-	hpaLister  autoscalingv2beta2listers.HorizontalPodAutoscalerLister
+	hpaLister  autoscalingv2listers.HorizontalPodAutoscalerLister
 }
 
 // Check that our Reconciler implements pareconciler.Interface
@@ -50,7 +50,7 @@ var _ pareconciler.Interface = (*Reconciler)(nil)
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) pkgreconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
 	logger := logging.FromContext(ctx)
@@ -61,7 +61,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	hpa, err := c.hpaLister.HorizontalPodAutoscalers(pa.Namespace).Get(desiredHpa.Name)
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
-		if hpa, err = c.kubeClient.AutoscalingV2beta2().HorizontalPodAutoscalers(pa.Namespace).Create(ctx, desiredHpa, metav1.CreateOptions{}); err != nil {
+		if hpa, err = c.kubeClient.AutoscalingV2().HorizontalPodAutoscalers(pa.Namespace).Create(ctx, desiredHpa, metav1.CreateOptions{}); err != nil {
 			pa.Status.MarkResourceFailedCreation("HorizontalPodAutoscaler", desiredHpa.Name)
 			return fmt.Errorf("failed to create HPA: %w", err)
 		}
@@ -74,7 +74,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	}
 	if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
 		logger.Infof("Updating HPA %q", desiredHpa.Name)
-		if _, err := c.kubeClient.AutoscalingV2beta2().HorizontalPodAutoscalers(pa.Namespace).Update(ctx, desiredHpa, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.kubeClient.AutoscalingV2().HorizontalPodAutoscalers(pa.Namespace).Update(ctx, desiredHpa, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update HPA: %w", err)
 		}
 	}
@@ -94,12 +94,49 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		pa.Status.MarkSKSNotReady("SKS Services are not ready yet")
 	} else {
 		pa.Status.MarkSKSReady()
-		pa.Status.MarkScaleTargetInitialized()
+		// If a min-scale value has been set, we don't want to mark the scale target
+		// as initialized until the current replicas are >= the min-scale value.
+		if !pa.Status.IsScaleTargetInitialized() {
+			ms := activeThreshold(ctx, pa)
+			if hpa.Status.CurrentReplicas >= int32(ms) {
+				pa.Status.MarkScaleTargetInitialized()
+			}
+		}
 	}
+
 	// HPA is always _active_.
 	pa.Status.MarkActive()
 
 	pa.Status.DesiredScale = ptr.Int32(hpa.Status.DesiredReplicas)
 	pa.Status.ActualScale = ptr.Int32(hpa.Status.CurrentReplicas)
 	return nil
+}
+
+// activeThreshold returns the scale required for the pa to be marked Active
+func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) int {
+	asConfig := config.FromContext(ctx).Autoscaler
+	min, _ := pa.ScaleBounds(asConfig)
+	if !pa.Status.IsScaleTargetInitialized() {
+		initialScale := getInitialScale(asConfig, pa)
+		return int(intMax(min, initialScale))
+	}
+	return int(intMax(min, 1))
+}
+
+// getInitialScale returns the calculated initial scale based on the autoscaler
+// ConfigMap and PA initial scale annotation value.
+func getInitialScale(asConfig *autoscalerconfig.Config, pa *autoscalingv1alpha1.PodAutoscaler) int32 {
+	initialScale := asConfig.InitialScale
+	revisionInitialScale, ok := pa.InitialScale()
+	if !ok || (revisionInitialScale == 0 && !asConfig.AllowZeroInitialScale) {
+		return initialScale
+	}
+	return revisionInitialScale
+}
+
+func intMax(a, b int32) int32 {
+	if a < b {
+		return b
+	}
+	return a
 }

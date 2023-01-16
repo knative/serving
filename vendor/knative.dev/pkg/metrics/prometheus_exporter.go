@@ -41,14 +41,14 @@ func (emptyPromExporter) ExportView(viewData *view.Data) {
 	// a signal to enrich the internal Meters with Resource information.
 }
 
-//nolint: unparam // False positive of flagging the second result of this function unused.
+// nolint: unparam // False positive of flagging the second result of this function unused.
 func newPrometheusExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.Exporter, ResourceExporterFactory, error) {
 	e, err := prom.NewExporter(prom.Options{Namespace: config.component})
 	if err != nil {
 		logger.Errorw("Failed to create the Prometheus exporter.", zap.Error(err))
 		return nil, nil, err
 	}
-	logger.Infof("Created Prometheus exporter with config: %v. Start the server for Prometheus exporter.", config)
+	logger.Debugf("Created Prometheus exporter with config: %v. Start the server for Prometheus exporter.", config)
 	// Start the server for Prometheus scraping
 	go func() {
 		srv := startNewPromSrv(e, config.prometheusHost, config.prometheusPort)
@@ -82,6 +82,7 @@ func startNewPromSrv(e *prom.Exporter, host string, port int) *http.Server {
 	if curPromSrv != nil {
 		curPromSrv.Close()
 	}
+	//nolint:gosec
 	curPromSrv = &http.Server{
 		Addr:    host + ":" + strconv.Itoa(port),
 		Handler: sm,

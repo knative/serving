@@ -27,7 +27,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/serving/pkg/autoscaler/bucket"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
@@ -65,6 +65,8 @@ func New(statsServerAddr string, statsCh chan<- metrics.StatMessage, logger *zap
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", svr.Handler)
+
+	//nolint:gosec // https://github.com/knative/serving/issues/13439
 	svr.wsSrv = http.Server{
 		Addr:      statsServerAddr,
 		Handler:   mux,
@@ -106,7 +108,7 @@ func (s *Server) serve(l net.Listener) error {
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) bool {
-	if network.IsKubeletProbe(r) {
+	if netheader.IsKubeletProbe(r) {
 		// As an initial approach, once stats server is up -- return true.
 		w.WriteHeader(http.StatusOK)
 		return true

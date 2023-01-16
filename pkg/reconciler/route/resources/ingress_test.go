@@ -27,9 +27,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
 	pkgnet "knative.dev/pkg/network"
@@ -706,7 +707,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
 				Headers: map[string]netv1alpha1.HeaderMatch{
-					network.TagHeaderName: {
+					netheader.RouteTagKey: {
 						Exact: "v1",
 					},
 				},
@@ -724,7 +725,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 				}},
 			}, {
 				AppendHeaders: map[string]string{
-					network.DefaultRouteHeaderName: "true",
+					netheader.DefaultRouteKey: "true",
 				},
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
@@ -748,7 +749,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
 				Headers: map[string]netv1alpha1.HeaderMatch{
-					network.TagHeaderName: {
+					netheader.RouteTagKey: {
 						Exact: "v1",
 					},
 				},
@@ -766,7 +767,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 				}},
 			}, {
 				AppendHeaders: map[string]string{
-					network.DefaultRouteHeaderName: "true",
+					netheader.DefaultRouteKey: "true",
 				},
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
@@ -792,7 +793,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
 				AppendHeaders: map[string]string{
-					network.TagHeaderName: "v1",
+					netheader.RouteTagKey: "v1",
 				},
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
@@ -816,7 +817,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
 				AppendHeaders: map[string]string{
-					network.TagHeaderName: "v1",
+					netheader.RouteTagKey: "v1",
 				},
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
@@ -867,7 +868,7 @@ func TestMakeIngressRuleVanilla(t *testing.T) {
 	}
 	ro := tc.BuildRollout()
 	rule := makeIngressRule(domains, ns,
-		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget))
+		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget), false /* internal encryption */)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{
 			"a.com",
@@ -920,7 +921,7 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 	}
 	ro := tc.BuildRollout()
 	rule := makeIngressRule(domains, ns,
-		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget))
+		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget), false /* internal encryption */)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -970,7 +971,7 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 	ro := tc.BuildRollout()
 	domains := []string{"test.org"}
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP,
-		targets, ro.RolloutsByTag("a-tag"))
+		targets, ro.RolloutsByTag("a-tag"), false /* internal encryption */)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -1086,6 +1087,128 @@ func TestMakeIngressWithHTTPOption(t *testing.T) {
 				t.Error("Unexpected Ingress (-want, +got):", diff)
 			}
 		})
+	}
+}
+
+func TestMakeIngressWithActivatorCA(t *testing.T) {
+	targets := map[string]traffic.RevisionTargets{
+		traffic.DefaultTarget: {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v2",
+				Percent:           ptr.Int64(100),
+			},
+		}},
+		"v1": {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v1",
+				Percent:           ptr.Int64(100),
+			},
+		}},
+	}
+
+	r := Route(ns, "test-route", WithURL)
+
+	expected := []netv1alpha1.IngressRule{{
+		Hosts: []string{
+			"test-route." + ns,
+			"test-route." + ns + ".svc",
+			pkgnet.GetServiceHostname("test-route", ns),
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "v2",
+						ServicePort:      intstr.FromInt(networking.ServiceHTTPSPort),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v2",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+	}, {
+		Hosts: []string{
+			"test-route." + ns + ".example.com",
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "v2",
+						ServicePort:      intstr.FromInt(networking.ServiceHTTPSPort),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v2",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+	}, {
+		Hosts: []string{
+			"v1-test-route." + ns,
+			"v1-test-route." + ns + ".svc",
+			pkgnet.GetServiceHostname("v1-test-route", ns),
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "v1",
+						ServicePort:      intstr.FromInt(networking.ServiceHTTPSPort),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v1",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+	}, {
+		Hosts: []string{
+			"v1-test-route." + ns + ".example.com",
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "v1",
+						ServicePort:      intstr.FromInt(networking.ServiceHTTPSPort),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v1",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+	}}
+
+	tc := &traffic.Config{Targets: targets}
+	ro := tc.BuildRollout()
+	ci, err := makeIngressSpec(testContextWithActivatorCA(), r, nil /*tls*/, tc, ro)
+	if err != nil {
+		t.Error("Unexpected error", err)
+	}
+
+	if !cmp.Equal(expected, ci.Rules) {
+		t.Error("Unexpected rules (-want, +got):", cmp.Diff(expected, ci.Rules))
 	}
 }
 
@@ -1235,10 +1358,10 @@ func TestMakeIngressFailToGenerateDomain(t *testing.T) {
 	// Create a context that has a bad domain template.
 	badContext := testContext()
 	config.FromContext(badContext).Domain = &config.Domain{Domains: map[string]*config.LabelSelector{"example.com": {}}}
-	config.FromContext(badContext).Network = &network.Config{
+	config.FromContext(badContext).Network = &netcfg.Config{
 		DefaultIngressClass: "test-ingress-class",
 		DomainTemplate:      "{{.UnknownField}}.{{.NonExistentField}}.{{.BadField}}",
-		TagTemplate:         network.DefaultTagTemplate,
+		TagTemplate:         netcfg.DefaultTagTemplate,
 	}
 	_, err := MakeIngress(badContext, r, &traffic.Config{Targets: targets}, nil, "")
 	if err == nil {
@@ -1272,9 +1395,9 @@ func TestMakeIngressFailToGenerateTagHost(t *testing.T) {
 	// Create a context that has a bad domain template.
 	badContext := testContext()
 	config.FromContext(badContext).Domain = &config.Domain{Domains: map[string]*config.LabelSelector{"example.com": {}}}
-	config.FromContext(badContext).Network = &network.Config{
+	config.FromContext(badContext).Network = &netcfg.Config{
 		DefaultIngressClass: "test-ingress-class",
-		DomainTemplate:      network.DefaultDomainTemplate,
+		DomainTemplate:      netcfg.DefaultDomainTemplate,
 		TagTemplate:         "{{.UnknownField}}.{{.NonExistentField}}.{{.BadField}}",
 	}
 	_, err := MakeIngress(badContext, r, &traffic.Config{Targets: targets}, nil, "")
@@ -1297,6 +1420,12 @@ func testContext() context.Context {
 
 func testContextWithHTTPOption() context.Context {
 	cfg := testConfig()
-	cfg.Network.HTTPProtocol = network.HTTPRedirected
+	cfg.Network.HTTPProtocol = netcfg.HTTPRedirected
+	return config.ToContext(context.Background(), cfg)
+}
+
+func testContextWithActivatorCA() context.Context {
+	cfg := testConfig()
+	cfg.Network.InternalEncryption = true
 	return config.ToContext(context.Background(), cfg)
 }

@@ -26,7 +26,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/clock"
+	clocktest "k8s.io/utils/clock/testing"
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -70,7 +70,7 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 		fakeCurTime      = fakeCurSecs*1_000_000_000 + fakeCurNsec // *1e9
 		allocatedTraffic = 48
 	)
-	fakeClock := clock.NewFakePassiveClock(time.Unix(fakeCurSecs, fakeCurNsec))
+	fakeClock := clocktest.NewFakePassiveClock(time.Unix(fakeCurSecs, fakeCurNsec))
 	baseCtx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
 		r.clock = fakeClock
 		reconciler = r
@@ -229,7 +229,7 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 		fakeCurTime      = fakeCurSecs*1_000_000_000 + fakeCurNsec // *1e9
 		allocatedTraffic = 48
 	)
-	fakeClock := clock.NewFakePassiveClock(time.Unix(fakeCurSecs, fakeCurNsec))
+	fakeClock := clocktest.NewFakePassiveClock(time.Unix(fakeCurSecs, fakeCurNsec))
 	baseCtx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
 		r.clock = fakeClock
 		reconciler = r

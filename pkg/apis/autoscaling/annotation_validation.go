@@ -109,7 +109,9 @@ func validateFloats(m map[string]string) (errs *apis.FieldError) {
 	}
 
 	if k, v, ok := TargetAnnotation.Get(m); ok {
-		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < TargetMin {
+		if fv, err := strconv.ParseFloat(v, 64); err != nil {
+			errs = errs.Also(apis.ErrInvalidValue(v, k))
+		} else if fv < TargetMin {
 			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("target %s should be at least %g", v, TargetMin), k))
 		}
 	}
@@ -189,6 +191,27 @@ func validateMinMaxScale(config *autoscalerconfig.Config, m map[string]string) *
 		errs = errs.Also(validateMaxScaleWithinLimit(k, max, config.MaxScaleLimit))
 	}
 
+	// if ActivationScale is also set, validate that min <= nz min <= max
+	if k, v, ok := ActivationScale.Get(m); ok {
+		if nzMin, err := strconv.ParseInt(v, 10, 32); err != nil {
+			errs = errs.Also(apis.ErrInvalidValue(v, k))
+		} else if min > int32(nzMin) {
+			errs = errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("min-scale=%d is greater than activation-scale=%d", min, nzMin),
+				Paths:   []string{k},
+			})
+		} else if max < int32(nzMin) && max != 0 {
+			errs = errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("max-scale=%d is less than activation-scale=%d", max, nzMin),
+				Paths:   []string{k},
+			})
+		} else if nzMin < 2 {
+			errs = errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("activation-scale=%d must be greater than 1", nzMin),
+				Paths:   []string{k},
+			})
+		}
+	}
 	return errs
 }
 
@@ -225,7 +248,9 @@ func validateMetric(m map[string]string) *apis.FieldError {
 			}
 		case HPA:
 			switch metric {
-			case CPU, Memory:
+			case "":
+				break
+			default:
 				return nil
 			}
 		default:
@@ -240,8 +265,12 @@ func validateMetric(m map[string]string) *apis.FieldError {
 func validateInitialScale(config *autoscalerconfig.Config, m map[string]string) *apis.FieldError {
 	if k, v, ok := InitialScaleAnnotation.Get(m); ok {
 		initScaleInt, err := strconv.Atoi(v)
-		if err != nil || initScaleInt < 0 || (!config.AllowZeroInitialScale && initScaleInt == 0) {
+		if err != nil {
 			return apis.ErrInvalidValue(v, k)
+		} else if initScaleInt < 0 {
+			return apis.ErrInvalidValue(v, fmt.Sprintf("%s must be greater than 0", k))
+		} else if !config.AllowZeroInitialScale && initScaleInt == 0 {
+			return apis.ErrInvalidValue(v, fmt.Sprintf("%s=0 not allowed by cluster", k))
 		}
 	}
 	return nil

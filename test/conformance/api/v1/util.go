@@ -50,6 +50,7 @@ func checkForExpectedResponses(ctx context.Context, t testing.TB, clients *test.
 	if err != nil {
 		return err
 	}
+	spoof.WithHeader(test.ServingFlags.RequestHeader())(req)
 	_, err = client.Poll(req, spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesAllBodies(expectedResponses...)))
 	return err
 }
@@ -136,7 +137,8 @@ func validateDataPlane(t testing.TB, clients *test.Clients, names test.ResourceN
 		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(expectedText)),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+		spoof.WithHeader(test.ServingFlags.RequestHeader()))
 	if err != nil {
 		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %w", names.Route, names.URL, expectedText, err)
 	}

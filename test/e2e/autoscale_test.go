@@ -21,16 +21,20 @@ package e2e
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/system"
+	pkgtest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/networking"
+	revnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -96,6 +100,11 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
+	if testing.Short() {
+		// TODO sort out kind issues causing flakiness
+		t.Skip("#13049: Skipped because of excessive flakiness on kind")
+	}
+
 	for _, algo := range []string{
 		autoscaling.MetricAggregationAlgorithmLinear,
 		autoscaling.MetricAggregationAlgorithmWeightedExponential,
@@ -131,6 +140,16 @@ func TestTargetBurstCapacity(t *testing.T) {
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
 		}))
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
+
+	cm, err := ctx.clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
+		Get(context.Background(), netcfg.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Fail to get ConfigMap config-network:", err)
+	}
+	if strings.EqualFold(cm.Data[netcfg.InternalEncryptionKey], "true") {
+		// TODO: Remove this when https://github.com/knative/serving/issues/12797 was done.
+		t.Skip("Skipping TestTargetBurstCapacity as activator-ca is specified. See issue/12797.")
+	}
 
 	cfg, err := autoscalerCM(ctx.clients)
 	if err != nil {
@@ -210,6 +229,38 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(ctx); err != nil {
 		t.Fatal("Never got Activator endpoints in the service:", err)
+	}
+}
+
+// Explicitly setting this should cause the revision to scale down after ~10s
+func TestTargetBurstCapacityZero(t *testing.T) {
+	t.Parallel()
+
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "0",
+			autoscaling.WindowAnnotationKey:    "10s", // scale faster
+		}))
+
+	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
+
+	deploymentName := revnames.Deployment(ctx.resources.Revision)
+
+	t.Log("waiting for scale down")
+	err := pkgtest.WaitForDeploymentState(
+		context.Background(),
+		ctx.Clients().KubeClient,
+		deploymentName,
+		func(d *appsv1.Deployment) (bool, error) {
+			return d.Status.ReadyReplicas == 0, nil
+		},
+		"DeploymentIsScaledDown",
+		test.ServingFlags.TestNamespace,
+		time.Minute,
+	)
+
+	if err != nil {
+		t.Error(err)
 	}
 }
 

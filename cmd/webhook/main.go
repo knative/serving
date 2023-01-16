@@ -42,6 +42,7 @@ import (
 
 	// config validation constructors
 	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -94,8 +95,9 @@ func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
 		store.ToContext,
 
-		// Whether to disallow unknown fields.
-		true,
+		// Whether to disallow unknown fields. We set this to 'false' since
+		// our CRDs have schemas
+		false,
 	)
 }
 
@@ -118,8 +120,9 @@ func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
 		store.ToContext,
 
-		// Whether to disallow unknown fields.
-		true,
+		// Whether to disallow unknown fields. We set this to 'false' since
+		// our CRDs have schemas
+		false,
 
 		// Extra validating callbacks to be applied to resources.
 		callbacks,
@@ -140,7 +143,7 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 			tracingconfig.ConfigName:       tracingconfig.NewTracingConfigFromConfigMap,
 			autoscalerconfig.ConfigName:    autoscalerconfig.NewConfigFromConfigMap,
 			gc.ConfigName:                  gc.NewConfigFromConfigMapFunc(ctx),
-			network.ConfigName:             network.NewConfigFromConfigMap,
+			netcfg.ConfigMapName:           network.NewConfigFromConfigMap,
 			deployment.ConfigName:          deployment.NewConfigFromConfigMap,
 			apisconfig.FeaturesConfigName:  apisconfig.NewFeaturesConfigFromConfigMap,
 			metrics.ConfigMapName():        metrics.NewObservabilityConfigFromConfigMap,

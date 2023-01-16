@@ -21,9 +21,8 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "a0feb4c6"
+    knative.dev/example-checksum: "e7973912"
 data:
   _example: |
     ################################
@@ -54,6 +53,18 @@ data:
     # If this value is increased, the activator's terminationGraceTimeSeconds
     # should also be increased to prevent in-flight requests being disrupted.
     max-revision-timeout-seconds: "600"  # 10 minutes
+
+    # revision-response-start-timeout-seconds contains the default number of
+    # seconds a request will be allowed to stay open while waiting to
+    # receive any bytes from the user's application, if none is specified.
+    #
+    # This defaults to 'revision-timeout-seconds'
+    revision-response-start-timeout-seconds: "300"
+
+    # revision-idle-timeout-seconds contains the default number of
+    # seconds a request will be allowed to stay open while not receiving any
+    # bytes from the user's application, if none is specified.
+    revision-idle-timeout-seconds: "0"  # infinite
 
     # revision-cpu-request contains the cpu allocation to assign
     # to revisions by default.  If omitted, no value is specified

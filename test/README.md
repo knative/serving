@@ -100,13 +100,10 @@ go test -tags=e2e -count=1 ./test/conformance/... \
 
 ## Running performance tests
 
-Each performance test case in Knative serving is a benchmark, to run these
-benchmarks, please follow
-[dev.md](https://github.com/knative/serving/blob/main/test/performance/dev.md).
+Performance tests using [kperf](https://github.com/knative-sandbox/kperf) can be run in
+a pull request using the optional test job `/test pull-knative-serving-performance-tests-kperf`
 
-> As of now, only Googlers can run these benchmarks due to one issue of
-> [Mako](https://github.com/google/mako) - the benchmarking tool we use. Details
-> can be found in the [issue report](https://github.com/google/mako/issues/2).
+A report will be generated in the artifacts folder of the test run.
 
 ### Running a single test case
 

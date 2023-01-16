@@ -28,8 +28,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
@@ -40,7 +41,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 
 	_ "knative.dev/pkg/metrics/testing"
@@ -76,18 +76,18 @@ var (
 	defaultQueueContainer = &corev1.Container{
 		Name:      QueueContainerName,
 		Resources: createQueueResources(&deploymentConfig, make(map[string]string), &corev1.Container{}),
-		Ports:     append(queueNonServingPorts, queueHTTPPort),
+		Ports:     append(queueNonServingPorts, queueHTTPPort, queueHTTPSPort),
 		ReadinessProbe: &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
 					HTTPHeaders: []corev1.HTTPHeader{{
-						Name:  network.ProbeHeaderName,
+						Name:  netheader.ProbeKey,
 						Value: queue.Name,
 					}},
 				},
 			},
-			PeriodSeconds: 1,
+			PeriodSeconds: 0,
 		},
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
@@ -105,11 +105,20 @@ var (
 			Name:  "QUEUE_SERVING_PORT",
 			Value: "8012",
 		}, {
+			Name:  "QUEUE_SERVING_TLS_PORT",
+			Value: "8112",
+		}, {
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: "0",
 		}, {
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: "45",
+		}, {
+			Name:  "REVISION_RESPONSE_START_TIMEOUT_SECONDS",
+			Value: "0",
+		}, {
+			Name:  "REVISION_IDLE_TIMEOUT_SECONDS",
+			Value: "0",
 		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{
@@ -182,6 +191,9 @@ var (
 		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: "false",
+		}, {
+			Name:  "ROOT_CA",
+			Value: "",
 		}},
 	}
 
@@ -312,9 +324,15 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
+func withPodInfoVolumeMount() containerOption {
+	return func(container *corev1.Container) {
+		container.VolumeMounts = append(container.VolumeMounts, varPodInfoVolumeMount)
+	}
+}
+
 func withTCPReadinessProbe(port int) *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 				Port: intstr.FromInt(port),
@@ -323,7 +341,7 @@ func withTCPReadinessProbe(port int) *corev1.Probe {
 
 func withHTTPReadinessProbe(port int) *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt(port),
 				Path: "/",
@@ -333,16 +351,16 @@ func withHTTPReadinessProbe(port int) *corev1.Probe {
 
 func withExecReadinessProbe(command []string) *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: command,
 			},
 		}}
 }
 
-func withLivenessProbe(handler corev1.Handler) containerOption {
+func withLivenessProbe(handler corev1.ProbeHandler) containerOption {
 	return func(container *corev1.Container) {
-		container.LivenessProbe = &corev1.Probe{Handler: handler}
+		container.LivenessProbe = &corev1.Probe{ProbeHandler: handler}
 	}
 }
 
@@ -363,9 +381,38 @@ func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSp
 	return podSpec
 }
 
+type appendTokenVolume struct {
+	filename string
+	audience string
+	expires  int64
+}
+
+func withAppendedTokenVolumes(appended []appendTokenVolume) podSpecOption {
+	return func(ps *corev1.PodSpec) {
+		tokenVolume := varTokenVolume.DeepCopy()
+		for _, a := range appended {
+			token := &corev1.VolumeProjection{
+				ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+					ExpirationSeconds: ptr.Int64(a.expires),
+					Path:              a.filename,
+					Audience:          a.audience,
+				},
+			}
+			tokenVolume.VolumeSource.Projected.Sources = append(tokenVolume.VolumeSource.Projected.Sources, *token)
+		}
+		ps.Volumes = append(ps.Volumes, *tokenVolume)
+	}
+}
+
 func withAppendedVolumes(volumes ...corev1.Volume) podSpecOption {
 	return func(ps *corev1.PodSpec) {
 		ps.Volumes = append(ps.Volumes, volumes...)
+	}
+}
+
+func withPrependedVolumes(volumes ...corev1.Volume) podSpecOption {
+	return func(ps *corev1.PodSpec) {
+		ps.Volumes = append(volumes, ps.Volumes...)
 	}
 }
 
@@ -387,6 +434,12 @@ func revision(name, ns string, opts ...RevisionOption) *v1.Revision {
 	return revision
 }
 
+// WithRevisionAnnotations adds the supplied annotations to the revision
+func WithRevisionAnnotations(annotations map[string]string) RevisionOption {
+	return func(revision *v1.Revision) {
+		revision.Annotations = kmeta.UnionMaps(revision.Annotations, annotations)
+	}
+}
 func withContainerConcurrency(cc int64) RevisionOption {
 	return func(revision *v1.Revision) {
 		revision.Spec.ContainerConcurrency = &cc
@@ -478,6 +531,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc       metrics.ObservabilityConfig
 		defaults *apicfg.Defaults
 		dc       deployment.Config
+		fc       apicfg.Features
 		want     *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -488,7 +542,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				ReadinessProbe: withTCPReadinessProbe(8888),
 			}}),
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -520,7 +574,7 @@ func TestMakePodSpec(t *testing.T) {
 					Name:      "asdf",
 					MountPath: "/asdf",
 				}},
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				ReadinessProbe: withTCPReadinessProbe(8888),
 			}}),
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -553,7 +607,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("USER_PORT", "8888"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
 				),
-			}, withAppendedVolumes(corev1.Volume{
+			}, withPrependedVolumes(corev1.Volume{
 				Name: "asdf",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
@@ -664,6 +718,130 @@ func TestMakePodSpec(t *testing.T) {
 				),
 			}),
 	}, {
+		name: "podInfoFeature Enabled",
+		fc: apicfg.Features{
+			QueueProxyMountPodInfo: apicfg.Enabled,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(
+					withPodInfoVolumeMount(),
+				),
+			},
+			withAppendedVolumes(varPodInfoVolume),
+		),
+	}, {
+		name: "podInfoFeature Disabled and enabled using annotation ",
+		fc: apicfg.Features{
+			QueueProxyMountPodInfo: apicfg.Disabled,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+			WithRevisionAnnotations(map[string]string{apicfg.QueueProxyPodInfoFeatureKey: string(apicfg.Enabled)}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			},
+		),
+	}, {
+		name: "podInfoFeature Allowed and enabled using annotation",
+		fc: apicfg.Features{
+			QueueProxyMountPodInfo: apicfg.Allowed,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+			WithRevisionAnnotations(map[string]string{apicfg.QueueProxyPodInfoFeatureKey: string(apicfg.Enabled)}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(
+					withPodInfoVolumeMount(),
+				),
+			},
+			withAppendedVolumes(varPodInfoVolume),
+		),
+	}, {
+		name: "podInfoFeature Allowed and Disabled using annotation",
+		fc: apicfg.Features{
+			QueueProxyMountPodInfo: apicfg.Allowed,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+			WithRevisionAnnotations(map[string]string{apicfg.QueueProxyPodInfoFeatureKey: string(apicfg.Disabled)}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			},
+		),
+	}, {
+		name: "podInfoFeature Allowed without annotation",
+		fc: apicfg.Features{
+			QueueProxyMountPodInfo: apicfg.Allowed,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			},
+		),
+	}, {
 		name: "concurrency=121 no owner digest resolved",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -748,7 +926,7 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":12345,"host":"127.0.0.1"}}`),
 				),
 			}),
 	}, {
@@ -782,7 +960,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
@@ -799,12 +977,12 @@ func TestMakePodSpec(t *testing.T) {
 					func(container *corev1.Container) {
 						container.Image = "busybox@sha256:deadbeef"
 					},
-					withLivenessProbe(corev1.Handler{
+					withLivenessProbe(corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
-							Port: intstr.FromInt(networking.BackendHTTPPort),
+							Port: intstr.FromInt(v1.DefaultUserPort),
 							HTTPHeaders: []corev1.HTTPHeader{{
-								Name:  network.KubeletProbeHeaderName,
+								Name:  netheader.KubeletProbeKey,
 								Value: queue.Name,
 							}},
 						},
@@ -820,7 +998,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{},
 					}}}},
 			),
@@ -834,7 +1012,7 @@ func TestMakePodSpec(t *testing.T) {
 					func(container *corev1.Container) {
 						container.Image = "busybox@sha256:deadbeef"
 					},
-					withLivenessProbe(corev1.Handler{
+					withLivenessProbe(corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.FromInt(v1.DefaultUserPort),
 						},
@@ -948,7 +1126,7 @@ func TestMakePodSpec(t *testing.T) {
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				ReadinessProbe: withTCPReadinessProbe(8888),
 			}, {
 				Name:  sidecarContainerName,
 				Image: "ubuntu",
@@ -1106,9 +1284,9 @@ func TestMakePodSpec(t *testing.T) {
 					}),
 			}),
 	}, {
-		name: "concurrency state projected volume",
+		name: "qpoption tokens",
 		dc: deployment.Config{
-			ConcurrencyStateEndpoint: "freeze-proxy",
+			QueueSidecarTokenAudiences: sets.NewString("boo-srv"),
 		},
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -1116,9 +1294,6 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 				Ports:          buildContainerPorts(v1.DefaultUserPort),
-			}, {
-				Name:  sidecarContainerName,
-				Image: "ubuntu",
 			}}),
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -1131,8 +1306,65 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
-					c.Image = "ubuntu@sha256:deadbeef"
+				queueContainer(func(container *corev1.Container) {
+					container.VolumeMounts = []corev1.VolumeMount{{
+						Name:      varTokenVolume.Name,
+						MountPath: "/var/run/secrets/tokens",
+					}}
+				}),
+			},
+			withAppendedTokenVolumes([]appendTokenVolume{{filename: "boo-srv", audience: "boo-srv", expires: 3600}}),
+		),
+	}, {
+		name: "qpoption rootca",
+		dc: deployment.Config{
+			QueueSidecarRootCA: "myCertificate",
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}, {
+				ImageDigest: "ubuntu@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(
+					withEnvVar("ROOT_CA", `myCertificate`),
+				),
+			},
+		),
+	}, {
+		name: "concurrency state projected volume",
+		dc: deployment.Config{
+			ConcurrencyStateEndpoint: "freeze-proxy",
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}, {
+				ImageDigest: "ubuntu@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(func(container *corev1.Container) {
 					container.VolumeMounts = []corev1.VolumeMount{{
@@ -1144,7 +1376,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("CONCURRENCY_STATE_TOKEN_PATH", `/var/run/secrets/tokens/state-token`),
 				),
 			},
-			withAppendedVolumes(varTokenVolume),
+			withAppendedTokenVolumes([]appendTokenVolume{{filename: queue.ConcurrencyStateTokenFilename, audience: concurrencyStateHook, expires: 600}}),
 		),
 	}}
 
@@ -1153,6 +1385,7 @@ func TestMakePodSpec(t *testing.T) {
 			cfg := revConfig()
 			cfg.Observability = &test.oc
 			cfg.Deployment = &test.dc
+			cfg.Features = &test.fc
 			if test.defaults != nil {
 				cfg.Defaults = test.defaults
 			}
@@ -1237,7 +1470,7 @@ func TestMakeDeployment(t *testing.T) {
 				map[string]string{sidecarIstioInjectAnnotation: "false"})
 		}),
 	}, {
-		name: "with ProgressDeadline override",
+		name: "with progress-deadline override",
 		dc: deployment.Config{
 			ProgressDeadline: 42 * time.Second,
 		},
@@ -1252,6 +1485,43 @@ func TestMakeDeployment(t *testing.T) {
 			}}), withoutLabels),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
+		}),
+	}, {
+		name: "with progress-deadline annotation",
+		rev: revision("bar", "foo",
+			WithRevisionAnn("serving.knative.dev/progress-deadline", "42s"),
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "ubuntu",
+				ReadinessProbe: withTCPReadinessProbe(12345),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}), withoutLabels),
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
+			deploy.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
+			deploy.Spec.Template.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
+		}),
+	}, {
+		name: "with ProgressDeadline annotation and configmap override",
+		dc: deployment.Config{
+			ProgressDeadline: 503 * time.Second,
+		},
+		rev: revision("bar", "foo",
+			WithRevisionAnn("serving.knative.dev/progress-deadline", "42s"),
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "ubuntu",
+				ReadinessProbe: withTCPReadinessProbe(12345),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}), withoutLabels),
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
+			deploy.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
+			deploy.Spec.Template.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
 		}),
 	}, {
 		name: "cluster initial scale",

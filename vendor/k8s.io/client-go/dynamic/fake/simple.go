@@ -111,7 +111,7 @@ func NewSimpleDynamicClientWithCustomListKinds(scheme *runtime.Scheme, gvrToList
 		}
 	}
 
-	cs := &FakeDynamicClient{scheme: scheme, gvrToListKind: completeGVRToListKind}
+	cs := &FakeDynamicClient{scheme: scheme, gvrToListKind: completeGVRToListKind, tracker: o}
 	cs.AddReactor("*", "*", testing.ObjectReaction(o))
 	cs.AddWatchReactor("*", func(action testing.Action) (handled bool, ret watch.Interface, err error) {
 		gvr := action.GetResource()
@@ -133,6 +133,7 @@ type FakeDynamicClient struct {
 	testing.Fake
 	scheme        *runtime.Scheme
 	gvrToListKind map[schema.GroupVersionResource]string
+	tracker       testing.ObjectTracker
 }
 
 type dynamicResourceClient struct {
@@ -142,7 +143,14 @@ type dynamicResourceClient struct {
 	listKind  string
 }
 
-var _ dynamic.Interface = &FakeDynamicClient{}
+var (
+	_ dynamic.Interface  = &FakeDynamicClient{}
+	_ testing.FakeClient = &FakeDynamicClient{}
+)
+
+func (c *FakeDynamicClient) Tracker() testing.ObjectTracker {
+	return c.tracker
+}
 
 func (c *FakeDynamicClient) Resource(resource schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
 	return &dynamicResourceClient{client: c, resource: resource, listKind: c.gvrToListKind[resource]}
@@ -444,6 +452,50 @@ func (c *dynamicResourceClient) Patch(ctx context.Context, name string, pt types
 		return nil, err
 	}
 	return ret, err
+}
+
+// TODO: opts are currently ignored.
+func (c *dynamicResourceClient) Apply(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	outBytes, err := runtime.Encode(unstructured.UnstructuredJSONScheme, obj)
+	if err != nil {
+		return nil, err
+	}
+	var uncastRet runtime.Object
+	switch {
+	case len(c.namespace) == 0 && len(subresources) == 0:
+		uncastRet, err = c.client.Fake.
+			Invokes(testing.NewRootPatchAction(c.resource, name, types.ApplyPatchType, outBytes), &metav1.Status{Status: "dynamic patch fail"})
+
+	case len(c.namespace) == 0 && len(subresources) > 0:
+		uncastRet, err = c.client.Fake.
+			Invokes(testing.NewRootPatchSubresourceAction(c.resource, name, types.ApplyPatchType, outBytes, subresources...), &metav1.Status{Status: "dynamic patch fail"})
+
+	case len(c.namespace) > 0 && len(subresources) == 0:
+		uncastRet, err = c.client.Fake.
+			Invokes(testing.NewPatchAction(c.resource, c.namespace, name, types.ApplyPatchType, outBytes), &metav1.Status{Status: "dynamic patch fail"})
+
+	case len(c.namespace) > 0 && len(subresources) > 0:
+		uncastRet, err = c.client.Fake.
+			Invokes(testing.NewPatchSubresourceAction(c.resource, c.namespace, name, types.ApplyPatchType, outBytes, subresources...), &metav1.Status{Status: "dynamic patch fail"})
+
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	if uncastRet == nil {
+		return nil, err
+	}
+
+	ret := &unstructured.Unstructured{}
+	if err := c.client.scheme.Convert(uncastRet, ret, nil); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (c *dynamicResourceClient) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
+	return c.Apply(ctx, name, obj, options, "status")
 }
 
 func convertObjectsToUnstructured(s *runtime.Scheme, objs []runtime.Object) ([]runtime.Object, error) {

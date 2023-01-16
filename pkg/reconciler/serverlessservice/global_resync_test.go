@@ -32,6 +32,7 @@ import (
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -66,17 +67,14 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	// Create activator endpoints.
 	aEps := activatorEndpoints(WithSubsets)
 	kubeClnt.CoreV1().Endpoints(aEps.Namespace).Create(ctx, aEps, metav1.CreateOptions{})
-	epsInformer.Informer().GetIndexer().Add(aEps)
 
 	// Private endpoints are supposed to exist, since we're using selector mode for the service.
 	privEps := endpointspriv(ns1, sks1)
 	kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(ctx, privEps, metav1.CreateOptions{})
-	epsInformer.Informer().GetIndexer().Add(privEps)
 
 	// This is passive, so no endpoints.
 	privEps = endpointspriv(ns2, sks2, withOtherSubsets)
 	kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(ctx, privEps, metav1.CreateOptions{})
-	epsInformer.Informer().GetIndexer().Add(privEps)
 
 	waitInformers, err := RunAndSyncInformers(ctx, informers...)
 	if err != nil {
@@ -111,8 +109,13 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	}
 
 	// Wait for the SKSs to be reconciled
-	waitForObservedGen(ctx, networking, ns1, sks1, 1)
-	waitForObservedGen(ctx, networking, ns2, sks2, 1)
+	if err := waitForObservedGen(ctx, networking, ns1, sks1, 1); err != nil {
+		t.Fatalf("failed to observe generation change for %q: %v", sks1, err)
+	}
+
+	if err := waitForObservedGen(ctx, networking, ns2, sks2, 1); err != nil {
+		t.Fatalf("failed to observe generation change for %q: %v", sks2, err)
+	}
 
 	t.Log("Updating the activator endpoints now...")
 	// Now that we have established the baseline, update the activator endpoints.
@@ -124,7 +127,9 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	// Actively wait for the endpoints to change their value.
 	if err := wait.PollImmediate(25*time.Millisecond, 5*time.Second, func() (bool, error) {
 		ep, err := epsInformer.Lister().Endpoints(ns1).Get(sks1)
-		if err != nil {
+		if err != nil && apierrors.IsNotFound(err) {
+			return false, nil
+		} else if err != nil {
 			return false, err
 		}
 		if cmp.Equal(ep.Subsets, resources.FilterSubsetPorts(sksObj1, aEps.Subsets)) {
@@ -137,9 +142,12 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 }
 
 func waitForObservedGen(ctx context.Context, client networkingv1alpha1.NetworkingV1alpha1Interface, ns, name string, generation int64) error {
-	return wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	return wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		sks, err := client.ServerlessServices(ns).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
+
+		if err != nil && apierrors.IsNotFound(err) {
+			return false, nil
+		} else if err != nil {
 			return false, err
 		}
 		return sks.Status.ObservedGeneration == 1, nil

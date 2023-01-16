@@ -24,19 +24,15 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	appsv1 "k8s.io/api/apps/v1"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"knative.dev/pkg/pool"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 )
-
-const scaleToZeroGracePeriod = 30 * time.Second
 
 // DigestResolutionExceptions holds the set of "registry" domains for which
 // digest resolution is not required.  These "registry" domains are generally
@@ -44,25 +40,6 @@ const scaleToZeroGracePeriod = 30 * time.Second
 // side-loaded into the cluster's container daemon via an operation like
 // `docker load` or `kind load`.
 var DigestResolutionExceptions = sets.NewString("kind.local", "ko.local", "dev.local")
-
-// WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
-// Will wait up to 6 times the scaleToZeroGracePeriod (30 seconds) before failing.
-func WaitForScaleToZero(t testing.TB, deploymentName string, clients *test.Clients) error {
-	t.Helper()
-	t.Logf("Waiting for %q to scale to zero", deploymentName)
-
-	return pkgTest.WaitForDeploymentState(
-		context.Background(),
-		clients.KubeClient,
-		deploymentName,
-		func(d *appsv1.Deployment) (bool, error) {
-			return d.Status.ReadyReplicas == 0, nil
-		},
-		"DeploymentIsScaledDown",
-		test.ServingFlags.TestNamespace,
-		scaleToZeroGracePeriod*6,
-	)
-}
 
 // ValidateImageDigest validates the image digest.
 func ValidateImageDigest(t *testing.T, imageName string, imageDigest string) (bool, error) {
@@ -94,7 +71,8 @@ func sendRequests(ctx context.Context, client *spoof.SpoofingClient, url *url.UR
 	responses := make([]string, num)
 
 	// Launch "num" requests, recording the responses we get in "responses".
-	g, gCtx := pool.NewWithContext(ctx, 8, num)
+	g, gCtx := errgroup.WithContext(ctx)
+	g.SetLimit(8)
 	for i := 0; i < num; i++ {
 		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
 		result := &responses[i]
@@ -103,6 +81,7 @@ func sendRequests(ctx context.Context, client *spoof.SpoofingClient, url *url.UR
 			if err != nil {
 				return err
 			}
+			spoof.WithHeader(test.ServingFlags.RequestHeader())(req)
 
 			resp, err := client.Do(req)
 			if err != nil {

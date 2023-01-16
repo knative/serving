@@ -94,6 +94,7 @@ func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
 				autoscaling.MetricAnnotationKey:   metric,
 				autoscaling.TargetAnnotationKey:   strconv.Itoa(target),
 				autoscaling.MaxScaleAnnotationKey: fmt.Sprintf("%d", int(maxPods)),
+				autoscaling.WindowAnnotationKey:   "20s",
 			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("30m"),
@@ -248,12 +249,12 @@ func waitForScaleToOne(t *testing.T, deploymentName string, clients *test.Client
 
 func waitForHPAState(t *testing.T, name, namespace string, clients *test.Clients) error {
 	return wait.PollImmediate(time.Second, 15*time.Minute, func() (bool, error) {
-		hpa, err := clients.KubeClient.AutoscalingV2beta2().HorizontalPodAutoscalers(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		hpa, err := clients.KubeClient.AutoscalingV2().HorizontalPodAutoscalers(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 		if hpa.Status.CurrentMetrics == nil {
-			t.Logf("Waiting for hpa.status is available: %v", hpa.Status)
+			t.Logf("Waiting for hpa.status is available: %#v", hpa.Status)
 			return false, nil
 		}
 		return true, nil

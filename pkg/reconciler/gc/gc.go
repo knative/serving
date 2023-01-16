@@ -71,41 +71,49 @@ func collect(
 		return a.Before(b)
 	})
 
-	// Delete stale revisions while more than min remain, swap nonstale revisions to the end.
-	swap := len(revs)
-
-	// If we need `min` to remain, this is the max index i can reach.
+	count := len(revs)
+	// If we need `min` to remain, this is the max count of rev can delete.
 	maxIdx := len(revs) - min
-	for i := 0; i < swap; {
+	staleCount := 0
+	for i := 0; i < count; i++ {
 		rev := revs[i]
-		switch {
-		case i >= maxIdx:
-			return nil
-		case isRevisionStale(cfg, rev, logger):
-			i++
-			logger.Info("Deleting stale revision: ", rev.ObjectMeta.Name)
-			if err := client.ServingV1().Revisions(rev.Namespace).Delete(ctx, rev.Name, metav1.DeleteOptions{}); err != nil {
-				logger.Errorw("Failed to GC revision: "+rev.Name, zap.Error(err))
-			}
-		default:
-			swap--
-			revs[i], revs[swap] = revs[swap], revs[i]
+		if !isRevisionStale(cfg, rev, logger) {
+			continue
 		}
-	}
-	revs = revs[swap:] // Reslice to include the nonstale revisions, which are now in reverse order
+		logger.Info("Deleting stale revision: ", rev.ObjectMeta.Name)
+		if err := client.ServingV1().Revisions(rev.Namespace).Delete(ctx, rev.Name, metav1.DeleteOptions{}); err != nil {
+			logger.Errorw("Failed to GC revision: "+rev.Name, zap.Error(err))
+		}
+		revs[i] = nil
+		staleCount++
+		if staleCount >= maxIdx {
+			return nil // Reaches max revs to delete
+		}
 
-	if max == gc.Disabled || len(revs) <= max {
+	}
+
+	nonStaleCount := count - staleCount
+	if max == gc.Disabled || nonStaleCount <= max {
 		return nil
 	}
+	needsDeleteCount := nonStaleCount - max
 
-	// Delete extra revisions past max.
+	// Stale revisions has been deleted, delete extra revisions past max.
 	logger.Infof("Maximum number of revisions (%d) reached, deleting oldest non-active (%d) revisions",
-		max, len(revs)-max)
-	for _, rev := range revs[max:] {
+		max, needsDeleteCount)
+	deletedCount := 0
+	for _, rev := range revs {
+		if deletedCount == needsDeleteCount {
+			break
+		}
+		if rev == nil {
+			continue
+		}
 		logger.Info("Deleting non-active revision: ", rev.ObjectMeta.Name)
 		if err := client.ServingV1().Revisions(rev.Namespace).Delete(ctx, rev.Name, metav1.DeleteOptions{}); err != nil {
 			logger.Errorw("Failed to GC revision: "+rev.Name, zap.Error(err))
 		}
+		deletedCount++
 	}
 	return nil
 }

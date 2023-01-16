@@ -18,7 +18,8 @@ metadata:
   name: config-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: devel
+    app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/version: devel
     networking.knative.dev/certificate-provider: cert-manager
 data:
   issuerRef: |

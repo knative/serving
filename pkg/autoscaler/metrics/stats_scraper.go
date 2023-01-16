@@ -32,7 +32,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	network "knative.dev/networking/pkg"
+	netcfg "knative.dev/networking/pkg/config"
 	pkgmetrics "knative.dev/pkg/metrics"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -143,7 +143,7 @@ var client = &http.Client{
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
 type serviceScraper struct {
-	meshMode     network.MeshCompatibilityMode
+	meshMode     netcfg.MeshCompatibilityMode
 	directClient scrapeClient
 	meshClient   scrapeClient
 
@@ -160,7 +160,7 @@ type serviceScraper struct {
 // NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
 func NewStatsScraper(metric *autoscalingv1alpha1.Metric, revisionName string, podAccessor resources.PodAccessor,
-	usePassthroughLb bool, meshMode network.MeshCompatibilityMode, logger *zap.SugaredLogger) StatsScraper {
+	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, logger *zap.SugaredLogger) StatsScraper {
 	directClient := newHTTPScrapeClient(client)
 	meshClient := newHTTPScrapeClient(noKeepaliveClient)
 	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, meshMode, directClient, meshClient, logger)
@@ -171,7 +171,7 @@ func newServiceScraperWithClient(
 	revisionName string,
 	podAccessor resources.PodAccessor,
 	usePassthroughLb bool,
-	meshMode network.MeshCompatibilityMode,
+	meshMode netcfg.MeshCompatibilityMode,
 	directClient, meshClient scrapeClient,
 	logger *zap.SugaredLogger) *serviceScraper {
 	svcName := metric.Labels[serving.ServiceLabelKey]
@@ -214,10 +214,10 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 	}()
 
 	switch s.meshMode {
-	case network.MeshCompatibilityModeEnabled:
+	case netcfg.MeshCompatibilityModeEnabled:
 		s.logger.Debug("Scraping via service due to meshMode setting")
 		return s.scrapeService(window)
-	case network.MeshCompatibilityModeDisabled:
+	case netcfg.MeshCompatibilityModeDisabled:
 		s.logger.Debug("Scraping pods directly due to meshMode setting")
 		return s.scrapePods(window)
 	default:

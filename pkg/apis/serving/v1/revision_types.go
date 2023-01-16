@@ -83,11 +83,23 @@ type RevisionSpec struct {
 	// +optional
 	ContainerConcurrency *int64 `json:"containerConcurrency,omitempty"`
 
-	// TimeoutSeconds is the maximum duration in seconds that the request routing
-	// layer will wait for a request delivered to a container to begin replying
-	// (send network traffic). If unspecified, a system default will be provided.
+	// TimeoutSeconds is the maximum duration in seconds that the request instance
+	// is allowed to respond to a request. If unspecified, a system default will
+	// be provided.
 	// +optional
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
+
+	// ResponseStartTimeoutSeconds is the maximum duration in seconds that the request
+	// routing layer will wait for a request delivered to a container to begin
+	// sending any network traffic.
+	// +optional
+	ResponseStartTimeoutSeconds *int64 `json:"responseStartTimeoutSeconds,omitempty"`
+
+	// IdleTimeoutSeconds is the maximum duration in seconds a request will be allowed
+	// to stay open while not receiving any bytes from the user's application. If
+	// unspecified, a system default will be provided.
+	// +optional
+	IdleTimeoutSeconds *int64 `json:"idleTimeoutSeconds,omitempty"`
 }
 
 const (

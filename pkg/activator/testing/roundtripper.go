@@ -24,7 +24,7 @@ import (
 
 	"go.uber.org/atomic"
 
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/serving/pkg/queue"
 )
 
@@ -110,7 +110,7 @@ func (rt *FakeRoundTripper) popResponse(host string) *FakeResponse {
 
 // RT is a RoundTripperFunc
 func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
-	if req.Header.Get(network.ProbeHeaderName) != "" {
+	if req.Header.Get(netheader.ProbeKey) != "" {
 		rt.NumProbes.Inc()
 		resp := rt.popResponse(req.URL.Host)
 		if resp.Err != nil {
@@ -118,13 +118,13 @@ func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 		}
 
 		// Make sure the probe is attributed with correct header.
-		if req.Header.Get(network.ProbeHeaderName) != queue.Name {
+		if req.Header.Get(netheader.ProbeKey) != queue.Name {
 			return response(&FakeResponse{
 				Code: http.StatusBadRequest,
 				Body: "probe sent to a wrong system",
 			})
 		}
-		if req.Header.Get(network.UserAgentKey) != network.ActivatorUserAgent {
+		if req.Header.Get(netheader.UserAgentKey) != netheader.ActivatorUserAgent {
 			return response(&FakeResponse{
 				Code: http.StatusBadRequest,
 				Body: "probe set with a wrong User-Agent value",
@@ -150,8 +150,8 @@ func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 	}
 
 	if rt.ExpectHost != "" {
-		if got, want := req.Header.Get(network.OriginalHostHeader), rt.ExpectHost; got != want {
-			return nil, fmt.Errorf("the %s header = %q, want: %q", network.OriginalHostHeader, got, want)
+		if got, want := req.Header.Get(netheader.OriginalHostKey), rt.ExpectHost; got != want {
+			return nil, fmt.Errorf("the %s header = %q, want: %q", netheader.OriginalHostKey, got, want)
 		}
 	}
 

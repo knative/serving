@@ -1,0 +1,11 @@
+apiVersion: kapp.k14s.io/v1alpha1
+kind: Config
+rebaseRules:
+- path: [spec, replicas]
+  type: copy
+  sources: [existing, new]
+  resourceMatchers:
+  - kindNamespaceNameMatcher:
+      kind: Deployment
+      name: activator
+      namespace: knative-serving

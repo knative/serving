@@ -117,7 +117,7 @@ func (c *FakeImages) UpdateStatus(ctx context.Context, image *v1alpha1.Image, op
 // Delete takes name of the image and deletes it. Returns an error if one occurs.
 func (c *FakeImages) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(imagesResource, c.ns, name), &v1alpha1.Image{})
+		Invokes(testing.NewDeleteActionWithOptions(imagesResource, c.ns, name, opts), &v1alpha1.Image{})
 
 	return err
 }

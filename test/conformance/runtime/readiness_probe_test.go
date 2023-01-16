@@ -33,17 +33,22 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
-	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/conformance/api/shared"
 	v1test "knative.dev/serving/test/v1"
 )
 
 // readinessPropagationTime is how long to poll to allow for readiness probe
 // changes to propagate to ingresses/activator.
-// This is based on the default scaleToZeroGracePeriod.
-const readinessPropagationTime = 30 * time.Second
+//
+// When Readiness.PeriodSeconds=0 the underlying Pods use the K8s
+// defaults for readiness. Those are:
+// - Readiness.PeriodSeconds=10
+// - Readiness.FailureThreshold=3
+//
+// Thus it takes at a mininum 30 seconds for the Pod to become
+// unready. To account for this we bump max propagation time
+const readinessPropagationTime = time.Minute
 
 func TestProbeRuntime(t *testing.T) {
 	t.Parallel()
@@ -57,7 +62,7 @@ func TestProbeRuntime(t *testing.T) {
 		// Use a short name here to avoid hitting the 63-character limit in names
 		// (e.g., "service-to-service-call-svc-cluster-local-uagkdshh-frkml-service" is too long.)
 		name    string
-		handler corev1.Handler
+		handler corev1.ProbeHandler
 		env     []corev1.EnvVar
 	}{{
 		name: "httpGet",
@@ -65,7 +70,7 @@ func TestProbeRuntime(t *testing.T) {
 			Name:  "READY_DELAY",
 			Value: "10s",
 		}},
-		handler: corev1.Handler{
+		handler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/healthz",
 			},
@@ -76,7 +81,7 @@ func TestProbeRuntime(t *testing.T) {
 			Name:  "LISTEN_DELAY",
 			Value: "10s",
 		}},
-		handler: corev1.Handler{
+		handler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{},
 		},
 	}, {
@@ -85,7 +90,7 @@ func TestProbeRuntime(t *testing.T) {
 			Name:  "READY_DELAY",
 			Value: "10s",
 		}},
-		handler: corev1.Handler{
+		handler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"/ko-app/readiness", "probe"},
 			},
@@ -116,7 +121,7 @@ func TestProbeRuntime(t *testing.T) {
 					v1opts.WithEnv(tc.env...),
 					v1opts.WithReadinessProbe(
 						&corev1.Probe{
-							Handler:       tc.handler,
+							ProbeHandler:  tc.handler,
 							PeriodSeconds: period,
 						}))
 				if err != nil {
@@ -135,13 +140,9 @@ func TestProbeRuntime(t *testing.T) {
 					"readinessIsReady",
 					test.ServingFlags.ResolvableDomain,
 					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+					spoof.WithHeader(test.ServingFlags.RequestHeader()),
 				); err != nil {
 					t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
-				}
-
-				// Check if scaling down works even if access from liveness probe exists.
-				if err := shared.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
-					t.Fatal("Could not scale to zero:", err)
 				}
 			})
 		}
@@ -150,8 +151,11 @@ func TestProbeRuntime(t *testing.T) {
 
 // This test validates the behaviour of readiness probes *after* initial
 // startup. When a pod goes unready after startup and there are no other pods
-// in the revision we hang, potentially forever, which may or may not be what a
-// user wants.
+// in the revision, then there are two possible behaviors:
+//  1. When the Activator is present we hang, potentially forever, which may or
+//     may not be what a user wants.
+//  2. When the Activator is not present, we see a 5xx.
+//
 // The goal of this test is largely to describe the current behaviour, so that
 // we can confidently change it.
 // See https://github.com/knative/serving/issues/10765.
@@ -196,9 +200,14 @@ func TestProbeRuntimeAfterStartup(t *testing.T) {
 				} else if resp.StatusCode == http.StatusOK {
 					// We'll continue to get 200s for a while until readiness propagates.
 					return false, nil
+				} else if resp.StatusCode == http.StatusServiceUnavailable {
+					// When the activator isn't on the request path, we expect
+					// the service to serve 503s when all the endpoints become
+					// unavailable.
+					return true, nil
 				}
 
-				return false, errors.New("Received non-200 status code (expected to eventually time out)")
+				return false, fmt.Errorf("Received non-200, non-503 status code: %d, wanted request to time out.\nBody: %s", resp.StatusCode, string(resp.Body))
 			}); err != nil {
 				t.Fatal("Expected to eventually see request timeout due to all pods becoming unready, but got:", err)
 			}
@@ -214,7 +223,7 @@ func waitReadyThenStartFailing(t *testing.T, clients *test.Clients, names test.R
 	resources, err := v1test.CreateServiceReady(t, clients, &names, v1opts.WithReadinessProbe(
 		&corev1.Probe{
 			PeriodSeconds: probePeriod,
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/healthz",
 				},
@@ -240,6 +249,7 @@ func waitReadyThenStartFailing(t *testing.T, clients *test.Clients, names test.R
 		"readinessIsReady",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+		spoof.WithHeader(test.ServingFlags.RequestHeader()),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
 	}

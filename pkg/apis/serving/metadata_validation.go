@@ -89,7 +89,6 @@ func ValidateHasNoAutoscalingAnnotation(annotations map[string]string) (errs *ap
 }
 
 // ValidateContainerConcurrency function validates the ContainerConcurrency field
-// TODO(#5007): Move this to autoscaling.
 func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int64) *apis.FieldError {
 	if containerConcurrency != nil {
 		cfg := config.FromContextOrDefaults(ctx).Defaults
@@ -105,14 +104,6 @@ func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int
 		}
 	}
 	return nil
-}
-
-// validateClusterVisibilityLabel function validates the visibility label on a Route
-func validateClusterVisibilityLabel(label, key string) (errs *apis.FieldError) {
-	if label != VisibilityClusterLocal {
-		errs = apis.ErrInvalidValue(label, key)
-	}
-	return errs
 }
 
 // SetUserInfo sets creator and updater annotations

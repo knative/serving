@@ -229,7 +229,7 @@ func TestVolumeMountMask(t *testing.T) {
 
 func TestProbeMask(t *testing.T) {
 	want := &corev1.Probe{
-		Handler:             corev1.Handler{},
+		ProbeHandler:        corev1.ProbeHandler{},
 		InitialDelaySeconds: 42,
 		TimeoutSeconds:      42,
 		PeriodSeconds:       42,
@@ -256,7 +256,7 @@ func TestProbeMask(t *testing.T) {
 }
 
 func TestHandlerMask(t *testing.T) {
-	want := &corev1.Handler{
+	want := &corev1.ProbeHandler{
 		Exec:      &corev1.ExecAction{},
 		HTTPGet:   &corev1.HTTPGetAction{},
 		TCPSocket: &corev1.TCPSocketAction{},
@@ -656,6 +656,9 @@ func TestPodSecurityContextMask(t *testing.T) {
 		RunAsGroup:         ptr.Int64(1),
 		RunAsNonRoot:       ptr.Bool(true),
 		FSGroup:            ptr.Int64(1),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
 
 	want := &corev1.PodSecurityContext{}
@@ -688,6 +691,9 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 		RunAsGroup:         ptr.Int64(1),
 		RunAsNonRoot:       ptr.Bool(true),
 		FSGroup:            ptr.Int64(1),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
 
 	want := &corev1.PodSecurityContext{
@@ -696,6 +702,9 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 		RunAsNonRoot:       ptr.Bool(true),
 		FSGroup:            ptr.Int64(1),
 		SupplementalGroups: []int64{1},
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
 
 	ctx := config.ToContext(context.Background(),
@@ -722,11 +731,15 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 func TestSecurityContextMask(t *testing.T) {
 	mtype := corev1.UnmaskedProcMount
 	want := &corev1.SecurityContext{
-		Capabilities:           &corev1.Capabilities{},
-		RunAsUser:              ptr.Int64(1),
-		RunAsGroup:             ptr.Int64(2),
-		RunAsNonRoot:           ptr.Bool(true),
-		ReadOnlyRootFilesystem: ptr.Bool(true),
+		Capabilities:             &corev1.Capabilities{},
+		RunAsUser:                ptr.Int64(1),
+		RunAsGroup:               ptr.Int64(2),
+		RunAsNonRoot:             ptr.Bool(true),
+		ReadOnlyRootFilesystem:   ptr.Bool(true),
+		AllowPrivilegeEscalation: ptr.Bool(false),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
 	in := &corev1.SecurityContext{
 		RunAsUser:                ptr.Int64(1),
@@ -736,8 +749,12 @@ func TestSecurityContextMask(t *testing.T) {
 		RunAsGroup:               ptr.Int64(2),
 		RunAsNonRoot:             ptr.Bool(true),
 		ReadOnlyRootFilesystem:   ptr.Bool(true),
-		AllowPrivilegeEscalation: ptr.Bool(true),
+		AllowPrivilegeEscalation: ptr.Bool(false),
 		ProcMount:                &mtype,
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+		WindowsOptions: &corev1.WindowsSecurityContextOptions{},
 	}
 
 	got := SecurityContextMask(context.Background(), in)
@@ -760,14 +777,18 @@ func TestSecurityContextMask(t *testing.T) {
 func TestSecurityContextMask_FeatureEnabled(t *testing.T) {
 	mtype := corev1.UnmaskedProcMount
 	want := &corev1.SecurityContext{
-		Capabilities:           &corev1.Capabilities{},
-		RunAsGroup:             ptr.Int64(2),
-		RunAsNonRoot:           ptr.Bool(true),
-		RunAsUser:              ptr.Int64(1),
-		ReadOnlyRootFilesystem: ptr.Bool(true),
+		AllowPrivilegeEscalation: ptr.Bool(false),
+		Capabilities:             &corev1.Capabilities{},
+		RunAsGroup:               ptr.Int64(2),
+		RunAsNonRoot:             ptr.Bool(true),
+		RunAsUser:                ptr.Int64(1),
+		ReadOnlyRootFilesystem:   ptr.Bool(true),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
 	in := &corev1.SecurityContext{
-		AllowPrivilegeEscalation: ptr.Bool(true),
+		AllowPrivilegeEscalation: ptr.Bool(false),
 		Capabilities:             &corev1.Capabilities{},
 		Privileged:               ptr.Bool(true),
 		ProcMount:                &mtype,
@@ -776,6 +797,10 @@ func TestSecurityContextMask_FeatureEnabled(t *testing.T) {
 		RunAsNonRoot:             ptr.Bool(true),
 		RunAsUser:                ptr.Int64(1),
 		SELinuxOptions:           &corev1.SELinuxOptions{},
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+		WindowsOptions: &corev1.WindowsSecurityContextOptions{},
 	}
 
 	ctx := config.ToContext(context.Background(),

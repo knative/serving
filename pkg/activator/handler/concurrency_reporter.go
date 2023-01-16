@@ -26,7 +26,7 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	network "knative.dev/networking/pkg"
+	netstats "knative.dev/networking/pkg/http/stats"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	pkgmetrics "knative.dev/pkg/metrics"
@@ -46,7 +46,7 @@ const reportInterval = time.Second
 // firstRequest is only read/mutated in `report` which is guaranteed to be single-threaded
 // as it is driven by the report channel.
 type revisionStats struct {
-	stats        *network.RequestStats
+	stats        *netstats.RequestStats
 	firstRequest float64
 	refs         atomic.Int64
 }
@@ -81,7 +81,7 @@ func NewConcurrencyReporter(ctx context.Context, podName string, statCh chan []a
 
 // handleRequestIn handles an event of a request coming into the system. Returns the stats
 // the outgoing event should be recorded to.
-func (cr *ConcurrencyReporter) handleRequestIn(event network.ReqEvent) *revisionStats {
+func (cr *ConcurrencyReporter) handleRequestIn(event netstats.ReqEvent) *revisionStats {
 	stat, msg := cr.getOrCreateStat(event)
 	if msg != nil {
 		cr.statCh <- []asmetrics.StatMessage{*msg}
@@ -92,7 +92,7 @@ func (cr *ConcurrencyReporter) handleRequestIn(event network.ReqEvent) *revision
 
 // handleRequestOut handles an event of a request being done. Takes the stats returned by
 // the handleRequestIn call.
-func (cr *ConcurrencyReporter) handleRequestOut(stat *revisionStats, event network.ReqEvent) {
+func (cr *ConcurrencyReporter) handleRequestOut(stat *revisionStats, event netstats.ReqEvent) {
 	stat.stats.HandleEvent(event)
 	stat.refs.Dec()
 }
@@ -100,7 +100,7 @@ func (cr *ConcurrencyReporter) handleRequestOut(stat *revisionStats, event netwo
 // getOrCreateStat gets a stat from the state if present.
 // If absent it creates a new one and returns it, potentially returning a StatMessage too
 // to trigger an immediate scale-from-0.
-func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*revisionStats, *asmetrics.StatMessage) {
+func (cr *ConcurrencyReporter) getOrCreateStat(event netstats.ReqEvent) (*revisionStats, *asmetrics.StatMessage) {
 	cr.mux.RLock()
 	stat := cr.stats[event.Key]
 	if stat != nil {
@@ -125,7 +125,7 @@ func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*revisio
 	}
 
 	stat = &revisionStats{
-		stats:        network.NewRequestStats(event.Time),
+		stats:        netstats.NewRequestStats(event.Time),
 		firstRequest: 1,
 	}
 	stat.refs.Inc()
@@ -245,9 +245,9 @@ func (cr *ConcurrencyReporter) Handler(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		revisionKey := RevIDFrom(r.Context())
 
-		stat := cr.handleRequestIn(network.ReqEvent{Key: revisionKey, Type: network.ReqIn, Time: time.Now()})
+		stat := cr.handleRequestIn(netstats.ReqEvent{Key: revisionKey, Type: netstats.ReqIn, Time: time.Now()})
 		defer func() {
-			cr.handleRequestOut(stat, network.ReqEvent{Key: revisionKey, Type: network.ReqOut, Time: time.Now()})
+			cr.handleRequestOut(stat, netstats.ReqEvent{Key: revisionKey, Type: netstats.ReqOut, Time: time.Now()})
 		}()
 
 		next.ServeHTTP(w, r)

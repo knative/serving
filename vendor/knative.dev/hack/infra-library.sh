@@ -17,7 +17,7 @@
 # This is a collection of functions for infra related setups, mainly
 # cluster provisioning. It doesn't do anything when called from command line.
 
-source $(dirname "${BASH_SOURCE[0]}")/library.sh
+source "$(dirname "${BASH_SOURCE[0]:-$0}")/library.sh"
 
 # Dumps the k8s api server metrics. Spins up a proxy, waits a little bit and
 # dumps the metrics to ${ARTIFACTS}/k8s.metrics.txt
@@ -77,20 +77,6 @@ function dump_cluster_state() {
   echo "***************************************"
 }
 
-# Sets the current user as cluster admin for the given cluster.
-# Parameters: $1 - cluster context name
-function acquire_cluster_admin_role() {
-  if [[ -z "$(kubectl get clusterrolebinding cluster-admin-binding 2> /dev/null)" ]]; then
-    if [[ "$1" =~ ^gke_.* ]]; then
-      kubectl create clusterrolebinding cluster-admin-binding \
-        --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"
-    else
-      kubectl create clusterrolebinding cluster-admin-binding \
-        --clusterrole=cluster-admin --user="prow"
-    fi
-  fi
-}
-
 # Create a test cluster and run the tests if provided.
 # Parameters: $1 - cluster provider name, e.g. gke
 #             $2 - custom flags supported by kntest
@@ -105,8 +91,8 @@ function create_test_cluster() {
   fi
 
   case "$1" in
-    gke) create_gke_test_cluster "$2" "$3" "$4" ;;
-    kind) create_kind_test_cluster "$2" "$3" "$4" ;;
+    gke) create_gke_test_cluster "$2" "$3" "${4:-}" ;;
+    kind) create_kind_test_cluster "$2" "$3" "${4:-}" ;;
     *) echo "unsupported provider: $1"; exit 1 ;;
   esac
 
@@ -137,5 +123,23 @@ function create_gke_test_cluster() {
   local -n _custom_flags=$1
   local -n _test_command=$2
 
-  run_kntest kubetest2 gke "${_custom_flags[@]}" --test-command="${_test_command[*]}"
+  # We are disabling logs and metrics on Boskos Clusters by default as they are not used. Manually set ENABLE_GKE_TELEMETRY to true to enable telemetry
+  # and ENABLE_PREEMPTIBLE_NODES to true to create preemptible/spot VMs. VM Preemption is a rare event and shouldn't be distruptive given the fault tolerant nature of our tests.
+  local extra_gcloud_flags=""
+  if [[ "${ENABLE_GKE_TELEMETRY:-}" != "true" ]]; then
+    extra_gcloud_flags="${extra_gcloud_flags} --logging=NONE --monitoring=NONE"
+  fi
+
+  if [[ "${ENABLE_PREEMPTIBLE_NODES:-}" == "true" ]]; then
+    extra_gcloud_flags="${extra_gcloud_flags} --preemptible"
+  fi
+  if ! command -v kubetest2 >/dev/null; then
+    tmpbin="$(mktemp -d)"
+    echo "kubetest2 not found, installing in temp path: ${tmpbin}"
+    GOBIN="$tmpbin" go install sigs.k8s.io/kubetest2/...@latest
+    export PATH="${tmpbin}:${PATH}"
+  fi
+  run_kntest kubetest2 gke "${_custom_flags[@]}" \
+    --test-command="${_test_command[*]}" \
+    --extra-gcloud-flags="${extra_gcloud_flags}"
 }

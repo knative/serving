@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Knative Authors
+Copyright 2022 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ func (c *FakeDomainMappings) UpdateStatus(ctx context.Context, domainMapping *v1
 // Delete takes name of the domainMapping and deletes it. Returns an error if one occurs.
 func (c *FakeDomainMappings) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(domainmappingsResource, c.ns, name), &v1beta1.DomainMapping{})
+		Invokes(testing.NewDeleteActionWithOptions(domainmappingsResource, c.ns, name, opts), &v1beta1.DomainMapping{})
 
 	return err
 }

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: autoscaling/v2beta2
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: webhook
@@ -21,7 +21,6 @@ metadata:
     app.kubernetes.io/component: webhook
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
 spec:
   minReplicas: 1
   maxReplicas: 5
@@ -39,7 +38,7 @@ spec:
         averageUtilization: 100
 ---
 # Webhook PDB.
-apiVersion: policy/v1beta1
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: webhook-pdb
@@ -48,7 +47,6 @@ metadata:
     app.kubernetes.io/component: webhook
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
 spec:
   minAvailable: 80%
   selector:

@@ -31,7 +31,7 @@ func TestParseProbeSuccess(t *testing.T) {
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 				Port: intstr.FromString("8080"),
@@ -65,7 +65,7 @@ func TestParseProbeFailure(t *testing.T) {
 func TestEncodeProbe(t *testing.T) {
 	probe := &corev1.Probe{
 		SuccessThreshold: 1,
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 				Port: intstr.FromString("8080"),

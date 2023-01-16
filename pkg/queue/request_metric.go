@@ -25,7 +25,7 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
-	network "knative.dev/networking/pkg"
+	netheader "knative.dev/networking/pkg/http/header"
 	pkgmetrics "knative.dev/pkg/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/metrics"
@@ -110,7 +110,7 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	defer func() {
 		// Filter probe requests for revision metrics.
-		if network.IsProbe(r) {
+		if netheader.IsProbe(r) {
 			return
 		}
 
@@ -178,7 +178,7 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	}
 	defer func() {
 		// Filter probe requests for revision metrics.
-		if network.IsProbe(r) {
+		if netheader.IsProbe(r) {
 			return
 		}
 
@@ -207,8 +207,8 @@ const (
 
 // GetRouteTagNameFromRequest extracts the value of the tag header from http.Request
 func GetRouteTagNameFromRequest(r *http.Request) string {
-	name := r.Header.Get(network.TagHeaderName)
-	isDefaultRoute := r.Header.Get(network.DefaultRouteHeaderName)
+	name := r.Header.Get(netheader.RouteTagKey)
+	isDefaultRoute := r.Header.Get(netheader.DefaultRouteKey)
 
 	if name == "" {
 		if isDefaultRoute == "" {

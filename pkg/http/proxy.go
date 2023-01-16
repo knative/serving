@@ -20,8 +20,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	networking "knative.dev/networking/pkg"
-	"knative.dev/pkg/network"
+	netheader "knative.dev/networking/pkg/http/header"
 )
 
 // NoHostOverride signifies that no host overriding should be done and that the host
@@ -33,21 +32,25 @@ const NoHostOverride = ""
 // If hostOverride is not an empty string, the outgoing request's Host header will be
 // replaced with that explicit value and the passthrough loadbalancing header will be
 // set to enable pod-addressability.
-func NewHeaderPruningReverseProxy(target, hostOverride string, headersToRemove []string) *httputil.ReverseProxy {
+func NewHeaderPruningReverseProxy(target, hostOverride string, headersToRemove []string, useHTTPS bool) *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
-			req.URL.Scheme = "http"
+			if useHTTPS {
+				req.URL.Scheme = "https"
+			} else {
+				req.URL.Scheme = "http"
+			}
 			req.URL.Host = target
 
 			if hostOverride != NoHostOverride {
 				req.Host = hostOverride
-				req.Header.Add(networking.PassthroughLoadbalancingHeaderName, "true")
+				req.Header.Add(netheader.PassthroughLoadbalancingKey, "true")
 			}
 
 			// Copied from httputil.NewSingleHostReverseProxy.
-			if _, ok := req.Header[network.UserAgentKey]; !ok {
+			if _, ok := req.Header[netheader.UserAgentKey]; !ok {
 				// explicitly disable User-Agent so it's not set to default value
-				req.Header.Set(network.UserAgentKey, "")
+				req.Header.Set(netheader.UserAgentKey, "")
 			}
 
 			for _, h := range headersToRemove {

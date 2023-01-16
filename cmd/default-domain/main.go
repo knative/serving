@@ -36,9 +36,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	network "knative.dev/networking/pkg"
-	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/networking/pkg/client/clientset/versioned"
+	netapi "knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netclient "knative.dev/networking/pkg/client/clientset/versioned"
+	netcfg "knative.dev/networking/pkg/config"
+	netprobe "knative.dev/networking/pkg/http/probe"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
@@ -59,7 +61,7 @@ const (
 	appName     = "default-domain"
 )
 
-func clientsFromFlags() (kubernetes.Interface, *versioned.Clientset, error) {
+func clientsFromFlags() (kubernetes.Interface, *netclient.Clientset, error) {
 	cfg, err := clientcmd.BuildConfigFromFlags(*serverURL, *kubeconfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error building kubeconfig: %w", err)
@@ -68,7 +70,7 @@ func clientsFromFlags() (kubernetes.Interface, *versioned.Clientset, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("error building kube clientset: %w", err)
 	}
-	client, err := versioned.NewForConfig(cfg)
+	client, err := netclient.NewForConfig(cfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error building serving clientset: %w", err)
 	}
@@ -79,8 +81,8 @@ func lookupConfigMap(ctx context.Context, kubeClient kubernetes.Interface, name 
 	return kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, name, metav1.GetOptions{})
 }
 
-func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, client *versioned.Clientset) (*corev1.LoadBalancerIngress, error) {
-	netCM, err := lookupConfigMap(ctx, kubeclient, network.ConfigName)
+func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, client *netclient.Clientset) (*corev1.LoadBalancerIngress, error) {
+	netCM, err := lookupConfigMap(ctx, kubeclient, netcfg.ConfigMapName)
 	if err != nil {
 		return nil, err
 	}
@@ -90,22 +92,22 @@ func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, cl
 	}
 
 	// Create a KIngress that points at that Service
-	ing, err := client.NetworkingV1alpha1().Ingresses(system.Namespace()).Create(ctx, &v1alpha1.Ingress{
+	ing, err := client.NetworkingV1alpha1().Ingresses(system.Namespace()).Create(ctx, &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "default-domain-",
 			Namespace:    system.Namespace(),
 			Annotations: map[string]string{
-				networking.IngressClassAnnotationKey: netCfg.DefaultIngressClass,
+				netapi.IngressClassAnnotationKey: netCfg.DefaultIngressClass,
 			},
 		},
-		Spec: v1alpha1.IngressSpec{
-			Rules: []v1alpha1.IngressRule{{
+		Spec: netv1alpha1.IngressSpec{
+			Rules: []netv1alpha1.IngressRule{{
 				Hosts:      []string{os.Getenv("POD_NAME") + ".default-domain.invalid"},
-				Visibility: v1alpha1.IngressVisibilityExternalIP,
-				HTTP: &v1alpha1.HTTPIngressRuleValue{
-					Paths: []v1alpha1.HTTPIngressPath{{
-						Splits: []v1alpha1.IngressBackendSplit{{
-							IngressBackend: v1alpha1.IngressBackend{
+				Visibility: netv1alpha1.IngressVisibilityExternalIP,
+				HTTP: &netv1alpha1.HTTPIngressRuleValue{
+					Paths: []netv1alpha1.HTTPIngressPath{{
+						Splits: []netv1alpha1.IngressBackendSplit{{
+							IngressBackend: netv1alpha1.IngressBackend{
 								ServiceName:      "default-domain-service",
 								ServiceNamespace: system.Namespace(),
 								ServicePort:      intstr.FromInt(80),
@@ -187,10 +189,11 @@ func main() {
 	}
 
 	// Start an HTTP Server
-	h := network.NewProbeHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	h := netprobe.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	server := http.Server{Addr: ":8080", Handler: h}
+	//nolinlt:gosec https://github.com/knative/serving/issues/13439
+	server := http.Server{Addr: ":8080", Handler: h, ReadHeaderTimeout: time.Minute}
 	go server.ListenAndServe()
 
 	// Determine the address of the gateway service.

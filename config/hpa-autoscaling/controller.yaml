@@ -22,7 +22,6 @@ metadata:
     app.kubernetes.io/component: autoscaler-hpa
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
 spec:
   selector:
     matchLabels:
@@ -36,7 +35,6 @@ spec:
         app.kubernetes.io/component: autoscaler-hpa
         app.kubernetes.io/name: knative-serving
         app.kubernetes.io/version: devel
-        serving.knative.dev/release: devel
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
       affinity:
@@ -84,7 +82,9 @@ spec:
           runAsNonRoot: true
           capabilities:
             drop:
-            - all
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
 
         ports:
         - name: metrics
@@ -102,7 +102,6 @@ metadata:
     app.kubernetes.io/component: autoscaler-hpa
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
   name: autoscaler-hpa
   namespace: knative-serving
 spec:

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2022 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,50 +17,66 @@ limitations under the License.
 package changeset
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"regexp"
-	"strings"
+	"runtime/debug"
+	"strconv"
+	"sync"
 )
 
-const (
-	commitIDFile      = "HEAD"
-	koDataPathEnvName = "KO_DATA_PATH"
+const Unknown = "unknown"
+
+var (
+	shaRegexp = regexp.MustCompile(`^[a-f0-9]{40,64}$`)
+	rev       string
+	once      sync.Once
+
+	readBuildInfo = debug.ReadBuildInfo
 )
 
-var commitIDRE = regexp.MustCompile(`^[a-f0-9]{40}$`)
-
-// Get tries to fetch the first 7 digitals of GitHub commit ID from HEAD file in
-// KO_DATA_PATH. If it fails, it returns the error it gets.
-func Get() (string, error) {
-	data, err := readFileFromKoData(commitIDFile)
-	if err != nil {
-		return "", err
-	}
-	commitID := strings.TrimSpace(string(data))
-	if rID := strings.TrimPrefix(commitID, "ref: "); rID != commitID {
-		data, err := readFileFromKoData(rID)
-		if err != nil {
-			return "", err
+// Get returns the 'vcs.revision' property from the embedded build information
+// If there is no embedded information 'unknown' will be returned
+//
+// The result will have a '-dirty' suffix if the workspace was not clean
+func Get() string {
+	once.Do(func() {
+		if rev == "" {
+			rev = get()
 		}
-		commitID = strings.TrimSpace(string(data))
-	}
-	if commitIDRE.MatchString(commitID) {
-		return commitID[:7], nil
-	}
-	return "", fmt.Errorf("%q is not a valid GitHub commit ID", commitID)
+		// It has been set through ldflags, do nothing
+	})
+
+	return rev
 }
 
-// readFileFromKoData tries to read data as string from the file with given name
-// under KO_DATA_PATH then returns the content as string. The file is expected
-// to be wrapped into the container from /kodata by ko. If it fails, returns
-// the error it gets.
-func readFileFromKoData(filename string) ([]byte, error) {
-	koDataPath := os.Getenv(koDataPathEnvName)
-	if koDataPath == "" {
-		return nil, fmt.Errorf("%q does not exist or is empty", koDataPathEnvName)
+func get() string {
+	info, ok := readBuildInfo()
+	if !ok {
+		return Unknown
 	}
-	return ioutil.ReadFile(filepath.Join(koDataPath, filename))
+
+	var revision string
+	var modified bool
+
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			revision = s.Value
+		case "vcs.modified":
+			modified, _ = strconv.ParseBool(s.Value)
+		}
+	}
+
+	if revision == "" {
+		return Unknown
+	}
+
+	if shaRegexp.MatchString(revision) {
+		revision = revision[:7]
+	}
+
+	if modified {
+		revision += "-dirty"
+	}
+
+	return revision
 }

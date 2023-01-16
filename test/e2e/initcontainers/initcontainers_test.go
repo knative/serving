@@ -44,7 +44,7 @@ func TestInitContainers(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.EmptyDir,
+		Image:   test.Volumes,
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -65,7 +65,7 @@ func TestInitContainers(t *testing.T) {
 
 	withInitContainer := WithInitContainer(corev1.Container{
 		Name:  "initsetup",
-		Image: pkgTest.ImagePath(test.EmptyDir),
+		Image: pkgTest.ImagePath(test.Volumes),
 		VolumeMounts: []corev1.VolumeMount{{
 			Name:      "data",
 			MountPath: "/data",

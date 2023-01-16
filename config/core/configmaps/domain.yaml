@@ -21,9 +21,8 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
-    serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "81552d0b"
+    knative.dev/example-checksum: "26c09de5"
 data:
   _example: |
     ################################
@@ -42,16 +41,6 @@ data:
     # to actually change the configuration.
 
     # Default value for domain.
-    # Although it will match all routes, it is the least-specific rule so it
-    # will only be used if no other domain matches.
-    example.com: |
-
-    # These are example settings of domain.
-    # example.org will be used for routes having app=nonprofit.
-    example.org: |
-      selector:
-        app: nonprofit
-
     # Routes having the cluster domain suffix (by default 'svc.cluster.local')
     # will not be exposed through Ingress. You can define your own label
     # selector to assign that domain suffix to your Route here, or you can set
@@ -62,3 +51,13 @@ data:
     svc.cluster.local: |
       selector:
         app: secret
+
+    # These are example settings of domain.
+    # example.com will be used for all routes, but it is the least-specific rule so it
+    # will only be used if no other domain matches.
+    example.com: |
+
+    # example.org will be used for routes having app=nonprofit.
+    example.org: |
+      selector:
+        app: nonprofit

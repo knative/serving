@@ -24,7 +24,7 @@ import (
 	"k8s.io/gengo/generator"
 	"k8s.io/gengo/namer"
 	"k8s.io/gengo/types"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 // injectionTestGenerator produces a file of listers for a given GroupVersion and
@@ -41,6 +41,7 @@ type filteredInjectionGenerator struct {
 	injectionClientSetPackage   string
 	clientSetPackage            string
 	listerPkg                   string
+	listerHasPointerElem        bool
 }
 
 var _ generator.Generator = (*filteredInjectionGenerator)(nil)
@@ -92,6 +93,7 @@ func (g *filteredInjectionGenerator) GenerateType(c *generator.Context, t *types
 		"clientSetInterface":                 c.Universe.Type(types.Name{Package: g.clientSetPackage, Name: "Interface"}),
 		"resourceLister":                     c.Universe.Type(types.Name{Name: g.typeToGenerate.Name.Name + "Lister", Package: g.listerPkg}),
 		"resourceNamespaceLister":            c.Universe.Type(types.Name{Name: g.typeToGenerate.Name.Name + "NamespaceLister", Package: g.listerPkg}),
+		"listerHasPointerElem":               g.listerHasPointerElem,
 		"groupGoName":                        namer.IC(g.groupGoName),
 		"versionGoName":                      namer.IC(g.groupVersion.Version.String()),
 		"group":                              namer.IC(g.groupGoName),
@@ -246,7 +248,7 @@ func (w *wrapper) List(selector {{ .labelsSelector|raw }}) (ret []*{{ .type|raw 
 		return nil, err
 	}
 	for idx := range lo.Items {
-		ret = append(ret, &lo.Items[idx])
+		ret = append(ret, {{if not .listerHasPointerElem}}&{{end}}lo.Items[idx])
 	}
 	return ret, nil
 }

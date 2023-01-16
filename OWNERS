@@ -1,8 +1,11 @@
 # The OWNERS file is used by prow to automatically merge approved PRs.
 
 approvers:
-- technical-oversight-committee
-- api-core-wg-leads
-- autoscaling-wg-leads
-- networking-wg-leads
 - knative-release-leads
+- networking-wg-leads
+- technical-oversight-committee
+- serving-wg-leads
+- serving-writers
+
+reviewers:
+- serving-reviewers

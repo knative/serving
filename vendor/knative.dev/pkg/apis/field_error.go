@@ -28,18 +28,54 @@ import (
 // a problem with the current field itself.
 const CurrentField = ""
 
+// DiagnosticLevel is used to signal the severity of a particular diagnostic
+// in the form of a FieldError.
+type DiagnosticLevel int
+
+const (
+	// ErrorLevel is used to signify fatal/blocking diagnostics, e.g. those
+	// that should block admission in a validating admission webhook.
+	ErrorLevel DiagnosticLevel = iota
+
+	// WarningLevel is used to signify information/non-blocking diagnostics,
+	// e.g. those that should be surfaced as warnings in a validating admission
+	// webhook.
+	WarningLevel
+)
+
+func (dl DiagnosticLevel) String() string {
+	switch dl {
+	case ErrorLevel:
+		return "Error"
+	case WarningLevel:
+		return "Warning"
+
+	default:
+		return fmt.Sprintf("<UNKNOWN: %d>", dl)
+	}
+}
+
 // FieldError is used to propagate the context of errors pertaining to
 // specific fields in a manner suitable for use in a recursive walk, so
 // that errors contain the appropriate field context.
 // FieldError methods are non-mutating.
 // +k8s:deepcopy-gen=true
 type FieldError struct {
+	// Message holds the main diagnostic message carried by this FieldError
 	Message string
-	Paths   []string
+
+	// Paths holds a list of paths to which this diagnostic pertains
+	Paths []string
+
+	// Level holds the severity of the diagnostic.
+	// If empty, this defaults to ErrorLevel.
+	Level DiagnosticLevel
+
 	// Details contains an optional longer payload.
 	// +optional
 	Details string
-	errors  []FieldError
+
+	errors []FieldError
 }
 
 // FieldError implements error
@@ -47,11 +83,12 @@ var _ error = (*FieldError)(nil)
 
 // ViaField is used to propagate a validation error along a field access.
 // For example, if a type recursively validates its "spec" via:
-//   if err := foo.Spec.Validate(); err != nil {
-//     // Augment any field paths with the context that they were accessed
-//     // via "spec".
-//     return err.ViaField("spec")
-//   }
+//
+//	if err := foo.Spec.Validate(); err != nil {
+//	  // Augment any field paths with the context that they were accessed
+//	  // via "spec".
+//	  return err.ViaField("spec")
+//	}
 func (fe *FieldError) ViaField(prefix ...string) *FieldError {
 	if fe == nil {
 		return nil
@@ -60,6 +97,7 @@ func (fe *FieldError) ViaField(prefix ...string) *FieldError {
 	// along using .Also().
 	newErr := &FieldError{
 		Message: fe.Message,
+		Level:   fe.Level,
 		Details: fe.Details,
 	}
 
@@ -77,11 +115,12 @@ func (fe *FieldError) ViaField(prefix ...string) *FieldError {
 
 // ViaIndex is used to attach an index to the next ViaField provided.
 // For example, if a type recursively validates a parameter that has a collection:
-//  for i, c := range spec.Collection {
-//    if err := doValidation(c); err != nil {
-//      return err.ViaIndex(i).ViaField("collection")
-//    }
-//  }
+//
+//	for i, c := range spec.Collection {
+//	  if err := doValidation(c); err != nil {
+//	    return err.ViaIndex(i).ViaField("collection")
+//	  }
+//	}
 func (fe *FieldError) ViaIndex(index int) *FieldError {
 	return fe.ViaField(asIndex(index))
 }
@@ -93,11 +132,12 @@ func (fe *FieldError) ViaFieldIndex(field string, index int) *FieldError {
 
 // ViaKey is used to attach a key to the next ViaField provided.
 // For example, if a type recursively validates a parameter that has a collection:
-//  for k, v := range spec.Bag {
-//    if err := doValidation(v); err != nil {
-//      return err.ViaKey(k).ViaField("bag")
-//    }
-//  }
+//
+//	for k, v := range spec.Bag {
+//	  if err := doValidation(v); err != nil {
+//	    return err.ViaKey(k).ViaField("bag")
+//	  }
+//	}
 func (fe *FieldError) ViaKey(key string) *FieldError {
 	return fe.ViaField(asKey(key))
 }
@@ -105,6 +145,56 @@ func (fe *FieldError) ViaKey(key string) *FieldError {
 // ViaFieldKey is the short way to chain: err.ViaKey(bar).ViaField(foo)
 func (fe *FieldError) ViaFieldKey(field, key string) *FieldError {
 	return fe.ViaKey(key).ViaField(field)
+}
+
+// At is a way to alter the level of the diagnostics held in this FieldError.
+//
+//	ErrMissingField("foo").At(WarningLevel)
+func (fe *FieldError) At(l DiagnosticLevel) *FieldError {
+	if fe == nil {
+		return nil
+	}
+	// Copy over message and details, paths will be updated and errors come
+	// along using .Also().
+	newErr := &FieldError{
+		Message: fe.Message,
+		Level:   l,
+		Details: fe.Details,
+		Paths:   fe.Paths,
+	}
+
+	for _, e := range fe.errors {
+		newErr = newErr.Also(e.At(l))
+	}
+	return newErr
+}
+
+// Filter is a way to access the set of diagnostics having a particular level.
+//
+//	if err := x.Validate(ctx).Filter(ErrorLevel); err != nil {
+//	   return err
+//	}
+func (fe *FieldError) Filter(l DiagnosticLevel) *FieldError {
+	if fe == nil {
+		return nil
+	}
+	var newErr *FieldError
+	if l == fe.Level {
+		newErr = &FieldError{
+			Message: fe.Message,
+			Level:   fe.Level,
+			Details: fe.Details,
+			Paths:   fe.Paths,
+		}
+	}
+
+	for _, e := range fe.errors {
+		newErr = newErr.Also(e.Filter(l))
+	}
+	if newErr.isEmpty() {
+		return nil
+	}
+	return newErr
 }
 
 // Also collects errors, returns a new collection of existing errors and new errors.
@@ -154,6 +244,7 @@ func (fe *FieldError) normalized() []*FieldError {
 	if fe.Message != "" {
 		errors = append(errors, &FieldError{
 			Message: fe.Message,
+			Level:   fe.Level,
 			Paths:   fe.Paths,
 			Details: fe.Details,
 		})
@@ -165,10 +256,15 @@ func (fe *FieldError) normalized() []*FieldError {
 	return errors
 }
 
+// WrappedErrors returns the value of the errors after normalizing and deduping using merge().
+func (fe *FieldError) WrappedErrors() []*FieldError {
+	return merge(fe.normalized())
+}
+
 // Error implements error
 func (fe *FieldError) Error() string {
 	// Get the list of errors as a flat merged list.
-	normedErrors := merge(fe.normalized())
+	normedErrors := fe.WrappedErrors()
 	errs := make([]string, 0, len(normedErrors))
 	for _, e := range normedErrors {
 		if e.Details == "" {
@@ -196,10 +292,11 @@ func asKey(key string) string {
 
 // flatten takes in a array of path components and looks for chances to flatten
 // objects that have index prefixes, examples:
-//   err([0]).ViaField(bar).ViaField(foo) -> foo.bar.[0] converts to foo.bar[0]
-//   err(bar).ViaIndex(0).ViaField(foo) -> foo.[0].bar converts to foo[0].bar
-//   err(bar).ViaField(foo).ViaIndex(0) -> [0].foo.bar converts to [0].foo.bar
-//   err(bar).ViaIndex(0).ViaIndex(1).ViaField(foo) -> foo.[1].[0].bar converts to foo[1][0].bar
+//
+//	err([0]).ViaField(bar).ViaField(foo) -> foo.bar.[0] converts to foo.bar[0]
+//	err(bar).ViaIndex(0).ViaField(foo) -> foo.[0].bar converts to foo[0].bar
+//	err(bar).ViaField(foo).ViaIndex(0) -> [0].foo.bar converts to [0].foo.bar
+//	err(bar).ViaIndex(0).ViaIndex(1).ViaField(foo) -> foo.[1].[0].bar converts to foo[1][0].bar
 func flatten(path []string) string {
 	var newPath []string
 	for _, part := range path {
@@ -274,6 +371,9 @@ func merge(errs []*FieldError) []*FieldError {
 	// Sort the flattened map.
 	sort.Slice(newErrs, func(i, j int) bool {
 		if newErrs[i].Message == newErrs[j].Message {
+			if newErrs[i].Details == newErrs[j].Details {
+				return newErrs[i].Level < newErrs[j].Level
+			}
 			return newErrs[i].Details < newErrs[j].Details
 		}
 		return newErrs[i].Message < newErrs[j].Message
@@ -285,7 +385,7 @@ func merge(errs []*FieldError) []*FieldError {
 
 // key returns the key using the fields .Message and .Details.
 func key(err *FieldError) string {
-	return fmt.Sprintf("%s-%s", err.Message, err.Details)
+	return fmt.Sprintf("%s-%s-%s", err.Level, err.Message, err.Details)
 }
 
 // Public helpers ---

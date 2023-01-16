@@ -25,6 +25,7 @@ export INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
 export ISTIO_VERSION="latest"
 export KOURIER_VERSION=""
 export CONTOUR_VERSION=""
+export GATEWAY_API_VERSION=""
 export CERTIFICATE_CLASS=""
 # Only build linux/amd64 bit images
 export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
@@ -33,9 +34,11 @@ export RUN_HTTP01_AUTO_TLS_TESTS=0
 export HTTPS=0
 export SHORT=0
 export ENABLE_HA=0
+export ENABLE_TLS=${ENABLE_TLS:-0}
 export MESH=0
-export KIND=0
-export CLUSTER_DOMAIN=cluster.local
+export PERF=0
+export KIND=${KIND:-0}
+export CLUSTER_DOMAIN=${CLUSTER_DOMAIN:-cluster.local}
 
 # List of custom YAMLs to install, if specified (space-separated).
 export INSTALL_CUSTOM_YAMLS=""
@@ -53,6 +56,9 @@ export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
 # Keep this in sync with test/ha/ha.go
 readonly REPLICAS=3
 readonly BUCKETS=10
+
+export PVC=${PVC:-1}
+export QUOTA=${QUOTA:-1}
 
 # Receives the latest serving version and searches for the same version with major and minor and searches for the latest patch
 function latest_net_istio_version() {
@@ -108,6 +114,10 @@ function parse_flags() {
       readonly MESH=0
       return 1
       ;;
+    --perf)
+      readonly PERF=1
+      return 1
+      ;;
     --enable-ha)
       readonly ENABLE_HA=1
       return 1
@@ -147,6 +157,14 @@ function parse_flags() {
       # latest version of Contour pinned in third_party will be installed
       readonly CONTOUR_VERSION=$2
       readonly INGRESS_CLASS="contour.ingress.networking.knative.dev"
+      return 2
+      ;;
+    --gateway-api-version)
+      # currently, the value of --gateway-api-version is ignored
+      # latest version of Contour pinned in third_party will be installed
+      readonly GATEWAY_API_VERSION=$2
+      readonly INGRESS_CLASS="gateway-api.ingress.networking.knative.dev"
+      readonly SHORT=1
       return 2
       ;;
     --system-namespace)
@@ -210,6 +228,11 @@ function knative_setup() {
     fi
   fi
 
+  # Install gateway-api and istio. Gateway API CRD must be installed before Istio.
+  if is_ingress_class gateway-api; then
+    stage_gateway_api_resources
+  fi
+
   stage_test_resources
 
   install "${INSTALL_SERVING_VERSION}" "${INSTALL_ISTIO_VERSION}"
@@ -246,6 +269,10 @@ function install() {
   if is_ingress_class istio; then
     # Istio - see cluster_setup for how the files are staged
     YTT_FILES+=("${E2E_YAML_DIR}/istio/${ingress_version}/install")
+  elif is_ingress_class gateway-api; then
+    # This installs an istio version that works with the v1alpha1 gateway api
+    YTT_FILES+=("${E2E_YAML_DIR}/gateway-api/install")
+    YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest")
   else
     YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest")
   fi
@@ -263,9 +290,25 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ha")
   fi
 
+  if (( PERF )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/performance")
+  fi
+
   if (( KIND )); then
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/core")
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/ingress/${ingress}-kind.yaml")
+  fi
+
+  if (( PVC )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/pvc/pvc.yaml")
+  fi
+
+  if (( QUOTA )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/resource-quota/resource-quota.yaml")
+  fi
+
+  if (( ENABLE_TLS )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/tls/cert-secret.yaml")
   fi
 
   local ytt_result=$(mktemp)
@@ -317,6 +360,22 @@ function install() {
     # # lease resources at the old sharding factor, so clean these up.
     # kubectl -n ${SYSTEM_NAMESPACE} delete leases --all
     wait_for_leader_controller || return 1
+  fi
+
+  if (( ENABLE_TLS )); then
+    echo "Patch to config-network to enable internal encryption"
+    toggle_feature internal-encryption true config-network
+    if [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]]; then
+      echo "Point Kourier local gateway to custom server certificates"
+      toggle_feature cluster-cert-secret server-certs config-kourier
+      # This needs to match the name of Secret in test/config/tls/cert-secret.yaml
+      export CA_CERT=ca-cert
+      # This needs to match $san from test/config/tls/generate.sh
+      export SERVER_NAME=knative.dev
+    fi
+    echo "Restart activator to mount the certificates"
+    kubectl delete pod -n ${SYSTEM_NAMESPACE} -l app=activator
+    kubectl wait --timeout=60s --for=condition=Available deployment  -n ${SYSTEM_NAMESPACE} activator
   fi
 }
 
@@ -533,10 +592,10 @@ function overlay_system_namespace() {
 }
 
 function run_ytt() {
-  run_go_tool github.com/k14s/ytt/cmd/ytt ytt "$@"
+  run_go_tool github.com/vmware-tanzu/carvel-ytt/cmd/ytt ytt "$@"
 }
 
 
 function run_kapp() {
-  run_go_tool github.com/k14s/kapp/cmd/kapp kapp "$@"
+  run_go_tool github.com/vmware-tanzu/carvel-kapp/cmd/kapp kapp "$@"
 }

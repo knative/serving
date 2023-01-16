@@ -8,7 +8,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20211129-8812fcca"
+    app.kubernetes.io/version: "20230113-9dcce757"
     serving.knative.dev/controller: "true"
 rules:
   - apiGroups: ["projectcontour.io"]
@@ -38,8 +38,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20211129-8812fcca"
-    serving.knative.dev/release: "v20211129-8812fcca"
+    app.kubernetes.io/version: "20230113-9dcce757"
 data:
   _example: |
     ################################
@@ -94,6 +93,9 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: contour
+    app.kubernetes.io/component: net-contour
+    app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/version: "20230113-9dcce757"
 spec:
   replicas: 1
   selector:
@@ -105,14 +107,14 @@ spec:
         app: net-contour-controller
         app.kubernetes.io/component: net-contour
         app.kubernetes.io/name: knative-serving
-        app.kubernetes.io/version: "20211129-8812fcca"
+        app.kubernetes.io/version: "20230113-9dcce757"
     spec:
       serviceAccountName: controller
       containers:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:55d0f364877899b32ebd431795951c23880f0978fbb41323c983f99202346581
+          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:2a664357d27c22043691b52271099fc57a1d50676a69f7685e208d8117fdeecf
           resources:
             requests:
               cpu: 40m
@@ -142,6 +144,18 @@ spec:
             runAsNonRoot: true
             capabilities:
               drop:
-                - all
+                - ALL
+---
+#! Used when internal-encryption is set to "true"
+apiVersion: projectcontour.io/v1
+kind: TLSCertificateDelegation
+metadata:
+  name: knative-serving-certs
+  namespace: knative-serving
+spec:
+  delegations:
+    - secretName: knative-serving-certs
+      targetNamespaces:
+        - "*"
 ---
 

@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -70,7 +71,7 @@ func TestTracingHandler(t *testing.T) {
 			oct := tracing.NewOpenCensusTracer(co)
 			t.Cleanup(func() {
 				reporter.Close()
-				oct.Finish()
+				oct.Shutdown(context.Background())
 			})
 
 			if err := oct.ApplyConfig(cfg); err != nil {
