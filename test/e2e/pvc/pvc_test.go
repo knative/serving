@@ -38,8 +38,8 @@ const (
 
 // TestPersistentVolumeClaims tests pvc support.
 func TestPersistentVolumeClaims(t *testing.T) {
-	if !test.ServingFlags.EnableAlphaFeatures {
-		t.Skip("Alpha features not enabled")
+	if !test.ServingFlags.EnableBetaFeatures {
+		t.Skip("Beta features not enabled")
 	}
 	t.Parallel()
 	clients := test.Setup(t)
