@@ -47,6 +47,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 		// Setup
 		func(c pkgupgrade.Context) {
 			ctx = e2e.SetupSvc(c.T, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+				test.Options{DisableLogStream: true},
 				rtesting.WithServiceName("autoscale-sustaining"),
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
@@ -84,6 +85,7 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 		// Setup
 		func(c pkgupgrade.Context) {
 			ctx = e2e.SetupSvc(c.T, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+				test.Options{DisableLogStream: true},
 				rtesting.WithServiceName("autoscale-sus-tbc"),
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.

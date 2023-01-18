@@ -23,7 +23,6 @@ import (
 	logstream "knative.dev/pkg/test/logstream/v2"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
 
@@ -39,7 +38,7 @@ func ProbeTest() pkgupgrade.BackgroundOperation {
 	return pkgupgrade.NewBackgroundVerification("ProbeTest",
 		func(c pkgupgrade.Context) {
 			// Setup
-			clients = e2e.Setup(c.T)
+			clients = test.Setup(c.T, test.Options{DisableLogStream: true})
 			names = &test.ResourceNames{
 				Service: "upgrade-probe",
 				Image:   test.PizzaPlanet1,
