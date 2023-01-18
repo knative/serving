@@ -30,7 +30,7 @@ func (s *Service) SetDefaults(ctx context.Context) {
 	var prevSpec *ServiceSpec
 	if prev, ok := apis.GetBaseline(ctx).(*Service); ok && prev != nil {
 		prevSpec = &prev.Spec
-		ctx = WithConfigurationSpec(ctx, &prev.Spec.ConfigurationSpec)
+		ctx = WithPreviousConfigurationSpec(ctx, &prev.Spec.ConfigurationSpec)
 	}
 
 	s.Spec.SetDefaults(apis.WithinSpec(ctx))
