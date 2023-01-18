@@ -50,7 +50,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		algo := algo
 		t.Run("aggregation-"+algo, func(t *testing.T) {
 			t.Parallel()
-			ctx := SetupSvc(t, test.ObjectNameForTest(t), autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+			ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.MetricAggregationAlgorithmKey: algo,
 				}))
@@ -81,7 +81,7 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 		target = rpsTarget
 	}
 
-	ctx := SetupSvc(t, test.ObjectNameForTest(t), class, metric, target, targetUtilization)
+	ctx := SetupSvc(t, class, metric, target, targetUtilization)
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
@@ -115,7 +115,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 			// as long as the traffic sustains, despite whether it is switching modes between
 			// normal and panic.
 
-			ctx := SetupSvc(t, test.ObjectNameForTest(t), autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+			ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.MetricAggregationAlgorithmKey: algo,
 				}))
@@ -134,7 +134,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// Activator from the request path.
 	t.Parallel()
 
-	ctx := SetupSvc(t, test.ObjectNameForTest(t), autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey:                "7",
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
@@ -209,7 +209,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	t.Parallel()
 
-	ctx := SetupSvc(t, test.ObjectNameForTest(t), autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
@@ -236,7 +236,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 func TestTargetBurstCapacityZero(t *testing.T) {
 	t.Parallel()
 
-	ctx := SetupSvc(t, test.ObjectNameForTest(t), autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "0",
 			autoscaling.WindowAnnotationKey:    "10s", // scale faster
@@ -267,7 +267,7 @@ func TestTargetBurstCapacityZero(t *testing.T) {
 func TestFastScaleToZero(t *testing.T) {
 	t.Parallel()
 
-	ctx := SetupSvc(t, test.ObjectNameForTest(t), autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(),

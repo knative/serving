@@ -44,9 +44,10 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 	stopCh := make(chan time.Time)
 	var canceler logstream.Canceler = func() {}
 	return pkgupgrade.NewBackgroundVerification("AutoscaleSustainingTest",
+		// Setup
 		func(c pkgupgrade.Context) {
-			// Setup
-			ctx = e2e.SetupSvc(c.T, "autoscale-sustaining", autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+			ctx = e2e.SetupSvc(c.T, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+				rtesting.WithServiceName("autoscale-sustaining"),
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
 				}))
@@ -58,6 +59,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 			// Allow the traffic and scale to settle before starting the upgrade.
 			time.Sleep(trafficSettleTime)
 		},
+		// Verify
 		func(c pkgupgrade.Context) {
 			test.EnsureTearDown(c.T, ctx.Clients(), ctx.Names())
 			// Verification is done inside e2e.AssertAutoscaleUpToNumPods.
@@ -79,9 +81,10 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 	stopCh := make(chan time.Time)
 	var canceler logstream.Canceler = func() {}
 	return pkgupgrade.NewBackgroundVerification("AutoscaleSustainingWithTBCTest",
+		// Setup
 		func(c pkgupgrade.Context) {
-			// Setup
-			ctx = e2e.SetupSvc(c.T, "autoscale-sus-tbc", autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+			ctx = e2e.SetupSvc(c.T, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+				rtesting.WithServiceName("autoscale-sus-tbc"),
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
 				}))
@@ -93,6 +96,7 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 			// Allow the traffic and scale to settle before starting the upgrade.
 			time.Sleep(trafficSettleTime)
 		},
+		// Verify
 		func(c pkgupgrade.Context) {
 			test.EnsureTearDown(c.T, ctx.Clients(), ctx.Names())
 			// Verification is done inside e2e.AssertAutoscaleUpToNumPods.
