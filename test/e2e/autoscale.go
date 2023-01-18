@@ -233,8 +233,6 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	// Might have been overridden by ServiceOptions
-	names.Service = resources.Service.Name
 
 	if _, err := pkgTest.CheckEndpointState(
 		context.Background(),

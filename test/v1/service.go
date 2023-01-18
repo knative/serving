@@ -122,10 +122,8 @@ func getResourceObjects(t testing.TB, clients *test.Clients, names *test.Resourc
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	// If the Service name was not specified, populate it
-	if names.Service == "" {
-		names.Service = svc.Name
-	}
+	// Might have been overridden by ServiceOptions
+	names.Service = svc.Name
 
 	t.Log("Waiting for Service to transition to Ready.", "service", names.Service)
 	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
