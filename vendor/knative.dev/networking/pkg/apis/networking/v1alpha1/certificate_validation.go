@@ -50,14 +50,14 @@ func (spec *CertificateSpec) Validate(ctx context.Context) (all *apis.FieldError
 		suffix := "." + spec.Domain
 		valid := false
 		for _, dnsName := range spec.DNSNames {
-			if strings.HasSuffix(dnsName, suffix) {
+			if strings.HasSuffix(dnsName, suffix) || dnsName == spec.Domain {
 				valid = true
 				break
 			}
 		}
 
 		if !valid {
-			all = all.Also(apis.ErrInvalidValue("domain", "domain must be a suffix of at least one entry in dnsNames"))
+			all = all.Also(apis.ErrInvalidValue("domain", "domain must be a suffix of, or match exactly, at least one entry in dnsNames"))
 		}
 	}
 
