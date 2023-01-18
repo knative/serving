@@ -110,7 +110,6 @@ func CreateServiceReady(t testing.TB, clients *test.Clients, names *test.Resourc
 	if names.Image == "" {
 		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
-	t.Log("Creating a new Service", "service", names.Service)
 	svc, err := CreateService(t, clients, *names, fopt...)
 	if err != nil {
 		return nil, err
@@ -123,10 +122,8 @@ func getResourceObjects(t testing.TB, clients *test.Clients, names *test.Resourc
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	// If the Service name was not specified, populate it
-	if names.Service == "" {
-		names.Service = svc.Name
-	}
+	// Might have been overridden by ServiceOptions
+	names.Service = svc.Name
 
 	t.Log("Waiting for Service to transition to Ready.", "service", names.Service)
 	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
@@ -150,6 +147,7 @@ func getResourceObjects(t testing.TB, clients *test.Clients, names *test.Resourc
 // CreateService creates a service in namespace with the name names.Service and names.Image
 func CreateService(t testing.TB, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
 	svc := Service(names, fopt...)
+	t.Log("Creating a new Service", "service", svc.Name)
 	return createService(t, clients, svc)
 }
 

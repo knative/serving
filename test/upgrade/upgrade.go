@@ -19,11 +19,14 @@ package upgrade
 import (
 	"context"
 	"net/url"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/test/logstream/v2"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
@@ -111,5 +114,28 @@ func createTestNamespace(t *testing.T, ns string) {
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}},
 			metav1.CreateOptions{}); err != nil && !apierrs.IsAlreadyExists(err) {
 		t.Fatalf("Couldn't create namespace %q: %v", ns, err)
+	}
+}
+
+func streamLogs(t *testing.T, clients *test.Clients, serviceName string) logstream.Canceler {
+	testStream := logstream.New(context.Background(), clients.KubeClient,
+		logstream.WithNamespaces(test.ServingFlags.TestNamespace),
+		logstream.WithLineFiltering(false),
+		logstream.WithPodPrefixes(serviceName))
+	testStreamCancel, err := testStream.StartStream(serviceName, t.Logf)
+	if err != nil {
+		t.Fatalf("Unable to stream logs from test namespace %s: %v", test.ServingFlags.TestNamespace, err)
+	}
+
+	sysStream := logstream.New(context.Background(), clients.KubeClient,
+		logstream.WithNamespaces(strings.Split(system.Namespace(), ",")...))
+	sysStreamCancel, err := sysStream.StartStream(serviceName, t.Logf)
+	if err != nil {
+		t.Fatal("Unable to stream logs from system namespaces", err)
+	}
+
+	return func() {
+		testStreamCancel()
+		sysStreamCancel()
 	}
 }

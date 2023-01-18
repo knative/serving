@@ -201,9 +201,9 @@ func toPercentageString(f float64) string {
 // SetupSvc creates a new service, with given service options.
 // It returns a TestContext that has resources, K8s clients and other needed
 // data points.
-func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization float64, fopts ...rtesting.ServiceOption) *TestContext {
+func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization float64, topts test.Options, fopts ...rtesting.ServiceOption) *TestContext {
 	t.Helper()
-	clients := Setup(t)
+	clients := test.Setup(t, topts)
 
 	t.Log("Creating a new Route and Configuration")
 	names := &test.ResourceNames{

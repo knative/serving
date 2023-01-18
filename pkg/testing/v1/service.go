@@ -161,6 +161,13 @@ func WithServiceImage(img string) ServiceOption {
 	}
 }
 
+// WithServiceName sets the service name.
+func WithServiceName(name string) ServiceOption {
+	return func(svc *v1.Service) {
+		svc.ObjectMeta.Name = name
+	}
+}
+
 // WithTrafficTarget sets the traffic to be the provided traffic target.
 func WithTrafficTarget(tt []v1.TrafficTarget) ServiceOption {
 	return func(svc *v1.Service) {
