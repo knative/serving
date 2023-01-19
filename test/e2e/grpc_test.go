@@ -385,6 +385,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		resources: resources,
 		autoscaler: &AutoscalerOptions{
 			TargetUtilization: targetUtilization,
+			Target:            grpcContainerConcurrency,
 		},
 	}, host, url.Hostname())
 }
