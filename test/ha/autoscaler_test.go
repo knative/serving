@@ -48,7 +48,7 @@ const (
 
 func TestAutoscalerHA(t *testing.T) {
 	ctx := e2e.SetupSvc(t,
-		e2e.AutoscalerOptions{
+		&e2e.AutoscalerOptions{
 			Class:             autoscaling.KPA,
 			Metric:            autoscaling.RPS,
 			Target:            target,

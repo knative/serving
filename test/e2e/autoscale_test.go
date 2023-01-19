@@ -51,7 +51,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		t.Run("aggregation-"+algo, func(t *testing.T) {
 			t.Parallel()
 			ctx := SetupSvc(t,
-				AutoscalerOptions{
+				&AutoscalerOptions{
 					Class:             autoscaling.KPA,
 					Metric:            autoscaling.Concurrency,
 					Target:            containerConcurrency,
@@ -89,7 +89,7 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 	}
 
 	ctx := SetupSvc(t,
-		AutoscalerOptions{
+		&AutoscalerOptions{
 			Class:             class,
 			Metric:            metric,
 			Target:            target,
@@ -131,7 +131,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 			// normal and panic.
 
 			ctx := SetupSvc(t,
-				AutoscalerOptions{
+				&AutoscalerOptions{
 					Class:             autoscaling.KPA,
 					Metric:            autoscaling.Concurrency,
 					Target:            containerConcurrency,
@@ -157,7 +157,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	t.Parallel()
 
 	ctx := SetupSvc(t,
-		AutoscalerOptions{
+		&AutoscalerOptions{
 			Class:             autoscaling.KPA,
 			Metric:            autoscaling.Concurrency,
 			Target:            10,
@@ -239,7 +239,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	t.Parallel()
 
 	ctx := SetupSvc(t,
-		AutoscalerOptions{
+		&AutoscalerOptions{
 			Class:             autoscaling.KPA,
 			Metric:            autoscaling.Concurrency,
 			Target:            10,
@@ -273,7 +273,7 @@ func TestTargetBurstCapacityZero(t *testing.T) {
 	t.Parallel()
 
 	ctx := SetupSvc(t,
-		AutoscalerOptions{
+		&AutoscalerOptions{
 			Class:             autoscaling.KPA,
 			Metric:            autoscaling.Concurrency,
 			Target:            10,
@@ -311,7 +311,7 @@ func TestFastScaleToZero(t *testing.T) {
 	t.Parallel()
 
 	ctx := SetupSvc(t,
-		AutoscalerOptions{
+		&AutoscalerOptions{
 			Class:             autoscaling.KPA,
 			Metric:            autoscaling.Concurrency,
 			Target:            containerConcurrency,

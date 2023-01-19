@@ -47,7 +47,7 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 		// Setup
 		func(c pkgupgrade.Context) {
 			ctx = e2e.SetupSvc(c.T,
-				e2e.AutoscalerOptions{
+				&e2e.AutoscalerOptions{
 					Class:             autoscaling.KPA,
 					Metric:            autoscaling.Concurrency,
 					Target:            containerConcurrency,
@@ -91,7 +91,7 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 		// Setup
 		func(c pkgupgrade.Context) {
 			ctx = e2e.SetupSvc(c.T,
-				e2e.AutoscalerOptions{
+				&e2e.AutoscalerOptions{
 					Class:             autoscaling.KPA,
 					Metric:            autoscaling.Concurrency,
 					Target:            containerConcurrency,
