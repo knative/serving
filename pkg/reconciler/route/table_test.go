@@ -2407,7 +2407,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		},
 		WantCreates: []runtime.Object{
 			resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0],
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName, "example.com")[0],
 			ingressWithTLS(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
@@ -2457,7 +2457,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0], readyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName, "example.com")[0], readyCertStatus()),
 		},
 		WantCreates: []runtime.Object{
 			ingressWithTLS(
@@ -2564,7 +2564,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0], readyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName, "example.com")[0], readyCertStatus()),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
@@ -2692,7 +2692,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0], readyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName, "example.com")[0], readyCertStatus()),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
@@ -2745,6 +2745,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				},
 				Spec: netv1alpha1.CertificateSpec{
 					DNSNames:   []string{"becomes-ready.default.example.com"},
+					Domain:     "example.com", //Need this to pass, otherwise extra event updating the Cert with missing Domain will cause test to fail
 					SecretName: "route-12-34",
 				},
 				Status: netv1alpha1.CertificateStatus{
@@ -2914,7 +2915,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0], notReadyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName, "example.com")[0], notReadyCertStatus()),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),

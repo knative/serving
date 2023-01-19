@@ -37,7 +37,8 @@ var (
 		"v1.default.example.com":         "",
 		"v1-current.default.example.com": "current",
 	}
-	route = Route("default", "route", WithRouteUID("12345"))
+	domain = "example.com"
+	route  = Route("default", "route", WithRouteUID("12345"))
 )
 
 func TestMakeCertificates(t *testing.T) {
@@ -56,6 +57,7 @@ func TestMakeCertificates(t *testing.T) {
 			},
 			Spec: netv1alpha1.CertificateSpec{
 				DNSNames:   []string{"v1-current.default.example.com"},
+				Domain:     domain,
 				SecretName: "route-12345-200999684",
 			},
 		},
@@ -73,11 +75,12 @@ func TestMakeCertificates(t *testing.T) {
 			},
 			Spec: netv1alpha1.CertificateSpec{
 				DNSNames:   []string{"v1.default.example.com"},
+				Domain:     domain,
 				SecretName: "route-12345",
 			},
 		},
 	}
-	got := MakeCertificates(route, dnsNameTagMap, "foo-cert")
+	got := MakeCertificates(route, dnsNameTagMap, "foo-cert", domain)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Error("MakeCertificate (-want, +got) =", diff)
 	}
@@ -101,6 +104,7 @@ func TestMakeCertificates_FilterLastAppliedAnno(t *testing.T) {
 			},
 			Spec: netv1alpha1.CertificateSpec{
 				DNSNames:   []string{"v1-current.default.example.com"},
+				Domain:     domain,
 				SecretName: "route-12345-200999684",
 			},
 		},
@@ -118,11 +122,12 @@ func TestMakeCertificates_FilterLastAppliedAnno(t *testing.T) {
 			},
 			Spec: netv1alpha1.CertificateSpec{
 				DNSNames:   []string{"v1.default.example.com"},
+				Domain:     domain,
 				SecretName: "route-12345",
 			},
 		},
 	}
-	got := MakeCertificates(orgRoute, dnsNameTagMap, "default-cert")
+	got := MakeCertificates(orgRoute, dnsNameTagMap, "default-cert", domain)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Error("MakeCertificate (-want, +got) =", diff)
 	}
