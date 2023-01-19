@@ -54,10 +54,10 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 					TargetUtilization: targetUtilization,
 				},
 				test.Options{DisableLogStream: true},
+				rtesting.WithServiceName("autoscale-sustaining"),
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
-				}),
-				rtesting.WithServiceName("autoscale-sustaining"))
+				}))
 			if !test.ServingFlags.DisableLogStream {
 				canceler = streamLogs(c.T, ctx.Clients(), ctx.Names().Service)
 			}

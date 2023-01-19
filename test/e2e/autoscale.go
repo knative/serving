@@ -26,8 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/pkg/test/logging"
-
 	"github.com/davecgh/go-spew/spew"
 	vegeta "github.com/tsenart/vegeta/v12/lib"
 	"golang.org/x/sync/errgroup"
@@ -62,7 +60,6 @@ const (
 // TestContext includes context for autoscaler testing.
 type TestContext struct {
 	t          *testing.T
-	logf       logging.FormatLogger
 	clients    *test.Clients
 	names      *test.ResourceNames
 	resources  *v1test.ResourceObjects
@@ -218,20 +215,18 @@ func SetupSvc(t *testing.T, aopts *AutoscalerOptions, topts test.Options, fopts 
 				autoscaling.MetricAnnotationKey:            aopts.Metric,
 				autoscaling.TargetAnnotationKey:            strconv.Itoa(aopts.Target),
 				autoscaling.TargetUtilizationPercentageKey: toPercentageString(aopts.TargetUtilization),
-			}),
-			rtesting.WithResourceRequirements(corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("30m"),
-					corev1.ResourceMemory: resource.MustParse("20Mi"),
-				},
-			}),
-			rtesting.WithConfigAnnotations(map[string]string{
 				// Reduce the amount of historical data we need before scaling down to account for
 				// the fact that the chaosduck will only let a bucket leader live for ~30s.  This
 				// value still allows the chaosduck to make us failover, but is low enough that we
 				// should not need to survive multiple rounds of chaos in order to scale a
 				// revision down.
 				autoscaling.WindowAnnotationKey: "30s",
+			}),
+			rtesting.WithResourceRequirements(corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("30m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
 			}),
 		}, fopts...)...)
 	if err != nil {
