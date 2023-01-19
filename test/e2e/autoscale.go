@@ -61,14 +61,20 @@ const (
 
 // TestContext includes context for autoscaler testing.
 type TestContext struct {
-	t                 *testing.T
-	logf              logging.FormatLogger
-	clients           *test.Clients
-	names             *test.ResourceNames
-	resources         *v1test.ResourceObjects
-	targetUtilization float64
-	targetValue       int
-	metric            string
+	t          *testing.T
+	logf       logging.FormatLogger
+	clients    *test.Clients
+	names      *test.ResourceNames
+	resources  *v1test.ResourceObjects
+	autoscaler AutoscalerOptions
+}
+
+// AutoscalerOptions holds autoscaling parameters for knative service.
+type AutoscalerOptions struct {
+	Class             string
+	Metric            string
+	TargetUtilization float64
+	Target            int
 }
 
 // Clients returns the clients of the TestContext.
@@ -201,7 +207,7 @@ func toPercentageString(f float64) string {
 // SetupSvc creates a new service, with given service options.
 // It returns a TestContext that has resources, K8s clients and other needed
 // data points.
-func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization float64, topts test.Options, fopts ...rtesting.ServiceOption) *TestContext {
+func SetupSvc(t *testing.T, aopts AutoscalerOptions, topts test.Options, fopts ...rtesting.ServiceOption) *TestContext {
 	t.Helper()
 	clients := test.Setup(t, topts)
 
@@ -213,21 +219,24 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 	resources, err := v1test.CreateServiceReady(t, clients, names,
 		append([]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
-				autoscaling.ClassAnnotationKey:             class,
-				autoscaling.MetricAnnotationKey:            metric,
-				autoscaling.TargetAnnotationKey:            strconv.Itoa(target),
-				autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
+				autoscaling.ClassAnnotationKey:             aopts.Class,
+				autoscaling.MetricAnnotationKey:            aopts.Metric,
+				autoscaling.TargetAnnotationKey:            strconv.Itoa(aopts.Target),
+				autoscaling.TargetUtilizationPercentageKey: toPercentageString(aopts.TargetUtilization),
+			}),
+			rtesting.WithResourceRequirements(corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("30m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
+			}),
+			rtesting.WithConfigAnnotations(map[string]string{
 				// Reduce the amount of historical data we need before scaling down to account for
 				// the fact that the chaosduck will only let a bucket leader live for ~30s.  This
 				// value still allows the chaosduck to make us failover, but is low enough that we
 				// should not need to survive multiple rounds of chaos in order to scale a
 				// revision down.
 				autoscaling.WindowAnnotationKey: "30s",
-			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("30m"),
-					corev1.ResourceMemory: resource.MustParse("20Mi"),
-				},
 			}),
 		}, fopts...)...)
 	if err != nil {
@@ -248,14 +257,12 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 	}
 
 	return &TestContext{
-		t:                 t,
-		logf:              t.Logf,
-		clients:           clients,
-		names:             names,
-		resources:         resources,
-		targetUtilization: targetUtilization,
-		targetValue:       target,
-		metric:            metric,
+		t:          t,
+		logf:       t.Logf,
+		clients:    clients,
+		names:      names,
+		resources:  resources,
+		autoscaler: aopts,
 	}
 }
 
@@ -399,17 +406,17 @@ func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-
 	ctx.t.Helper()
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
-	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
-	maxPods := math.Ceil(math.Ceil(targetPods/ctx.targetUtilization) * 1.1)
+	minPods := math.Floor(curPods/ctx.autoscaler.TargetUtilization) - 1
+	maxPods := math.Ceil(math.Ceil(targetPods/ctx.autoscaler.TargetUtilization) * 1.1)
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
 	grp.Go(func() error {
-		switch ctx.metric {
+		switch ctx.autoscaler.Metric {
 		case autoscaling.RPS:
-			return generateTrafficAtFixedRPS(ctx, int(targetPods*float64(ctx.targetValue)), stopChan)
+			return generateTrafficAtFixedRPS(ctx, int(targetPods*float64(ctx.autoscaler.Target)), stopChan)
 		default:
-			return generateTrafficAtFixedConcurrency(ctx, int(targetPods*float64(ctx.targetValue)), stopChan)
+			return generateTrafficAtFixedConcurrency(ctx, int(targetPods*float64(ctx.autoscaler.Target)), stopChan)
 		}
 	})
 
