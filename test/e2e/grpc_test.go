@@ -116,7 +116,6 @@ func autoscaleTest(ctx *TestContext, host, domain string) {
 	ctx.t.Helper()
 	ctx.t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 
-	ctx.targetUtilization = targetUtilization
 	assertGRPCAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, host, domain)
 	assertScaleDown(ctx)
 	assertGRPCAutoscaleUpToNumPods(ctx, 0, 2, 60*time.Second, host, domain)
@@ -138,8 +137,6 @@ func loadBalancingTest(ctx *TestContext, host, domain string) {
 		done        = time.After(60 * time.Second)
 		timer       = time.Tick(1 * time.Second)
 	)
-
-	ctx.targetUtilization = targetUtilization
 
 	countKeys := func() int {
 		count := 0
@@ -251,14 +248,14 @@ func assertGRPCAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float6
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
 
-	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
-	maxPods := math.Ceil(targetPods/ctx.targetUtilization) + 1
+	minPods := math.Floor(curPods/ctx.autoscaler.TargetUtilization) - 1
+	maxPods := math.Ceil(targetPods/ctx.autoscaler.TargetUtilization) + 1
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
 
 	grp.Go(func() error {
-		return generateGRPCTraffic(ctx, int(targetPods*grpcContainerConcurrency), host, domain, stopChan)
+		return generateGRPCTraffic(ctx, int(targetPods*float64(ctx.autoscaler.Target)), host, domain, stopChan)
 	})
 
 	grp.Go(func() error {
@@ -386,6 +383,9 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		clients:   clients,
 		names:     names,
 		resources: resources,
+		autoscaler: &AutoscalerOptions{
+			TargetUtilization: targetUtilization,
+		},
 	}, host, url.Hostname())
 }
 
@@ -429,7 +429,6 @@ func TestGRPCAutoscaleUpDownUp(t *testing.T) {
 	testGRPC(t,
 		func(ctx *TestContext, host, domain string) {
 			autoscaleTest(ctx, host, domain)
-
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),

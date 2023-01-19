@@ -128,12 +128,14 @@ func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
 	}
 
 	return &TestContext{
-		t:           t,
-		clients:     clients,
-		names:       names,
-		resources:   resources,
-		targetValue: target,
-		metric:      metric,
+		t:         t,
+		clients:   clients,
+		names:     names,
+		resources: resources,
+		autoscaler: &AutoscalerOptions{
+			Metric: metric,
+			Target: target,
+		},
 	}
 }
 
