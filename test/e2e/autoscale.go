@@ -102,11 +102,6 @@ func (ctx *TestContext) SetNames(names *test.ResourceNames) {
 	ctx.names = names
 }
 
-// SetLogger sets the logger of the TestContext.
-func (ctx *TestContext) SetLogger(logf logging.FormatLogger) {
-	ctx.logf = logf
-}
-
 func getVegetaTarget(kubeClientset kubernetes.Interface, domain, endpointOverride string, resolvable bool, paramName string, paramValue int) (vegeta.Target, error) {
 	if resolvable {
 		return vegeta.Target{
@@ -148,7 +143,7 @@ func generateTraffic(
 	for {
 		select {
 		case <-stopChan:
-			ctx.logf("Stopping generateTraffic")
+			ctx.t.Logf("Stopping generateTraffic")
 			successRate := float64(1)
 			if totalRequests > 0 {
 				successRate = float64(successfulRequests) / float64(totalRequests)
@@ -161,8 +156,8 @@ func generateTraffic(
 		case res := <-results:
 			totalRequests++
 			if res.Code != http.StatusOK {
-				ctx.logf("Status = %d, want: 200", res.Code)
-				ctx.logf("URL: %s Start: %s End: %s Duration: %v Error: %s Body:\n%s",
+				ctx.t.Logf("Status = %d, want: 200", res.Code)
+				ctx.t.Logf("URL: %s Start: %s End: %s Duration: %v Error: %s Body:\n%s",
 					res.URL, res.Timestamp.Format(time.RFC3339), res.End().Format(time.RFC3339), res.Latency, res.Error, string(res.Body))
 				continue
 			}
@@ -183,7 +178,7 @@ func generateTrafficAtFixedConcurrency(ctx *TestContext, concurrency int, stopCh
 		return fmt.Errorf("error creating vegeta target: %w", err)
 	}
 
-	ctx.logf("Maintaining %d concurrent requests.", concurrency)
+	ctx.t.Logf("Maintaining %d concurrent requests.", concurrency)
 	return generateTraffic(ctx, attacker, pacer, stopChan, target)
 }
 
@@ -196,7 +191,7 @@ func generateTrafficAtFixedRPS(ctx *TestContext, rps int, stopChan chan struct{}
 		return fmt.Errorf("error creating vegeta target: %w", err)
 	}
 
-	ctx.logf("Maintaining %v RPS.", rps)
+	ctx.t.Logf("Maintaining %v RPS.", rps)
 	return generateTraffic(ctx, attacker, pacer, stopChan, target)
 }
 
@@ -258,7 +253,6 @@ func SetupSvc(t *testing.T, aopts AutoscalerOptions, topts test.Options, fopts .
 
 	return &TestContext{
 		t:          t,
-		logf:       t.Logf,
 		clients:    clients,
 		names:      names,
 		resources:  resources,
@@ -273,7 +267,7 @@ func assertScaleDown(ctx *TestContext) {
 	}
 
 	// Account for the case where scaling up uses all available pods.
-	ctx.logf("Wait for all pods to terminate.")
+	ctx.t.Logf("Wait for all pods to terminate.")
 
 	if err := pkgTest.WaitForPodListState(
 		context.Background(),
@@ -292,12 +286,12 @@ func assertScaleDown(ctx *TestContext) {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", deploymentName, err)
 	}
 
-	ctx.logf("The Revision should remain ready after scaling to zero.")
+	ctx.t.Logf("The Revision should remain ready after scaling to zero.")
 	if err := v1test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, v1test.IsRevisionReady); err != nil {
 		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
 	}
 
-	ctx.logf("Scaled down.")
+	ctx.t.Logf("Scaled down.")
 }
 
 func numberOfReadyPods(ctx *TestContext) (float64, *appsv1.Deployment, error) {
@@ -344,7 +338,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			}
 
 			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v", ctx.resources.Revision.Name, got, minPods)
-			ctx.logf(mes)
+			ctx.t.Logf(mes)
 			// verify that the number of pods doesn't go down while we are scaling up.
 			if got < minPods {
 				return fmt.Errorf("interim scale didn't fulfill constraints: %s\ndeployment state: %s", mes, spew.Sdump(d))
@@ -352,7 +346,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			// A quick test succeeds when the number of pods scales up to `targetPods`
 			// (and, as an extra check, no more than `maxPods`).
 			if quick && got >= targetPods && got <= maxPods {
-				ctx.logf("Quick Mode: got %v >= %v", got, targetPods)
+				ctx.t.Logf("Quick Mode: got %v >= %v", got, targetPods)
 				return nil
 			}
 			if minPods < targetPods-1 {
@@ -376,7 +370,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			}
 
 			mes := fmt.Sprintf("revision %q #replicas: %v, want between [%v, %v]", ctx.resources.Revision.Name, got, targetPods-1, maxPods)
-			ctx.logf(mes)
+			ctx.t.Logf(mes)
 			if got < targetPods-1 || got > maxPods {
 				return fmt.Errorf("final scale didn't fulfill constraints: %s\ndeployment state: %s", mes, spew.Sdump(d))
 			}
