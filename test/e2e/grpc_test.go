@@ -383,10 +383,6 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		clients:   clients,
 		names:     names,
 		resources: resources,
-		autoscaler: &AutoscalerOptions{
-			TargetUtilization: targetUtilization,
-			Target:            grpcContainerConcurrency,
-		},
 	}, host, url.Hostname())
 }
 
@@ -427,13 +423,18 @@ func TestGRPCStreamingPingViaActivator(t *testing.T) {
 }
 
 func TestGRPCAutoscaleUpDownUp(t *testing.T) {
+	aOpts := &AutoscalerOptions{
+		TargetUtilization: targetUtilization,
+		Target:            grpcContainerConcurrency,
+	}
 	testGRPC(t,
 		func(ctx *TestContext, host, domain string) {
+			ctx.autoscaler = aOpts
 			autoscaleTest(ctx, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
-			autoscaling.TargetAnnotationKey:            strconv.Itoa(grpcContainerConcurrency),
+			autoscaling.TargetUtilizationPercentageKey: toPercentageString(aOpts.TargetUtilization),
+			autoscaling.TargetAnnotationKey:            strconv.Itoa(aOpts.Target),
 			autoscaling.TargetBurstCapacityKey:         "-1",
 			autoscaling.WindowAnnotationKey:            "10s",
 		}),
@@ -445,13 +446,18 @@ func TestGRPCAutoscaleUpDownUp(t *testing.T) {
 }
 
 func TestGRPCLoadBalancing(t *testing.T) {
+	aOpts := &AutoscalerOptions{
+		TargetUtilization: targetUtilization,
+		Target:            grpcContainerConcurrency,
+	}
 	testGRPC(t,
 		func(ctx *TestContext, host, domain string) {
+			ctx.autoscaler = aOpts
 			loadBalancingTest(ctx, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
-			autoscaling.TargetAnnotationKey:            strconv.Itoa(grpcContainerConcurrency),
+			autoscaling.TargetUtilizationPercentageKey: toPercentageString(aOpts.TargetUtilization),
+			autoscaling.TargetAnnotationKey:            strconv.Itoa(aOpts.Target),
 			autoscaling.MinScaleAnnotationKey:          strconv.Itoa(grpcMinScale),
 			autoscaling.TargetBurstCapacityKey:         "-1",
 		}),
