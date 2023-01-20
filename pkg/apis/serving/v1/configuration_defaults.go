@@ -25,10 +25,10 @@ import (
 
 type configSpecKey struct{}
 
-// WithConfigurationSpec stores a ConfigurationSpec in the context, to allow
-// ConfigurationSpec.SetDefaults to determine whether the update would create a
-// new Revision.
-func WithConfigurationSpec(ctx context.Context, spec *ConfigurationSpec) context.Context {
+// WithPreviousConfigurationSpec stores the pre-update ConfigurationSpec in the
+// context, to allow ConfigurationSpec.SetDefaults to determine whether the
+// update would create a new Revision.
+func WithPreviousConfigurationSpec(ctx context.Context, spec *ConfigurationSpec) context.Context {
 	return context.WithValue(ctx, configSpecKey{}, spec)
 }
 
@@ -46,7 +46,7 @@ func (c *Configuration) SetDefaults(ctx context.Context) {
 	var prevSpec *ConfigurationSpec
 	if prev, ok := apis.GetBaseline(ctx).(*Configuration); ok && prev != nil {
 		prevSpec = &prev.Spec
-		ctx = WithConfigurationSpec(ctx, prevSpec)
+		ctx = WithPreviousConfigurationSpec(ctx, prevSpec)
 	}
 
 	c.Spec.SetDefaults(apis.WithinSpec(ctx))

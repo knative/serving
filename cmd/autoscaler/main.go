@@ -157,37 +157,43 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
-	cc := componentConfigAndIP(ctx)
-
 	// accept is the func to call when this pod owns the Revision for this StatMessage.
 	accept := func(sm asmetrics.StatMessage) {
 		collector.Record(sm.Key, time.Unix(sm.Stat.Timestamp, 0), sm.Stat)
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
 
+	cc := componentConfigAndIP(ctx)
+
+	// We don't want an elector on the controller context
+	// since they will be sharing an elector
+	var electorCtx context.Context
+
 	var f *statforwarder.Forwarder
 	if b, bs, err := leaderelection.NewStatefulSetBucketAndSet(int(cc.Buckets)); err == nil {
 		logger.Info("Running with StatefulSet leader election")
-		ctx = leaderelection.WithStatefulSetElectorBuilder(ctx, cc, b)
+		electorCtx = leaderelection.WithStatefulSetElectorBuilder(ctx, cc, b)
 		f = statforwarder.New(ctx, bs)
 		if err := statforwarder.StatefulSetBasedProcessor(ctx, f, accept); err != nil {
 			logger.Fatalw("Failed to set up statefulset processors", zap.Error(err))
 		}
 	} else {
 		logger.Info("Running with Standard leader election")
-		ctx = leaderelection.WithStandardLeaderElectorBuilder(ctx, kubeClient, cc)
+		electorCtx = leaderelection.WithStandardLeaderElectorBuilder(ctx, kubeClient, cc)
 		f = statforwarder.New(ctx, bucket.AutoscalerBucketSet(cc.Buckets))
 		if err := statforwarder.LeaseBasedProcessor(ctx, f, accept); err != nil {
 			logger.Fatalw("Failed to set up lease tracking", zap.Error(err))
 		}
 	}
 
+	elector, err := setupSharedElector(electorCtx, controllers)
+	if err != nil {
+		logger.Fatalw("Failed to setup elector", zap.Error(err))
+	}
+
 	// Set up a statserver.
 	statsServer := statserver.New(statsServerAddr, statsCh, logger, f.IsBucketOwner)
-
 	defer f.Cancel()
-
-	go controller.StartAll(ctx, controllers...)
 
 	go func() {
 		for sm := range statsCh {
@@ -202,8 +208,15 @@ func main() {
 	profilingServer := profiling.NewServer(profilingHandler)
 
 	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		elector.Run(egCtx)
+		return nil
+	})
 	eg.Go(statsServer.ListenAndServe)
 	eg.Go(profilingServer.ListenAndServe)
+	eg.Go(func() error {
+		return controller.StartAll(egCtx, controllers...)
+	})
 
 	// This will block until either a signal arrives or one of the grouped functions
 	// returns an error.

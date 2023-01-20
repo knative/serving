@@ -341,6 +341,17 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 
 	errs = errs.Also(ValidatePodSecurityContext(ctx, ps.SecurityContext).ViaField("securityContext"))
 
+	for i := range ps.Containers {
+		errs = errs.Also(
+			warnDefaultContainerSecurityContext(ctx, ps.SecurityContext, ps.Containers[i].SecurityContext).
+				ViaField("securityContext").ViaFieldIndex("containers", i))
+	}
+	for i := range ps.InitContainers {
+		errs = errs.Also(
+			warnDefaultContainerSecurityContext(ctx, ps.SecurityContext, ps.InitContainers[i].SecurityContext).
+				ViaField("securityContext").ViaFieldIndex("initContainers", i))
+	}
+
 	volumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(append(ps.InitContainers, ps.Containers...)))
 	errs = errs.Also(err.ViaField("volumes"))
 
@@ -869,6 +880,59 @@ func ValidatePodSecurityContext(ctx context.Context, sc *corev1.PodSecurityConte
 		}
 	}
 
+	return errs
+}
+
+// warnDefaultContainerSecurityContext warns about Kubernetes default
+// SecurityContext values which are unset and thus insecure (i.e. the
+// "restricted" profile forbids these values). Because securityContext values
+// may also be set at the Pod level, the container-level settings need to be
+// considered alongside the Pod-level settings.
+//
+// Note that this **explicitly** does not warn on dangerous SecurityContext
+// settings, the purpose is to avoid accidentally-insecure settings, not to
+// block deliberate use of dangerous settings.
+func warnDefaultContainerSecurityContext(_ context.Context, psc *corev1.PodSecurityContext, sc *corev1.SecurityContext) *apis.FieldError {
+	if sc == nil {
+		sc = &corev1.SecurityContext{}
+	}
+	if psc == nil {
+		psc = &corev1.PodSecurityContext{}
+	}
+
+	insecureDefault := func(fieldPath string) *apis.FieldError {
+		return apis.ErrGeneric("Kubernetes default value is insecure, Knative may default this to secure in a future release", fieldPath).At(apis.WarningLevel)
+	}
+
+	var errs *apis.FieldError
+	if psc.RunAsNonRoot == nil && sc.RunAsNonRoot == nil {
+		errs = errs.Also(insecureDefault("runAsNonRoot"))
+	}
+
+	if sc.AllowPrivilegeEscalation == nil {
+		errs = errs.Also(insecureDefault("allowPrivilegeEscalation"))
+	}
+
+	if sc.SeccompProfile == nil && psc.SeccompProfile == nil {
+		errs = errs.Also(insecureDefault("seccompProfile"))
+	} else {
+		pscIsDefault := psc.SeccompProfile == nil || psc.SeccompProfile.Type == ""
+		scIsDefault := sc.SeccompProfile == nil || sc.SeccompProfile.Type == ""
+		if pscIsDefault && scIsDefault {
+			errs = errs.Also(insecureDefault("seccompProfile.type"))
+		}
+	}
+
+	if sc.Capabilities == nil {
+		errs = errs.Also(insecureDefault("capabilities"))
+	} else {
+		if sc.Capabilities.Drop == nil {
+			errs = errs.Also(insecureDefault("capabilities.drop"))
+		} else if len(sc.Capabilities.Drop) > 0 && sc.Capabilities.Drop[0] == "all" {
+			// Sometimes, people mis-spell "ALL" as "all", which does nothing.
+			errs = errs.Also(apis.ErrInvalidValue("all", "capabilities.drop", "Must be spelled as 'ALL'").At(apis.WarningLevel))
+		}
+	}
 	return errs
 }
 

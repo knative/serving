@@ -289,6 +289,10 @@ function main() {
       echo ">> maven version"
       mvn --version
     fi
+    if command -v cosign > /dev/null; then
+      echo ">> cosign version"
+      cosign version
+    fi
     echo ">> prow-tests image version"
     [[ -f /commit_hash ]] && echo "Prow test image was built from $(cat /commit_hash) commit which is viewable at https://github.com/knative/test-infra/tree/$(cat /commit_hash) " || echo "unknown"
   fi

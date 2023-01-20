@@ -62,6 +62,7 @@ func TestMakeCertificate(t *testing.T) {
 				},
 			},
 			Spec: networkingv1alpha1.CertificateSpec{
+				Domain: "mapping.com",
 				DNSNames: []string{
 					"mapping.com",
 				},
@@ -99,6 +100,7 @@ func TestMakeCertificate(t *testing.T) {
 				},
 			},
 			Spec: networkingv1alpha1.CertificateSpec{
+				Domain: "mapping.com",
 				DNSNames: []string{
 					"mapping.com",
 				},
