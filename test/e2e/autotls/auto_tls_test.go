@@ -95,6 +95,7 @@ func testAutoTLS(t *testing.T) {
 		names.Service = env.TLSServiceName
 	}
 	names.Service = names.Service + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	names.Service = names.Service[:62]
 	test.EnsureTearDown(t, clients, &names)
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names)
